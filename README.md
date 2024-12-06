@@ -31,9 +31,9 @@ npm run dev
 ```
 openapi-generator-cli generate -g typescript-rxjs -i ..\dorc-api\swagger.json --skip-validate-spec
 ```
-* Azure DevOps Build 
+* Azure DevOps Build - To regenerate the Azure DevOps libaries use: 
 ```
-To regenerate the Azure DevOps libaries use: openapi-generator-cli generate -g csharp -i .\build.json --skip-validate-spec
+openapi-generator-cli generate -g csharp -i .\build.json --skip-validate-spec
 ```
 Azure DevOps json specs come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 
