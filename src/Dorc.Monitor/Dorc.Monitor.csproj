@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<SatelliteResourceLanguages>en-GB</SatelliteResourceLanguages>
+		<ServerGarbageCollection>true</ServerGarbageCollection>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<UserSecretsId>e54fd462-86e8-40a6-90d0-05dd358434cf</UserSecretsId>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Remove="appsettings.json" />
+		<None Remove="log4net.config" />
+		<None Remove="Template\email.vm" />
+	</ItemGroup>
+	<ItemGroup>
+		<Content Include="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</Content>
+		<Content Include="log4net.config">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="Template\email.vm" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+		<PackageReference Include="NVelocity" Version="1.2.0" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="Dorc.Monitor.IntegrationTests" />
+		<InternalsVisibleTo Include="ResolverLibrary.Fakes" />
+		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+	</ItemGroup>
+</Project>

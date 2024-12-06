@@ -1,0 +1,118 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+	<?include Dependencies.wxi?>
+	<Package Name="Deployment Orchestrator" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{72EDEA4C-7975-401B-B5CF-D31D27CBEC01}" ProductCode="{F7894A5D-3344-4C7F-91C5-1A016B965032}">
+		<Property Id="WEB.SITENAME" Value="Default Web Site" />
+		<Property Id="WEB.PORT" Value="80" />
+		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
+
+		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+		<InstallExecuteSequence>
+			<Custom Action="ReconfigureLoadUserProfileOrchestrator" Before="InstallFinalize" Condition="NOT Installed" />
+			<Custom Action="ReconfigureLoadUserProfileRequestApi" Before="InstallFinalize" Condition="NOT Installed" />
+		</InstallExecuteSequence>
+
+		<SetDirectory Id="CDrive" Value="C:\" />
+
+		<Feature Id="Deployment.Orchestrator" Title="Deployment Orchestrator" Level="1">
+			<Feature Id="Web.Components" Title="Web Components">
+				<ComponentRef Id="RemoveFolders" />
+				<ComponentRef Id="RegistryEntries" />
+
+				<ComponentRef Id="RequestApiComponent" />
+				<ComponentGroupRef Id="DOrcAPIComGroup" />
+
+				<ComponentGroupRef Id="DOrcWebComGroup" />
+				<ComponentRef Id="DOrcWebIISComponent" />
+
+			</Feature>
+			<Feature Id="Monitors" Title="Monitors">
+				<ComponentRef Id="DeployMonitorServiceNonProd.exe" />
+				<ComponentGroupRef Id="NonProdDeployMonitorComGroup" />
+
+				<ComponentRef Id="DeployMonitorServiceDorcRunnerNonProd.exe" />
+				<ComponentGroupRef Id="NonProdDorcRunnerComGroup" />
+
+				<ComponentRef Id="DeployMonitorServiceDeployRunnerNonProd.exe" />
+				<ComponentGroupRef Id="NonProdDeployRunnerComGroup" />
+
+				<ComponentRef Id="DeployMonitorServiceProd.exe" />
+				<ComponentGroupRef Id="ProdDeployMonitorComGroup" />
+
+				<ComponentRef Id="DeployMonitorServiceDorcRunnerProd.exe" />
+				<ComponentGroupRef Id="ProdDorcRunnerComGroup" />
+
+				<ComponentRef Id="DeployMonitorServiceDeployRunnerProd.exe" />
+				<ComponentGroupRef Id="ProdDeployRunnerComGroup" />
+				
+				<ComponentRef Id="LogsShare" />
+			</Feature>
+			<Feature Id="Tools" Title="Tools" Level="1">
+				<ComponentRef Id="ToolsShare"/>
+
+				<ComponentRef Id="ToolsRequestConfigSetup"/>
+				<ComponentGroupRef Id="ToolsRequestComGroup"/>
+
+				<ComponentRef Id="DeployCopyEnvBuildConfigSetup"/>
+				<ComponentGroupRef Id="ToolsDeployCopyEnvBuildComGroup"/>
+
+				<ComponentRef Id="PostRestoreEndurConfigSetup"/>
+				<ComponentGroupRef Id="ToolsPostRestoreEndurComGroup"/>
+
+				<ComponentRef Id="PropertyValueCreationConfigSetup"/>
+				<ComponentGroupRef Id="ToolsPropertyValueCreationComGroup"/>
+			</Feature>
+		</Feature>
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+				<Directory Id="DOrcFolder" Name="DOrc">
+					<Directory Id="INSTALLLOCATION" Name="Deploy">
+						<Component Id="RemoveFolders" Guid="{FCDB53AB-31DF-4248-A077-5556E46799CA}">
+							<CreateFolder />
+							<util:RemoveFolderEx Id="RemoveFolder" Property="INSTALLLOCATION" On="both" />
+							<RemoveFile Id="Remove.Files" Directory="INSTALLLOCATION" Name="*.*" On="both" />
+							<RemoveFolder Id="Remove.Folder" On="both" />
+						</Component>
+						<Component Id="RegistryEntries" Guid="{78F39129-DF84-4BF7-B0CA-B23CA9E06D55}" Permanent="yes">
+							<RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Control\Lsa">
+								<RegistryValue Type="integer" Name="DisableLoopbackCheck" Value="1" KeyPath="yes" />
+							</RegistryKey>
+						</Component>
+						<Directory Id="WebFolder" Name="Web">
+							<Directory Id="DorcWebFolder" Name="Orchestrator">
+								<Directory Id="DorcWebHealthFolder" Name="health" />
+							</Directory>
+							<Directory Id="ReferenceDataApi" Name="ReferenceDataApi" />
+							<Directory Id="RequestApi" Name="Api" />
+						</Directory>
+						<Directory Id="ServicesFolder" Name="Services" />
+						<Directory Id="ToolsFolder" Name="Tools">
+							<Component Id="ToolsShare" Guid="{3EF3C439-2F64-4F75-8CAC-2627EEE9ECA3}" Bitness="always64">
+								<CreateFolder />
+								<util:User Id="Everyone" Name="Everyone" CreateUser="no" FailIfExists="no" RemoveOnUninstall="no" />
+								<util:FileShare Id="CLITools" Description="DOrc CLI Tools" Name="CLITools">
+									<util:FileSharePermission User="Everyone" GenericRead="yes" GenericExecute="yes" GenericWrite="no" />
+								</util:FileShare>
+							</Component>
+							<Directory Id="RequestDir" Name="Request" />
+							<Directory Id="DeployCopyEnvBuildDir" Name="DeployCopyEnvBuild" />
+							<Directory Id="EndurConfigDir" Name="EndurConfig" />
+							<Directory Id="PostRestoreEndurDir" Name="PostRestoreEndur" />
+							<Directory Id="PropertyValueCreationDir" Name="PropertyValueCreation" />
+						</Directory>
+					</Directory>
+				</Directory>
+		</StandardDirectory>
+		<Directory Id="CDrive" Name="CDrive">
+			<Directory Id="LogDir" Name="Log">
+				<Component Id="LogsShare" Guid="{E5D33911-A506-4E57-B2D8-839FBDA79160}" Bitness="always64">
+					<CreateFolder />
+					<util:User Id="Everyone1" Name="Everyone" CreateUser="no" FailIfExists="no" RemoveOnUninstall="no" />
+					<util:FileShare Id="Logs" Description="DOrc Logs" Name="Log">
+						<util:FileSharePermission User="Everyone1" GenericRead="yes" GenericExecute="yes" GenericWrite="no" />
+					</util:FileShare>
+				</Component>
+			</Directory>
+		</Directory>
+	</Package>
+</Wix>

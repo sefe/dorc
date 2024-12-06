@@ -1,0 +1,27 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" 
+	 xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+  <?include Dependencies.wxi?>
+  <Package Name="DOrc Acceptance Testing" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="8803C473-0C37-4F92-8FC2-0B4089B4302C" ProductCode="21F8186E-F0FE-4D09-B4B0-54DCA14B5533"><Media Id="1" Cabinet="simple.cab" EmbedCab="yes" />
+    
+    <Feature Id="DefaultFeature" Title="Main Feature" Level="1">
+      <ComponentRef Id="DevOps.DOrc.TESTS.ACCEPTANCE.DLL.CONFIG"></ComponentRef>
+      <ComponentGroupRef Id="TestsAcceptanceComGroup"></ComponentGroupRef>
+    </Feature>
+    <UI />
+  
+      <StandardDirectory Id="ProgramFiles64Folder">
+          <Directory Id="DOrcFolder" Name="DOrc">
+            <Directory Id="TestingDir" Name="Testing">
+
+              <Component Id="DevOps.DOrc.TESTS.ACCEPTANCE.DLL.CONFIG" DiskId="1" Guid="12C9A816-3BBD-41A0-BE06-B58C0097F8B2" Bitness="always64">
+				<Json:JsonFile Id="RefDataUrlNonProd" ElementPath="$.AppSettings.BaseAddress" File="[#TestAcceptanceConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+				<Json:JsonFile Id="SetDbConnectionString" ElementPath="$.ConnectionStrings.DOrcConnectionString" File="[#TestAcceptanceConfig]" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+                <CreateFolder />
+              </Component>
+
+            </Directory>
+          </Directory>
+      </StandardDirectory>
+    </Package>
+</Wix>

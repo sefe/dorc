@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Tools.PostRestoreEndurCLI": {
+      "commandName": "Project",
+      "commandLineArgs": "/environment:\"Endur DV 10\" /backupfile:\"Live Snap\" /requestor:DeployV2 /folddownappservers:True /svcaccount:SVC-ENDSVC-DV"
+    }
+  }
+}

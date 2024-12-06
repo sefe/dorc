@@ -1,0 +1,47 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+	 xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+	<Fragment>
+		<DirectoryRef Id="ServicesFolder">
+			<Directory Id="INSTALLLOCATIONNONPROD" Name="ActionServiceNonProd">
+				<Component Id="DeployMonitorServiceNonProd.exe" Guid="{1578E477-0315-4495-B0C3-EAEEEDC9AF39}">
+
+					<ServiceInstall Id="DeployMonitorServiceNonProdServiceInstaller" Type="ownProcess" Vital="yes" Name="DeploymentActionServiceNonProd" DisplayName="DOrc Monitor Non-Production" Start="demand" ErrorControl="ignore" Interactive="no" Account="[SVC.ACCOUNTNONPROD]" Password="[SVC.PASSWORDNONPROD]">
+						<util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" />
+					</ServiceInstall>
+
+					<ServiceControl Id="DeployMonitorServiceNonProdStartService" Wait="yes" Remove="uninstall" Name="DeployMonitorServiceNonProd" />
+
+					<File Id="NonProdDeployMonitorExe" KeyPath="yes" Source="$(var.Dorc.Monitor.TargetDir)DOrc.Monitor.exe" />
+
+					<Json:JsonFile Id="SetCoreRunnerPathNonProd" ElementPath="$.AppSettings.DotNetCoreDeploymentRunnerPath" Value="[#NonProdDorcRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetFrameworkRunnerPathNonProd" ElementPath="$.AppSettings.DotNetFrameworkDeploymentRunnerPath" Value="[#NonProdDeployRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<Json:JsonFile Id="SetIsProductionNonProd" ElementPath="$.AppSettings.IsProduction" Value="False" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<Json:JsonFile Id="SetServiceNameNonProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceNonProd" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<Json:JsonFile Id="SetDbConnectionString1NonProd" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<Json:JsonFile Id="SetRefDataApiUrlNonProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#NonProdDeployMonitorExeConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+
+					<util:XmlFile Id="NonProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#NonProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorNonProd.log" />
+				</Component>
+
+				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">
+					<Component Id="DeployMonitorServiceDorcRunnerNonProd.exe" Guid="{E97FFF42-7346-4934-8E63-11FEC7BD8426}">
+						<Json:JsonFile Id="DorcRunnerNonProdExeConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.AppSettings.RefDataApiUrl" Value="[DEPLOYAPI.ENDPOINT]" />
+						<Json:JsonFile Id="DorcRunnerNonProdExeLogConfig" File="[#NonProdDorcRunnerExeLoggingConfig]" ElementPath="$.System.LogPath" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+					</Component>
+				</Directory>
+
+				<Directory Id="INSTALLLOCATIONDEPLOYRUNNERNONPROD" Name="DeployRunner">
+					<Component Id="DeployMonitorServiceDeployRunnerNonProd.exe" Guid="{E96FFF42-7346-4934-8E63-11FEC7BD8426}">
+						<Json:JsonFile Id="DeployRunnerNonProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeLogConfig" File="[#NonProdDeployRunnerExeLoggingConfig]" ElementPath="$.System.LogPath" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+					</Component>
+				</Directory>
+			</Directory>
+		</DirectoryRef>
+	</Fragment>
+</Wix>

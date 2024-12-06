@@ -1,0 +1,26 @@
+## editors
+/.vscode
+
+## system files
+.DS_Store
+
+## npm
+/node_modules/
+/npm-debug.log
+
+## testing
+/coverage/
+
+## temp folders
+/.tmp/
+
+# build
+/_site/
+/dist/
+/out-tsc/
+
+storybook-static
+/src/apis/dorc-api-gen/
+/src/apis/dorc-api-gen/
+
+/server

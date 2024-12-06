@@ -1,0 +1,28 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+  <Fragment>
+    <CustomAction Id="ReconfigureLoadUserProfileRequestApi" Directory="RequestApi" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DeployApi&quot; -processmodel.loaduserprofile:true" Return="ignore" />
+
+    <Component Id="RequestApiComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApi">
+        <util:User Id="ApiUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+        <iis:WebAppPool Id="DeployApiPool" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
+			<iis:RecycleTime Value="2:00" />
+		</iis:WebAppPool>
+        <iis:WebSite Id="DOrcApi" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
+          <iis:WebDirProperties Id="SiteDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+          <iis:WebAddress Id="AllUnassigned" Port="8080" />
+          <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApi" />
+        </iis:WebSite>
+        <Json:JsonFile Id="ReqApiConnectionString" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+
+        <Json:JsonFile Id="WebRequestApiCors" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
+
+        <Json:JsonFile Id="ADRoleProviderConfigRequestApiAdmin" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
+        <Json:JsonFile Id="ADRoleProviderConfigRequestApiPowerUser" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
+
+        <Json:JsonFile Id="ReqApiUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+
+		<Json:JsonFile Id="CurrentEnvironment" ElementPath="$.AppSettings.environment" File="[#DeployApiWebConfig]" Value="[ENVIRONMENT]" />
+      </Component>
+  </Fragment>
+</Wix>

@@ -1,0 +1,177 @@
+name: $(Build.DefinitionName).$(Build.SourceBranchName)_$(Date:yy).$(Date:MM).$(Date:dd)$(rev:.r)
+
+trigger:
+- main
+- develop
+- release/*
+- feature/*
+- fix/*
+- hotfix/*
+- migration/*
+
+pool:
+  name: TRADING-DOTNET-03
+  demands:
+  - DotNetFramework
+  - node.js
+  - msbuild
+  - visualstudio
+  - vstest
+
+variables:
+- name: buildPlatform
+  value: "Any CPU"
+- name: buildConfiguration
+  value: "Release"
+- name: DropFolder
+  value: '\\appinst01\tfsbdev01lonuk_drops\'
+- name: solution
+  value: 'src/Dorc.sln'
+- name: testProjects
+  value: 'src/**/*[Tt]ests.csproj'
+- name: version.Date
+  value: $[format('{0:yy}.{0:MM}.{0:dd}', pipeline.startTime)]
+- name: version.Patch
+  value: $[counter(variables['version.Date'], 0)]
+- name: version
+  value: '$(version.Date).$(version.Patch)'
+- group: 'BuildTimeTests'
+
+steps:
+- task: Npm@1
+  displayName: 'install web dependencies'
+  inputs:
+    command: install
+    workingDir: 'src/dorc-web'
+    verbose: true
+
+- task: Npm@1
+  displayName: 'Build Web Site'
+  inputs:
+    command: custom
+    workingDir: 'src/dorc-web'
+    verbose: true
+    customCommand: 'run build'
+
+- task: PowerShell@1
+  displayName: 'Version AssemblyInfo Files'
+  inputs:
+    scriptName: '$(Build.SourcesDirectory)\pipelines\ApplyVersionToAssemblies.ps1'
+
+- task: PowerShell@1
+  displayName: 'Version Cmdlet'
+  inputs:
+    scriptType: 'filePath'
+    scriptName: '$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet\UpdateVersion.ps1'
+
+- task: NuGetCommand@2
+  displayName: 'NuGet restore'
+  inputs:
+    feedsToUse: config
+    nugetConfigPath: 'pipelines\NuGet.config'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore Packages'
+  inputs:
+      command: 'restore'
+      projects: $(solution)    
+      feedsToUse: 'config'
+      nugetConfigPath: 'pipelines\NuGet.config'
+      noCache: true
+
+- task: sonarsource.sonarqube.15B84CA1-B62F-4A2A-A403-89B77A063157.SonarQubePrepare@6.3.2
+  displayName: 'Prepare the SonarQube analysis'
+  inputs:
+    SonarQube: SonarQube
+    projectKey: sh.devops.dorc
+    projectName: sh.devops.dorc
+    projectVersion: '$(Build.BuildNumber)'
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
+
+- task: FileTransform@2
+  displayName: 'Transform settings for tests during build time'
+  inputs:
+    folderPath: '$(System.DefaultWorkingDirectory)/src/Dorc.Monitor.IntegrationTests'
+    enableXmlTransform: false
+    xmlTransformationRules: ''
+    jsonTargetFiles: 'appsettings.test.json'
+
+- task: VSBuild@1
+  displayName: 'Build solution **\*.sln'
+  inputs:
+      solution: $(solution)
+      msbuildArgs: '/p:RunWixToolsOutOfProc=true,Version=$(version)'
+      platform: '$(BuildPlatform)'
+      configuration: '$(BuildConfiguration)'
+      clean: true
+
+- task: VSTest@2
+  displayName: 'Test Assemblies **\*tests.dll;-:**\obj\**'
+  inputs:
+    testAssemblyVer2: |
+      **\*tests.dll
+      !**\obj\**
+      runInParallel: true
+      codeCoverageEnabled: true
+      diagnosticsEnabled: True
+  continueOnError: true
+  
+- task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2
+  displayName: 'Complete the SonarQube analysis'
+  continueOnError: true
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
+
+- task: synopsys-detect.synopsys-detect.synopsys-detect-task.SynopsysDetectTask@8
+  displayName: 'Run Synopsys Detect for your build '
+  inputs:
+    Products: BD
+    BlackDuckService: BlackDuck
+    DetectArguments: |
+      --detect.project.name='sh.devops.dorc'
+      --detect.project.version.name='sh.devops.dorc-$(Build.SourceBranchName)'
+      --detect.source.path=$(Build.SourcesDirectory)
+      --detect.tools.excluded=SIGNATURE_SCAN
+      --detect.detector.search.depth=5
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
+
+- task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
+  displayName: 'Copy Install Scripts'
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)\src\install-scripts'
+    targetFolder: '$(Build.ArtifactStagingDirectory)'
+    include: '*.ps1,*.json'
+
+- task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
+  displayName: 'Copy Database Files'
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)\src\Dorc.Database\sql\$(BuildConfiguration)'
+    targetFolder: '$(Build.ArtifactStagingDirectory)\Database'
+    include: '*.dacpac,*.sql'
+
+- task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
+  displayName: 'Copy DOrc MSI Installer'
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)\src\Setup.Dorc\bin\x64\$(BuildConfiguration)'
+    targetFolder: '$(Build.ArtifactStagingDirectory)\Server'
+    include: '*.msi,*.json'
+
+- task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
+  displayName: 'Copy Test Acceptance MSI Installer'
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)\src\Setup.Acceptance\bin\x64\$(BuildConfiguration)'
+    targetFolder: '$(Build.ArtifactStagingDirectory)\Server'
+    include: '*.msi,*.json'
+
+- task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
+  displayName: 'Copy PowerShell Cmdlet'
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet'
+    targetFolder: '$(Build.ArtifactStagingDirectory)\DOrc.Cmdlet'
+    include: '*.ps1,*.psm1,*.psd1'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: drop'
+  inputs:
+    publishLocation: FilePath
+    ArtifactName: drop
+    TargetPath: '$(DropFolder)$(Build.DefinitionName)\$(Build.BuildNumber)'

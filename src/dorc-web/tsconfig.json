@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2020", // Specify ECMAScript target version
+    "module": "ES2020", //  Specify module code generation
+    "experimentalDecorators": true, //  Enables experimental support for ES7 decorators.
+    "useDefineForClassFields": false,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node", // Specify module resolution strategy
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "rootDir": ".",
+    "declaration": true,
+    "sourceMap": true,
+    "importHelpers": true,
+    "inlineSources": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "emitDecoratorMetadata": false,
+    "allowJs": true,
+    "maxNodeModuleJsDepth": 2,
+    "types": [],
+    "outDir": "ts-built"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules/**", "src/apis/**", "src/icons/*.js"]
+}

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Tools.DeployCopyEnvBuildCLI": {
+      "commandName": "Project",
+      "commandLineArgs": "/sourceenv:\"Endur v18 PR\" /targetenv:\"Endur DV 01\" /project:\"Endur\""
+    }
+  }
+}

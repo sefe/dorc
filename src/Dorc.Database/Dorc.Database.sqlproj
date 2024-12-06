@@ -1,0 +1,397 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">10.0</VisualStudioVersion>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+    <AssemblyName>DevOps.Dorc.Database</AssemblyName>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <PostConversionRemoveFromScc>
+    </PostConversionRemoveFromScc>
+    <PostConversionAddToScc>
+    </PostConversionAddToScc>
+    <PostConversionCheckOutFromScc>
+    </PostConversionCheckOutFromScc>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Name>Deploy.Database</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <ShowWizard>False</ShowWizard>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <IncludeSchemaNameInFileName>False</IncludeSchemaNameInFileName>
+    <ModelCollation>1033,CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <LoadSqlClrTypes>True</LoadSqlClrTypes>
+    <RootNamespace>DevOps.Dorc.Database</RootNamespace>
+    <DefaultSchema>dbo</DefaultSchema>
+    <PreviousProjectVersion>4.1</PreviousProjectVersion>
+    <ValidateCasingOnIdentifiers>False</ValidateCasingOnIdentifiers>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{81a46968-2261-4685-9a68-f0816fdab051}</ProjectGuid>
+    <GenerateDatabaseFile>False</GenerateDatabaseFile>
+    <GenerateCreateScript>False</GenerateCreateScript>
+    <SqlServerVerification>False</SqlServerVerification>
+    <TargetLanguage>CS</TargetLanguage>
+    <AllowSnapshotIsolation>False</AllowSnapshotIsolation>
+    <AnsiNullDefault>True</AnsiNullDefault>
+    <AnsiNulls>True</AnsiNulls>
+    <AnsiPadding>True</AnsiPadding>
+    <AnsiWarnings>True</AnsiWarnings>
+    <ArithAbort>True</ArithAbort>
+    <AutoClose>False</AutoClose>
+    <AutoCreateStatistics>True</AutoCreateStatistics>
+    <AutoShrink>False</AutoShrink>
+    <AutoUpdateStatistics>True</AutoUpdateStatistics>
+    <AutoUpdateStatisticsAsynchronously>False</AutoUpdateStatisticsAsynchronously>
+    <ChangeTrackingRetentionPeriod>2</ChangeTrackingRetentionPeriod>
+    <ChangeTrackingRetentionUnit>Days</ChangeTrackingRetentionUnit>
+    <CloseCursorOnCommitEnabled>False</CloseCursorOnCommitEnabled>
+    <CompatibilityMode>100</CompatibilityMode>
+    <ConcatNullYieldsNull>True</ConcatNullYieldsNull>
+    <DatabaseAccess>MULTI_USER</DatabaseAccess>
+    <DatabaseChaining>False</DatabaseChaining>
+    <DatabaseState>ONLINE</DatabaseState>
+    <DateCorrelationOptimizationOn>False</DateCorrelationOptimizationOn>
+    <DefaultCollation>SQL_Latin1_General_CP1_CI_AS</DefaultCollation>
+    <DefaultCursor>LOCAL</DefaultCursor>
+    <DefaultFilegroup>PRIMARY</DefaultFilegroup>
+    <EnableFullTextSearch>True</EnableFullTextSearch>
+    <IsBrokerPriorityHonored>False</IsBrokerPriorityHonored>
+    <IsChangeTrackingAutoCleanupOn>True</IsChangeTrackingAutoCleanupOn>
+    <IsChangeTrackingOn>False</IsChangeTrackingOn>
+    <IsEncryptionOn>False</IsEncryptionOn>
+    <NumericRoundAbort>False</NumericRoundAbort>
+    <PageVerify>NONE</PageVerify>
+    <Parameterization>SIMPLE</Parameterization>
+    <QuotedIdentifier>True</QuotedIdentifier>
+    <ReadCommittedSnapshot>False</ReadCommittedSnapshot>
+    <Recovery>SIMPLE</Recovery>
+    <RecursiveTriggersEnabled>False</RecursiveTriggersEnabled>
+    <ServiceBrokerOption>DisableBroker</ServiceBrokerOption>
+    <SupplementalLoggingOn>False</SupplementalLoggingOn>
+    <TornPageDetection>False</TornPageDetection>
+    <Trustworthy>False</Trustworthy>
+    <UpdateOptions>READ_WRITE</UpdateOptions>
+    <VardecimalStorageFormatOn>True</VardecimalStorageFormatOn>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>.\sql\release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetDatabase>
+    </TargetDatabase>
+    <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
+    <SuppressTSqlWarnings />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>.\sql\debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetDatabase>Deploy.Database</TargetDatabase>
+    <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
+    <SuppressTSqlWarnings />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <OutputPath>.\sql\release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetDatabase />
+    <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
+    <SuppressTSqlWarnings />
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <OutputPath>.\sql\debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TargetDatabase>DeploymentV2</TargetDatabase>
+    <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
+    <SuppressTSqlWarnings />
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <!--Import the settings-->
+  <Import Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" Condition="'$(SQLDBExtensionsRefPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" Condition="'$(SQLDBExtensionsRefPath)' == ''" />
+  <ItemGroup>
+    <Folder Include="Scripts" />
+    <Folder Include="Scripts\Pre-Deployment" />
+    <Folder Include="Scripts\Post-Deployment" />
+    <Folder Include="Schema Comparisons" />
+    <Folder Include="Properties\" />
+    <Folder Include="Schema Objects\" />
+    <Folder Include="Schema Objects\Schemas\" />
+    <Folder Include="Schema Objects\Database Level Objects\" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\" />
+    <Folder Include="Schema Objects\Database Level Objects\Security\Schemas\" />
+    <Folder Include="Schema Objects\Schemas\deploy\" />
+    <Folder Include="Schema Objects\Schemas\deploy\Tables\" />
+    <Folder Include="Schema Objects\Schemas\deploy\Tables\Constraints\" />
+    <Folder Include="Schema Objects\Schemas\deploy\Tables\Indexes\" />
+    <Folder Include="Schema Objects\Schemas\deploy\Tables\Keys\" />
+    <Folder Include="deploy\" />
+    <Folder Include="deploy\Stored Procedures\" />
+    <Folder Include="deploy\Tables\" />
+    <Folder Include="dbo" />
+    <Folder Include="dbo\Stored Procedures" />
+    <Folder Include="dbo\Tables" />
+    <Folder Include="deploy\Views\" />
+    <Folder Include="dbo\Views\" />
+    <Folder Include="dbo\Tables\Constraints" />
+  </ItemGroup>
+  <ItemGroup>
+    <BuildContributorArgument Include="OutDir=$(OutDir)" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Schema Objects\Database Level Objects\Security\Schemas\deploy.schema.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Script.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Component.table.sql">
+      <SubType>Code</SubType>
+      <AnsiNulls>On</AnsiNulls>
+      <QuotedIdentifier>On</QuotedIdentifier>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_Component_scriptid.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_Component_Name.index.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\DF_PropertyFilter_Priority.defconst.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_PropertyValueFilter_PropertyFilter.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_PropertyValueFilter_PropertyValue.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_Property_Name.index.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_PropertyValueFilter.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_PropertyFilter.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_Property.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\PropertyValueFilter.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\PropertyValue.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\PropertyFilter.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Property.table.sql">
+      <SubType>Code</SubType>
+      <AnsiNulls>On</AnsiNulls>
+      <QuotedIdentifier>On</QuotedIdentifier>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\DF_Project_ObjectId.defconst.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_Project.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Project.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentRequest.table.sql">
+      <SubType>Code</SubType>
+      <AnsiNulls>On</AnsiNulls>
+      <QuotedIdentifier>On</QuotedIdentifier>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\DF_Property_Secure.defconst.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\SecureKey.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_DeploymentResult_DeploymentRequest.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_DeploymentResult_Component.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_DeploymentResult.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentResult.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_Environment_Name.index.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Environment.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_ProjectComponent.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\ProjectComponent.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_ProjectEnvironment.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\ProjectEnvironment.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\DF_AccessControl_Deny.defconst.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\DF_AccessControl_Allow.defconst.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_AccessControl_ObjectId.index.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_AccessControl.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\AccessControl.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_EnvironmentComponentStatus_DeploymentRequest.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_EnvironmentComponentStatus_Component.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_EnvironmentComponentStatus_Environment.fkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_EnvironmentComponentStatus.pkey.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\EnvironmentComponentStatus.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\ProjectProperty.table.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\ConfigValue.sql" />
+    <Build Include="deploy\Stored Procedures\sp_Select_ProjectComponents.sql" />
+    <Build Include="deploy\Stored Procedures\sp_Select_ComponentIdFromName.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Audit.table.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="deploy\Stored Procedures\sp_Select_Deployments_By_Project_Date.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_PropertyValue_Property.fkey.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_PropertyValue.pkey.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\PK_Script.pkey.sql" />
+    <Build Include="deploy\Stored Procedures\MapProjectToEnvironment.sql" />
+    <Build Include="deploy\Stored Procedures\MapProjectToComponent.sql" />
+    <Build Include="deploy\Stored Procedures\InsertComponent.sql" />
+    <Build Include="deploy\Stored Procedures\DuplicateEnvironmentPropertyValues.sql" />
+    <Build Include="deploy\Stored Procedures\sp_Select_Deployments_By_Project_Month.sql" />
+    <Build Include="deploy\Tables\RefDataAuditAction.sql" />
+    <Build Include="deploy\Tables\RefDataAudit.sql" />
+    <Build Include="deploy\Stored Procedures\AppendRequestLog.sql" />
+    <Build Include="deploy\Stored Procedures\get_global_properties.sql" />
+    <Build Include="deploy\Stored Procedures\get_environment_properties_for_user.sql" />
+    <Build Include="deploy\Stored Procedures\get_property_values_by_PropertyName_for_user.sql" />
+    <Build Include="deploy\Stored Procedures\get_environment_properties.sql" />
+    <Build Include="deploy\Stored Procedures\get_property_values_by_PropertyName.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Delete_Environment_Database_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Delete_Environment_Server_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Delete_Environment_User_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Delete_Server_Service_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_AD_Group_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Database_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Environment_Database_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Environment_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Environment_Server_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Environment_User_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Permission_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Server_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Server_Service_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_Service_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Insert_User_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Remove_Environment_User.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Select_All_Environment_Users.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Select_Environment_Database_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Select_Environment_Server_Map.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Select_Environment_User_Permission.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_Database_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_Environment_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_Environment_Owner.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_Permission_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_Server_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_Service_Detail.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Update_User_Detail.sql" />
+    <Build Include="dbo\Tables\AD_GROUP.sql" />
+    <Build Include="dbo\Tables\DATABASE.sql" />
+    <Build Include="dbo\Tables\ENVIRONMENT_USER_MAP.sql" />
+    <Build Include="dbo\Tables\PERMISSION.sql" />
+    <Build Include="dbo\Tables\SERVER.sql" />
+    <Build Include="dbo\Tables\SERVER_SERVICE_MAP.sql" />
+    <Build Include="dbo\Tables\SERVICE.sql" />
+    <Build Include="dbo\Tables\SQL_PORTS.sql" />
+    <Build Include="dbo\Tables\USERS.sql" />
+    <Build Include="deploy\Stored Procedures\sp_Select_Deployments_By_Project.sql" />
+    <Build Include="dbo\Stored Procedures\usp_Clone_Environment.sql" />
+    <Build Include="deploy\Views\RequestStatusView.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\AuditProperty.table.sql" />
+    <Build Include="deploy\Tables\DeploymentsByProjectDate.sql" />
+    <Build Include="deploy\Tables\DeploymentsByProjectMonth.sql" />
+    <Build Include="deploy\Tables\EnvironmentDelegatedUser.sql" />
+    <Build Include="deploy\Tables\EnvironmentServer.sql" />
+    <Build Include="deploy\Tables\EnvironmentHistory.sql" />
+    <Build Include="deploy\Tables\EnvironmentDatabase.sql" />
+    <Build Include="dbo\Views\RunningDORCdeploys.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\DF_Property_IsArray.sql" />
+    <None Include="Dorc.Database.PostSQL.sql">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Dorc.Database.PreSQL.sql">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Constraints\UC_Project_Name.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentRequestProcess.table.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_DeploymentRequestProcess_DeploymentRequest.fkey.sql" />
+    <Build Include="dbo\Tables\Constraints\UC_Service_Service_Name.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="dbo\Tables\Constraints\UC_Service_Display_Name.sql">
+      <SubType>Code</SubType>
+    </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentResult_DeploymentRequestId.sql" />
+    <Build Include="deploy\Tables\BundledRequests.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Schema Comparisons\LocalToProject.scmp">
+      <SubType>NotInBuild</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <PreDeploy Include="Scripts\Pre-Deployment\Script.PreDeployment.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="Scripts\Post-Deployment\Script.PostDeployment.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <SqlCmdVariable Include="EnvironmentName">
+      <DefaultValue>
+      </DefaultValue>
+      <Value>$(SqlCmdVar__1)</Value>
+    </SqlCmdVariable>
+  </ItemGroup>
+  <ItemGroup>
+    <RefactorLog Include="Dorc.Database.refactorlog" />
+  </ItemGroup>
+</Project>

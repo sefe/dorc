@@ -1,0 +1,54 @@
+﻿<Project>
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <PropertyGroup>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <TestsAcceptanceDir>$(SolutionDir)Tests.Acceptance\bin\$(Configuration)\net8.0\publish</TestsAcceptanceDir>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug;TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DefineConstants>TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Dependencies.wxi" />
+    <Content Include="HeatTransform.xslt" />
+    <Content Include="Setup.Acceptance.msi.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WixJsonFileExtension" Version="5.0.0.41" />
+    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="5.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tests.Acceptance\Tests.Acceptance.csproj">
+      <Name>Tests.Acceptance</Name>
+      <Project>{cda5c8f8-9f58-4839-9fd7-754d2d9b5d84}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+  </ItemGroup>
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Tests.Acceptance\Tests.Acceptance.csproj&quot; -c $(Configuration)" />
+  </Target>
+  <ItemGroup>
+    <HarvestDirectory Include="$(TestsAcceptanceDir)">
+      <DirectoryRefId>TestingDir</DirectoryRefId>
+      <ComponentGroupName>TestsAcceptanceComGroup</ComponentGroupName>
+      <Transforms>$(Projectdir)HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.TestsAcceptanceDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <PropertyGroup>
+    <PostBuildEvent>copy $(ProjectDir)%2a.bat $(TargetDir)\.
+copy $(ProjectDir)%2a.msi.json $(TargetDir)\.</PostBuildEvent>
+  </PropertyGroup>
+</Project>

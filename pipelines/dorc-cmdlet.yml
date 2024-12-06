@@ -1,0 +1,197 @@
+name: $(Build.DefinitionName).$(Build.SourceBranchName)_$(Date:yy).$(Date:MM).$(Date:dd)$(rev:.r)
+
+variables:
+  ModuleName: DOrc.Cmdlet
+  Repository: 'PowershellModules'
+  PesterTests: 0
+  PesterVersion: '5.0.2'
+  SignModule: 0
+  #NuGetApiKey: #secure variable must be defined per build pipe
+  buildPool: TRADING-DOTNET-03
+  
+trigger:
+ paths:
+  include:
+  - $(ModuleName)
+
+jobs:
+- job: AgentJob1
+  timeoutInMinutes: 360
+  cancelTimeoutInMinutes: 5
+  pool: 
+    name: TRADING-DOTNET-03
+    
+  steps:
+  - powershell: |
+        $ProgetUri = "https://proget:8143/nuget/PowerShellModules/"
+        $Repository = "$(Repository)"
+
+        if ((Get-PSRepository).SourceLocation -contains $ProgetUri){
+            $Repository = Get-PSRepository | ? {$_.SourceLocation -eq $ProgetUri}
+        }
+        else {
+            try {
+                Unregister-PSRepository -Name $Repository -ErrorAction SilentlyContinue
+                Register-PSRepository -Name $Repository -SourceLocation $ProgetUri -InstallationPolicy Trusted -ErrorAction Stop -PublishLocation $ProgetUri
+                $Repository = Get-PSRepository -ErrorAction Stop | ? {$_.SourceLocation -eq $ProgetUri}
+            }
+            catch {
+                Throw "$_"
+            }
+        }
+
+        $RepoName = $Repository.Name
+        echo "##vso[task.setvariable variable=Repository]$RepoName"
+        
+    displayName: 'Register Proget Repository'
+    enabled: true
+
+  - powershell: |
+        $latestPSGet = Get-Module PowershellGet -ListAvailable | sort Version -Descending | select -First 1
+        
+        if ($latestPSGet.Version -ge [version]"2.2.5") {
+            Write-Host $latestPSGet.name "on the system is version ["$latestPSGet.Version"] No need to update..."
+        }
+        else {
+            Install-Module PowershellGet -Repository "$(Repository)" -Force
+        }
+        
+        $latestPackageManagement = Get-Module PackageManagement -ListAvailable | sort Version -Descending | select -First 1
+        
+        if ($latestPackageManagement.Version -ge [version]"1.4.7") {
+            Write-Host $latestPackageManagement.name "on the system is version ["$latestPackageManagement.Version"] No need to update..."
+        }
+        else {
+            Install-Module PackageManagement -Repository "$(Repository)" -Force
+        }
+    errorActionPreference: continue
+    displayName: 'Update PowershellGet and PackageManagement'
+    enabled: true
+
+  - powershell: |
+        $ModuleName = "$(moduleName)"
+        $ProjectDir = $Env:BUILD_SOURCESDIRECTORY
+        $BuildNumber = $Env:BUILD_BUILDNUMBER
+        $ModulePath = Join-Path $ProjectDir -ChildPath "Tools.$ModuleName"
+        $Manifest = Join-Path -Path $ModulePath -ChildPath "$ModuleName.psd1"
+        
+        $ManifestObj = Import-PowerShellDataFile $Manifest -errorAction "Stop"
+        $RequiredModules = $ManifestObj.RequiredModules
+        Foreach ($RequiredModule in $RequiredModules) {
+            $moduleProperties = @{
+                Name = $RequiredModule.ModuleName
+                RequiredVersion = $RequiredModule.RequiredVersion
+                MinimumVersion = $RequiredModule.ModuleVersion
+                MaximumVersion = $RequiredModule.MaximumVersion
+            }
+            $GetModule = Get-Module $RequiredModule -ListAvailable
+            if ($moduleProperties.Name) {
+                if ($GetModule | ? {$_.Version -eq $moduleProperties.RequiredVersion}) {
+                    "Module ["+$moduleProperties.Name+"] version ["+$moduleProperties.RequiredVersion+"] is already installed, skipping..."
+                }
+                else {
+                    Install-Module @moduleProperties -Repository $(Repository) -Force
+                }
+            }
+            else {
+                if ($GetModule) {
+                    "Module [$RequiredModule] version ["+($GetModule.version | select -First 1).ToString()+"] is already installed, skipping..."
+                }
+                else {
+                    Install-Module -Name $RequiredModule -Repository $(Repository) -Force
+                }
+            }
+        }
+    displayName: 'Install Dependent Modules on Build Server'
+    enabled: true
+
+  - powershell: |
+        #Pester Tests
+        [bool]$PesterTests = $(PesterTests)
+        $PesterVersion = "$(PesterVersion)"
+        $ModuleName = "$(moduleName)"
+        $ProjectDir = $Env:BUILD_SOURCESDIRECTORY
+        $ModulePath = Join-Path $ProjectDir -ChildPath $ModuleName
+        
+        if ($PesterTests -eq $false) {
+            "Skipping Pester as `$PesterTests is set to 0"
+            return
+        }
+        
+        if (-not (Test-Path "$ModulePath\Tests" )) {
+            "No tests present in Tests directory, skipping Pester Tests..."
+            return
+        }
+        
+        Install-Module Pester -requiredVersion $PesterVersion -Repository $(Repository) -force
+        
+        Get-Module Pester  | Remove-Module -Force
+        Import-Module Pester -requiredVersion $PesterVersion
+        Get-Module Pester
+        Import-Module "$ModulePath\$(moduleName).psm1"
+        Invoke-Pester "$ModulePath\Tests" -OutputFile TestResults.xml -OutputFormat NUnitXml
+    displayName: 'Pester Tests'
+    condition: eq(variables['PesterTests'], 1)
+    enabled: true
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results **/TestResults.xml'
+    inputs:
+        testResultsFormat: NUnit
+        testResultsFiles: '**/TestResults.xml'
+    condition: eq(variables['PesterTests'], 1)
+    enabled: true
+
+  - powershell: |
+        #Signs all PS1 and PSM1 files with ADS-VSTO code signing certificate
+        $cert = ls Cert:\CurrentUser\my -CodeSigningCert | ? {$_.FriendlyName -eq "ADS-VSTO"} | sort NotAfter -Descending | select -First 1
+        
+        $ModuleName = "$(moduleName)"
+        $ProjectDir = $Env:BUILD_SOURCESDIRECTORY
+        $ModulePath = Join-Path $ProjectDir -ChildPath $ModuleName
+        
+        try {
+            gci $ModulePath -Include *.psm1, *.ps1 -Recurse -errorAction Stop | ? {$_.Length -gt 4} | Set-AuthenticodeSignature -Certificate $cert -errorAction Stop
+        }
+        catch {
+            Throw "Failed to sign module. Full Exception:`n$_"
+        }
+    displayName: 'Sign Module'
+    condition: eq(variables['SignModule'], 1)
+    enabled: true
+    
+  - powershell: |
+        $ModuleName = "$(moduleName)"
+        $ProjectDir = $Env:BUILD_SOURCESDIRECTORY
+        $BuildNumber = $Env:BUILD_BUILDNUMBER
+        $ModulePath = Join-Path $ProjectDir -ChildPath "Tools.$ModuleName"
+        $Manifest = Join-Path -Path $ModulePath -ChildPath "$ModuleName.psd1"
+        #$Public = Join-Path -Path $ModulePath -ChildPath 'Public'
+        #$FunctionsToExport = (Get-ChildItem "$Public\*ps1").BaseName
+        $ManifestObj = Import-PowerShellDataFile $manifest
+        $version=[version]$ManifestObj.ModuleVersion
+        if (-not $BuildNumber){
+            Write-Verbose -Message "Build not provided, incrementing current Revision"
+            $newVersion = "{0}.{1}.{2}.{3}" -f $version.Major, $version.Minor, $version.Build, ($version.Revision + 1)
+        }else{
+            $regexVersion=[regex]::matches($BuildNumber,"\d+\.\d+\.\d+\.\d+")
+            $newVersion=[version]$regexVersion.Value
+        }
+        Update-ModuleManifest -Path $manifest -ModuleVersion $newVersion -FunctionsToExport $FunctionsToExport -RootModule "$ModuleName.psm1"
+        
+        Write-host "##vso[task.setvariable variable=ModuleVersion]$newVersion"
+    displayName: Versioning
+    enabled: true
+
+  - powershell: |
+        $ModuleName = "$(moduleName)"
+        $ProjectDir = $Env:BUILD_SOURCESDIRECTORY
+        $BuildNumber = $Env:BUILD_BUILDNUMBER
+        $NuGetApiKey = $Env:NUGET_API_KEY
+        $ModulePath = Join-Path $ProjectDir -ChildPath "Tools.$ModuleName"
+        Set-Location $ModulePath
+        Publish-Module -Name ".\$(ModuleName).psd1" -Repository $(Repository) -NuGetApiKey $NuGetApiKey -Force
+    env: 
+        NUGET_API_KEY: $(NuGetApiKey)
+    displayName: 'Publish Module to Proget'
+    enabled: true

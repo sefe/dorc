@@ -1,0 +1,202 @@
+﻿<Project>
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <PropertyGroup>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <Name>Setup.Dorc</Name>
+    <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
+    <DorcApiDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiDir>
+    <DorcMonitorDir>$(SolutionDir)Dorc.Monitor\bin\$(Configuration)\net8.0\publish</DorcMonitorDir>
+    <DorcRunnerDir>$(SolutionDir)Dorc.Runner\bin\$(Configuration)\net8.0\publish</DorcRunnerDir>
+    <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
+    <ToolsDCEBDir>$(SolutionDir)Tools.DeployCopyEnvBuildCLI\bin\$(Configuration)\net8.0\publish</ToolsDCEBDir>
+    <ToolsPREDir>$(SolutionDir)Tools.PostRestoreEndurCLI\bin\$(Configuration)\net8.0\publish</ToolsPREDir>
+    <ToolsPVCDir>$(SolutionDir)Tools.PropertyValueCreationCLI\bin\$(Configuration)\net8.0\publish</ToolsPVCDir>
+    <ToolsReqDir>$(SolutionDir)Tools.RequestCLI\bin\$(Configuration)\net8.0\publish</ToolsReqDir>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Monitors\" />
+    <Folder Include="Monitors\NonProd\" />
+    <Folder Include="Monitors\Prod\" />
+    <Folder Include="Web" />
+    <Folder Include="Web\RequestApi" />
+    <Folder Include="Web\Orchestrator" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Dependencies.wxi" />
+    <Content Include="Monitors\NonProd\HeatTransform.xslt" />
+    <Content Include="Monitors\Prod\HeatTransform.xslt" />
+    <Content Include="Setup.Dorc.msi.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Web\Orchestrator\HeatTransform.xslt" />
+    <Content Include="Install.Orchestrator.bat">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Web\RequestApi\HeatTransform.xslt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Dorc.Api\Dorc.Api.csproj">
+      <Name>Dorc.Api</Name>
+      <Project>{e4958e0f-ec3c-4943-adfb-deb744f5ab57}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+    <ProjectReference Include="..\Dorc.Monitor\Dorc.Monitor.csproj">
+      <Name>Dorc.Monitor</Name>
+      <Project>{f70bc1de-6ef1-4631-a9d3-6be4ecdce31c}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+    <ProjectReference Include="..\Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj" />
+    <ProjectReference Include="..\Dorc.Runner\Dorc.Runner.csproj">
+      <Name>Dorc.Runner</Name>
+      <Project>{22984457-be1c-4f31-a648-85639c3d5134}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+    <ProjectReference Include="..\Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj" />
+    <ProjectReference Include="..\Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj" />
+    <ProjectReference Include="..\Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj" />
+    <ProjectReference Include="..\Tools.RequestCLI\Tools.RequestCLI.csproj" />
+  </ItemGroup>
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Monitor\Dorc.Monitor.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
+    <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj&quot; -p:Configuration=$(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.RequestCLI\Tools.RequestCLI.csproj&quot; -c $(Configuration)" />
+  </Target>
+  <ItemGroup>
+    <HarvestDirectory Include="$(DorcWebUIDir)">
+      <DirectoryRefId>DorcWebFolder</DirectoryRefId>
+      <ComponentGroupName>DOrcWebComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Web\Orchestrator\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcWebUIDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcApiDir)">
+      <DirectoryRefId>RequestApi</DirectoryRefId>
+      <ComponentGroupName>DOrcAPIComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Web\RequestApi\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcApiDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcMonitorDir)">
+      <DirectoryRefId>INSTALLLOCATIONNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdDeployMonitorComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Monitors\NonProd\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDORCRUNNERNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdDorcRunnerComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Monitors\NonProd\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdDeployRunnerComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Monitors\NonProd\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcMonitorDir)">
+      <DirectoryRefId>INSTALLLOCATIONPROD</DirectoryRefId>
+      <ComponentGroupName>ProdDeployMonitorComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Monitors\Prod\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDORCRUNNERPROD</DirectoryRefId>
+      <ComponentGroupName>ProdDorcRunnerComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Monitors\Prod\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERPROD</DirectoryRefId>
+      <ComponentGroupName>ProdDeployRunnerComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Monitors\Prod\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(ToolsDCEBDir)">
+      <DirectoryRefId>DeployCopyEnvBuildDir</DirectoryRefId>
+      <ComponentGroupName>ToolsDeployCopyEnvBuildComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.ToolsDCEBDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(ToolsPREDir)">
+      <DirectoryRefId>PostRestoreEndurDir</DirectoryRefId>
+      <ComponentGroupName>ToolsPostRestoreEndurComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.ToolsPREDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(ToolsPVCDir)">
+      <DirectoryRefId>PropertyValueCreationDir</DirectoryRefId>
+      <ComponentGroupName>ToolsPropertyValueCreationComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.ToolsPVCDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(ToolsReqDir)">
+      <DirectoryRefId>RequestDir</DirectoryRefId>
+      <ComponentGroupName>ToolsRequestComGroup</ComponentGroupName>
+      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.ToolsReqDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tools\HeatTransform.xslt" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WixJsonFileExtension" Version="5.0.0.41" />
+    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="5.0.2" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <PropertyGroup>
+    <PreBuildEvent />
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>
+			copy $(ProjectDir)%2a.bat $(TargetDir)\.
+			copy $(ProjectDir)%2a.msi.json $(TargetDir)\.
+		</PostBuildEvent>
+  </PropertyGroup>
+</Project>

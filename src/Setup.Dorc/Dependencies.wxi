@@ -1,0 +1,4 @@
+﻿<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?define ProductVersion="!(bind.FileVersion.DeployApiDll)" ?>
+</Include>
+

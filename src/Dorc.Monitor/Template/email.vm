@@ -1,0 +1,71 @@
+﻿<html>
+<head>
+    <title>Deployment Result</title>
+    <style type="text/css">
+        th
+        {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <h1>Deployment Result ID $request.Id</h1>
+    <h3>Request Properties</h3>
+    <table>
+        <tr>
+            <th>Environment Name</th>
+            <td>$request.EnvironmentName</td>
+        </tr>
+        <tr>
+            <th>Requested At</th>
+            <td>$request.RequestedTime</td>
+        </tr>
+        <tr>
+            <th>Completed At</th>
+            <td>$request.CompletedTime</td>
+        </tr>
+        <tr>
+            <th>Requested By</th>
+            <td>$request.UserName</td>
+        </tr>
+        <tr>
+            <th>Result</th>
+            <td>$request.Status</td>
+        </tr>
+        <tr>
+            <th>Build Number</th>
+            <td>$request.BuildNumber</td>
+        </tr>
+    </table>
+    <h3>Requested Components</h3>
+    #foreach ($component in $request.Components)
+    #beforeall
+    <ul id="components">
+    #each
+        <li>$component</li>
+    #afterall
+    </ul>
+    #end
+
+    <h3>Component Results</h3>
+    #foreach ($result in $request.DeploymentResults)
+    #beforeall
+    <table>
+    #before
+        <tr>
+    #each
+            <th>$result.Component.Name</th>
+            <td>$result.Status</td>
+            <td>
+                <pre>#if ($result.Status != "Complete")
+$result.Log
+                #else
+&nbsp;#end</pre>
+            </td>
+    #after
+        </tr>
+    #afterall
+    </table>
+    #end
+</body>
+</html>

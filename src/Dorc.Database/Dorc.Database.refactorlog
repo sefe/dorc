@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Operations Version="1.0" xmlns="http://schemas.microsoft.com/sqlserver/dac/Serialization/2012/02">
+  <Operation Name="Rename Refactor" Key="f9c9f39e-e917-47ad-8a9e-15f663570eca" ChangeDateTime="11/06/2024 16:03:28">
+    <Property Name="ElementName" Value="[deploy].[Project].[TfsUrl]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Project]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Url" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="dbe5bcfb-8905-40e5-a8d5-75ab93147278" ChangeDateTime="11/06/2024 16:03:34">
+    <Property Name="ElementName" Value="[deploy].[Project].[TfsProject]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Project]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Project" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="c575203f-8cd4-4794-ae7d-ebbfbfbb382d" ChangeDateTime="11/06/2024 16:13:24">
+    <Property Name="ElementName" Value="[deploy].[Project].[Project]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Project]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ArtefactsSubPath" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="eed98d19-8ea0-4460-81cb-6c40a67ddf98" ChangeDateTime="11/06/2024 16:13:31">
+    <Property Name="ElementName" Value="[deploy].[Project].[Url]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Project]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ArtefactsUrl" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="faf1861c-dec6-471e-a390-914b7011577a" ChangeDateTime="11/06/2024 16:37:04">
+    <Property Name="ElementName" Value="[deploy].[Project].[ArtefactsSubPath]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Project]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ArtefactsSubPaths" />
+  </Operation>
+</Operations>
