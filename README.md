@@ -31,9 +31,6 @@ npm run dev
 ```
 openapi-generator-cli generate -g typescript-rxjs -i ..\dorc-api\swagger.json --skip-validate-spec
 ```
-JSON parameters format: { "ScriptPath": "90 Tevo\\041 - Deploy Tevo Assests.ps1", "GenericArguments": [ { "key1": "val1" }, { "key2" : "val2" } ] }
-```
-
 * Azure DevOps Build 
 ```
 To regenerate the Azure DevOps libaries use: openapi-generator-cli generate -g csharp -i .\build.json --skip-validate-spec
