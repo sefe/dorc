@@ -7,7 +7,9 @@ using Lamar.Microsoft.DependencyInjection;
 using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using System.Net;
 using System.Text.Json.Serialization;
 using Dorc.Core.VariableResolution;
 
@@ -35,8 +37,10 @@ builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
 
 builder.Services
     .AddControllers(opts =>
-        opts.OutputFormatters
-            .RemoveType<StringOutputFormatter>()) // never return plain text
+    {
+        opts.OutputFormatters.RemoveType<StringOutputFormatter>(); // never return plain text
+        opts.Filters.Add(new RequireHttpsAttribute());
+    })
     .AddJsonOptions(opts =>
     {
         opts.JsonSerializerOptions.PropertyNamingPolicy = null;
@@ -73,6 +77,19 @@ builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 builder.Services.AddTransient<IConfigurationRoot>(_ => new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.RedirectStatusCode = (int)HttpStatusCode.PermanentRedirect;
+    options.HttpsPort = 7159;
+});
+
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(60);
+});
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -82,7 +99,8 @@ app.UseExceptionHandler(_ => { }); // empty lambda is required until https://git
 app.UseMiddleware<OptionsMiddleware>();
 app.UseCors(dorcCorsRefDataPolicy);
 
-//app.UseHttpsRedirection();
+app.UseHsts();
+app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
