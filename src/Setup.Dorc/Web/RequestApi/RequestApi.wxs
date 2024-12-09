@@ -23,6 +23,12 @@
         <Json:JsonFile Id="ReqApiUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 
 		<Json:JsonFile Id="CurrentEnvironment" ElementPath="$.AppSettings.environment" File="[#DeployApiWebConfig]" Value="[ENVIRONMENT]" />
+		
+		<Json:JsonFile Id="CurrentAadAdosOrgUrl" ElementPath="$.AppSettings.AadAdosOrgUrl" File="[#DeployApiWebConfig]" Value="[AADADOSORGURL]" />
+		<Json:JsonFile Id="CurrentAadClientId" ElementPath="$.AppSettings.AadClientId" File="[#DeployApiWebConfig]" Value="[AADCLIENTID]" />
+		<Json:JsonFile Id="CurrentAadSecret" ElementPath="$.AppSettings.AadSecret" File="[#DeployApiWebConfig]" Value="[AADSECRET]" />
+		<Json:JsonFile Id="CurrentAadTenant" ElementPath="$.AppSettings.AadTenant" File="[#DeployApiWebConfig]" Value="[AADTENANT]" />
+		<Json:JsonFile Id="CurrentDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
       </Component>
   </Fragment>
 </Wix>
