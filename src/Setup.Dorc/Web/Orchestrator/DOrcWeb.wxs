@@ -6,7 +6,10 @@
 
     <CustomAction Id="ReconfigureLoadUserProfileOrchestrator" Directory="DorcWebFolder" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DOrcWeb&quot; -processmodel.loaduserprofile:true" Return="ignore" />
 
-    <Component Id="DOrcWebIISComponent" Guid="{520D6C74-73C2-4883-B562-6C56BA438C66}" Directory="DorcWebFolder">
+	<Binary Id="certBinary" SourceFile="certificate.pfx"/>
+	<Binary Id="certBinaryProd" SourceFile="dorc.sefe.eu.pfx"/>
+
+	<Component Id="DOrcWebIISComponent" Guid="{520D6C74-73C2-4883-B562-6C56BA438C66}" Directory="DorcWebFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
       <util:User Id="DOrcWebServiceUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
 		<iis:WebAppPool Id="DOrcWebAppPool" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0" ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
 			<iis:RecycleTime Value="2:00" />
@@ -14,8 +17,19 @@
 
       <Json:JsonFile Id="AppSettings1" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
 
+	  <iis:Certificate
+	   BinaryRef="certBinary"
+	   Id="MySSLCert"
+	   Name="certificate.pfx"
+	   Request="no"
+	   StoreLocation="localMachine"
+	   StoreName="root"
+	   PFXPassword="[CERTIFICATE.PASSWORD]">
+	  </iis:Certificate>
+		
       <iis:WebSite Id="DeploymentOrchestratorWebSite" Description="Dorc Web" Directory="DorcWebFolder" ConfigureIfExists="yes">
-        <iis:WebAddress Id="All80Unassigned" Port="80" />
+		<iis:WebAddress Id="All80Unassigned" Port="443" Secure="true" />
+		<iis:CertificateRef Id='MySSLCert' />
         <iis:WebApplication Id="WebSiteApplication" Name="Dorc Web" WebAppPool="DOrcWebAppPool" />
         <iis:WebVirtualDir Id="DeploymentOrchestratorVirtualDir" Alias="/" Directory="DorcWebFolder">
           <iis:MimeMap Id="MIME_JSON_P3" Extension=".json" Type="application/json" />
@@ -28,6 +42,40 @@
         </iis:WebVirtualDir>
       </iis:WebSite>
     </Component>
+
+	<Component Id="DOrcWebIISComponentProd" Guid="{7B56E182-A9B2-4DA8-A73B-462E201CD902}" Directory="DorcWebFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+	 <util:User Id="DOrcWebServiceUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+	 <iis:WebAppPool Id="DOrcWebAppPoolProd" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0" ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
+	  <iis:RecycleTime Value="2:00" />
+	 </iis:WebAppPool>
+
+	 <Json:JsonFile Id="AppSettings1Prod" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+
+	 <iis:Certificate
+	  BinaryRef="certBinaryProd"
+	  Id="MySSLCertProd"
+	  Name="dorc.sefe.eu.pfx"
+	  Request="no"
+	  StoreLocation="localMachine"
+	  StoreName="root"
+	  PFXPassword="[CERTIFICATE.PASSWORD]">
+	 </iis:Certificate>
+
+	 <iis:WebSite Id="DeploymentOrchestratorWebSiteProd" Description="Dorc Web" Directory="DorcWebFolder" ConfigureIfExists="yes">
+	  <iis:WebAddress Id="All80UnassignedProd" Port="443" Secure="true" />
+	  <iis:CertificateRef Id='MySSLCertProd' />
+	  <iis:WebApplication Id="WebSiteApplicationProd" Name="Dorc Web" WebAppPool="DOrcWebAppPoolProd" />
+	  <iis:WebVirtualDir Id="DeploymentOrchestratorVirtualDirProd" Alias="/" Directory="DorcWebFolder">
+		  <iis:MimeMap Id="MIME_JSON_P3PROD" Extension=".json" Type="application/json" />
+		  <iis:MimeMap Id="MIME_WEBMANIFESTPROD" Extension=".webmanifest" Type="application/manifest+json" />
+		  <iis:WebDirProperties Id="DeploymentOrchestratorPropertiesProd" WindowsAuthentication="yes" AnonymousAccess="yes" />
+	  </iis:WebVirtualDir>
+
+	  <iis:WebVirtualDir Id="DeploymentOrchestratorHealthVirtualDirProd" Alias="health" Directory="DorcWebHealthFolder">
+		  <iis:WebDirProperties Id="DeploymentOrchestratorHealthPropertiesProd" WindowsAuthentication="no" AnonymousAccess="yes" />
+	  </iis:WebVirtualDir>
+	 </iis:WebSite>
+	</Component>
 
   </Fragment>
 </Wix>
