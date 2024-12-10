@@ -38,6 +38,12 @@
         <Json:JsonFile Id="ReqApiUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 
 		<Json:JsonFile Id="CurrentEnvironment" ElementPath="$.AppSettings.environment" File="[#DeployApiWebConfig]" Value="[ENVIRONMENT]" />
+		
+		<Json:JsonFile Id="CurrentAadAdosOrgUrl" ElementPath="$.AppSettings.AadAdosOrgUrl" File="[#DeployApiWebConfig]" Value="[AADADOSORGURL]" />
+		<Json:JsonFile Id="CurrentAadClientId" ElementPath="$.AppSettings.AadClientId" File="[#DeployApiWebConfig]" Value="[AADCLIENTID]" />
+		<Json:JsonFile Id="CurrentAadSecret" ElementPath="$.AppSettings.AadSecret" File="[#DeployApiWebConfig]" Value="[AADSECRET]" />
+		<Json:JsonFile Id="CurrentAadTenant" ElementPath="$.AppSettings.AadTenant" File="[#DeployApiWebConfig]" Value="[AADTENANT]" />
+		<Json:JsonFile Id="CurrentDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -72,6 +78,12 @@
 		  <Json:JsonFile Id="ReqApiUrlProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 
 		  <Json:JsonFile Id="CurrentEnvironmentProd" ElementPath="$.AppSettings.environment" File="[#DeployApiWebConfig]" Value="[ENVIRONMENT]" />
+
+		  <Json:JsonFile Id="CurrentAadAdosOrgUrlProd" ElementPath="$.AppSettings.AadAdosOrgUrl" File="[#DeployApiWebConfig]" Value="[AADADOSORGURL]" />
+		  <Json:JsonFile Id="CurrentAadClientIdProd" ElementPath="$.AppSettings.AadClientId" File="[#DeployApiWebConfig]" Value="[AADCLIENTID]" />
+		  <Json:JsonFile Id="CurrentAadSecretProd" ElementPath="$.AppSettings.AadSecret" File="[#DeployApiWebConfig]" Value="[AADSECRET]" />
+		  <Json:JsonFile Id="CurrentAadTenantProd" ElementPath="$.AppSettings.AadTenant" File="[#DeployApiWebConfig]" Value="[AADTENANT]" />
+		  <Json:JsonFile Id="CurrentDomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
 	  </Component>
   </Fragment>
 </Wix>
