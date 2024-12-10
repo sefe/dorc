@@ -27,7 +27,7 @@
 
 					<Json:JsonFile Id="DomainNameIntraNonProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#NonProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
 					<Json:JsonFile Id="SMTPHostNonProd" ElementPath="$.AppSettings.SMTPHost" File="[#NonProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
-					<Json:JsonFile Id="ScriptRootNonProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPTROOT]" />
+					<Json:JsonFile Id="ScriptRootNonProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 
 					<util:XmlFile Id="NonProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#NonProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorNonProd.log" />
 				</Component>

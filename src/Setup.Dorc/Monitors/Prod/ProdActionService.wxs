@@ -28,7 +28,7 @@
 
 					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#NonProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
 					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#NonProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
-					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPTROOT]" />
+					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
