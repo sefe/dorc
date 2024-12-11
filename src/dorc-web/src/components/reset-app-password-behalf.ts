@@ -105,7 +105,7 @@ export class ResetAppPasswordBehalf extends LitElement {
         .resetAppPasswordForUserPut({
           envFilter: this.envFilter ?? '',
           envName: this.environmentName ?? '',
-          username: user.LoginId ?? ''
+          username: user.LanId ?? ''
         })
         .subscribe({
           next: (result: ApiBoolResult) => {
