@@ -102,9 +102,10 @@ export class ResetAppPasswordBehalf extends LitElement {
     if (answer) {
       const api = new ResetAppPasswordApi();
       api
-        .resetAppPasswordPut({
+        .resetAppPasswordForUserPut({
           envFilter: this.envFilter ?? '',
-          envName: this.environmentName ?? ''
+          envName: this.environmentName ?? '',
+          username: user.LoginId ?? ''
         })
         .subscribe({
           next: (result: ApiBoolResult) => {
