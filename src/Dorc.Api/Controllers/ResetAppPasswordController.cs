@@ -51,7 +51,12 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(string envFilter, string envName)
         {
-            return ResetPassword(envFilter, envName, User.GetUsername());
+            var userSplit = User?.Identity?.Name?.Split('\\');
+            if (userSplit == null)
+                return Ok(new ApiBoolResult
+                    { Message = "You are not currently setup in this environment", Result = false });
+            var userName = userSplit[1];
+            return ResetPassword(envFilter, envName, userName);
         }
 
         /// <summary>
@@ -86,7 +91,7 @@ namespace Dorc.Api.Controllers
 
                 var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
 
-                var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(User, envFilter, envName);
+                var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(username, envFilter, envName);
                 if (db == null)
                     return Ok(new ApiBoolResult
                     { Message = "You are not currently setup in this environment", Result = false });
