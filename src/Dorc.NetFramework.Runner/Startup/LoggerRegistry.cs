@@ -24,7 +24,8 @@ namespace Dorc.NetFramework.Runner.Startup
 
           var  seriLogger = new LoggerConfiguration()
                 .Enrich.WithExceptionDetails()
-                .WriteTo.Map("PipeName", "Monitor-Default", (name, wt) => wt.File(logPath + $"/{name}.txt"))
+                .WriteTo.Map("PipeName", "Monitor-Default", (name, wt) => wt.File(logPath + $"/{name}.txt",
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {RequestId} {Message:lj}{NewLine}{Exception}"))
                 .ReadFrom.Configuration(config)
                 .Enrich.FromLogContext()
                 .Enrich.WithThreadId()

@@ -8,6 +8,7 @@ using Dorc.NetFramework.Runner.Pipes;
 using Dorc.NetFramework.Runner.Startup;
 using Microsoft.Extensions.Configuration;
 using Serilog;
+using Serilog.Context;
 
 namespace Dorc.NetFramework.Runner
 {
@@ -65,49 +66,52 @@ namespace Dorc.NetFramework.Runner
 
                 options = arguments.Value;
 
-                var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
-                var dorcPath = loggerRegistry.logPath.Replace("c:",@"\\"+System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
-
-                string uncLogPath = $"{dorcPath}\\{options.PipeName}.Txt";
-
-                using (Process process = Process.GetCurrentProcess())
+                var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
+                using (LogContext.PushProperty("RequestId", requestId))
                 {
-                    string owner = GetProcessOwner(process.Id);
-                    contextLogger.Information("Runner process is started on behalf of the user: {0}", owner);
-                }
+                    var dorcPath = loggerRegistry.logPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
+                    contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
-                var idx = 0;
-                foreach (var s in args)
-                {
-                    contextLogger.Information("args[{0}]: {1}", idx++, s);
-                }
+                    string uncLogPath = $"{dorcPath}\\{options.PipeName}.Txt";
 
-                Debug.Assert(arguments != null);
-
-                try
-                {
-                    IScriptGroupPipeClient scriptGroupReader;
-
-                    if (options.UseFile)
+                    using (Process process = Process.GetCurrentProcess())
                     {
-                        contextLogger.Debug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(contextLogger);
+                        string owner = GetProcessOwner(process.Id);
+                        contextLogger.Information("Runner process is started on behalf of the user: {0}", owner);
                     }
-                    else
-                        scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
 
-                    IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
-                        contextLogger,
-                        scriptGroupReader);
+                    var idx = 0;
+                    foreach (var s in args)
+                    {
+                        contextLogger.Information("args[{0}]: {1}", idx++, s);
+                    }
 
-                    scriptGroupProcessor.Process(arguments.Value.PipeName, requestId);
-                }
-                catch (Exception ex)
-                {
-                    Log.Logger.Error("Exception occured {0}",ex.Message);
-                    Exit(-1);
+                    Debug.Assert(arguments != null);
+
+                    try
+                    {
+                        IScriptGroupPipeClient scriptGroupReader;
+
+                        if (options.UseFile)
+                        {
+                            contextLogger.Debug("Using file instead of pipes");
+                            scriptGroupReader = new ScriptGroupFileReader(contextLogger);
+                        }
+                        else
+                            scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
+
+                        IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
+                            contextLogger,
+                            scriptGroupReader);
+
+                        scriptGroupProcessor.Process(arguments.Value.PipeName, requestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Logger.Error("Exception occured {0}", ex.Message);
+                        Exit(-1);
+                    }
                 }
                 Exit(0);
             }
