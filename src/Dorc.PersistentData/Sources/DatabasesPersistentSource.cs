@@ -301,14 +301,11 @@ namespace Dorc.PersistentData.Sources
         }
 
 
-        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(IPrincipal user, string envFilter,
+        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string user, string envFilter,
             string envName)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var userSplit = user.Identity.Name.Split('\\');
-                var userName = userSplit[1];
-
                 var environmentDetails = context.Environments.Include(ed => ed.Databases)
                     .First(environmentDetails =>
                         EF.Functions.Collate(environmentDetails.Name, DeploymentContext.CaseInsensitiveCollation)
@@ -320,7 +317,7 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(userName) &&
+                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(user) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
