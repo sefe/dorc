@@ -1,5 +1,4 @@
 ﻿using Dorc.ApiModel;
-using Dorc.PersistData.Dapper;
 using Dorc.PowerShell;
 using Dorc.Runner.Pipes;
 using Serilog;
@@ -10,14 +9,11 @@ namespace Dorc.Runner
     {
         private readonly ILogger logger;
         private readonly IScriptGroupPipeClient scriptGroupPipeClient;
-        private readonly IDapperContext dbContext;
 
         internal ScriptGroupProcessor(
         ILogger logger,
-        IScriptGroupPipeClient scriptGroupPipeClient,
-        IDapperContext dbContext)
+        IScriptGroupPipeClient scriptGroupPipeClient)
         {
-            this.dbContext = dbContext;
             this.logger = logger;
             this.scriptGroupPipeClient = scriptGroupPipeClient;
         }
@@ -40,7 +36,7 @@ namespace Dorc.Runner
 
                 this.logger.Information("ScriptGroup is received.");
 
-                var scriptRunner = new PowerShellScriptRunner(this.logger, this.dbContext, deploymentResultId);
+                var scriptRunner = new PowerShellScriptRunner(this.logger, deploymentResultId);
 
                 scriptRunner.Run(
                     scriptGroupProperties.ScriptsLocation,

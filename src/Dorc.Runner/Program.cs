@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Management;
 using CommandLine;
 using Dorc.ApiModel.Constants;
-using Dorc.PersistData.Dapper;
 using Dorc.Runner.Pipes;
 using Dorc.Runner.Startup;
 using Microsoft.Extensions.Configuration;
@@ -45,8 +44,6 @@ namespace Dorc.Runner
 
                 var connectionString = config.GetSection("AppSettings")["DOrcConnectionString"];
 
-                var dapperContext = new DapperContext(connectionString);
-
 
                 Log.Logger = loggerRegistry.InitialiseLogger();
 
@@ -68,7 +65,7 @@ namespace Dorc.Runner
                 {
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         Log.Logger,
-                        new ScriptGroupPipeClient(Log.Logger), dapperContext);
+                        new ScriptGroupPipeClient(Log.Logger));
 
                     scriptGroupProcessor.Process(options.PipeName);
                 }

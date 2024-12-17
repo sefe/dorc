@@ -1,7 +1,6 @@
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.PersistData.Dapper;
 using Newtonsoft.Json;
 using Serilog;
 
@@ -10,13 +9,11 @@ namespace Dorc.PowerShell
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
         private readonly ILogger logger;
-        private readonly IDapperContext dbContext;
         private int deploymentResultId;
 
-        public PowerShellScriptRunner(ILogger logger, IDapperContext dbContext, int deploymentResultId)
+        public PowerShellScriptRunner(ILogger logger, int deploymentResultId)
         {
             this.logger = logger;
-            this.dbContext = dbContext;
             this.deploymentResultId = deploymentResultId;
         }
 
@@ -114,7 +111,6 @@ namespace Dorc.PowerShell
                 var msg = data[e.Index].MessageData.ToString();
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Information(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -130,7 +126,6 @@ namespace Dorc.PowerShell
                 var msg = data[e.Index].Message;
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Verbose(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -146,7 +141,6 @@ namespace Dorc.PowerShell
                 var msg = data[e.Index].Message;
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Debug(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -161,7 +155,6 @@ namespace Dorc.PowerShell
                 var msg = data[e.Index].Message;
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Warning(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -177,7 +170,6 @@ namespace Dorc.PowerShell
                 var msg = data[e.Index].ToString();
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Error(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
