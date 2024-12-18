@@ -217,20 +217,8 @@ export class MakeLikeProductionDialog extends LitElement {
     this.propertyOverrides.push(propertyOverride);
   }
 
-  removeItem<T>(arr: Array<T>, value: T): Array<T> {
-    const index = arr.indexOf(value);
-    if (index > -1) {
-      arr.splice(index, 1);
-    }
-    return arr;
-  }
-
   public propertyRemoved(propertyOverride: RequestProperty) {
-    const splicedArray = this.removeItem(
-      this.propertyOverrides,
-      propertyOverride
-    );
-
-    this.propertyOverrides = JSON.parse(JSON.stringify(splicedArray));
+    this.propertyOverrides = this.propertyOverrides.filter((val) => val.PropertyName != propertyOverride.PropertyName);
+    this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
   }
 }
