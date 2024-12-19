@@ -28,6 +28,7 @@
 		<Json:JsonFile Id="CurrentAadClientId" ElementPath="$.AppSettings.AadClientId" File="[#DeployApiWebConfig]" Value="[AADCLIENTID]" />
 		<Json:JsonFile Id="CurrentAadSecret" ElementPath="$.AppSettings.AadSecret" File="[#DeployApiWebConfig]" Value="[AADSECRET]" />
 		<Json:JsonFile Id="CurrentAadTenant" ElementPath="$.AppSettings.AadTenant" File="[#DeployApiWebConfig]" Value="[AADTENANT]" />
+		<Json:JsonFile Id="CurrentDomainName" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAME]" />
 		<Json:JsonFile Id="CurrentDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
       </Component>
   </Fragment>
