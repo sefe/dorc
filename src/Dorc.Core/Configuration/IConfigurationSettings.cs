@@ -2,6 +2,8 @@
 {
     public interface IConfigurationSettings
     {
+        string GetConfigurationDomainName();
+
         string GetConfigurationDomainNameIntra();
     }
 }
