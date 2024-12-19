@@ -63,7 +63,7 @@ namespace Dorc.Api.Controllers
             this.directorySearcher.ServerTimeLimit = TimeSpan.FromMinutes(ServerTimeoutInMinutes);
             this.directorySearcher.Tombstone = false;
 
-            _domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            _domainName = configurationSettingsEngine.GetConfigurationDomainName();
         }
 
         /// <summary>

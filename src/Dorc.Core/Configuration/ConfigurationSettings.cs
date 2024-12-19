@@ -11,6 +11,11 @@ namespace Dorc.Core.Configuration
             _configuration = configuration;
         }
 
+        public string GetConfigurationDomainName()
+        {
+            return _configuration.GetSection("AppSettings")["DomainName"];
+        }
+
         public string GetConfigurationDomainNameIntra()
         {
             return _configuration.GetSection("AppSettings")["DomainNameIntra"];
