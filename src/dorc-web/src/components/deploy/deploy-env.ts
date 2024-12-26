@@ -401,39 +401,50 @@ export class DeployEnv extends LitElement {
     }
   }
 
+  public EnvironmentChange(env: string) {
+    this.envName = env;
+    if (this._project !== undefined) {
+      this.LoadBuilds();
+    }
+  }
+
   _buildDefValueChanged(data: any) {
     this.buildDef = data.target.value as string;
     if (this._project !== undefined) {
-      this.buildsLoading = true;
-      const api = new RequestApi();
-      api
-        .requestBuildsGet({
-          projectId: this._project?.ProjectId ?? 0,
-          environment: this.envName,
-          buildDefinitionName: this.buildDef
-        })
-        .subscribe({
-          next: (deployArtefactDtos: DeployArtefactDto[]) => {
-            this.setBuilds(deployArtefactDtos);
-          },
-          error: (err: any) => {
-            console.error(err);
-
-            const notification = new ErrorNotification();
-            const message =
-              err.response.Message ?? err.response.ExceptionMessage;
-            if (message) {
-              notification.setAttribute('errorMessage', message);
-            } else {
-              notification.setAttribute('errorMessage', err.response);
-            }
-            this.shadowRoot?.appendChild(notification);
-            notification.open();
-            this.buildsLoading = false;
-          },
-          complete: () => console.log('done loading build definitions')
-        });
+      this.LoadBuilds();
     }
+  }
+
+  private LoadBuilds() {
+    this.buildsLoading = true;
+    const api = new RequestApi();
+    api
+      .requestBuildsGet({
+        projectId: this._project?.ProjectId ?? 0,
+        environment: this.envName,
+        buildDefinitionName: this.buildDef
+      })
+      .subscribe({
+        next: (deployArtefactDtos: DeployArtefactDto[]) => {
+          this.setBuilds(deployArtefactDtos);
+        },
+        error: (err: any) => {
+          console.error(err);
+
+          const notification = new ErrorNotification();
+          const message =
+            err.response.Message ?? err.response.ExceptionMessage;
+          if (message) {
+            notification.setAttribute('errorMessage', message);
+          } else {
+            notification.setAttribute('errorMessage', err.response);
+          }
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          this.buildsLoading = false;
+        },
+        complete: () => console.log('done loading build definitions')
+      });
   }
 
   getProjectComponents() {
