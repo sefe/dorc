@@ -235,6 +235,14 @@ export class RequestStatusCard extends LitElement {
               </h4>
             </td>
           </tr>
+          <tr>
+            <td class="requested-titles card-element__text">Submitted by:</td>
+            <td>
+              <h4 class="card-element__text">
+                ${this.deployRequest?.UserName}
+              </h4>
+            </td>
+          </tr>
           ${this.deployRequest?.UncLogPath !== null
             ? html` <tr>
                 <td class="requested-titles card-element__text">Raw Log:</td>
