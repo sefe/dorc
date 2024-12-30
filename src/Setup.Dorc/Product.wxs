@@ -20,10 +20,12 @@
 				<ComponentRef Id="RegistryEntries" />
 
 				<ComponentRef Id="RequestApiComponent" />
+				<ComponentRef Id="RequestApiComponentProd" />
 				<ComponentGroupRef Id="DOrcAPIComGroup" />
 
 				<ComponentGroupRef Id="DOrcWebComGroup" />
 				<ComponentRef Id="DOrcWebIISComponent" />
+				<ComponentRef Id="DOrcWebIISComponentProd" />
 
 			</Feature>
 			<Feature Id="Monitors" Title="Monitors">
