@@ -11,5 +11,9 @@
         public string? Log { get; set; }
 
         public string? Status { get; set; }
+
+        public DateTimeOffset? StartedTime { get; set; }
+
+        public DateTimeOffset? CompletedTime { get; set; }
     }
 }
