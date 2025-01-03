@@ -6,6 +6,7 @@ using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Services.Common;
+using System.Net.NetworkInformation;
 using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
@@ -329,7 +330,13 @@ namespace Dorc.PersistentData.Sources
                     .Where(r => ids.Contains(r.DeploymentRequest.Id)
                         && r.Status == fromStatus.ToString())
                     .ExecuteUpdate(setters => setters
-                        .SetProperty(r => r.Status, toStatus.ToString()));
+                        .SetProperty(r => r.Status, toStatus.ToString())
+                        .SetProperty(r => r.StartedTime, dr => toStatus == DeploymentResultStatus.Running ? DateTimeOffset.Now : dr.StartedTime)
+                        .SetProperty(r => r.CompletedTime, dr => 
+                            toStatus == DeploymentResultStatus.Complete ||
+                                toStatus == DeploymentResultStatus.Failed ||
+                                toStatus == DeploymentResultStatus.Cancelled
+                            ? DateTimeOffset.Now : dr.CompletedTime));
 
                 return rowsAffected;
             }
@@ -394,7 +401,13 @@ namespace Dorc.PersistentData.Sources
                 updatedResultCount = context.DeploymentResults
                     .Where(result => result.Id == deploymentResultModel.Id)
                     .ExecuteUpdate(setters => setters
-                                            .SetProperty(b => b.Status, status.ToString()));
+                                            .SetProperty(b => b.Status, status.ToString())
+                                            .SetProperty(r => r.StartedTime, dr => status == DeploymentResultStatus.Running ? DateTimeOffset.Now : dr.StartedTime)
+                                            .SetProperty(r => r.CompletedTime, dr =>
+                                                status == DeploymentResultStatus.Complete ||
+                                                    status == DeploymentResultStatus.Failed ||
+                                                    status == DeploymentResultStatus.Cancelled
+                                                ? DateTimeOffset.Now : dr.CompletedTime));
 
                 if (updatedResultCount == 0)
                 {
