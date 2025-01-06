@@ -89,7 +89,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
                 } while (!string.IsNullOrEmpty(continuationToken));
 
-                var regexs = new Regex(projectRegex);
+                var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase);
 
                 output.AddRange(buildDefinitions.Where(x => regexs.IsMatch(x.Name)));
                 buildDefinitions.Clear();
