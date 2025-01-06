@@ -1,4 +1,4 @@
-# DOrc (Deployment Orchestrator)
+# DOrc (DevOps Deployment Orchestrator)
 ## Description
 This project is a DevOps Engine for running Powershell deployments whilst managing environments & configuration 
 
