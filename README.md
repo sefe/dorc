@@ -7,7 +7,7 @@ This project is a DevOps Engine for running Powershell deployments whilst managi
 ### Dependencies
 
 * .NET 8 / .NET Framework  4.8
-* WiX 4
+* WiX 5
 * Lit-element
 * Vaadin Components
 * Vite
