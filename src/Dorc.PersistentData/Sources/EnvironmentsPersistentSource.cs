@@ -577,7 +577,7 @@ namespace Dorc.PersistentData.Sources
 
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAdmin(IDeploymentContext context)
         {
-            return (from env in context.Environments
+            return (from env in context.Environments.Include(e => e.ParentEnvironment)
                     select new EnvironmentData
                     { Environment = env, UserEditable = true })
                 .Distinct();
@@ -586,7 +586,7 @@ namespace Dorc.PersistentData.Sources
         private static IQueryable<EnvironmentData> AccessibleEnvironmentAdmin(IDeploymentContext context,
             string environmentName)
         {
-            return from env in context.Environments
+            return from env in context.Environments.Include(e => e.ParentEnvironment)
                    where env.Name == environmentName
                    select new EnvironmentData
                    { Environment = env, UserEditable = true };
@@ -625,7 +625,7 @@ namespace Dorc.PersistentData.Sources
             ICollection<string> userSids, string username, string environmentName)
         {
             var output = from
-                environment in context.Environments
+                environment in context.Environments.Include(e => e.ParentEnvironment)
                          join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                              accessControlEnvironments
                          from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
@@ -691,6 +691,7 @@ namespace Dorc.PersistentData.Sources
             e.ThinClientServer = env.Details.ThinClient;
             e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
             e.EnvNote = env.Details.Notes;
+            e.ParentId = env.ParentId;
         }
 
         private static EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
@@ -706,7 +707,9 @@ namespace Dorc.PersistentData.Sources
                 EnvironmentId = ed.Environment.Id,
                 UserEditable = ed.UserEditable,
                 IsOwner = ed.IsOwner,
-                Details = MapToEnvironmentDetailsApiModel(ed.Environment)
+                Details = MapToEnvironmentDetailsApiModel(ed.Environment),
+                ParentId = ed.Environment.ParentId,
+                ParentEnvironment = MapToEnvironmentApiModel(ed.Environment.ParentEnvironment)
             };
         }
 
@@ -716,15 +719,27 @@ namespace Dorc.PersistentData.Sources
             if (env == null)
                 return null;
 
+            var resEnv = MapToEnvironmentApiModel(env);
+            resEnv.UserEditable = userEditable;
+            resEnv.IsOwner = isOwner;
+
+            return resEnv;
+        }
+
+        public static EnvironmentApiModel MapToEnvironmentApiModel(Environment? env)
+        {
+            if (env is null)
+                return null!;
+
             return new EnvironmentApiModel
             {
                 EnvironmentName = env.Name,
                 EnvironmentSecure = env.Secure,
                 EnvironmentIsProd = env.IsProd,
                 EnvironmentId = env.Id,
-                UserEditable = userEditable,
-                IsOwner = isOwner,
-                Details = MapToEnvironmentDetailsApiModel(env)
+                Details = MapToEnvironmentDetailsApiModel(env),
+                ParentId = env.ParentId,
+                ParentEnvironment = MapToEnvironmentApiModel(env.ParentEnvironment)
             };
         }
 

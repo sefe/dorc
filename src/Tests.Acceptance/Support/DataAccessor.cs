@@ -66,9 +66,9 @@ namespace Tests.Acceptance.Support
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
             using (SqlCommand insertCommand = new SqlCommand(
-                "INSERT INTO [deploy].[Environment] (ObjectId, Name, Secure, IsProd) " +
+                "INSERT INTO [deploy].[Environment] (ObjectId, Name, Secure, IsProd, Owner) " +
                 "OUTPUT INSERTED.Id " +
-                "VALUES (@objectId, @environmentName, 0, 0);", sqlConnection))
+                "VALUES (@objectId, @environmentName, 0, 0, 'testOwner');", sqlConnection))
             {
                 SqlParameter environmentNameParameter = new SqlParameter("@environmentName", SqlDbType.NChar, environmentName.Length);
                 environmentNameParameter.Value = environmentName;

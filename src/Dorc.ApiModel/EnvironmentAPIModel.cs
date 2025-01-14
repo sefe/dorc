@@ -8,6 +8,8 @@
         public bool EnvironmentIsProd { get; set; }
         public bool UserEditable { get; set; }
         public bool IsOwner { get; set; }
+        public int? ParentId { get; set; }
         public EnvironmentDetailsApiModel Details { get; set; }
+        public EnvironmentApiModel ParentEnvironment { get; set; }
     }
 }
