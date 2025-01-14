@@ -46,4 +46,14 @@ export interface DeploymentResultApiModel {
      * @memberof DeploymentResultApiModel
      */
     RequestId?: number;
+    /**
+     * @type {string}
+     * @memberof DeploymentResultApiModel
+     */
+    StartedTime?: string | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentResultApiModel
+     */
+    CompletedTime?: string | null;
 }

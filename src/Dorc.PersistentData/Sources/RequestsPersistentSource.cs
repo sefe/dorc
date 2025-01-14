@@ -477,7 +477,9 @@ namespace Dorc.PersistentData.Sources
                 ComponentName = deploymentResult.Component.Name,
                 ComponentId = deploymentResult.Component.Id,
                 RequestId = deploymentResult.DeploymentRequest.Id,
-                Log = deploymentResult.Log
+                Log = deploymentResult.Log,
+                StartedTime = deploymentResult.StartedTime,
+                CompletedTime = deploymentResult.CompletedTime
             };
         }
 
