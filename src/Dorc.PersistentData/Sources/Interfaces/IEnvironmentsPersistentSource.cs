@@ -9,7 +9,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IEnvironmentsPersistentSource
     {
         EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user);
-        IEnumerable<EnvironmentApiModel> GetEnvironments();
         bool EnvironmentExists(string rowEnvironment);
         string GetEnvironmentOwner(int envId);
         bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, ActiveDirectoryElementApiModel user);
