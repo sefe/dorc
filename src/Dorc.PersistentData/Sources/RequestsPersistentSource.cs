@@ -279,6 +279,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.Status, status.ToString())
+                        .SetProperty(b => b.UserName, user));
+            }
+        }
+
         public int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();
