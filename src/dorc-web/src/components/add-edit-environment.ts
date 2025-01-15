@@ -113,6 +113,11 @@ export class AddEditEnvironment extends LitElement {
         animation: spin 2s linear infinite;
       }
 
+      .card-element__text {
+        color: gray;
+        margin: 4px;
+      }
+
       @keyframes spin {
         0% {
           transform: rotate(0deg);
@@ -168,6 +173,21 @@ export class AddEditEnvironment extends LitElement {
   render() {
     return html`
       <div id="div" ?hidden="${this.hidden}">
+        ${ this.environment?.ParentEnvironment ? html`
+          <h4 class="card-element__text">
+            Parent Environment: ${this.environment?.ParentEnvironment?.EnvironmentName}
+            <vaadin-button
+                title="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
+                theme="icon"
+                @click="${this.openEnvironmentDetails}"
+              >
+                <vaadin-icon
+                  icon="hardware:developer-board"
+                  style="color: cornflowerblue"
+                ></vaadin-icon>
+              </vaadin-button>
+            </h4>
+        `: html``}
         <vaadin-details
           opened=${ifDefined(
             this.isEmptyOrSpaces(this.EnvOwnerDisplayName) ? true : undefined
@@ -760,5 +780,16 @@ export class AddEditEnvironment extends LitElement {
 
       this._checkName(this.environment.EnvironmentName);
     }
+  }
+
+  private openEnvironmentDetails() {
+    const event = new CustomEvent('open-env-detail', {
+      detail: {
+        Environment: this.environment?.ParentEnvironment
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
   }
 }

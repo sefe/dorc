@@ -13,6 +13,7 @@ import { SuccessNotification } from '../components/notifications/success-notific
 @customElement('page-environment')
 export class PageEnvironment extends PageElement {
   @property() environmentName = '';
+  @property() parentName = '';
 
   private tabId = -1;
 
@@ -65,6 +66,9 @@ export class PageEnvironment extends PageElement {
         <tr>
           <td>
             <h2 style="text-align: center;">${this.environmentName}</h2>
+          </td>
+          <td>
+            ${this.parentName ? html`<vaadin-icon icon="vaadin:child" title="Child of ${this.parentName}"></vaadin-icon>` : html``}
           </td>
           <td>
             ${this.loading ? html` <div class="small-loader"></div> ` : html``}
@@ -121,6 +125,7 @@ export class PageEnvironment extends PageElement {
   environmentLoaded(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;
     this.environmentName = env.EnvironmentName ?? '';
+    this.parentName = env.ParentEnvironment?.EnvironmentName ?? '';
     this.loading = false;
   }
 

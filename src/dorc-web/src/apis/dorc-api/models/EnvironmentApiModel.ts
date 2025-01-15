@@ -55,4 +55,9 @@ export interface EnvironmentApiModel {
      * @memberof EnvironmentApiModel
      */
     Details?: EnvironmentDetailsApiModel;
+    /**
+     * @type {EnvironmentApiModel}
+     * @memberof EnvironmentApiModel
+     */
+    ParentEnvironment?: EnvironmentApiModel;
 }
