@@ -44,21 +44,6 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<EnvironmentApiModel> GetEnvironments()
-        {
-            var environments = new List<EnvironmentApiModel>();
-            using (var context = contextFactory.GetContext())
-            {
-                var allEnvironments = context.Environments.ToList();
-                foreach (var environment in allEnvironments)
-                {
-                    environments.Add(MapToEnvironmentApiModel(environment, false, false));
-                }
-            }
-
-            return environments;
-        }
-
         public IEnumerable<string> GetEnvironmentNames(AccessLevel accessLevel, IPrincipal user,
             string thinClientServer, bool excludeProd)
         {
@@ -363,7 +348,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                var environment = EnvironmentUnifier.GetEnvironment(context, environmentId);
+                var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
 
                 return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
                     IsEnvironmentOwner(environment.Name, user));
@@ -463,7 +448,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentId);
+                var environment = EnvironmentUnifier.GetFullEnvironment(context, env.EnvironmentId);
 
                 if (env.EnvironmentName != environment.Name)
                 {
@@ -557,8 +542,8 @@ namespace Dorc.PersistentData.Sources
             out Environment environment,
             out Database database)
         {
-            var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-            if (envDetail == null)
+            var envDetail = EnvironmentUnifier.GetFullEnvironment(context, envId);
+            if (envDetail is null)
             {
                 throw new ArgumentOutOfRangeException(nameof(envId), "Invalid or unknown environment Id specified.");
             }
@@ -577,7 +562,7 @@ namespace Dorc.PersistentData.Sources
 
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAdmin(IDeploymentContext context)
         {
-            return (from env in context.Environments.Include(e => e.ParentEnvironment)
+            return (from env in context.Environments
                     select new EnvironmentData
                     { Environment = env, UserEditable = true })
                 .Distinct();
@@ -586,7 +571,7 @@ namespace Dorc.PersistentData.Sources
         private static IQueryable<EnvironmentData> AccessibleEnvironmentAdmin(IDeploymentContext context,
             string environmentName)
         {
-            return from env in context.Environments.Include(e => e.ParentEnvironment)
+            return from env in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                    where env.Name == environmentName
                    select new EnvironmentData
                    { Environment = env, UserEditable = true };
@@ -625,7 +610,7 @@ namespace Dorc.PersistentData.Sources
             ICollection<string> userSids, string username, string environmentName)
         {
             var output = from
-                environment in context.Environments.Include(e => e.ParentEnvironment)
+                environment in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                          join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                              accessControlEnvironments
                          from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
@@ -699,17 +684,40 @@ namespace Dorc.PersistentData.Sources
             if (ed.Environment == null)
                 return null;
 
+            return MapToEnvironmentApiModel(ed.Environment, ed.UserEditable, ed.IsOwner);
+        }
+
+        private static EnvironmentApiModel MapToParentEnvironmentApiModel(Environment? parentEnv)
+        {
+            if (parentEnv is null)
+                return null;
+
             return new EnvironmentApiModel
             {
-                EnvironmentName = ed.Environment.Name,
-                EnvironmentSecure = ed.Environment.Secure,
-                EnvironmentIsProd = ed.Environment.IsProd,
-                EnvironmentId = ed.Environment.Id,
-                UserEditable = ed.UserEditable,
-                IsOwner = ed.IsOwner,
-                Details = MapToEnvironmentDetailsApiModel(ed.Environment),
-                ParentId = ed.Environment.ParentId,
-                ParentEnvironment = MapToEnvironmentApiModel(ed.Environment.ParentEnvironment)
+                EnvironmentName = parentEnv.Name,
+                EnvironmentSecure = parentEnv.Secure,
+                EnvironmentIsProd = parentEnv.IsProd,
+                EnvironmentId = parentEnv.Id,
+                ParentId = parentEnv.ParentId,
+                IsParent = true,
+                ParentEnvironment = MapToParentEnvironmentApiModel(parentEnv.ParentEnvironment)
+            };
+        }
+
+        private static EnvironmentApiModel? MapToChildEnvironmentApiModel(Environment? childEnv)
+        {
+            if (childEnv is null)
+                return null;
+
+            return new EnvironmentApiModel
+            {
+                EnvironmentName = childEnv.Name,
+                EnvironmentSecure = childEnv.Secure,
+                EnvironmentIsProd = childEnv.IsProd,
+                EnvironmentId = childEnv.Id,
+                ParentId = childEnv.ParentId,
+                IsParent = childEnv.ChildEnvironments.Any(),
+                ChildEnvironments = childEnv.ChildEnvironments.Select(MapToChildEnvironmentApiModel).ToList()
             };
         }
 
@@ -739,7 +747,9 @@ namespace Dorc.PersistentData.Sources
                 EnvironmentId = env.Id,
                 Details = MapToEnvironmentDetailsApiModel(env),
                 ParentId = env.ParentId,
-                ParentEnvironment = MapToEnvironmentApiModel(env.ParentEnvironment)
+                IsParent = env.ChildEnvironments.Any(),
+                ParentEnvironment = MapToParentEnvironmentApiModel(env.ParentEnvironment),
+                ChildEnvironments = env.ChildEnvironments.Select(MapToChildEnvironmentApiModel).ToList()
             };
         }
 

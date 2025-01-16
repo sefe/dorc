@@ -68,7 +68,7 @@ export class PageEnvironment extends PageElement {
             <h2 style="text-align: center;">${this.environmentName}</h2>
           </td>
           <td>
-            ${this.parentName ? html`<vaadin-icon icon="vaadin:child" title="Child of ${this.parentName}"></vaadin-icon>` : html``}
+            ${this.parentName ? html`<vaadin-icon icon="vaadin:child" title="Child of ${this.parentName}" style="color: grey"></vaadin-icon>` : html``}
           </td>
           <td>
             ${this.loading ? html` <div class="small-loader"></div> ` : html``}

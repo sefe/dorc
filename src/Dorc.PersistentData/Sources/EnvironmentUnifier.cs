@@ -8,7 +8,7 @@ namespace Dorc.PersistentData.Sources
     {
         public static Environment GetEnvironment(IDeploymentContext context, string envName)
         {
-            return context.Environments.Include(e => e.ParentEnvironment).SingleOrDefault(
+            return context.Environments.SingleOrDefault(
                 x => EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation)
                     == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation))!;
         }
@@ -16,9 +16,16 @@ namespace Dorc.PersistentData.Sources
         public static Environment GetEnvironment(IDeploymentContext context, int envId)
         {
             return context.Environments
+                .SingleOrDefault(x => x.Id == envId);
+        }
+
+        public static Environment? GetFullEnvironment(IDeploymentContext context, int envId)
+        {
+            return context.Environments
                 .Include(d => d.Databases)
                 .Include(s => s.Servers)
                 .Include(e => e.ParentEnvironment)
+                .Include(e => e.ChildEnvironments)
                 .SingleOrDefault(x => x.Id == envId);
         }
     }
