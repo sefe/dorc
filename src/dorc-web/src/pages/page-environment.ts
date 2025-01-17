@@ -26,8 +26,9 @@ export class PageEnvironment extends PageElement {
     'projects',
     'daemons',
     'deployments',
+    'tenants',
     'users',
-    'delegated-users'
+    'delegated-users',
   ];
 
   @property({ type: Boolean }) private loading = true;
