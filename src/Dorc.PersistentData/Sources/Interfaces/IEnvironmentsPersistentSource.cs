@@ -35,5 +35,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
             string projectName, IPrincipal user, AccessLevel accessLevel);
         bool EnvironmentIsProd(string envName);
         bool EnvironmentIsSecure(string envName);
+        IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
     }
 }

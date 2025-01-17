@@ -60,4 +60,14 @@ export interface EnvironmentApiModel {
      * @memberof EnvironmentApiModel
      */
     ParentEnvironment?: EnvironmentApiModel;
+    /**
+     * @type {boolean}
+     * @memberof EnvironmentApiModel
+     */
+    IsParent: boolean;
+    /**
+     * @type {Array<EnvironmentApiModel>}
+     * @memberof EnvironmentApiModel
+     */
+    ChildEnvironments?: Array<EnvironmentApiModel>
 }

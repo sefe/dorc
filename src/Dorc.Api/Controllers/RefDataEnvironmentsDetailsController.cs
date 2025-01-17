@@ -94,6 +94,22 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Returns all Environments which could became children of the Environment
+        /// </summary>
+        /// <param name="id">environment ID</param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ICollection<EnvironmentApiModel>))]
+        [HttpGet("GetPossibleEnvironmentChildren")]
+        public object GetPossibleEnvironmentChildren([FromQuery] int id)
+        {
+            if (id > 0)
+            {
+                return environmentsPersistentSource.GetPossibleEnvironmentChildren(id, User);
+            }
+
+            return new List<EnvironmentApiModel>();
+        }
+
+        /// <summary>
         ///     Add or remove environment components 
         /// </summary>
         /// <param name="envId">Environment ID</param>

@@ -769,5 +769,36 @@ namespace Dorc.PersistentData.Sources
                 Notes = details.EnvNote
             };
         }
+
+        public IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var userSids = user.GetSidsForUser();
+                var accessLevelRequired = AccessLevel.Write;
+
+                var allRelatedEnvs = context.Environments
+                    .Include(e => e.Projects)
+                    .ThenInclude(p => p.Environments)
+                    .Where(e => e.Id == id)
+                    .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
+                    .Where(e => e.Id != id && e.ParentId != id) // Exclude the parent and its direct children
+                    .Distinct();
+
+                var filteredByAccessLevelEnvs = allRelatedEnvs
+                    .Join(context.AccessControls, // Join with AccessControls to filter by user access
+                          environment => environment.ObjectId,
+                          ac => ac.ObjectId,
+                          (environment, ac) => new { environment, ac })
+                    .Where(joined => userSids.Contains(joined.ac.Sid) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
+                    .Select(joined => joined.environment)
+                    .Distinct();
+
+                var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();
+
+                var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel);
+                return possibleChildren;
+            }
+        }
     }
 }
