@@ -63,6 +63,16 @@ export class ProjectControls extends LitElement {
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
+      <vaadin-button
+        title="Audit"
+        theme="icon"
+        @click="${this.openAuditData}"
+      >
+        <vaadin-icon
+          icon="vaadin:list"
+          style="color: cornflowerblue"
+        ></vaadin-icon>
+      </vaadin-button>
     `;
   }
 
@@ -101,6 +111,17 @@ export class ProjectControls extends LitElement {
 
   openRefData() {
     const event = new CustomEvent('open-project-ref-data', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  openAuditData() {
+    const event = new CustomEvent('open-project-audit-data', {
       detail: {
         Project: this.project
       },
