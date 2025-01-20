@@ -782,7 +782,7 @@ namespace Dorc.PersistentData.Sources
                     .ThenInclude(p => p.Environments)
                     .Where(e => e.Id == id)
                     .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
-                    .Where(e => e.Id != id && e.ParentId != id) // Exclude the parent and its direct children
+                    .Where(e => e.Id != id && e.ParentId == null) // Exclude the parent and all children
                     .Distinct();
 
                 var filteredByAccessLevelEnvs = allRelatedEnvs
