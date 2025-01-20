@@ -18,6 +18,7 @@ import type { OperationOpts, HttpQuery } from '../runtime';
 import type {
     ApiBoolResult,
     DatabaseApiModelEnvironmentComponentsDto,
+    EnvironmentApiModel,
     EnvironmentContentApiModel,
     EnvironmentContentBuildsApiModel,
 } from '../models';
@@ -32,6 +33,10 @@ export interface RefDataEnvironmentsDetailsGetComponentStatuesGetRequest {
     cutoffDateTime?: string;
 }
 
+export interface RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest {
+    id?: number;
+}
+
 export interface RefDataEnvironmentsDetailsIdGetRequest {
     id: number;
 }
@@ -41,6 +46,11 @@ export interface RefDataEnvironmentsDetailsPutRequest {
     componentId?: number;
     action?: string;
     component?: string;
+}
+
+export interface RefDataEnvironmentsDetailsSetParentForEnvironmentPutRequest {
+    parentEnvId?: number;
+    childEnvId?: number;
 }
 
 /**
@@ -86,6 +96,23 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
 
     /**
      */
+    refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id }: RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest): Observable<Array<EnvironmentApiModel>>
+    refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id }: RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentApiModel>>>
+    refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id }: RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentApiModel> | AjaxResponse<Array<EnvironmentApiModel>>> {
+
+        const query: HttpQuery = {};
+
+        if (id != null) { query['id'] = id; }
+
+        return this.request<Array<EnvironmentApiModel>>({
+            url: '/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren',
+            method: 'GET',
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataEnvironmentsDetailsIdGet({ id }: RefDataEnvironmentsDetailsIdGetRequest): Observable<EnvironmentContentApiModel>
     refDataEnvironmentsDetailsIdGet({ id }: RefDataEnvironmentsDetailsIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentContentApiModel>>
     refDataEnvironmentsDetailsIdGet({ id }: RefDataEnvironmentsDetailsIdGetRequest, opts?: OperationOpts): Observable<EnvironmentContentApiModel | AjaxResponse<EnvironmentContentApiModel>> {
@@ -112,6 +139,24 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
 
         return this.request<ApiBoolResult>({
             url: '/RefDataEnvironmentsDetails',
+            method: 'PUT',
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataEnvironmentsDetailsSetParentForEnvironmentPut({ parentEnvId, childEnvId }: RefDataEnvironmentsDetailsSetParentForEnvironmentPutRequest): Observable<ApiBoolResult>
+    refDataEnvironmentsDetailsSetParentForEnvironmentPut({ parentEnvId, childEnvId }: RefDataEnvironmentsDetailsSetParentForEnvironmentPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
+    refDataEnvironmentsDetailsSetParentForEnvironmentPut({ parentEnvId, childEnvId }: RefDataEnvironmentsDetailsSetParentForEnvironmentPutRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
+
+        const query: HttpQuery = {};
+
+        if (parentEnvId != null) { query['parentEnvId'] = parentEnvId; }
+        if (childEnvId != null) { query['childEnvId'] = childEnvId; }
+
+        return this.request<ApiBoolResult>({
+            url: '/RefDataEnvironmentsDetails/SetParentForEnvironment',
             method: 'PUT',
             query,
         }, opts?.responseOpts);

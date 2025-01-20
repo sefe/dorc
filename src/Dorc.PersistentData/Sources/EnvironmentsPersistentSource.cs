@@ -800,5 +800,49 @@ namespace Dorc.PersistentData.Sources
                 return possibleChildren;
             }
         }
+
+        public void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var childEnv = EnvironmentUnifier.GetEnvironment(context, childEnvId);
+
+                if (childEnv is null)
+                    throw new ArgumentException("Child environment not found.");
+
+                if (parentEnvId.HasValue)
+                {
+                    var parentEnv = EnvironmentUnifier.GetEnvironment(context, parentEnvId.Value);
+                    if (parentEnv is null)
+                        throw new ArgumentException("Parent environment not found.");
+
+                    if (childEnv.ParentId == parentEnvId)
+                    {
+                        logger.Debug($"Environment {childEnv.Name} is already a child of {parentEnv.Name}");
+                        return;
+                    }                        
+
+                    childEnv.ParentId = parentEnvId;
+                    EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
+                        "Attached as a child to parent environment " + parentEnv.Name,
+                        user.Identity.Name, "Attach Child Environment", context);
+                }
+                else
+                {
+                    if (!childEnv.ParentId.HasValue)
+                    {
+                        logger.Debug($"Environment {childEnv.Name} is not a child");
+                        return;
+                    }
+
+                    childEnv.ParentId = null;
+                    EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
+                        "Child environment detached from its parent.",
+                        user.Identity.Name, "Detach Child Environment", context);
+                }
+
+                context.SaveChanges();
+            }
+        }
     }
 }

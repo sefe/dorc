@@ -145,5 +145,38 @@ namespace Dorc.Api.Controllers
                 }
             }
         }
+
+        /// <summary>
+        /// Set or unset the parent for an environment.
+        /// </summary>
+        /// <param name="parentEnvId">Parent Environment ID or null to detach.</param>
+        /// <param name="childEnvId">Child Environment ID.</param>
+        /// <returns>Returns ApiBoolResult indicating success or failure.</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [HttpPut("SetParentForEnvironment")]
+        public ApiBoolResult SetParentForEnvironment([FromQuery] int? parentEnvId, [FromQuery] int childEnvId)
+        {
+            var childEnvironment = environmentsPersistentSource.GetEnvironment(childEnvId, User);
+
+            if (childEnvironment == null)
+                return new ApiBoolResult { Result = false, Message = "Environment not found." };
+
+            if (!securityService.CanModifyEnvironment(User, childEnvironment.EnvironmentName))
+            {
+                return new ApiBoolResult
+                { Result = false, Message = "User doesn't have \"Modify\" permission for this action!" };
+            }
+
+            try
+            {
+                environmentsPersistentSource.SetParentForEnvironment(parentEnvId, childEnvId, User);
+
+                return new ApiBoolResult { Result = true };
+            }
+            catch (Exception ex)
+            {
+                return new ApiBoolResult { Result = false, Message = ex.Message };
+            }
+        }
     }
 }

@@ -33,7 +33,7 @@ export class EnvTenants extends PageEnvBase {
 
   constructor() {
     super();
-
+    this.addEventListener('request-environment-update', this.forceLoadEnvironmentInfo);
     super.loadEnvironmentInfo();
   }
 

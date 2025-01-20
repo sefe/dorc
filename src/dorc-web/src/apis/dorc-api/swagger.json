@@ -3178,6 +3178,88 @@
         }
       }
     },
+    "/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren": {
+      "get": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/SetParentForEnvironment": {
+      "put": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "parentEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "childEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataEnvironmentsDetails": {
       "get": {
         "tags": [
@@ -6578,6 +6660,19 @@
           },
           "Details": {
             "$ref": "#/components/schemas/EnvironmentDetailsApiModel"
+          },
+          "ParentEnvironment": {
+            "$ref": "#/components/schemas/EnvironmentApiModel"
+          },
+          "IsParent": {
+            "type": "boolean"
+          },
+          "ChildEnvironments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentApiModel"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

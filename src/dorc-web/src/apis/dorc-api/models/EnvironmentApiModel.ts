@@ -64,10 +64,10 @@ export interface EnvironmentApiModel {
      * @type {boolean}
      * @memberof EnvironmentApiModel
      */
-    IsParent: boolean;
+    IsParent?: boolean;
     /**
      * @type {Array<EnvironmentApiModel>}
      * @memberof EnvironmentApiModel
      */
-    ChildEnvironments?: Array<EnvironmentApiModel>
+    ChildEnvironments?: Array<EnvironmentApiModel> | null;
 }

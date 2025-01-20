@@ -1,10 +1,10 @@
 import '@vaadin/button';
 import '@vaadin/text-field';
-import { css, LitElement } from 'lit';
+import { css, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
-import { EnvironmentApiModel } from '../apis/dorc-api';
+import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 
 @customElement('add-env-tenant')
 export class AddEnvTenant extends LitElement {
@@ -74,12 +74,35 @@ export class AddEnvTenant extends LitElement {
       Notification.show('Please select an environment from the list.', { position: 'bottom-start', duration: 3000 });
       return;
     }
-
-    // Assuming there's an API service method to add a Tenant environment
-    // Here, you would use this.selectedEnvironmentId to identify which environment to attach as a tenant
-
-    // Display a notification for now, replace with actual API call logic later
-    Notification.show(`Tenant environment with ID ${this.selectedEnvironmentId} added successfully.`, { position: 'bottom-start', duration: 3000 });
+    const envId = this.selectedEnvironmentId;
+    const api = new RefDataEnvironmentsDetailsApi();
+    api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
+      childEnvId: this.selectedEnvironmentId,
+      parentEnvId: this.parentEnvironment?.EnvironmentId
+    })
+      .subscribe({
+        next: (data: ApiBoolResult) => {
+          if (data.Result) {
+            this.dispatchEvent(new CustomEvent('request-environment-update', {
+              bubbles: true,
+              composed: true
+            }));
+            this._fetchPossibleTenants();
+            Notification.show(`Tenant environment with ID ${envId} added successfully.`, {
+              theme: 'success',
+              position: 'bottom-start',
+              duration: 3000
+            });
+          }
+          else {
+            this.onError(`Set parent for environment with ID ${envId} has failed: ${data.Message}`);
+          }
+        },
+        error: (err: string) => {
+          this.onError(`Unable to set parent for environment: ${err}`);
+          this.envsLoading = false
+        }
+      });
 
     // Clear the selection in the combobox
     const comboBox = this.shadowRoot?.getElementById('environments') as any;
@@ -96,8 +119,38 @@ export class AddEnvTenant extends LitElement {
     this._fetchPossibleTenants();
   }
 
+  updated(changedProperties: PropertyValueMap<any>) {
+    if (changedProperties.has('parentEnvironment')) {
+      this._fetchPossibleTenants();
+    }
+  }
+
   private _fetchPossibleTenants() {
     this.envsLoading = true;
-    setTimeout(() => { Notification.show(`Tenants fetched`); this.possibleTenants = new Array(this.parentEnvironment); this.envsLoading = false; }, 3000);
+    const api = new RefDataEnvironmentsDetailsApi();
+    api.refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id: this.parentEnvironment?.EnvironmentId })
+      .subscribe({
+        next: (data: Array<EnvironmentApiModel>) => {
+          this.possibleTenants = data;
+          this.envsLoading = false
+        },
+        error: (err: string) => {
+          this.onError(`Unable to fetch possible tenants: ${err}`);
+          this.envsLoading = false
+        }
+      });
+  }
+
+  private onError(message: string) {
+    const event = new CustomEvent('error-alert', {
+      detail: {
+        description: message
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+
+    console.error(message);
   }
 }

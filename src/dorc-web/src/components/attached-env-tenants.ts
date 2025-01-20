@@ -6,13 +6,14 @@ import { css, LitElement, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@polymer/paper-dialog';
-import { EnvironmentApiModel } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
+import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
   @property({ type: Array })
-  childEnvironments: Array<EnvironmentApiModel> | undefined = [];
+  childEnvironments: Array<EnvironmentApiModel> | null | undefined = [];
 
   @property({ type: Boolean })
   readonly: boolean = false;
@@ -82,17 +83,33 @@ export class AttachedEnvTenants extends LitElement {
   detachTenant(envId: number | undefined) {
     const answer = confirm('Detach tenant?');
     if (answer && envId) {
-      // const api = new RefDataEnvironmentsDetailsApi();
-      // api
-      //   .refDataEnvironmentsDetailsPut({
-      //     componentId: this.dbDetails.Id,
-      //     component: 'database',
-      //     action: 'detach',
-      //     envId: this.envId
-      //   })
-      //   .subscribe(() => {
-      //     this.fireDbDetachedEvent();
-      //   });
+      const api = new RefDataEnvironmentsDetailsApi();
+      api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
+        childEnvId: envId,
+        parentEnvId: undefined
+      })
+        .subscribe({
+          next: (data: ApiBoolResult) => {
+            if (data.Result) {
+              this.dispatchEvent(new CustomEvent('request-environment-update', {
+                bubbles: true,
+                composed: true
+              }));
+
+              Notification.show(`Tenant environment with ID ${envId} has beed detached.`, {
+                theme: 'success',
+                position: 'bottom-start',
+                duration: 3000
+              });
+            }
+            else {
+              this.onError(`Detach environment with ID ${envId} from parent has failed: ${data.Message}`);
+            }
+          },
+          error: (err: string) => {
+            this.onError(`Unable to set parent for environment: ${err}`);
+          }
+        });
     }
   }
 
@@ -105,5 +122,18 @@ export class AttachedEnvTenants extends LitElement {
       composed: true
     });
     this.dispatchEvent(event);
+  }
+
+  private onError(message: string) {
+    const event = new CustomEvent('error-alert', {
+      detail: {
+        description: message
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+
+    console.error(message);
   }
 }
