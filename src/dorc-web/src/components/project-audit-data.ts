@@ -1,20 +1,15 @@
-import { css, LitElement, render} from 'lit';
-import '@vaadin/text-field';
-import '@vaadin/combo-box';
-import '@vaadin/button';
-import '@vaadin/details';
-import '@vaadin/checkbox';
+import { css, PropertyValues, LitElement, render} from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/dialog';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
-import type { ProjectApiModel } from '../apis/dorc-api';
 import '@polymer/paper-dialog';
 import '../components/hegs-dialog';
 import { HegsDialog } from './hegs-dialog';
 import '@vaadin/button';
 import {
+  Grid,
   GridDataProviderCallback,
   GridDataProviderParams,
   GridFilterDefinition,
@@ -27,31 +22,34 @@ import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '@vaadin/text-field';
 import '../components/add-daemon';
 import { PagedDataSorting, RefDataProjectAuditApi } from '../apis/dorc-api';
+import type { ProjectApiModel } from '../apis/dorc-api';
 import {
   GetRefDataAuditListResponseDto,
   PagedDataFilter,
   RefDataAuditApiModel
 } from '../apis/dorc-api/models';
 
+let _project: ProjectApiModel | undefined;
+
 @customElement('project-audit-data')
 export class ProjectAuditData extends LitElement {
   @property({ type: Object })
-  get project(): ProjectApiModel {
-    return this._project;
+  get project(): ProjectApiModel | undefined {
+    return _project;
   }
 
   set project(value: ProjectApiModel) {
     if (value === undefined) return;
-    const oldVal = this._project;
-    this._project = JSON.parse(JSON.stringify(value));
+    _project = JSON.parse(JSON.stringify(value));
+    const grid = this?.shadowRoot?.getElementById('grid') as Grid;
+    if (grid != undefined)
+      grid.clearCache();
 
-    this.requestUpdate('project', oldVal);
+    this.requestUpdate('project', value);
   }
 
-  private _project = this.getEmptyProj();
 
   @property({ type: Boolean }) loading = true;
   
@@ -61,7 +59,8 @@ export class ProjectAuditData extends LitElement {
     return css`
       vaadin-grid#grid {
         overflow: hidden;
-        height: calc(100vh - 56px);
+        height: calc(100vh - 225px);
+        width: 1500px;
         --divider-color: rgb(223, 232, 239);
       }
 
@@ -76,9 +75,9 @@ export class ProjectAuditData extends LitElement {
         position: absolute;
       }
       .overlay__content {
-        left: 20%;
+        left: 5%;
         position: absolute;
-        top: 20%;
+        top: 5%;
         transform: translate(-50%, -50%);
       }
       .spinner {
@@ -119,7 +118,7 @@ export class ProjectAuditData extends LitElement {
       <hegs-dialog
         id="dialog"
         title="Project Audit"
-          style="width: 1000px; height: 500px; z-index: 1"
+          style="width: 100wh; height: 100vh; z-index: 1"
       >
         <vaadin-grid
           id="grid"
@@ -128,7 +127,7 @@ export class ProjectAuditData extends LitElement {
           theme="compact row-stripes no-row-borders no-border"
           .dataProvider="${this.getProjectValuesAudit}"
           .cellClassNameGenerator="${this.cellClassNameGenerator}"
-          style="width: 1000px; height: 500px; z-index: 1"
+          style="z-index: 1"
           ?hidden="${this.loading}"
         >
           <vaadin-grid-column
@@ -156,6 +155,19 @@ export class ProjectAuditData extends LitElement {
         </vaadin-grid>
       </hegs-dialog>
     `;
+  }
+  
+    protected firstUpdated(_changedProperties: PropertyValues) {
+    super.firstUpdated(_changedProperties);
+  
+    this.addEventListener(
+      'project-audit-values-loaded',
+      this.auditLoaded as EventListener
+    );
+  }
+
+  private auditLoaded() {
+    this.loading = false;
   }
 
   getEmptyProj(): ProjectApiModel {
@@ -277,13 +289,9 @@ export class ProjectAuditData extends LitElement {
     _column: GridColumn,
     model: GridItemModel<RefDataAuditApiModel>
   ) {
-
     render(
-        html` <div id="old" style="margin:0px">
-            ${document.createRange().createContextualFragment(model.item.Json ?? '')}
-          </div>
-          <div id="new">${model.item.Json ?? ''}</div>`,
-        root
+      html`<textarea name="" id="myTextarea" cols="130" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
+      root
     );
   }
 
@@ -291,20 +299,8 @@ export class ProjectAuditData extends LitElement {
     params: GridDataProviderParams<RefDataAuditApiModel>,
     callback: GridDataProviderCallback<RefDataAuditApiModel>
   ) {
-    if (this.project == undefined || this.project == null)
+    if (!_project || _project == null || _project?.ProjectId == null)
       return;
-    // const valueIdx = params.filters.findIndex(
-    //   filter => filter.path === 'Value'
-    // );
-
-    // if (valueIdx !== -1) {
-    //   const auditToFromValue = params.filters[valueIdx].value;
-    //   params.filters.splice(valueIdx, 1);
-    //   if (auditToFromValue !== '') {
-    //     params.filters.push({ path: 'ToValue', value: auditToFromValue });
-    //     params.filters.push({ path: 'FromValue', value: auditToFromValue });
-    //   }
-    // }
 
     const pathNames = ['PropertyName', 'EnvironmentName', 'UpdatedBy'];
     pathNames.forEach(x => {
@@ -321,7 +317,7 @@ export class ProjectAuditData extends LitElement {
     const api = new RefDataProjectAuditApi();
     api
       .refDataProjectAuditPut({
-        projectId: this.project.ProjectId,
+        projectId: _project?.ProjectId ?? 0,
         pagedDataOperators: {
           Filters: params.filters.map(
             (f: GridFilterDefinition): PagedDataFilter => ({
@@ -356,7 +352,7 @@ export class ProjectAuditData extends LitElement {
         error: (err: any) => console.error(err),
         complete: () => {
           this.dispatchEvent(
-            new CustomEvent('variable-value-audit-loaded', {
+            new CustomEvent('project-audit-values-loaded', {
               detail: {},
               bubbles: true,
               composed: true
