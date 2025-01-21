@@ -114,11 +114,6 @@ export class AddEnvTenant extends LitElement {
     this.selectedEnvironmentId = event.detail.value;
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    this._fetchPossibleTenants();
-  }
-
   updated(changedProperties: PropertyValueMap<any>) {
     if (changedProperties.has('parentEnvironment')) {
       this._fetchPossibleTenants();
