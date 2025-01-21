@@ -13,7 +13,7 @@ import { css } from 'lit';
 export class EnvTenants extends PageEnvBase {
   @property({ type: Boolean }) private envReadOnly = false;
   @property({ type: Boolean }) addTenant = false;
-  
+
   static get styles() {
     return css`
       :host {
@@ -27,6 +27,10 @@ export class EnvTenants extends PageEnvBase {
         font-size: 10px;
         color: cornflowerblue;
         padding: 2px;
+      }
+      .card-element__text {
+        color: gray;
+        margin: 4px;
       }
     `;
   }
@@ -43,6 +47,21 @@ export class EnvTenants extends PageEnvBase {
 
   render() {
     return html`
+      ${this.environment?.ParentEnvironment ? html`
+        <h4 class="card-element__text">
+          Parent Environment: ${this.environment?.ParentEnvironment?.EnvironmentName}
+          <vaadin-button
+              title="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
+              theme="icon"
+              @click="${this.openEnvironmentDetails}"
+            >
+              <vaadin-icon
+                icon="hardware:developer-board"
+                style="color: cornflowerblue"
+              ></vaadin-icon>
+            </vaadin-button>
+          </h4>
+      `: html``}
       <vaadin-details
         opened
         summary="Environment tenants"
@@ -71,5 +90,16 @@ export class EnvTenants extends PageEnvBase {
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
+  }
+
+  private openEnvironmentDetails() {
+    const event = new CustomEvent('open-env-detail', {
+      detail: {
+        Environment: this.environment?.ParentEnvironment,
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
   }
 }
