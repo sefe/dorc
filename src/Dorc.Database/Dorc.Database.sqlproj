@@ -372,6 +372,7 @@
     </Build>
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentResult_DeploymentRequestId.sql" />
     <Build Include="deploy\Tables\BundledRequests.sql" />
+    <Build Include="deploy\Stored Procedures\GetFullEnvironmentChain.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">

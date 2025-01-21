@@ -8,6 +8,7 @@ using Environment = Dorc.PersistentData.Model.Environment;
 using Property = Dorc.PersistentData.Model.Property;
 using Server = Dorc.PersistentData.Model.Server;
 using User = Dorc.PersistentData.Model.User;
+using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Dorc.PersistentData.Model;
 
@@ -270,6 +271,34 @@ namespace Dorc.PersistentData.Contexts
         public IEnumerable<ConfigValue> GetAllConfigValues()
         {
             return ConfigValues.ToList();
+        }
+
+        public IList<EnvironmentChainItemDto> GetFullEnvironmentChain(int environmentId)
+        {
+            var parameters = new List<SqlParameter>
+            {
+                new SqlParameter("@EnvironmentId", SqlDbType.Int) {Value = environmentId},
+            };
+            var ds = RunSp("deploy.GetFullEnvironmentChain", parameters);
+
+            var result = new List<EnvironmentChainItemDto>(ds.Tables[0].Rows.Count);
+            for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
+            {
+                var row = ds.Tables[0].Rows[i];
+                var env = new EnvironmentChainItemDto
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    ParentId = row["ParentId"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["ParentId"]),
+                    Name = row["Name"].ToString(),
+                    IsProd = Convert.ToBoolean(row["IsProd"]),
+                    Secure = Convert.ToBoolean(row["Secure"]),
+                    Owner = row["Owner"].ToString(),
+                    ObjectId = Guid.Parse(row["ObjectId"].ToString())
+                };
+                result.Add(env);
+            }
+
+            return result;
         }
     }
 }

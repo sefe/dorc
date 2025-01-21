@@ -1,0 +1,36 @@
+﻿CREATE PROCEDURE [deploy].[GetFullEnvironmentChain]
+    @EnvironmentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- CTE to find all ancestors (parent chain)
+    WITH Ancestors AS (
+        SELECT Id, ParentId, Name, IsProd, Secure, Owner, ObjectId
+        FROM deploy.Environment
+        WHERE Id = @EnvironmentId
+        UNION ALL
+        SELECT e.Id, e.ParentId, e.Name, e.IsProd, e.Secure, e.Owner, e.ObjectId
+        FROM deploy.Environment e
+        INNER JOIN Ancestors a ON e.Id = a.ParentId
+    ),
+    -- CTE to find all descendants (child chain)
+    Descendants AS (
+        SELECT Id, ParentId, Name, IsProd, Secure, Owner, ObjectId
+        FROM deploy.Environment
+        WHERE Id = @EnvironmentId
+        UNION ALL
+        SELECT e.Id, e.ParentId, e.Name, e.IsProd, e.Secure, e.Owner, e.ObjectId
+        FROM deploy.Environment e
+        INNER JOIN Descendants d ON e.ParentId = d.Id
+    )
+    -- Select and combine results from both CTEs
+    -- Use DISTINCT to eliminate any duplicates
+    SELECT DISTINCT Id, ParentId, Name, IsProd, Secure, Owner, ObjectId
+    FROM (
+        SELECT * FROM Ancestors
+        UNION ALL
+        SELECT * FROM Descendants
+    ) AS CombinedResults
+    ORDER BY Id;
+END;

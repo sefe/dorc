@@ -796,6 +796,10 @@ namespace Dorc.PersistentData.Sources
 
                 var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();
 
+                var envChain = context.GetFullEnvironmentChain(id);
+
+                mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList(); // filter all envs already in chain
+
                 var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel);
                 return possibleChildren;
             }
@@ -812,7 +816,9 @@ namespace Dorc.PersistentData.Sources
 
                 if (parentEnvId.HasValue)
                 {
-                    var parentEnv = EnvironmentUnifier.GetEnvironment(context, parentEnvId.Value);
+                    var envChain = context.GetFullEnvironmentChain(parentEnvId.Value);
+
+                    var parentEnv = envChain.FirstOrDefault(e => e.Id == parentEnvId);
                     if (parentEnv is null)
                         throw new ArgumentException("Parent environment not found.");
 
@@ -820,7 +826,12 @@ namespace Dorc.PersistentData.Sources
                     {
                         logger.Debug($"Environment {childEnv.Name} is already a child of {parentEnv.Name}");
                         return;
-                    }                        
+                    }
+                    
+                    if (envChain.FirstOrDefault(e => e.Id == childEnvId) is not null)
+                    {
+                        throw new ArgumentException($"Environment {childEnv.Name} is already in the chain of the environment {parentEnv.Name}.");
+                    }
 
                     childEnv.ParentId = parentEnvId;
                     EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
