@@ -71,16 +71,13 @@ namespace Dorc.Api.Services
                 }
             }
 
-            if (_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
+            if (_rolePrivilegesChecker.IsAdmin(user))
             {
                 foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
                 {
                     propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
                 }
-            }
 
-            if (_rolePrivilegesChecker.IsAdmin(user))
-            {
                 result.ForEach(value => value.UserEditable = true);
             }
 
