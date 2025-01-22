@@ -1,5 +1,6 @@
 ﻿CREATE PROCEDURE [deploy].[GetFullEnvironmentChain]
-    @EnvironmentId INT
+    @EnvironmentId INT,
+    @onlyParents BIT = 0
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -22,7 +23,7 @@ BEGIN
         UNION ALL
         SELECT e.Id, e.ParentId, e.Name, e.IsProd, e.Secure, e.Owner, e.ObjectId
         FROM deploy.Environment e
-        INNER JOIN Descendants d ON e.ParentId = d.Id
+        INNER JOIN Descendants d ON e.ParentId = d.Id AND @onlyParents = 0
     )
     -- Select and combine results from both CTEs
     -- Use DISTINCT to eliminate any duplicates

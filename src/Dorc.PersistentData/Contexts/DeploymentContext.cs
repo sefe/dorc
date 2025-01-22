@@ -273,11 +273,12 @@ namespace Dorc.PersistentData.Contexts
             return ConfigValues.ToList();
         }
 
-        public IList<EnvironmentChainItemDto> GetFullEnvironmentChain(int environmentId)
+        public IList<EnvironmentChainItemDto> GetFullEnvironmentChain(int environmentId, bool onlyParents = false)
         {
             var parameters = new List<SqlParameter>
             {
                 new SqlParameter("@EnvironmentId", SqlDbType.Int) {Value = environmentId},
+                new SqlParameter("@onlyParents", SqlDbType.Bit) {Value = onlyParents},
             };
             var ds = RunSp("deploy.GetFullEnvironmentChain", parameters);
 

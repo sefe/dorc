@@ -11,6 +11,7 @@ using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -402,6 +403,8 @@ namespace Dorc.PersistentData.Sources
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
             {
+                var parentEnvNamesChain = context.GetFullEnvironmentChain(scope.EnvironmentId, true).Select(e => e.Name);
+                
                 var envProps = from propertyValue in context.PropertyValues
                                join property in context.Properties on propertyValue.Property.Id equals property.Id
                                join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
@@ -420,7 +423,7 @@ namespace Dorc.PersistentData.Sources
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                     where env.Name == environment.Name && userSids.Contains(ac.Sid) && (ac.Allow & (int)AccessLevel.Write) != 0
                                     select env.Name).Any()
-                               where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
+                               where propertyFilter.Name == "environment" && parentEnvNamesChain.Contains(propertyValueFilter.Value)
                                select new FlatPropertyValueApiModel
                                {
                                    PropertyId = property.Id,
