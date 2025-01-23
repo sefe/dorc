@@ -24,7 +24,7 @@ namespace Dorc.Monitor
 
         private readonly ILog logger;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
-        private readonly IPropertyValuesPersistentSource propertyValuesPersistentSource;
+        private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IScriptGroupPipeServer scriptGroupPipeServer;
         private readonly IConfigurationSettings configurationSettingsEngine;
 
@@ -34,13 +34,13 @@ namespace Dorc.Monitor
 
         public ScriptDispatcher(
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
-            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            IConfigValuesPersistentSource configValuesPersistentSource,
             ILog logger,
             IScriptGroupPipeServer scriptGroupPipeServer,
             IConfigurationSettings configurationSettingsEngine)
         {
             this.processesPersistentSource = processesPersistentSource;
-            this.propertyValuesPersistentSource = propertyValuesPersistentSource;
+            this._configValuesPersistentSource = configValuesPersistentSource;
             this.logger = logger;
             this.scriptGroupPipeServer = scriptGroupPipeServer;
             this.configurationSettingsEngine = configurationSettingsEngine;
@@ -234,12 +234,12 @@ namespace Dorc.Monitor
         {
             if (isProduction)
             {
-                return (GetPropertyValue(ProdDeployUsernamePropertyName, environmentName),
-                    GetPropertyValue(ProdDeployPasswordPropertyName, environmentName));
+                return (GetConfigValue(ProdDeployUsernamePropertyName),
+                    GetConfigValue(ProdDeployPasswordPropertyName));
             }
 
-            return (GetPropertyValue(NonProdDeployUsernamePropertyName, environmentName),
-                GetPropertyValue(NonProdDeployPasswordPropertyName, environmentName));
+            return (GetConfigValue(NonProdDeployUsernamePropertyName),
+                GetConfigValue(NonProdDeployPasswordPropertyName));
         }
 
         private string GetDeploymentRunnerFileFullName(
@@ -271,14 +271,9 @@ namespace Dorc.Monitor
             return fileInfo.FullName;
         }
 
-        private string GetPropertyValue(string propertyName, string environmentName)
+        private string GetConfigValue(string propertyName)
         {
-            var propertyValues = propertyValuesPersistentSource.GetPropertyValues(propertyName, environmentName, true);
-
-            if (propertyValues.Any())
-                return propertyValues.First().Value.ToString();
-            throw new ApplicationException(
-                $"Unable to locate a value for the property {propertyName} for Environment {environmentName}");
+            return _configValuesPersistentSource.GetConfigValue(propertyName);
         }
 
         private string ExtractPath(string scriptsLocation, ScriptApiModel scriptApiModel)

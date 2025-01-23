@@ -24,27 +24,16 @@ namespace Tools.DeployCopyEnvBuildCLI
             //Console.WriteLine(container.WhatDoIHave());
 
             var deployLibrary = container.GetInstance<IDeployLibrary>();
-            var propertiesPersistentDataSource = container.GetInstance<IPropertyValuesPersistentSource>();
+            var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
             var intReturnCode = 0;
             
-            var strTargetEnvWhiteList="";
-            try
-            {
-                var whiteListProperty = propertiesPersistentDataSource.GetGlobalProperties()
-                    .ToList()
-                    .FirstOrDefault(p=>p.Property.Name.Equals("DORC_CopyEnvBuildTargetWhitelist",StringComparison.CurrentCultureIgnoreCase));
-                if (whiteListProperty != null) strTargetEnvWhiteList = whiteListProperty.Value;
-            }
-            catch
-            {
-                Output("Couldn't find property DORC_CopyEnvBuildTargetWhitelist");
-            }
+            var whiteList = configValuesPersistentSource.GetConfigValue("DORC_CopyEnvBuildTargetWhitelist");
 
-            if (strTargetEnvWhiteList == "") return 1;
+            if (whiteList == "") return 1;
             
             var arguments = ParseArguments(args);
 
-            if (!strTargetEnvWhiteList.Contains(arguments.TargetEnv))
+            if (!whiteList.Contains(arguments.TargetEnv))
             {
                 Output(arguments.TargetEnv + " is not a supported target env...");
                 return intReturnCode;
