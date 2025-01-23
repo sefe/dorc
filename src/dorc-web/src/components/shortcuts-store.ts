@@ -12,7 +12,6 @@ import { EnvPageTabNames } from '../pages/page-environment.ts';
 
 @customElement('shortcuts-store')
 export class ShortcutsStore extends LitElement {
-  openEnvTabs: EnvironmentApiModel[] = [];
   openProjTabs: ProjectApiModel[] = [];
   openResultTabs: DeploymentRequestApiModel[] = [];
 
@@ -66,12 +65,13 @@ export class ShortcutsStore extends LitElement {
   private openEnvDetail(e: CustomEvent) {
     const env = e.detail.Environment as EnvironmentApiModel;
     const tab = e.detail.Tab as EnvPageTabNames;
-    const existingEnvs = this.openEnvTabs.find(
+    
+    const existingEnvs = this.dorcNavbar?.openEnvTabs.find(
       value => value.EnvironmentName === env.EnvironmentName
     );
     let path = '';
     if (existingEnvs === undefined) {
-      this.openEnvTabs.push(env);
+      this.dorcNavbar?.openEnvTabs.push(env);
       this.dorcNavbar?.insertEnvTab(env);
       console.log('inserted new tab');
     }
@@ -82,7 +82,7 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(this.getEnvDetailPath(env));
 
-    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+    setCookie(this.envDetailTabs, JSON.stringify(this.dorcNavbar?.openEnvTabs));
   }
 
   private openMonitorResult(e: CustomEvent) {
