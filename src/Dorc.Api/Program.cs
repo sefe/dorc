@@ -99,7 +99,7 @@ app.UseExceptionHandler(_ => { }); // empty lambda is required until https://git
 app.UseMiddleware<OptionsMiddleware>();
 app.UseCors(dorcCorsRefDataPolicy);
 
-app.UseHsts();
+//app.UseHsts();
 //app.UseHttpsRedirection();
 
 app.UseAuthentication();
