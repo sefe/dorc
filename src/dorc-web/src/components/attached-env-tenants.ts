@@ -9,6 +9,7 @@ import '@polymer/paper-dialog';
 import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
+import { EnvPageTabNames } from '../pages/page-environment';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
@@ -116,7 +117,8 @@ export class AttachedEnvTenants extends LitElement {
   openEnvironmentDetails(environment: EnvironmentApiModel) {
     const event = new CustomEvent('open-env-detail', {
       detail: {
-        Environment: environment
+        Environment: environment,
+        Tab: EnvPageTabNames.Tenants
       },
       bubbles: true,
       composed: true

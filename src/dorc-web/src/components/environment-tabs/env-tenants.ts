@@ -8,6 +8,7 @@ import '../attached-env-tenants';
 import '../add-env-tenant';
 import { PageEnvBase } from './page-env-base.ts';
 import { css } from 'lit';
+import { EnvPageTabNames } from '../../pages/page-environment.ts';
 
 @customElement('env-tenants')
 export class EnvTenants extends PageEnvBase {
@@ -38,7 +39,6 @@ export class EnvTenants extends PageEnvBase {
   constructor() {
     super();
     this.addEventListener('request-environment-update', this.forceLoadEnvironmentInfo);
-    super.loadEnvironmentInfo();
   }
 
   _addTenant() {
@@ -88,6 +88,10 @@ export class EnvTenants extends PageEnvBase {
     `;
   }
 
+  protected firstUpdated() {
+    this.loadEnvironmentInfo();
+  }
+
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
   }
@@ -96,6 +100,7 @@ export class EnvTenants extends PageEnvBase {
     const event = new CustomEvent('open-env-detail', {
       detail: {
         Environment: this.environment?.ParentEnvironment,
+        Tab: EnvPageTabNames.Tenants
       },
       bubbles: true,
       composed: true

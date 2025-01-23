@@ -8,6 +8,7 @@ import {
 import { Router } from '@vaadin/router';
 import { setCookie } from '../helpers/cookies.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
+import { EnvPageTabNames } from '../pages/page-environment.ts';
 
 @customElement('shortcuts-store')
 export class ShortcutsStore extends LitElement {
@@ -64,23 +65,24 @@ export class ShortcutsStore extends LitElement {
 
   private openEnvDetail(e: CustomEvent) {
     const env = e.detail.Environment as EnvironmentApiModel;
+    const tab = e.detail.Tab as EnvPageTabNames;
     const existingEnvs = this.openEnvTabs.find(
       value => value.EnvironmentName === env.EnvironmentName
     );
     let path = '';
     if (existingEnvs === undefined) {
       this.openEnvTabs.push(env);
-      path = this.dorcNavbar?.insertEnvTab(env) ?? '';
-    } else {
-      path = this.getEnvDetailPath(env);
+      this.dorcNavbar?.insertEnvTab(env);
+      console.log('inserted new tab');
     }
+
+    path = this.getEnvDetailPath(env, tab);
 
     Router.go(path);
 
-    this.dorcNavbar?.setSelectedTab(path);
+    this.dorcNavbar?.setSelectedTab(this.getEnvDetailPath(env));
 
     setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
-    console.log('inserted new tab');
   }
 
   private openMonitorResult(e: CustomEvent) {
@@ -148,7 +150,7 @@ export class ShortcutsStore extends LitElement {
     return `/monitor-result/${String(result.Id)}`;
   }
 
-  private getEnvDetailPath(env: EnvironmentApiModel) {
-    return `/environment/${String(env.EnvironmentName)}/metadata`;
+  private getEnvDetailPath(env: EnvironmentApiModel, tab: EnvPageTabNames = EnvPageTabNames.Metadata) {
+    return `/environment/${String(env.EnvironmentName)}/${tab}`;
   }
 }
