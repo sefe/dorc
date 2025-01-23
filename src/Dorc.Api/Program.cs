@@ -39,7 +39,7 @@ builder.Services
     .AddControllers(opts =>
     {
         opts.OutputFormatters.RemoveType<StringOutputFormatter>(); // never return plain text
-        opts.Filters.Add(new RequireHttpsAttribute());
+        //opts.Filters.Add(new RequireHttpsAttribute());
     })
     .AddJsonOptions(opts =>
     {
