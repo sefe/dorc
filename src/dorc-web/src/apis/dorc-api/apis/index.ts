@@ -25,6 +25,7 @@ export * from './RefDataEnvironmentsHistoryApi';
 export * from './RefDataEnvironmentsUsersApi';
 export * from './RefDataGroupsApi';
 export * from './RefDataPermissionApi';
+export * from './RefDataProjectAuditApi';
 export * from './RefDataProjectBuildsApi';
 export * from './RefDataProjectEnvironmentMappingsApi';
 export * from './RefDataProjectsApi';
