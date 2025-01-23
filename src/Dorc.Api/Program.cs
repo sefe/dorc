@@ -100,7 +100,7 @@ app.UseMiddleware<OptionsMiddleware>();
 app.UseCors(dorcCorsRefDataPolicy);
 
 app.UseHsts();
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
