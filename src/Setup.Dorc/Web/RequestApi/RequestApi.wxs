@@ -25,6 +25,7 @@
         <iis:WebSite Id="DOrcApi" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
           <iis:WebDirProperties Id="SiteDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
 		  <iis:WebAddress Id="AllUnassigned" Port="8443"  Secure="true" />
+		  <iis:WebAddress Id="AllUnassigned8080" Port="8080" />
 		  <iis:CertificateRef Id='MySSLCertApi' />
           <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApi" />
         </iis:WebSite>
@@ -66,6 +67,7 @@
 		  <iis:WebSite Id="DOrcApiProd" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
 			  <iis:WebDirProperties Id="SiteDirPropertiesProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
 			  <iis:WebAddress Id="AllUnassignedProd" Port="8443"  Secure="true" />
+			  <iis:WebAddress Id="AllUnassignedProd8080" Port="8080" />
 			  <iis:CertificateRef Id='MySSLCertApiProd' />
 			  <iis:WebApplication Id="DOrcApiWebAppProd" WebAppPool="DeployApiPoolProd" Name="DOrcApi" />
 		  </iis:WebSite>
