@@ -64,7 +64,7 @@
 
 	 <iis:WebSite Id="DeploymentOrchestratorWebSiteProd" Description="Dorc Web" Directory="DorcWebFolder" ConfigureIfExists="yes">
 	  <iis:WebAddress Id="All80UnassignedProd" Port="80" Secure="false" />
-	  <iis:WebAddress Id="All443Unassigned" IP="*" Port="443" Secure="true" />
+	  <iis:WebAddress Id="All443UnassignedProd" IP="*" Port="443" Secure="true" />
 	  <iis:CertificateRef Id='MySSLCertProd' />
 	  <iis:WebApplication Id="WebSiteApplicationProd" Name="Dorc Web" WebAppPool="DOrcWebAppPoolProd" />
 	  <iis:WebVirtualDir Id="DeploymentOrchestratorVirtualDirProd" Alias="/" Directory="DorcWebFolder">
