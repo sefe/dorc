@@ -1,17 +1,15 @@
-﻿using System.Collections.Concurrent;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Security.Principal;
 using System.Text.Json;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Property = Dorc.PersistentData.Model.Property;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData;
-using Dorc.PersistentData.Contexts;
-using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -403,8 +401,6 @@ namespace Dorc.PersistentData.Sources
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var parentEnvNamesChain = context.GetFullEnvironmentChain(scope.EnvironmentId, true).Select(e => e.Name);
-                
                 var envProps = from propertyValue in context.PropertyValues
                                join property in context.Properties on propertyValue.Property.Id equals property.Id
                                join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
@@ -423,7 +419,7 @@ namespace Dorc.PersistentData.Sources
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                     where env.Name == environment.Name && userSids.Contains(ac.Sid) && (ac.Allow & (int)AccessLevel.Write) != 0
                                     select env.Name).Any()
-                               where propertyFilter.Name == "environment" && parentEnvNamesChain.Contains(propertyValueFilter.Value)
+                               where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
                                select new FlatPropertyValueApiModel
                                {
                                    PropertyId = property.Id,
@@ -444,6 +440,10 @@ namespace Dorc.PersistentData.Sources
                 }
                 else
                 {
+                    var parentEnvNamesChain = context.GetFullEnvironmentChain(scope.EnvironmentId, true)
+                        .Where(env => env.Name != scope.EnvironmentName && !env.Secure)
+                        .Select(e => e.Name);
+
                     var global = from propertyValue in context.PropertyValues
                                  join property in context.Properties on propertyValue.Property.Id equals property.Id
                                  join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
@@ -462,7 +462,29 @@ namespace Dorc.PersistentData.Sources
                                      UserEditable = false // admin privileges are set at the calling fn
                                  };
 
-                    scopedPropertyValuesQuery = envProps.Union(global);
+                    var envParentProps = from propertyValue in context.PropertyValues
+                                         join property in context.Properties on propertyValue.Property.Id equals property.Id
+                                         join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
+                                             propertyValueFilter.PropertyValue.Id
+                                         join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                                             propertyFilter.Id
+                                         join environment in context.Environments on propertyValueFilter.Value equals
+                                             environment.Name
+                                         where propertyFilter.Name == "environment" && parentEnvNamesChain.Contains(propertyValueFilter.Value)
+                                         select new FlatPropertyValueApiModel
+                                         {
+                                             PropertyId = property.Id,
+                                             Property = property.Name,
+                                             PropertyValueScope = propertyValueFilter.Value,
+                                             PropertyValueScopeId = propertyValueFilter.Id,
+                                             PropertyValue = propertyValue.Value,
+                                             PropertyValueId = propertyValue.Id,
+                                             Secure = property.Secure,
+                                             IsArray = property.IsArray,
+                                             UserEditable = false // parent props not allowed to edit
+                                         };
+
+                    scopedPropertyValuesQuery = envProps.Union(envParentProps).Union(global);
                 }
 
                 if (operators.Filters != null && operators.Filters.Any())
