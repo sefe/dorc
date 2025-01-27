@@ -46,9 +46,10 @@ namespace Dorc.Api.Controllers
         {
             _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, propertyValueScope);
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, propertyValueScope);
-            if (_environmentsPersistentSource.GetEnvironment(propertyValueScope, User) != null)
+            var environment = _environmentsPersistentSource.GetEnvironment(propertyValueScope, User);
+            if (environment is not null)
             {
-                _variableScopeOptionsResolver.SetPropertyValues(_variableResolver);
+                _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
             }
 
             var props = _variableResolver.LocalProperties();

@@ -7,15 +7,13 @@ namespace Dorc.Core
 {
     public class VariableScopeOptionsResolver : IVariableScopeOptionsResolver
     {
-        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IPropertiesPersistentSource _propertiesPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IUserPermsPersistentSource _userPermsPersistentSource;
 
-        public VariableScopeOptionsResolver(IEnvironmentsPersistentSource environmentsPersistentSource,
-            IPropertiesPersistentSource propertiesPersistentSource,
+        public VariableScopeOptionsResolver(IPropertiesPersistentSource propertiesPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
@@ -26,17 +24,6 @@ namespace Dorc.Core
             _daemonsPersistentSource = daemonsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _propertiesPersistentSource = propertiesPersistentSource;
-            _environmentsPersistentSource = environmentsPersistentSource;
-        }
-
-        public void SetPropertyValues(IVariableResolver variableResolver)
-        {
-            var environmentName = variableResolver.GetPropertyValue("EnvironmentName").Value as string;
-            if (string.IsNullOrEmpty(environmentName)) return;
-
-            var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
-
-            SetPropertyValues(variableResolver, environment);
         }
 
         public void SetPropertyValues(IVariableResolver variableResolver, EnvironmentApiModel environment)
