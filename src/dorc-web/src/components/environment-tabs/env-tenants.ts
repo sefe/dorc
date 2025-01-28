@@ -7,7 +7,7 @@ import { html } from 'lit/html.js';
 import '../attached-env-tenants';
 import '../add-env-tenant';
 import { PageEnvBase } from './page-env-base.ts';
-import { css } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { EnvPageTabNames } from '../../pages/page-environment.ts';
 
 @customElement('env-tenants')
@@ -73,11 +73,11 @@ export class EnvTenants extends PageEnvBase {
             id="addTenant"
             .checked="${this.addTenant}"
             @click="${this._addTenant}"
-            .disabled="${this.envReadOnly}"
+            .disabled="${this.envReadOnly || !!this.environment?.ParentEnvironment}"
             >ATTACH
           </paper-toggle-button>
         </div>
-        ${this.addTenant ? html`
+        ${this.addTenant && !this.environment?.ParentEnvironment ? html`
           <add-env-tenant .parentEnvironment="${this.environment}"></add-env-tenant>
         `: html``}
         <attached-env-tenants 
@@ -88,7 +88,9 @@ export class EnvTenants extends PageEnvBase {
     `;
   }
 
-  protected firstUpdated() {
+  protected firstUpdated(_changedProperties: PropertyValues) {
+    super.firstUpdated(_changedProperties);
+    
     this.loadEnvironmentInfo();
   }
 

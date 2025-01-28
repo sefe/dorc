@@ -833,6 +833,11 @@ namespace Dorc.PersistentData.Sources
                         throw new ArgumentException($"Environment {childEnv.Name} is already in the chain of the environment {parentEnv.Name}.");
                     }
 
+                    if (parentEnv.ParentId is not null)
+                    {
+                        throw new ArgumentException($"Not allowed to have more than 1 level of environment hierarchy. Environment {parentEnv.Name} is already a child ");
+                    }
+
                     childEnv.ParentId = parentEnvId;
                     EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
                         "Attached as a child to parent environment " + parentEnv.Name,

@@ -87,7 +87,7 @@ export class AddEnvTenant extends LitElement {
               bubbles: true,
               composed: true
             }));
-            this._fetchPossibleTenants();
+
             Notification.show(`Tenant environment with ID ${envId} added successfully.`, {
               theme: 'success',
               position: 'bottom-start',
