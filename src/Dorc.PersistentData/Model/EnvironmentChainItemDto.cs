@@ -9,5 +9,6 @@
         public bool Secure { get; set; }
         public string Owner { get; set; }
         public Guid ObjectId { get; set; }
+        public int Distance { get; set;}
     }
 }

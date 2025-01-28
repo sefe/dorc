@@ -441,7 +441,7 @@ namespace Dorc.PersistentData.Sources
                 else
                 {
                     var parentEnvNamesChain = context.GetFullEnvironmentChain(scope.EnvironmentId, true)
-                        .Where(env => env.Name != scope.EnvironmentName && !env.Secure)
+                        .Where(env => env.Name != scope.EnvironmentName)
                         .Select(e => e.Name);
 
                     var global = from propertyValue in context.PropertyValues
@@ -470,7 +470,7 @@ namespace Dorc.PersistentData.Sources
                                              propertyFilter.Id
                                          join environment in context.Environments on propertyValueFilter.Value equals
                                              environment.Name
-                                         where propertyFilter.Name == "environment" && parentEnvNamesChain.Contains(propertyValueFilter.Value)
+                                         where propertyFilter.Name == "environment" && parentEnvNamesChain.Contains(propertyValueFilter.Value) && !envProps.Select(pv => pv.Property).Contains(property.Name)
                                          select new FlatPropertyValueApiModel
                                          {
                                              PropertyId = property.Id,
@@ -729,21 +729,7 @@ namespace Dorc.PersistentData.Sources
                 var properties = new Dictionary<string, PropertyValueDto>();
                 var environmentProperties =
                     GetEnvironmentProperties(_filters.First(f => f.Key.Name == EnvironmentPropertyFilterType).Value);
-                foreach (var t in environmentProperties)
-                {
-                    switch (t.Property.Secure)
-                    {
-                        case true:
-                            {
-                                t.Value = _encrypt.DecryptValue(t.Value.ToString());
-                                AddKeyPair(properties, t.Property.Name, t);
-                                break;
-                            }
-                        case false:
-                            AddKeyPair(properties, t.Property.Name, t);
-                            break;
-                    }
-                }
+                properties = getPropertiesValuesDict(environmentProperties);
 
                 return properties;
             });
@@ -761,26 +747,34 @@ namespace Dorc.PersistentData.Sources
                     return properties;
 
                 var globalProperties = GetGlobalProperties();
-                foreach (var t in globalProperties)
-                {
-                    switch (t.Property.Secure)
-                    {
-                        case true:
-                            {
-                                t.Value = _encrypt.DecryptValue(t.Value.ToString());
-                                AddKeyPair(properties, t.Property.Name, t);
-                                break;
-                            }
-                        case false:
-                            AddKeyPair(properties, t.Property.Name, t);
-                            break;
-                    }
-                }
+                properties = getPropertiesValuesDict(globalProperties);
                 return properties;
             });
 
             task.Start();
             return task;
+        }
+
+        private Dictionary<string, PropertyValueDto> getPropertiesValuesDict(PropertyValueDto[] dtoProperties)
+        {
+            var properties = new Dictionary<string, PropertyValueDto>();
+            foreach (var t in dtoProperties)
+            {
+                switch (t.Property.Secure)
+                {
+                    case true:
+                        {
+                            t.Value = _encrypt.DecryptValue(t.Value.ToString());
+                            AddKeyPair(properties, t.Property.Name, t);
+                            break;
+                        }
+                    case false:
+                        AddKeyPair(properties, t.Property.Name, t);
+                        break;
+                }
+            }
+
+            return properties;
         }
 
         private PropertyValueDto MapToPropertyValueDto(PropertyValue pv, bool decryptProperty = false)

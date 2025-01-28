@@ -3,13 +3,46 @@
 )
 AS
 BEGIN
-    select distinct p.Name, p.Secure, p.IsArray, pv.Value, pvf.Value, pf.Priority
-    from [deploy].[Property] as p
-             inner join [deploy].[PropertyValue] as pv on pv.PropertyId = p.Id
-             left join [deploy].[PropertyValueFilter] as pvf on pvf.PropertyValueId = pv.Id
-             inner join [deploy].[PropertyFilter] as pf on pf.Id = pvf.PropertyFilterId
-    where pvf.Value = @env
-    order by p.Name
+	WITH Ancestors AS (
+        SELECT Id, ParentId, Name, IsProd, Secure, Owner, ObjectId, 0 AS Distance
+        FROM deploy.Environment
+        WHERE Name = @env
+        UNION ALL
+        SELECT e.Id, e.ParentId, e.Name, e.IsProd, e.Secure, e.Owner, e.ObjectId, a.Distance + 1 -- Distance is how far that environment from chosen environment
+        FROM deploy.Environment e
+        INNER JOIN Ancestors a ON e.Id = a.ParentId
+    ),
+    RankedProperties AS (SELECT 
+        p.Name as PropertyName, 
+        p.Secure, 
+        p.IsArray, 
+        pv.Value,
+		pvf.Value as PropertyFilterValue,
+        pf.Priority,
+		ec.Distance,
+		p.Id as PropertyId,
+		pv.Id as PropertyValueId,
+		ec.Id as EnvId,
+		pvf.Id as PropertyFilterId,
+		ROW_NUMBER() OVER (PARTITION BY p.Name ORDER BY ec.Distance) AS RowNum  -- Rank properties by distance within each property name
+    FROM 
+        [deploy].[Property] AS p
+    INNER JOIN 
+        [deploy].[PropertyValue] AS pv ON pv.PropertyId = p.Id
+    LEFT JOIN 
+        [deploy].[PropertyValueFilter] AS pvf ON pvf.PropertyValueId = pv.Id
+    INNER JOIN 
+        [deploy].[PropertyFilter] AS pf ON pf.Id = pvf.PropertyFilterId
+    INNER JOIN 
+         Ancestors AS ec ON pvf.Value = ec.Name)
+    SELECT 
+        PropertyName, Secure, IsArray, Value, PropertyFilterValue, Priority, Distance, PropertyId, PropertyValueId, EnvId, PropertyFilterId
+    FROM 
+        RankedProperties
+    WHERE 
+        RowNum = 1  -- Select only the properties with the minimal rank (closest environment)
+    ORDER BY 
+        Distance, PropertyName;
 END
 
 GO
