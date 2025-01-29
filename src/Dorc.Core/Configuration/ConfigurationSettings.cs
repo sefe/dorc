@@ -31,12 +31,12 @@ namespace Dorc.Core.Configuration
             return _configuration.GetConnectionString("DOrcConnectionString");
         }
 
-        public TimeSpan GetADUserCacheTimeSpan()
+        public TimeSpan? GetADUserCacheTimeSpan()
         {
             var adUserCacheTimeMinutesConfig = _configuration.GetSection("AppSettings")["ADUserCacheTimeMinutes"];
             if (!int.TryParse(adUserCacheTimeMinutesConfig, out int adUserCacheTimeMinutes))
             {
-                adUserCacheTimeMinutes = 5; // default to 5 minutes
+                return null;
             }
 
             return TimeSpan.FromMinutes(adUserCacheTimeMinutes);

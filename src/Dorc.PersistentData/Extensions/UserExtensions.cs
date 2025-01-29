@@ -57,7 +57,8 @@ namespace Dorc.PersistentData.Extensions
             result.Add(sidString);
 
             var sidList = result.ToList();
-            SidCache[username] = new CacheEntry { Sids = sidList, Timestamp = DateTime.Now };
+            if (CacheDuration is not null)
+                SidCache[username] = new CacheEntry { Sids = sidList, Timestamp = DateTime.Now };
 
             return sidList;
         }
