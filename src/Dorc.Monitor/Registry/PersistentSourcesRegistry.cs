@@ -21,7 +21,7 @@ namespace Dorc.Monitor.Registry
             collection.AddTransient<IUserPermsPersistentSource, UserPermsPersistentSource>();
             collection.AddTransient<IAccessControlPersistentSource, AccessControlPersistentSource>();
             collection.AddTransient<IProjectsPersistentSource, ProjectsPersistentSource>();
-            collection.AddTransient<ISecureKeyPersistentDataSource, SecureKeyPersistentDataSource>();
+            collection.AddSingleton<ISecureKeyPersistentDataSource, SecureKeyPersistentDataSource>();
             collection.AddTransient<IConfigValuesPersistentSource, ConfigValuesPersistentSource>();
         }
     }
