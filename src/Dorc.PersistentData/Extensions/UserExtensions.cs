@@ -11,7 +11,7 @@ namespace Dorc.PersistentData.Extensions
     public static class UserExtensions
     {
         private static readonly ConcurrentDictionary<string, CacheEntry> SidCache = new ConcurrentDictionary<string, CacheEntry>();
-        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+        public static TimeSpan? CacheDuration;
 
         private class CacheEntry
         {
@@ -26,7 +26,7 @@ namespace Dorc.PersistentData.Extensions
 
         public static List<string> GetSidsForUser(this string username)
         {
-            if (SidCache.TryGetValue(username, out var cacheEntry) && (DateTime.Now - cacheEntry.Timestamp) < CacheDuration)
+            if (CacheDuration is not null && SidCache.TryGetValue(username, out var cacheEntry) && (DateTime.Now - cacheEntry.Timestamp) < CacheDuration)
             {
                 return cacheEntry.Sids;
             }

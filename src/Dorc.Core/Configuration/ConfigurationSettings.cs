@@ -20,5 +20,26 @@ namespace Dorc.Core.Configuration
         {
             return _configuration.GetSection("AppSettings")["DomainNameIntra"];
         }
+
+        public string[] GetAllowedCorsLocations()
+        {
+            return _configuration.GetSection("AppSettings")["AllowedCORSLocations"]?.Split(",");
+        }
+
+        public string GetDorcConnectionString()
+        {
+            return _configuration.GetConnectionString("DOrcConnectionString");
+        }
+
+        public TimeSpan GetADUserCacheTimeSpan()
+        {
+            var adUserCacheTimeMinutesConfig = _configuration.GetSection("AppSettings")["ADUserCacheTimeMinutes"];
+            if (!int.TryParse(adUserCacheTimeMinutesConfig, out int adUserCacheTimeMinutes))
+            {
+                adUserCacheTimeMinutes = 5; // default to 5 minutes
+            }
+
+            return TimeSpan.FromMinutes(adUserCacheTimeMinutes);
+        }
     }
 }
