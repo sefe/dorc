@@ -74,9 +74,9 @@ builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 builder.Services.AddTransient<IConfigurationRoot>(_ => new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 
+// Enable throtting
 builder.Services.AddOptions();
 builder.Services.AddMemoryCache();
-
 builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
 builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
