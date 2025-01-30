@@ -42,34 +42,9 @@ namespace Dorc.Api.Services
             var allSids = string.Join(";", userSids);
 
             var result = new List<PropertyValueDto>();
-            if (string.IsNullOrEmpty(propertyName) && !string.IsNullOrEmpty(environmentName))
-            {
-                var propValues = _propertyValuesPersistentSource.GetEnvironmentProperties(environmentName, username, allSids).ToList();
-                foreach (var propValDto in propValues)
-                {
-                    propValDto.PropertyValueFilter = environmentName;
-                    result.Add(propValDto);
-                }
-            }
-            else if (!string.IsNullOrEmpty(propertyName) && string.IsNullOrEmpty(environmentName))
-            {
-                var propValues = _propertyValuesPersistentSource.GetPropertyValuesByName(propertyName, username, allSids);
-                if (propValues.Length != 0)
-                    result.AddRange(propValues);
-            }
-            else if (!string.IsNullOrEmpty(propertyName) && !string.IsNullOrEmpty(environmentName))
-            {
-                var propValues = _propertyValuesPersistentSource.GetPropertyValuesByName(propertyName, username, allSids);
-                if (propValues.Length != 0)
-                {
-                    var props = propValues
-                        .Where(p => p.PropertyValueFilter != null)
-                        .FirstOrDefault(pv =>
-                            pv.PropertyValueFilter.Equals(environmentName, StringComparison.CurrentCultureIgnoreCase));
-                    if (props != null)
-                        result.Add(props);
-                }
-            }
+
+            var propValues = _propertyValuesPersistentSource.GetPropertyValuesForUser(environmentName, propertyName, username, allSids).ToList();
+            result.AddRange(propValues);
 
             if (_rolePrivilegesChecker.IsAdmin(user))
             {

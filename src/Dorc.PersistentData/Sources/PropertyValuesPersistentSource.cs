@@ -188,37 +188,6 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto[] GetPropertyValuesByName(string propertyName, string username, string sidList)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var ds = context.GetPropertyValuesByName(propertyName, username, sidList);
-                var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
-                for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
-                {
-                    var isOwner = ds.Tables[0].Rows[i][7] as int?;
-                    var isDelegate = ds.Tables[0].Rows[i][8] as int?;
-                    var hasPermission = ds.Tables[0].Rows[i][9] as int?;
-
-                    result[i] = new PropertyValueDto
-                    {
-                        Property = new PropertyApiModel
-                        {
-                            Name = ds.Tables[0].Rows[i][0].ToString(),
-                            Secure = (bool)ds.Tables[0].Rows[i][1],
-                            IsArray = (bool)ds.Tables[0].Rows[i][2]
-                        },
-                        Value = ds.Tables[0].Rows[i][3].ToString(),
-                        PropertyValueFilter = ds.Tables[0].Rows[i][4] as string,
-                        Id = ds.Tables[0].Rows[i][5] is long ? (long)ds.Tables[0].Rows[i][5] : 0,
-                        PropertyValueFilterId = ds.Tables[0].Rows[i][6] as long?,
-                        UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
-                    };
-                }
-                return result;
-            }
-        }
-
         public PropertyValueDto[] GetPropertyValuesByName(string propertyName)
         {
             using (var context = _contextFactory.GetContext())
@@ -316,35 +285,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto[] GetEnvironmentProperties(string environment, string username, string sidList)
+        public PropertyValueDto[] GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList)
         {
+            if (environmentName is null && propertyName is null)
+                throw new ArgumentException("Both environmentName and propertyName cannot be null");
+
             using (var context = _contextFactory.GetContext())
             {
-                var ds = context.GetEnvironmentProperties(environment, username, sidList);
-                var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
-                for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
-                {
-                    var isOwner = ds.Tables[0].Rows[i][6] as int?;
-                    var isDelegate = ds.Tables[0].Rows[i][7] as int?;
-                    var hasPermission = ds.Tables[0].Rows[i][8] as int?;
-
-                    var propValue = new PropertyValueDto
-                    {
-                        Property = new PropertyApiModel
-                        {
-                            Name = ds.Tables[0].Rows[i][0].ToString(),
-                            Secure = (bool)ds.Tables[0].Rows[i][1],
-                            IsArray = (bool)ds.Tables[0].Rows[i][2]
-                        },
-                        Value = ds.Tables[0].Rows[i][3].ToString(),
-                        PropertyValueFilter = ds.Tables[0].Rows[i][4].ToString(),
-                        Priority = (int)ds.Tables[0].Rows[i][5],
-                        UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
-                    };
-                    result[i] = propValue;
-                }
-
-                return result;
+                var ds = context.GetPropertyValuesForUser(environmentName, propertyName, username, sidList);
+                return getPropertyValueDtosForUser(ds);
             }
         }
 
@@ -835,6 +784,35 @@ namespace Dorc.PersistentData.Sources
                 properties.Add(key, value);
             else
                 properties[key] = value;
+        }
+
+        private PropertyValueDto[] getPropertyValueDtosForUser(System.Data.DataSet ds)
+        {
+            var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
+            for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
+            {
+                var isOwner = ds.Tables[0].Rows[i][7] as int?;
+                var isDelegate = ds.Tables[0].Rows[i][8] as int?;
+                var hasPermission = ds.Tables[0].Rows[i][9] as int?;
+
+                result[i] = new PropertyValueDto
+                {
+                    Property = new PropertyApiModel
+                    {
+                        Name = ds.Tables[0].Rows[i][0].ToString(),
+                        Secure = (bool)ds.Tables[0].Rows[i][1],
+                        IsArray = (bool)ds.Tables[0].Rows[i][2]
+                    },
+                    Value = ds.Tables[0].Rows[i][3].ToString(),
+                    PropertyValueFilter = ds.Tables[0].Rows[i][4] as string,
+                    Id = ds.Tables[0].Rows[i][5] is long ? (long)ds.Tables[0].Rows[i][5] : 0,
+                    PropertyValueFilterId = ds.Tables[0].Rows[i][6] as long?,
+                    Priority = (int)ds.Tables[0].Rows[i][10],
+                    UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
+                };
+            }
+
+            return result;
         }
     }
 }

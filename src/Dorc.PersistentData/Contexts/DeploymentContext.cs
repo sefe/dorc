@@ -164,26 +164,16 @@ namespace Dorc.PersistentData.Contexts
             return RunSp("deploy.get_global_properties", new List<SqlParameter>());
         }
 
-        public DataSet GetEnvironmentProperties(string environment, string username, string sidList)
+        public DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList)
         {
             var parameters = new List<SqlParameter>
             {
-                new SqlParameter("@env", SqlDbType.VarChar) {Value = environment},
-                new SqlParameter("@username", SqlDbType.VarChar) {Value = username},
-                new SqlParameter("@sidList", SqlDbType.VarChar) {Value = sidList}
-            };
-            return RunSp("deploy.get_environment_properties_for_user", parameters);
-        }
-
-        public DataSet GetPropertyValuesByName(string propertyName, string username, string sidList)
-        {
-            var parameters = new List<SqlParameter>
-            {
+                new SqlParameter("@env", SqlDbType.VarChar) {Value = environmentName},
                 new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName},
                 new SqlParameter("@username", SqlDbType.VarChar) {Value = username},
                 new SqlParameter("@sidList", SqlDbType.VarChar) {Value = sidList}
             };
-            return RunSp("deploy.get_property_values_by_PropertyName_for_user", parameters);
+            return RunSp("deploy.get_property_values_for_user_with_inheritance", parameters);
         }
 
         public DataSet GetEnvironmentProperties(string environment)
