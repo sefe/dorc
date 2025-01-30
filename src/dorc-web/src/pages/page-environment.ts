@@ -180,9 +180,7 @@ export class PageEnvironment extends PageElement {
       return;
     }
 
-    if (tabName !== '') {
-      Router.go(pathStart + tabName);
-      console.log(`Telling router to go to ${tabName}`);
-    }
+    Router.go(pathStart + tabName);
+    console.log(`Telling router to go to ${tabName}`);
   }
 }
