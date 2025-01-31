@@ -389,15 +389,11 @@ namespace Dorc.PersistentData.Sources
                 }
                 else
                 {
-                    var parentEnvNamesChain = context.GetFullEnvironmentChain(scope.EnvironmentId, true)
-                        .Where(env => env.Name != scope.EnvironmentName)
-                        .Select(e => e.Name);
-
                     var global = from propertyValue in context.PropertyValues
                                  join property in context.Properties on propertyValue.Property.Id equals property.Id
                                  join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
                                  from final in tmp.DefaultIfEmpty()
-                                 where final == null && !envProps.Select(pv => pv.Property).Contains(property.Name)
+                                 where final == null
                                  select new FlatPropertyValueApiModel
                                  {
                                      PropertyId = property.Id,
@@ -411,29 +407,41 @@ namespace Dorc.PersistentData.Sources
                                      UserEditable = false // admin privileges are set at the calling fn
                                  };
 
-                    var envParentProps = from propertyValue in context.PropertyValues
-                                         join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                         join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                             propertyValueFilter.PropertyValue.Id
-                                         join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
-                                             propertyFilter.Id
-                                         join environment in context.Environments on propertyValueFilter.Value equals
-                                             environment.Name
-                                         where propertyFilter.Name == "environment" && parentEnvNamesChain.Contains(propertyValueFilter.Value) && !envProps.Select(pv => pv.Property).Contains(property.Name)
-                                         select new FlatPropertyValueApiModel
-                                         {
-                                             PropertyId = property.Id,
-                                             Property = property.Name,
-                                             PropertyValueScope = propertyValueFilter.Value,
-                                             PropertyValueScopeId = propertyValueFilter.Id,
-                                             PropertyValue = propertyValue.Value,
-                                             PropertyValueId = propertyValue.Id,
-                                             Secure = property.Secure,
-                                             IsArray = property.IsArray,
-                                             UserEditable = false // parent props not allowed to edit
-                                         };
+                    var parentEnv = context.Environments.FirstOrDefault(e => e.Id == scope.ParentId);
+                    if (parentEnv is not null)
+                    {
+                        var envParentProps = from propertyValue in context.PropertyValues
+                                             join property in context.Properties on propertyValue.Property.Id equals property.Id
+                                             join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
+                                                 propertyValueFilter.PropertyValue.Id
+                                             join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                                                 propertyFilter.Id
+                                             join environment in context.Environments on propertyValueFilter.Value equals
+                                                 environment.Name
+                                             where propertyFilter.Name == "environment" && (parentEnv.Name == propertyValueFilter.Value)
+                                             select new FlatPropertyValueApiModel
+                                             {
+                                                 PropertyId = property.Id,
+                                                 Property = property.Name,
+                                                 PropertyValueScope = propertyValueFilter.Value,
+                                                 PropertyValueScopeId = propertyValueFilter.Id,
+                                                 PropertyValue = propertyValue.Value,
+                                                 PropertyValueId = propertyValue.Id,
+                                                 Secure = property.Secure,
+                                                 IsArray = property.IsArray,
+                                                 UserEditable = false // Parent props not allowed to edit
+                                             };
 
-                    scopedPropertyValuesQuery = envProps.Union(envParentProps).Union(global);
+                        // Union the parent environment properties with the current environment properties and with global
+                        scopedPropertyValuesQuery = envProps
+                            .Union(envParentProps.Where(p => !envProps.Any(ep => ep.Property == p.Property)))
+                            .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property) && !envParentProps.Any(pp => pp.Property == g.Property)));
+                    }
+                    else
+                    {
+                        scopedPropertyValuesQuery = envProps
+                            .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property)));
+                    }                    
                 }
 
                 if (operators.Filters != null && operators.Filters.Any())
