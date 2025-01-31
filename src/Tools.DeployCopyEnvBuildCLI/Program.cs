@@ -28,8 +28,11 @@ namespace Tools.DeployCopyEnvBuildCLI
             var intReturnCode = 0;
             
             var whiteList = configValuesPersistentSource.GetConfigValue("DORC_CopyEnvBuildTargetWhitelist");
-
-            if (whiteList == "") return 1;
+            if (string.IsNullOrWhiteSpace(whiteList))
+            {
+                Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
+                return 1;
+            }
             
             var arguments = ParseArguments(args);
 
