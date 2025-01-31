@@ -30,7 +30,7 @@ namespace Dorc.Core.VariableResolution
             if (!Convert.TryFromBase64String(value, buffer, out int bytesParsed))
                 throw new ApplicationException($"Unable to convert {value} to base64 encoded string");
 
-            using (var memoryStream = new MemoryStream(Convert.FromBase64String(value)))
+            using (var memoryStream = new MemoryStream(buffer.Slice(0, bytesParsed).ToArray()))
             {
                 using (var cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
                 {
