@@ -145,6 +145,7 @@ steps:
     POLARIS_PROJECT_NAME: $(Build.Repository.Name)
     POLARIS_BRANCH_NAME: $(Build.SourceBranchName)
     POLARIS_REPORTS_SARIF_CREATE: true
+    DETECT_SEARCH_DEPTH: 5
 
 - task: BlackDuckSecurityScan@2.0.0
   displayName: 'Polaris PR Scan'
@@ -159,6 +160,7 @@ steps:
     POLARIS_BRANCH_PARENT_NAME: $(System.PullRequest.targetBranchName)
     POLARIS_PRCOMMENT_ENABLED: true
     AZURE_TOKEN: $(System.AccessToken)
+    DETECT_SEARCH_DEPTH: 5
 
 - task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
   displayName: 'Copy Install Scripts'
