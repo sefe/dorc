@@ -62,7 +62,7 @@ namespace Dorc.PersistentData.Contexts
         IEnumerable<ConfigValue> GetAllConfigValues();
         DbSet<TEntity> Set<TEntity>() where TEntity : class;
         EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
-        DataSet GetEnvironmentProperties(string environment);
+        DataSet GetEnvironmentProperties(string environmentName, string? propertyName);
         DataSet GetPropertyValuesByName(string propertyName);
         IList<EnvironmentChainItemDto> GetFullEnvironmentChain(int environmentId, bool onlyParents = false);
     }

@@ -115,29 +115,26 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var values = context.PropertyValues
-                    .Include(pv => pv.Filters)
-                    .ThenInclude(f => f.PropertyFilter)
-                    .Include(pv => pv.Property)
-                    .Where(pv => pv.Property.Name == propertyName).ToList();
-                if (!values.Any())
-                    return new List<PropertyValueDto>();
-
-                var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
-
-                var propertyValues = new List<PropertyValue>();
                 if (!string.IsNullOrEmpty(environmentName))
-                    propertyValues.AddRange(values.Where(x =>
-                        x.Filters.Any(f => f.PropertyFilter.Name == EnvironmentPropertyFilterType
-                                        && f.Value == environmentName)));
+                {
+                    var envProps = this.GetEnvironmentProperties(environmentName, propertyName);
+                    return envProps.Select(x => decryptProperty ? DecryptPropertyValue(ref x) : x).ToList();
+                }
+                else {
+                    var values = context.PropertyValues
+                        .Include(pv => pv.Filters)
+                        .ThenInclude(f => f.PropertyFilter)
+                        .Include(pv => pv.Property)
+                        .Where(pv => pv.Property.Name == propertyName).ToList();
 
-                if (propertyValues.Count == 0 && environment != null && !environment.Secure)
-                    propertyValues.AddRange(values.Where(x => !x.Filters.Any()));
+                    if (!values.Any())
+                    {
+                        return new List<PropertyValueDto>();
+                    }
 
-                if (propertyValues.Count == 0 && environment == null)
-                    propertyValues.AddRange(values.Where(x => !x.Filters.Any()));
-
-                return propertyValues.Select(x => MapToPropertyValueDto(x, decryptProperty)).ToList();
+                    var res = values.Where(x => !x.Filters.Any());
+                    return res.Select(x => MapToPropertyValueDto(x, decryptProperty)).ToList();                    
+                }
             }
         }
 
@@ -253,16 +250,15 @@ namespace Dorc.PersistentData.Sources
                     };
                     result[i] = pv;
                 }
-
                 return result;
             }
         }
 
-        public PropertyValueDto[] GetEnvironmentProperties(string environment)
+        public PropertyValueDto[] GetEnvironmentProperties(string environmentName, string? propertyName = null)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var ds = context.GetEnvironmentProperties(environment);
+                var ds = context.GetEnvironmentProperties(environmentName, propertyName);
                 var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
                 for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
                 {
@@ -784,6 +780,17 @@ namespace Dorc.PersistentData.Sources
             }
 
             return propertyValue.Value;
+        }
+
+        private PropertyValueDto DecryptPropertyValue(ref PropertyValueDto propertyValue)
+        {
+            if (propertyValue.Property.Secure
+                && propertyValue.Value != null)
+            {
+                propertyValue.Value = _encrypt.DecryptValue(propertyValue.Value);
+            }
+
+            return propertyValue;
         }
 
         private static void AddKeyPair(IDictionary<string, PropertyValueDto> properties, string key, PropertyValueDto value)

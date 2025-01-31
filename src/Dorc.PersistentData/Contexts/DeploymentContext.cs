@@ -176,11 +176,12 @@ namespace Dorc.PersistentData.Contexts
             return RunSp("deploy.get_property_values_for_user_with_inheritance", parameters);
         }
 
-        public DataSet GetEnvironmentProperties(string environment)
+        public DataSet GetEnvironmentProperties(string environmentName, string? propertyName)
         {
             var parameters = new List<SqlParameter>
             {
-                new SqlParameter("@env", SqlDbType.VarChar) {Value = environment}
+                new SqlParameter("@env", SqlDbType.VarChar) {Value = environmentName},
+                new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName}
             };
             return RunSp("deploy.get_environment_properties", parameters);
         }

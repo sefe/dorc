@@ -1,5 +1,6 @@
 ﻿CREATE PROCEDURE [deploy].[get_environment_properties](
-    @env varchar(50)
+    @env varchar(50),
+    @prop varchar(512) = NULL
 )
 AS
 BEGIN
@@ -34,7 +35,9 @@ BEGIN
     INNER JOIN 
         [deploy].[PropertyFilter] AS pf ON pf.Id = pvf.PropertyFilterId
     INNER JOIN 
-         Ancestors AS ec ON pvf.Value = ec.Name)
+         Ancestors AS ec ON pvf.Value = ec.Name
+    WHERE 
+        @prop IS NULL OR p.Name = @prop)
     SELECT 
         PropertyName, Secure, IsArray, Value, PropertyFilterValue, Priority, Distance, PropertyId, PropertyValueId, EnvId, PropertyFilterId
     FROM 

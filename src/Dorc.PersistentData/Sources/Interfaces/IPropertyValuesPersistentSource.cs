@@ -13,7 +13,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         PropertyValueDto GetCachedPropertyValue(string propertyName);
         void AddEnvironmentFilter(string envName);
         PropertyValueDto[] GetGlobalProperties();
-        PropertyValueDto[] GetEnvironmentProperties(string environment);
+        PropertyValueDto[] GetEnvironmentProperties(string environmentName, string? propertyName);
         IDictionary<string, PropertyValueDto> LoadAllPropertiesIntoCache();
         PropertyValueDto UpdatePropertyValue(long? propertyValueId, string newValue);
         PropertyValueDto AddPropertyValue(PropertyValueDto propertyValueDto);
