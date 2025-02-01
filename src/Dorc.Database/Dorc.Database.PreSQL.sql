@@ -1,23 +1,6 @@
 ﻿IF ((Select count(*) from deploy.property where name = 'DORC_NonProdDeployPassword') > 0)
 BEGIN
 
----- Insert the data
---INSERT INTO deploy.ConfigValue ([Key], Value, Secure)
---VALUES
---('DORC_CopyEnvBuildTargetWhitelist', '', 0),
---('DORC_DropDBExePath', '', 0),
---('DORC_NonProdDeployPassword', '', 1),
---('DORC_NonProdDeployUsername', '', 0),
---('DORC_ProdDeployPassword', '', 1),
---('DORC_ProdDeployUsername', '', 0),
---('DORC_PropertiesUrl', '', 0),
---('DORC_RestoreDBExePath', '', 0),
---('DORC_WebDeployPassword', '', 1),
---('DORC_WebDeployUsername', '', 0),
---('DorcApiAccessAccount', '', 0),
---('DorcApiAccessPassword', '', 1),
---('DorcApiBaseUrl', '', 0);
-
 DECLARE @Key NVARCHAR(255), @Value NVARCHAR(MAX), @Secure BIT;
 
 -- Declare a cursor to iterate over the ConfigValue table
