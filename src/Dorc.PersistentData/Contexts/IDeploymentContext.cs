@@ -51,7 +51,7 @@ namespace Dorc.PersistentData.Contexts
         IEnumerable<SelectDeploymentsByProjectDateResultDbo> sp_Select_Deployments_By_Project_Date();
         IEnumerable<SelectDeploymentsByProjectMonthResultDbo> sp_Select_Deployments_By_Project_Month();
         string AppendRequestLog(int id, string entry);
-        DataSet GetGlobalProperties();
+        DataSet GetGlobalProperties(string? propertyName);
         DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList);
         DataSet MapProjectToComponent(string projectName, string componentName);
         DataSet MapProjectToEnvironment(string projectName, string environmentName);

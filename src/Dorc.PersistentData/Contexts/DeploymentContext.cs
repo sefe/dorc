@@ -159,9 +159,13 @@ namespace Dorc.PersistentData.Contexts
             return result;
         }
 
-        public DataSet GetGlobalProperties()
+        public DataSet GetGlobalProperties(string? propertyName)
         {
-            return RunSp("deploy.get_global_properties", new List<SqlParameter>());
+            var parameters = new List<SqlParameter>
+            {
+                new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName},
+            };
+            return RunSp("deploy.get_global_properties", parameters);
         }
 
         public DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList)

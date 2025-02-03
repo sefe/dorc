@@ -10,6 +10,7 @@ using System.Security.Principal;
 using System.Text.Json;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Property = Dorc.PersistentData.Model.Property;
+using System.Linq;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -117,7 +118,18 @@ namespace Dorc.PersistentData.Sources
             {
                 if (!string.IsNullOrEmpty(environmentName))
                 {
-                    var envProps = this.GetEnvironmentProperties(environmentName, propertyName);
+                    var envProps = GetEnvironmentProperties(environmentName, propertyName).ToList();
+                    
+                    if (!envProps.Any(p => p.Property.Name == propertyName))
+                    {
+                        var environmentSecure = context.Environments.First(e => e.Name.Equals(environmentName)).Secure;
+                        if (!environmentSecure)
+                        {
+                            var globalProperties = GetGlobalProperties(propertyName);
+                            envProps.AddRange(globalProperties);
+                        }
+                    }
+
                     return envProps.Select(x => decryptProperty ? DecryptPropertyValue(ref x) : x).ToList();
                 }
                 else {
@@ -230,11 +242,11 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto[] GetGlobalProperties()
+        public PropertyValueDto[] GetGlobalProperties(string? propertyName = null)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var ds = context.GetGlobalProperties();
+                var ds = context.GetGlobalProperties(propertyName);
                 var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
                 for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
                 {
