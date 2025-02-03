@@ -81,6 +81,7 @@ namespace Dorc.Api.Services
                     var filteredPropertyValues = string.IsNullOrEmpty(propertyValueDto.PropertyValueFilter)
                         ? propertyValuesByName.FirstOrDefault(pv => pv.PropertyValueFilter == null)
                         : propertyValuesByName.FirstOrDefault(pv =>
+                            pv.PropertyValueFilter != null &&
                             pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                 StringComparison.CurrentCultureIgnoreCase));
 
