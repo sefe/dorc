@@ -12,6 +12,8 @@ namespace Tools.DeployCopyEnvBuildCLI
 {
     internal class Program
     {
+        const string CopyEnvBuildTargetWhitelistPropertyName = "DORC_CopyEnvBuildTargetWhitelist";
+
         private static int Main(string[] args)
         {
             var registry = new ServiceRegistry();
@@ -27,7 +29,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
             var intReturnCode = 0;
             
-            var whiteList = configValuesPersistentSource.GetConfigValue("DORC_CopyEnvBuildTargetWhitelist");
+            var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
             if (string.IsNullOrWhiteSpace(whiteList))
             {
                 Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
