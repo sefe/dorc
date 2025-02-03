@@ -271,10 +271,13 @@ namespace Dorc.Monitor
             return fileInfo.FullName;
         }
 
-        private string GetConfigValue(string propertyName)
+        private string GetConfigValue(string configValue)
         {
-            return _configValuesPersistentSource.GetConfigValue(propertyName);
+            if (string.IsNullOrEmpty(configValue))
+                throw new ApplicationException($"Config value name is empty, should have a value"); 
+            return _configValuesPersistentSource.GetConfigValue(configValue);
         }
+
 
         private string ExtractPath(string scriptsLocation, ScriptApiModel scriptApiModel)
         {
