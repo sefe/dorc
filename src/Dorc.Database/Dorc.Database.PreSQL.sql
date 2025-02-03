@@ -17,8 +17,8 @@ FROM (
 			pv.[Value] AS 'Value',
 			p.[Secure] AS 'Secure',
 			COUNT(p.[Name]) AS 'count'
-		FROM [DeploymentOrchestrator_ST].[deploy].[Property] AS p
-		JOIN [DeploymentOrchestrator_ST].[deploy].[PropertyValue] AS pv
+		FROM deploy.Property AS p
+		JOIN deploy.PropertyValue AS pv
 			ON pv.PropertyId = p.Id
 		WHERE [Name] in (
 			'DORC_CopyEnvBuildTargetWhitelist',
