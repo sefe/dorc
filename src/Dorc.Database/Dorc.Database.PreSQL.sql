@@ -1,22 +1,43 @@
 ﻿IF ((Select count(*) from deploy.property where name = 'DORC_NonProdDeployPassword') > 0)
 BEGIN
 
----- Insert the data
---INSERT INTO deploy.ConfigValue ([Key], Value, Secure)
---VALUES
---('DORC_CopyEnvBuildTargetWhitelist', '', 0),
---('DORC_DropDBExePath', '', 0),
---('DORC_NonProdDeployPassword', '', 1),
---('DORC_NonProdDeployUsername', '', 0),
---('DORC_ProdDeployPassword', '', 1),
---('DORC_ProdDeployUsername', '', 0),
---('DORC_PropertiesUrl', '', 0),
---('DORC_RestoreDBExePath', '', 0),
---('DORC_WebDeployPassword', '', 1),
---('DORC_WebDeployUsername', '', 0),
---('DorcApiAccessAccount', '', 0),
---('DorcApiAccessPassword', '', 1),
---('DorcApiBaseUrl', '', 0);
+-- Insert the data
+INSERT INTO deploy.ConfigValue ([Key], Value, Secure)
+SELECT result_with_rownum.[Name] AS 'Key', result_with_rownum.[Value] AS 'Value', result_with_rownum.[Secure] AS 'Secure'
+FROM (
+	SELECT 
+		result.[Name] AS 'Name',
+		result.[Value] AS 'Value',
+		result.[Secure] AS 'Secure',
+		result.[count],
+		ROW_NUMBER() OVER(PARTITION BY result.[Name] ORDER BY result.[count] DESC) AS row_num
+	FROM (
+		SELECT 
+			p.[Name] AS 'Name',
+			pv.[Value] AS 'Value',
+			p.[Secure] AS 'Secure',
+			COUNT(p.[Name]) AS 'count'
+		FROM [DeploymentOrchestrator_ST].[deploy].[Property] AS p
+		JOIN [DeploymentOrchestrator_ST].[deploy].[PropertyValue] AS pv
+			ON pv.PropertyId = p.Id
+		WHERE [Name] in (
+			'DORC_CopyEnvBuildTargetWhitelist',
+			'DORC_DropDBExePath',
+			'DORC_NonProdDeployPassword',
+			'DORC_NonProdDeployUsername',
+			'DORC_ProdDeployPassword',
+			'DORC_ProdDeployUsername',
+			'DORC_PropertiesUrl',
+			'DORC_RestoreDBExePath',
+			'DORC_WebDeployPassword',
+			'DORC_WebDeployUsername',
+			'DorcApiAccessAccount',
+			'DorcApiAccessPassword',
+			'DorcApiBaseUrl')
+		GROUP BY p.[Name], pv.[Value], p.[Secure]
+		) AS result
+	) as result_with_rownum
+WHERE result_with_rownum.[row_num] = 1
 
 DECLARE @Key NVARCHAR(255), @Value NVARCHAR(MAX), @Secure BIT;
 
