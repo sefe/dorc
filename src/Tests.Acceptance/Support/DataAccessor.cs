@@ -90,7 +90,7 @@ namespace Tests.Acceptance.Support
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
             using (SqlCommand deleteCommand = new SqlCommand(
-                "DELETE FROM [deploy].[Environment] WHERE Id = @id ;", sqlConnection))
+                "DELETE FROM [deploy].[EnvironmentHistory] WHERE EnvId = @id; DELETE FROM [deploy].[Environment] WHERE Id = @id ;", sqlConnection))
             {
                 SqlParameter parameter = new SqlParameter("@id", SqlDbType.Int);
                 parameter.Value = environmentId;
