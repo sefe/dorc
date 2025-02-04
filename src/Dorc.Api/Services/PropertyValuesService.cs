@@ -4,6 +4,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
 
 namespace Dorc.Api.Services
@@ -71,9 +72,16 @@ namespace Dorc.Api.Services
                 }
             }
 
-            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName)
-                && result.Any(propertyValueDto => propertyValueDto.Property.Secure))
-                throw new NonEnoughRightsException("User doesn't have \"ReadSecrets\" permission to read secured properties");
+            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
+            {
+                if (result.All(propertyValueDto => propertyValueDto.Property.Secure))
+                    throw new NonEnoughRightsException("User doesn't have \"ReadSecrets\" permission to read secured properties");
+
+                result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
+                {
+                    propertyValueDto.Value = String.Empty;
+                });
+            }
 
             foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
             {
