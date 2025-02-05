@@ -19,14 +19,14 @@ namespace Dorc.Api.Services
         private readonly List<AdPermittedGroup> permittedRoleGroups = new();
         private readonly string? _fullQualifiedDomainName;
 
-        public ClaimsTransformer()
+        public ClaimsTransformer(IConfigurationRoot configRoot)
         {
 
-            _fullQualifiedDomainName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
+            _fullQualifiedDomainName = configRoot.GetSection("AppSettings")[
                 "DomainNameIntra"];
 
             var activeDirectoryRoles =
-                new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")
+                configRoot.GetSection("AppSettings")
                     .GetSection("ActiveDirectoryRoles").GetChildren()
                     .ToDictionary(x => x.Key, x => x.Value);
 
