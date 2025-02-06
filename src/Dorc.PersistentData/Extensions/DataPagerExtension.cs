@@ -22,7 +22,10 @@ namespace Dorc.PersistentData.Extensions
             var startRow = (page - 1) * limit;
             paged.Items = query.Skip(startRow).Take(limit).ToList();
 
-            paged.TotalItems = query.Count();
+            // as appeared query.Count() is too heavy operation for big tables with joins so
+            // returning +1 item more than currently loaded items as TotalItems
+            var smartTotalItems = (paged.Items.Count == limit) ? page * limit + 1 : startRow + paged.Items.Count;
+            paged.TotalItems = smartTotalItems;
             paged.TotalPages = (int)Math.Ceiling(paged.TotalItems / (double)limit);
 
             return paged;
