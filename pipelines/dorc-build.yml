@@ -161,6 +161,7 @@ steps:
     POLARIS_PRCOMMENT_ENABLED: true
     AZURE_TOKEN: $(System.AccessToken)
     DETECT_SEARCH_DEPTH: 5
+    INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
 
 - task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
   displayName: 'Copy Install Scripts'
