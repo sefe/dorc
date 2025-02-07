@@ -72,7 +72,7 @@ namespace Dorc.Api.Services
                 }
             }
 
-            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
+            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && environmentName != null)
             {
                 if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
                     throw new NonEnoughRightsException("User doesn't have \"ReadSecrets\" permission to read secured properties");
@@ -83,9 +83,12 @@ namespace Dorc.Api.Services
                 });
             }
 
-            foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
+            if (_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
             {
-                propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
+                {
+                    propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                }
             }
 
             if (_rolePrivilegesChecker.IsAdmin(user))
