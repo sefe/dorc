@@ -146,7 +146,8 @@ steps:
     POLARIS_BRANCH_NAME: $(Build.SourceBranchName)
     POLARIS_REPORTS_SARIF_CREATE: true
     DETECT_SEARCH_DEPTH: 5
-
+    INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
+     
 - task: BlackDuckSecurityScan@2.0.0
   displayName: 'Polaris PR Scan'
   condition: eq(variables['Build.Reason'], 'PullRequest')
