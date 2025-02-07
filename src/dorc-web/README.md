@@ -164,6 +164,22 @@ openapi-generator-cli generate -g typescript-rxjs -i ..\dorc-api\swagger.json --
 
 azure json specs come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 
+
+## K6 load tests
+K6 grafana javascript framework is used to test the performance of the DOrc.
+It can test both API and browser page, see https://grafana.com/docs/k6/latest
+
+Install K6 on Windows:
+
+```cmd
+winget install k6 --source winget
+```
+
+Run tests example command:
+```cmd
+k6 run k6-tests/monitor-request-page-test.js
+```
+
 ## Help
 
 https://wiki/display/gdq/DOrc+Help
