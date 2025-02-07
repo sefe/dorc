@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Dorc.Api.Tests
 {
@@ -68,13 +64,55 @@ namespace Dorc.Api.Tests
             Assert.AreEqual(3, result.TotalPages);
         }
 
+        private class TestModel
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+        }
+
         [TestMethod]
         public void ContainsExpression_ShouldReturnValidExpressionForInt()
         {
             // Arrange
             var data = new List<TestModel>().AsQueryable();
-            string propertyName = "Id";
-            string propertyValue = "1";
+
+            // Act
+            var expression = data.ContainsExpression("Id", "1");
+
+            // Assert
+            Assert.IsNotNull(expression);
+            var compiledExpression = expression.Compile();
+
+            Assert.IsTrue(compiledExpression(new TestModel { Id = 1 }));
+            Assert.IsFalse(compiledExpression(new TestModel { Id = 2 }));
+        }
+
+        [TestMethod]
+        public void ContainsExpression_ShouldReturnValidExpressionForString()
+        {
+            // Arrange
+            var data = new List<TestModel>().AsQueryable();
+
+            // Act
+            var expression = data.ContainsExpression("Name", "Test");
+
+            // Assert
+            Assert.IsNotNull(expression);
+            var compiledExpression = expression.Compile();
+
+            var model = new TestModel();
+            Assert.IsTrue(compiledExpression(new TestModel { Name = "Test" }));
+            Assert.IsFalse(compiledExpression(new TestModel { Name = "test" })); // case-sensitive check
+            Assert.IsFalse(compiledExpression(new TestModel { Name = "noexists" }));
+        }
+
+        [TestMethod]
+        public void ContainsExpression_ShouldHandleEmptyValuesForString()
+        {
+            // Arrange
+            var data = new List<TestModel>().AsQueryable();
+            string propertyName = "Name";
+            string propertyValue = "Test";
 
             // Act
             var expression = data.ContainsExpression(propertyName, propertyValue);
@@ -82,14 +120,37 @@ namespace Dorc.Api.Tests
             // Assert
             Assert.IsNotNull(expression);
             var compiledExpression = expression.Compile();
-            Assert.IsTrue(compiledExpression(new TestModel { Id = 1 }));
-            Assert.IsFalse(compiledExpression(new TestModel { Id = 2 }));
+            Assert.IsFalse(compiledExpression(new TestModel { Name = "" }));
         }
 
-        private class TestModel
+        [TestMethod]
+        public void ContainsExpression_ShouldReturnNullForUnsupportedPropertyType()
         {
-            public string Name { get; set; }
-            public int Id { get; set; }
+            // Arrange
+            var data = new List<TestModel>().AsQueryable();
+            string propertyName = "CreatedDate"; // DateTime property (unsupported)
+            string propertyValue = "2023-01-01";
+
+            // Act
+            var expression = data.ContainsExpression(propertyName, propertyValue);
+
+            // Assert
+            Assert.IsNull(expression);
+        }
+
+        [TestMethod]
+        public void ContainsExpression_ShouldReturnNullForInvalidPropertyName()
+        {
+            // Arrange
+            var data = new List<TestModel>().AsQueryable();
+            string propertyName = "InvalidProperty";
+            string propertyValue = "Test";
+
+            // Act
+            var expression = data.ContainsExpression(propertyName, propertyValue);
+
+            // Assert
+            Assert.IsNull(expression);
         }
     }
 }

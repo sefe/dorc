@@ -35,12 +35,19 @@ namespace Dorc.PersistentData.Extensions
             string propertyValue)
         {
             var parameterExp = Expression.Parameter(typeof(T), "type");
+
+            if (typeof(T).GetProperty(propertyName) == null)
+            {
+                return null; // propertyName not exists in T
+            }
+
             var propertyExp = Expression.Property(parameterExp, propertyName);
+            
             if (propertyExp.Type == typeof(string))
             {
                 var method = typeof(string).GetMethod("Contains", new[] { typeof(string) });
-                var someValue = Expression.Constant(propertyValue, typeof(string));
-                var containsMethodExp = Expression.Call(propertyExp, method, someValue);
+
+                var containsMethodExp = Expression.Call(propertyExp, method, Expression.Invoke(() => propertyValue));
 
                 return Expression.Lambda<Func<T, bool>>(containsMethodExp, parameterExp);
             }
@@ -51,8 +58,8 @@ namespace Dorc.PersistentData.Extensions
                     throw new Exception("Invalid value detected for column");
 
                 var method = typeof(int).GetMethod("Equals", new[] { typeof(int) });
-                var someValue = Expression.Constant(intPropVal, typeof(int));
-                var containsMethodExp = Expression.Call(propertyExp, method, someValue);
+
+                var containsMethodExp = Expression.Call(propertyExp, method, Expression.Invoke(() => intPropVal));
 
                 return Expression.Lambda<Func<T, bool>>(containsMethodExp, parameterExp);
             }
