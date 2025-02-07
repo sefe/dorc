@@ -72,7 +72,7 @@ namespace Dorc.Api.Services
                 }
             }
 
-            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && environmentName != null)
+            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && !String.IsNullOrEmpty(environmentName))
             {
                 if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
                     throw new NonEnoughRightsException("User doesn't have \"ReadSecrets\" permission to read secured properties");
