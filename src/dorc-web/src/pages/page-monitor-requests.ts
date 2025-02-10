@@ -586,6 +586,8 @@ export class PageMonitorRequests extends PageElement {
     params: GridDataProviderParams<DeploymentRequestApiModel>,
     callback: GridDataProviderCallback<DeploymentRequestApiModel>
   ) {
+    if (params.filters !== undefined && params.filters.length !== 5) {  return;}
+    
     const detailsIdx = params.filters.findIndex(
       filter => filter.path === 'Details'
     );
