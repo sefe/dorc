@@ -17,10 +17,10 @@ namespace Dorc.Api.Services
     [SupportedOSPlatform("windows")]
     public class ClaimsTransformer : IClaimsTransformation
     {
-        private readonly IActiveDirectoryService _adService;
+        private readonly IActiveDirectoryUserGroupReader _adService;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IActiveDirectoryService adService)
+        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adService)
         {
             _adService = adService;
 

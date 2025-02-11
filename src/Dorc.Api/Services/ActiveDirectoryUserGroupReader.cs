@@ -8,13 +8,13 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Dorc.Api.Services
 {
     [SupportedOSPlatform("windows")]
-    public class ActiveDirectoryService : IActiveDirectoryService
+    public class ActiveDirectoryUserGroupReader : IActiveDirectoryUserGroupReader
     {
         private readonly string _domainName;
         private readonly IMemoryCache _cache;
         private readonly TimeSpan? _cacheExpiration;
 
-        public ActiveDirectoryService(IConfigurationSettings config, IMemoryCache cache)
+        public ActiveDirectoryUserGroupReader(IConfigurationSettings config, IMemoryCache cache)
         {
             _domainName = config.GetConfigurationDomainNameIntra();
             _cacheExpiration = config.GetADUserCacheTimeSpan();

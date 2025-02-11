@@ -79,7 +79,7 @@ builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 
 builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<IActiveDirectoryService, ActiveDirectoryService>();
+builder.Services.AddSingleton<IActiveDirectoryUserGroupReader, ActiveDirectoryUserGroupReader>();
 builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 
 // Enable throttling
