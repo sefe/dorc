@@ -4,6 +4,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
 
 namespace Dorc.Api.Services
@@ -71,13 +72,27 @@ namespace Dorc.Api.Services
                 }
             }
 
-            if (_rolePrivilegesChecker.IsAdmin(user))
+            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && !String.IsNullOrEmpty(environmentName))
+            {
+                if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
+                    throw new NonEnoughRightsException("User doesn't have \"ReadSecrets\" permission to read secured properties");
+
+                result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
+                {
+                    propertyValueDto.Value = String.Empty;
+                });
+            }
+
+            if (_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
             {
                 foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
                 {
                     propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
                 }
+            }
 
+            if (_rolePrivilegesChecker.IsAdmin(user))
+            {
                 result.ForEach(value => value.UserEditable = true);
             }
 

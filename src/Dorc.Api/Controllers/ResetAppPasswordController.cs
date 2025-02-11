@@ -21,21 +21,21 @@ namespace Dorc.Api.Controllers
     {
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly ISqlUserPasswordReset _sqlUserPasswordReset;
-        private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
+        private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly ILog _logger;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IConfigurationSettings _configurationSettingsEngine;
 
         public ResetAppPasswordController(IDatabasesPersistentSource databasesPersistentSource,
             ISqlUserPasswordReset sqlUserPasswordReset,
-            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            IConfigValuesPersistentSource configValuesPersistentSource,
             ILog logger,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IConfigurationSettings configurationSettingsEngine)
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _logger = logger;
-            _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _configValuesPersistentSource = configValuesPersistentSource;
             _sqlUserPasswordReset = sqlUserPasswordReset;
             _databasesPersistentSource = databasesPersistentSource;
             _configurationSettingsEngine = configurationSettingsEngine;
@@ -84,10 +84,8 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var user = _propertyValuesPersistentSource.GetPropertyValues("DORC_NonProdDeployUsername", envName, true)
-                    .FirstOrDefault();
-                var pwd = _propertyValuesPersistentSource.GetPropertyValues("DORC_NonProdDeployPassword", envName, true)
-                    .FirstOrDefault();
+                var user = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployUsername");
+                var pwd = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployPassword");
 
                 var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
 
@@ -104,7 +102,7 @@ namespace Dorc.Api.Controllers
                 //This parameter causes LogonUser to create a primary token.   
                 const int logon32LogonInteractive = 2;
 
-                bool returnValue = LogonUser(user.Value, domainName, pwd.Value,
+                bool returnValue = LogonUser(user, domainName, pwd,
                     logon32LogonInteractive, logon32ProviderDefault,
                     out var safeAccessTokenHandle);
 
