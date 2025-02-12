@@ -2,6 +2,7 @@
 {
     public enum Endpoints
     {
+        PropertyValues,
         RefDataUsers,
         RefDataServices,
         RefDataServers,

@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
@@ -100,6 +101,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 return Ok(propertyValues);
+            }
+            catch (NonEnoughRightsException e)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, e);
             }
             catch (Exception e)
             {
