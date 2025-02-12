@@ -12,7 +12,8 @@
 			<iis:RecycleTime Value="2:00" />
 		</iis:WebAppPool>
 
-      <Json:JsonFile Id="AppSettings1" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+      <Json:JsonFile Id="ApiSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+	  <Json:JsonFile Id="DorcHelperPageSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage" Value="[DORCHELPERPAGE]" />
 
       <iis:WebSite Id="DeploymentOrchestratorWebSite" Description="Dorc Web" Directory="DorcWebFolder" ConfigureIfExists="yes">
         <iis:WebAddress Id="All80Unassigned" Port="80" />
