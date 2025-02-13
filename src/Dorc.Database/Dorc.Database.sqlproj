@@ -144,6 +144,8 @@
     <Folder Include="deploy\Views\" />
     <Folder Include="dbo\Views\" />
     <Folder Include="dbo\Tables\Constraints" />
+    <Folder Include="Schema Objects\Schemas\archive" />
+    <Folder Include="Schema Objects\Schemas\archive\Tables" />
   </ItemGroup>
   <ItemGroup>
     <BuildContributorArgument Include="OutDir=$(OutDir)" />
@@ -372,11 +374,16 @@
     </Build>
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentResult_DeploymentRequestId.sql" />
     <Build Include="deploy\Tables\BundledRequests.sql" />
+    <Build Include="Schema Objects\Schemas\archive\Tables\DeploymentRequest.table.sql" />
+    <Build Include="Schema Objects\Schemas\archive\Tables\DeploymentResult.table.sql" />
+    <Build Include="deploy\Stored Procedures\ArchiveDeploymentRequests.sql" />
+    <Build Include="Schema Objects\Schemas\archive\Tables\EnvironmentComponentStatus.table.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">
       <SubType>NotInBuild</SubType>
     </None>
+    <Build Include="Schema Objects\Database Level Objects\Security\Schemas\archive.schema.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Pre-Deployment\Script.PreDeployment.sql" />
