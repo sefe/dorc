@@ -18,11 +18,16 @@ namespace Dorc.PersistentData.Contexts
         public const string CaseInsensitiveCollation = "SQL_Latin1_General_CP1_CI_AS";
 
         private readonly string nameOrConnectionString;
+        private static bool _ensuredCreated = false;
 
         public DeploymentContext(string nameOrConnectionString)
         {
             this.nameOrConnectionString = nameOrConnectionString;
-            Database.EnsureCreated();
+            if (!_ensuredCreated)
+            {
+                Database.EnsureCreated();
+                _ensuredCreated = true;
+            }
         }
 
         public DbSet<AccessControl> AccessControls { get; set; }
