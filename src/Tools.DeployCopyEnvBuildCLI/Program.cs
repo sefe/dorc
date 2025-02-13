@@ -12,6 +12,8 @@ namespace Tools.DeployCopyEnvBuildCLI
 {
     internal class Program
     {
+        const string CopyEnvBuildTargetWhitelistPropertyName = "DORC_CopyEnvBuildTargetWhitelist";
+
         private static int Main(string[] args)
         {
             var registry = new ServiceRegistry();
@@ -24,27 +26,19 @@ namespace Tools.DeployCopyEnvBuildCLI
             //Console.WriteLine(container.WhatDoIHave());
 
             var deployLibrary = container.GetInstance<IDeployLibrary>();
-            var propertiesPersistentDataSource = container.GetInstance<IPropertyValuesPersistentSource>();
+            var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
             var intReturnCode = 0;
             
-            var strTargetEnvWhiteList="";
-            try
+            var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
+            if (string.IsNullOrWhiteSpace(whiteList))
             {
-                var whiteListProperty = propertiesPersistentDataSource.GetGlobalProperties()
-                    .ToList()
-                    .FirstOrDefault(p=>p.Property.Name.Equals("DORC_CopyEnvBuildTargetWhitelist",StringComparison.CurrentCultureIgnoreCase));
-                if (whiteListProperty != null) strTargetEnvWhiteList = whiteListProperty.Value;
+                Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
+                return 1;
             }
-            catch
-            {
-                Output("Couldn't find property DORC_CopyEnvBuildTargetWhitelist");
-            }
-
-            if (strTargetEnvWhiteList == "") return 1;
             
             var arguments = ParseArguments(args);
 
-            if (!strTargetEnvWhiteList.Contains(arguments.TargetEnv))
+            if (!whiteList.Contains(arguments.TargetEnv))
             {
                 Output(arguments.TargetEnv + " is not a supported target env...");
                 return intReturnCode;

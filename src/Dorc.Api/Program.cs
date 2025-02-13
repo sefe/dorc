@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using System.Text.Json.Serialization;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Extensions;
+using AspNetCoreRateLimit;
+using Dorc.Api.Interfaces;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 
@@ -72,12 +74,26 @@ XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
 var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));
-builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IActiveDirectoryUserGroupReader, ActiveDirectoryUserGroupReader>();
+builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
+
+// Enable throttling
+builder.Services.AddOptions();
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
+builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
+builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+builder.Services.AddInMemoryRateLimiting();
+
 var app = builder.Build();
+
+app.UseIpRateLimiting();
 
 app.UseSwagger();
 app.UseSwaggerUI();

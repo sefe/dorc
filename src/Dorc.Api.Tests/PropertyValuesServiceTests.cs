@@ -4,7 +4,10 @@ using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using NSubstitute;
 
 namespace Dorc.Api.Tests
@@ -63,12 +66,12 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
-        public void GetPropertyValuesTestByEnvironmentName()
+        public void GetPropertyValuesTestByEnvironmentNameUnsecure()
         {
             const string propertyName = @"Test property";
             const string environmentName = @"Test environment";
             const string propertyValue = @"Test property value";
-            const bool secure = true;
+            const bool secure = false;
 
             var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
             var mockedPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
@@ -105,6 +108,100 @@ namespace Dorc.Api.Tests
                 {
                     Assert.Fail();
                 }
+            }
+            catch (Exception e)
+            {
+                Assert.Fail(e.Message);
+            }
+        }
+
+        [TestMethod]
+        public void GetPropertyValuesTestByEnvironmentNameSecure()
+        {
+            const string propertyName = @"Test property";
+            const string environmentName = @"Test environment";
+            const string propertyValue = @"Test property value";
+            const bool secure = true;
+
+            var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
+            var mockedPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
+
+            var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
+                mockedPropertiesPersistentSource, mockedEnvironmentsPersistentSource,
+                mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker);
+
+            mockedEnvironmentsPersistentSource.GetEnvironment(Arg
+                        .Any<string>())
+                .Returns(new EnvironmentApiModel());
+
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel{Name = propertyName, Secure = secure}, PropertyValueFilter = environmentName, Value = propertyValue
+                    }
+                });
+
+            Assert.ThrowsException<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)));
+        }
+
+        [TestMethod]
+        public void GetPropertyValuesTestByEnvironmentNameMixed()
+        {
+            const string environmentName = @"Test environment";
+
+            var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
+            var mockedPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
+
+            var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
+                mockedPropertiesPersistentSource, mockedEnvironmentsPersistentSource,
+                mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker);
+
+            mockedEnvironmentsPersistentSource.GetEnvironment(Arg
+                        .Any<string>())
+                .Returns(new EnvironmentApiModel());
+
+            mockedPropertyValuesPersistentSource.GetEnvironmentProperties(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel{Name = "property1", Secure = true}, PropertyValueFilter = environmentName, Value = "Value1"
+                    },
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel{Name = "property2", Secure = true}, PropertyValueFilter = environmentName, Value = "Value2"
+                    },
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel{Name = "property3", Secure = false}, PropertyValueFilter = environmentName, Value = "Value3"
+                    },
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel{Name = "property4", Secure = false}, PropertyValueFilter = environmentName, Value = "Value4"
+                    }
+                });
+
+            try
+            {
+                var result = testService.GetPropertyValues(
+                    propertyName: String.Empty,
+                    environmentName: environmentName,
+                    user: new GenericPrincipal(WindowsIdentity.GetCurrent(), null)
+                    );
+                Assert.IsTrue(result.Where(property => property.Property.Secure).All(property => String.IsNullOrEmpty(property.Value)));
+                Assert.IsTrue(result.Where(property => !property.Property.Secure).All(property => !String.IsNullOrEmpty(property.Value)));
             }
             catch (Exception e)
             {
