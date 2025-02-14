@@ -60,7 +60,7 @@ export class ProjectAuditData extends LitElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 225px);
-        width: 1500px;
+        width: calc(100vw - 400px);
         --divider-color: rgb(223, 232, 239);
       }
 
@@ -150,7 +150,7 @@ export class ProjectAuditData extends LitElement {
             .renderer="${this.valueRenderer}"
             .headerRenderer="${this.valueHeaderRenderer}"
             resizable
-            width="60em"
+            auto-width
           ></vaadin-grid-column>
         </vaadin-grid>
       </hegs-dialog>
@@ -239,7 +239,6 @@ export class ProjectAuditData extends LitElement {
             clear-button-visible
             slot="filter"
             focus-target
-            style="width: 100%"
             theme="small"
           ></vaadin-text-field>
         </vaadin-grid-filter>`,
@@ -290,7 +289,7 @@ export class ProjectAuditData extends LitElement {
     model: GridItemModel<RefDataAuditApiModel>
   ) {
     render(
-      html`<textarea name="" id="myTextarea" cols="130" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
+      html`<textarea name="" id="myTextarea" style="width:100%" cols="75" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
       root
     );
   }
