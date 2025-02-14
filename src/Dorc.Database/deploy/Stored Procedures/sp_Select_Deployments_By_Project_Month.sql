@@ -7,10 +7,18 @@ AS
      /*********************************************************************************************************/
 
     BEGIN TRY
-        WITH FixedProject
-             AS (SELECT id,
-                        Name AS ProjectName
-                 FROM deploy.project)
+        WITH 
+            FixedProject AS (
+                SELECT id,
+                Name AS ProjectName
+                FROM deploy.project),
+            CombinedDeploymentRequests AS (
+                 SELECT d.[id], d.[CompletedTime], d.[Project], d.[Status]
+                 FROM [deploy].[DeploymentRequest] d
+                 UNION ALL
+                 SELECT ar.[id], ar.[CompletedTime], ar.[Project], ar.[Status]
+                 FROM [archive].[DeploymentRequest] ar
+             )
                  INSERT INTO [deploy].[DeploymentsByProjectMonth]
 					SELECT	DATEPART(Year, [CompletedTime]) AS 'year',
 							DATEPART(Month, [CompletedTime]) AS 'month',
@@ -19,7 +27,7 @@ AS
 							END as ProjectName,
 							COUNT(distinct dr.[id]) AS 'CountofDeployments',
 							COUNT(distinct CASE WHEN dr.Status='Failed' THEN dr.[id] END) AS Failed
-					FROM [deploy].[DeploymentRequest] dr
+					FROM CombinedDeploymentRequests dr
 							LEFT JOIN [deploy].Project p ON p.Name = dr.Project
              WHERE [CompletedTime] IS NOT NULL
              GROUP BY DATEPART(Year, [CompletedTime]),
