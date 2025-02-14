@@ -4,6 +4,7 @@
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
 	DECLARE @MaxYearInArchive INT = 0;
 	DECLARE @TotalRowsArchived INT = 0;
