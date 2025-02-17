@@ -15,7 +15,8 @@
 			<iis:RecycleTime Value="2:00" />
 		</iis:WebAppPool>
 
-      <Json:JsonFile Id="AppSettings1" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+      <Json:JsonFile Id="ApiSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+	  <Json:JsonFile Id="DorcHelperPageSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage" Value="[DORCHELPERPAGE]" />
 
 	  <iis:Certificate
 	   BinaryRef="certBinary"
@@ -50,7 +51,8 @@
 	  <iis:RecycleTime Value="2:00" />
 	 </iis:WebAppPool>
 
-	 <Json:JsonFile Id="AppSettings1Prod" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+	 <Json:JsonFile Id="ApiSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
+	 <Json:JsonFile Id="DorcHelperPageSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage" Value="[DORCHELPERPAGE]" />
 
 	 <iis:Certificate
 	  BinaryRef="certBinaryProd"

@@ -12,13 +12,19 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using System.Net;
 using System.Text.Json.Serialization;
 using Dorc.Core.VariableResolution;
+using Dorc.PersistentData.Extensions;
+using AspNetCoreRateLimit;
+using Dorc.Api.Interfaces;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 
 var builder = WebApplication.CreateBuilder(args);
 
-var allowedCorsLocations = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
-    "AllowedCORSLocations"]?.Split(",");
+var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+var configurationSettings = new ConfigurationSettings(configBuilder);
+
+var allowedCorsLocations = configurationSettings.GetAllowedCorsLocations();
+UserExtensions.CacheDuration = configurationSettings.GetADUserCacheTimeSpan();
 
 builder.Services.AddCors(options =>
 {
@@ -70,12 +76,24 @@ builder.Host.UseLamar((context, registry) =>
 
 XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
-var cxnString = builder.Configuration.GetConnectionString("DOrcConnectionString");
+var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));
+
+builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
+builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IActiveDirectoryUserGroupReader, ActiveDirectoryUserGroupReader>();
 builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 
-builder.Services.AddTransient<IConfigurationRoot>(_ => new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
-builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
+// Enable throttling
+builder.Services.AddOptions();
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
+builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
+builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+builder.Services.AddInMemoryRateLimiting();
 
 //builder.Services.AddHttpsRedirection(options =>
 //{
@@ -91,6 +109,8 @@ builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 //});
 
 var app = builder.Build();
+
+app.UseIpRateLimiting();
 
 app.UseSwagger();
 app.UseSwaggerUI();

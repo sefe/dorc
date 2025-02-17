@@ -51,8 +51,8 @@ export class ComponentDeploymentResults extends LitElement {
         margin: 0px;
       }
       vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
+        padding-top: 5px;
+        padding-bottom: 5px;
         margin: 0px;
       }
     `;
@@ -84,6 +84,12 @@ export class ComponentDeploymentResults extends LitElement {
           path="ComponentName"
           header="Component Name"
           resizable
+          auto-width
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          resizable
+          .renderer="${this.timingsRenderer}"
+          header="Timings"
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -145,4 +151,52 @@ export class ComponentDeploymentResults extends LitElement {
   private logDialogClosed() {
     this.dialogOpened = false;
   }
+
+  private timingsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    const request = model.item as DeploymentResultApiModel;
+    let sTime = '';
+    let sDate = '';
+    let cTime = '';
+    let cDate = '';
+
+    if (request.StartedTime !== undefined && request.StartedTime !== null) {
+      sTime = new Date(request.StartedTime ?? '')?.toLocaleTimeString('en-GB');
+      sDate = new Date(request.StartedTime ?? '')?.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    if (request.CompletedTime !== undefined && request.CompletedTime !== null) {
+      cTime = new Date(request.CompletedTime ?? '')?.toLocaleTimeString(
+        'en-GB'
+      );
+      cDate = new Date(request.CompletedTime ?? '')?.toLocaleDateString(
+        'en-GB',
+        {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }
+      );
+    }
+
+    render(
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <vaadin-vertical-layout
+            style="line-height: var(--lumo-line-height-s);"
+          >
+            <div>${`${sDate} ${sTime}`}</div>
+            <div>${`${cDate} ${cTime}`}</div>
+          </vaadin-vertical-layout>
+        </vaadin-horizontal-layout>
+      `,
+      root
+    );
+  };
 }

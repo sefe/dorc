@@ -484,7 +484,7 @@ export class PageMonitorRequests extends PageElement {
     render(
       html`
         User
-        <vaadin-grid-filter path="Username">
+        <vaadin-grid-filter path="UserName">
           <vaadin-text-field
             clear-button-visible
             slot="filter"
@@ -586,6 +586,8 @@ export class PageMonitorRequests extends PageElement {
     params: GridDataProviderParams<DeploymentRequestApiModel>,
     callback: GridDataProviderCallback<DeploymentRequestApiModel>
   ) {
+    if (params.filters !== undefined && params.filters.length !== 5) {  return;}
+    
     const detailsIdx = params.filters.findIndex(
       filter => filter.path === 'Details'
     );
@@ -610,13 +612,13 @@ export class PageMonitorRequests extends PageElement {
     }
 
     const usernameIdx = params.filters.findIndex(
-      filter => filter.path === 'Username'
+      filter => filter.path === 'UserName'
     );
     if (usernameIdx !== -1) {
       const usernameValue = params.filters[usernameIdx].value;
       params.filters.splice(usernameIdx, 1);
       if (usernameValue !== '') {
-        params.filters.push({ path: 'Username', value: usernameValue });
+        params.filters.push({ path: 'UserName', value: usernameValue });
       }
     }
 

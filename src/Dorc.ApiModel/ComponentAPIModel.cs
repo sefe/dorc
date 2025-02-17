@@ -1,9 +1,11 @@
 ﻿using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Dorc.ApiModel
 {
     public class ComponentApiModel
     {
+        [JsonInclude]
         public IList<ComponentApiModel> Children;
         public int? ComponentId { get; set; }
         public string ComponentName { get; set; }
