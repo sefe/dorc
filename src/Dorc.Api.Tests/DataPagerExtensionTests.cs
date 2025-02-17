@@ -68,7 +68,7 @@ namespace Dorc.Api.Tests
         {
             public int Id { get; set; }
             public string Name { get; set; }
-            public DateTime CreatedDate { get; set; }
+            public DateTime CreatedDate { get; set; } // this is needed to test unsupported by filter property type (DateTime)
         }
 
         [TestMethod]
