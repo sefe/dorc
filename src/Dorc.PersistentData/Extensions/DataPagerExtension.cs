@@ -38,7 +38,7 @@ namespace Dorc.PersistentData.Extensions
 
             if (typeof(T).GetProperty(propertyName) == null)
             {
-                return null; // propertyName not exists in T
+                throw new ArgumentException($"Filter by '{propertyName}' has failed: type '{typeof(T).Name}' does not have property '{propertyName}'"); // propertyName not exists in T
             }
 
             var propertyExp = Expression.Property(parameterExp, propertyName);
