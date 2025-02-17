@@ -30,6 +30,8 @@ import {
   PagedDataFilter,
   RefDataAuditApiModel
 } from '../apis/dorc-api/models';
+import './hegs-json-viewer';
+import { HegsJsonViewer } from './hegs-json-viewer';
 
 let _project: ProjectApiModel | undefined;
 
@@ -288,10 +290,17 @@ export class ProjectAuditData extends LitElement {
     _column: GridColumn,
     model: GridItemModel<RefDataAuditApiModel>
   ) {
-    render(
-      html`<textarea name="" id="myTextarea" style="width:100%" cols="75" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
-      root
-    );
+          root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
+            JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)
+          }</hegs-json-viewer>`;
+          const viewer = root.querySelector(
+            'hegs-json-viewer'
+          ) as unknown as HegsJsonViewer;
+          viewer.expand('*');
+    //render(
+    //  html`<textarea name="" id="myTextarea" style="width:100%" cols="75" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
+    //  root
+    //);
   }
 
   getProjectValuesAudit(
