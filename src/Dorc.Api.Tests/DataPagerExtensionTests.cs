@@ -68,6 +68,7 @@ namespace Dorc.Api.Tests
         {
             public int Id { get; set; }
             public string Name { get; set; }
+            public DateTime CreatedDate { get; set; } // this is needed to test unsupported by filter property type (DateTime)
         }
 
         [TestMethod]
@@ -139,18 +140,14 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
-        public void ContainsExpression_ShouldReturnNullForInvalidPropertyName()
+        [ExpectedException(typeof(ArgumentException))]
+        public void ContainsExpression_ShouldThrowForInvalidPropertyName()
         {
             // Arrange
             var data = new List<TestModel>().AsQueryable();
-            string propertyName = "InvalidProperty";
-            string propertyValue = "Test";
 
             // Act
-            var expression = data.ContainsExpression(propertyName, propertyValue);
-
-            // Assert
-            Assert.IsNull(expression);
+            var expression = data.ContainsExpression("InvalidProperty", "Test");
         }
     }
 }
