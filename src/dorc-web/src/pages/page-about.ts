@@ -391,10 +391,10 @@ export class PageAbout extends PageElement {
     sortable.sort((a, b) => a.total - b.total);
 
     let countTop3DeploymentsByProject = 0;
-    for (let k = 0; k < 3; k += 1) {
+    for (let k = 0; k < min(3, sortable.length); k += 1) {
       const node = {
-        project: sortable[sortable.length - k - 1].project,
-        numDeployments: sortable[sortable.length - k - 1].total
+        project: sortable[sortable.length - k - 1]?.project,
+        numDeployments: sortable[sortable.length - k - 1]?.total
       };
       this.top3ProjectsByDeployments.push(node);
       countTop3DeploymentsByProject += node.numDeployments;
@@ -408,19 +408,13 @@ export class PageAbout extends PageElement {
         this.days_between(new Date(today.getFullYear(), 0o1, 0o1), today)
     );
 
-    this.pieDataTable.push([
-      this.top3ProjectsByDeployments[0].project,
-      this.top3ProjectsByDeployments[0].numDeployments
-    ]);
-    this.pieDataTable.push([
-      this.top3ProjectsByDeployments[1].project,
-      this.top3ProjectsByDeployments[1].numDeployments
-    ]);
-    this.pieDataTable.push([
-      this.top3ProjectsByDeployments[2].project,
-      this.top3ProjectsByDeployments[2].numDeployments
-    ]);
-
+    this.top3ProjectsByDeployments.forEach(e => {
+      this.pieDataTable.push([
+        e.project,
+        e.numDeployments
+      ]);
+    });
+    
     const model: [][] = JSON.parse(JSON.stringify(this.pieDataTable));
     this.pieDataTable = model;
     this.constructTop3PieChart();
@@ -538,3 +532,8 @@ export class PageAbout extends PageElement {
     return Math.round(differenceMs / ONE_DAY);
   }
 }
+function min(arg0: number, arg1: number) {
+  if (arg0 < arg1) return arg0;
+  return arg1;
+}
+
