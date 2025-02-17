@@ -51,12 +51,23 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus[] validStatuses, bool isProd)
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd)
         {
             using (var context = _contextFactory.GetContext())
             {
                 return context.DeploymentRequests.AsNoTracking()
-                    .Where(r => validStatuses.Select(s => s.ToString()).Contains(r.Status)
+                    .Where(r => status.ToString() == r.Status
+                        && r.IsProd == isProd)
+                    .ToList().Select(MapToDeploymentRequestApiModel).ToList();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests.AsNoTracking()
+                    .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status)
                         && r.IsProd == isProd)
                     .ToList().Select(MapToDeploymentRequestApiModel).ToList();
             }
