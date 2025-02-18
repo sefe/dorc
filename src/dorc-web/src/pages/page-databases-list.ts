@@ -249,6 +249,12 @@ export class PageDatabasesList extends PageElement {
     `;
   }
 
+  updated(_changedProperties: PropertyValues) {
+    super.updated(_changedProperties);
+
+    console.log('updated page-databases-list ' + [..._changedProperties.entries()]);
+  }
+
   private renderAddEditDatabaseDialog = () => html`
     <add-edit-database
       id="add-edit-database"
