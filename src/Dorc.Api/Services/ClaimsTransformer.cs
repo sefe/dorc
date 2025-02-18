@@ -17,12 +17,12 @@ namespace Dorc.Api.Services
     [SupportedOSPlatform("windows")]
     public class ClaimsTransformer : IClaimsTransformation
     {
-        private readonly IActiveDirectoryUserGroupReader _adService;
+        private readonly IActiveDirectoryUserGroupReader _adUserGroupReader;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adService)
+        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adUserGroupReader)
         {
-            _adService = adService;
+            _adUserGroupReader = adUserGroupReader;
 
             var activeDirectoryRoles = config.GetSection("AppSettings:ActiveDirectoryRoles").GetChildren()
                 .ToDictionary(x => x.Key, x => x.Value);
@@ -60,7 +60,7 @@ namespace Dorc.Api.Services
                     continue;
                 }
 
-                var containingGroupSid = await _adService.GetGroupSidIfUserIsMemberAsync(currentUserName, adPermittedGroup.Name);
+                var containingGroupSid = _adUserGroupReader.GetGroupSidIfUserIsMember(currentUserName, adPermittedGroup.Name);
                 if (!string.IsNullOrEmpty(containingGroupSid))
                 {
                     if (!string.IsNullOrEmpty(adPermittedGroup.FriendlyName))
