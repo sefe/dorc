@@ -297,10 +297,6 @@ export class ProjectAuditData extends LitElement {
             'hegs-json-viewer'
           ) as unknown as HegsJsonViewer;
           viewer.expand('*');
-    //render(
-    //  html`<textarea name="" id="myTextarea" style="width:100%" cols="75" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
-    //  root
-    //);
   }
 
   getProjectValuesAudit(
