@@ -12,7 +12,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import {css, LitElement, PropertyValueMap, PropertyValues, render} from 'lit';
+import {css, LitElement, PropertyValueMap, render} from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
@@ -148,10 +148,6 @@ export class PageMonitorRequests extends LitElement {
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
         ) => {
-          if (params.sortOrders.length !== 1) {
-            return;
-          }
-
           if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
             params.filters.push({ path: 'Project', value: this.detailsFilter });
             params.filters.push({
@@ -185,9 +181,6 @@ export class PageMonitorRequests extends LitElement {
               value: this.componentsFilter
             });
           }
-
-          console.log('Loading page', params.page);
-
           const api = new RequestStatusesApi();
           api
             .requestStatusesPut({
@@ -213,7 +206,6 @@ export class PageMonitorRequests extends LitElement {
                 data.Items?.map(
                   item => (item.UserName = item.UserName?.split('\\')[1])
                 );
-                //console.log('Received data:', data);
                 callback(data.Items ?? [], data.TotalItems);
                 this.dispatchEvent(
                   new CustomEvent('searching-requests-finished', {
@@ -249,10 +241,6 @@ export class PageMonitorRequests extends LitElement {
                     composed: true
                   })
                 );
-
-                // console.log(
-                //   `done loading request Statuses page:${params.page + Number(1)}`
-                // );
               }
             });
         }}"
@@ -355,7 +343,6 @@ export class PageMonitorRequests extends LitElement {
     if (event.detail.value !== undefined) {
       this.debouncedInputHandler(event.detail.field, event.detail.value);
     }
-    console.log('PageMonitorRequests searchingRequestsStarted');
   }
 
   private debouncedInputHandler = this.debounce(
@@ -379,12 +366,12 @@ export class PageMonitorRequests extends LitElement {
         default:
           break;
       }
-      console.log('Debounced Value:', value); // Perform logic (e.g., search or filtering)
+      console.log('Debounced Value:', value);
       this.grid?.clearCache();
       this.isLoading = true;
     },
-    300
-  ); // Adjust the debounce wait time as needed
+    300 // debounce wait time
+  );
 
   private debounce(func: (...args: any[]) => void, wait: number) {
     let timeout: number | undefined;
