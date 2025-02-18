@@ -29,7 +29,7 @@ namespace Dorc.Api.Services
                 return cachedSid;
             }
 
-            var sid =  getGroupSidIfUserIsMember(userName, groupName);
+            var sid = getGroupSidForUser(userName, groupName);
             if (_cacheExpiration.HasValue && sid != null)
             {
                 _cache.Set(cacheKey, sid, _cacheExpiration.Value);
@@ -38,7 +38,7 @@ namespace Dorc.Api.Services
             return sid;
         }
 
-        private string? getGroupSidIfUserIsMember(string userName, string groupName)
+        private string? getGroupSidForUser(string userName, string groupName)
         {
             using (var context = new PrincipalContext(ContextType.Domain, null, _domainName))
             {
