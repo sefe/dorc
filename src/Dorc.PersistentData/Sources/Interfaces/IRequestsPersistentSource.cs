@@ -8,7 +8,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
     {
         DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal principal);
         RequestStatusDto GetRequestStatus(int requestId);
-        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus[] validStatuses, bool isProd);
+        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd);
+        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId, int componentId);
         string GetRequestLog(int id);
