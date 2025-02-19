@@ -385,7 +385,7 @@ export class PageMonitorRequests extends LitElement {
       this.grid?.clearCache();
       this.isSearching = true;
     },
-    300 // debounce wait time
+    400 // debounce wait time
   );
 
   private debounce(func: (...args: any[]) => void, wait: number) {
