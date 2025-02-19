@@ -7,7 +7,7 @@ BEGIN
     SET XACT_ABORT ON;
 
 	DECLARE @MaxYearInArchive INT = 0;
-	DECLARE @TotalRowsArchived INT = 0;
+	DECLARE @TotalRequestsArchived INT = 0;
     DECLARE @RowCount INT = 1;
 	DECLARE @BatchStartID INT = 0;
 
@@ -51,7 +51,7 @@ BEGIN
             WHERE Id IN (SELECT Id FROM @BatchIDs);
 
             SET @RowCount = @@ROWCOUNT;
-            SET @TotalRowsArchived += @RowCount;
+            SET @TotalRequestsArchived += @RowCount;
 
             COMMIT TRANSACTION;
         END TRY
@@ -66,5 +66,5 @@ BEGIN
         WAITFOR DELAY '00:00:02'
     END
 
-    SELECT @TotalRowsArchived AS TotalRowsArchived;
+    SELECT @TotalRequestsArchived AS TotalDeploymentRequestsArchived;
 END
