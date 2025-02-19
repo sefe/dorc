@@ -135,7 +135,7 @@ steps:
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
 
 - task: BlackDuckSecurityScan@2.0.0
-  displayName: 'Polaris Full Scan'
+  displayName: 'Polaris SAST Scan'
   condition: not(eq(variables['Build.Reason'], 'PullRequest'))
   inputs:
     POLARIS_SERVER_URL: $(POLARIS_SERVER_URL)
@@ -146,8 +146,22 @@ steps:
     POLARIS_BRANCH_NAME: $(Build.SourceBranchName)
     POLARIS_REPORTS_SARIF_CREATE: $(POLARIS_REPORTS_SARIF_CREATE)
     DETECT_SEARCH_DEPTH: 5
-    INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
     POLARIS_ASSESSMENT_MODE: 'SOURCE_UPLOAD'
+    INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
+
+- task: BlackDuckSecurityScan@2.0.0
+  displayName: 'Polaris SAST,SCA Scan'
+  condition: not(eq(variables['Build.Reason'], 'PullRequest'))
+  inputs:
+    POLARIS_SERVER_URL: $(POLARIS_SERVER_URL)
+    POLARIS_ACCESS_TOKEN: $(POLARIS_ACCESS_TOKEN)
+    POLARIS_APPLICATION_NAME: $(POLARIS_APPLICATION_NAME)
+    POLARIS_ASSESSMENT_TYPES: 'SAST,SCA'      
+    POLARIS_PROJECT_NAME: $(Build.Repository.Name)
+    POLARIS_BRANCH_NAME: $(Build.SourceBranchName)
+    POLARIS_REPORTS_SARIF_CREATE: $(POLARIS_REPORTS_SARIF_CREATE)
+    DETECT_SEARCH_DEPTH: 5
+    INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
      
 - task: BlackDuckSecurityScan@2.0.0
   displayName: 'Polaris PR Scan'
