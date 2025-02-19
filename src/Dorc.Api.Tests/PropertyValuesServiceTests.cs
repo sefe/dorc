@@ -34,7 +34,7 @@ namespace Dorc.Api.Tests
                         .Any<string>())
                 .Returns(new EnvironmentApiModel());
 
-            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            mockedPropertyValuesPersistentSource.GetPropertyValuesForUser(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new[]
                 {
                     new PropertyValueDto
@@ -89,7 +89,7 @@ namespace Dorc.Api.Tests
                         .Any<string>())
                 .Returns(new EnvironmentApiModel());
 
-            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            mockedPropertyValuesPersistentSource.GetPropertyValuesForUser(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new[]
                 {
                     new PropertyValueDto
@@ -139,7 +139,7 @@ namespace Dorc.Api.Tests
                         .Any<string>())
                 .Returns(new EnvironmentApiModel());
 
-            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            mockedPropertyValuesPersistentSource.GetPropertyValuesForUser(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new[]
                 {
                     new PropertyValueDto
@@ -172,7 +172,7 @@ namespace Dorc.Api.Tests
                         .Any<string>())
                 .Returns(new EnvironmentApiModel());
 
-            mockedPropertyValuesPersistentSource.GetEnvironmentProperties(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            mockedPropertyValuesPersistentSource.GetEnvironmentProperties(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new[]
                 {
                     new PropertyValueDto
@@ -224,7 +224,7 @@ namespace Dorc.Api.Tests
                 .Returns(new EnvironmentApiModel());
 
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
-            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            mockedPropertyValuesPersistentSource.GetPropertyValuesForUser(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new[]
                 {
                     new PropertyValueDto

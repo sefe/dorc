@@ -12,6 +12,7 @@
         public string? FileShare { get; set; }
         public string? EnvNote { get; set; }
         public string? Description { get; set; }
+        public int? ParentId { get; set; }
 
         public ICollection<Database> Databases { get; set; } = new List<Database>();
         public ICollection<EnvironmentHistory> Histories { get; set; } = new List<EnvironmentHistory>();
@@ -19,5 +20,7 @@
         public ICollection<User> Users { set; get; } = new List<User>();
         public ICollection<EnvironmentComponentStatus> ComponentStatus { get; set; } = new List<EnvironmentComponentStatus>();
         public ICollection<Project> Projects { get; set; } = new List<Project>();
+        public Environment? ParentEnvironment { get; set; } = null;
+        public ICollection<Environment> ChildEnvironments { get; set; } = new List<Environment>();
     }
 }

@@ -70,6 +70,16 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                         .HasForeignKey("EnvId"),
                     configureJoinEntityType => configureJoinEntityType
                         .ToTable("EnvironmentDelegatedUser", schema: "deploy"));
+
+            builder
+                .HasOne(e => e.ParentEnvironment)
+                .WithMany(e => e.ChildEnvironments)
+                .HasForeignKey("ParentId")
+                .IsRequired(false);
+
+            builder
+                .Property(e => e.ParentId)
+                .HasColumnName("ParentId");
         }
     }
 }

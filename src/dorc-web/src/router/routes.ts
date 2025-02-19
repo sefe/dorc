@@ -331,6 +331,13 @@ export const routes: Route[] = [
             action: async () => {
               await import('../components/environment-tabs/env-control-center');
             }
+          },
+          {
+            path: '/tenants',
+            component: 'env-tenants',
+            action: async () => {
+              await import('../components/environment-tabs/env-tenants');
+            }
           }
         ]
       },

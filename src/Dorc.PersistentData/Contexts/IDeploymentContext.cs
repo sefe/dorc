@@ -51,9 +51,8 @@ namespace Dorc.PersistentData.Contexts
         IEnumerable<SelectDeploymentsByProjectDateResultDbo> sp_Select_Deployments_By_Project_Date();
         IEnumerable<SelectDeploymentsByProjectMonthResultDbo> sp_Select_Deployments_By_Project_Month();
         string AppendRequestLog(int id, string entry);
-        DataSet GetGlobalProperties();
-        DataSet GetEnvironmentProperties(string environment, string username, string sidList);
-        DataSet GetPropertyValuesByName(string propertyName, string username, string sidList);
+        DataSet GetGlobalProperties(string? propertyName);
+        DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList);
         DataSet MapProjectToComponent(string projectName, string componentName);
         DataSet MapProjectToEnvironment(string projectName, string environmentName);
         DataSet InsertProjectComponentByName(string projectName, string componentName,
@@ -63,7 +62,8 @@ namespace Dorc.PersistentData.Contexts
         IEnumerable<ConfigValue> GetAllConfigValues();
         DbSet<TEntity> Set<TEntity>() where TEntity : class;
         EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
-        DataSet GetEnvironmentProperties(string environment);
+        DataSet GetEnvironmentProperties(string environmentName, string? propertyName);
         DataSet GetPropertyValuesByName(string propertyName);
+        IList<EnvironmentChainItemDto> GetFullEnvironmentChain(int environmentId, bool onlyParents = false);
     }
 }

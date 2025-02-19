@@ -8,6 +8,7 @@ using Environment = Dorc.PersistentData.Model.Environment;
 using Property = Dorc.PersistentData.Model.Property;
 using Server = Dorc.PersistentData.Model.Server;
 using User = Dorc.PersistentData.Model.User;
+using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Dorc.PersistentData.Model;
 
@@ -163,38 +164,33 @@ namespace Dorc.PersistentData.Contexts
             return result;
         }
 
-        public DataSet GetGlobalProperties()
-        {
-            return RunSp("deploy.get_global_properties", new List<SqlParameter>());
-        }
-
-        public DataSet GetEnvironmentProperties(string environment, string username, string sidList)
-        {
-            var parameters = new List<SqlParameter>
-            {
-                new SqlParameter("@env", SqlDbType.VarChar) {Value = environment},
-                new SqlParameter("@username", SqlDbType.VarChar) {Value = username},
-                new SqlParameter("@sidList", SqlDbType.VarChar) {Value = sidList}
-            };
-            return RunSp("deploy.get_environment_properties_for_user", parameters);
-        }
-
-        public DataSet GetPropertyValuesByName(string propertyName, string username, string sidList)
+        public DataSet GetGlobalProperties(string? propertyName)
         {
             var parameters = new List<SqlParameter>
             {
                 new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName},
-                new SqlParameter("@username", SqlDbType.VarChar) {Value = username},
-                new SqlParameter("@sidList", SqlDbType.VarChar) {Value = sidList}
             };
-            return RunSp("deploy.get_property_values_by_PropertyName_for_user", parameters);
+            return RunSp("deploy.get_global_properties", parameters);
         }
 
-        public DataSet GetEnvironmentProperties(string environment)
+        public DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList)
         {
             var parameters = new List<SqlParameter>
             {
-                new SqlParameter("@env", SqlDbType.VarChar) {Value = environment}
+                new SqlParameter("@env", SqlDbType.VarChar) {Value = environmentName},
+                new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName},
+                new SqlParameter("@username", SqlDbType.VarChar) {Value = username},
+                new SqlParameter("@sidList", SqlDbType.VarChar) {Value = sidList}
+            };
+            return RunSp("deploy.get_property_values_for_user_with_inheritance", parameters);
+        }
+
+        public DataSet GetEnvironmentProperties(string environmentName, string? propertyName)
+        {
+            var parameters = new List<SqlParameter>
+            {
+                new SqlParameter("@env", SqlDbType.VarChar) {Value = environmentName},
+                new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName}
             };
             return RunSp("deploy.get_environment_properties", parameters);
         }
@@ -275,6 +271,35 @@ namespace Dorc.PersistentData.Contexts
         public IEnumerable<ConfigValue> GetAllConfigValues()
         {
             return ConfigValues.ToList();
+        }
+
+        public IList<EnvironmentChainItemDto> GetFullEnvironmentChain(int environmentId, bool onlyParents = false)
+        {
+            var parameters = new List<SqlParameter>
+            {
+                new SqlParameter("@EnvironmentId", SqlDbType.Int) {Value = environmentId},
+                new SqlParameter("@onlyParents", SqlDbType.Bit) {Value = onlyParents},
+            };
+            var ds = RunSp("deploy.GetFullEnvironmentChain", parameters);
+
+            var result = new List<EnvironmentChainItemDto>(ds.Tables[0].Rows.Count);
+            for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
+            {
+                var row = ds.Tables[0].Rows[i];
+                var env = new EnvironmentChainItemDto
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    ParentId = row["ParentId"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["ParentId"]),
+                    Name = row["Name"].ToString(),
+                    IsProd = Convert.ToBoolean(row["IsProd"]),
+                    Secure = Convert.ToBoolean(row["Secure"]),
+                    Owner = row["Owner"].ToString(),
+                    ObjectId = Guid.Parse(row["ObjectId"].ToString())
+                };
+                result.Add(env);
+            }
+
+            return result;
         }
     }
 }

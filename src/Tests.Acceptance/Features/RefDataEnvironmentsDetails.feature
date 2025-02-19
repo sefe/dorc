@@ -40,3 +40,19 @@ Scenario Outline: Add or remove environment components
 	| 280     | 1           | attach | database  |
 	| 280     | 1           | detach | server    |
 	| 280     | 1           | attach | server    |
+
+@Environments
+Scenario: Set parent for environment
+	Given Environment with name 'Parent1 Env Testing' created
+	And Environment with name 'Child1 Env Testing' created
+	When I set parent to 'Child1 Env Testing' environment equals the ID of the environment with name 'Parent1 Env Testing'
+	Then The result should be Environment 'Child1 Env Testing' with Parent
+
+@Environments
+Scenario: Set parent for child environment
+	Given Environment with name 'Parent2 Env Testing' created
+	And Environment with name 'Child2 Env Testing' created
+	And Environment with name 'Child3 Env Testing' created
+	When I set parent to 'Child2 Env Testing' environment equals the ID of the environment with name 'Parent2 Env Testing'
+	And I set parent to 'Child3 Env Testing' environment equals the ID of the environment with name 'Child2 Env Testing'
+	Then The result should not be Environment 'Child3 Env Testing' with Parent

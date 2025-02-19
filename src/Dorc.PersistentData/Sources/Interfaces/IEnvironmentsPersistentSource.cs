@@ -9,7 +9,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IEnvironmentsPersistentSource
     {
         EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user);
-        IEnumerable<EnvironmentApiModel> GetEnvironments();
         bool EnvironmentExists(string rowEnvironment);
         string GetEnvironmentOwner(int envId);
         bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, ActiveDirectoryElementApiModel user);
@@ -36,5 +35,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
             string projectName, IPrincipal user, AccessLevel accessLevel);
         bool EnvironmentIsProd(string envName);
         bool EnvironmentIsSecure(string envName);
+        IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
+        void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user);
     }
 }

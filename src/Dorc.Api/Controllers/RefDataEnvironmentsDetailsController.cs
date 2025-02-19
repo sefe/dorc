@@ -94,6 +94,22 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Returns all Environments which could became children of the Environment
+        /// </summary>
+        /// <param name="id">environment ID</param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ICollection<EnvironmentApiModel>))]
+        [HttpGet("GetPossibleEnvironmentChildren")]
+        public object GetPossibleEnvironmentChildren([FromQuery] int id)
+        {
+            if (id > 0)
+            {
+                return environmentsPersistentSource.GetPossibleEnvironmentChildren(id, User);
+            }
+
+            return new List<EnvironmentApiModel>();
+        }
+
+        /// <summary>
         ///     Add or remove environment components 
         /// </summary>
         /// <param name="envId">Environment ID</param>
@@ -127,6 +143,39 @@ namespace Dorc.Api.Controllers
                     default:
                         return new ApiBoolResult { Result = false };
                 }
+            }
+        }
+
+        /// <summary>
+        /// Set or unset the parent for an environment.
+        /// </summary>
+        /// <param name="parentEnvId">Parent Environment ID or null to detach.</param>
+        /// <param name="childEnvId">Child Environment ID.</param>
+        /// <returns>Returns ApiBoolResult indicating success or failure.</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [HttpPut("SetParentForEnvironment")]
+        public ApiBoolResult SetParentForEnvironment([FromQuery] int? parentEnvId, [FromQuery] int childEnvId)
+        {
+            var childEnvironment = environmentsPersistentSource.GetEnvironment(childEnvId, User);
+
+            if (childEnvironment == null)
+                return new ApiBoolResult { Result = false, Message = "Environment not found." };
+
+            if (!securityService.CanModifyEnvironment(User, childEnvironment.EnvironmentName))
+            {
+                return new ApiBoolResult
+                { Result = false, Message = "User doesn't have \"Modify\" permission for this action!" };
+            }
+
+            try
+            {
+                environmentsPersistentSource.SetParentForEnvironment(parentEnvId, childEnvId, User);
+
+                return new ApiBoolResult { Result = true };
+            }
+            catch (Exception ex)
+            {
+                return new ApiBoolResult { Result = false, Message = ex.Message };
             }
         }
     }

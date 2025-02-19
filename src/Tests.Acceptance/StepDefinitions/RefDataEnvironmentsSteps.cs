@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using System.Text.Json;
 using RestSharp;
 using Tests.Acceptance.Support;
 
@@ -105,6 +106,34 @@ namespace Tests.Acceptance.StepDefinitions
             }
         }
 
+        [When(@"I edit the '(.*)' environment via PUT and set parentId equals to ID of the environment with name '(.*)'")]
+        public void WhenISetEnvironmentAsChildOfAnother(string childEnvName, string parentEnvName)
+        {
+            var parentEnvironmentId = new DataAccessor().GetEnvironments(parentEnvName).FirstOrDefault();
+
+            using (var caller = new ApiCaller())
+            {
+                var childEnvApiResponse = caller.Call<IList<EnvironmentApiModel>>(
+                    Endpoints.RefDataEnvironments,
+                    Method.Get,
+                    queryParameters: new Dictionary<string, string>
+                    {
+                        { "env", childEnvName }
+                    });
+
+                if (childEnvApiResponse.IsModelValid)
+                {
+                    var model = (childEnvApiResponse.Model as IList<EnvironmentApiModel>).FirstOrDefault();
+                    model.ParentId = parentEnvironmentId;
+
+                    addEnvironmentApiResult = caller.Call<EnvironmentApiModel>(
+                                    Endpoints.RefDataEnvironments,
+                                    Method.Put,
+                                    body: JsonSerializer.Serialize(model));
+                }
+            }
+        }
+
         [Then(@"The result should be Environment with id greater than '(.*)'")]
         public void ThenTheResultShouldBeEnvironmentWithIdGreaterThan(int lowestId)
         {
@@ -113,6 +142,26 @@ namespace Tests.Acceptance.StepDefinitions
             var model = addEnvironmentApiResult.Model as EnvironmentApiModel;
             Assert.IsNotNull(model);
             Assert.AreNotEqual(lowestId, model.EnvironmentId);
+        }
+
+        [Then(@"The result should be Environment with Parent")]
+        public void ThenTheResultShouldBeEnvironmentWithParent()
+        {
+            EnvironmentApiModel? model = null;
+            try
+            {
+                Assert.IsNotNull(addEnvironmentApiResult, "Api request failed");
+                Assert.IsTrue(addEnvironmentApiResult.IsModelValid, addEnvironmentApiResult.Message);
+                model = addEnvironmentApiResult.Model as EnvironmentApiModel;
+                Assert.IsNotNull(model);
+                Assert.IsNotNull(model.ParentEnvironment);
+            }
+            finally
+            {
+                new DataAccessor().DeleteEnvironment(this.existingEnvironmentId);
+                if (model is not null)
+                    new DataAccessor().DeleteEnvironment(model.ParentEnvironment.EnvironmentId);
+            }
         }
     }
 }

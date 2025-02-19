@@ -40,3 +40,10 @@ Scenario: Create new environment
 	}
 	"""
 	Then The result should be Environment with id greater than '0'
+
+@Environments
+Scenario: Make child environment
+	Given There is environment with name 'Parent Env Testing'
+	And There is environment with name 'Child Env Testing'
+	When I edit the 'Child Env Testing' environment via PUT and set parentId equals to ID of the environment with name 'Parent Env Testing'
+	Then The result should be Environment with Parent
