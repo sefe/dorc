@@ -21,7 +21,7 @@ namespace Dorc.Api.Services
             _cache = cache;
         }
 
-        public async Task<string?> GetGroupSidIfUserIsMemberAsync(string userName, string groupName)
+        public string? GetGroupSidIfUserIsMember(string userName, string groupName)
         {
             var cacheKey = $"{userName}:{groupName}";
             if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out string? cachedSid))
@@ -29,7 +29,7 @@ namespace Dorc.Api.Services
                 return cachedSid;
             }
 
-            var sid = await Task.Run(() => GetGroupSidIfUserIsMember(userName, groupName));
+            var sid = getGroupSidForUser(userName, groupName);
             if (_cacheExpiration.HasValue && sid != null)
             {
                 _cache.Set(cacheKey, sid, _cacheExpiration.Value);
@@ -38,7 +38,7 @@ namespace Dorc.Api.Services
             return sid;
         }
 
-        private string? GetGroupSidIfUserIsMember(string userName, string groupName)
+        private string? getGroupSidForUser(string userName, string groupName)
         {
             using (var context = new PrincipalContext(ContextType.Domain, null, _domainName))
             {
