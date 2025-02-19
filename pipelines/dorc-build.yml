@@ -147,6 +147,7 @@ steps:
     POLARIS_REPORTS_SARIF_CREATE: $(POLARIS_REPORTS_SARIF_CREATE)
     DETECT_SEARCH_DEPTH: 5
     INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
+    POLARIS_ASSESSMENT_MODE: 'SOURCE_UPLOAD'
      
 - task: BlackDuckSecurityScan@2.0.0
   displayName: 'Polaris PR Scan'
@@ -163,6 +164,7 @@ steps:
     AZURE_TOKEN: $(System.AccessToken)
     DETECT_SEARCH_DEPTH: 5
     INCLUDE_DIAGNOSTICS: $(INCLUDE_DIAGNOSTICS)
+    POLARIS_ASSESSMENT_MODE: 'SOURCE_UPLOAD'
 
 - task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
   displayName: 'Copy Install Scripts'
