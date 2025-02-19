@@ -40,3 +40,5 @@ export default class AppConfig {
     this.dorcHelperPage = dorcHelperPage;
   }
 }
+
+export const appConfig = new AppConfig();

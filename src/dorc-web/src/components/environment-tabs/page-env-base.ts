@@ -4,7 +4,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
 import '../add-edit-environment';
-import { Router } from '@vaadin/router/dist/vaadin-router';
+import { Router } from '@vaadin/router';
 import {
   EnvironmentContentApiModel,
   RefDataEnvironmentsApi,

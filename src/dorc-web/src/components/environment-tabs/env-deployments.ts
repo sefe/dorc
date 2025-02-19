@@ -14,7 +14,7 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
-import { urlForName } from '../../router';
+import { urlForName } from '../../router/router';
 import '@vaadin/date-time-picker';
 
 @customElement('env-deployments')

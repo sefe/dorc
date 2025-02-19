@@ -9,7 +9,7 @@ import { PageElement } from '../helpers/page-element';
 import { RefDataApi, RefDataApiModel } from '../apis/dorc-api';
 
 let editorValue: string | undefined = '';
-@customElement('project-ref-data')
+@customElement('page-project-ref-data')
 export class PageProjectRefData extends PageElement {
   private editor: ace.Ace.Editor | undefined;
 
@@ -26,7 +26,7 @@ export class PageProjectRefData extends PageElement {
         border-radius: 50%;
         color: white;
         cursor: pointer;
-        border: 0px;
+        border: 0;
         background-color: cornflowerblue;
       }
       .btn:hover {
@@ -80,7 +80,6 @@ export class PageProjectRefData extends PageElement {
         <vaadin-icon
           icon="icons:save"
           style="color: white; text-align: center;"
-          z-index="1000"
         ></vaadin-icon>
       </button>
     `;

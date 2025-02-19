@@ -14,7 +14,7 @@ import '../components/grid-button-groups/edit-comments-controls';
 import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
 import { PageElement } from '../helpers/page-element';
-import { router } from '../router/index';
+import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
 
 @customElement('page-env-history')

@@ -1,7 +1,7 @@
 import { css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { urlForName } from '../router';
+import { urlForName } from '../router/router';
 import { PageElementNotFound } from '../helpers/page-element-not-found';
 
 @customElement('page-not-found')

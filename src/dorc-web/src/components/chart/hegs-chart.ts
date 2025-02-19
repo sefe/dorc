@@ -1,4 +1,5 @@
-import { EChartOption, ECharts, EChartsResponsiveOption } from 'echarts';
+import {ECharts, EChartsOption} from 'echarts';
+import * as echarts from 'echarts';
 import { css, LitElement, PropertyValues } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -7,7 +8,7 @@ import { html } from 'lit/html.js';
 export class HegsChart extends LitElement {
   private chart: ECharts | undefined;
 
-  private _option!: EChartOption | EChartsResponsiveOption;
+  private _option!: EChartsOption;
 
   get option() {
     return this._option;
