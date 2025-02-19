@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [archive].[DeploymentRequest]
 (
-	[Id]             INT                NOT NULL,
+    [Id]             INT                NOT NULL,
     [RequestDetails] XML                NOT NULL,
     [UserName]       NVARCHAR (128)     NOT NULL,
     [RequestedTime]  DATETIMEOFFSET (7) NULL,
