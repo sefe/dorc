@@ -12,7 +12,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import {css, LitElement, PropertyValueMap, render} from 'lit';
+import { css, LitElement, PropertyValueMap, render } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
@@ -43,7 +43,7 @@ export class PageMonitorRequests extends LitElement {
   set isLoading(val: boolean) {
     this._isLoading = val;
     if (this.loadingDiv) {
-      this.loadingDiv.hidden = !val;
+      this.loadingDiv.hidden = !(val || this.isSearching);
     }
     if (this.grid) {
       this.grid.hidden = val;
@@ -54,13 +54,24 @@ export class PageMonitorRequests extends LitElement {
   }
   private _isLoading = true;
 
+  set isSearching(val: boolean) {
+    this._isSearching = val;
+    if (this.loadingDiv) {
+      this.loadingDiv.hidden = !(val || this.isLoading);
+    }
+  }
+  get isSearching() {
+    return this._isSearching;
+  }
+  private _isSearching = true;
+
   @state() noResults = false;
 
-  @state() userFilter: string = '';
-  @state() statusFilter: string = '';
-  @state() componentsFilter: string = '';
-  @state() idFilter: string = '';
-  @state() detailsFilter: string = '';
+  userFilter: string = '';
+  statusFilter: string = '';
+  componentsFilter: string = '';
+  idFilter: string = '';
+  detailsFilter: string = '';
 
   static get styles() {
     return css`
@@ -148,6 +159,13 @@ export class PageMonitorRequests extends LitElement {
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
         ) => {
+          if (
+            params.sortOrders !== undefined &&
+            params.sortOrders.length !== 1
+          ) {
+            return;
+          }
+
           if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
             params.filters.push({ path: 'Project', value: this.detailsFilter });
             params.filters.push({
@@ -322,17 +340,14 @@ export class PageMonitorRequests extends LitElement {
       this.requestRestarted as EventListener
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
-
     this.addEventListener(
       'monitor-requests-loaded',
       this.monitorRequestsLoaded as EventListener
     );
-
     this.addEventListener(
       'searching-requests-started',
       this.searchingRequestsStarted as EventListener
     );
-
     this.addEventListener(
       'searching-requests-finished',
       this.searchingRequestsFinished as EventListener
@@ -368,7 +383,7 @@ export class PageMonitorRequests extends LitElement {
       }
       console.log('Debounced Value:', value);
       this.grid?.clearCache();
-      this.isLoading = true;
+      this.isSearching = true;
     },
     300 // debounce wait time
   );
@@ -390,7 +405,7 @@ export class PageMonitorRequests extends LitElement {
     if (data.TotalItems === 0) this.noResults = true;
     else this.noResults = false;
 
-    this.isLoading = false;
+    this.isSearching = false;
   }
 
   private monitorRequestsLoaded() {

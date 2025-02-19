@@ -438,7 +438,6 @@ export class DorcNavbar extends LitElement {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     if (tabs) {
       tabs.selected = this.getIndexOfPath(tabs, path);
-      console.log('setting the selected tab ' + Number(tabs.selected) + " with path " + path);
     }
   }
 

@@ -24,7 +24,6 @@ export default class GlobalCache {
         this.allUsers = data;
       },
       error: (err: string) => console.error(err),
-      complete: () => console.log('global cache finished loading users')
     });
 
     const refDataRolesApi = new RefDataRolesApi();
@@ -34,7 +33,6 @@ export default class GlobalCache {
         this.userRoles = data;
       },
       error: (err: string) => console.error(err),
-      complete: () => console.log('global cache finished loading user roles')
     });
   }
 

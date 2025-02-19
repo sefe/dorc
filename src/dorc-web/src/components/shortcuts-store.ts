@@ -55,7 +55,6 @@ export class ShortcutsStore extends LitElement {
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);
-    console.log('inserted new tab');
   }
 
   updated() {
@@ -80,7 +79,6 @@ export class ShortcutsStore extends LitElement {
     this.dorcNavbar?.setSelectedTab(path);
 
     setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
-    console.log('inserted new tab');
   }
 
   private openMonitorResult(e: CustomEvent) {
@@ -137,7 +135,6 @@ export class ShortcutsStore extends LitElement {
     this.dorcNavbar?.setSelectedTab(path);
 
     setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
-    console.log('inserted new tab');
   }
 
   private getProjectEnvsPath(projectAPIModel: ProjectApiModel) {
