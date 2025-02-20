@@ -129,16 +129,12 @@ namespace Dorc.Core
                         foreach (var daemonApiModel in daemons)
                         {
                             var servicesAndStatus = new ServicesAndStatus();
-                            _logger.Info(daemonApiModel.Name);
                             try
                             {
                                 servicesAndStatus.ServerName = serverApiModel.Name;
                                 servicesAndStatus.ServiceName = daemonApiModel.Name;
                                 servicesAndStatus.EnvName = environment.EnvironmentName;
 
-                                _logger.Info("Adding: " + servicesAndStatus.ServerName + "; " +
-                                             servicesAndStatus.ServiceName + "; " +
-                                             servicesAndStatus.ServiceStatus);
                                 iResults.Add(servicesAndStatus);
                             }
                             catch (Exception ex)
