@@ -1,8 +1,10 @@
 ﻿using System.Configuration.Provider;
 using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using Dorc.Api.Interfaces;
 using Dorc.Core.Configuration;
+using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -12,13 +14,15 @@ namespace Dorc.Api.Services
     {
         private readonly string _domainName;
         private readonly IMemoryCache _cache;
+        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
         private readonly TimeSpan? _cacheExpiration;
 
-        public ActiveDirectoryUserGroupReader(IConfigurationSettings config, IMemoryCache cache)
+        public ActiveDirectoryUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IActiveDirectorySearcher activeDirectorySearcher)
         {
             _domainName = config.GetConfigurationDomainNameIntra();
             _cacheExpiration = config.GetADUserCacheTimeSpan();
             _cache = cache;
+            _activeDirectorySearcher = activeDirectorySearcher;
         }
 
         public string? GetGroupSidIfUserIsMember(string userName, string groupName)
@@ -36,6 +40,26 @@ namespace Dorc.Api.Services
             }
 
             return sid;
+        }
+
+        public string GetUserMail(string userName)
+        {
+            var cacheKey = $"{userName}";
+            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out string? cachedEmail))
+            {
+                return cachedEmail;
+            }
+
+            var directoryEntry = _activeDirectorySearcher.GetUserIdActiveDirectory(userName);
+
+            var email = directoryEntry.Email;
+
+            if (_cacheExpiration.HasValue && email != null)
+            {
+                _cache.Set(cacheKey, email, _cacheExpiration.Value);
+            }
+
+            return email;
         }
 
         private string? getGroupSidForUser(string userName, string groupName)
