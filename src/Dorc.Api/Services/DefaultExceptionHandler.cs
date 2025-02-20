@@ -21,7 +21,14 @@ namespace Dorc.Api.Services
                 ExceptionMessage = exception.Message,
             };
 
-            _log.Error(Newtonsoft.Json.JsonConvert.SerializeObject(result), exception);
+            var logMessage = result.ExceptionMessage;
+            var user = httpContext?.User;
+            if (user != null)
+            {
+                logMessage += Environment.NewLine + $"User: {user.Identity?.Name}";
+            }
+
+            _log.Error(logMessage, exception);
 
             await httpContext.Response.WriteAsJsonAsync(result, cancellationToken: cancellationToken);
             return true;
