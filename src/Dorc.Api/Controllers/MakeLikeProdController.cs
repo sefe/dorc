@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Security.Claims;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.Core;
@@ -24,8 +25,8 @@ namespace Dorc.Api.Controllers
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
-        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
+        private readonly IActiveDirectoryUserGroupReader _activeDirectoryReader;
         private readonly IVariableResolver _variableResolver;
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
@@ -33,7 +34,7 @@ namespace Dorc.Api.Controllers
         public MakeLikeProdController(ILog logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
-            IActiveDirectorySearcher activeDirectorySearcher,
+            IActiveDirectoryUserGroupReader activeDirectoryReader,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource)
@@ -42,7 +43,7 @@ namespace Dorc.Api.Controllers
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
             _variableResolver = variableResolver;
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;
-            _activeDirectorySearcher = activeDirectorySearcher;
+            _activeDirectoryReader = activeDirectoryReader;
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -233,9 +234,8 @@ namespace Dorc.Api.Controllers
         {
             string? userName = user.Identity?.Name.Split("\\")[1];
 
-            var directoryEntry = _activeDirectorySearcher.GetUserIdActiveDirectory(userName);
+            var email = _activeDirectoryReader.GetUserMail(userName);
 
-            var email = directoryEntry.Email;
             return email;
         }
     }
