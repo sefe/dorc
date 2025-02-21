@@ -70,14 +70,14 @@ export class PageServersList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
         --divider-color: rgb(223, 232, 239);
       }
       vaadin-text-field {
-        padding: 0px;
-        margin: 0px;
+        padding: 0;
+        margin: 0;
       }
 
       .overlay {
@@ -138,7 +138,7 @@ export class PageServersList extends PageElement {
 
       .env {
         font-size: 14px;
-        border: 0px;
+        border: 0;
         font-family: monospace;
         background-color: var(
           --_lumo-button-background-color,
@@ -376,7 +376,6 @@ export class PageServersList extends PageElement {
         default:
           break;
       }
-      console.log('Debounced Value:', value);
       this.grid?.clearCache();
       this.searching = true;
     },
@@ -430,8 +429,7 @@ export class PageServersList extends PageElement {
 
   private searchingServersFinished(e: CustomEvent) {
     const data: GetServerApiModelListResponseDto = e.detail;
-    if (data.TotalItems === 0) this.noResults = true;
-    else this.noResults = false;
+    this.noResults = data.TotalItems === 0;
 
     this.searching = false;
   }
@@ -702,7 +700,7 @@ export class PageServersList extends PageElement {
           appTags,
           value =>
             html` <button
-              style="border: 0px"
+              style="border: 0"
               class="tag"
               @click="${() =>
                 this.dispatchEvent(

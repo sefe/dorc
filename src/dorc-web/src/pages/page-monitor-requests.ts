@@ -75,15 +75,15 @@ export class PageMonitorRequests extends LitElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
         --divider-color: rgb(223, 232, 239);
       }
 
       vaadin-text-field {
-        padding: 0px;
-        margin: 0px;
+        padding: 0;
+        margin: 0;
       }
 
       vaadin-grid-cell-content {
@@ -381,7 +381,6 @@ export class PageMonitorRequests extends LitElement {
         default:
           break;
       }
-      console.log('Debounced Value:', value);
       this.grid?.clearCache();
       this.isSearching = true;
     },
@@ -402,8 +401,7 @@ export class PageMonitorRequests extends LitElement {
 
   private searchingRequestsFinished(e: CustomEvent) {
     const data: GetRequestStatusesListResponseDto = e.detail;
-    if (data.TotalItems === 0) this.noResults = true;
-    else this.noResults = false;
+    this.noResults = data.TotalItems === 0;
 
     this.isSearching = false;
   }
