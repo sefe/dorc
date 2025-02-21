@@ -243,7 +243,6 @@ export class PageServersList extends PageElement {
           flex-grow='0'
           .renderer='${this.environmentNamesRenderer}'
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
-          .serversPage='${this}'
           resizable
           header='Mapped Environments'
         ></vaadin-grid-column>
@@ -253,7 +252,6 @@ export class PageServersList extends PageElement {
           resizable
           .renderer='${this._boundServersButtonsRenderer}'
           .headerRenderer='${this.buttonsHeaderRenderer}'
-          .serversPage='${this}'
         >
       </vaadin-grid>
       <img
