@@ -27,11 +27,21 @@ namespace Dorc.Api.Services
             {
                 logMessage += Environment.NewLine + $"User: {user.Identity?.Name}";
             }
+            var request = httpContext?.Request;
+            if (request != null)
+            {
+                logMessage += Environment.NewLine + $"{GetRequestInfo(request)}";
+            }
 
             _log.Error(logMessage, exception);
 
             await httpContext.Response.WriteAsJsonAsync(result, cancellationToken: cancellationToken);
             return true;
+        }
+
+        private string GetRequestInfo(HttpRequest request)
+        {
+            return request.Method + " " + request.Scheme + ":/" + request.Path + request.QueryString;
         }
     }
 }
