@@ -12,6 +12,7 @@ import '../components/environment-tabs/env-projects.ts'
 import '../components/environment-tabs/env-servers.ts'
 import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
+import '../components/environment-tabs/env-tenants.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-list.ts'
@@ -324,8 +325,9 @@ export const routes: Route<RouteMeta>[] = [
           {
             path: '/tenants',
             component: 'env-tenants',
-            action: async () => {
-              await import('../components/environment-tabs/env-tenants');
+            metadata: {
+              title: 'Tenants',
+              description: 'Environment tenants details'
             }
           }
         ]
