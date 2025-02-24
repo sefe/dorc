@@ -4,7 +4,7 @@ import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { EnvironmentApiModel } from '../../apis/dorc-api';
-import { urlForName } from '../../router';
+import { urlForName } from '../../router/router';
 import '../../icons/hardware-icons.js';
 
 @customElement('env-detail-tab')

@@ -15,7 +15,7 @@ import {
 } from '../apis/dorc-api';
 import '../helpers/cookies';
 import { deleteCookie, getCookie, setCookie } from '../helpers/cookies';
-import { urlForName } from '../router';
+import { urlForName } from '../router/router';
 import './tabs/env-detail-tab';
 import { EnvDetailTab } from './tabs/env-detail-tab';
 import './tabs/project-envs-tab';
@@ -438,7 +438,6 @@ export class DorcNavbar extends LitElement {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     if (tabs) {
       tabs.selected = this.getIndexOfPath(tabs, path);
-      console.log('setting the selected tab');
     }
   }
 
