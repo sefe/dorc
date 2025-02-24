@@ -8,7 +8,6 @@ import '@vaadin/button';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { router } from '../router';
 import {
   PermissionDto,
   RefDataPermissionApi,
@@ -20,8 +19,6 @@ import {
 
 @customElement('edit-database-permissions')
 export class EditDatabasePermissions extends LitElement {
-  @property({ type: Object }) location = router.location;
-
   @property({ type: Number })
   dbId = 0;
 

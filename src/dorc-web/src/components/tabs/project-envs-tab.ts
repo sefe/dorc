@@ -3,7 +3,7 @@ import '@vaadin/icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
-import { urlForName } from '../../router';
+import { urlForName } from '../../router/router';
 import '@vaadin/icon';
 
 @customElement('project-envs-tab')

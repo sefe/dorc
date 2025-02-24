@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-access-control';
 import '../components/environment-tabs/env-control-center';
-import { Router } from '@vaadin/router/dist/vaadin-router';
+import { Router } from '@vaadin/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
 import { EnvironmentApiModel } from '../apis/dorc-api';
@@ -38,7 +38,7 @@ export class PageEnvironment extends PageElement {
     return css`
       :host {
         display: inline-block;
-        height: 100vh - 70px;
+        height: calc(100vh - 70px);
         width: 100%;
         overflow: hidden;
       }

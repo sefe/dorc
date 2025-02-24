@@ -5,7 +5,6 @@ import '@vaadin/combo-box';
 import '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { router } from '../router';
 import {
   RefDataEnvironmentsDetailsApi,
   RefDataServersApi
@@ -17,8 +16,6 @@ import {
 
 @customElement('attach-server')
 export class AttachServer extends LitElement {
-  @property({ type: Object }) location = router.location;
-
   @property({ type: Array }) envDetails = [];
 
   @property({ type: Array }) private servers:
