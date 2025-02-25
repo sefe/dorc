@@ -33,7 +33,7 @@ namespace Dorc.NetFramework.PowerShell
 
         public override void Write(string value)
         {
-            RaiseMessageAddedEvent(value, MessageType.Info);
+            RaiseMessageAddedEvent("1 " + value, MessageType.Info);
         }
 
         public override void Write(ConsoleColor foregroundColor, ConsoleColor backgroundColor, string value)
@@ -43,17 +43,17 @@ namespace Dorc.NetFramework.PowerShell
 
         public override void WriteLine(string message)
         {
-            RaiseMessageAddedEvent(message, MessageType.Info);
+            RaiseMessageAddedEvent("2 " + message, MessageType.Info);
         }
 
         public override void WriteErrorLine(string message)
         {
-            RaiseMessageAddedEvent(message, MessageType.Error);
+            RaiseMessageAddedEvent("3 " + message, MessageType.Error);
         }
 
         public override void WriteDebugLine(string message)
         {
-            RaiseMessageAddedEvent(message, MessageType.Debug);
+            RaiseMessageAddedEvent("4 " + message, MessageType.Debug);
         }
 
         public override void WriteProgress(long sourceId, ProgressRecord record)
@@ -63,12 +63,12 @@ namespace Dorc.NetFramework.PowerShell
 
         public override void WriteVerboseLine(string message)
         {
-            RaiseMessageAddedEvent(message, MessageType.Verbose);
+            RaiseMessageAddedEvent("5 " + message, MessageType.Verbose);
         }
 
         public override void WriteWarningLine(string message)
         {
-            RaiseMessageAddedEvent(message, MessageType.Warning);
+            RaiseMessageAddedEvent("6 " + message, MessageType.Warning);
         }
 
         public override Dictionary<string, PSObject> Prompt(string caption, string message,
