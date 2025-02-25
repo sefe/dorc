@@ -10,24 +10,27 @@ import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
 
+export enum EnvPageTabNames {
+  Metadata = 'metadata',
+  ControlCenter = 'control-center',
+  Variables = 'variables',
+  Servers = 'servers',
+  Databases = 'databases',
+  Projects = 'projects',
+  Daemons = 'daemons',
+  Deployments = 'deployments',
+  Tenants = 'tenants',
+  Users = 'users',
+  DelegatedUsers = 'delegated-users'
+}
+
 @customElement('page-environment')
 export class PageEnvironment extends PageElement {
   @property() environmentName = '';
+  @property() parentName = '';
 
   private tabId = -1;
-
-  @property({ type: Array }) private tabNames = [
-    'metadata',
-    'control-center',
-    'variables',
-    'servers',
-    'databases',
-    'projects',
-    'daemons',
-    'deployments',
-    'users',
-    'delegated-users'
-  ];
+  private tabNames = Object.values(EnvPageTabNames);
 
   @property({ type: Boolean }) private loading = true;
 
@@ -65,6 +68,9 @@ export class PageEnvironment extends PageElement {
         <tr>
           <td>
             <h2 style="text-align: center;">${this.environmentName}</h2>
+          </td>
+          <td>
+            ${this.parentName ? html`<vaadin-icon icon="vaadin:child" title="Child of ${this.parentName}" style="color: grey"></vaadin-icon>` : html``}
           </td>
           <td>
             ${this.loading ? html` <div class="small-loader"></div> ` : html``}
@@ -121,6 +127,7 @@ export class PageEnvironment extends PageElement {
   environmentLoaded(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;
     this.environmentName = env.EnvironmentName ?? '';
+    this.parentName = env.ParentEnvironment?.EnvironmentName ?? '';
     this.loading = false;
   }
 
@@ -141,9 +148,9 @@ export class PageEnvironment extends PageElement {
     });
   }
 
-  convertUriToHuman(tabName: string): TemplateResult {
+  convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
     if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
-      if (tabName === 'users' || tabName === 'delegated-users') return html``;
+      if (tabName === EnvPageTabNames.Users || tabName === EnvPageTabNames.DelegatedUsers) return html``;
     }
 
     let newTabName: string;
@@ -173,9 +180,7 @@ export class PageEnvironment extends PageElement {
       return;
     }
 
-    if (tabName !== '') {
-      Router.go(pathStart + tabName);
-      console.log(`Telling router to go to ${tabName}`);
-    }
+    Router.go(pathStart + tabName);
+    console.log(`Telling router to go to ${tabName}`);
   }
 }

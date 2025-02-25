@@ -23,6 +23,7 @@ import { ProjectEnvsTab } from './tabs/project-envs-tab';
 import './tabs/monitor-result-tab';
 import { MonitorResultTab } from './tabs/monitor-result-tab';
 import GlobalCache from '../global-cache.ts';
+import { EnvPageTabNames } from '../pages/page-environment.ts';
 
 @customElement('dorc-navbar')
 export class DorcNavbar extends LitElement {
@@ -418,12 +419,10 @@ export class DorcNavbar extends LitElement {
     const tab = new Tab();
     render(html` <env-detail-tab .env="${env}"></env-detail-tab>`, tab);
 
-    const path = this.getEnvDetailPath(env);
     tabs.insertBefore(
       tab,
       tabs.children[this.getIndexOfPath(tabs, '/servers')]
     );
-    return path;
   }
 
   private getMonitorResultPath(result: DeploymentRequestApiModel) {
@@ -431,7 +430,7 @@ export class DorcNavbar extends LitElement {
   }
 
   private getEnvDetailPath(env: EnvironmentApiModel) {
-    return `/environment/${String(env.EnvironmentName)}/metadata`;
+    return `/environment/${String(env.EnvironmentName)}/${EnvPageTabNames.Metadata}`;
   }
 
   public setSelectedTab(path: string) {
