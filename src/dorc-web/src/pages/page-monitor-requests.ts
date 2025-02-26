@@ -412,6 +412,7 @@ export class PageMonitorRequests extends LitElement {
 
   updateGrid() {
     if (this.grid) {
+      this.grid.scrollToIndex(0);
       this.grid.clearCache();
       this.isLoading = true;
     }
