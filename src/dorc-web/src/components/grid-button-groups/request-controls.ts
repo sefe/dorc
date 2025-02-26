@@ -61,7 +61,7 @@ export class RequestControls extends LitElement {
           <td class="table-button">
             <vaadin-button
               title="Cancel Request"
-              theme="icon"
+              theme="icon small"
               @click="${this.cancel}"
               ?disabled="${!this.cancelable}"
             >
@@ -74,7 +74,7 @@ export class RequestControls extends LitElement {
           <td class="table-button">
             <vaadin-button
               title="Restart Request"
-              theme="icon"
+              theme="icon small"
               @click="${this.restart}"
               ?disabled="${!this.canRestart}"
             >
