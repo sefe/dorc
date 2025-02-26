@@ -154,7 +154,7 @@ namespace Dorc.NetFramework.PowerShell
             try
             {
                 var data = (PSDataCollection<PSObject>)sender;
-                var msg = GetOutput(data[e.Index]);
+                var msg = "Output: " + GetOutput(data[e.Index]);
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Information(msg);
                 dbContext.UpdateLog(this.logger, deploymentResultId, msg);
