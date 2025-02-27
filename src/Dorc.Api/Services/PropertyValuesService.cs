@@ -6,6 +6,7 @@ using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
+using log4net;
 
 namespace Dorc.Api.Services
 {
@@ -18,12 +19,14 @@ namespace Dorc.Api.Services
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyValuesAuditPersistentSource _propertyValuesAuditPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly ILog _log; 
 
         public PropertyValuesService(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
             IPropertiesPersistentSource propertiesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker)
+            IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
+            IRolePrivilegesChecker rolePrivilegesChecker)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesAuditPersistentSource = propertyValuesAuditPersistentSource;
@@ -32,6 +35,7 @@ namespace Dorc.Api.Services
             _propertiesPersistentSource = propertiesPersistentSource;
             _propertyEncryptor = propertyEncryptor;
             _securityPrivilegesChecker = securityPrivilegesChecker;
+            _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         }
 
         public IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName,
@@ -148,6 +152,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
+                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -219,6 +224,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
+                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -253,6 +259,7 @@ namespace Dorc.Api.Services
                         dbPropertyValueModel = _propertyValuesPersistentSource
                             .GetPropertyValuesByName(propertyValueDto.Property.Name)
                             .FirstOrDefault(pv =>
+                                pv.PropertyValueFilter != null &&
                                 pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                     StringComparison.CurrentCultureIgnoreCase));
 
@@ -294,6 +301,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
+                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
