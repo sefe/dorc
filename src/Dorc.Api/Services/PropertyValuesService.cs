@@ -260,7 +260,7 @@ namespace Dorc.Api.Services
                         dbPropertyValueModel = _propertyValuesPersistentSource
                             .GetPropertyValuesByName(propertyValueDto.Property.Name)
                             .FirstOrDefault(pv =>
-                                //pv.PropertyValueFilter != null &&
+                                pv.PropertyValueFilter != null &&
                                 pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                     StringComparison.CurrentCultureIgnoreCase));
 
