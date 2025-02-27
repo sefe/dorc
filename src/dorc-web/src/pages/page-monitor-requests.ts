@@ -40,7 +40,9 @@ export class PageMonitorRequests extends LitElement {
   @query('#grid') grid: Grid | undefined;
   @query('#loading') loadingDiv: HTMLDivElement | undefined;
   
-  maxCountBeforeRefresh: number | undefined;
+  // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
+  // we need to store the max count of items before refresh to keep grid's cache size
+  maxCountBeforeRefresh: number | undefined; 
 
   set isLoading(val: boolean) {
     this._isLoading = val;
@@ -416,7 +418,7 @@ export class PageMonitorRequests extends LitElement {
 
   updateGrid() {
     if (this.grid) {
-      this.maxCountBeforeRefresh = (this.grid as any).__data._flatSize;
+      this.maxCountBeforeRefresh = (this.grid as any).__data?._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
       this.grid.clearCache();
       this.isLoading = true;
     }
