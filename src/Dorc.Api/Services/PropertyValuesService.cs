@@ -26,7 +26,8 @@ namespace Dorc.Api.Services
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
-            IRolePrivilegesChecker rolePrivilegesChecker)
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            ILog log)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesAuditPersistentSource = propertyValuesAuditPersistentSource;
@@ -35,7 +36,7 @@ namespace Dorc.Api.Services
             _propertiesPersistentSource = propertiesPersistentSource;
             _propertyEncryptor = propertyEncryptor;
             _securityPrivilegesChecker = securityPrivilegesChecker;
-            _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+            _log = log;
         }
 
         public IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName,
@@ -259,7 +260,7 @@ namespace Dorc.Api.Services
                         dbPropertyValueModel = _propertyValuesPersistentSource
                             .GetPropertyValuesByName(propertyValueDto.Property.Name)
                             .FirstOrDefault(pv =>
-                                pv.PropertyValueFilter != null &&
+                                //pv.PropertyValueFilter != null &&
                                 pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                     StringComparison.CurrentCultureIgnoreCase));
 
