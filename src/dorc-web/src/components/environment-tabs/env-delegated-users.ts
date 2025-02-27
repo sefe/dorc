@@ -29,7 +29,7 @@ export class EnvDelegatedUsers extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Users with Delegated Privileges"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
       >
         <attached-delegated-users
           id="delegated-users"

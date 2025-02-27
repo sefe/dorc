@@ -172,7 +172,7 @@ export class AddEditEnvironment extends LitElement {
           opened=${ifDefined(
             this.isEmptyOrSpaces(this.EnvOwnerDisplayName) ? true : undefined
           )}
-          style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+          style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
         >
           <vaadin-details-summary slot="summary">
             <vaadin-horizontal-layout>

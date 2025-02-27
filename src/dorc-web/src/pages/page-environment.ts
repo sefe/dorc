@@ -37,10 +37,10 @@ export class PageEnvironment extends PageElement {
   static get styles() {
     return css`
       :host {
-        display: inline-block;
-        height: calc(100vh - 70px);
+        height: 100%;
         width: 100%;
         overflow: hidden;
+          display: block;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */

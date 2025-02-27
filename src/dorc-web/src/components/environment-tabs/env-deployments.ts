@@ -95,7 +95,7 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-details
               opened
               summary="Application Deployment Filter"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
             >
               <vaadin-date-time-picker
                 id="deployments-filter"
