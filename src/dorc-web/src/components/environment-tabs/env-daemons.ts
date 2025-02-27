@@ -67,7 +67,7 @@ export class EnvDaemons extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Daemon Details"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
       >
         <table>
           <tr>
