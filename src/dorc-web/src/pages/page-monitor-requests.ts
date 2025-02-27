@@ -39,6 +39,8 @@ const id = 'Id';
 export class PageMonitorRequests extends LitElement {
   @query('#grid') grid: Grid | undefined;
   @query('#loading') loadingDiv: HTMLDivElement | undefined;
+  
+  maxCountBeforeRefresh: number | undefined;
 
   set isLoading(val: boolean) {
     this._isLoading = val;
@@ -224,7 +226,8 @@ export class PageMonitorRequests extends LitElement {
                 data.Items?.map(
                   item => (item.UserName = item.UserName?.split('\\')[1])
                 );
-                callback(data.Items ?? [], data.TotalItems);
+                callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
+                
                 this.dispatchEvent(
                   new CustomEvent('searching-requests-finished', {
                     detail: data,
@@ -381,6 +384,7 @@ export class PageMonitorRequests extends LitElement {
         default:
           break;
       }
+      this.maxCountBeforeRefresh = 0;
       this.grid?.clearCache();
       this.isSearching = true;
     },
@@ -412,7 +416,7 @@ export class PageMonitorRequests extends LitElement {
 
   updateGrid() {
     if (this.grid) {
-      this.grid.scrollToIndex(0);
+      this.maxCountBeforeRefresh = (this.grid as any).__data._flatSize;
       this.grid.clearCache();
       this.isLoading = true;
     }
