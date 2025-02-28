@@ -66,9 +66,18 @@ namespace Dorc.Runner
 
                 try
                 {
+                    IScriptGroupPipeClient scriptGroupReader;
+                    if (options.UseFile)
+                    {
+                        Log.Logger.Debug("Using file instead of pipes");
+                        scriptGroupReader = new ScriptGroupFileReader(Log.Logger);
+                    }
+                    else
+                        scriptGroupReader = new ScriptGroupPipeClient(Log.Logger);
+
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         Log.Logger,
-                        new ScriptGroupPipeClient(Log.Logger), dapperContext);
+                        scriptGroupReader, dapperContext);
 
                     scriptGroupProcessor.Process(options.PipeName);
                 }
