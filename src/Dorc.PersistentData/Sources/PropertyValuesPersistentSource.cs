@@ -834,7 +834,7 @@ namespace Dorc.PersistentData.Sources
                     PropertyValueFilter = ds.Tables[0].Rows[i][4] as string,
                     Id = ds.Tables[0].Rows[i][5] is long ? (long)ds.Tables[0].Rows[i][5] : 0,
                     PropertyValueFilterId = ds.Tables[0].Rows[i][6] as long?,
-                    Priority = (int)ds.Tables[0].Rows[i][10],
+                    Priority = ds.Tables[0].Rows[i][10] as int? ?? 0,
                     UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
                 };
             }
