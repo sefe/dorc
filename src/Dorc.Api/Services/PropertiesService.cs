@@ -52,7 +52,7 @@ namespace Dorc.Api.Services
             {
                 try
                 {
-                    var propValues = _propertyValuesService.GetPropertyValues(property, string.Empty, User);
+                    var propValues = _propertyValuesService.GetPropertyValues(property, null, User);
                     result.AddRange(_propertyValuesService.DeletePropertyValues(propValues, User));
 
                     if (_propertiesPersistentSource.DeleteProperty(property, User.Identity.Name))
