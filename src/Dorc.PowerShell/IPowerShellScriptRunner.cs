@@ -1,12 +1,12 @@
-﻿using System.Collections.Generic;
-using Dorc.ApiModel.MonitorRunnerApi;
+﻿using Dorc.ApiModel.MonitorRunnerApi;
 
 namespace Dorc.PowerShell
 {
     public interface IPowerShellScriptRunner
     {
-        void Run(string scriptsLocation,
-            IEnumerable<(string, IDictionary<string, VariableValue>)> scripts,
+        int Run(string scriptsLocation,
+            string scriptName,
+            IDictionary<string, VariableValue> scriptProperties,
             IDictionary<string, VariableValue> commonProperties
         );
     }

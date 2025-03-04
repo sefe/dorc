@@ -17,6 +17,15 @@ namespace Dorc.Runner
 
         static Program()
         {
+            AppDomain.CurrentDomain.UnhandledException +=
+                CurrentDomain_UnhandledException;
+        }
+        static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Log.Logger?.Error(e.ExceptionObject as Exception, "UnhandledException in Runner");
+
+            throw new Exception((e.IsTerminating ? "Terminating" : "Non-terminating") +
+                                " UnhandledException in Runner: " + e.ExceptionObject + ". Sender: " + sender);
         }
 
         private static void Main(string[] args)
@@ -43,27 +52,20 @@ namespace Dorc.Runner
                 var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json").Build();
 
-                var connectionString = config.GetSection("AppSettings")["DOrcConnectionString"];
+                var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
 
                 var dapperContext = new DapperContext(connectionString);
 
-
-                Log.Logger = loggerRegistry.InitialiseLogger();
+                Log.Logger = loggerRegistry.InitialiseLogger().ForContext("PipeName", options.PipeName);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
                     Log.Logger.Information("Runner process is started on behalf of the user: " + owner);
                 }
-
-                var idx = 0;
-                foreach (var s in args)
-                {
-                    Log.Logger.Information("args[{0}]: {1}", idx++, s);
-                }
-
-                Debug.Assert(arguments != null);
-
+                
+                Log.Logger.Information("Arguments: {args}", string.Join(", ", args));
+  
                 try
                 {
                     IScriptGroupPipeClient scriptGroupReader;
@@ -79,12 +81,12 @@ namespace Dorc.Runner
                         Log.Logger,
                         scriptGroupReader, dapperContext);
 
-                    scriptGroupProcessor.Process(options.PipeName);
+                    var result = scriptGroupProcessor.Process(options.PipeName);
+                    Exit(result);
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error("Deployment error", ex);
-                    Console.Error.WriteLine($"Exception caught in Runner: {ex}");
+                    Log.Logger.Error(ex, "Deployment error");
 
                     Exit(-1);
                     throw;
@@ -102,8 +104,7 @@ namespace Dorc.Runner
         {
             Thread.Sleep(10000);
 
-            Console.WriteLine(RunnerConstants.StandardStreamEndString);
-            Console.Error.WriteLine(RunnerConstants.StandardStreamEndString);
+            Log.Logger.Information(RunnerConstants.StandardStreamEndString);
         }
 
         static void Exit(int exitCode)

@@ -3,12 +3,13 @@ using Dorc.PersistData.Dapper;
 using Dorc.PowerShell;
 using Dorc.Runner.Pipes;
 using Serilog;
+using Serilog.Context;
 
 namespace Dorc.Runner
 {
     internal class ScriptGroupProcessor : IScriptGroupProcessor
     {
-        private readonly ILogger logger;
+        private ILogger logger;
         private readonly IScriptGroupPipeClient scriptGroupPipeClient;
         private readonly IDapperContext dbContext;
 
@@ -22,7 +23,7 @@ namespace Dorc.Runner
             this.scriptGroupPipeClient = scriptGroupPipeClient;
         }
 
-        public void Process(string pipeName)
+        public int Process(string pipeName)
         {
             ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName); 
             var deploymentResultId = scriptGroupProperties.DeployResultId;
@@ -35,24 +36,22 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
-            try
+            this.logger.Debug("ScriptGroup is received.");
+            using (var outputProc = new OutputProcessor(this.logger, this.dbContext, deploymentResultId))
             {
+                var scriptRunner = new PowerShellScriptRunner(this.logger, outputProc);
+                int sumResult = 0;
+                foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
+                {
+                    sumResult += scriptRunner.Run(
+                        scriptGroupProperties.ScriptsLocation,
+                        scriptProps.ScriptPath,
+                        scriptProps.Properties,
+                        scriptGroupProperties.CommonProperties);
+                }
 
-                this.logger.Information("ScriptGroup is received.");
-
-                var scriptRunner = new PowerShellScriptRunner(this.logger, this.dbContext, deploymentResultId);
-
-                scriptRunner.Run(
-                    scriptGroupProperties.ScriptsLocation,
-                    scriptGroupProperties.ScriptProperties.Select(p => (p.ScriptPath, p.Properties)),
-                    scriptGroupProperties.CommonProperties);
-
-            }
-            catch (Exception e)
-            {
-                logger.Error("An Exception has Occured: {0}", e.Message);
-                throw;
-            }
+                return sumResult;
+            }            
         }
     }
 }

@@ -20,13 +20,12 @@ namespace Dorc.Runner.Startup
             }
 
             logPath = config["System:LogPath"];
+            string outputTemplate = config["System:outputTemplate"];
 
-          var  seriLogger = new LoggerConfiguration()
-                .Enrich.WithExceptionDetails()
-                .WriteTo.Map("PipeName", "Monitor-Default", (name, wt) => wt.File(logPath + $"/{name}.txt"))
+            var seriLogger = new LoggerConfiguration()
+                .WriteTo.Map("PipeName", "Monitor-Default", (name, wt) => wt.File(logPath + $"/{name}.txt", outputTemplate: outputTemplate))
                 .ReadFrom.Configuration(config)
                 .Enrich.FromLogContext()
-                .Enrich.WithThreadId()
                 .CreateLogger();
 
             return seriLogger;
