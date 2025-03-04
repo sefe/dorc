@@ -6,6 +6,7 @@ using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
+using log4net;
 
 namespace Dorc.Api.Services
 {
@@ -18,12 +19,15 @@ namespace Dorc.Api.Services
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyValuesAuditPersistentSource _propertyValuesAuditPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly ILog _log; 
 
         public PropertyValuesService(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
             IPropertiesPersistentSource propertiesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker)
+            IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            ILog log)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesAuditPersistentSource = propertyValuesAuditPersistentSource;
@@ -32,6 +36,7 @@ namespace Dorc.Api.Services
             _propertiesPersistentSource = propertiesPersistentSource;
             _propertyEncryptor = propertyEncryptor;
             _securityPrivilegesChecker = securityPrivilegesChecker;
+            _log = log;
         }
 
         public IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName,
@@ -43,39 +48,14 @@ namespace Dorc.Api.Services
             var allSids = string.Join(";", userSids);
 
             var result = new List<PropertyValueDto>();
-            if (string.IsNullOrEmpty(propertyName) && !string.IsNullOrEmpty(environmentName))
-            {
-                var propValues = _propertyValuesPersistentSource.GetEnvironmentProperties(environmentName, username, allSids).ToList();
-                foreach (var propValDto in propValues)
-                {
-                    propValDto.PropertyValueFilter = environmentName;
-                    result.Add(propValDto);
-                }
-            }
-            else if (!string.IsNullOrEmpty(propertyName) && string.IsNullOrEmpty(environmentName))
-            {
-                var propValues = _propertyValuesPersistentSource.GetPropertyValuesByName(propertyName, username, allSids);
-                if (propValues.Length != 0)
-                    result.AddRange(propValues);
-            }
-            else if (!string.IsNullOrEmpty(propertyName) && !string.IsNullOrEmpty(environmentName))
-            {
-                var propValues = _propertyValuesPersistentSource.GetPropertyValuesByName(propertyName, username, allSids);
-                if (propValues.Length != 0)
-                {
-                    var props = propValues
-                        .Where(p => p.PropertyValueFilter != null)
-                        .FirstOrDefault(pv =>
-                            pv.PropertyValueFilter.Equals(environmentName, StringComparison.CurrentCultureIgnoreCase));
-                    if (props != null)
-                        result.Add(props);
-                }
-            }
+
+            var propValues = _propertyValuesPersistentSource.GetPropertyValuesForUser(environmentName, propertyName, username, allSids).ToList();
+            result.AddRange(propValues);
 
             if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && !String.IsNullOrEmpty(environmentName))
             {
                 if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
-                    throw new NonEnoughRightsException("User doesn't have \"ReadSecrets\" permission to read secured properties");
+                    throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
 
                 result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
                 {
@@ -121,6 +101,7 @@ namespace Dorc.Api.Services
                     var filteredPropertyValues = string.IsNullOrEmpty(propertyValueDto.PropertyValueFilter)
                         ? propertyValuesByName.FirstOrDefault(pv => pv.PropertyValueFilter == null)
                         : propertyValuesByName.FirstOrDefault(pv =>
+                            pv.PropertyValueFilter != null &&
                             pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                 StringComparison.CurrentCultureIgnoreCase));
 
@@ -172,6 +153,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
+                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -243,6 +225,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
+                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -277,6 +260,7 @@ namespace Dorc.Api.Services
                         dbPropertyValueModel = _propertyValuesPersistentSource
                             .GetPropertyValuesByName(propertyValueDto.Property.Name)
                             .FirstOrDefault(pv =>
+                                pv.PropertyValueFilter != null &&
                                 pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                     StringComparison.CurrentCultureIgnoreCase));
 
@@ -318,6 +302,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
+                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 

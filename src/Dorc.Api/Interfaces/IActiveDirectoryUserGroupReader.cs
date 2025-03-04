@@ -2,6 +2,7 @@
 {
     public interface IActiveDirectoryUserGroupReader
     {
-        Task<string?> GetGroupSidIfUserIsMemberAsync(string userName, string groupName);
+        string? GetGroupSidIfUserIsMember(string userName, string groupName);
+        string GetUserMail(string userName);
     }
 }

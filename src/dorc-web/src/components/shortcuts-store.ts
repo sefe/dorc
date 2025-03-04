@@ -8,10 +8,10 @@ import {
 import { Router } from '@vaadin/router';
 import { setCookie } from '../helpers/cookies.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
+import { EnvPageTabNames } from '../pages/page-environment.ts';
 
 @customElement('shortcuts-store')
 export class ShortcutsStore extends LitElement {
-  openEnvTabs: EnvironmentApiModel[] = [];
   openProjTabs: ProjectApiModel[] = [];
   openResultTabs: DeploymentRequestApiModel[] = [];
 
@@ -55,7 +55,6 @@ export class ShortcutsStore extends LitElement {
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);
-    console.log('inserted new tab');
   }
 
   updated() {
@@ -64,23 +63,25 @@ export class ShortcutsStore extends LitElement {
 
   private openEnvDetail(e: CustomEvent) {
     const env = e.detail.Environment as EnvironmentApiModel;
-    const existingEnvs = this.openEnvTabs.find(
+    const tab = e.detail.Tab as EnvPageTabNames;
+    
+    const existingEnvs = this.dorcNavbar?.openEnvTabs.find(
       value => value.EnvironmentName === env.EnvironmentName
     );
     let path = '';
     if (existingEnvs === undefined) {
-      this.openEnvTabs.push(env);
-      path = this.dorcNavbar?.insertEnvTab(env) ?? '';
-    } else {
-      path = this.getEnvDetailPath(env);
+      this.dorcNavbar?.openEnvTabs.push(env);
+      this.dorcNavbar?.insertEnvTab(env);
+      console.log('inserted new tab');
     }
+
+    path = this.getEnvDetailPath(env, tab);
 
     Router.go(path);
 
-    this.dorcNavbar?.setSelectedTab(path);
+    this.dorcNavbar?.setSelectedTab(this.getEnvDetailPath(env));
 
-    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
-    console.log('inserted new tab');
+    setCookie(this.envDetailTabs, JSON.stringify(this.dorcNavbar?.openEnvTabs));
   }
 
   private openMonitorResult(e: CustomEvent) {
@@ -137,7 +138,6 @@ export class ShortcutsStore extends LitElement {
     this.dorcNavbar?.setSelectedTab(path);
 
     setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
-    console.log('inserted new tab');
   }
 
   private getProjectEnvsPath(projectAPIModel: ProjectApiModel) {
@@ -148,7 +148,7 @@ export class ShortcutsStore extends LitElement {
     return `/monitor-result/${String(result.Id)}`;
   }
 
-  private getEnvDetailPath(env: EnvironmentApiModel) {
-    return `/environment/${String(env.EnvironmentName)}/metadata`;
+  private getEnvDetailPath(env: EnvironmentApiModel, tab: EnvPageTabNames = EnvPageTabNames.Metadata) {
+    return `/environment/${String(env.EnvironmentName)}/${tab}`;
   }
 }

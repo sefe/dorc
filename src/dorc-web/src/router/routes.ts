@@ -1,23 +1,65 @@
 import type { Route } from '@vaadin/router';
+import {appConfig} from '../app-config';
 
-import AppConfig from '../app-config';
+import '../components/dorc-app.ts'
+import '../components/environment-tabs/env-control-center.ts'
+import '../components/environment-tabs/env-daemons.ts'
+import '../components/environment-tabs/env-databases.ts'
+import '../components/environment-tabs/env-delegated-users.ts'
+import '../components/environment-tabs/env-deployments.ts'
+import '../components/environment-tabs/env-metadata.ts'
+import '../components/environment-tabs/env-projects.ts'
+import '../components/environment-tabs/env-servers.ts'
+import '../components/environment-tabs/env-users.ts'
+import '../components/environment-tabs/env-variables.ts'
+import '../components/environment-tabs/env-tenants.ts'
+import '../pages/page-about.ts'
+import '../pages/page-config-values-list.ts'
+import '../pages/page-daemons-list.ts'
+import '../pages/page-databases-list.ts'
+import '../pages/page-deploy.ts'
+import '../pages/page-deploy.ts'
+import '../pages/page-env-history.ts'
+import '../pages/page-environment.ts'
+import '../pages/page-environments-list.ts'
+import '../pages/page-monitor-requests.ts'
+import '../pages/page-monitor-result.ts'
+import '../pages/page-not-found.ts'
+import '../pages/page-permissions-list.ts'
+import '../pages/page-project-envs.ts'
+import '../pages/page-project-ref-data.ts'
+import '../pages/page-projects-list.ts'
+import '../pages/page-scripts-list.ts'
+import '../pages/page-servers-list.ts'
+import '../pages/page-sql-ports-list.ts'
+import '../pages/page-users-list.ts'
+import '../pages/page-variables-audit.ts'
+import '../pages/page-variables-value-lookup.ts'
+import '../pages/page-variables.ts'
 
-export const routes: Route[] = [
+export type RouteMeta = Readonly<{
+  metadata: {
+    title: string;
+    description: string;
+  };
+}>;
+
+export const routes: Route<RouteMeta>[] = [
   {
     path: '',
     component: 'dorc-app',
+    metadata: {
+      title: appConfig.appName,
+      description: appConfig.appDescription
+    },
     children: [
       {
         path: '/deploy',
         name: 'deploy',
         component: 'page-deploy',
         metadata: {
-          title: new AppConfig().appName,
-          titleTemplate: null,
-          description: new AppConfig().appDescription
-        },
-        action: async () => {
-          await import('../pages/page-deploy');
+          title: appConfig.appName,
+          description: appConfig.appDescription
         }
       },
       {
@@ -28,9 +70,6 @@ export const routes: Route[] = [
           title: 'Monitor Requests',
           description: 'List of all currently running requests'
         },
-        action: async () => {
-          await import('../pages/page-monitor-requests');
-        }
       },
       {
         path: '/monitor-result/:id',
@@ -39,9 +78,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Monitor Result of Deployment',
           description: 'The details of a currently running job'
-        },
-        action: async () => {
-          await import('../pages/page-monitor-result');
         }
       },
       {
@@ -51,9 +87,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'About',
           description: 'About page description'
-        },
-        action: async () => {
-          await import('../pages/page-about');
         }
       },
       {
@@ -63,9 +96,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Projects',
           description: 'List of all projects you have permission to view'
-        },
-        action: async () => {
-          await import('../pages/page-projects-list');
         }
       },
       {
@@ -75,9 +105,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Environments',
           description: 'List of all environments you have permission to view'
-        },
-        action: async () => {
-          await import('../pages/page-environments-list');
         }
       },
       {
@@ -87,9 +114,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Servers',
           description: 'List of all servers you have permission to view'
-        },
-        action: async () => {
-          await import('../pages/page-servers-list');
         }
       },
       {
@@ -99,9 +123,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Databases',
           description: 'List of all databases you have permission to view'
-        },
-        action: async () => {
-          await import('../pages/page-databases-list');
         }
       },
       {
@@ -111,9 +132,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Users',
           description: 'List of all environments you have permission to view'
-        },
-        action: async () => {
-          await import('../pages/page-users-list');
         }
       },
       {
@@ -123,9 +141,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Daemons',
           description: 'List of all daemons'
-        },
-        action: async () => {
-          await import('../pages/page-daemons-list');
         }
       },
       {
@@ -135,9 +150,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Scripts',
           description: 'List of all scripts'
-        },
-        action: async () => {
-          await import('../pages/page-scripts-list');
         }
       },
       {
@@ -147,9 +159,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Variables',
           description: 'List of all variables'
-        },
-        action: async () => {
-          await import('../pages/page-variables');
         }
       },
       {
@@ -159,9 +168,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Variables Values Lookup',
           description: 'List of all variables value for search'
-        },
-        action: async () => {
-          await import('../pages/page-variables-value-lookup');
         }
       },
       {
@@ -171,9 +177,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Variables Values Audit',
           description: 'List of all variables value changes'
-        },
-        action: async () => {
-          await import('../pages/page-variables-audit');
         }
       },
       {
@@ -183,9 +186,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'SQL Roles',
           description: 'List of all Database Roles'
-        },
-        action: async () => {
-          await import('../pages/page-permissions-list');
         }
       },
       {
@@ -195,9 +195,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Config Values',
           description: 'List of all configuration values'
-        },
-        action: async () => {
-          await import('../pages/page-config-values-list');
         }
       },
       {
@@ -207,9 +204,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'SQL Ports',
           description: 'List of all Database Ports'
-        },
-        action: async () => {
-          await import('../pages/page-sql-ports-list');
         }
       },
       {
@@ -219,9 +213,6 @@ export const routes: Route[] = [
         metadata: {
           title: 'Environment History',
           description: 'The history of this environment'
-        },
-        action: async () => {
-          await import('../pages/page-env-history');
         }
       },
       {
@@ -231,21 +222,15 @@ export const routes: Route[] = [
         metadata: {
           title: 'Environments for Project',
           description: 'All environments attached to a project'
-        },
-        action: async () => {
-          await import('../pages/page-project-envs');
         }
       },
       {
         path: '/project-ref-data/:id',
         name: 'project-ref-data',
-        component: 'project-ref-data',
+        component: 'page-project-ref-data',
         metadata: {
           title: 'Project Reference Data',
           description: 'The reference data for this environment'
-        },
-        action: async () => {
-          await import('../pages/page-project-ref-data');
         }
       },
       {
@@ -256,80 +241,93 @@ export const routes: Route[] = [
           title: 'Environment',
           description: 'The details of this environment'
         },
-        action: async () => {
-          await import('../pages/page-environment');
-        },
         children: [
           {
             path: '/metadata',
             component: 'env-metadata',
-            action: async () => {
-              await import('../components/environment-tabs/env-metadata');
+            metadata: {
+              title: 'Metadata',
+              description: 'Environment metadata details'
             }
           },
           {
             path: '/servers',
             component: 'env-servers',
-            action: async () => {
-              await import('../components/environment-tabs/env-servers');
+            metadata: {
+              title: 'Servers',
+              description: 'Environment servers details'
             }
           },
           {
             path: '/databases',
             component: 'env-databases',
-            action: async () => {
-              await import('../components/environment-tabs/env-databases');
+            metadata: {
+              title: 'Databases',
+              description: 'Environment database details'
             }
           },
           {
             path: '/daemons',
             component: 'env-daemons',
-            action: async () => {
-              await import('../components/environment-tabs/env-daemons');
+            metadata: {
+              title: 'Daemons',
+              description: 'Environment daemons details'
             }
           },
           {
             path: '/deployments',
             component: 'env-deployments',
-            action: async () => {
-              await import('../components/environment-tabs/env-deployments');
+            metadata: {
+              title: 'Deployments',
+              description: 'Environment deployment details'
             }
           },
           {
             path: '/users',
             component: 'env-users',
-            action: async () => {
-              await import('../components/environment-tabs/env-users');
+            metadata: {
+              title: 'Users',
+              description: 'Environment user details'
             }
           },
           {
             path: '/delegated-users',
             component: 'env-delegated-users',
-            action: async () => {
-              await import(
-                '../components/environment-tabs/env-delegated-users'
-              );
+            metadata: {
+              title: 'Delegated Users',
+              description: 'Environment delegated User details'
             }
           },
           {
             path: '/variables',
             component: 'env-variables',
-            action: async () => {
-              await import('../components/environment-tabs/env-variables');
+            metadata: {
+              title: 'variables',
+              description: 'Environment variables details'
             }
           },
           {
             path: '/projects',
             component: 'env-projects',
-            action: async () => {
-              await import('../components/environment-tabs/env-projects');
+            metadata: {
+              title: 'Projects',
+              description: 'Environment projects details'
             }
           },
           {
             path: '/control-center',
             component: 'env-control-center',
-            action: async () => {
-              await import('../components/environment-tabs/env-control-center');
+            metadata: {
+              title: 'Control Center',
+              description: 'Environment control center'
+            }
+          },
+          {
+            path: '/tenants',
+            component: 'env-tenants',
+            metadata: {
+              title: 'Tenants',
+              description: 'Environment tenants details'
             }
           }
         ]
@@ -339,12 +337,8 @@ export const routes: Route[] = [
         name: 'default',
         component: 'page-deploy',
         metadata: {
-          title: new AppConfig().appName,
-          titleTemplate: null,
-          description: new AppConfig().appDescription
-        },
-        action: async () => {
-          await import('../pages/page-deploy');
+          title: appConfig.appName,
+          description: appConfig.appDescription
         }
       },
       {
@@ -353,16 +347,9 @@ export const routes: Route[] = [
         component: 'page-not-found',
         metadata: {
           title: 'Error',
-          description: null,
-          image: null
-        },
-        action: async () => {
-          await import('../pages/page-not-found');
+          description: 'Page not found',
         }
       }
     ],
-    action: async () => {
-      await import('../components/dorc-app');
-    }
   }
 ];

@@ -44,21 +44,6 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<EnvironmentApiModel> GetEnvironments()
-        {
-            var environments = new List<EnvironmentApiModel>();
-            using (var context = contextFactory.GetContext())
-            {
-                var allEnvironments = context.Environments.ToList();
-                foreach (var environment in allEnvironments)
-                {
-                    environments.Add(MapToEnvironmentApiModel(environment, false, false));
-                }
-            }
-
-            return environments;
-        }
-
         public IEnumerable<string> GetEnvironmentNames(AccessLevel accessLevel, IPrincipal user,
             string thinClientServer, bool excludeProd)
         {
@@ -363,7 +348,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                var environment = EnvironmentUnifier.GetEnvironment(context, environmentId);
+                var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
 
                 return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
                     IsEnvironmentOwner(environment.Name, user));
@@ -463,7 +448,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentId);
+                var environment = EnvironmentUnifier.GetFullEnvironment(context, env.EnvironmentId);
 
                 if (env.EnvironmentName != environment.Name)
                 {
@@ -557,8 +542,8 @@ namespace Dorc.PersistentData.Sources
             out Environment environment,
             out Database database)
         {
-            var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-            if (envDetail == null)
+            var envDetail = EnvironmentUnifier.GetFullEnvironment(context, envId);
+            if (envDetail is null)
             {
                 throw new ArgumentOutOfRangeException(nameof(envId), "Invalid or unknown environment Id specified.");
             }
@@ -586,7 +571,7 @@ namespace Dorc.PersistentData.Sources
         private static IQueryable<EnvironmentData> AccessibleEnvironmentAdmin(IDeploymentContext context,
             string environmentName)
         {
-            return from env in context.Environments
+            return from env in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                    where env.Name == environmentName
                    select new EnvironmentData
                    { Environment = env, UserEditable = true };
@@ -625,7 +610,7 @@ namespace Dorc.PersistentData.Sources
             ICollection<string> userSids, string username, string environmentName)
         {
             var output = from
-                environment in context.Environments
+                environment in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                          join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                              accessControlEnvironments
                          from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
@@ -691,6 +676,7 @@ namespace Dorc.PersistentData.Sources
             e.ThinClientServer = env.Details.ThinClient;
             e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
             e.EnvNote = env.Details.Notes;
+            e.ParentId = env.ParentId;
         }
 
         private static EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
@@ -698,15 +684,40 @@ namespace Dorc.PersistentData.Sources
             if (ed.Environment == null)
                 return null;
 
+            return MapToEnvironmentApiModel(ed.Environment, ed.UserEditable, ed.IsOwner);
+        }
+
+        private static EnvironmentApiModel MapToParentEnvironmentApiModel(Environment? parentEnv)
+        {
+            if (parentEnv is null)
+                return null;
+
             return new EnvironmentApiModel
             {
-                EnvironmentName = ed.Environment.Name,
-                EnvironmentSecure = ed.Environment.Secure,
-                EnvironmentIsProd = ed.Environment.IsProd,
-                EnvironmentId = ed.Environment.Id,
-                UserEditable = ed.UserEditable,
-                IsOwner = ed.IsOwner,
-                Details = MapToEnvironmentDetailsApiModel(ed.Environment)
+                EnvironmentName = parentEnv.Name,
+                EnvironmentSecure = parentEnv.Secure,
+                EnvironmentIsProd = parentEnv.IsProd,
+                EnvironmentId = parentEnv.Id,
+                ParentId = parentEnv.ParentId,
+                IsParent = true,
+                ParentEnvironment = MapToParentEnvironmentApiModel(parentEnv.ParentEnvironment)
+            };
+        }
+
+        private static EnvironmentApiModel? MapToChildEnvironmentApiModel(Environment? childEnv)
+        {
+            if (childEnv is null)
+                return null;
+
+            return new EnvironmentApiModel
+            {
+                EnvironmentName = childEnv.Name,
+                EnvironmentSecure = childEnv.Secure,
+                EnvironmentIsProd = childEnv.IsProd,
+                EnvironmentId = childEnv.Id,
+                ParentId = childEnv.ParentId,
+                IsParent = childEnv.ChildEnvironments.Any(),
+                ChildEnvironments = childEnv.ChildEnvironments.Select(MapToChildEnvironmentApiModel).ToList()
             };
         }
 
@@ -716,15 +727,29 @@ namespace Dorc.PersistentData.Sources
             if (env == null)
                 return null;
 
+            var resEnv = MapToEnvironmentApiModel(env);
+            resEnv.UserEditable = userEditable;
+            resEnv.IsOwner = isOwner;
+
+            return resEnv;
+        }
+
+        public static EnvironmentApiModel MapToEnvironmentApiModel(Environment? env)
+        {
+            if (env is null)
+                return null!;
+
             return new EnvironmentApiModel
             {
                 EnvironmentName = env.Name,
                 EnvironmentSecure = env.Secure,
                 EnvironmentIsProd = env.IsProd,
                 EnvironmentId = env.Id,
-                UserEditable = userEditable,
-                IsOwner = isOwner,
-                Details = MapToEnvironmentDetailsApiModel(env)
+                Details = MapToEnvironmentDetailsApiModel(env),
+                ParentId = env.ParentId,
+                IsParent = env.ChildEnvironments.Any(),
+                ParentEnvironment = MapToParentEnvironmentApiModel(env.ParentEnvironment),
+                ChildEnvironments = env.ChildEnvironments.Select(MapToChildEnvironmentApiModel).ToList()
             };
         }
 
@@ -743,6 +768,97 @@ namespace Dorc.PersistentData.Sources
                 RestoredFromSourceDb = details.RestoredFromBackup,
                 Notes = details.EnvNote
             };
+        }
+
+        public IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var userSids = user.GetSidsForUser();
+                var accessLevelRequired = AccessLevel.Write;
+
+                var allRelatedEnvs = context.Environments
+                    .Include(e => e.Projects)
+                    .ThenInclude(p => p.Environments)
+                    .Where(e => e.Id == id)
+                    .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
+                    .Where(e => e.Id != id && e.ParentId == null) // Exclude the parent and all children
+                    .Distinct();
+
+                var filteredByAccessLevelEnvs = allRelatedEnvs
+                    .Join(context.AccessControls, // Join with AccessControls to filter by user access
+                          environment => environment.ObjectId,
+                          ac => ac.ObjectId,
+                          (environment, ac) => new { environment, ac })
+                    .Where(joined => userSids.Contains(joined.ac.Sid) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
+                    .Select(joined => joined.environment)
+                    .Distinct();
+
+                var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();
+
+                var envChain = context.GetFullEnvironmentChain(id);
+
+                mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList(); // filter all envs already in chain
+
+                var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel);
+                return possibleChildren;
+            }
+        }
+
+        public void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var childEnv = EnvironmentUnifier.GetEnvironment(context, childEnvId);
+
+                if (childEnv is null)
+                    throw new ArgumentException("Child environment not found.");
+
+                if (parentEnvId.HasValue)
+                {
+                    var envChain = context.GetFullEnvironmentChain(parentEnvId.Value);
+
+                    var parentEnv = envChain.FirstOrDefault(e => e.Id == parentEnvId);
+                    if (parentEnv is null)
+                        throw new ArgumentException("Parent environment not found.");
+
+                    if (childEnv.ParentId == parentEnvId)
+                    {
+                        logger.Debug($"Environment {childEnv.Name} is already a child of {parentEnv.Name}");
+                        return;
+                    }
+                    
+                    if (envChain.FirstOrDefault(e => e.Id == childEnvId) is not null)
+                    {
+                        throw new ArgumentException($"Environment {childEnv.Name} is already in the chain of the environment {parentEnv.Name}.");
+                    }
+
+                    if (parentEnv.ParentId is not null)
+                    {
+                        throw new ArgumentException($"Not allowed to have more than 1 level of environment hierarchy. Environment {parentEnv.Name} is already a child ");
+                    }
+
+                    childEnv.ParentId = parentEnvId;
+                    EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
+                        "Attached as a child to parent environment " + parentEnv.Name,
+                        user.Identity.Name, "Attach Child Environment", context);
+                }
+                else
+                {
+                    if (!childEnv.ParentId.HasValue)
+                    {
+                        logger.Debug($"Environment {childEnv.Name} is not a child");
+                        return;
+                    }
+
+                    childEnv.ParentId = null;
+                    EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
+                        "Child environment detached from its parent.",
+                        user.Identity.Name, "Detach Child Environment", context);
+                }
+
+                context.SaveChanges();
+            }
         }
     }
 }

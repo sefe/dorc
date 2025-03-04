@@ -10,7 +10,6 @@ import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
@@ -44,35 +43,43 @@ import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 
+const environmentNames = 'EnvironmentNames';
+const name = 'Name';
+const osName = 'OsName';
+const applicationTags = 'ApplicationTags';
+
 @customElement('page-servers-list')
 export class PageServersList extends PageElement {
   @property({ type: Boolean }) loading = true;
-
   @property({ type: Boolean }) searching = false;
-
   @query('#grid') grid: Grid | undefined;
-
   @property({ type: Boolean }) noResults = false;
 
   @state()
   private addEditServerDialogOpened = false;
-
   @state()
   private editTagsDialogOpened = false;
 
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
 
+  environmentNamesFilter: string = '';
+  nameFilter: string = '';
+  osNameFilter: string = '';
+  applicationTagsFilter: string = '';
+
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
         --divider-color: rgb(223, 232, 239);
       }
-      vaadin-button {
-        margin: 0px;
+      vaadin-text-field {
+        padding: 0;
+        margin: 0;
       }
+
       .overlay {
         width: 100%;
         height: 100%;
@@ -110,12 +117,6 @@ export class PageServersList extends PageElement {
         }
       }
 
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
-
       .tag {
         font-size: 14px;
         font-family: monospace;
@@ -137,7 +138,7 @@ export class PageServersList extends PageElement {
 
       .env {
         font-size: 14px;
-        border: 0px;
+        border: 0;
         font-family: monospace;
         background-color: var(
           --_lumo-button-background-color,
@@ -210,7 +211,7 @@ export class PageServersList extends PageElement {
       </div>
       <vaadin-grid
         id='grid'
-        .dataProvider='${this.getServersByPage}'
+        .dataProvider='${this.debouncedDataProvider}'
         column-reordering-allowed
         multi-sort
         style='z-index: 1'
@@ -242,7 +243,6 @@ export class PageServersList extends PageElement {
           flex-grow='0'
           .renderer='${this.environmentNamesRenderer}'
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
-          .serversPage='${this}'
           resizable
           header='Mapped Environments'
         ></vaadin-grid-column>
@@ -252,7 +252,6 @@ export class PageServersList extends PageElement {
           resizable
           .renderer='${this._boundServersButtonsRenderer}'
           .headerRenderer='${this.buttonsHeaderRenderer}'
-          .serversPage='${this}'
         >
       </vaadin-grid>
       <img
@@ -264,6 +263,122 @@ export class PageServersList extends PageElement {
       />
     `;
   }
+
+  private debounce(func: (...args: any[]) => void, wait: number) {
+    let timeout: number | undefined;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = window.setTimeout(later, wait);
+    };
+  }
+
+  debouncedDataProvider = this.debounce(
+    (
+      params: GridDataProviderParams<ServerApiModel>,
+      callback: GridDataProviderCallback<ServerApiModel>
+    ) => {
+      if (this.nameFilter !== '' && this.nameFilter !== undefined) {
+        params.filters.push({ path: 'Name', value: this.nameFilter });
+      }
+
+      if (this.osNameFilter !== '' && this.osNameFilter !== undefined) {
+        params.filters.push({ path: 'OsName', value: this.osNameFilter });
+      }
+
+      if (
+        this.applicationTagsFilter !== '' &&
+        this.applicationTagsFilter !== undefined
+      ) {
+        params.filters.push({
+          path: 'ApplicationTags',
+          value: this.applicationTagsFilter
+        });
+      }
+
+      if (
+        this.environmentNamesFilter !== '' &&
+        this.environmentNamesFilter !== undefined
+      ) {
+        params.filters.push({
+          path: 'EnvironmentNames',
+          value: this.environmentNamesFilter
+        });
+      }
+
+      const api = new RefDataServersApi();
+      api
+        .refDataServersByPagePut({
+          pagedDataOperators: {
+            Filters: params.filters.map(
+              (f: GridFilterDefinition): PagedDataFilter => ({
+                Path: f.path,
+                FilterValue: f.value
+              })
+            ),
+            SortOrders: params.sortOrders.map(
+              (s: GridSorterDefinition): PagedDataSorting => ({
+                Path: s.path,
+                Direction: s.direction?.toString()
+              })
+            )
+          },
+          limit: params.pageSize,
+          page: params.page + 1
+        })
+        .subscribe({
+          next: (data: GetServerApiModelListResponseDto) => {
+            this.dispatchEvent(
+              new CustomEvent('searching-servers-finished', {
+                detail: data,
+                bubbles: true,
+                composed: true
+              })
+            );
+            callback(data.Items ?? [], data.TotalItems);
+          },
+          error: (err: any) => console.error(err),
+          complete: () => {
+            this.dispatchEvent(
+              new CustomEvent('servers-loaded', {
+                detail: {},
+                bubbles: true,
+                composed: true
+              })
+            );
+            console.log(`done loading servers page:${params.page + Number(1)}`);
+          }
+        });
+    },
+    300
+  );
+
+  private debouncedInputHandler = this.debounce(
+    (field: string, value: string) => {
+      switch (field) {
+        case name:
+          this.nameFilter = value;
+          break;
+        case osName:
+          this.osNameFilter = value;
+          break;
+        case applicationTags:
+          this.applicationTagsFilter = value;
+          break;
+        case environmentNames:
+          this.environmentNamesFilter = value;
+          break;
+        default:
+          break;
+      }
+      this.grid?.clearCache();
+      this.searching = true;
+    },
+    400 // debounce wait time
+  );
 
   private renderEditTagsDialog = () => html`
     <server-tags
@@ -304,14 +419,15 @@ export class PageServersList extends PageElement {
     this.loading = false;
   }
 
-  private searchingServersStarted() {
-    this.searching = true;
+  private searchingServersStarted(event: CustomEvent) {
+    if (event.detail.value !== undefined) {
+      this.debouncedInputHandler(event.detail.field, event.detail.value);
+    }
   }
 
   private searchingServersFinished(e: CustomEvent) {
     const data: GetServerApiModelListResponseDto = e.detail;
-    if (data.TotalItems === 0) this.noResults = true;
-    else this.noResults = false;
+    this.noResults = data.TotalItems === 0;
 
     this.searching = false;
   }
@@ -328,6 +444,7 @@ export class PageServersList extends PageElement {
       html`
         <vaadin-button
           title="Add Server"
+          theme="small"
           @click="${() => {
             const event = new CustomEvent('open-add-edit-server-dialog', {
               detail: {},
@@ -350,137 +467,121 @@ export class PageServersList extends PageElement {
 
   environmentNamesHeaderRenderer(root: HTMLElement) {
     render(
-      html` Environments
-        <vaadin-grid-filter path="EnvironmentNames">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`
+        <vaadin-text-field
+          placeholder="Environments"
+          clear-button-visible
+          focus-target
+          style="width: 120px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-servers-started', {
+                detail: {
+                  field: environmentNames,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-servers-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   nameHeaderRenderer(root: HTMLElement) {
     render(
-      html` <vaadin-grid-sorter direction="asc" path="Name"
-          >Name</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="Name">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`<vaadin-grid-sorter
+          direction="asc"
+          path="Name"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Name"
+          clear-button-visible
+          focus-target
+          style="width: 120px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-servers-started', {
+                detail: {
+                  field: name,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field> `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-servers-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   osHeaderRenderer(root: HTMLElement) {
     render(
-      html` <vaadin-grid-sorter path="OsName"
-          >Operating System</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="OsName">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`<vaadin-grid-sorter
+          path="OsName"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Operating System"
+          clear-button-visible
+          focus-target
+          style="width: 200px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-servers-started', {
+                detail: {
+                  field: osName,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field> `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-servers-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   appTagsHeaderRenderer(root: HTMLElement) {
     render(
-      html` <vaadin-grid-sorter path="ApplicationTags"
-          >Application Tags</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="ApplicationTags">
-          <vaadin-text-field
-            id="tags-search"
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`<vaadin-grid-sorter
+          path="ApplicationTags"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Application Tags"
+          clear-button-visible
+          focus-target
+          style="width: 200px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-servers-started', {
+                detail: {
+                  field: applicationTags,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field> `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-servers-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   private environmentNamesRenderer = (
@@ -490,10 +591,7 @@ export class PageServersList extends PageElement {
   ) => {
     const server = model.item;
     const envNames = server.EnvironmentNames?.sort();
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.serversPage as PageServersList;
+
     render(
       html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
@@ -505,7 +603,17 @@ export class PageServersList extends PageElement {
               (i: string) =>
                 html` <button
                   class="env"
-                  @click="${() => altThis.openEnvironmentDetails(i)}"
+                  @click="${() =>
+                          this.dispatchEvent(
+                                  new CustomEvent('open-environment-details', {
+                                      detail: {
+                                          envName: i
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )
+              }"
                   style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
                 >
                   ${i}
@@ -518,9 +626,9 @@ export class PageServersList extends PageElement {
     );
   };
 
-  openEnvironmentDetails(envName: string) {
+  openEnvironmentDetails(event: CustomEvent) {
     const api2 = new RefDataEnvironmentsApi();
-    api2.refDataEnvironmentsGet({ env: envName }).subscribe({
+    api2.refDataEnvironmentsGet({ env: event.detail.envName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data[0] !== null) {
           const event = new CustomEvent('open-env-detail', {
@@ -590,7 +698,7 @@ export class PageServersList extends PageElement {
           appTags,
           value =>
             html` <button
-              style="border: 0px"
+              style="border: 0"
               class="tag"
               @click="${() =>
                 this.dispatchEvent(
@@ -652,6 +760,11 @@ export class PageServersList extends PageElement {
       'open-add-edit-server-dialog',
       this.openAddEditServerDialog as EventListener
     );
+
+    this.addEventListener(
+      'open-environment-details',
+      this.openEnvironmentDetails as EventListener
+    );
   }
 
   filterTagsServerList(e: CustomEvent) {
@@ -701,67 +814,6 @@ export class PageServersList extends PageElement {
   closeTagsDialog() {
     this.updateGrid();
     this.editTagsDialogOpened = false;
-  }
-
-  getServersByPage(
-    params: GridDataProviderParams<ServerApiModel>,
-    callback: GridDataProviderCallback<ServerApiModel>
-  ) {
-    const pathNames = ['OsName', 'Name', 'ApplicationTags', 'EnvironmentNames'];
-    pathNames.forEach(x => {
-      const idIdx = params.filters.findIndex(filter => filter.path === x);
-      if (idIdx !== -1) {
-        const idValue = params.filters[idIdx].value;
-        params.filters.splice(idIdx, 1);
-        if (idValue !== '') {
-          params.filters.push({ path: x, value: idValue });
-        }
-      }
-    });
-
-    const api = new RefDataServersApi();
-    api
-      .refDataServersByPagePut({
-        pagedDataOperators: {
-          Filters: params.filters.map(
-            (f: GridFilterDefinition): PagedDataFilter => ({
-              Path: f.path,
-              FilterValue: f.value
-            })
-          ),
-          SortOrders: params.sortOrders.map(
-            (s: GridSorterDefinition): PagedDataSorting => ({
-              Path: s.path,
-              Direction: s.direction?.toString()
-            })
-          )
-        },
-        limit: params.pageSize,
-        page: params.page + 1
-      })
-      .subscribe({
-        next: (data: GetServerApiModelListResponseDto) => {
-          this.dispatchEvent(
-            new CustomEvent('searching-servers-finished', {
-              detail: data,
-              bubbles: true,
-              composed: true
-            })
-          );
-          callback(data.Items ?? [], data.TotalItems);
-        },
-        error: (err: any) => console.error(err),
-        complete: () => {
-          this.dispatchEvent(
-            new CustomEvent('servers-loaded', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            })
-          );
-          console.log(`done loading servers page:${params.page + Number(1)}`);
-        }
-      });
   }
 
   private openAddEditServerDialog() {
