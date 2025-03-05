@@ -1,4 +1,4 @@
-﻿IF ((Select count(*) from deploy.property where name = 'DORC_NonProdDeployPassword') > 0)
+﻿IF ((Select count(*) from deploy.property where name = 'DeploymentServiceAccount') > 0)
 BEGIN
 
 -- Insert the data
@@ -21,19 +21,10 @@ FROM (
 		JOIN deploy.PropertyValue AS pv
 			ON pv.PropertyId = p.Id
 		WHERE [Name] in (
-			'DORC_CopyEnvBuildTargetWhitelist',
-			'DORC_DropDBExePath',
-			'DORC_NonProdDeployPassword',
-			'DORC_NonProdDeployUsername',
-			'DORC_ProdDeployPassword',
-			'DORC_ProdDeployUsername',
-			'DORC_PropertiesUrl',
-			'DORC_RestoreDBExePath',
-			'DORC_WebDeployPassword',
-			'DORC_WebDeployUsername',
-			'DorcApiAccessAccount',
-			'DorcApiAccessPassword',
-			'DorcApiBaseUrl')
+			'DeploymentServiceAccount',
+			'DeploymentServiceAccountPassword',
+			'EnvMgtDBServer',
+			'EnvMgtDBName')
 		GROUP BY p.[Name], pv.[Value], p.[Secure]
 		) AS result
 	) as result_with_rownum
