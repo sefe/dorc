@@ -36,7 +36,6 @@ import {
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
 import { ErrorNotification } from '../notifications/error-notification';
-import { classMap } from 'lit/directives/class-map.js';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -76,19 +75,13 @@ export class EnvVariables extends PageEnvBase {
       :host {
         display: flex;
         width: 100%;
+        overflow: hidden;
         height: 100%;
       }
       vaadin-grid#grid {
         --divider-color: rgb(223, 232, 239);
         width: 100%;
-        overflow-y: auto !important;
-        min-width: 200px;
-      }
-      .gridNoBanner {
-        //height: calc(100vh - 307px);
-      }
-      .gridBanner {
-          height: 400px
+        height: 100%;
       }
       vaadin-text-field {
         padding: 0px;
@@ -175,7 +168,9 @@ export class EnvVariables extends PageEnvBase {
                 summary="Add Scoped Variable Value"
                 style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; width: 100%; margin: 0px;"
               >
-                <div style="display: flex; flex-wrap: wrap; flex-direction: row">
+                <div
+                  style="display: flex; flex-wrap: wrap; flex-direction: row"
+                >
                   <table>
                     <tr>
                       <td style="vertical-align: center; min-width: 20px">
@@ -252,7 +247,6 @@ export class EnvVariables extends PageEnvBase {
                 : html``}
               <vaadin-grid
                 id="grid"
-                class="${classMap(this._computeSelectedClass())}"
                 column-reordering-allowed
                 multi-sort
                 theme="compact row-stripes no-row-borders no-border"
@@ -339,7 +333,6 @@ export class EnvVariables extends PageEnvBase {
                       });
                   }
                 }}"
-                .altThis="${this}"
                 ?hidden="${this.loading}"
                 style="z-index: 100;"
               >
@@ -448,14 +441,6 @@ export class EnvVariables extends PageEnvBase {
       this.grid.clearCache();
       this.loading = true;
     }
-  }
-
-  _computeSelectedClass() {
-    return {
-      gridNoBanner:
-        (this.environment && this.environment.EnvironmentSecure) ?? false,
-      gridBanner: !(this.environment && this.environment.EnvironmentSecure)
-    };
   }
 
   private debounce(func: (...args: any[]) => void, wait: number) {

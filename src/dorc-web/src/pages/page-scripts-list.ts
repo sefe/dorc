@@ -9,6 +9,7 @@ import '../components/add-daemon';
 import '@polymer/paper-dialog';
 import '@vaadin/text-field';
 import {
+  Grid,
   GridDataProviderCallback,
   GridDataProviderParams,
   GridFilterDefinition,
@@ -16,7 +17,7 @@ import {
   GridSorterDefinition
 } from '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
@@ -29,6 +30,10 @@ import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
+import { TextField } from '@vaadin/text-field';
+
+const variableName = 'Name';
+const variablePath = 'Path';
 
 @customElement('page-scripts-list')
 export class PageScriptsList extends PageElement {
@@ -38,8 +43,6 @@ export class PageScriptsList extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
-  @property() nameFilterValue = '';
-
   @property({ type: Boolean }) isAdmin = false;
 
   @property({ type: Boolean }) isPowerUser = false;
@@ -48,7 +51,16 @@ export class PageScriptsList extends PageElement {
 
   @property({ type: Boolean }) private loading = true;
 
+  @property({ type: Boolean }) searching = false;
+
   @property({ type: Boolean }) private rolesLoading = true;
+
+  @query('#grid') grid: Grid | undefined;
+
+  variableName: string =
+    new URLSearchParams(location.search).get('search-name') ?? '';
+  variablePath: string =
+    new URLSearchParams(location.search).get('search-path') ?? '';
 
   static get styles() {
     return css`
@@ -56,10 +68,11 @@ export class PageScriptsList extends PageElement {
         display: flex;
         width: 100%;
         overflow: hidden;
+        height: 100%;
       }
       vaadin-grid#grid {
         --divider-color: rgb(223, 232, 239);
-        height: calc(100vh - 56px);
+        height: 100%;
       }
       .overlay {
         width: 100%;
@@ -105,8 +118,8 @@ export class PageScriptsList extends PageElement {
     return html`
       <div
         class="overlay"
-        style="z-index: 2"
-        ?hidden="${!(this.loading || this.rolesLoading)}"
+        style="z-index: 1000"
+        ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"
       >
         <div class="overlay__inner">
           <div class="overlay__content">
@@ -123,23 +136,85 @@ export class PageScriptsList extends PageElement {
             multi-sort
             ?hidden="${this.loading}"
             theme="compact row-stripes no-row-borders no-border"
-            .dataProvider="${this.getScripts}"
-            style="z-index: 1"
+            .dataProvider="${(
+              params: GridDataProviderParams<ScriptApiModel>,
+              callback: GridDataProviderCallback<ScriptApiModel>
+            ) => {
+              if (this.variableName !== '' && this.variableName !== undefined) {
+                params.filters.push({
+                  path: variableName,
+                  value: this.variableName
+                });
+              }
+
+              if (this.variablePath !== '' && this.variablePath !== undefined) {
+                params.filters.push({
+                  path: variablePath,
+                  value: this.variablePath
+                });
+              }
+
+              const api = new RefDataScriptsApi();
+              api
+                .refDataScriptsPut({
+                  pagedDataOperators: {
+                    Filters: params.filters.map(
+                      (f: GridFilterDefinition): PagedDataFilter => ({
+                        Path: f.path,
+                        FilterValue: f.value
+                      })
+                    ),
+                    SortOrders: params.sortOrders.map(
+                      (s: GridSorterDefinition): PagedDataSorting => ({
+                        Path: s.path,
+                        Direction: s.direction?.toString()
+                      })
+                    )
+                  },
+                  limit: params.pageSize,
+                  page: params.page + 1
+                })
+                .subscribe({
+                  next: (data: GetScriptsListResponseDto) => {
+                    this.dispatchEvent(
+                      new CustomEvent('searching-scripts-finished', {
+                        detail: {},
+                        bubbles: true,
+                        composed: true
+                      })
+                    );
+                    callback(data.Items ?? [], data.TotalItems);
+                  },
+                  error: (err: any) => console.error(err),
+                  complete: () => {
+                    this.dispatchEvent(
+                      new CustomEvent('scripts-loaded', {
+                        detail: {},
+                        bubbles: true,
+                        composed: true
+                      })
+                    );
+                    console.log(
+                      `done loading scripts page:${+(params.page + Number(1))}`
+                    );
+                  }
+                });
+            }}"
+            style="z-index: 100;"
           >
             <vaadin-grid-column
               header="Enabled"
               resizable
               width="80px"
               flex-grow="0"
-              .renderer="${this.enabledRenderer}"
-              .userRoles="${this.userRoles}"
+              .renderer="${this.enabledRenderer.bind(this)}"
             >
             </vaadin-grid-column>
             <vaadin-grid-column
               path="Name"
               header="Script Name"
               resizable
-              .headerRenderer="${this.nameHeaderRenderer}"
+              .headerRenderer="${this.nameHeaderRenderer.bind(this)}"
               width="500px"
               flex-grow="0"
             >
@@ -148,7 +223,7 @@ export class PageScriptsList extends PageElement {
               path="NonProdOnly"
               header="Non Prod Only"
               resizable
-              width="120px"
+              width="150px"
               flex-grow="0"
               .renderer="${this.nonProdRenderer}"
             ></vaadin-grid-sort-column>
@@ -169,6 +244,16 @@ export class PageScriptsList extends PageElement {
     this.addEventListener(
       'scripts-loaded',
       this.scriptsLoaded as EventListener
+    );
+
+    this.addEventListener(
+      'searching-scripts-started',
+      this.searchingScriptsStarted as EventListener
+    );
+
+    this.addEventListener(
+      'searching-scripts-finished',
+      this.searchingScriptsFinished as EventListener
     );
   }
 
@@ -194,6 +279,10 @@ export class PageScriptsList extends PageElement {
     });
   }
 
+  private searchingScriptsFinished() {
+    this.searching = false;
+  }
+
   nonProdRenderer(
     root: HTMLElement,
     _column: GridColumn,
@@ -215,19 +304,22 @@ export class PageScriptsList extends PageElement {
     model: GridItemModel<ScriptApiModel>
   ) {
     const script = model.item as ScriptApiModel;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const roles = _column.userRoles;
 
     let isAdmin: boolean;
-    if (roles && roles.find((p: string) => p === 'Admin') !== undefined) {
+    if (
+      this.userRoles &&
+      this.userRoles.find((p: string) => p === 'Admin') !== undefined
+    ) {
       isAdmin = true;
     } else {
       isAdmin = false;
     }
 
     let isPowerUser: boolean;
-    if (roles && roles.find((p: string) => p === 'PowerUser') !== undefined) {
+    if (
+      this.userRoles &&
+      this.userRoles.find((p: string) => p === 'PowerUser') !== undefined
+    ) {
       isPowerUser = true;
     } else {
       isPowerUser = false;
@@ -277,89 +369,111 @@ export class PageScriptsList extends PageElement {
     }
   }
 
+  private searchingScriptsStarted(event: CustomEvent) {
+    if (event.detail.value !== undefined) {
+      this.debouncedInputHandler(event.detail.field, event.detail.value);
+    }
+  }
+
+  private debounce(func: (...args: any[]) => void, wait: number) {
+    let timeout: number | undefined;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = window.setTimeout(later, wait);
+    };
+  }
+
+  private debouncedInputHandler = this.debounce(
+    (field: string, value: string) => {
+      switch (field) {
+        case variableName:
+          this.variableName = value;
+          break;
+        case variablePath:
+          this.variablePath = value;
+          break;
+        default:
+          break;
+      }
+      this.grid?.clearCache();
+      this.searching = true;
+    },
+    400 // debounce wait time
+  );
+
   nameHeaderRenderer(root: HTMLElement) {
-    root.innerHTML = `
-        <vaadin-grid-sorter path='Name'>Name</vaadin-grid-sorter>
-        <vaadin-grid-filter path="Name">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter" focus-target style='width: 100%' 
-                           theme='small'
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
-      `;
-    const filter: any = root.querySelector('vaadin-grid-filter');
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-      });
+    render(
+      html`
+        <vaadin-grid-sorter
+          path="Name"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Name"
+          clear-button-visible
+          focus-target
+          style="width: 200px"
+          theme="small"
+          value="${this.variableName}"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+
+            this.dispatchEvent(
+              new CustomEvent('searching-scripts-started', {
+                detail: {
+                  field: variableName,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
+      `,
+      root
+    );
   }
 
   pathHeaderRenderer(root: HTMLElement) {
-    root.innerHTML = `
-        <vaadin-grid-sorter path='Path'>Path</vaadin-grid-sorter>
-        <vaadin-grid-filter path="Path">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter" focus-target style='width: 100%' 
-                           theme='small'
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
-      `;
-    const filter: any = root.querySelector('vaadin-grid-filter');
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-      });
+    render(
+      html`
+        <vaadin-grid-sorter
+          path="Path"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Path"
+          clear-button-visible
+          focus-target
+          style="width: 200px"
+          theme="small"
+          value="${this.variablePath}"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+
+            this.dispatchEvent(
+              new CustomEvent('searching-scripts-started', {
+                detail: {
+                  field: variablePath,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
+      `,
+      root
+    );
   }
 
   private scriptsLoaded() {
     this.loading = false;
-  }
-
-  getScripts(
-    params: GridDataProviderParams<ScriptApiModel>,
-    callback: GridDataProviderCallback<ScriptApiModel>
-  ) {
-    const api = new RefDataScriptsApi();
-    api
-      .refDataScriptsPut({
-        pagedDataOperators: {
-          Filters: params.filters.map(
-            (f: GridFilterDefinition): PagedDataFilter => ({
-              Path: f.path,
-              FilterValue: f.value
-            })
-          ),
-          SortOrders: params.sortOrders.map(
-            (s: GridSorterDefinition): PagedDataSorting => ({
-              Path: s.path,
-              Direction: s.direction?.toString()
-            })
-          )
-        },
-        limit: params.pageSize,
-        page: params.page + 1
-      })
-      .subscribe({
-        next: (data: GetScriptsListResponseDto) => {
-          callback(data.Items ?? [], data.TotalItems);
-        },
-        error: (err: any) => console.error(err),
-        complete: () => {
-          this.dispatchEvent(
-            new CustomEvent('scripts-loaded', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            })
-          );
-          console.log(
-            `done loading scripts page:${+(params.page + Number(1))}`
-          );
-        }
-      });
   }
 }

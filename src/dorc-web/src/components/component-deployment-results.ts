@@ -76,7 +76,7 @@ export class ComponentDeploymentResults extends LitElement {
         all-rows-visible
       >
         <vaadin-grid-column
-          path="ComponentName"
+          .renderer="${this.componentNameRenderer}"
           header="Component Name"
           resizable
           auto-width
@@ -102,6 +102,14 @@ export class ComponentDeploymentResults extends LitElement {
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
+  }
+
+  componentNameRenderer(    root: HTMLElement,
+                            _column: GridColumn,
+                            model: GridItemModel<DeploymentResultApiModel>){
+
+    const result = model.item as DeploymentResultApiModel;
+    render(html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `, root);
   }
 
   _logRenderer(
