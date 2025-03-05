@@ -14,7 +14,6 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
-import { urlForName } from '../../router/router';
 import '@vaadin/date-time-picker';
 
 @customElement('env-deployments')
@@ -81,6 +80,10 @@ export class EnvDeployments extends PageEnvBase {
         height: 12px;
         animation: spin 2s linear infinite;
       }
+
+      .underlined-button::part(label) {
+        text-decoration: underline;
+      }
     `;
   }
 
@@ -119,13 +122,12 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-grid
               .items="${this.deployments ?? []}"
               theme="compact row-stripes no-row-borders no-border"
-
               .cellClassNameGenerator="${this.cellClassNameGenerator}"
               style="height: 100%; width: 100%; flex-grow: 1"
             >
               <vaadin-grid-column
                 header="Request Id"
-                .renderer="${this._idRenderer}"
+                .renderer="${this._idRenderer.bind(this)}"
                 resizable
                 width="110px"
                 .headerRenderer="${this.idHeaderRenderer}"
@@ -237,12 +239,24 @@ export class EnvDeployments extends PageEnvBase {
 
     render(
       html`
-        <a
-          style="float:left"
-          href="${urlForName('monitor-result', {
-            id: String(content.RequestId)
-          })}"
-          >${content.RequestId}</a
+        <vaadin-button
+          class="underlined-button"
+          theme="tertiary-inline"
+          @click="${() => {
+            const event = new CustomEvent('open-monitor-result', {
+              detail: {
+                request: {
+                  Id: content.RequestId,
+                  EnvironmentName: this.environment?.EnvironmentName,
+                  BuildNumber: content.RequestBuildNum
+                }
+              },
+              bubbles: true,
+              composed: true
+            });
+            this.dispatchEvent(event);
+          }}"
+          >${content.RequestId}</vaadin-button
         >
       `,
       root
