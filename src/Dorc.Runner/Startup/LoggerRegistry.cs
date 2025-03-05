@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Serilog;
-using Serilog.Exceptions;
+using Serilog.Events;
 
 namespace Dorc.Runner.Startup
 {
@@ -8,7 +8,9 @@ namespace Dorc.Runner.Startup
     {
         private string logPath = String.Empty;
 
-        public ILogger InitialiseLogger()
+        public string LogFileName { get { return logPath; } }
+
+        public ILogger InitialiseLogger(string pipeName)
         {
             var config = new ConfigurationBuilder()
                 .AddJsonFile("loggerSettings.json", optional: false).Build();
@@ -19,12 +21,14 @@ namespace Dorc.Runner.Startup
                 Serilog.Debugging.SelfLog.Enable(Console.Error);
             }
 
-            logPath = config["System:LogPath"];
+            logPath = config["System:LogPath"] + $"\\{pipeName}.txt";
             string outputTemplate = config["System:outputTemplate"];
+            var logLevel = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), config["Serilog:MinimumLevel:Default"] ?? "Debug");
 
             var seriLogger = new LoggerConfiguration()
-                .WriteTo.Map("PipeName", "Monitor-Default", (name, wt) => wt.File(logPath + $"/{name}.txt", outputTemplate: outputTemplate))
                 .ReadFrom.Configuration(config)
+                                .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
+
                 .Enrich.FromLogContext()
                 .CreateLogger();
 

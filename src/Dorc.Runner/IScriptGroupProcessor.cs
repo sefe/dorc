@@ -2,6 +2,6 @@
 {
     internal interface IScriptGroupProcessor
     {
-        int Process(string pipeName);
+        int Process(string pipeName, int requestId);
     }
 }

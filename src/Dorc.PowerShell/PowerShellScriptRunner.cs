@@ -22,7 +22,7 @@ namespace Dorc.PowerShell
             IDictionary<string, VariableValue> scriptProperties,
             IDictionary<string, VariableValue> commonProperties)
         {
-            logger.Information("\tStarting execution of script '" + scriptName + "'.");
+            logger.Information("Starting execution of script '{0}'", scriptName);
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
 
@@ -45,7 +45,6 @@ namespace Dorc.PowerShell
                         }
 
                         powerShell.AddScript(File.ReadAllText(scriptName));
-                        logger.Information($"Adding Script for execution '{scriptName}'.");
 
                         var outputCollection = new PSDataCollection<string>();
                         outputCollection.DataAdded += (sender, e) =>
@@ -64,9 +63,9 @@ namespace Dorc.PowerShell
 
                         try
                         {
-                            logger.Information($"Execution of the powershell Script {scriptName} is beginning");
+                            logger.Information("Execution of the powershell Script {0} is beginning", scriptName);
                             powerShell.Invoke(null, outputCollection);
-                            logger.Information($" Execution of the powershell Script {scriptName} has completed");
+                            logger.Information("Execution of the powershell Script {0} has completed", scriptName);
                         }
                         catch (Exception exception)
                         {
@@ -76,7 +75,7 @@ namespace Dorc.PowerShell
                             {
                                 throw;
                             }
-                            logger.Information($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
+                            logger.Information("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
                             throw new RemoteException(exceptionMessage, exception);
                         }
 
@@ -100,14 +99,14 @@ namespace Dorc.PowerShell
             }
             catch (Exception e)
             {
-                logger.Error(e, $"Exception occured in the powershell execution of script {scriptName}");
+                logger.Error(e, "Exception occured in the powershell execution of script {0}", scriptName);
                 return -1;
             }
             finally
             {
                 outputProcessor.FlushLogMessages();
             }
-            logger.Information($" Execution of the powershell Script {scriptName} was successful");
+            logger.Information("Execution of the powershell Script {0} was successful", scriptName);
             return 0;
         }
 

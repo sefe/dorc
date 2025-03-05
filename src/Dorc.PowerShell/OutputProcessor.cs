@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Dorc.PersistData.Dapper;
 using Serilog;
-using Serilog.Context;
 
 namespace Dorc.PowerShell
 {

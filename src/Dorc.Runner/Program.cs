@@ -56,12 +56,18 @@ namespace Dorc.Runner
 
                 var dapperContext = new DapperContext(connectionString);
 
-                Log.Logger = loggerRegistry.InitialiseLogger().ForContext("PipeName", options.PipeName);
+                Log.Logger = loggerRegistry.InitialiseLogger(options.PipeName);
+
+                var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
+                var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
+                Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, loggerRegistry.LogFileName);
+
+                dapperContext.AddLogFilePath(Log.Logger, requestId, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    Log.Logger.Information("Runner process is started on behalf of the user: " + owner);
+                    Log.Logger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
                 
                 Log.Logger.Information("Arguments: {args}", string.Join(", ", args));
@@ -81,7 +87,7 @@ namespace Dorc.Runner
                         Log.Logger,
                         scriptGroupReader, dapperContext);
 
-                    var result = scriptGroupProcessor.Process(options.PipeName);
+                    var result = scriptGroupProcessor.Process(options.PipeName, requestId);
                     Exit(result);
                 }
                 catch (Exception ex)
