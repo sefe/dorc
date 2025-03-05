@@ -33,7 +33,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Update="dorc.sefe.eu.pfx">
+    <None Update="deploymentportal.pfx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DorcNonProdSSLCert.pfx">

@@ -4,7 +4,7 @@
     <CustomAction Id="ReconfigureLoadUserProfileRequestApi" Directory="RequestApi" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DeployApi&quot; -processmodel.loaduserprofile:true" Return="ignore" />
 
 	<Binary Id="certBinaryApi" SourceFile="DorcNonProdSSLCert.pfx"/>
-	<Binary Id="certBinaryApiProd" SourceFile="dorc.sefe.eu.pfx"/>
+	<Binary Id="certBinaryApiProd" SourceFile="deploymentportal.pfx"/>
 
 	<Component Id="RequestApiComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
         <util:User Id="ApiUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
@@ -57,7 +57,7 @@
 		  <iis:Certificate
 		   BinaryRef="certBinaryApiProd"
 		   Id="MySSLCertApiProd"
-		   Name="dorc.sefe.eu.pfx"
+		   Name="deploymentportal.pfx"
 		   Request="no"
 		   StoreLocation="localMachine"
 		   StoreName="root"

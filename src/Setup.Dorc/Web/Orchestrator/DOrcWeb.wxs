@@ -7,7 +7,7 @@
     <CustomAction Id="ReconfigureLoadUserProfileOrchestrator" Directory="DorcWebFolder" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DOrcWeb&quot; -processmodel.loaduserprofile:true" Return="ignore" />
 
 	<Binary Id="certBinary" SourceFile="DorcNonProdSSLCert.pfx"/>
-	<Binary Id="certBinaryProd" SourceFile="dorc.sefe.eu.pfx"/>
+	<Binary Id="certBinaryProd" SourceFile="deploymentportal.pfx"/>
 
 	<Component Id="DOrcWebIISComponent" Guid="{520D6C74-73C2-4883-B562-6C56BA438C66}" Directory="DorcWebFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
       <util:User Id="DOrcWebServiceUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
@@ -57,7 +57,7 @@
 	 <iis:Certificate
 	  BinaryRef="certBinaryProd"
 	  Id="MySSLCertProd"
-	  Name="dorc.sefe.eu.pfx"
+	  Name="deploymentportal.pfx"
 	  Request="no"
 	  StoreLocation="localMachine"
 	  StoreName="root"
