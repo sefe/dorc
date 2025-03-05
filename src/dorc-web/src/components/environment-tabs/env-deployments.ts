@@ -30,7 +30,10 @@ export class EnvDeployments extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
         width: 100%;
+        height: 100%;
+        flex-direction: column;
       }
 
       .overlay {
@@ -116,9 +119,9 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-grid
               .items="${this.deployments ?? []}"
               theme="compact row-stripes no-row-borders no-border"
-              all-rows-visible
+
               .cellClassNameGenerator="${this.cellClassNameGenerator}"
-              style="overflow: hidden; height: calc(100vh - 275px);"
+              style="height: 100%; width: 100%; flex-grow: 1"
             >
               <vaadin-grid-column
                 header="Request Id"
