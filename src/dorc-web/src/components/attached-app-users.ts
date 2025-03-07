@@ -11,10 +11,7 @@ export class AttachedUsers extends LitElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 220px);
-      }
+
     `;
   }
 
@@ -24,7 +21,7 @@ export class AttachedUsers extends LitElement {
         id="grid"
         .items="${this.users}"
         theme="compact row-stripes no-row-borders no-border"
-        all-rows-visible
+        style="height: 100%"
       >
         <vaadin-grid-sort-column header="Name" path="DisplayName" resizable>
         </vaadin-grid-sort-column>

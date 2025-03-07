@@ -35,6 +35,21 @@ export class AttachedDelegatedUsers extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .grid-container {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      vaadin-grid {
+        flex-grow: 1;
+        height: 100%;
+      }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
         border-top: 2px solid #3498db; /* Blue */
@@ -55,60 +70,70 @@ export class AttachedDelegatedUsers extends LitElement {
       vaadin-button[disabled] {
         background-color: #dde2e8;
       }
-      vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 220px);
-      }
     `;
   }
 
   render() {
     return html`
-      <vaadin-combo-box
-        id="unallocated-users"
-        item-value-path="Id"
-        item-label-path="DisplayName"
-        @value-changed="${this._selectedUnallocatedUserChanged}"
-        .items="${this.unallocatedUsers}"
-        placeholder="Select Delegate"
-        style="width: 300px"
-        clear-button-visible
-      ></vaadin-combo-box>
-      <vaadin-button @click="${this._addDelegate}" .disabled="${this.readonly}"
-        >Add Delegate</vaadin-button
+      <vaadin-details
+        opened
+        summary="Application Users with Delegated Privileges"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px; display: flex; flex-direction: column;"
       >
+        <vaadin-combo-box
+          id="unallocated-users"
+          item-value-path="Id"
+          item-label-path="DisplayName"
+          @value-changed="${this._selectedUnallocatedUserChanged}"
+          .items="${this.unallocatedUsers}"
+          placeholder="Select Delegate"
+          style="width: 300px"
+          clear-button-visible
+        ></vaadin-combo-box>
+        <vaadin-button
+          @click="${this._addDelegate}"
+          .disabled="${this.readonly}"
+          >Add Delegate</vaadin-button
+        >
+      </vaadin-details>
       ${this.delegatedUsersLoading
         ? html` <div class="small-loader"></div> `
         : html``}
-      <vaadin-grid
-        id="grid"
-        .items="${this.users}"
-        theme="compact row-stripes no-row-borders no-border"
-        all-rows-visible
-      >
-        <vaadin-grid-sort-column header="Name" path="DisplayName" resizable>
-        </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Login ID" path="LoginId" resizable>
-        </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Login Type" path="LoginType" resizable>
-        </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable>
-        </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column
-          header="LAN ID Type"
-          path="LanIdType"
-          resizable
+      <div class="grid-container">
+        <vaadin-grid
+          id="grid"
+          .items="${this.users}"
+          theme="compact row-stripes no-row-borders no-border"
+          style="height: 100%;"
         >
-        </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Team" path="Team" resizable>
-        </vaadin-grid-sort-column>
-        <vaadin-grid-column
-          .renderer="${this._boundUsersButtonsRenderer}"
-          .attachedDelUsersControl="${this}"
-          resizable
-        >
-        </vaadin-grid-column>
-      </vaadin-grid>
+          <vaadin-grid-sort-column header="Name" path="DisplayName" resizable>
+          </vaadin-grid-sort-column>
+          <vaadin-grid-sort-column header="Login ID" path="LoginId" resizable>
+          </vaadin-grid-sort-column>
+          <vaadin-grid-sort-column
+            header="Login Type"
+            path="LoginType"
+            resizable
+          >
+          </vaadin-grid-sort-column>
+          <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable>
+          </vaadin-grid-sort-column>
+          <vaadin-grid-sort-column
+            header="LAN ID Type"
+            path="LanIdType"
+            resizable
+          >
+          </vaadin-grid-sort-column>
+          <vaadin-grid-sort-column header="Team" path="Team" resizable>
+          </vaadin-grid-sort-column>
+          <vaadin-grid-column
+            .renderer="${this._boundUsersButtonsRenderer}"
+            .attachedDelUsersControl="${this}"
+            resizable
+          >
+          </vaadin-grid-column>
+        </vaadin-grid>
+      </div>
     `;
   }
 

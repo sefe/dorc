@@ -10,7 +10,6 @@ import {
   GridSorterDefinition
 } from '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-filter';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { Grid, GridItemModel } from '@vaadin/grid';
@@ -38,6 +37,10 @@ import {
 import { PageEnvBase } from './page-env-base';
 import { ErrorNotification } from '../notifications/error-notification';
 
+const variableValue = 'PropertyValue';
+const variableName = 'Property';
+const variableSecure = 'PropertyValueScope';
+
 let _environment: EnvironmentApiModel | undefined;
 @customElement('env-variables')
 export class EnvVariables extends PageEnvBase {
@@ -63,16 +66,22 @@ export class EnvVariables extends PageEnvBase {
 
   private propertyName = '';
 
+  variableValue: string = '';
+  variableName: string = '';
+  variableSecure: boolean = false;
+
   static get styles() {
     return css`
       :host {
         display: flex;
         width: 100%;
         overflow: hidden;
+        height: 100%;
       }
       vaadin-grid#grid {
         --divider-color: rgb(223, 232, 239);
-        height: calc(100vh - 330px);
+        width: 100%;
+        height: 100%;
       }
       vaadin-text-field {
         padding: 0px;
@@ -99,18 +108,8 @@ export class EnvVariables extends PageEnvBase {
           transform: rotate(360deg);
         }
       }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
       vaadin-combo-box {
         padding: 0px;
-      }
-      .fill-height {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
       }
       .overlay {
         width: 100%;
@@ -162,79 +161,87 @@ export class EnvVariables extends PageEnvBase {
       </div>
       ${this.envLoaded
         ? html`
-            <div class="fill-height" id="container">
+            <vaadin-vertical-layout style="width: 100%; height: 100%">
               <vaadin-details
                 id="details"
                 opened
                 summary="Add Scoped Variable Value"
-                style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px; flex: 0 1 auto; margin-bottom: 0px"
+                style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; width: 100%; margin: 0px;"
               >
-                <table>
-                  <tr>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${this.loadingProperties
-                        ? html`<div
-                            style="vertical-align: center"
-                            class="small-loader"
-                          ></div> `
-                        : html``}
-                    </td>
-                    <td style="vertical-align: top;">
-                      <vaadin-combo-box
-                        id="properties"
-                        @value-changed="${this._propNameValueChanged}"
-                        .items="${this.properties}"
-                        label="Existing Variable Name"
-                        placeholder="Select Variable Name"
-                        clear-button-visible
-                        item-label-path="Name"
-                        item-value-path="Name"
-                        style="min-width: 600px; margin-left: 5px; "
-                      ></vaadin-combo-box>
-                    </td>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${this.loadingScopeOptions
-                        ? html`<div
-                            style="vertical-align: center"
-                            class="small-loader"
-                          ></div> `
-                        : html``}
-                    </td>
-                    <td style="vertical-align: top;">
-                      <vaadin-combo-box
-                        allow-custom-value
-                        .items="${this.propertyValueScopeOptions}"
-                        item-label-path="ValueOption"
-                        item-value-path="ValueOption"
-                        .renderer="${this.comboboxRenderer}"
-                        id="newVariableValue"
-                        label="Value"
-                        style="min-width: 400px; "
-                        helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                      ></vaadin-combo-box>
-                    </td>
-                    <td style="vertical-align: center;">
-                      <vaadin-button
-                        @click="${this._addVariableValueClick}"
-                        ?disabled="${!this.environment?.UserEditable}"
-                        >Add Variable Value</vaadin-button
-                      >
-                    </td>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${this.addingVariableValue
-                        ? html`<div
-                            style="vertical-align: center"
-                            class="small-loader"
-                          ></div> `
-                        : html``}
-                    </td>
-                  </tr>
-                </table>
+                <div
+                  style="display: flex; flex-wrap: wrap; flex-direction: row"
+                >
+                  <table>
+                    <tr>
+                      <td style="vertical-align: center; min-width: 20px">
+                        ${this.loadingProperties
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``}
+                      </td>
+                      <td style="vertical-align: top;">
+                        <vaadin-combo-box
+                          id="properties"
+                          @value-changed="${this._propNameValueChanged}"
+                          .items="${this.properties}"
+                          label="Existing Variable Name"
+                          placeholder="Select Variable Name"
+                          clear-button-visible
+                          item-label-path="Name"
+                          item-value-path="Name"
+                          style="min-width: 600px; margin-left: 5px; "
+                        ></vaadin-combo-box>
+                      </td>
+                    </tr>
+                  </table>
+                  <table>
+                    <tr>
+                      <td style="vertical-align: center; min-width: 20px">
+                        ${this.loadingScopeOptions
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``}
+                      </td>
+                      <td style="vertical-align: top;">
+                        <vaadin-combo-box
+                          allow-custom-value
+                          .items="${this.propertyValueScopeOptions}"
+                          item-label-path="ValueOption"
+                          item-value-path="ValueOption"
+                          .renderer="${this.comboboxRenderer}"
+                          id="newVariableValue"
+                          label="Value"
+                          style="min-width: 400px; "
+                          helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
+                        ></vaadin-combo-box>
+                      </td>
+                      <td style="vertical-align: center;">
+                        <vaadin-button
+                          @click="${this._addVariableValueClick}"
+                          ?disabled="${!this.environment?.UserEditable}"
+                          >Add Variable Value</vaadin-button
+                        >
+                      </td>
+                      <td style="vertical-align: center; min-width: 20px">
+                        ${this.addingVariableValue
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``}
+                      </td>
+                    </tr>
+                  </table>
+                </div>
               </vaadin-details>
 
               ${!this.environment?.EnvironmentSecure
                 ? html`<dismissible-item
-                    style="flex: 0 1 auto;"
+                    style="flex: 0 1 auto; width: 100%;"
                     .message="${this.secureMessage}"
                   ></dismissible-item>`
                 : html``}
@@ -243,47 +250,129 @@ export class EnvVariables extends PageEnvBase {
                 column-reordering-allowed
                 multi-sort
                 theme="compact row-stripes no-row-borders no-border"
-                .dataProvider="${this.getScopedPropertyValues}"
-                .altThis="${this}"
+                .dataProvider="${(
+                  params: GridDataProviderParams<FlatPropertyValueApiModel>,
+                  callback: GridDataProviderCallback<FlatPropertyValueApiModel>
+                ) => {
+                  if (
+                    this.variableValue !== '' &&
+                    this.variableValue !== undefined
+                  ) {
+                    params.filters.push({
+                      path: variableValue,
+                      value: this.variableValue
+                    });
+                  }
+
+                  if (
+                    this.variableName !== '' &&
+                    this.variableName !== undefined
+                  ) {
+                    params.filters.push({
+                      path: variableName,
+                      value: this.variableName
+                    });
+                  }
+
+                  if (this.variableSecure) {
+                    params.filters.push({
+                      path: variableSecure,
+                      value: _environment?.EnvironmentName ?? ''
+                    });
+                  }
+
+                  if (_environment && _environment?.EnvironmentName !== '') {
+                    const api = new RefDataScopedPropertyValuesApi();
+                    api
+                      .refDataScopedPropertyValuesPut({
+                        pagedDataOperators: {
+                          Filters: params.filters.map(
+                            (f: GridFilterDefinition): PagedDataFilter => ({
+                              Path: f.path,
+                              FilterValue: f.value
+                            })
+                          ),
+                          SortOrders: params.sortOrders.map(
+                            (s: GridSorterDefinition): PagedDataSorting => ({
+                              Path: s.path,
+                              Direction: s.direction?.toString()
+                            })
+                          )
+                        },
+                        limit: params.pageSize,
+                        page: params.page + 1,
+                        scope: _environment?.EnvironmentName || ' '
+                      })
+                      .subscribe({
+                        next: (data: GetScopedPropertyValuesResponseDto) => {
+                          this.dispatchEvent(
+                            new CustomEvent(
+                              'searching-env-variables-finished',
+                              {
+                                detail: {},
+                                bubbles: true,
+                                composed: true
+                              }
+                            )
+                          );
+                          callback(data.Items ?? [], data.TotalItems);
+                        },
+                        error: (err: any) => console.error(err),
+                        complete: () => {
+                          this.dispatchEvent(
+                            new CustomEvent('env-variables-loaded', {
+                              detail: {},
+                              bubbles: true,
+                              composed: true
+                            })
+                          );
+                          console.log(
+                            `done loading scoped Property Values page:${params.page}`
+                          );
+                        }
+                      });
+                  }
+                }}"
                 ?hidden="${this.loading}"
-                style="z-index: 100"
+                style="z-index: 100;"
               >
                 <vaadin-grid-column
                   path="Property"
                   header="Variable Name"
                   resizable
-                  width="300px"
                   flex-grow="0"
-                  .headerRenderer="${this.propertyHeaderRenderer}"
+                  width="20rem"
+                  .headerRenderer="${this.nameHeaderRenderer}"
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-column
                   path="PropertyValueScope"
                   header="Variable Scope"
-                  width="200px"
-                  flex-grow="0"
                   .headerRenderer="${this.scopeHeaderRenderer}"
                   resizable
                   auto-width
-                ></vaadin-grid-column>
-                <vaadin-grid-sort-column
-                  path="Secure"
-                  header="Secure"
-                  resizable
-                  width="90px"
                   flex-grow="0"
+                ></vaadin-grid-column>
+                <vaadin-grid-column
+                  path="Secure"
+                  resizable
+                  auto-width
+                  text-align="center"
                   .renderer="${this.secureRenderer}"
+                  .headerRenderer="${this.secureHeaderRenderer}"
+                  flex-grow="0"
                 >
-                </vaadin-grid-sort-column>
+                </vaadin-grid-column>
                 <vaadin-grid-column
                   header="Variable Value"
                   .headerRenderer="${this.valueHeaderRenderer}"
                   .renderer="${this.variableValueControlsRenderer}"
                   resizable
-                  auto-width
+                  flex-grow="0"
+                  width="60rem"
                 ></vaadin-grid-column>
               </vaadin-grid>
-            </div>
+            </vaadin-vertical-layout>
           `
         : html``}
     `;
@@ -312,9 +401,32 @@ export class EnvVariables extends PageEnvBase {
     this.getAllVariableNames();
   }
 
-  private searchingEnvVariablesStarted() {
-    this.searching = true;
+  private searchingEnvVariablesStarted(event: CustomEvent) {
+    if (event.detail.value !== undefined) {
+      this.debouncedInputHandler(event.detail.field, event.detail.value);
+    }
   }
+
+  private debouncedInputHandler = this.debounce(
+    (field: string, value: string) => {
+      switch (field) {
+        case variableValue:
+          this.variableValue = value;
+          break;
+        case variableName:
+          this.variableName = value;
+          break;
+        case variableSecure:
+          this.variableSecure = !this.variableSecure;
+          break;
+        default:
+          break;
+      }
+      this.grid?.clearCache();
+      this.searching = true;
+    },
+    400 // debounce wait time
+  );
 
   private searchingEnvVariablesFinished() {
     this.searching = false;
@@ -329,6 +441,18 @@ export class EnvVariables extends PageEnvBase {
       this.grid.clearCache();
       this.loading = true;
     }
+  }
+
+  private debounce(func: (...args: any[]) => void, wait: number) {
+    let timeout: number | undefined;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = window.setTimeout(later, wait);
+    };
   }
 
   private getAllVariableNames() {
@@ -507,7 +631,6 @@ export class EnvVariables extends PageEnvBase {
 
     checkbox.checked = model.item.Secure ?? false;
     checkbox.disabled = true;
-
     render(checkbox, root);
   }
 
@@ -520,174 +643,131 @@ export class EnvVariables extends PageEnvBase {
     _environment = this.environment;
   }
 
-  propertyHeaderRenderer(root: HTMLElement) {
+  nameHeaderRenderer(root: HTMLElement) {
     render(
       html`
-        <vaadin-grid-sorter path="Property" direction="asc"
-          >Variable Name</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="Property">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100px"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
+        <vaadin-grid-sorter
+          path="Property"
+          direction="asc"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Name"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+
+            this.dispatchEvent(
+              new CustomEvent('searching-env-variables-started', {
+                detail: {
+                  field: variableName,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
       `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-env-variables-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   valueHeaderRenderer(root: HTMLElement) {
     render(
       html`
-        <vaadin-grid-sorter path="PropertyValue"
-          >Variable Value</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="PropertyValue">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100px"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
+        <vaadin-text-field
+          placeholder="Value"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+
+            this.dispatchEvent(
+              new CustomEvent('searching-env-variables-started', {
+                detail: {
+                  field: variableValue,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
       `,
       root
     );
+  }
 
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-env-variables-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
+  secureHeaderRenderer(root: HTMLElement) {
+    render(
+      html`
+        <table>
+          <tr>
+            <td>
+              <vaadin-grid-sorter
+                path="Secure"
+                style="align-items: normal"
+              ></vaadin-grid-sorter>
+            </td>
+            <td>
+              <div style="padding: 2px; display: flex; align-items: center;">
+                Secure
+              </div>
+            </td>
+          </tr>
+        </table>
+      `,
+      root
+    );
   }
 
   scopeHeaderRenderer(root: HTMLElement) {
     render(
       html`
-        <vaadin-grid-sorter path="PropertyValueScope"
-          >Variable Scope</vaadin-grid-sorter
-        >
-        ${!_environment?.EnvironmentSecure
-          ? html`
-          <vaadin-grid-filter path="PropertyValueScope">
-
-          </vaadin-grid-filter>
-          <vaadin-checkbox slot='filter' style="font-size: var(--lumo-font-size-s);"
-                           ?checked="${!_environment?.EnvironmentSecure}" 
-          ><label slot="label" title='Show default property values also'
-          >Show Defaults</vaadin-checkbox
-          >
-        `
-          : html``}
+        <table>
+          <tr>
+            <td>
+              <vaadin-grid-sorter
+                path="PropertyValueScope"
+                style="align-items: normal"
+              ></vaadin-grid-sorter>
+            </td>
+              <td>
+                  <vaadin-checkbox slot='filter' style="font-size: var(--lumo-font-size-s)"
+                                   theme="small"
+                                   ?checked="${!_environment?.EnvironmentSecure}"
+                                   @change="${(e: any) => {
+                                     this.dispatchEvent(
+                                       new CustomEvent(
+                                         'searching-env-variables-started',
+                                         {
+                                           detail: {
+                                             field: variableSecure,
+                                             value: e.target.checked
+                                           },
+                                           bubbles: true,
+                                           composed: true
+                                         }
+                                       )
+                                     );
+                                   }}"
+                  ><label slot="label" title='Show default property values also'
+                  >Show Defaults</vaadin-checkbox
+                  ></td>
+          </tr>
+        </table>
+          </tr>
+        </table>
       `,
       root
     );
-
-    if (!_environment?.EnvironmentSecure) {
-      const filter: GridFilter = root.querySelector(
-        'vaadin-grid-filter'
-      ) as GridFilter;
-      root
-        .querySelector('vaadin-checkbox')!
-        .addEventListener('change', (e: any) => {
-          if (e.target.checked) {
-            filter.value = '';
-          } else {
-            filter.value = _environment?.EnvironmentName;
-          }
-          this.dispatchEvent(
-            new CustomEvent('searching-env-variables-started', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            })
-          );
-        });
-    }
-  }
-
-  getScopedPropertyValues(
-    params: GridDataProviderParams<FlatPropertyValueApiModel>,
-    callback: GridDataProviderCallback<FlatPropertyValueApiModel>
-  ) {
-    if (_environment && _environment?.EnvironmentName !== '') {
-      const api = new RefDataScopedPropertyValuesApi();
-      api
-        .refDataScopedPropertyValuesPut({
-          pagedDataOperators: {
-            Filters: params.filters.map(
-              (f: GridFilterDefinition): PagedDataFilter => ({
-                Path: f.path,
-                FilterValue: f.value
-              })
-            ),
-            SortOrders: params.sortOrders.map(
-              (s: GridSorterDefinition): PagedDataSorting => ({
-                Path: s.path,
-                Direction: s.direction?.toString()
-              })
-            )
-          },
-          limit: params.pageSize,
-          page: params.page + 1,
-          scope: _environment?.EnvironmentName || ' '
-        })
-        .subscribe({
-          next: (data: GetScopedPropertyValuesResponseDto) => {
-            this.dispatchEvent(
-              new CustomEvent('searching-env-variables-finished', {
-                detail: {},
-                bubbles: true,
-                composed: true
-              })
-            );
-            callback(data.Items ?? [], data.TotalItems);
-          },
-          error: (err: any) => console.error(err),
-          complete: () => {
-            this.dispatchEvent(
-              new CustomEvent('env-variables-loaded', {
-                detail: {},
-                bubbles: true,
-                composed: true
-              })
-            );
-            console.log(
-              `done loading scoped Property Values page:${params.page}`
-            );
-          }
-        });
-    }
   }
 }

@@ -20,26 +20,26 @@ export class EnvDelegatedUsers extends PageEnvBase {
     return css`
       :host {
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
     `;
   }
 
   render() {
     return html`
-      <vaadin-details
-        opened
-        summary="Application Users with Delegated Privileges"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
-      >
+
         <attached-delegated-users
           id="delegated-users"
           .readonly="${!this.environment?.UserEditable}"
           .envName="${this.envName}"
           .users="${this.delegatedUsers}"
           .delegatedUsersLoading="${!this.delegatedUsersLoaded}"
+          style="height: 100%"
         >
         </attached-delegated-users>
-      </vaadin-details>
+      
     `;
   }
 

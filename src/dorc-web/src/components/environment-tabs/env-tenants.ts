@@ -65,7 +65,7 @@ export class EnvTenants extends PageEnvBase {
       <vaadin-details
         opened
         summary="Environment tenants"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
       >
         <div class="inline">
           <paper-toggle-button

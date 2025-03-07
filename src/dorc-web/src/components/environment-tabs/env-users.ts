@@ -12,7 +12,10 @@ export class EnvUsers extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
         width: 100%;
+        height: 100%;
+        flex-direction: column;
       }
     `;
   }
@@ -22,14 +25,15 @@ export class EnvUsers extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Users"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
       >
-        <attached-app-users
-          id="application-users"
-          .users="${this.envContent?.EndurUsers ?? []}"
-        >
-        </attached-app-users>
       </vaadin-details>
+      <attached-app-users
+              id="application-users"
+              .users="${this.envContent?.EndurUsers ?? []}"
+              style="width: 100%; height: 100%;"
+      >
+      </attached-app-users>
     `;
   }
 

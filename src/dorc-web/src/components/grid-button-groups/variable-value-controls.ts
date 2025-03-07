@@ -60,7 +60,7 @@ export class VariableValueControls extends LitElement {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;
             }}"
-            style="width: 720px"
+            style="width: 720px; padding: 0px"
           ></vaadin-password-field>`
         : html` <vaadin-text-field
             id="${`propValue${this.value?.Id}`}"
@@ -71,13 +71,13 @@ export class VariableValueControls extends LitElement {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;
             }}"
-            style="width: 720px"
+            style="width: 720px; padding: 0px"
           ></vaadin-text-field>`}
 
       <vaadin-button
         id="edit"
         title="Edit"
-        theme="icon"
+        theme="icon small"
         @click="${this._editClick}"
         ?disabled="${!this.value.UserEditable}"
         ?hidden="${this.editHidden}"
@@ -103,7 +103,7 @@ export class VariableValueControls extends LitElement {
       >
       <vaadin-button
         title="Delete Value"
-        theme="icon"
+        theme="icon small"
         @click="${this.removePropertyValue}"
         ?disabled="${!this.value.UserEditable}"
       >

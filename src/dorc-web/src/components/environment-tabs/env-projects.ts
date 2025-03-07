@@ -29,7 +29,7 @@ export class EnvProjects extends PageEnvBase {
       <vaadin-details
         opened
         summary="Mapped Projects"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
       >
         ${this.envContent?.MappedProjects?.map(
           proj => html`<project-card .project="${proj}"></project-card>`

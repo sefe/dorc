@@ -22,8 +22,9 @@ export class MonitorResultTab extends LitElement {
         width: 100%;
       }
       vaadin-icon {
-        width: var(--lumo-icon-size-m);
-        height: var(--lumo-icon-size-m);
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        font-size: var(--lumo-font-size-s);
       }
     `;
   }
@@ -40,7 +41,10 @@ export class MonitorResultTab extends LitElement {
           <vaadin-horizontal-layout
             style="line-height: var(--lumo-line-height-m);"
           >
-            <vaadin-icon icon="vaadin:clipboard-pulse"></vaadin-icon>
+            <vaadin-icon
+              icon="vaadin:clipboard-pulse"
+              theme="small"
+            ></vaadin-icon>
             <span
               >${this.requestStatus?.Id}
               ${this.requestStatus?.EnvironmentName}</span
@@ -57,6 +61,7 @@ export class MonitorResultTab extends LitElement {
       <vaadin-icon
         style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
         icon="vaadin:close-small"
+        theme="small"
         @click="${this.removeMonitorResult}"
       ></vaadin-icon>
     </div>`;

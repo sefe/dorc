@@ -17,6 +17,9 @@ export class EnvDaemons extends PageEnvBase {
     return css`
       :host {
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
 
       .lds-ring {
@@ -67,7 +70,7 @@ export class EnvDaemons extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Daemon Details"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
       >
         <table>
           <tr>
@@ -92,13 +95,13 @@ export class EnvDaemons extends PageEnvBase {
             </td>
           </tr>
         </table>
-        <application-daemons
-          id="app-daemons"
-          .envName="${this.environmentName ?? ''}"
-          @daemons-loaded="${this.daemonsLoaded}"
-        >
-        </application-daemons>
       </vaadin-details>
+      <application-daemons
+        id="app-daemons"
+        .envName="${this.environmentName ?? ''}"
+        @daemons-loaded="${this.daemonsLoaded}"
+      >
+      </application-daemons>
     `;
   }
 
