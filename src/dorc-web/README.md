@@ -187,6 +187,12 @@ SET GODEBUG=http2client=0
 ```
 see https://community.grafana.com/t/stream-error-stream-id-1-http-1-1-required-received-from-peer/96607/7
 
+It's possible to see realtime dashboard, or output to csv or json file to see later (with tool GNUplot for example).
+To make output to web-dashboard, add __--out web-dashboard__ option, example: 
+
+```cmd
+k6 run --out web-dashboard ./k6-tests/load-test-many-users.js 
+```
 
 ## Help
 
