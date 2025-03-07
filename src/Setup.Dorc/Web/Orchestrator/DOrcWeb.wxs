@@ -1,35 +1,44 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-	 xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
-	 xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis"
-	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis"
+     xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
 	<Fragment>
 
-		<CustomAction Id="ReconfigureLoadUserProfileOrchestrator" Directory="DorcWebFolder" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DOrcWeb&quot; -processmodel.loaduserprofile:true" Return="ignore" />
+		<CustomAction Id="ReconfigureLoadUserProfileOrchestrator" Directory="DorcWebFolder" Execute="deferred"
+		              Impersonate="no"
+		              ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DOrcWeb&quot; -processmodel.loaduserprofile:true"
+		              Return="ignore" />
 
-		<Binary Id="certBinary" SourceFile="DorcNonProdSSLCert.pfx"/>
-		<Binary Id="certBinaryProd" SourceFile="deploymentportal.pfx"/>
+		<Binary Id="certBinary" SourceFile="DorcNonProdSSLCert.pfx" />
+		<Binary Id="certBinaryProd" SourceFile="deploymentportal.pfx" />
 
-		<Component Id="DOrcWebIISComponent" Guid="{520D6C74-73C2-4883-B562-6C56BA438C66}" Directory="DorcWebFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
-			<util:User Id="DOrcWebServiceUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
-			<iis:WebAppPool Id="DOrcWebAppPool" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0" ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
+		<Component Id="DOrcWebIISComponent" Guid="{520D6C74-73C2-4883-B562-6C56BA438C66}" Directory="DorcWebFolder"
+		           Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+			<util:User Id="DOrcWebServiceUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no"
+			           RemoveOnUninstall="no" LogonAsService="yes" />
+			<iis:WebAppPool Id="DOrcWebAppPool" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0"
+			                ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
 				<iis:RecycleTime Value="2:00" />
 			</iis:WebAppPool>
 
 			<Json:JsonFile Id="ApiSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
-			<Json:JsonFile Id="DorcHelperPageSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage" Value="[DORCHELPERPAGE]" />
-			<Json:JsonFile Id="DorcAzureDOTokenSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.AzureDevOpsAccessToken" Value="[DORCAZUREDEVOPSLINK]" />
+			<Json:JsonFile Id="DorcHelperPageSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage"
+			               Value="[DORCHELPERPAGE]" />
+			<Json:JsonFile Id="DorcAzureDOTokenSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.AzureDevOpsAccessToken"
+			               Value="[DORCAZUREDEVOPSLINK]" />
 
 			<iis:Certificate
-			 BinaryRef="certBinary"
-			 Id="MySSLCert"
-			 Name="DorcNonProdSSLCert.pfx"a=""
-			 Request="no"
-			 StoreLocation="localMachine"
-			 StoreName="root"
-			 PFXPassword="[CERTIFICATE.PASSWORD]">
+				BinaryRef="certBinary"
+				Id="MySSLCert"
+				Name="DorcNonProdSSLCert.pfx"
+				Request="no"
+				StoreLocation="localMachine"
+				StoreName="root"
+				PFXPassword="[CERTIFICATE.PASSWORD]">
 			</iis:Certificate>
 
-			<iis:WebSite Id="DeploymentOrchestratorWebSite" Description="Dorc Web" Directory="DorcWebFolder" ConfigureIfExists="yes">
+			<iis:WebSite Id="DeploymentOrchestratorWebSite" Description="Dorc Web" Directory="DorcWebFolder"
+			             ConfigureIfExists="yes">
 				<iis:WebAddress Id="All80Unassigned" Port="80" Secure="false" />
 				<iis:WebAddress Id="All443Unassigned" IP="*" Port="443" Secure="true" />
 				<iis:CertificateRef Id='MySSLCert' />
@@ -46,27 +55,33 @@
 			</iis:WebSite>
 		</Component>
 
-		<Component Id="DOrcWebIISComponentProd" Guid="{7B56E182-A9B2-4DA8-A73B-462E201CD902}" Directory="DorcWebFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
-			<util:User Id="DOrcWebServiceUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
-			<iis:WebAppPool Id="DOrcWebAppPoolProd" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0" ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
+		<Component Id="DOrcWebIISComponentProd" Guid="{7B56E182-A9B2-4DA8-A73B-462E201CD902}" Directory="DorcWebFolder"
+		           Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+			<util:User Id="DOrcWebServiceUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no"
+			           RemoveOnUninstall="no" LogonAsService="yes" />
+			<iis:WebAppPool Id="DOrcWebAppPoolProd" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0"
+			                ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
 				<iis:RecycleTime Value="2:00" />
 			</iis:WebAppPool>
 
 			<Json:JsonFile Id="ApiSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
-			<Json:JsonFile Id="DorcHelperPageSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage" Value="[DORCHELPERPAGE]" />
-			<Json:JsonFile Id="DorcAzureDOTokenSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.AzureDevOpsAccessToken" Value="[DORCAZUREDEVOPSLINK]" />
+			<Json:JsonFile Id="DorcHelperPageSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage"
+			               Value="[DORCHELPERPAGE]" />
+			<Json:JsonFile Id="DorcAzureDOTokenSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.AzureDevOpsAccessToken"
+			               Value="[DORCAZUREDEVOPSLINK]" />
 
 			<iis:Certificate
-			 BinaryRef="certBinaryProd"
-			 Id="MySSLCertProd"
-			 Name="deploymentportal.pfx"
-			 Request="no"
-			 StoreLocation="localMachine"
-			 StoreName="root"
-			 PFXPassword="[CERTIFICATE.PASSWORD]">
+				BinaryRef="certBinaryProd"
+				Id="MySSLCertProd"
+				Name="deploymentportal.pfx"
+				Request="no"
+				StoreLocation="localMachine"
+				StoreName="root"
+				PFXPassword="[CERTIFICATE.PASSWORD]">
 			</iis:Certificate>
 
-			<iis:WebSite Id="DeploymentOrchestratorWebSiteProd" Description="Dorc Web" Directory="DorcWebFolder" ConfigureIfExists="yes">
+			<iis:WebSite Id="DeploymentOrchestratorWebSiteProd" Description="Dorc Web" Directory="DorcWebFolder"
+			             ConfigureIfExists="yes">
 				<iis:WebAddress Id="All80UnassignedProd" Port="80" Secure="false" />
 				<iis:WebAddress Id="All443UnassignedProd" IP="*" Port="443" Secure="true" />
 				<iis:CertificateRef Id='MySSLCertProd' />
@@ -78,7 +93,8 @@
 				</iis:WebVirtualDir>
 
 				<iis:WebVirtualDir Id="DeploymentOrchestratorHealthVirtualDirProd" Alias="health" Directory="DorcWebHealthFolder">
-					<iis:WebDirProperties Id="DeploymentOrchestratorHealthPropertiesProd" WindowsAuthentication="no" AnonymousAccess="yes" />
+					<iis:WebDirProperties Id="DeploymentOrchestratorHealthPropertiesProd" WindowsAuthentication="no"
+					                      AnonymousAccess="yes" />
 				</iis:WebVirtualDir>
 			</iis:WebSite>
 		</Component>
