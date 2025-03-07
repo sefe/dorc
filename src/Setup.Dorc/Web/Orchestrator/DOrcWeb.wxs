@@ -67,7 +67,7 @@
 			<Json:JsonFile Id="ApiSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.api" Value="[DEPLOYAPI.ENDPOINT]" />
 			<Json:JsonFile Id="DorcHelperPageSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage"
 			               Value="[DORCHELPERPAGE]" />
-			<Json:JsonFile Id="DorcAzureDOTokenSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.AzureDevOpsAccessToken"
+			<Json:JsonFile Id="DorcAzureDOTokenSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.AzureDevOpsAccessToken"
 			               Value="[DORCAZUREDEVOPSLINK]" />
 
 			<iis:Certificate
