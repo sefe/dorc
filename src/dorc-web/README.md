@@ -180,6 +180,14 @@ Run tests example command:
 k6 run k6-tests/monitor-request-page-test.js
 ```
 
+If getting error __stream error: stream ID 19; HTTP_1_1_REQUIRED;__, set env variable CODEBUG to http2client=0:
+Windows:
+```cmd
+SET GODEBUG=http2client=0
+```
+see https://community.grafana.com/t/stream-error-stream-id-1-http-1-1-required-received-from-peer/96607/7
+
+
 ## Help
 
 https://wiki/display/gdq/DOrc+Help
