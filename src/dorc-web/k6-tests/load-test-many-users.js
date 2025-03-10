@@ -1,4 +1,4 @@
-import { check, __VU } from 'k6';
+import { check } from 'k6';
 import http from 'k6/http';
 import { config } from './test-config.js';
 import { SharedArray } from 'k6/data';
@@ -15,8 +15,8 @@ export const options = {
 };
 
 export default function main() {
-  // Pick a user for this iteration
-  const user = users[__VU % users.length]; // Use the modulo operator to distribute users among VUs
+  // eslint-disable-next-line no-undef
+  const user = users[__VU % users.length]; // Pick a user for this iteration. Use the modulo operator to distribute users among VUs
 
   let ntlmUser = `${encodeURIComponent(user.username)}:${encodeURIComponent(user.password)}@`;
   let baseApiAddress = config.api.baseUrl.replace('://', `://${ntlmUser}`);
