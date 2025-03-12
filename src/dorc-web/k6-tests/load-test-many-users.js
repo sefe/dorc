@@ -10,8 +10,8 @@ const users = new SharedArray('users', function () {
 });
 
 export const options = {
-  vus: 10,
-  duration: '1m',
+  vus: 70,
+  duration: '15m',
   //iterations: 10,
 };
 
@@ -80,8 +80,9 @@ function checkResponse(response) {
   });
 
   if (response.error_code) {
+    let urlWithoutPass = response.request.url.replace(/:\/\/.*:.*@/, '://');
     console.error(
-      `${response.url} error, statusCode: ${response.status} ${response.status_text}, body: ${response.body}`
+      `${urlWithoutPass} error, statusCode: ${response.status} ${response.status_text}, body: ${response.body}`
     );
   }
 }
