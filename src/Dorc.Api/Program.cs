@@ -41,6 +41,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
     .AddNegotiate();
 
+builder.Logging.AddLog4Net();
+
 builder.Services
     .AddControllers(opts =>
     {
