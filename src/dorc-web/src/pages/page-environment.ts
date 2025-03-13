@@ -37,10 +37,11 @@ export class PageEnvironment extends PageElement {
   static get styles() {
     return css`
       :host {
-        display: inline-block;
-        height: calc(100vh - 70px);
+        height: 100%;
         width: 100%;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
@@ -70,7 +71,13 @@ export class PageEnvironment extends PageElement {
             <h2 style="text-align: center;">${this.environmentName}</h2>
           </td>
           <td>
-            ${this.parentName ? html`<vaadin-icon icon="vaadin:child" title="Child of ${this.parentName}" style="color: grey"></vaadin-icon>` : html``}
+            ${this.parentName
+              ? html`<vaadin-icon
+                  icon="vaadin:child"
+                  title="Child of ${this.parentName}"
+                  style="color: grey"
+                ></vaadin-icon>`
+              : html``}
           </td>
           <td>
             ${this.loading ? html` <div class="small-loader"></div> ` : html``}
@@ -150,7 +157,11 @@ export class PageEnvironment extends PageElement {
 
   convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
     if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
-      if (tabName === EnvPageTabNames.Users || tabName === EnvPageTabNames.DelegatedUsers) return html``;
+      if (
+        tabName === EnvPageTabNames.Users ||
+        tabName === EnvPageTabNames.DelegatedUsers
+      )
+        return html``;
     }
 
     let newTabName: string;
