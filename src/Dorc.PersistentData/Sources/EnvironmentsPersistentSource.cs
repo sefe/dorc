@@ -10,6 +10,8 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Contexts;
+using Microsoft.Azure.Pipelines.WebApi;
+using Dorc.PersistentData.Utils;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -330,17 +332,30 @@ namespace Dorc.PersistentData.Sources
 
         public EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user)
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
-            using (var context = contextFactory.GetContext())
+            using (var profiler = new TimeProfiler(this.logger, "GetEnvironment"))
             {
-                var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
-                    ? AccessibleEnvironmentAdmin(context, environmentName)
-                    : AccessibleEnvironmentAccessLevel(context, userSids, username, environmentName);
-                var environments = from environment in accessibleEnvNames.ToList()
-                                   select MapToEnvironmentApiModel(environment);
+                var username = user.GetUsername();
+                var userSids = user.GetSidsForUser();
 
-                return environments.FirstOrDefault();
+                profiler.LogTime("Get name and Sids for User");
+
+                using (var context = contextFactory.GetContext())
+                {
+                    var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
+                    profiler.LogTime("isAdmin");
+                    var accessibleEnvNames = isAdmin
+                        ? AccessibleEnvironmentAdmin(context, environmentName)
+                        : AccessibleEnvironmentAccessLevel(context, userSids, username, environmentName);
+
+                    profiler.LogTime("ReadingEnvironment");
+
+                    var environments = from environment in accessibleEnvNames.ToList()
+                                       select MapToEnvironmentApiModel(environment);
+
+                    profiler.LogTime("MapToEnvironmentApiModel");
+
+                    return environments.FirstOrDefault();
+                }
             }
         }
 

@@ -7,6 +7,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
 using log4net;
+using Dorc.PersistentData.Utils;
 
 namespace Dorc.Api.Services
 {
@@ -42,41 +43,49 @@ namespace Dorc.Api.Services
         public IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName,
             ClaimsPrincipal user)
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
-
-            var allSids = string.Join(";", userSids);
-
-            var result = new List<PropertyValueDto>();
-
-            var propValues = _propertyValuesPersistentSource.GetPropertyValuesForUser(environmentName, propertyName, username, allSids).ToList();
-            result.AddRange(propValues);
-
-            if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && !String.IsNullOrEmpty(environmentName))
+            using (var profiler = new TimeProfiler(this._log, "GetPropertyValues"))
             {
-                if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
-                    throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
+                var username = user.GetUsername();
+                var userSids = user.GetSidsForUser();
+                profiler.LogTime("Get name and Sids for User");
 
-                result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
-                {
-                    propertyValueDto.Value = String.Empty;
-                });
-            }
+                var allSids = string.Join(";", userSids);
 
-            if (_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
-            {
-                foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
+                var result = new List<PropertyValueDto>();
+
+                var propValues = _propertyValuesPersistentSource.GetPropertyValuesForUser(environmentName, propertyName, username, allSids).ToList();
+                result.AddRange(propValues);
+                profiler.LogTime("GetPropertyValuesForUser");
+
+                if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && !String.IsNullOrEmpty(environmentName))
                 {
-                    propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                    if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
+                        throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
+
+                    result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
+                    {
+                        propertyValueDto.Value = String.Empty;
+                    });
                 }
-            }
+                profiler.LogTime("PrivilegesChecker.CanReadSecrets");
 
-            if (_rolePrivilegesChecker.IsAdmin(user))
-            {
-                result.ForEach(value => value.UserEditable = true);
-            }
+                if (_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
+                {
+                    foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
+                    {
+                        propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                    }
+                }
+                profiler.LogTime("DecryptValues");
 
-            return result;
+                if (_rolePrivilegesChecker.IsAdmin(user))
+                {
+                    result.ForEach(value => value.UserEditable = true);
+                }
+                profiler.LogTime("IsAdmin set UserEditable");
+
+                return result;
+            }
         }
 
         public IEnumerable<Response> DeletePropertyValues(
