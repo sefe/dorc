@@ -1,11 +1,11 @@
-﻿using log4net;
+﻿using Dorc.PersistentData.Utils;
+using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Dorc.Api.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("[controller]")]
     public class MetadataController : ControllerBase
@@ -25,13 +25,16 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IResult Get()
         {
-            var env = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
+            using (var profiler = new TimeProfiler(this._logger, "GetMetadata"))
+            {
+                var env = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
                 "environment"] ?? "nd";
-            var envAndVersion = $"{env} - {GetType().Assembly.GetName().Version}";
+                var envAndVersion = $"{env} - {GetType().Assembly.GetName().Version}";
 
-            _logger.Debug("Starting with " + envAndVersion);
+                _logger.Debug("Starting with " + envAndVersion);
 
-            return Results.Ok(envAndVersion);
+                return Results.Ok(envAndVersion);
+            }
         }
     }
 }

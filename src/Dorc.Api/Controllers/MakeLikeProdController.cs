@@ -7,6 +7,7 @@ using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Utils;
 using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -99,9 +100,12 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var email = GetUserEmail(User);
+                using (var profiler = new TimeProfiler(this._logger, "GetNotifyEmailAddress"))
+                {
+                    var email = GetUserEmail(User);
 
-                return Results.Ok(email);
+                    return Results.Ok(email);
+                }
             }
             catch (Exception e)
             {

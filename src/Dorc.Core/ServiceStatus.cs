@@ -8,6 +8,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Utils;
 using log4net;
 using Microsoft.Win32.SafeHandles;
 using Environment = System.Environment;
@@ -61,40 +62,47 @@ namespace Dorc.Core
             int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
         private List<ServicesAndStatus> GetServicesAndStatusForEnvironment(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
-
-            var domainName = _domainName;
-
-            var sas = GetServicesEnvironment(environment);
-
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            using (var profiler = new TimeProfiler(this._logger, "GetServicesAndStatusForEnvironment"))
             {
-                const int logon32ProviderDefault = 0;
-                //This parameter causes LogonUser to create a primary token.   
-                const int logon32LogonInteractive = 2;
+                GetUsernameAndPassword(environment, out var user, out var pwd);
+                profiler.LogTime("GetUsernameAndPassword");
 
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
+                var domainName = _domainName;
 
-                if (false == returnValue)
+                var sas = GetServicesEnvironment(environment);
+                profiler.LogTime("GetServicesEnvironment");
+
+                if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
                 {
-                    int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
+                    const int logon32ProviderDefault = 0;
+                    //This parameter causes LogonUser to create a primary token.   
+                    const int logon32LogonInteractive = 2;
+
+                    bool returnValue = LogonUser(user, domainName, pwd,
+                        logon32LogonInteractive, logon32ProviderDefault,
+                        out var safeAccessTokenHandle);
+                    profiler.LogTime("LogonUser");
+
+                    if (false == returnValue)
+                    {
+                        int ret = Marshal.GetLastWin32Error();
+                        Console.WriteLine("LogonUser failed with error code : {0}", ret);
+                        throw new System.ComponentModel.Win32Exception(ret);
+                    }
+
+                    WindowsIdentity.RunImpersonated(
+                        safeAccessTokenHandle,
+                        // User action  
+                        () =>
+                        {
+                            sas = GetServicesAndStatusForEnvironment(sas);
+                        }
+                    );
+                    profiler.LogTime("RunImpersonated GetServicesAndStatusForEnvironment");
                 }
 
-                WindowsIdentity.RunImpersonated(
-                    safeAccessTokenHandle,
-                    // User action  
-                    () =>
-                    {
-                        sas = GetServicesAndStatusForEnvironment(sas);
-                    }
-                );
+                return sas;
             }
-
-            return sas;
         }
 
         private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)

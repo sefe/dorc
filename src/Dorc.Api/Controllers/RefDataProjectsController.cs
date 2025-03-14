@@ -2,6 +2,8 @@
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Utils;
+using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -14,6 +16,7 @@ namespace Dorc.Api.Controllers
     public class RefDataProjectsController : ControllerBase
     {
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly ILog _logger;
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
         private readonly IActiveDirectorySearcher _activeDirectorySearcher;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
@@ -23,13 +26,15 @@ namespace Dorc.Api.Controllers
             IProjectsPersistentSource projectsPersistentSource,
             IAccessControlPersistentSource accessControlPersistentSource,
             IActiveDirectorySearcher activeDirectorySearcher, IRolePrivilegesChecker rolePrivilegesChecker,
-            ISecurityPrivilegesChecker securityPrivilegesChecker)
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            ILog logger)
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _activeDirectorySearcher = activeDirectorySearcher;
             _accessControlPersistentSource = accessControlPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
+            _logger = logger;
         }
 
         /// <summary>
@@ -66,8 +71,11 @@ namespace Dorc.Api.Controllers
         [HttpGet("{projectName}")]
         public IActionResult Get(string projectName)
         {
-            var project = _projectsPersistentSource.GetProject(projectName);
-            return StatusCode(StatusCodes.Status200OK, project);
+            using (var profiler = new TimeProfiler(this._logger, "GetProject"))
+            {
+                var project = _projectsPersistentSource.GetProject(projectName);
+                return StatusCode(StatusCodes.Status200OK, project);
+            }
         }
 
         /// <summary>

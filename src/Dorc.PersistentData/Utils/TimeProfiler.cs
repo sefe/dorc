@@ -1,4 +1,5 @@
 ﻿using log4net;
+using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 
 namespace Dorc.PersistentData.Utils
@@ -8,13 +9,22 @@ namespace Dorc.PersistentData.Utils
         private readonly Stopwatch _stopwatch;
         private readonly ILog _log;
         private readonly string _methodName;
-        private readonly int _threshold;
+        private static int _threshold = 2000;
 
-        public TimeProfiler(ILog log, string methodName, int threshold = 3000)
+        static TimeProfiler()
+        {
+            var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
+            if (int.TryParse(appSettings["TimeProfilerThreshold"], out int threshold))
+            {
+                _threshold = threshold;
+            }
+        }
+
+        public TimeProfiler(ILog log, string methodName, int? threshold = null)
         {
             _log = log;
             _methodName = methodName;
-            _threshold = threshold;
+            _threshold = threshold ?? _threshold;
             _stopwatch = Stopwatch.StartNew();
         }
 
