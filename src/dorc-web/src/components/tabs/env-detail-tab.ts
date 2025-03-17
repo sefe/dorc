@@ -20,8 +20,9 @@ export class EnvDetailTab extends LitElement {
         width: 100%;
       }
       vaadin-icon {
-        width: var(--lumo-icon-size-m);
-        height: var(--lumo-icon-size-m);
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        font-size: var(--lumo-font-size-s);
       }
     `;
   }
@@ -35,12 +36,16 @@ export class EnvDetailTab extends LitElement {
             id: String(this.env?.EnvironmentName)
           })}"
         >
-          <vaadin-icon icon="hardware:developer-board"></vaadin-icon>
+          <vaadin-icon
+            icon="hardware:developer-board"
+            theme="small"
+          ></vaadin-icon>
           ${this.env?.EnvironmentName}
         </a>
         <vaadin-icon
           style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
           icon="vaadin:close-small"
+          theme="small"
           @click="${this.removeEnvDetail}"
         ></vaadin-icon>
       </div>

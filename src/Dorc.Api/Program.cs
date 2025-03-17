@@ -7,7 +7,9 @@ using Lamar.Microsoft.DependencyInjection;
 using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using System.Net;
 using System.Text.Json.Serialization;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Extensions;
@@ -39,10 +41,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
     .AddNegotiate();
 
+builder.Logging.AddLog4Net();
+
 builder.Services
     .AddControllers(opts =>
-        opts.OutputFormatters
-            .RemoveType<StringOutputFormatter>()) // never return plain text
+    {
+        opts.OutputFormatters.RemoveType<StringOutputFormatter>(); // never return plain text
+        //opts.Filters.Add(new RequireHttpsAttribute());
+    })
     .AddJsonOptions(opts =>
     {
         opts.JsonSerializerOptions.PropertyNamingPolicy = null;
@@ -91,6 +97,19 @@ builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounte
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 builder.Services.AddInMemoryRateLimiting();
 
+//builder.Services.AddHttpsRedirection(options =>
+//{
+//    options.RedirectStatusCode = (int)HttpStatusCode.PermanentRedirect;
+//    options.HttpsPort = 7159;
+//});
+
+//builder.Services.AddHsts(options =>
+//{
+//    options.Preload = true;
+//    options.IncludeSubDomains = true;
+//    options.MaxAge = TimeSpan.FromDays(60);
+//});
+
 var app = builder.Build();
 
 app.UseIpRateLimiting();
@@ -102,6 +121,7 @@ app.UseExceptionHandler(_ => { }); // empty lambda is required until https://git
 app.UseMiddleware<OptionsMiddleware>();
 app.UseCors(dorcCorsRefDataPolicy);
 
+//app.UseHsts();
 //app.UseHttpsRedirection();
 
 app.UseAuthentication();

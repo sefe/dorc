@@ -39,6 +39,10 @@ const id = 'Id';
 export class PageMonitorRequests extends LitElement {
   @query('#grid') grid: Grid | undefined;
   @query('#loading') loadingDiv: HTMLDivElement | undefined;
+  
+  // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
+  // we need to store the max count of items before refresh to keep grid's cache size
+  maxCountBeforeRefresh: number | undefined; 
 
   set isLoading(val: boolean) {
     this._isLoading = val;
@@ -224,7 +228,8 @@ export class PageMonitorRequests extends LitElement {
                 data.Items?.map(
                   item => (item.UserName = item.UserName?.split('\\')[1])
                 );
-                callback(data.Items ?? [], data.TotalItems);
+                callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
+                
                 this.dispatchEvent(
                   new CustomEvent('searching-requests-finished', {
                     detail: data,
@@ -286,9 +291,9 @@ export class PageMonitorRequests extends LitElement {
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
-          path="UserName"
           header="User"
           .headerRenderer="${this.usersHeaderRenderer}"
+          .renderer="${this.usernameRenderer}"
           resizable
           auto-width
         >
@@ -308,9 +313,9 @@ export class PageMonitorRequests extends LitElement {
         >
         </vaadin-grid-column>
         <vaadin-grid-column
-          path="Components"
           header="Components"
           .headerRenderer="${this.componentsHeaderRenderer}"
+          .renderer="${this.componentsRenderer}"
           resizable
           auto-width
         >
@@ -381,6 +386,7 @@ export class PageMonitorRequests extends LitElement {
         default:
           break;
       }
+      this.maxCountBeforeRefresh = 0;
       this.grid?.clearCache();
       this.isSearching = true;
     },
@@ -412,6 +418,7 @@ export class PageMonitorRequests extends LitElement {
 
   updateGrid() {
     if (this.grid) {
+      this.maxCountBeforeRefresh = (this.grid as any).__data?._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
       this.grid.clearCache();
       this.isLoading = true;
     }
@@ -433,6 +440,32 @@ export class PageMonitorRequests extends LitElement {
       position: 'bottom-start',
       duration: 5000
     });
+  }
+
+  private componentsRenderer(    root: HTMLElement,
+                                 _: HTMLElement,
+                                 model: GridItemModel<DeploymentRequestApiModel>){
+
+    const request = model.item as DeploymentRequestApiModel;
+    const elements = request.Components?.split('|');
+
+    render(html`
+      <vaadin-vertical-layout>
+        ${elements?.map(
+          element => html`<div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${element}</div>`
+        )}
+      </vaadin-vertical-layout>
+    `, root);
+
+  }
+
+  private usernameRenderer(root: HTMLElement,
+                           _: HTMLElement,
+                           model: GridItemModel<DeploymentRequestApiModel>){
+    const request = model.item as DeploymentRequestApiModel;
+    render(html`
+      <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${request.UserName}</div>`, root);
+
   }
 
   private detailsRenderer = (
@@ -497,8 +530,8 @@ export class PageMonitorRequests extends LitElement {
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
           >
-            <div>${`${sDate} ${sTime}`}</div>
-            <div>${`${cDate} ${cTime}`}</div>
+            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${sDate} ${sTime}`}</div>
+            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${cDate} ${cTime}`}</div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
       `,
@@ -515,10 +548,10 @@ export class PageMonitorRequests extends LitElement {
     render(
       html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span> ${request.Id} </span>
+          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
           <vaadin-button
             title="View Detailed Results"
-            theme="icon"
+            theme="icon small"
             @click="${() => {
               const event = new CustomEvent('open-monitor-result', {
                 detail: {

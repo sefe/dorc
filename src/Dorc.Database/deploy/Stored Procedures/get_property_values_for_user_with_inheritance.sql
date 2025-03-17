@@ -58,7 +58,7 @@ BEGIN
         FROM [deploy].[Property] AS p
         INNER JOIN [deploy].[PropertyValue] AS pv ON pv.PropertyId = p.Id
         LEFT JOIN [deploy].[PropertyValueFilter] AS pvf ON pvf.PropertyValueId = pv.Id
-        INNER JOIN [deploy].[PropertyFilter] AS pf ON pf.Id = pvf.PropertyFilterId
+        LEFT JOIN [deploy].[PropertyFilter] AS pf ON pf.Id = pvf.PropertyFilterId
         WHERE @env IS NULL  -- Only apply this logic when @env is NULL
           AND (@prop IS NULL OR p.Name = @prop)
     ),

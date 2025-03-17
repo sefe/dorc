@@ -215,14 +215,6 @@ export class PageProjectsList extends PageElement {
               theme="compact row-stripes no-row-borders no-border"
             >
               <vaadin-grid-sort-column
-                width="50px"
-                flex-grow="0"
-                path="ProjectId"
-                header="Id"
-                style="color:lightgray"
-                resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
                 path="ProjectName"
                 header="Name"
                 resizable

@@ -46,13 +46,14 @@ export class ComponentDeploymentResults extends LitElement {
         height: calc(100vh - 410px);
         --divider-color: rgb(223, 232, 239);
       }
-      vaadin-text-field {
-        padding: 0px;
+      vaadin-grid-cell-content {
+        padding-top: 0px;
+        padding-bottom: 0px;
         margin: 0px;
       }
-      vaadin-grid-cell-content {
-        padding-top: 5px;
-        padding-bottom: 5px;
+
+      vaadin-text-field {
+        padding: 0px;
         margin: 0px;
       }
     `;
@@ -75,13 +76,7 @@ export class ComponentDeploymentResults extends LitElement {
         all-rows-visible
       >
         <vaadin-grid-column
-          path="Id"
-          header="Id"
-          resizable
-          auto-width
-        ></vaadin-grid-column>
-        <vaadin-grid-column
-          path="ComponentName"
+          .renderer="${this.componentNameRenderer}"
           header="Component Name"
           resizable
           auto-width
@@ -109,6 +104,14 @@ export class ComponentDeploymentResults extends LitElement {
     `;
   }
 
+  componentNameRenderer(    root: HTMLElement,
+                            _column: GridColumn,
+                            model: GridItemModel<DeploymentResultApiModel>){
+
+    const result = model.item as DeploymentResultApiModel;
+    render(html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `, root);
+  }
+
   _logRenderer(
     root: HTMLElement,
     _column: GridColumn,
@@ -116,28 +119,46 @@ export class ComponentDeploymentResults extends LitElement {
   ) {
     const result = model.item as DeploymentResultApiModel;
     const first100chars = result.Log?.substring(0, 100);
+
+    const lines = first100chars?.split(/\r?\n/);
     render(
-      html` <div style="font-family: monospace">
-        <vaadin-button
-          style="width: 36px; min-width: 36px; padding: 0"
-          @click="${() =>
-            this.dispatchEvent(
-              new CustomEvent('open-result-log', {
-                detail: {
-                  result
-                },
-                bubbles: true,
-                composed: true
-              })
-            )}"
-        >
-          <vaadin-icon
-            icon="vaadin:ellipsis-dots-h"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
-        </vaadin-button>
-        ${first100chars}
-      </div>`,
+      html` <table>
+        <tr>
+          <td>
+            <vaadin-button
+              theme="small"
+              style="width: 36px; min-width: 36px; padding: 0"
+              @click="${() =>
+                this.dispatchEvent(
+                  new CustomEvent('open-result-log', {
+                    detail: {
+                      result
+                    },
+                    bubbles: true,
+                    composed: true
+                  })
+                )}"
+            >
+              <vaadin-icon
+                icon="vaadin:ellipsis-dots-h"
+                style="color: cornflowerblue"
+              ></vaadin-icon>
+            </vaadin-button>
+          </td>
+          <td>
+            <div style="font-family: monospace">
+              ${lines?.map(
+                element =>
+                  html`<div
+                    style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                  >
+                    ${element}
+                  </div>`
+              )}
+            </div>
+          </td>
+        </tr>
+      </table>`,
       root
     );
   }
@@ -191,8 +212,16 @@ export class ComponentDeploymentResults extends LitElement {
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
           >
-            <div>${`${sDate} ${sTime}`}</div>
-            <div>${`${cDate} ${cTime}`}</div>
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${`${sDate} ${sTime}`}
+            </div>
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${`${cDate} ${cTime}`}
+            </div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
       `,

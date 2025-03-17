@@ -1,6 +1,16 @@
 {
   "profiles": {
     "IIS Express": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "https://localhost:7159"
+    },
+    "IIS Express2": {
       "commandName": "IISExpress",
       "launchBrowser": true,
       "launchUrl": "swagger",
@@ -14,8 +24,8 @@
     "windowsAuthentication": true,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://localhost:32194",
-      "sslPort": 0
+      "applicationUrl": "https://localhost:7159",
+      "sslPort": 7159
     }
   }
 }
