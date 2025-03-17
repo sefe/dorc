@@ -16,6 +16,7 @@ using Dorc.PersistentData.Extensions;
 using AspNetCoreRateLimit;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Services.AuthN;
+using Microsoft.AspNetCore.Hosting.Server;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 
@@ -39,7 +40,8 @@ builder.Services.AddCors(options =>
         });
 });
 // Add services to the container.
-builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+builder.Services.AddSingleton<IServerIntegratedAuth, AuthServerIntegratedAuth>();
+builder.Services.AddAuthentication(AuthServerIntegratedAuth.Scheme)
     .AddAuthNegotiate();
 
 builder.Logging.AddLog4Net();

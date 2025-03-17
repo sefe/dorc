@@ -1,7 +1,7 @@
 ﻿using Dorc.PersistentData.Utils;
 using log4net;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Negotiate;
+
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;

@@ -8,11 +8,11 @@ namespace Dorc.Api.Services.AuthN
     public static class AuthNegotiateExtensions
     {
         public static AuthenticationBuilder AddAuthNegotiate(this AuthenticationBuilder builder)
-            => builder.AddAuthNegotiate(NegotiateDefaults.AuthenticationScheme, "AuthTestHandler", _ => { });
+            => builder.AddAuthNegotiate(AuthServerIntegratedAuth.Scheme, "AuthTestHandler", _ => { });
 
         public static AuthenticationBuilder AddAuthNegotiate(this AuthenticationBuilder builder, string authenticationScheme, string? displayName, Action<AuthNegotiateOptions> configureOptions)
         {
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<NegotiateOptions>, PostConfigureNegotiateOptions>());
+            //builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IPostConfigureOptions<AuthNegotiateOptions>, PostConfigureNegotiateOptions>());
             builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter>(new NegotiateOptionsValidationStartupFilter(authenticationScheme)));
             return builder.AddScheme<AuthNegotiateOptions, AuthNegotiateHandler>(authenticationScheme, displayName, configureOptions);
         }
