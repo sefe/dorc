@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using Dorc.Api.Interfaces;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Utils;
+using log4net;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -15,14 +17,16 @@ namespace Dorc.Api.Services
         private readonly string _domainName;
         private readonly IMemoryCache _cache;
         private readonly IActiveDirectorySearcher _activeDirectorySearcher;
+        private readonly ILog _logger;
         private readonly TimeSpan? _cacheExpiration;
 
-        public ActiveDirectoryUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IActiveDirectorySearcher activeDirectorySearcher)
+        public ActiveDirectoryUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IActiveDirectorySearcher activeDirectorySearcher, ILog log)
         {
             _domainName = config.GetConfigurationDomainNameIntra();
             _cacheExpiration = config.GetADUserCacheTimeSpan();
             _cache = cache;
             _activeDirectorySearcher = activeDirectorySearcher;
+            _logger = log;
         }
 
         public string? GetGroupSidIfUserIsMember(string userName, string groupName)
@@ -64,15 +68,18 @@ namespace Dorc.Api.Services
 
         private string? getGroupSidForUser(string userName, string groupName)
         {
+            using (var profiler = new TimeProfiler(this._logger, "getGroupSidForUser"))
             using (var context = new PrincipalContext(ContextType.Domain, null, _domainName))
             {
                 try
                 {
                     using (var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.SamAccountName, groupName))
                     {
+                        profiler.LogTime("Group FindByIdentity");
                         if (groupPrincipal != null)
                         {
                             var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
+                            profiler.LogTime("User FindByIdentity");
                             if (userPrincipal != null && groupPrincipal.GetMembers(true).Contains(userPrincipal))
                             {
                                 return groupPrincipal.Sid.Value;

@@ -4,6 +4,8 @@ using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
 using Dorc.Api.Interfaces;
+using Dorc.PersistentData.Utils;
+using log4net;
 using Microsoft.AspNetCore.Authentication;
 
 namespace Dorc.Api.Services
@@ -19,8 +21,9 @@ namespace Dorc.Api.Services
     {
         private readonly IActiveDirectoryUserGroupReader _adUserGroupReader;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
+        private readonly ILog _logger;
 
-        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adUserGroupReader)
+        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adUserGroupReader, ILog log)
         {
             _adUserGroupReader = adUserGroupReader;
 
@@ -34,6 +37,7 @@ namespace Dorc.Api.Services
                     FriendlyName = x.Key.Trim()
                 })
                 .ToList();
+            _logger = log;
         }
 
         public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
@@ -41,40 +45,43 @@ namespace Dorc.Api.Services
             var claims = new List<Claim>();
             string authenticationType = principal.Identity?.AuthenticationType ?? string.Empty;
             string currentUserName = principal.Identity?.Name ?? string.Empty;
-
-            if (!string.IsNullOrEmpty(currentUserName))
+            using (var profiler = new TimeProfiler(this._logger, "ClaimsTransformer.TransformAsync"))
             {
-                claims.Add(new Claim(ClaimTypes.Name, currentUserName));
-            }
-
-            if (principal.Identity is WindowsIdentity windowsIdentity && windowsIdentity.User != null)
-            {
-                claims.Add(new Claim(ClaimTypes.Sid, windowsIdentity.User.Value));
-            }
-
-            // Add role claims based on AD group membership
-            foreach (var adPermittedGroup in _permittedRoleGroups)
-            {
-                if (string.IsNullOrEmpty(adPermittedGroup.Name))
+                if (!string.IsNullOrEmpty(currentUserName))
                 {
-                    continue;
+                    claims.Add(new Claim(ClaimTypes.Name, currentUserName));
                 }
 
-                var containingGroupSid = _adUserGroupReader.GetGroupSidIfUserIsMember(currentUserName, adPermittedGroup.Name);
-                if (!string.IsNullOrEmpty(containingGroupSid))
+                if (principal.Identity is WindowsIdentity windowsIdentity && windowsIdentity.User != null)
                 {
-                    if (!string.IsNullOrEmpty(adPermittedGroup.FriendlyName))
+                    claims.Add(new Claim(ClaimTypes.Sid, windowsIdentity.User.Value));
+                }
+                profiler.LogTime("AddClaims");
+                // Add role claims based on AD group membership
+                foreach (var adPermittedGroup in _permittedRoleGroups)
+                {
+                    if (string.IsNullOrEmpty(adPermittedGroup.Name))
                     {
-                        claims.Add(new Claim(ClaimTypes.Role, adPermittedGroup.FriendlyName));
+                        continue;
                     }
 
-                    claims.Add(new Claim(ClaimTypes.Sid, containingGroupSid));
-                }
-            }
+                    var containingGroupSid = _adUserGroupReader.GetGroupSidIfUserIsMember(currentUserName, adPermittedGroup.Name);
+                    if (!string.IsNullOrEmpty(containingGroupSid))
+                    {
+                        if (!string.IsNullOrEmpty(adPermittedGroup.FriendlyName))
+                        {
+                            claims.Add(new Claim(ClaimTypes.Role, adPermittedGroup.FriendlyName));
+                        }
 
-            // Build and return the new principal
-            var newClaimsIdentity = new ClaimsIdentity(claims, authenticationType);
-            return new ClaimsPrincipal(newClaimsIdentity);
+                        claims.Add(new Claim(ClaimTypes.Sid, containingGroupSid));
+                    }
+                    profiler.LogTime($"GetGroupSidIfUserIsMember {adPermittedGroup.Name}");
+                }
+
+                // Build and return the new principal
+                var newClaimsIdentity = new ClaimsIdentity(claims, authenticationType);
+                return new ClaimsPrincipal(newClaimsIdentity);
+            }
         }
     }
 }
