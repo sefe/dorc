@@ -1,27 +1,22 @@
 {
   "System": {
-    "SystemName": "Deployment Orchestrator",
-    "ComponentName": "Deployment Runner",
     "EnableLoggingDiagnostics": true,
-    "EnvironmentName": "DV2",
-    "EnvironmentTier": "DV",
-    "LogPath": "c:\\Log\\DOrc\\Deploy\\Services\\Requests"
+    "LogPath": "c:\\Log\\DOrc\\Deploy\\Services\\Requests",
+    "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
   },
   "Serilog": {
     "Using": [
-      "Serilog.Enrichers.Thread",
+      "Serilog.Sinks.Console",
       "Serilog.Sinks.Async",
       "Serilog.Sinks.File",
-      "Serilog.Sinks.Http",
       "Serilog.Formatting.Compact"
     ],
     "Enrich": [
       "FromLogContext",
-      "WithThreadId",
-      "WithMachineName"
+      "WithThreadId"
     ],
     "MinimumLevel": {
-      "Default": "Information",
+      "Default": "Debug",
       "Override": {
         "Microsoft": "Warning",
         "System": "Warning"
@@ -31,6 +26,7 @@
       {
         "Name": "Console",
         "Args": {
+          "outputTemplate": "{Timestamp:HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
           "configure": [
             {
               "formatter": "Serilog.Formatting.Compact.CompactJsonFormatter, Serilog.Formatting.Compact"
