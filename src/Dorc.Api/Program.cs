@@ -1,22 +1,18 @@
+using AspNetCoreRateLimit;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Services;
 using Dorc.Core.Configuration;
 using Dorc.Core.Lamar;
+using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
 using Lamar.Microsoft.DependencyInjection;
 using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using System.Net;
 using System.Text.Json.Serialization;
-using Dorc.Core.VariableResolution;
-using Dorc.PersistentData.Extensions;
-using AspNetCoreRateLimit;
-using Dorc.Api.Interfaces;
-using Dorc.Api.Services.AuthN;
-using Microsoft.AspNetCore.Hosting.Server;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 
@@ -40,9 +36,8 @@ builder.Services.AddCors(options =>
         });
 });
 // Add services to the container.
-builder.Services.AddSingleton<IServerIntegratedAuth, AuthServerIntegratedAuth>();
-builder.Services.AddAuthentication(AuthServerIntegratedAuth.Scheme)
-    .AddAuthNegotiate();
+builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+    .AddNegotiate();
 
 builder.Logging.AddLog4Net();
 
