@@ -26,7 +26,7 @@ namespace Dorc.PersistData.Dapper
                 using (var connection = new SqlConnection(connectionString))
                 {
                     var affectedRows = connection.Execute(sql);
-                    contextLogger.Debug(" sql {0} - Updated {1} rows ",sql, affectedRows);
+                    contextLogger.Verbose(" sql {0} - Updated {1} rows ",sql, affectedRows);
                 }
             }
             catch (Exception e)
@@ -43,7 +43,7 @@ namespace Dorc.PersistData.Dapper
             using (var connection = new SqlConnection(connectionString))
             {
                 var affectedRows = connection.Execute(sql);
-                contextLogger.Debug(" sql {0} - Updated {1} rows ", sql, affectedRows);
+                contextLogger.Verbose(" sql {0} - Updated {1} rows ", sql, affectedRows);
 
             }
         }

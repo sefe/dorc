@@ -56,8 +56,9 @@ namespace Dorc.Api.Services
                 var propValues = _propertyValuesPersistentSource.GetPropertyValuesForUser(environmentName, propertyName, username, allSids).ToList();
                 result.AddRange(propValues);
                 profiler.LogTime("GetPropertyValuesForUser");
+            var canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(user, environmentName);
 
-                if (!_securityPrivilegesChecker.CanReadSecrets(user, environmentName) && !String.IsNullOrEmpty(environmentName))
+            if (!canReadSecrets && !String.IsNullOrEmpty(environmentName))
                 {
                     if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
                         throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
@@ -69,7 +70,7 @@ namespace Dorc.Api.Services
                 }
                 profiler.LogTime("PrivilegesChecker.CanReadSecrets");
 
-                if (_securityPrivilegesChecker.CanReadSecrets(user, environmentName))
+            if (canReadSecrets)
                 {
                     foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
                     {

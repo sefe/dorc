@@ -1,120 +1,143 @@
-using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.PersistData.Dapper;
 using Newtonsoft.Json;
 using Serilog;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 
 namespace Dorc.PowerShell
 {
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
         private readonly ILogger logger;
-        private readonly IDapperContext dbContext;
-        private int deploymentResultId;
+        private readonly OutputProcessor outputProcessor;
 
-        public PowerShellScriptRunner(ILogger logger, IDapperContext dbContext, int deploymentResultId)
+        public PowerShellScriptRunner(ILogger logger, OutputProcessor outputProc)
         {
             this.logger = logger;
-            this.dbContext = dbContext;
-            this.deploymentResultId = deploymentResultId;
+            this.outputProcessor = outputProc;
         }
 
-        public void Run(string scriptsLocation,
-            IEnumerable<(string, IDictionary<string, VariableValue>)> scripts,
+        public int Run(string scriptsLocation,
+            string scriptName,
+            IDictionary<string, VariableValue> scriptProperties,
             IDictionary<string, VariableValue> commonProperties)
         {
-            foreach ((string, IDictionary<string, VariableValue>) script in scripts)
+            logger.Information("Starting execution of script '{0}'", scriptName);
+
+            IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
+
+            try
             {
-                string scriptName = script.Item1;
-                logger.Information("\tStarting execution of script '" + scriptName + "'.");
-
-                IDictionary<string, VariableValue> scriptProperties = script.Item2;
-                IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
-
-                try
+                using (var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault()))
                 {
-                    using (var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault()))
+                    runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
+                    runspace.Open();
+
+                    AddProperties(runspace, combinedProperties);
+
+                    using (var powerShell = System.Management.Automation.PowerShell.Create())
                     {
-                        runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
-                        runspace.Open();
+                        powerShell.Runspace = runspace;
 
-                        AddProperties(runspace, combinedProperties);
-
-                        using (var powerShell = System.Management.Automation.PowerShell.Create())
+                        if (!string.IsNullOrEmpty(scriptsLocation))
                         {
-                            powerShell.Runspace = runspace;
-
-                            if (!string.IsNullOrEmpty(scriptsLocation))
-                            {
-                                powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
-                            }
-
-                            powerShell.AddScript(File.ReadAllText(scriptName));
-                            logger.Information($"Adding Script for execution '{scriptName}'.");
-
-
-                            powerShell.Streams.Information.DataAdded += Powershell_Information_DataAdded;
-                            powerShell.Streams.Debug.DataAdded += Powershell_Debug_DataAdded;
-                            powerShell.Streams.Warning.DataAdded += Powershell_Warning_DataAdded;
-                            powerShell.Streams.Verbose.DataAdded += Powershell_Verbose_DataAdded;
-                            powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
-
-                            try
-                            {
-                                logger.Information($"Execution of the powershell Script {scriptName} is beginning");
-                                powerShell.Invoke();
-                                logger.Information($" Execution of the powershell Script {scriptName} has completed");
-                            }
-                            catch (Exception exception)
-                            {
-                                string exceptionMessage = GetExceptionMessage(powerShell);
-
-                                if (string.IsNullOrEmpty(exceptionMessage))
-                                {
-                                    throw;
-                                }
-                                logger.Information($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
-                                throw new RemoteException(exceptionMessage, exception);
-                            }
-
-                            logger.Debug("Checking runspace State");
-
-                            if (runspace.RunspaceStateInfo is { State: RunspaceState.Broken })
-                            {
-                                throw new Exception(
-                                    $"The runspace has been disconnected abnormally. Reason: {runspace.RunspaceStateInfo.Reason}");
-                            }
-                            logger.Debug("Checking runspace State...Done");
-                            logger.Debug("Checking InvocationStateInfo");
-                            if (powerShell.InvocationStateInfo != null
-                                && powerShell.InvocationStateInfo.State == PSInvocationState.Failed)
-                            {
-                                throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
-                            }
-                            logger.Debug("Checking InvocationStateInfo...Done");
+                            powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                         }
-                    }
 
+                        powerShell.AddScript(File.ReadAllText(scriptName));
+
+                        var outputCollection = new PSDataCollection<string>();
+                        outputCollection.DataAdded += (sender, e) =>
+                        {
+                            var data = sender as PSDataCollection<string>;
+                            var msg = data[e.Index]?.ToString();
+                            logMessage(msg, MessageType.None);
+                        };
+
+                        powerShell.Streams.Information.DataAdded += Powershell_Information_DataAdded;
+                        powerShell.Streams.Debug.DataAdded += Powershell_Debug_DataAdded;
+                        powerShell.Streams.Warning.DataAdded += Powershell_Warning_DataAdded;
+                        powerShell.Streams.Verbose.DataAdded += Powershell_Verbose_DataAdded;
+                        powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
+                        powerShell.Streams.Progress.DataAdded += Powershell_Information_DataAdded;
+
+                        try
+                        {
+                            logger.Information("Execution of the powershell Script {0} is beginning", scriptName);
+                            powerShell.Invoke(null, outputCollection);
+                            logger.Information("Execution of the powershell Script {0} has completed", scriptName);
+                        }
+                        catch (Exception exception)
+                        {
+                            string exceptionMessage = GetExceptionMessage(powerShell);
+
+                            if (string.IsNullOrEmpty(exceptionMessage))
+                            {
+                                throw;
+                            }
+                            logger.Information("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
+                            throw new RemoteException(exceptionMessage, exception);
+                        }
+
+                        logger.Debug("Checking runspace State");
+
+                        if (runspace.RunspaceStateInfo is { State: RunspaceState.Broken })
+                        {
+                            throw new Exception(
+                                $"The runspace has been disconnected abnormally. Reason: {runspace.RunspaceStateInfo.Reason}");
+                        }
+                        logger.Debug("Checking runspace State...Done");
+                        logger.Debug("Checking InvocationStateInfo");
+                        if (powerShell.InvocationStateInfo != null
+                            && powerShell.InvocationStateInfo.State == PSInvocationState.Failed)
+                        {
+                            throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
+                        }
+                        logger.Debug("Checking InvocationStateInfo...Done");
+                    }
                 }
-                catch (Exception e)
-                {
-                    logger.Error(e, $"Exception occured in the powershell execution of script {scriptName}");
-                    throw;
-                }
-                logger.Information($" Execution of the powershell Script {scriptName} was successful");
             }
+            catch (Exception e)
+            {
+                logger.Error(e, "Exception occured in the powershell execution of script {0}", scriptName);
+                return -1;
+            }
+            finally
+            {
+                outputProcessor.FlushLogMessages();
+            }
+            logger.Information("Execution of the powershell Script {0} was successful", scriptName);
+            return 0;
         }
 
-        void Powershell_Information_DataAdded(object sender, DataAddedEventArgs e)
+        private void logMessage(string? message, MessageType type = MessageType.None)
         {
             try
             {
-                var data = (PSDataCollection<InformationRecord>)sender;
-                var msg = data[e.Index].MessageData.ToString();
-                if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Information(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
+                if (string.IsNullOrWhiteSpace(message)) return;
+                var psMessage = $"[PS] {message}";
+                switch (type)
+                {
+                    case MessageType.None:
+                    case MessageType.Info:
+                        logger.Information(psMessage);
+                        break;
+                    case MessageType.Verbose:
+                        logger.Verbose(psMessage);
+                        break;
+                    case MessageType.Warning:
+                        logger.Warning(psMessage);
+                        break;
+                    case MessageType.Error:
+                        logger.Error(psMessage);
+                        break;
+                    case MessageType.Debug:
+                        logger.Debug(psMessage);
+                        break;
+                    default:
+                        break;
+                }
+                outputProcessor.AddLogMessage(message);
             }
             catch (Exception exception)
             {
@@ -122,67 +145,39 @@ namespace Dorc.PowerShell
             }
         }
 
+        void Powershell_Information_DataAdded(object sender, DataAddedEventArgs e)
+        {
+            var data = (PSDataCollection<InformationRecord>)sender;
+            var msg = data[e.Index]?.MessageData?.ToString();
+            logMessage(msg, MessageType.Info);
+        }
+
         void Powershell_Verbose_DataAdded(object sender, DataAddedEventArgs e)
         {
-            try
-            {
-                var data = (PSDataCollection<VerboseRecord>)sender;
-                var msg = data[e.Index].Message;
-                if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Verbose(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
-            }
-            catch (Exception exception)
-            {
-                logger.Error(exception, "Exception Occured logging Verbose Message from powershell execution");
-            }
+            var data = (PSDataCollection<VerboseRecord>)sender;
+            var msg = data[e.Index]?.Message;
+            logMessage(msg, MessageType.Verbose);
         }
 
         void Powershell_Debug_DataAdded(object sender, DataAddedEventArgs e)
         {
-            try
-            {
-                var data = (PSDataCollection<DebugRecord>)sender;
-                var msg = data[e.Index].Message;
-                if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Debug(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
-            }
-            catch (Exception exception)
-            {
-                logger.Error(exception, "Exception Occured logging Debug Message from powershell execution");
-            }
+            var data = (PSDataCollection<DebugRecord>)sender;
+            var msg = data[e.Index]?.Message;
+            logMessage(msg, MessageType.Debug);
         }
+
         void Powershell_Warning_DataAdded(object sender, DataAddedEventArgs e)
         {
-            try
-            {
-                var data = (PSDataCollection<WarningRecord>)sender;
-                var msg = data[e.Index].Message;
-                if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Warning(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
-            }
-            catch (Exception exception)
-            {
-                logger.Error(exception, "Exception Occured logging Warning Message from powershell execution");
-            }
+            var data = (PSDataCollection<WarningRecord>)sender;
+            var msg = data[e.Index].Message;
+            logMessage(msg, MessageType.Warning);
         }
 
         void Powershell_Error_DataAdded(object sender, DataAddedEventArgs e)
         {
-            try
-            {
-                var data = (PSDataCollection<ErrorRecord>)sender;
-                var msg = data[e.Index].ToString();
-                if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Error(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
-            }
-            catch (Exception exception)
-            {
-                logger.Error(exception, "Exception Occured");
-            }
+            var data = (PSDataCollection<ErrorRecord>)sender;
+            var msg = GetErrorRecordData(data[e.Index]);
+            logMessage(msg, MessageType.Error);
         }
 
         private IDictionary<string, VariableValue> CombineProperties(
@@ -335,7 +330,5 @@ namespace Dorc.PowerShell
 
             return debugInformation;
         }
-
-
     }
 }
