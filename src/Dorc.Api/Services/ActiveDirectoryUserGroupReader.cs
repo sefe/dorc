@@ -80,7 +80,7 @@ namespace Dorc.Api.Services
                         {
                             var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
                             profiler.LogTime("User FindByIdentity");
-                            if (userPrincipal != null && groupPrincipal.GetMembers(true).Contains(userPrincipal))
+                            if (userPrincipal != null && groupPrincipal.Members.Contains(userPrincipal))
                             {
                                 return groupPrincipal.Sid.Value;
                             }
@@ -93,7 +93,7 @@ namespace Dorc.Api.Services
                 }
             }
 
-            return null;
+            return string.Empty;
         }
     }
 }
