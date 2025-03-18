@@ -164,6 +164,43 @@ openapi-generator-cli generate -g typescript-rxjs -i ..\dorc-api\swagger.json --
 
 azure json specs come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 
+
+## K6 load tests
+K6 grafana javascript framework is used to test the performance of the DOrc.
+It can test both API and browser page, see https://grafana.com/docs/k6/latest
+
+### Install K6 on Windows:
+
+```cmd
+winget install k6 --source winget
+```
+
+### Run tests
+In order to run tests, test-config.json should be updated with proper baseUrl.
+
+example command:
+```cmd
+k6 run k6-tests/monitor-request-page-test.js
+```
+
+For load test, there is also file users.json with the list of users to use for requests. It also should be updated before running test.
+
+It's possible to see realtime dashboard, or output to csv or json file to see later (with tool GNUplot for example).
+To make output to web-dashboard, add __--out web-dashboard__ option, example: 
+
+```cmd
+k6 run --out web-dashboard ./k6-tests/load-test-many-users.js 
+```
+URL for web dashboard: http://127.0.0.1:5665/
+
+### K6 test issues
+If getting error __stream error: stream ID 19; HTTP_1_1_REQUIRED;__, set env variable CODEBUG to http2client=0:
+Windows:
+```cmd
+SET GODEBUG=http2client=0
+```
+see https://community.grafana.com/t/stream-error-stream-id-1-http-1-1-required-received-from-peer/96607/7
+
 ## Help
 
 https://wiki/display/gdq/DOrc+Help

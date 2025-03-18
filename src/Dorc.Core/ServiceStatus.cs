@@ -23,24 +23,22 @@ namespace Dorc.Core
         private const string DORCNonProdDeployPassword = "DORC_NonProdDeployPassword";
 
         private readonly ILog _logger;
-        private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
+        private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly string _domainName;
 
-        public ServiceStatus(IPropertyValuesPersistentSource propertyValuesPersistentSource,
+        public ServiceStatus(IConfigValuesPersistentSource configValuesPersistentSource,
             ILog logger, IEnvironmentsPersistentSource environmentsPersistentSource,
-            IDatabasesPersistentSource databasesPersistentSource, IServersPersistentSource serversPersistentSource,
+            IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IConfigurationSettings configurationSettingsEngine)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
-            _databasesPersistentSource = databasesPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _configValuesPersistentSource = configValuesPersistentSource;
             _logger = logger;
 
             _domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
@@ -69,13 +67,13 @@ namespace Dorc.Core
 
             var sas = GetServicesEnvironment(environment);
 
-            if (user != null && pwd != null)
+            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
             {
                 const int logon32ProviderDefault = 0;
                 //This parameter causes LogonUser to create a primary token.   
                 const int logon32LogonInteractive = 2;
 
-                bool returnValue = LogonUser(user.Value, domainName, pwd.Value,
+                bool returnValue = LogonUser(user, domainName, pwd,
                     logon32LogonInteractive, logon32ProviderDefault,
                     out var safeAccessTokenHandle);
 
@@ -99,21 +97,19 @@ namespace Dorc.Core
             return sas;
         }
 
-        private void GetUsernameAndPassword(EnvironmentApiModel? environment, out PropertyValueDto user, out PropertyValueDto pwd)
+        private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
         {
             if (environment.EnvironmentIsProd)
             {
-                user = _propertyValuesPersistentSource.GetPropertyValues(DORCProdDeployUsername, environment.EnvironmentName, true)
-                    .FirstOrDefault();
-                pwd = _propertyValuesPersistentSource.GetPropertyValues(DORCProdDeployPassword, environment.EnvironmentName, true)
-                    .FirstOrDefault();
+                user = _configValuesPersistentSource.GetConfigValue(DORCProdDeployUsername);
+                pwd = _configValuesPersistentSource.GetConfigValue(DORCProdDeployPassword);
             }
             else
             {
-                user = _propertyValuesPersistentSource
-                    .GetPropertyValues(DORCNonProdDeployUsername, environment.EnvironmentName, true).FirstOrDefault();
-                pwd = _propertyValuesPersistentSource
-                    .GetPropertyValues(DORCNonProdDeployPassword, environment.EnvironmentName, true).FirstOrDefault();
+                user = _configValuesPersistentSource
+                    .GetConfigValue(DORCNonProdDeployUsername);
+                pwd = _configValuesPersistentSource
+                    .GetConfigValue(DORCNonProdDeployPassword);
             }
         }
 
@@ -133,16 +129,12 @@ namespace Dorc.Core
                         foreach (var daemonApiModel in daemons)
                         {
                             var servicesAndStatus = new ServicesAndStatus();
-                            _logger.Info(daemonApiModel.Name);
                             try
                             {
                                 servicesAndStatus.ServerName = serverApiModel.Name;
                                 servicesAndStatus.ServiceName = daemonApiModel.Name;
                                 servicesAndStatus.EnvName = environment.EnvironmentName;
 
-                                _logger.Info("Adding: " + servicesAndStatus.ServerName + "; " +
-                                             servicesAndStatus.ServiceName + "; " +
-                                             servicesAndStatus.ServiceStatus);
                                 iResults.Add(servicesAndStatus);
                             }
                             catch (Exception ex)
@@ -240,7 +232,7 @@ namespace Dorc.Core
             //This parameter causes LogonUser to create a primary token.   
             const int logon32LogonInteractive = 2;
 
-            bool returnValue = LogonUser(user.Value, domainName, pwd.Value,
+            bool returnValue = LogonUser(user, domainName, pwd,
                 logon32LogonInteractive, logon32ProviderDefault,
                 out var safeAccessTokenHandle);
 

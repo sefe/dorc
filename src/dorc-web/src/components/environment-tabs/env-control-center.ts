@@ -114,7 +114,7 @@ export class EnvControlCenter extends PageEnvBase {
       ></add-edit-access-control>
       <vaadin-details
         opened
-        style="border-top: 6px solid #ffad33 !important; background-color: #fff5e6; padding-left: 4px"
+        style="border-top: 6px solid #ffad33 !important; background-color: #fff5e6; padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
           <vaadin-horizontal-layout>

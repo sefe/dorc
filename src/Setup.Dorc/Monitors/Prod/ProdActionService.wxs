@@ -26,14 +26,14 @@
 
 					<util:XmlFile Id="ProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#ProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorProd.log" />
 
-					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#NonProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
-					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#NonProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
-					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
+					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#ProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
+					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#ProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
+					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
 					<Component Id="DeployMonitorServiceDorcRunnerProd.exe" Guid="{E97FFF42-7346-4934-8E63-11FEC7BD8425}">
-						<Json:JsonFile Id="DorcRunnerProdExeConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.AppSettings.RefDataApiUrl" Value="[DEPLOYAPI.ENDPOINT]" />
+						<Json:JsonFile Id="DorcRunnerProdExeConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
 						<Json:JsonFile Id="DorcRunnerProdExeLogConfig" File="[#ProdDorcRunnerExeLoggingConfig]" ElementPath="$.System.LogPath" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 					</Component>
 				</Directory>

@@ -21,7 +21,6 @@ import { css, PropertyValueMap, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/variable-value-controls';
-import { Router } from '@vaadin/router/dist/vaadin-router';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { WarningNotification } from '../components/notifications/warning-notification';
 import {
@@ -37,6 +36,7 @@ import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
 import GlobalCache from '../global-cache';
 import '@vaadin/icons';
+import {Router} from "@vaadin/router";
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {

@@ -11,9 +11,35 @@ namespace Dorc.Core.Configuration
             _configuration = configuration;
         }
 
+        public string GetConfigurationDomainName()
+        {
+            return _configuration.GetSection("AppSettings")["DomainName"];
+        }
+
         public string GetConfigurationDomainNameIntra()
         {
             return _configuration.GetSection("AppSettings")["DomainNameIntra"];
+        }
+
+        public string[] GetAllowedCorsLocations()
+        {
+            return _configuration.GetSection("AppSettings")["AllowedCORSLocations"]?.Split(",");
+        }
+
+        public string GetDorcConnectionString()
+        {
+            return _configuration.GetConnectionString("DOrcConnectionString");
+        }
+
+        public TimeSpan? GetADUserCacheTimeSpan()
+        {
+            var adUserCacheTimeMinutesConfig = _configuration.GetSection("AppSettings")["ADUserCacheTimeMinutes"];
+            if (!int.TryParse(adUserCacheTimeMinutesConfig, out int adUserCacheTimeMinutes))
+            {
+                return null;
+            }
+
+            return TimeSpan.FromMinutes(adUserCacheTimeMinutes);
         }
     }
 }

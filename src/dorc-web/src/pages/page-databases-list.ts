@@ -10,7 +10,6 @@ import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-database';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
@@ -31,7 +30,8 @@ import {
   PagedDataFilter,
   PagedDataSorting,
   RefDataEnvironmentsApi,
-  DatabaseApiModel, type GetDatabaseApiModelListResponseDto
+  DatabaseApiModel,
+  type GetDatabaseApiModelListResponseDto
 } from '../apis/dorc-api';
 import { RefDataDatabasesApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
@@ -41,21 +41,30 @@ import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 
+
+const name = 'Name';
+const type = 'Type';
+const serverName = 'ServerName';
+const environmentNames = 'EnvironmentNames';
+
 @customElement('page-databases-list')
 export class PageDatabasesList extends PageElement {
   @property({ type: Boolean }) loading = true;
-
   @property({ type: Boolean }) searching = false;
+  @property({ type: Boolean }) noResults = false;
 
   @query('#grid') grid: Grid | undefined;
-
-  @property({ type: Boolean }) noResults = false;
 
   @state()
   private addEditDatabaseDialogOpened = false;
 
   @property({ type: Object })
   selectedDatabase: DatabaseApiModel | undefined;
+
+  environmentNamesFilter: string = '';
+  nameFilter: string = '';
+  typeFilter: string = '';
+  serverNameFilter: string = '';
 
   static get styles() {
     return css`
@@ -102,12 +111,6 @@ export class PageDatabasesList extends PageElement {
         100% {
           transform: rotate(360deg);
         }
-      }
-
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
       }
 
       .tag {
@@ -193,7 +196,7 @@ export class PageDatabasesList extends PageElement {
       </div>
       <vaadin-grid
         id='grid'
-        .dataProvider='${this.getDatabasesByPage}'
+        .dataProvider='${this.debouncedDataProvider}'
         column-reordering-allowed
         multi-sort
         style='z-index: 1'
@@ -201,10 +204,9 @@ export class PageDatabasesList extends PageElement {
         theme='compact row-stripes no-row-borders no-border'
       >
         <vaadin-grid-column
-          
           path='ServerName'
           resizable
-          .headerRenderer='${this.nameHeaderRenderer}'
+          .headerRenderer='${this.instanceHeaderRenderer}'
           style='color:lightgray'
           auto-width
           flex-grow='0'
@@ -212,7 +214,7 @@ export class PageDatabasesList extends PageElement {
         <vaadin-grid-column
           path='Name'
           resizable
-          .headerRenderer='${this.osHeaderRenderer}'
+          .headerRenderer='${this.dbNameHeaderRenderer}'
           auto-width
           flex-grow='0'
         ></vaadin-grid-column>
@@ -226,7 +228,6 @@ export class PageDatabasesList extends PageElement {
           flex-grow='0'
           .renderer='${this.environmentNamesRenderer}'
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
-          .databasesPage='${this}'
           resizable
           header='Mapped Environments'
         ></vaadin-grid-column>
@@ -236,7 +237,6 @@ export class PageDatabasesList extends PageElement {
           resizable
           .renderer='${this._boundDatabasesButtonsRenderer}'
           .headerRenderer='${this.buttonsHeaderRenderer}'
-          .databasesPage='${this}'
         >
       </vaadin-grid>
       <img
@@ -248,6 +248,109 @@ export class PageDatabasesList extends PageElement {
       />
     `;
   }
+
+  private debounce(func: (...args: any[]) => void, wait: number) {
+    let timeout: number | undefined;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = window.setTimeout(later, wait);
+    };
+  }
+
+  debouncedDataProvider = this.debounce(
+    (
+      params: GridDataProviderParams<DatabaseApiModel>,
+      callback: GridDataProviderCallback<DatabaseApiModel>
+    ) => {
+      if (this.nameFilter !== '' && this.nameFilter !== undefined) {
+        params.filters.push({ path: 'Name', value: this.nameFilter });
+      }
+
+      if (this.typeFilter !== '' && this.typeFilter !== undefined) {
+        params.filters.push({ path: 'Type', value: this.typeFilter });
+      }
+
+      if (this.serverNameFilter !== '' && this.serverNameFilter !== undefined) {
+        params.filters.push({ path: 'ServerName', value: this.serverNameFilter });
+      }
+
+      if (this.environmentNamesFilter !== '' && this.environmentNamesFilter !== undefined) {
+        params.filters.push({ path: 'EnvironmentNames', value: this.environmentNamesFilter });
+      }
+
+      const api = new RefDataDatabasesApi();
+      api
+        .refDataDatabasesByPagePut({
+          pagedDataOperators: {
+            Filters: params.filters.map(
+              (f: GridFilterDefinition): PagedDataFilter => ({
+                Path: f.path,
+                FilterValue: f.value
+              })
+            ),
+            SortOrders: params.sortOrders.map(
+              (s: GridSorterDefinition): PagedDataSorting => ({
+                Path: s.path,
+                Direction: s.direction?.toString()
+              })
+            )
+          },
+          limit: params.pageSize,
+          page: params.page + 1
+        })
+        .subscribe({
+          next: (data: GetDatabaseApiModelListResponseDto) => {
+            this.dispatchEvent(
+              new CustomEvent('searching-databases-finished', {
+                detail: data,
+                bubbles: true,
+                composed: true
+              })
+            );
+            callback(data.Items ?? [], data.TotalItems);
+          },
+          error: (err: any) => console.error(err),
+          complete: () => {
+            this.dispatchEvent(
+              new CustomEvent('databases-loaded', {
+                detail: {},
+                bubbles: true,
+                composed: true
+              })
+            );
+          }
+        });
+    },
+    300
+  );
+
+  private debouncedInputHandler = this.debounce(
+    (field: string, value: string) => {
+      switch (field) {
+        case name:
+          this.nameFilter = value;
+          break;
+        case type:
+          this.typeFilter = value;
+          break;
+        case serverName:
+          this.serverNameFilter = value;
+          break;
+        case environmentNames:
+          this.environmentNamesFilter = value;
+          break;
+        default:
+          break;
+      }
+      this.grid?.clearCache();
+      this.searching = true;
+    },
+    400 // debounce wait time
+  );
 
   private renderAddEditDatabaseDialog = () => html`
     <add-edit-database
@@ -272,14 +375,15 @@ export class PageDatabasesList extends PageElement {
     this.loading = false;
   }
 
-  private searchingDatabasesStarted() {
-    this.searching = true;
+  private searchingDatabasesStarted(event: CustomEvent) {
+    if (event.detail.value !== undefined) {
+      this.debouncedInputHandler(event.detail.field, event.detail.value);
+    }
   }
 
   private searchingDatabasesFinished(e: CustomEvent) {
     const data: GetDatabaseApiModelListResponseDto = e.detail;
-    if (data.TotalItems === 0) this.noResults = true;
-    else this.noResults = false;
+    this.noResults = data.TotalItems === 0;
 
     this.searching = false;
   }
@@ -296,6 +400,7 @@ export class PageDatabasesList extends PageElement {
       html`
         <vaadin-button
           title="Add Database"
+          theme="small"
           @click="${() => {
             const event = new CustomEvent('open-add-edit-database-dialog', {
               detail: {},
@@ -318,137 +423,121 @@ export class PageDatabasesList extends PageElement {
 
   environmentNamesHeaderRenderer(root: HTMLElement) {
     render(
-      html` Environments
-        <vaadin-grid-filter path="EnvironmentNames">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`
+        <vaadin-text-field
+          placeholder="Environments"
+          clear-button-visible
+          focus-target
+          style="width: 120px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-databases-started', {
+                detail: {
+                  field: environmentNames,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-databases-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-  nameHeaderRenderer(root: HTMLElement) {
+  instanceHeaderRenderer(root: HTMLElement) {
     render(
-      html` <vaadin-grid-sorter direction="asc" path="ServerName"
-          >Instance</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="ServerName">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="extra-small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`<vaadin-grid-sorter
+          direction="asc"
+          path="ServerName"
+          style="align-items: normal"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Instance"
+          clear-button-visible
+          focus-target
+          style="width: 120px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-databases-started', {
+                detail: {
+                  field: serverName,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field> `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-databases-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-  osHeaderRenderer(root: HTMLElement) {
+  dbNameHeaderRenderer(root: HTMLElement) {
     render(
-      html` <vaadin-grid-sorter path="Name"
-          >Database</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="Name">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`<vaadin-grid-sorter
+              path="Name"
+              style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+              placeholder="Database"
+              clear-button-visible
+              focus-target
+              style="width: 120px"
+              theme="small"
+              @input="${(e: InputEvent) => {
+                  const textField = e.target as TextField;
+                  this.dispatchEvent(
+                          new CustomEvent('searching-databases-started', {
+                              detail: {
+                                  field: name,
+                                  value: textField?.value
+                              },
+                              bubbles: true,
+                              composed: true
+                          })
+                  );
+              }}"
+      ></vaadin-text-field> `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-databases-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   appTagsHeaderRenderer(root: HTMLElement) {
     render(
-      html` <vaadin-grid-sorter path="Type"
-          >Application Tag</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="Type">
-          <vaadin-text-field
-            id="tags-search"
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+      html`<vaadin-grid-sorter
+              path="Type"
+              style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+              placeholder="Application Tag"
+              clear-button-visible
+              focus-target
+              style="width: 120px"
+              theme="small"
+              @input="${(e: InputEvent) => {
+                  const textField = e.target as TextField;
+                  this.dispatchEvent(
+                          new CustomEvent('searching-databases-started', {
+                              detail: {
+                                  field: type,
+                                  value: textField?.value
+                              },
+                              bubbles: true,
+                              composed: true
+                          })
+                  );
+              }}"
+      ></vaadin-text-field> `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-databases-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
   private environmentNamesRenderer = (
@@ -458,10 +547,7 @@ export class PageDatabasesList extends PageElement {
   ) => {
     const database = model.item;
     const envNames = database.EnvironmentNames?.sort();
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.databasesPage as PageDatabasesList;
+
     render(
       html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
@@ -473,7 +559,17 @@ export class PageDatabasesList extends PageElement {
               (i: string) =>
                 html` <button
                   class="env"
-                  @click="${() => altThis.openEnvironmentDetails(i)}"
+                  @click="${() =>
+                          this.dispatchEvent(
+                                  new CustomEvent('open-environment-details', {
+                                      detail: {
+                                          envName: i
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )
+              }"
                   style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
                 >
                   ${i}
@@ -486,9 +582,9 @@ export class PageDatabasesList extends PageElement {
     );
   };
 
-  openEnvironmentDetails(envName: string) {
+  openEnvironmentDetails(event: CustomEvent) {
     const api2 = new RefDataEnvironmentsApi();
-    api2.refDataEnvironmentsGet({ env: envName }).subscribe({
+    api2.refDataEnvironmentsGet({ env: event.detail.envName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data[0] !== null) {
           const event = new CustomEvent('open-env-detail', {
@@ -599,7 +695,10 @@ export class PageDatabasesList extends PageElement {
       this.filterTagsDatabaseList as EventListener
     );
 
-    this.addEventListener('refresh-databases', this.updateGrid as EventListener);
+    this.addEventListener(
+      'refresh-databases',
+      this.updateGrid as EventListener
+    );
 
     this.addEventListener(
       'databases-loaded',
@@ -619,6 +718,10 @@ export class PageDatabasesList extends PageElement {
     this.addEventListener(
       'open-add-edit-database-dialog',
       this.openAddEditDatabaseDialog as EventListener
+    );
+    this.addEventListener(
+      'open-environment-details',
+      this.openEnvironmentDetails as EventListener
     );
   }
 
@@ -663,68 +766,6 @@ export class PageDatabasesList extends PageElement {
       duration: 5000
     });
     this.addEditDatabaseDialogOpened = false;
-  }
-
-  getDatabasesByPage(
-    params: GridDataProviderParams<DatabaseApiModel>,
-    callback: GridDataProviderCallback<DatabaseApiModel>
-  ) {
-    const pathNames = ['Name', 'Type', 'ServerName', 'EnvironmentNames'];
-    pathNames.forEach(x => {
-      const idIdx = params.filters.findIndex(filter => filter.path === x);
-      if (idIdx !== -1) {
-        const idValue = params.filters[idIdx].value;
-        params.filters.splice(idIdx, 1);
-        if (idValue !== '') {
-          params.filters.push({ path: x, value: idValue });
-        }
-      }
-    });
-
-    const api = new RefDataDatabasesApi();
-    api
-      .refDataDatabasesByPagePut({
-        pagedDataOperators: {
-          Filters: params.filters.map(
-            (f: GridFilterDefinition): PagedDataFilter => ({
-              Path: f.path,
-              FilterValue: f.value
-            })
-          ),
-          SortOrders: params.sortOrders.map(
-            (s: GridSorterDefinition): PagedDataSorting => ({
-              Path: s.path,
-              Direction: s.direction?.toString()
-            })
-          )
-        },
-        limit: params.pageSize,
-        page: params.page + 1
-      })
-      .subscribe({
-        next: (data: GetDatabaseApiModelListResponseDto) => {
-          this.dispatchEvent(
-            new CustomEvent('searching-databases-finished', {
-              detail: data,
-              bubbles: true,
-              composed: true
-            })
-          );
-          callback(data.Items ?? [], data.TotalItems);
-        },
-        error: (err: any) => console.error(err),
-        complete: () => {
-
-          this.dispatchEvent(
-            new CustomEvent('databases-loaded', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            })
-          );
-          console.log(`done loading databases page:${params.page + Number(1)}`);
-        }
-      });
   }
 
   private openAddEditDatabaseDialog() {

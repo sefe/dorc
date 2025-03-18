@@ -6,6 +6,7 @@ using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Services.Common;
+using System.Net.NetworkInformation;
 using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
@@ -278,6 +279,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.Status, status.ToString())
+                        .SetProperty(b => b.UserName, user));
+            }
+        }
+
         public int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();
@@ -329,7 +342,13 @@ namespace Dorc.PersistentData.Sources
                     .Where(r => ids.Contains(r.DeploymentRequest.Id)
                         && r.Status == fromStatus.ToString())
                     .ExecuteUpdate(setters => setters
-                        .SetProperty(r => r.Status, toStatus.ToString()));
+                        .SetProperty(r => r.Status, toStatus.ToString())
+                        .SetProperty(r => r.StartedTime, dr => toStatus == DeploymentResultStatus.Running ? DateTimeOffset.Now : dr.StartedTime)
+                        .SetProperty(r => r.CompletedTime, dr => 
+                            toStatus == DeploymentResultStatus.Complete ||
+                                toStatus == DeploymentResultStatus.Failed ||
+                                toStatus == DeploymentResultStatus.Cancelled
+                            ? DateTimeOffset.Now : dr.CompletedTime));
 
                 return rowsAffected;
             }
@@ -394,7 +413,13 @@ namespace Dorc.PersistentData.Sources
                 updatedResultCount = context.DeploymentResults
                     .Where(result => result.Id == deploymentResultModel.Id)
                     .ExecuteUpdate(setters => setters
-                                            .SetProperty(b => b.Status, status.ToString()));
+                                            .SetProperty(b => b.Status, status.ToString())
+                                            .SetProperty(r => r.StartedTime, dr => status == DeploymentResultStatus.Running ? DateTimeOffset.Now : dr.StartedTime)
+                                            .SetProperty(r => r.CompletedTime, dr =>
+                                                status == DeploymentResultStatus.Complete ||
+                                                    status == DeploymentResultStatus.Failed ||
+                                                    status == DeploymentResultStatus.Cancelled
+                                                ? DateTimeOffset.Now : dr.CompletedTime));
 
                 if (updatedResultCount == 0)
                 {
@@ -464,7 +489,9 @@ namespace Dorc.PersistentData.Sources
                 ComponentName = deploymentResult.Component.Name,
                 ComponentId = deploymentResult.Component.Id,
                 RequestId = deploymentResult.DeploymentRequest.Id,
-                Log = deploymentResult.Log
+                Log = deploymentResult.Log,
+                StartedTime = deploymentResult.StartedTime,
+                CompletedTime = deploymentResult.CompletedTime
             };
         }
 

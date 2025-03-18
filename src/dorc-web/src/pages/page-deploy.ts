@@ -4,6 +4,7 @@ import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
 import { css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import { DeployEnv } from '../components/deploy/deploy-env';
 import '../components/deploy/deploy-env';
 import {
   DeployArtefactDto,
@@ -146,6 +147,7 @@ export class PageDeploy extends PageElement {
           </tr>
         </table>
         <deploy-env
+          id="deployEnv"
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
         ></deploy-env>
@@ -200,6 +202,10 @@ export class PageDeploy extends PageElement {
       value => value.EnvironmentId === envId
     );
     this.selectedEnvironmentName = this.environment?.EnvironmentName ?? '';
+    const deployEnv = this.shadowRoot?.getElementById(
+      'deployEnv'
+    ) as DeployEnv;
+    deployEnv.EnvironmentChange(this.selectedEnvironmentName);
   }
 
   private setEnvironments(data: EnvironmentApiModelTemplateApiModel) {

@@ -3178,6 +3178,88 @@
         }
       }
     },
+    "/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren": {
+      "get": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/SetParentForEnvironment": {
+      "put": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "parentEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "childEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataEnvironmentsDetails": {
       "get": {
         "tags": [
@@ -3736,6 +3818,77 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/RefDataProjectAudit": {
+      "put": {
+        "tags": [
+          "RefDataProjectAudit"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRefDataAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRefDataAuditListResponseDto"
+                }
+              }
+            }
           }
         }
       }
@@ -6523,6 +6676,16 @@
           "RequestId": {
             "type": "integer",
             "format": "int32"
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6578,6 +6741,19 @@
           },
           "Details": {
             "$ref": "#/components/schemas/EnvironmentDetailsApiModel"
+          },
+          "ParentEnvironment": {
+            "$ref": "#/components/schemas/EnvironmentApiModel"
+          },
+          "IsParent": {
+            "type": "boolean"
+          },
+          "ChildEnvironments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentApiModel"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6889,6 +7065,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PropertyValueAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetRefDataAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefDataAuditApiModel"
             },
             "nullable": true
           }
@@ -7387,6 +7588,43 @@
             "items": {
               "$ref": "#/components/schemas/ComponentApiModel"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RefDataAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "RefDataAuditId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Project": {
+            "$ref": "#/components/schemas/ProjectApiModel"
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Json": {
+            "type": "string",
             "nullable": true
           }
         },

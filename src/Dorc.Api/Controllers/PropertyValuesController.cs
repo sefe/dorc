@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
@@ -46,9 +47,10 @@ namespace Dorc.Api.Controllers
         {
             _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, propertyValueScope);
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, propertyValueScope);
-            if (_environmentsPersistentSource.GetEnvironment(propertyValueScope, User) != null)
+            var environment = _environmentsPersistentSource.GetEnvironment(propertyValueScope, User);
+            if (environment is not null)
             {
-                _variableScopeOptionsResolver.SetPropertyValues(_variableResolver);
+                _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
             }
 
             var props = _variableResolver.LocalProperties();
@@ -100,6 +102,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 return Ok(propertyValues);
+            }
+            catch (NonEnoughRightsException e)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, e);
             }
             catch (Exception e)
             {

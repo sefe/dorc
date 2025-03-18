@@ -46,13 +46,14 @@ export class ComponentDeploymentResults extends LitElement {
         height: calc(100vh - 410px);
         --divider-color: rgb(223, 232, 239);
       }
-      vaadin-text-field {
-        padding: 0px;
-        margin: 0px;
-      }
       vaadin-grid-cell-content {
         padding-top: 0px;
         padding-bottom: 0px;
+        margin: 0px;
+      }
+
+      vaadin-text-field {
+        padding: 0px;
         margin: 0px;
       }
     `;
@@ -75,15 +76,15 @@ export class ComponentDeploymentResults extends LitElement {
         all-rows-visible
       >
         <vaadin-grid-column
-          path="Id"
-          header="Id"
+          .renderer="${this.componentNameRenderer}"
+          header="Component Name"
           resizable
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
-          path="ComponentName"
-          header="Component Name"
           resizable
+          .renderer="${this.timingsRenderer}"
+          header="Timings"
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -103,6 +104,14 @@ export class ComponentDeploymentResults extends LitElement {
     `;
   }
 
+  componentNameRenderer(    root: HTMLElement,
+                            _column: GridColumn,
+                            model: GridItemModel<DeploymentResultApiModel>){
+
+    const result = model.item as DeploymentResultApiModel;
+    render(html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `, root);
+  }
+
   _logRenderer(
     root: HTMLElement,
     _column: GridColumn,
@@ -110,28 +119,46 @@ export class ComponentDeploymentResults extends LitElement {
   ) {
     const result = model.item as DeploymentResultApiModel;
     const first100chars = result.Log?.substring(0, 100);
+
+    const lines = first100chars?.split(/\r?\n/);
     render(
-      html` <div style="font-family: monospace">
-        <vaadin-button
-          style="width: 36px; min-width: 36px; padding: 0"
-          @click="${() =>
-            this.dispatchEvent(
-              new CustomEvent('open-result-log', {
-                detail: {
-                  result
-                },
-                bubbles: true,
-                composed: true
-              })
-            )}"
-        >
-          <vaadin-icon
-            icon="vaadin:ellipsis-dots-h"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
-        </vaadin-button>
-        ${first100chars}
-      </div>`,
+      html` <table>
+        <tr>
+          <td>
+            <vaadin-button
+              theme="small"
+              style="width: 36px; min-width: 36px; padding: 0"
+              @click="${() =>
+                this.dispatchEvent(
+                  new CustomEvent('open-result-log', {
+                    detail: {
+                      result
+                    },
+                    bubbles: true,
+                    composed: true
+                  })
+                )}"
+            >
+              <vaadin-icon
+                icon="vaadin:ellipsis-dots-h"
+                style="color: cornflowerblue"
+              ></vaadin-icon>
+            </vaadin-button>
+          </td>
+          <td>
+            <div style="font-family: monospace">
+              ${lines?.map(
+                element =>
+                  html`<div
+                    style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                  >
+                    ${element}
+                  </div>`
+              )}
+            </div>
+          </td>
+        </tr>
+      </table>`,
       root
     );
   }
@@ -145,4 +172,60 @@ export class ComponentDeploymentResults extends LitElement {
   private logDialogClosed() {
     this.dialogOpened = false;
   }
+
+  private timingsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    const request = model.item as DeploymentResultApiModel;
+    let sTime = '';
+    let sDate = '';
+    let cTime = '';
+    let cDate = '';
+
+    if (request.StartedTime !== undefined && request.StartedTime !== null) {
+      sTime = new Date(request.StartedTime ?? '')?.toLocaleTimeString('en-GB');
+      sDate = new Date(request.StartedTime ?? '')?.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    if (request.CompletedTime !== undefined && request.CompletedTime !== null) {
+      cTime = new Date(request.CompletedTime ?? '')?.toLocaleTimeString(
+        'en-GB'
+      );
+      cDate = new Date(request.CompletedTime ?? '')?.toLocaleDateString(
+        'en-GB',
+        {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }
+      );
+    }
+
+    render(
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <vaadin-vertical-layout
+            style="line-height: var(--lumo-line-height-s);"
+          >
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${`${sDate} ${sTime}`}
+            </div>
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${`${cDate} ${cTime}`}
+            </div>
+          </vaadin-vertical-layout>
+        </vaadin-horizontal-layout>
+      `,
+      root
+    );
+  };
 }

@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Sources.Interfaces
 {
@@ -23,6 +24,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool GetStatusOfRequest(int requestId);
 
         void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel);
+
+        GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators);
 
         IList<ComponentApiModel> GetOrderedComponents(IEnumerable<string> components);
     }

@@ -202,7 +202,8 @@ namespace Dorc.Api.Controllers
                     || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
                     _requestsPersistentSource.UpdateRequestStatus(
                         requestId,
-                        DeploymentRequestStatus.Restarting);
+                        DeploymentRequestStatus.Restarting,
+                        User.Identity.Name);
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 

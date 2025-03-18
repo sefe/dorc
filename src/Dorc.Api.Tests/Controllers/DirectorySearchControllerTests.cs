@@ -59,8 +59,8 @@ namespace Dorc.Api.Tests.Controllers
                     new object[] { "test", null, null, null, null, null, null, false, null },
                     new object[] { "test", "testNativeGuid", null, 0x0002, null, null, null, false, null },
                     new object[] { "test", "testNativeGuid", null, 0x1112, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", "testSAMAccountName", 0x0001, "testDisplayName", "testDisplayName", "DOMAIN.INTRA\\testSAMAccountName", true, null },
-                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testSAMAccountName", 0, "testDisplayName", "testDisplayName", "DOMAIN.INTRA\\testSAMAccountName", true, null },
+                    new object[] { "test", "testNativeGuid", "testSAMAccountName", 0x0001, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
+                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testSAMAccountName", 0, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
                 };
             }
         }
@@ -259,8 +259,8 @@ namespace Dorc.Api.Tests.Controllers
                     new object[] { "test/", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
                     new object[] { "test\\", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
                     new object[] { "test", null, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", "testName", "testName", "DOMAIN.INTRA\\testName", true, null },
-                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testName", "testName", "DOMAIN.INTRA\\testName", true, null },
+                    new object[] { "test", "testNativeGuid", "testName", "testName", "DOMAIN\\testName", true, null },
+                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testName", "testName", "DOMAIN\\testName", true, null },
                 };
             }
         }

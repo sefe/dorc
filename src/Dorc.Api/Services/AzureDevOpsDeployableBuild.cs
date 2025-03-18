@@ -139,7 +139,7 @@ namespace Dorc.Api.Services
                     break;
                 }
 
-                if (!buildDetails.BuildNumber.Contains(dorcBuild.BuildNum))
+                if (!buildDetails.BuildNumber.Trim().Equals(dorcBuild.BuildNum.Trim(), StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 SetBuildRefs(buildDetails);

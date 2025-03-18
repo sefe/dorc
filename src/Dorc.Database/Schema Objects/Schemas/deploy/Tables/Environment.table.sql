@@ -11,7 +11,9 @@
     [EnvNote]            NVARCHAR (MAX)   NULL,
     [Description]        NVARCHAR (MAX)   NULL,
     [LastUpdate]         DATETIME         NULL,
-    CONSTRAINT [PK_Environment] PRIMARY KEY CLUSTERED ([Id] ASC)
+    [ParentId]           INT              NULL REFERENCES [deploy].[Environment] (Id), 
+    CONSTRAINT [PK_Environment] PRIMARY KEY CLUSTERED ([Id] ASC), 
+    CONSTRAINT [ParentId_not_itself] CHECK ([Id]!=[ParentId])
 );
 
 

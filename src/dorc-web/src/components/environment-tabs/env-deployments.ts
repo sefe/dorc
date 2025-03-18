@@ -14,7 +14,6 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
-import { urlForName } from '../../router';
 import '@vaadin/date-time-picker';
 
 @customElement('env-deployments')
@@ -30,7 +29,10 @@ export class EnvDeployments extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
         width: 100%;
+        height: 100%;
+        flex-direction: column;
       }
 
       .overlay {
@@ -78,6 +80,10 @@ export class EnvDeployments extends PageEnvBase {
         height: 12px;
         animation: spin 2s linear infinite;
       }
+
+      .underlined-button::part(label) {
+        text-decoration: underline;
+      }
     `;
   }
 
@@ -95,7 +101,7 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-details
               opened
               summary="Application Deployment Filter"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
             >
               <vaadin-date-time-picker
                 id="deployments-filter"
@@ -116,13 +122,12 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-grid
               .items="${this.deployments ?? []}"
               theme="compact row-stripes no-row-borders no-border"
-              all-rows-visible
               .cellClassNameGenerator="${this.cellClassNameGenerator}"
-              style="overflow: hidden; height: calc(100vh - 275px);"
+              style="height: 100%; width: 100%; flex-grow: 1"
             >
               <vaadin-grid-column
                 header="Request Id"
-                .renderer="${this._idRenderer}"
+                .renderer="${this._idRenderer.bind(this)}"
                 resizable
                 width="110px"
                 .headerRenderer="${this.idHeaderRenderer}"
@@ -234,12 +239,24 @@ export class EnvDeployments extends PageEnvBase {
 
     render(
       html`
-        <a
-          style="float:left"
-          href="${urlForName('monitor-result', {
-            id: String(content.RequestId)
-          })}"
-          >${content.RequestId}</a
+        <vaadin-button
+          class="underlined-button"
+          theme="tertiary-inline"
+          @click="${() => {
+            const event = new CustomEvent('open-monitor-result', {
+              detail: {
+                request: {
+                  Id: content.RequestId,
+                  EnvironmentName: this.environment?.EnvironmentName,
+                  BuildNumber: content.RequestBuildNum
+                }
+              },
+              bubbles: true,
+              composed: true
+            });
+            this.dispatchEvent(event);
+          }}"
+          >${content.RequestId}</vaadin-button
         >
       `,
       root
