@@ -203,6 +203,5 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
-    <ProjectReference Include="..\Dorc.PersistData.Dapper\Dorc.PersistData.Dapper.csproj" />
   </ItemGroup>
 </Project>

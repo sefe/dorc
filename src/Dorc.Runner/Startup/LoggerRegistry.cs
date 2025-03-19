@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Events;
+using Serilog.Exceptions;
 
 namespace Dorc.Runner.Startup
 {
@@ -21,16 +22,25 @@ namespace Dorc.Runner.Startup
                 Serilog.Debugging.SelfLog.Enable(Console.Error);
             }
 
-            logPath = config["System:LogPath"] + $"\\{pipeName}.txt";
-            string outputTemplate = config["System:outputTemplate"];
-            var logLevel = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), config["Serilog:MinimumLevel:Default"] ?? "Debug");
-
             var seriLogger = new LoggerConfiguration()
-                .ReadFrom.Configuration(config)
-                                .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
+                  .Enrich.WithExceptionDetails()
+                  .WriteTo.Map("PipeName", "Monitor-Default", (name, wt) => wt.File(logPath + $"/{name}.txt",
+                      outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {RequestId} {DeploymentResultId} {Message:lj}{NewLine}{Exception}"))
+                  .ReadFrom.Configuration(config)
+                  .Enrich.FromLogContext()
+                  .Enrich.WithThreadId()
+                  .CreateLogger();
 
-                .Enrich.FromLogContext()
-                .CreateLogger();
+            //logPath = config["System:LogPath"] + $"\\{pipeName}.txt";
+            //string outputTemplate = config["System:outputTemplate"];
+            //var logLevel = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), config["Serilog:MinimumLevel:Default"] ?? "Debug");
+
+            //var seriLogger = new LoggerConfiguration()
+            //    .ReadFrom.Configuration(config)
+            //                    .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
+
+            //    .Enrich.FromLogContext()
+            //    .CreateLogger();
 
             return seriLogger;
         }
