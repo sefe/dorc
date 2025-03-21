@@ -111,6 +111,14 @@
     {
       "MSIParameter": "DORCAZUREDEVOPSLINK",
       "DeployProperty": "DORCAZUREDEVOPSLINK"
+    },
+    {
+      "MSIParameter": "DORC.AUTHENTICATION.SCHEME",
+      "DeployProperty": "DORC_AUTHENTICATION_SCHEME"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.AUTHORITY",
+      "DeployProperty": "DORC_OAUTH_AUTHORITY"
     }
   ]
 }
