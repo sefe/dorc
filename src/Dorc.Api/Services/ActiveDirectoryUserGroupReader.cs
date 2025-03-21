@@ -73,7 +73,7 @@ namespace Dorc.Api.Services
                         if (groupPrincipal != null)
                         {
                             var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
-                            if (userPrincipal != null && groupPrincipal.Members.Contains(userPrincipal))
+                            if (userPrincipal != null && groupPrincipal.GetMembers(true).Contains(userPrincipal))
                             {
                                 return groupPrincipal.Sid.Value;
                             }
