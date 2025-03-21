@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in to your account</title>
+  <style>
+    body {
+      font-family: Roboto, Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #d5f2c270;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .signin-container {
+      background-color: #a3ec72d8;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      width: 400px;
+      padding: 20px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 120px;
+    }
+
+    .logo img {
+      padding-right: 20px;
+    }
+
+    .logo h2 {
+      color: #6c6c6d;
+      font-family: "Segoe UI";
+      font-size: 26px;
+      font-weight: 500;
+      margin: 4;
+    }
+
+    .signin-title {
+      font-family: "Segoe UI";
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .button-group {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .button-group button {
+      background-color: #0078d4;
+      color: #ffffff;
+      border: none;
+      padding: 15px 60px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: "Segoe UI";
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .button-group button:hover {
+      background-color: #005a9e;
+    }
+  </style>
+  <script type="module" src="src/signin.ts"></script>
+</head>
+
+<body>
+  <div class="signin-container">
+    <div class="logo">
+      <img src="https://www.sefe.eu/typo3temp/assets/_processed_/a/9/csm_SEFE_GROUP_logo_d4a06ffb59.png" />
+      <h2>You are not signed in</h2>
+    </div>
+    <div class="signin-title">Sign in to your account</div>
+    <div class="button-group">
+      <button id="signinButton">
+        <span class="no-cursor">Sign In</span>
+      </button>
+    </div>
+  </div>
+</body>
+
+</html>
