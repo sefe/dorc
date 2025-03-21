@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 
@@ -11,12 +12,18 @@ namespace Dorc.Api.Services
         private readonly ILog _log;
         private readonly IPropertiesPersistentSource _propertiesPersistentSource;
         private readonly IPropertyValuesService _propertyValuesService;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public PropertiesService(IPropertiesPersistentSource propertiesPersistentSource, IPropertyValuesService propertyValuesService)
+        public PropertiesService(
+            IPropertiesPersistentSource propertiesPersistentSource,
+            IPropertyValuesService propertyValuesService,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _propertyValuesService = propertyValuesService;
             _propertiesPersistentSource = propertiesPersistentSource;
             _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public PropertyApiModel GetProperty(string propertyName)
@@ -55,7 +62,8 @@ namespace Dorc.Api.Services
                     var propValues = _propertyValuesService.GetPropertyValues(property, null, User);
                     result.AddRange(_propertyValuesService.DeletePropertyValues(propValues, User));
 
-                    if (_propertiesPersistentSource.DeleteProperty(property, User.Identity.Name))
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    if (_propertiesPersistentSource.DeleteProperty(property, username))
                     {
                         result.Add(new Response { Item = property, Status = "success" });
                         continue;
@@ -94,7 +102,8 @@ namespace Dorc.Api.Services
 
                 try
                 {
-                    _propertiesPersistentSource.CreateProperty(property, User.Identity.Name);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _propertiesPersistentSource.CreateProperty(property, username);
                     result.Add(new Response { Item = property, Status = "success" });
                 }
                 catch (Exception e)

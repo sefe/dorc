@@ -9,11 +9,13 @@ namespace Dorc.PersistentData.Sources
 {
     public class PagingPersistentSourceBase
     {
-        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(IPrincipal user, IDeploymentContext context, IEnumerable<string> environments)
+        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
+            string username,
+            IDeploymentContext context,
+            IEnumerable<string> environments
+            )
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
-
+            var userSids = username.GetSidsForUser();
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
@@ -59,10 +61,12 @@ namespace Dorc.PersistentData.Sources
             return envPrivilegeInfos;
         }
 
-        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(IPrincipal user, IDeploymentContext context)
+        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
+            string username,
+            IDeploymentContext context
+            )
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
+            var userSids = username.GetSidsForUser();
 
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name

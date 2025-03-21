@@ -1,0 +1,36 @@
+﻿using Dorc.ApiModel;
+using Dorc.Core.Configuration;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
+
+namespace Dorc.Api.Controllers
+{
+    [AllowAnonymous]
+    [ApiController]
+    [Route("[controller]")]
+    public class ApiConfigController : ControllerBase
+    {
+        private readonly IConfigurationSettings _configurationSettings;
+
+        public ApiConfigController(IConfigurationSettings configurationSettings)
+        {
+            _configurationSettings = configurationSettings;
+        }
+
+        /// <summary>
+        /// Exposes limited Api configuration parameters
+        /// </summary>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiConfigModel))]
+        [HttpGet]
+        public ApiConfigModel Get()
+        {
+            return new ApiConfigModel
+            {
+                AuthenticationScheme = _configurationSettings.GetAuthenticationScheme(),
+                OAuthAuthority = _configurationSettings.GetOAuthAuthority()
+            };
+        }
+    }
+}

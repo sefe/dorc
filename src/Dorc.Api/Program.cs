@@ -1,25 +1,28 @@
+using System.Text.Json.Serialization;
+using AspNetCoreRateLimit;
+using Dorc.Api.Interfaces;
+using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core.Configuration;
 using Dorc.Core.Lamar;
+using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
 using Lamar.Microsoft.DependencyInjection;
 using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using System.Net;
-using System.Text.Json.Serialization;
-using Dorc.Core.VariableResolution;
-using Dorc.PersistentData.Extensions;
-using AspNetCoreRateLimit;
-using Dorc.Api.Interfaces;
+using Microsoft.OpenApi.Models;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
+const string dorcApiResourceName = "dorc-api";
+const string dorcApiScope = "dorc-api.manage";
+const string apiScopeAuthorizationPolicy = "ApiScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
-
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 var configurationSettings = new ConfigurationSettings(configBuilder);
 
@@ -32,16 +35,123 @@ builder.Services.AddCors(options =>
         policy =>
         {
             if (allowedCorsLocations != null)
-                policy.SetIsOriginAllowed(origin => allowedCorsLocations.Any(loc => loc.StartsWith(origin)))
+            {
+                policy.WithOrigins(allowedCorsLocations)
                     .AllowAnyMethod()
                     .AllowAnyHeader().AllowCredentials();
+            }
         });
 });
-// Add services to the container.
-builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-    .AddNegotiate();
 
 builder.Logging.AddLog4Net();
+string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
+switch (authenticationScheme)
+{
+    case "OAuth":
+        ConfigureOAuth(builder, configurationSettings);
+        break;
+    case "WinAuth":
+        ConfigureWinAuth(builder);
+        break;
+    default:
+        ConfigureWinAuth(builder);
+        break;
+}
+
+static void ConfigureWinAuth(WebApplicationBuilder builder)
+{
+    builder.Services
+        .AddTransient<IClaimsTransformation, ClaimsTransformer>()
+        .AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>()
+        .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+        .AddNegotiate();
+}
+
+static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings)
+{
+    string? authority = configurationSettings.GetOAuthAuthority();
+    builder.Services
+        .AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>()
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+        {
+            options.Authority = authority;
+            options.TokenValidationParameters = new()
+            {
+                ValidateIssuer = true,
+                ValidIssuer = authority,
+                ValidateAudience = true,
+                ValidAudience = dorcApiResourceName,
+                ValidateLifetime = true,
+                RoleClaimType = "role",
+                NameClaimType = "samAccountName"
+            };
+            options.MapInboundClaims = false;
+            options.ForwardDefaultSelector = ReferenceTokenSelector.ForwardReferenceToken();
+        })
+        // Enabling Reference tokens
+        .AddOAuth2Introspection("introspection", options =>
+        {
+            options.Authority = authority;
+            // this maps to the "API resource" name and secret
+            options.ClientId = dorcApiResourceName;
+            options.ClientSecret = GetDorcApiSecret();
+        });
+
+    builder.Services.AddAuthorization(options =>
+    {
+        // Define Authorization Policy (check for required scope [see 'dorcApiScope' constant])
+        options.AddPolicy(apiScopeAuthorizationPolicy, policy =>
+        {
+            policy.RequireAuthenticatedUser();
+            policy.RequireClaim("scope", dorcApiScope);
+        });
+    });
+}
+
+static string GetDorcApiSecret()
+{
+    // Not implemented yet. TO-DO: Get the secret from a secure location
+    return "";
+}
+
+static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
+{
+    if (authenticationScheme is not "OAuth")
+    {
+        services.AddSwaggerGen();
+    }
+    else
+    {
+        services.AddSwaggerGen(options =>
+        {
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                Scheme = "Bearer",
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Description = "Enter 'Bearer {your JWT token}' to authenticate."
+            });
+
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        new string[] { }
+                    }
+                });
+        });
+    }
+}
 
 builder.Services
     .AddControllers(opts =>
@@ -59,7 +169,7 @@ builder.Services
     });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+AddSwaggerGen(builder.Services, authenticationScheme);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
@@ -86,7 +196,6 @@ builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ =
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IActiveDirectoryUserGroupReader, ActiveDirectoryUserGroupReader>();
-builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 
 // Enable throttling
 builder.Services.AddOptions();
@@ -117,8 +226,6 @@ app.UseIpRateLimiting();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseExceptionHandler(_ => { }); // empty lambda is required until https://github.com/dotnet/aspnetcore/issues/51888 is fixed
-
-app.UseMiddleware<OptionsMiddleware>();
 app.UseCors(dorcCorsRefDataPolicy);
 
 //app.UseHsts();
@@ -127,6 +234,11 @@ app.UseCors(dorcCorsRefDataPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+var endpointConventionBuilder = app.MapControllers();
+if (authenticationScheme is "OAuth")
+{
+    // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
+    endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
+}
 
 app.Run();

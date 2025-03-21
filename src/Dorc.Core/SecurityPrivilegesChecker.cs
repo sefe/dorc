@@ -1,9 +1,8 @@
-﻿using Dorc.Core.Interfaces;
+﻿using System.Security.Claims;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
-using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
-using System.Security.Claims;
 
 namespace Dorc.Core
 {
@@ -14,16 +13,22 @@ namespace Dorc.Core
         private readonly ISecurityObjectFilter _securityObjectFilter;
         private readonly IUsersPersistentSource _usersPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public SecurityPrivilegesChecker(IProjectsPersistentSource projectsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ISecurityObjectFilter securityObjectFilter, IUsersPersistentSource usersPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker)
+            ISecurityObjectFilter securityObjectFilter,
+            IUsersPersistentSource usersPersistentSource,
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _usersPersistentSource = usersPersistentSource;
             _securityObjectFilter = securityObjectFilter;
             _environmentsPersistentSource = environmentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public bool CanModifyProperty(ClaimsPrincipal user)
@@ -49,7 +54,7 @@ namespace Dorc.Core
         {
             var env = _environmentsPersistentSource.GetEnvironment(environmentName);
             var userApiModels = _usersPersistentSource.GetEnvironmentUsers(env.EnvironmentId, UserAccountType.NotSet);
-            var username = user.GetUsername();
+            string username = _claimsPrincipalReader.GetUserName(user);
             return _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user) || userApiModels.Any(u => u.LanId == username);
         }
 

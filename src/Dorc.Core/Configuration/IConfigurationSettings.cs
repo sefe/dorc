@@ -7,5 +7,7 @@
         string[] GetAllowedCorsLocations();
         string GetDorcConnectionString();
         TimeSpan? GetADUserCacheTimeSpan();
+        string? GetAuthenticationScheme();
+        string? GetOAuthAuthority();
     }
 }
