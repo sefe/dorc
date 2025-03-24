@@ -115,7 +115,7 @@ export class BaseAPI {
     }
 
     private handleUnauthorized() {
-        location.assign("/signin");
+        location.assign("/signin.html");
     }
 
     private createRequestArgs = ({ url: baseUrl, query, method, headers, body, responseType }: RequestOpts): AjaxConfig => {
