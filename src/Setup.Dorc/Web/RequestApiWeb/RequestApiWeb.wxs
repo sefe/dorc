@@ -1,0 +1,93 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+  <Fragment>
+    <CustomAction Id="ReconfigureLoadUserProfileRequestApiWeb" Directory="RequestApiWeb" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DeployApi&quot; -processmodel.loaduserprofile:true" Return="ignore" />
+
+	<Binary Id="certBinaryApiWeb" SourceFile="DorcNonProdSSLCert.pfx"/>
+	<Binary Id="certBinaryApiWebProd" SourceFile="deploymentportal.pfx"/>
+
+	<Component Id="RequestApiWebComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApiWeb" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+        <util:User Id="ApiUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+        <iis:WebAppPool Id="DeployApiPool" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
+			<iis:RecycleTime Value="2:00" />
+		</iis:WebAppPool>
+
+		<iis:Certificate
+		 BinaryRef="certBinaryApiWeb"
+		 Id="MySSLCertApiWeb"
+		 Name="DorcNonProdSSLCert.pfx"
+		 Request="no"
+		 StoreLocation="localMachine"
+		 StoreName="root"
+		 PFXPassword="[CERTIFICATE.PASSWORD]">
+		</iis:Certificate>
+		
+        <iis:WebSite Id="DOrcApiWeb" SiteId="*" Description="DOrcApiWeb" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApiWeb">
+          <iis:WebDirProperties Id="SiteDirPropertiesWeb" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+		  <iis:WebAddress Id="AllUnassignedWeb" Port="8444"  Secure="true" />
+		  <iis:WebAddress Id="AllUnassigned8081Web" Port="8081" />
+		  <iis:CertificateRef Id='MySSLCertApiWeb' />
+          <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApiWeb" />
+        </iis:WebSite>
+        <Json:JsonFile Id="ReqApiWebConnectionString" File="[#DeployWebApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+
+        <Json:JsonFile Id="WebRequestApiWebCors" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployWebApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
+
+        <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebAdmin" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
+        <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebPowerUser" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
+
+        <Json:JsonFile Id="ReqApiWebUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployWebApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+
+		<Json:JsonFile Id="CurrentWebEnvironment" ElementPath="$.AppSettings.environment" File="[#DeployWebApiWebConfig]" Value="[ENVIRONMENT]" />
+		
+		<Json:JsonFile Id="CurrentWebAadAdosOrgUrl" ElementPath="$.AppSettings.AadAdosOrgUrl" File="[#DeployWebApiWebConfig]" Value="[AADADOSORGURL]" />
+		<Json:JsonFile Id="CurrentWebAadClientId" ElementPath="$.AppSettings.AadClientId" File="[#DeployWebApiWebConfig]" Value="[AADCLIENTID]" />
+		<Json:JsonFile Id="CurrentWebAadSecret" ElementPath="$.AppSettings.AadSecret" File="[#DeployWebApiWebConfig]" Value="[AADSECRET]" />
+		<Json:JsonFile Id="CurrentWebAadTenant" ElementPath="$.AppSettings.AadTenant" File="[#DeployWebApiWebConfig]" Value="[AADTENANT]" />
+		<Json:JsonFile Id="CurrentWebDomainName" ElementPath="$.AppSettings.DomainName" File="[#DeployWebApiWebConfig]" Value="[DOMAINNAME]" />
+		<Json:JsonFile Id="CurrentWebDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployWebApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
+      </Component>
+
+	  <Component Id="RequestApiWebComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApiWeb" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+		  <util:User Id="ApiWebUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+		  <iis:WebAppPool Id="DeployApiWebPoolProd" Name="DeployApiWeb" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
+			  <iis:RecycleTime Value="2:00" />
+		  </iis:WebAppPool>
+
+		  <iis:Certificate
+		   BinaryRef="certBinaryApiWebProd"
+		   Id="MySSLCertApiWebProd"
+		   Name="deploymentportal.pfx"
+		   Request="no"
+		   StoreLocation="localMachine"
+		   StoreName="root"
+		   PFXPassword="[CERTIFICATE.PASSWORD]">
+		  </iis:Certificate>
+
+		  <iis:WebSite Id="DOrcApiProd" SiteId="*" Description="DOrcApiWeb" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApiWeb">
+			  <iis:WebDirProperties Id="SiteDirPropertiesWebProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+			  <iis:WebAddress Id="AllUnassignedWebProd" Port="8444"  Secure="true" />
+			  <iis:WebAddress Id="AllUnassignedWebProd8081" Port="8081" />
+			  <iis:CertificateRef Id='MySSLCertApiWebProd' />
+			  <iis:WebApplication Id="DOrcApiWebAppProd" WebAppPool="DeployApiPoolProd" Name="DOrcApi" />
+		  </iis:WebSite>
+		  <Json:JsonFile Id="ReqApiWebConnectionStringProd" File="[#DeployWebApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+
+		  <Json:JsonFile Id="WebRequestApiWebCorsProd" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployWebApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
+
+		  <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebAdminProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
+		  <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebPowerUserProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
+
+		  <Json:JsonFile Id="ReqApiWebUrlProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployWebApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+
+		  <Json:JsonFile Id="CurrentWebEnvironmentProd" ElementPath="$.AppSettings.environment" File="[#DeployWebApiWebConfig]" Value="[ENVIRONMENT]" />
+
+		  <Json:JsonFile Id="CurrentWebAadAdosOrgUrlProd" ElementPath="$.AppSettings.AadAdosOrgUrl" File="[#DeployWebApiWebConfig]" Value="[AADADOSORGURL]" />
+		  <Json:JsonFile Id="CurrentWebAadClientIdProd" ElementPath="$.AppSettings.AadClientId" File="[#DeployWebApiWebConfig]" Value="[AADCLIENTID]" />
+		  <Json:JsonFile Id="CurrentWebAadSecretProd" ElementPath="$.AppSettings.AadSecret" File="[#DeployWebApiWebConfig]" Value="[AADSECRET]" />
+		  <Json:JsonFile Id="CurrentWebAadTenantProd" ElementPath="$.AppSettings.AadTenant" File="[#DeployWebApiWebConfig]" Value="[AADTENANT]" />
+		  <Json:JsonFile Id="CurrentWebDomainNameProd" ElementPath="$.AppSettings.DomainName" File="[#DeployWebApiWebConfig]" Value="[DOMAINNAME]" />
+		  <Json:JsonFile Id="CurrentWebDomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployWebApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
+	  </Component>
+  </Fragment>
+</Wix>

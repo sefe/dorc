@@ -23,6 +23,10 @@
 				<ComponentRef Id="RequestApiComponentProd" />
 				<ComponentGroupRef Id="DOrcAPIComGroup" />
 
+				<ComponentRef Id="RequestApiWebComponent" />
+				<ComponentRef Id="RequestApiWebComponentProd" />
+				<ComponentGroupRef Id="DOrcAPIWebComGroup" />
+
 				<ComponentGroupRef Id="DOrcWebComGroup" />
 				<ComponentRef Id="DOrcWebIISComponent" />
 				<ComponentRef Id="DOrcWebIISComponentProd" />
@@ -86,6 +90,7 @@
 							</Directory>
 							<Directory Id="ReferenceDataApi" Name="ReferenceDataApi" />
 							<Directory Id="RequestApi" Name="Api" />
+							<Directory Id="RequestApiWeb" Name="ApiWeb" />
 						</Directory>
 						<Directory Id="ServicesFolder" Name="Services" />
 						<Directory Id="ToolsFolder" Name="Tools">

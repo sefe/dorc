@@ -5,6 +5,7 @@
     <Name>Setup.Dorc</Name>
     <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
     <DorcApiDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiDir>
+	<DorcApiWebDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiWebDir>
     <DorcMonitorDir>$(SolutionDir)Dorc.Monitor\bin\$(Configuration)\net8.0\publish</DorcMonitorDir>
     <DorcRunnerDir>$(SolutionDir)Dorc.Runner\bin\$(Configuration)\net8.0\publish</DorcRunnerDir>
     <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
@@ -14,19 +15,17 @@
     <ToolsReqDir>$(SolutionDir)Tools.RequestCLI\bin\$(Configuration)\net8.0\publish</ToolsReqDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcApiWebDir=$(DorcApiWebDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcApiWebDir=$(DorcApiWebDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="Monitors\" />
     <Folder Include="Monitors\NonProd\" />
     <Folder Include="Monitors\Prod\" />
-    <Folder Include="Web" />
-    <Folder Include="Web\RequestApi" />
     <Folder Include="Web\Orchestrator" />
   </ItemGroup>
   <ItemGroup>
@@ -40,6 +39,7 @@
     <Content Include="Install.Orchestrator.bat">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Web\RequestApiWeb\HeatTransform.xslt" />
     <Content Include="Web\RequestApi\HeatTransform.xslt" />
   </ItemGroup>
   <ItemGroup>
@@ -99,6 +99,14 @@
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
     </HarvestDirectory>
+	<HarvestDirectory Include="$(DorcApiWebDir)">
+	  <DirectoryRefId>RequestApiWeb</DirectoryRefId>
+	  <ComponentGroupName>DOrcAPIWebComGroup</ComponentGroupName>
+	  <Transforms>$(ProjectDir)Web\RequestApiWeb\HeatTransform.xslt</Transforms>
+	  <PreprocessorVariable>var.DorcApiWebDir</PreprocessorVariable>
+	  <SuppressRootDirectory>true</SuppressRootDirectory>
+	  <SuppressRegistry>true</SuppressRegistry>
+	</HarvestDirectory>
     <HarvestDirectory Include="$(DorcMonitorDir)">
       <DirectoryRefId>INSTALLLOCATIONNONPROD</DirectoryRefId>
       <ComponentGroupName>NonProdDeployMonitorComGroup</ComponentGroupName>
