@@ -3,17 +3,17 @@
   <Fragment>
     <CustomAction Id="ReconfigureLoadUserProfileRequestApiWeb" Directory="RequestApiWeb" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DeployApi&quot; -processmodel.loaduserprofile:true" Return="ignore" />
 
-	<Binary Id="certBinaryApiWeb" SourceFile="DorcNonProdSSLCert.pfx"/>
-	<Binary Id="certBinaryApiWebProd" SourceFile="deploymentportal.pfx"/>
+	<Binary Id="certBinApiWeb" SourceFile="DorcNonProdSSLCert.pfx"/>
+	<Binary Id="certBinApiWebProd" SourceFile="deploymentportal.pfx"/>
 
-	<Component Id="RequestApiWebComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApiWeb" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
-        <util:User Id="ApiUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
-        <iis:WebAppPool Id="DeployApiPool" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
+	<Component Id="RequestApiWebComponent" Guid="a8ef6a45-9dd4-4d8b-a238-a0327899934e" KeyPath="yes" Directory="RequestApiWeb" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+        <util:User Id="ApiWebUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+        <iis:WebAppPool Id="DeployApiWebPool" Name="DeployApiWeb" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
 			<iis:RecycleTime Value="2:00" />
 		</iis:WebAppPool>
 
 		<iis:Certificate
-		 BinaryRef="certBinaryApiWeb"
+		 BinaryRef="certBinApiWeb"
 		 Id="MySSLCertApiWeb"
 		 Name="DorcNonProdSSLCert.pfx"
 		 Request="no"
@@ -27,7 +27,7 @@
 		  <iis:WebAddress Id="AllUnassignedWeb" Port="8444"  Secure="true" />
 		  <iis:WebAddress Id="AllUnassigned8081Web" Port="8081" />
 		  <iis:CertificateRef Id='MySSLCertApiWeb' />
-          <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApiWeb" />
+          <iis:WebApplication Id="DOrcWebApiWebApp" WebAppPool="DeployApiWebPool" Name="DOrcApiWeb" />
         </iis:WebSite>
         <Json:JsonFile Id="ReqApiWebConnectionString" File="[#DeployWebApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
 
@@ -36,7 +36,7 @@
         <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebAdmin" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
         <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebPowerUser" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
 
-        <Json:JsonFile Id="ReqApiWebUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployWebApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+        <Json:JsonFile Id="ReqApiWebUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployWebApiWebConfig]" Value="https://localhost:8444/" />
 
 		<Json:JsonFile Id="CurrentWebEnvironment" ElementPath="$.AppSettings.environment" File="[#DeployWebApiWebConfig]" Value="[ENVIRONMENT]" />
 		
@@ -48,14 +48,14 @@
 		<Json:JsonFile Id="CurrentWebDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployWebApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
       </Component>
 
-	  <Component Id="RequestApiWebComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApiWeb" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+	  <Component Id="RequestApiWebComponentProd" Guid="9ad5622e-f45d-4cef-87d8-80367dd9a110" KeyPath="yes" Directory="RequestApiWeb" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
 		  <util:User Id="ApiWebUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
 		  <iis:WebAppPool Id="DeployApiWebPoolProd" Name="DeployApiWeb" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
 			  <iis:RecycleTime Value="2:00" />
 		  </iis:WebAppPool>
 
 		  <iis:Certificate
-		   BinaryRef="certBinaryApiWebProd"
+		   BinaryRef="certBinApiWebProd"
 		   Id="MySSLCertApiWebProd"
 		   Name="deploymentportal.pfx"
 		   Request="no"
@@ -64,12 +64,12 @@
 		   PFXPassword="[CERTIFICATE.PASSWORD]">
 		  </iis:Certificate>
 
-		  <iis:WebSite Id="DOrcApiProd" SiteId="*" Description="DOrcApiWeb" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApiWeb">
+		  <iis:WebSite Id="DOrcApiWebProd" SiteId="*" Description="DOrcApiWeb" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApiWeb">
 			  <iis:WebDirProperties Id="SiteDirPropertiesWebProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
 			  <iis:WebAddress Id="AllUnassignedWebProd" Port="8444"  Secure="true" />
 			  <iis:WebAddress Id="AllUnassignedWebProd8081" Port="8081" />
 			  <iis:CertificateRef Id='MySSLCertApiWebProd' />
-			  <iis:WebApplication Id="DOrcApiWebAppProd" WebAppPool="DeployApiPoolProd" Name="DOrcApi" />
+			  <iis:WebApplication Id="DOrcWebApiWebAppProd" WebAppPool="DeployApiWebPoolProd" Name="DOrcApi" />
 		  </iis:WebSite>
 		  <Json:JsonFile Id="ReqApiWebConnectionStringProd" File="[#DeployWebApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
 

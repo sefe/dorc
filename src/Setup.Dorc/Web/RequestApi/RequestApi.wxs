@@ -48,7 +48,7 @@
 		<Json:JsonFile Id="CurrentDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
       </Component>
 
-	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+	  <Component Id="RequestApiComponentProd" Guid="2B641300-DCCB-4817-90D8-2A5B0C59AD11" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
 		  <util:User Id="ApiUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
 		  <iis:WebAppPool Id="DeployApiPoolProd" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
 			  <iis:RecycleTime Value="2:00" />
