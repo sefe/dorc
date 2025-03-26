@@ -2,7 +2,7 @@
 using System.Security.Principal;
 using Dorc.PersistentData;
 
-namespace Dorc.Api.Security
+namespace Dorc.Core
 {
     public class OAuthClaimsPrincipalReader : IClaimsPrincipalReader
     {

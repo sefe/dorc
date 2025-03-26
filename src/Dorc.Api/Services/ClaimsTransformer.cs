@@ -3,7 +3,7 @@ using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
-using Dorc.Api.Interfaces;
+using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 
 namespace Dorc.Api.Services
