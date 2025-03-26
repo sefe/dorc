@@ -1,9 +1,9 @@
 ﻿using System.Security.Claims;
 using System.Security.Principal;
-using Dorc.Api.Interfaces;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 
-namespace Dorc.Api.Security
+namespace Dorc.Core
 {
     public class WinAuthClaimsPrincipalReader : IClaimsPrincipalReader
     {
@@ -23,7 +23,7 @@ namespace Dorc.Api.Security
             if (externalReader is IActiveDirectoryUserGroupReader activeDirectoryUserGroupReader)
             {
                 return activeDirectoryUserGroupReader.GetUserMail(userName);
-            } 
+            }
             return string.Empty;
         }
     }

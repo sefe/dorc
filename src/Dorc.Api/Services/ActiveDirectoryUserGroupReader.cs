@@ -86,7 +86,7 @@ namespace Dorc.Api.Services
                 }
             }
 
-            return null;
+            return string.Empty;
         }
     }
 }
