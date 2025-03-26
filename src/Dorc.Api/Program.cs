@@ -53,25 +53,36 @@ switch (authenticationScheme)
     case "WinAuth":
         ConfigureWinAuth(builder);
         break;
+    case "Both":
+        ConfigureBoth(builder, configurationSettings);
+        break;
     default:
         ConfigureWinAuth(builder);
         break;
 }
 
-static void ConfigureWinAuth(WebApplicationBuilder builder)
+static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
 {
+    if (registerOwnReader)
+    {
+        builder.Services.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
+    }
+
     builder.Services
         .AddTransient<IClaimsTransformation, ClaimsTransformer>()
-        .AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>()
         .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
 }
 
-static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings)
+static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings, bool registerOwnReader = true)
 {
+    if (registerOwnReader)
+    {
+        builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
+    }
+
     string? authority = configurationSettings.GetOAuthAuthority();
     builder.Services
-        .AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>()
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
         {
@@ -106,6 +117,36 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
             policy.RequireAuthenticatedUser();
             policy.RequireClaim("scope", dorcApiScope);
         });
+    });
+}
+static void ConfigureBoth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings)
+{
+    builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+    builder.Services.AddTransient<IClaimsPrincipalReader, ClaimsPrincipalReaderFactory>();
+
+    ConfigureWinAuth(builder, false);
+    ConfigureOAuth(builder, configurationSettings, false);
+
+    // Add a Policy Scheme to dynamically select the authentication scheme
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "DynamicScheme";
+        options.DefaultChallengeScheme = "DynamicScheme";
+    })
+    .AddPolicyScheme("DynamicScheme", "Dynamic Authentication Scheme", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            // Check if the request contains a Bearer token
+            string? authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader != null && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                return JwtBearerDefaults.AuthenticationScheme; // Use OAuth (JWT Bearer)
+            }
+
+            // Otherwise, fall back to Windows Authentication
+            return NegotiateDefaults.AuthenticationScheme;
+        };
     });
 }
 

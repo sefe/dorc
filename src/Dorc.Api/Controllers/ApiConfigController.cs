@@ -28,7 +28,7 @@ namespace Dorc.Api.Controllers
         {
             return new ApiConfigModel
             {
-                AuthenticationScheme = _configurationSettings.GetAuthenticationScheme(),
+                AuthenticationScheme = "OAuth",
                 OAuthAuthority = _configurationSettings.GetOAuthAuthority()
             };
         }
