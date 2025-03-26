@@ -25,7 +25,6 @@
         <iis:WebSite Id="DOrcApiWeb" SiteId="*" Description="DOrcApiWeb" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApiWeb">
           <iis:WebDirProperties Id="SiteDirPropertiesWeb" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
 		  <iis:WebAddress Id="AllUnassignedWeb" Port="8444"  Secure="true" />
-		  <iis:WebAddress Id="AllUnassigned8081Web" Port="8081" />
 		  <iis:CertificateRef Id='MySSLCertApiWeb' />
           <iis:WebApplication Id="DOrcWebApiWebApp" WebAppPool="DeployApiWebPool" Name="DOrcApiWeb" />
         </iis:WebSite>
@@ -36,7 +35,7 @@
         <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebAdmin" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
         <Json:JsonFile Id="ADRoleProviderConfigRequestApiWebPowerUser" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployWebApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
 
-        <Json:JsonFile Id="ReqApiWebUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployWebApiWebConfig]" Value="https://localhost:8444/" />
+        <Json:JsonFile Id="ReqApiWebUrl" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployWebApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]" />
 
 		<Json:JsonFile Id="CurrentWebEnvironment" ElementPath="$.AppSettings.environment" File="[#DeployWebApiWebConfig]" Value="[ENVIRONMENT]" />
 		
