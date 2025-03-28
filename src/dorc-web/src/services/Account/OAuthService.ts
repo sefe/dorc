@@ -1,5 +1,6 @@
 import { UserManagerSettings, UserManager, User } from 'oidc-client-ts';
 import { oauthSettings } from '../../OAuthSettings';
+import { catchError, from, Observable, tap } from 'rxjs';
 
 export const OAUTH_SCHEME = 'OAuth';
 
@@ -33,7 +34,7 @@ export class OAuthService {
   }
 
   /**
-   * Signes-In a user to IdentityServer. Trigger a redirect of the current window to the authorization endpoint.
+   * Signs in a user to IdentityServer. Triggers a redirect of the current window to the authorization endpoint.
    */
   public signIn(): void {
     console.log('signin redirect');
@@ -61,10 +62,12 @@ export class OAuthService {
 
   /**
    * Load the `OAuthServiceUser` object for the currently authenticated user.
-   * @returns a promise containing either `signedInUser` or null if user is not authenticated
+   * @returns an Observable containing either `signedInUser` or null if user is not authenticated
    */
-  public async getUser(): Promise<OAuthServiceUser | null> {
-    return this._mgr.getUser().then(user => (this._signedInUser = user));
+  public getUser(): Observable<OAuthServiceUser | null> {
+    return from(this._mgr.getUser()).pipe(
+      tap(user => (this._signedInUser = user))
+    );
   }
 
   /**
@@ -79,14 +82,19 @@ export class OAuthService {
   }
 
   /**
-   * Signes-Out the user from IdentityServer
+   * Signes out the user from Identity Provider
    */
-  public async signOut(): Promise<void> {
-    localStorage.setItem("idsrv.authority", this._mgr.settings.authority);
-    return this._mgr
-      .signoutRedirect()
-      .then(() => console.log('signed out'))
-      .catch(err => console.error(err));
+  public signOut(): Observable<void> {
+    localStorage.setItem('idsrv.authority', this._mgr.settings.authority);
+    return from(this._mgr.signoutRedirect()).pipe(
+      tap(() => {
+        console.log('signed out');
+      }),
+      catchError(err => {
+        console.error(err);
+        throw err;
+      })
+    );
   }
 
   /**
