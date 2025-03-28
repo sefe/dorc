@@ -6,6 +6,7 @@ using Dorc.Core;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
+using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
@@ -48,31 +49,42 @@ builder.Logging.AddLog4Net();
 string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
 switch (authenticationScheme)
 {
-    case "OAuth":
+    case ConfigAuthScheme.OAuth:
         ConfigureOAuth(builder, configurationSettings);
         break;
-    case "WinAuth":
+    case ConfigAuthScheme.WinAuth:
         ConfigureWinAuth(builder);
+        break;
+    case ConfigAuthScheme.Both:
+        ConfigureBoth(builder, configurationSettings);
         break;
     default:
         ConfigureWinAuth(builder);
         break;
 }
 
-static void ConfigureWinAuth(WebApplicationBuilder builder)
+static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
 {
+    if (registerOwnReader)
+    {
+        builder.Services.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
+    }
+
     builder.Services
         .AddTransient<IClaimsTransformation, ClaimsTransformer>()
-        .AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>()
         .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
 }
 
-static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings)
+static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings, bool registerOwnReader = true)
 {
+    if (registerOwnReader)
+    {
+        builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
+    }
+
     string? authority = configurationSettings.GetOAuthAuthority();
     builder.Services
-        .AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>()
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
         {
@@ -97,6 +109,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
             // this maps to the "API resource" name and secret
             options.ClientId = dorcApiResourceName;
             options.ClientSecret = GetDorcApiSecret();
+            options.NameClaimType = "samAccountName";
         });
 
     builder.Services.AddAuthorization(options =>
@@ -109,6 +122,25 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
         });
     });
 }
+static void ConfigureBoth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings)
+{
+    builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+    builder.Services.AddTransient<IClaimsPrincipalReader, ClaimsPrincipalReaderFactory>();
+
+    ConfigureWinAuth(builder, false);
+    ConfigureOAuth(builder, configurationSettings, false);
+
+    // Add a Policy Scheme to dynamically select the authentication scheme
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "DynamicScheme";
+        options.DefaultChallengeScheme = "DynamicScheme";
+    })
+    .AddPolicyScheme("DynamicScheme", "Dynamic Authentication Scheme", options =>
+    {
+        options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
+    });
+}
 
 static string GetDorcApiSecret()
 {
@@ -118,7 +150,7 @@ static string GetDorcApiSecret()
 
 static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
 {
-    if (authenticationScheme is not "OAuth")
+    if (authenticationScheme is not ConfigAuthScheme.OAuth)
     {
         services.AddSwaggerGen();
     }

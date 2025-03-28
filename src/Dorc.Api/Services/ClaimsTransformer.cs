@@ -3,8 +3,10 @@ using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
+using Dorc.Api.Security;
 using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace Dorc.Api.Services
 {
@@ -18,12 +20,13 @@ namespace Dorc.Api.Services
     public class ClaimsTransformer : IClaimsTransformation
     {
         private readonly IActiveDirectoryUserGroupReader _adUserGroupReader;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adUserGroupReader)
+        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adUserGroupReader, IHttpContextAccessor httpContextAccessor)
         {
             _adUserGroupReader = adUserGroupReader;
-
+            _httpContextAccessor = httpContextAccessor;
             var activeDirectoryRoles = config.GetSection("AppSettings:ActiveDirectoryRoles").GetChildren()
                 .ToDictionary(x => x.Key, x => x.Value);
 
@@ -38,6 +41,13 @@ namespace Dorc.Api.Services
 
         public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
         {
+            var httpContext = _httpContextAccessor.HttpContext;
+            var scheme = httpContext.GetAuthenticationScheme();
+            if (scheme == JwtBearerDefaults.AuthenticationScheme)
+            {
+                return principal; // Do not transform OAuth principals
+            }
+
             var claims = new List<Claim>();
             string authenticationType = principal.Identity?.AuthenticationType ?? string.Empty;
             string currentUserName = principal.Identity?.Name ?? string.Empty;

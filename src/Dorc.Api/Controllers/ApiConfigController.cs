@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -26,9 +27,10 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public ApiConfigModel Get()
         {
+            var scheme = _configurationSettings.GetAuthenticationScheme();
             return new ApiConfigModel
             {
-                AuthenticationScheme = _configurationSettings.GetAuthenticationScheme(),
+                AuthenticationScheme = scheme == ConfigAuthScheme.Both ? ConfigAuthScheme.OAuth : scheme,
                 OAuthAuthority = _configurationSettings.GetOAuthAuthority()
             };
         }
