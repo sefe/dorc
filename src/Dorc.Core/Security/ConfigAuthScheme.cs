@@ -4,6 +4,6 @@
     {
         public const string OAuth = "OAuth";
         public const string WinAuth = "WinAuth";
-        public const string Both = "Both";
+        public const string Both = "OAuth+WinAuth";
     }
 }
