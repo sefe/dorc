@@ -1,5 +1,6 @@
 ﻿using Dorc.Core;
 using Dorc.PersistentData;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -41,9 +42,8 @@ namespace Dorc.Api.Security
         {
             var httpContext = _httpContextAccessor.HttpContext;
 
-            // Check the authentication scheme of the current request
-            string? authHeader = httpContext?.Request.Headers["Authorization"].FirstOrDefault();
-            if (authHeader != null && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            var scheme = httpContext.GetAuthenticationScheme();
+            if (scheme == JwtBearerDefaults.AuthenticationScheme)
             {
                 return _oauthReader; // Use OAuth reader
             }

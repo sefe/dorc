@@ -3,8 +3,10 @@ using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
+using Dorc.Api.Security;
 using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace Dorc.Api.Services
 {
@@ -40,10 +42,8 @@ namespace Dorc.Api.Services
         public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
         {
             var httpContext = _httpContextAccessor.HttpContext;
-
-            // Check the authentication scheme of the current request
-            string? authHeader = httpContext?.Request.Headers["Authorization"].FirstOrDefault();
-            if (authHeader != null && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            var scheme = httpContext.GetAuthenticationScheme();
+            if (scheme == JwtBearerDefaults.AuthenticationScheme)
             {
                 return principal; // Do not transform OAuth principals
             }

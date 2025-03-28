@@ -6,6 +6,7 @@ using Dorc.Core;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
+using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
@@ -48,13 +49,13 @@ builder.Logging.AddLog4Net();
 string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
 switch (authenticationScheme)
 {
-    case "OAuth":
+    case ConfigAuthScheme.OAuth:
         ConfigureOAuth(builder, configurationSettings);
         break;
-    case "WinAuth":
+    case ConfigAuthScheme.WinAuth:
         ConfigureWinAuth(builder);
         break;
-    case "Both":
+    case ConfigAuthScheme.Both:
         ConfigureBoth(builder, configurationSettings);
         break;
     default:
@@ -108,6 +109,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
             // this maps to the "API resource" name and secret
             options.ClientId = dorcApiResourceName;
             options.ClientSecret = GetDorcApiSecret();
+            options.NameClaimType = "samAccountName";
         });
 
     builder.Services.AddAuthorization(options =>
@@ -136,18 +138,7 @@ static void ConfigureBoth(WebApplicationBuilder builder, ConfigurationSettings c
     })
     .AddPolicyScheme("DynamicScheme", "Dynamic Authentication Scheme", options =>
     {
-        options.ForwardDefaultSelector = context =>
-        {
-            // Check if the request contains a Bearer token
-            string? authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-            if (authHeader != null && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                return JwtBearerDefaults.AuthenticationScheme; // Use OAuth (JWT Bearer)
-            }
-
-            // Otherwise, fall back to Windows Authentication
-            return NegotiateDefaults.AuthenticationScheme;
-        };
+        options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
     });
 }
 
@@ -159,7 +150,7 @@ static string GetDorcApiSecret()
 
 static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
 {
-    if (authenticationScheme is not "OAuth")
+    if (authenticationScheme is not ConfigAuthScheme.OAuth)
     {
         services.AddSwaggerGen();
     }
