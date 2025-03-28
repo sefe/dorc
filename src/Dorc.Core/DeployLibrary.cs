@@ -39,6 +39,7 @@ namespace Dorc.Core
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
