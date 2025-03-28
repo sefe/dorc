@@ -14,11 +14,17 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly ILog _logger;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public ScriptsPersistentSource(IDeploymentContextFactory contextFactory, ILog logger)
+        public ScriptsPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            ILog logger,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _logger = logger;
             _contextFactory = contextFactory;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public GetScriptsListResponseDto GetScriptsByPage(int limit, int page, PagedDataOperators operators)
@@ -114,8 +120,9 @@ namespace Dorc.PersistentData.Sources
                 if (foundScript == null)
                     return false;
 
+                string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                 _logger.Warn(
-                    $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {user.Identity.Name} at {DateTime.Now:o}");
+                    $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
 
                 foundScript.Name = script.Name;
                 foundScript.Path = script.Path;

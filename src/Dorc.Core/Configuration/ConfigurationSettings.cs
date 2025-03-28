@@ -41,5 +41,15 @@ namespace Dorc.Core.Configuration
 
             return TimeSpan.FromMinutes(adUserCacheTimeMinutes);
         }
+
+        public string? GetAuthenticationScheme()
+        {
+            return _configuration.GetSection("AppSettings")["AuthenticationScheme"];
+        }
+
+        public string? GetOAuthAuthority()
+        {
+            return _configuration.GetSection("AppSettings:OAuth2")["Authority"];
+        }
     }
 }

@@ -6,6 +6,7 @@ using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using Microsoft.AspNetCore.Authorization;
@@ -30,6 +31,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public MakeLikeProdController(ILog logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
@@ -37,7 +39,8 @@ namespace Dorc.Api.Controllers
             IActiveDirectoryUserGroupReader activeDirectoryReader,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
-            IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource)
+            IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             _projectsPersistentSource = projectsPersistentSource;
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
@@ -49,6 +52,7 @@ namespace Dorc.Api.Controllers
             _environmentsPersistentSource = environmentsPersistentSource;
             _deployLibrary = deployLibrary;
             _logger = logger;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -99,9 +103,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var email = GetUserEmail(User);
-
-                return Results.Ok(email);
+                return Results.Ok(GetUserEmail(User));
             }
             catch (Exception e)
             {
@@ -232,11 +234,7 @@ namespace Dorc.Api.Controllers
 
         private string GetUserEmail(ClaimsPrincipal user)
         {
-            string? userName = user.Identity?.Name.Split("\\")[1];
-
-            var email = _activeDirectoryReader.GetUserMail(userName);
-
-            return email;
+            return _claimsPrincipalReader.GetUserEmail(user, _activeDirectoryReader);
         }
     }
 }

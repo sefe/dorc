@@ -14,11 +14,17 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public DatabasesPersistentSource(IDeploymentContextFactory contextFactory, IRolePrivilegesChecker rolePrivilegesChecker)
+        public DatabasesPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _contextFactory = contextFactory;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public DatabaseApiModel? GetDatabase(int id)
@@ -184,7 +190,8 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
+                string username = _claimsPrincipalReader.GetUserName(user);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context);
 
                 var reqStatusesQueryable = context.Databases.Include(database => database.Environments)
                     .Include(database => database.Group).AsQueryable();
@@ -301,7 +308,7 @@ namespace Dorc.PersistentData.Sources
         }
 
 
-        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string user, string envFilter,
+        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string envFilter,
             string envName)
         {
             using (var context = _contextFactory.GetContext())
@@ -317,7 +324,7 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(user) &&
+                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
