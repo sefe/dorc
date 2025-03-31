@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using Dorc.PersistData.Dapper;
 using Serilog;
 
 namespace Dorc.PowerShell
@@ -7,16 +6,14 @@ namespace Dorc.PowerShell
     public class OutputProcessor : IDisposable
     {
         private readonly ILogger logger;
-        private readonly IDapperContext dbContext;
         private readonly int deploymentResultId;
         private Timer logTimer;
         private ConcurrentQueue<string> logMessages;
         private bool disposedValue;
 
-        public OutputProcessor(ILogger logger, IDapperContext dbContext, int deploymentResultId, int flushEverySec = 30)
+        public OutputProcessor(ILogger logger, int deploymentResultId, int flushEverySec = 30)
         {
             this.logger = logger;
-            this.dbContext = dbContext;
             this.deploymentResultId = deploymentResultId;
             this.logMessages = new ConcurrentQueue<string>();
 
@@ -46,7 +43,7 @@ namespace Dorc.PowerShell
             if (logList.Count > 0)
             {
                 var combinedLog = string.Join(Environment.NewLine, logList);
-                dbContext.UpdateLog(this.logger, deploymentResultId, combinedLog);
+                //dbContext.UpdateLog(this.logger, deploymentResultId, combinedLog);
             }
         }
 
