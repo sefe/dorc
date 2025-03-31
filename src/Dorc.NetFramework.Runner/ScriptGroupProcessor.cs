@@ -3,7 +3,6 @@ using System.Linq;
 using Dorc.ApiModel;
 using Dorc.NetFramework.PowerShell;
 using Dorc.NetFramework.Runner.Pipes;
-using Dorc.PersistData.Dapper;
 using Serilog;
 using Serilog.Context;
 
@@ -13,16 +12,13 @@ namespace Dorc.NetFramework.Runner
     {
         private readonly ILogger logger;
         private readonly IScriptGroupPipeClient scriptGroupPipeClient;
-        private readonly IDapperContext dbContext;
 
         internal ScriptGroupProcessor(
             ILogger logger,
-            IDapperContext dbContext,
             IScriptGroupPipeClient scriptGroupPipeClient)
         {
             this.logger = logger;
             this.scriptGroupPipeClient = scriptGroupPipeClient;
-            this.dbContext = dbContext;
         }
 
         public void Process(string pipeName,int requestId)
@@ -47,7 +43,7 @@ namespace Dorc.NetFramework.Runner
 
                     logger.Information("ScriptGroup is received.");
 
-                    var scriptRunner = new PowerShellScriptRunner(logger, dbContext, deploymentResultId);
+                    var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
 
                     scriptRunner.Run(
                         scriptGroupProperties.ScriptsLocation,
@@ -58,7 +54,7 @@ namespace Dorc.NetFramework.Runner
                 catch (Exception e)
                 {
                     logger.Error("An Exception has Occured: {0}",e.Message);
-                    dbContext.UpdateLog(logger,deploymentResultId, $"An Exception Occured running the deployment {e.Message}");
+                    //dbContext.UpdateLog(logger,deploymentResultId, $"An Exception Occured running the deployment {e.Message}");
                     throw;
                 }
             }
