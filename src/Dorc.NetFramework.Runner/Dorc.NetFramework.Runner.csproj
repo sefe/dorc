@@ -66,10 +66,6 @@
       <Project>{6B2EC35D-930D-4387-B72F-975A8F16A25D}</Project>
       <Name>Dorc.NetFramework.PowerShell</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Dorc.PersistData.Dapper\Dorc.PersistData.Dapper.csproj">
-      <Project>{18B3A78A-FAC5-4FD8-88FA-84EF8C36A5D2}</Project>
-      <Name>Dorc.PersistData.Dapper</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="appsettings.json">
