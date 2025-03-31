@@ -266,9 +266,10 @@ app.UseCors(dorcCorsRefDataPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<WinAuthLoggingMiddleware>();
 
 var endpointConventionBuilder = app.MapControllers();
-if (authenticationScheme is "OAuth")
+if (authenticationScheme is ConfigAuthScheme.OAuth)
 {
     // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
