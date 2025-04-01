@@ -26,6 +26,7 @@ import {
   PropertyValueAuditApiModel
 } from '../apis/dorc-api/models';
 import { PageElement } from '../helpers/page-element';
+import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-variables-audit')
 export class PageVariablesAudit extends PageElement {
@@ -471,7 +472,7 @@ export class PageVariablesAudit extends PageElement {
       .subscribe({
         next: (data: GetPropertyValuesAuditListResponseDto) => {
           data.Items?.map(
-            item => (item.UpdatedBy = item.UpdatedBy?.split('\\')[1])
+            item => (item.UpdatedBy = getShortLogonName(item.UpdatedBy))
           );
           this.dispatchEvent(
             new CustomEvent('searching-audit-finished', {
