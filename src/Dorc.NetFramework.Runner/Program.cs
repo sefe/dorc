@@ -6,6 +6,7 @@ using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.NetFramework.Runner.Pipes;
 using Dorc.NetFramework.Runner.Startup;
+using Dorc.PersistData.Dapper;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
@@ -34,6 +35,8 @@ namespace Dorc.NetFramework.Runner
                 .AddJsonFile("appsettings.json").Build();
 
             var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
+
+            var dapperContext = new DapperContext(connectionString);
 
 
             Log.Logger = loggerRegistry.InitialiseLogger();
@@ -71,6 +74,7 @@ namespace Dorc.NetFramework.Runner
                 contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
                 string uncLogPath = $"{dorcPath}\\{options.PipeName}.Txt";
+                dapperContext.AddLogFilePath(contextLogger,requestId, uncLogPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
@@ -100,6 +104,7 @@ namespace Dorc.NetFramework.Runner
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         contextLogger,
+                        dapperContext,
                         scriptGroupReader);
 
                     scriptGroupProcessor.Process(arguments.Value.PipeName, requestId);
