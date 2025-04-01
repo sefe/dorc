@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Management;
 using CommandLine;
 using Dorc.ApiModel.Constants;
+using Dorc.PersistData.Dapper;
 using Dorc.Runner.Pipes;
 using Dorc.Runner.Startup;
 using Microsoft.Extensions.Configuration;
@@ -70,11 +71,15 @@ namespace Dorc.Runner
 
                 var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
 
+                var dapperContext = new DapperContext(connectionString);
+
                 Log.Logger = loggerRegistry.InitialiseLogger(options.PipeName);
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
                 Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, loggerRegistry.LogFileName);
+
+                dapperContext.AddLogFilePath(Log.Logger, requestId, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
@@ -97,7 +102,7 @@ namespace Dorc.Runner
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         Log.Logger,
-                        scriptGroupReader);
+                        scriptGroupReader, dapperContext);
 
                     var result = scriptGroupProcessor.Process(options.PipeName, requestId);
                     Exit(result);
