@@ -50,6 +50,7 @@ namespace Dorc.Monitor.Tests.Init
             collection.AddTransient<IScriptGroupPipeServer, ScriptGroupPipeServer>();
             collection.AddTransient<ISecurityObjectFilter, SecurityObjectFilter>();
             collection.AddTransient<IRolePrivilegesChecker, RolePrivilegesChecker>();
+            collection.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
 
             var configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.test.json").Build();
             var monitorConfiguration = new MonitorConfiguration(configurationRoot);
