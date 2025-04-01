@@ -1,8 +1,9 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Dorc.PersistData.Dapper;
+using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Events;
 
-namespace Dorc.Runner.Startup
+namespace Dorc.Runner.Logger
 {
     public class LoggerRegistry
     {
@@ -10,7 +11,7 @@ namespace Dorc.Runner.Startup
 
         public string LogFileName { get { return logPath; } }
 
-        public ILogger InitialiseLogger(string pipeName)
+        public IRunnerLogger InitialiseLogger(string pipeName)
         {
             var config = new ConfigurationBuilder()
                 .AddJsonFile("loggerSettings.json", optional: false).Build();
@@ -28,11 +29,15 @@ namespace Dorc.Runner.Startup
             var seriLogger = new LoggerConfiguration()
                 .ReadFrom.Configuration(config)
                                 .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
-
                 .Enrich.FromLogContext()
                 .CreateLogger();
 
-            return seriLogger;
+
+            var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
+
+            var dapperContext = new DapperContext(connectionString);
+
+            return new RunnerLogger(seriLogger, dapperContext);
         }
     }
 }
