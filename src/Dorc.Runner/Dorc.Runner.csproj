@@ -37,6 +37,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
     <ProjectReference Include="..\Dorc.PowerShell\Dorc.PowerShell.csproj" />
+    <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="loggerSettings.json">
