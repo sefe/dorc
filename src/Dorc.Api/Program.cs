@@ -71,6 +71,7 @@ static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnRead
     }
 
     builder.Services
+        .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
         .AddTransient<IClaimsTransformation, ClaimsTransformer>()
         .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
