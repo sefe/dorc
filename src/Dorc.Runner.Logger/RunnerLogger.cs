@@ -5,13 +5,25 @@ namespace Dorc.Runner.Logger
 {
     public class RunnerLogger : IRunnerLogger
     {
-        public ILogger Logger { get; set; }
-        public IDapperContext DapperContext { get; set; }
+        public ILogger Logger { get; }
+        public IDapperContext DapperContext { get;}
+        private int? _requestId;
+        private int? _deploymentResultId;
 
         public RunnerLogger(ILogger logger, IDapperContext dapperContext)
         {
             Logger = logger;
             DapperContext = dapperContext;
+        }
+
+        public void SetRequestId(int requestId)
+        {
+            this._requestId = requestId;
+        }
+
+        public void SetDeploymentResultId(int deploymentResultId)
+        {
+            this._deploymentResultId = deploymentResultId;
         }
 
         public void AddLogFilePath(int deploymentRequestId, string logFilePath)

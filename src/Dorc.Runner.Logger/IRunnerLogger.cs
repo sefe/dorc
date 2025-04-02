@@ -5,8 +5,11 @@ namespace Dorc.Runner.Logger
 {
     public interface IRunnerLogger
     {
-        ILogger Logger { get; set; }
-        IDapperContext DapperContext { get; set; }
+        ILogger Logger { get; }
+        IDapperContext DapperContext { get; }
+
+        void SetRequestId(int requestId);
+        void SetDeploymentResultId(int deploymentResultId);
 
         void UpdateLog(int deploymentResultId, string log);
 
