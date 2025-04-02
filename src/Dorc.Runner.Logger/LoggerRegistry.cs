@@ -1,4 +1,6 @@
 ﻿using Dorc.PersistData.Dapper;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Transport;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Events;
@@ -37,7 +39,19 @@ namespace Dorc.Runner.Logger
 
             var dapperContext = new DapperContext(connectionString);
 
-            return new RunnerLogger(seriLogger, dapperContext);
+            var elasticClient = InitialiseElasticLogger();
+
+            return new RunnerLogger(seriLogger, dapperContext, elasticClient);
+        }
+
+        private ElasticsearchClient InitialiseElasticLogger()
+        {
+            var elasticClientSettings = new ElasticsearchClientSettings(new Uri(""))
+                .Authentication(new BasicAuthentication("", ""))
+                .DefaultIndex("test");
+            var client = new ElasticsearchClient(elasticClientSettings);
+
+            return client;
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Dorc.PersistData.Dapper;
+using Elastic.Clients.Elasticsearch;
 using Serilog;
 
 namespace Dorc.Runner.Logger
@@ -7,6 +8,7 @@ namespace Dorc.Runner.Logger
     {
         ILogger Logger { get; }
         IDapperContext DapperContext { get; }
+        ElasticsearchClient ElasticClient { get; }
 
         void SetRequestId(int requestId);
         void SetDeploymentResultId(int deploymentResultId);
