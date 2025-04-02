@@ -23,6 +23,8 @@ namespace Dorc.Runner
         {
             ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName); 
             var deploymentResultId = scriptGroupProperties.DeployResultId;
+            this.logger.SetRequestId(requestId);
+            this.logger.SetDeploymentResultId(deploymentResultId);
 
             if (scriptGroupProperties == null
                 || scriptGroupProperties.CommonProperties == null
