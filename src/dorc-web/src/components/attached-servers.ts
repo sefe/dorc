@@ -78,6 +78,15 @@ export class AttachedServers extends LitElement {
         text-decoration: none;
         border-radius: 3px;
       }
+      vaadin-grid-cell-content {
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .column-content {
+      display: block;
+      width: 100%;
+    }
     `;
   }
 
@@ -149,7 +158,7 @@ export class AttachedServers extends LitElement {
       server.ApplicationTags !== undefined &&
       server.ApplicationTags !== null &&
       server.ApplicationTags.length > 0
-        ? server.ApplicationTags?.split(';')
+        ? server.ApplicationTags?.split(';')?.sort()
         : [];
 
     render(
