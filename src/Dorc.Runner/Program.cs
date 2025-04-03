@@ -4,10 +4,13 @@ using System.Management;
 using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.PersistData.Dapper;
+using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
-using Dorc.Runner.Startup;
 using Microsoft.Extensions.Configuration;
 using Serilog;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Transport;
+using System.Drawing.Text;
 
 namespace Dorc.Runner
 {
@@ -32,6 +35,20 @@ namespace Dorc.Runner
         {
             try
             {
+                var elasticClientSettings = new ElasticsearchClientSettings(new Uri(""))
+                    .Authentication(new BasicAuthentication("", ""))
+                    .DefaultIndex("test");
+                var client = new ElasticsearchClient(elasticClientSettings);
+                var testClass = new TestClass { Id = 1, Message = "Test message", TimeStamp = DateTime.UtcNow };
+                var pingResult = client.PingAsync().Result;
+                var res = client.IndexAsync(testClass, new Id("test")).Result;
+            }
+            catch (Exception e)
+            {
+                var s = e;
+            }
+            try
+            {
                 var arguments = Parser.Default.ParseArguments<Options>(args);
                 if (arguments.Tag != ParserResultType.Parsed)
                 {
@@ -52,47 +69,44 @@ namespace Dorc.Runner
                 var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json").Build();
 
-                var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
-
-                var dapperContext = new DapperContext(connectionString);
-
-                Log.Logger = loggerRegistry.InitialiseLogger(options.PipeName);
+                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName);
+                Log.Logger = runnerLogger.Logger;
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, loggerRegistry.LogFileName);
+                runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, loggerRegistry.LogFileName);
 
-                dapperContext.AddLogFilePath(Log.Logger, requestId, uncDorcPath);
+                runnerLogger.AddLogFilePath(requestId, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    Log.Logger.Information("Runner process is started on behalf of the user: {0}", owner);
+                    runnerLogger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
-                
-                Log.Logger.Information("Arguments: {args}", string.Join(", ", args));
+
+                runnerLogger.Information("Arguments: {args}", string.Join(", ", args));
   
                 try
                 {
                     IScriptGroupPipeClient scriptGroupReader;
                     if (options.UseFile)
                     {
-                        Log.Logger.Debug("Using file instead of pipes");
+                        runnerLogger.Debug("Using file instead of pipes");
                         scriptGroupReader = new ScriptGroupFileReader(Log.Logger);
                     }
                     else
                         scriptGroupReader = new ScriptGroupPipeClient(Log.Logger);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
-                        Log.Logger,
-                        scriptGroupReader, dapperContext);
+                        runnerLogger,
+                        scriptGroupReader);
 
                     var result = scriptGroupProcessor.Process(options.PipeName, requestId);
                     Exit(result);
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error(ex, "Deployment error");
+                    runnerLogger.Error(ex, "Deployment error");
 
                     Exit(-1);
                     throw;
@@ -141,5 +155,11 @@ namespace Dorc.Runner
             return "NO OWNER";
         }
         #endregion
+    }
+    public class TestClass
+    {
+        public Id Id { get; set; }
+        public string Message { get; set; }
+        public DateTime TimeStamp { get; set; }
     }
 }
