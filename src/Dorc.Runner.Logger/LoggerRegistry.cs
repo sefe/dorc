@@ -13,7 +13,16 @@ namespace Dorc.Runner.Logger
 
         public string LogFileName { get { return logPath; } }
 
-        public IRunnerLogger InitialiseLogger(string pipeName)
+        public IRunnerLogger InitializeLogger(string pipeName)
+        {
+            return new RunnerLogger(
+                InitializeSerilog(pipeName),
+                InitializeDapper(),
+                InitializeElasticLogger()
+                );
+        }
+
+        private ILogger InitializeSerilog(string pipeName)
         {
             var config = new ConfigurationBuilder()
                 .AddJsonFile("loggerSettings.json", optional: false).Build();
@@ -33,18 +42,22 @@ namespace Dorc.Runner.Logger
                                 .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
                 .Enrich.FromLogContext()
                 .CreateLogger();
+            return seriLogger;
+        }
 
+        private IDapperContext InitializeDapper()
+        {
+            var config = new ConfigurationBuilder()
+                .AddJsonFile("loggerSettings.json", optional: false).Build();
 
             var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
 
             var dapperContext = new DapperContext(connectionString);
 
-            var elasticClient = InitialiseElasticLogger();
-
-            return new RunnerLogger(seriLogger, dapperContext, elasticClient);
+            return dapperContext;
         }
 
-        private ElasticsearchClient InitialiseElasticLogger()
+        private ElasticsearchClient InitializeElasticLogger()
         {
             var elasticClientSettings = new ElasticsearchClientSettings(new Uri(""))
                 .Authentication(new BasicAuthentication("", ""))
