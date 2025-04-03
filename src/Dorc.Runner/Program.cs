@@ -69,7 +69,7 @@ namespace Dorc.Runner
                 var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json").Build();
 
-                var runnerLogger = loggerRegistry.InitialiseLogger(options.PipeName);
+                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName);
                 Log.Logger = runnerLogger.Logger;
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
