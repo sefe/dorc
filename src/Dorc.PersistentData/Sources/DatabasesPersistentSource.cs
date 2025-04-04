@@ -170,7 +170,8 @@ namespace Dorc.PersistentData.Sources
                 var result = context.Databases
                     .Include(d => d.Group)
                     .Where(database => database.Environments
-                        .Any(env => env.Name == environmentName)).ToList();
+                        .Any(env => env.Name == environmentName))
+                    .OrderBy(database => database.Name).ToList();
                 return result.Select(MapToDatabaseApiModel).ToList();
             }
         }
