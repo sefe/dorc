@@ -16,6 +16,7 @@ import {
   clearTextField,
   getTextFieldValue
 } from './utilities/vaadinHelper';
+import { getShortLogonName } from '../../helpers/user-extensions';
 
 type UserOrGroupFoundOrFailureCallback = (errorMessage: string) => void;
 type UserOrGroupNotFoundCallback = () => void;
@@ -132,7 +133,7 @@ export class AddEndurUserOrGroup extends AddUserOrGroupBase {
     const selectedUserOrGroup =
       filteredUsersOrGroupsComboBox.selectedItem as UserOrGroupSearchResult;
 
-    this.lanId = selectedUserOrGroup.FullLogonName?.split('\\')[1];
+    this.lanId = getShortLogonName(selectedUserOrGroup.FullLogonName);
     this.displayName = selectedUserOrGroup.DisplayName;
   }
 
