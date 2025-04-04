@@ -51,5 +51,25 @@ namespace Dorc.Core.Configuration
         {
             return _configuration.GetSection("AppSettings:OAuth2")["Authority"];
         }
+
+        public string? GetOnePasswordBaseUrl()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["BaseUrl"];
+        }
+
+        public string? GetOnePasswordApiKey()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["ApiKey"];
+        }
+
+        public string? GetOnePasswordVaultId()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["VaultId"];
+        }
+
+        public string? GetOnePasswordItemId()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["ItemId"];
+        }
     }
 }

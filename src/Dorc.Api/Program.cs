@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
+using OnePassword.Connect.Client;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string dorcApiResourceName = "dorc-api";
@@ -71,12 +72,13 @@ static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnRead
     }
 
     builder.Services
+        .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
         .AddTransient<IClaimsTransformation, ClaimsTransformer>()
         .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
 }
 
-static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings, bool registerOwnReader = true)
+static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, bool registerOwnReader = true)
 {
     if (registerOwnReader)
     {
@@ -84,6 +86,8 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
     }
 
     string? authority = configurationSettings.GetOAuthAuthority();
+    string dorcApiSecret = GetDorcApiSecret(builder, configurationSettings);
+
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
@@ -108,7 +112,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
             options.Authority = authority;
             // this maps to the "API resource" name and secret
             options.ClientId = dorcApiResourceName;
-            options.ClientSecret = GetDorcApiSecret();
+            options.ClientSecret = dorcApiSecret;
             options.NameClaimType = "samAccountName";
         });
 
@@ -122,7 +126,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, ConfigurationSettings 
         });
     });
 }
-static void ConfigureBoth(WebApplicationBuilder builder, ConfigurationSettings configurationSettings)
+static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings)
 {
     builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
     builder.Services.AddTransient<IClaimsPrincipalReader, ClaimsPrincipalReaderFactory>();
@@ -142,10 +146,34 @@ static void ConfigureBoth(WebApplicationBuilder builder, ConfigurationSettings c
     });
 }
 
-static string GetDorcApiSecret()
+static string GetDorcApiSecret(WebApplicationBuilder builder, IConfigurationSettings configurationSettings)
 {
-    // Not implemented yet. TO-DO: Get the secret from a secure location
-    return "";
+    string? baseUrl = configurationSettings.GetOnePasswordBaseUrl();
+    string? apiKey = configurationSettings.GetOnePasswordApiKey();
+    string? vaultId = configurationSettings.GetOnePasswordVaultId();
+    string? itemId = configurationSettings.GetOnePasswordItemId();
+
+    if (string.IsNullOrEmpty(baseUrl)
+        || string.IsNullOrEmpty(apiKey)
+        || string.IsNullOrEmpty(vaultId)
+        || string.IsNullOrEmpty(itemId)
+        )
+    {
+        return string.Empty;
+    }
+
+    var onePasswordClient = new OnePasswordClient(baseUrl, apiKey);
+    try
+    {
+        string secret = Task.Run(() => onePasswordClient.GetSecretValueAsync(vaultId, itemId)).GetAwaiter().GetResult();
+        return secret;
+    }
+    catch (Exception ex)
+    {
+        var logger = builder.Logging.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error fetching secret from OnePassword");
+        return string.Empty;
+    }
 }
 
 static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
