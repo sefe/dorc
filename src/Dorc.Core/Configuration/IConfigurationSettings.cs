@@ -9,5 +9,9 @@
         TimeSpan? GetADUserCacheTimeSpan();
         string? GetAuthenticationScheme();
         string? GetOAuthAuthority();
+        string? GetOnePasswordBaseUrl();
+        string? GetOnePasswordApiKey();
+        string? GetOnePasswordVaultId();
+        string? GetOnePasswordItemId();
     }
 }
