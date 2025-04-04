@@ -98,7 +98,10 @@ namespace Dorc.PersistentData.Sources
                     .SingleOrDefault(environment =>
                     EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation));
-                return env?.Projects.Select(ProjectsPersistentSource.MapToProjectApiModel).ToList();
+                return env?.Projects
+                    .OrderBy(p => p.Name)
+                    .Select(ProjectsPersistentSource.MapToProjectApiModel)
+                    .ToList();
             }
         }
 
@@ -369,6 +372,7 @@ namespace Dorc.PersistentData.Sources
                     .Include("Environment")
                     .Include("DeploymentRequest")
                     .Where(e => e.Environment.Name == environmentName && e.DeploymentRequest.CompletedTime < cutoffDate)
+                    .OrderByDescending(e => e.UpdateDate)
                     .Select(o => new
                     {
                         ComponentName = o.Component.Name,

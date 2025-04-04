@@ -326,6 +326,7 @@ namespace Dorc.PersistentData.Sources
                 if (envDetail == null) return new List<ServerApiModel>();
                 var result = context.Servers
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
+                    .OrderBy(s => s.Name)
                     .Select(s => s);
                 return result.ToList().Select(MapToServerApiModel).ToList();
             }
