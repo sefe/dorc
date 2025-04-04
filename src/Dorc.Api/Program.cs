@@ -86,7 +86,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     }
 
     string? authority = configurationSettings.GetOAuthAuthority();
-    string dorcApiSecret = GetDorcApiSecret(configurationSettings);
+    string dorcApiSecret = GetDorcApiSecret(builder, configurationSettings);
 
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -146,7 +146,7 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
     });
 }
 
-static string GetDorcApiSecret(IConfigurationSettings configurationSettings)
+static string GetDorcApiSecret(WebApplicationBuilder builder, IConfigurationSettings configurationSettings)
 {
     string? baseUrl = configurationSettings.GetOnePasswordBaseUrl();
     string? apiKey = configurationSettings.GetOnePasswordApiKey();
@@ -170,6 +170,8 @@ static string GetDorcApiSecret(IConfigurationSettings configurationSettings)
     }
     catch (Exception ex)
     {
+        var logger = builder.Logging.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error fetching secret from OnePassword");
         return string.Empty;
     }
 }
