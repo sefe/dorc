@@ -119,6 +119,22 @@
     {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.BASE.URL",
+      "DeployProperty": "ONE_PASSWORD_BASE_URL"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.APIKEY",
+      "DeployProperty": "ONE_PASSWORD_APIKEY"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.VAULT.ID",
+      "DeployProperty": "ONE_PASSWORD_VAULT_ID"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.ITEM.ID",
+      "DeployProperty": "ONE_PASSWORD_ITEM_ID"
     }
   ]
 }
