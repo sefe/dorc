@@ -229,13 +229,26 @@ export class DorcNavbar extends LitElement {
 
   constructor() {
     super();
-
-    GlobalCache.getInstance().allRolesResp?.subscribe((data: Array<string>) => {
-      this.userRoles = data;
-      this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    });
-
+    this.getUserRoles();
     this.getMetaData();
+  }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
