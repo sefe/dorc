@@ -3,14 +3,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Management;
 using CommandLine;
 using Dorc.ApiModel.Constants;
-using Dorc.PersistData.Dapper;
 using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
 using Microsoft.Extensions.Configuration;
+using OpenSearch.Client;
 using Serilog;
-using Elastic.Clients.Elasticsearch;
-using Elastic.Transport;
-using System.Drawing.Text;
 
 namespace Dorc.Runner
 {
@@ -35,20 +32,6 @@ namespace Dorc.Runner
         {
             try
             {
-                var elasticClientSettings = new ElasticsearchClientSettings(new Uri(""))
-                    .Authentication(new BasicAuthentication("", ""))
-                    .DefaultIndex("test");
-                var client = new ElasticsearchClient(elasticClientSettings);
-                var testClass = new TestClass { Id = 1, Message = "Test message", TimeStamp = DateTime.UtcNow };
-                var pingResult = client.PingAsync().Result;
-                var res = client.IndexAsync(testClass, new Id("test")).Result;
-            }
-            catch (Exception e)
-            {
-                var s = e;
-            }
-            try
-            {
                 var arguments = Parser.Default.ParseArguments<Options>(args);
                 if (arguments.Tag != ParserResultType.Parsed)
                 {
@@ -67,9 +50,11 @@ namespace Dorc.Runner
 
                 var loggerRegistry = new LoggerRegistry();
                 var config = new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json").Build();
+                    .AddJsonFile("appsettings.json")
+                    .AddJsonFile("loggerSettings.json", optional: false)
+                    .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName);
+                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
                 Log.Logger = runnerLogger.Logger;
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
@@ -155,11 +140,5 @@ namespace Dorc.Runner
             return "NO OWNER";
         }
         #endregion
-    }
-    public class TestClass
-    {
-        public Id Id { get; set; }
-        public string Message { get; set; }
-        public DateTime TimeStamp { get; set; }
     }
 }

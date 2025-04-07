@@ -1,7 +1,6 @@
 ﻿using Dorc.PersistData.Dapper;
 using Dorc.Runner.Logger.Model;
-using Elastic.Clients.Elasticsearch;
-using Elastic.Clients.Elasticsearch.Nodes;
+using OpenSearch.Client;
 using Serilog;
 using System;
 
@@ -10,19 +9,20 @@ namespace Dorc.Runner.Logger
     public class RunnerLogger : IRunnerLogger
     {
         public ILogger Logger { get; }
-        public IDapperContext DapperContext { get;}
-        public ElasticsearchClient ElasticClient { get; }
+        public IDapperContext DapperContext { get; }
+        public IOpenSearchClient OpenSearchClient { get; }
 
 
         private int? _requestId;
         private int? _deploymentResultId;
-        private string _index = "test";
+        private string _deploymentResultIndex;
 
-        public RunnerLogger(ILogger logger, IDapperContext dapperContext, ElasticsearchClient elasticClient)
+        public RunnerLogger(ILogger logger, IDapperContext dapperContext, IOpenSearchClient openSearchClient, string deploymentResultIndex)
         {
             Logger = logger;
             DapperContext = dapperContext;
-            ElasticClient = elasticClient;
+            OpenSearchClient = openSearchClient;
+            _deploymentResultIndex = deploymentResultIndex;
         }
 
         public void SetRequestId(int requestId)
@@ -102,15 +102,16 @@ namespace Dorc.Runner.Logger
             try
             {
                 var log = new DeployElasticLog(this._requestId ?? 0, this._deploymentResultId ?? 0, message, type, exception);
-                var res = this.ElasticClient.IndexAsync<DeployElasticLog>(log, new Id(this._index)).Result;
-                if (!res.IsSuccess())
+                var res = this.OpenSearchClient.IndexAsync<DeployElasticLog>(log, i => i.Index(this._deploymentResultIndex)).Result;
+                if (res.Result == Result.Error )
                 {
-                    this.Logger.Warning($"Sending \"{message}\" to the OpenSearch index ({res.Index}) failed");
+                    this.Logger.Warning($"Sending \"{message}\" to the OpenSearch index ({res.Index}) failed." +
+                        res.ServerError != null ? res.ServerError.ToString() : "");
                 }
             }
             catch (Exception e)
             {
-                this.Logger.Error(e, $"Sending \"{message}\" to the OpenSearch index ({this._index}) failed");
+                this.Logger.Error(e, $"Sending \"{message}\" to the OpenSearch index ({this._deploymentResultIndex}) failed");
             }
         }
     }

@@ -1,7 +1,6 @@
 ﻿using Dorc.PersistData.Dapper;
-using Elastic.Clients.Elasticsearch;
-using Elastic.Transport;
 using Microsoft.Extensions.Configuration;
+using OpenSearch.Client;
 using Serilog;
 using Serilog.Events;
 
@@ -13,12 +12,13 @@ namespace Dorc.Runner.Logger
 
         public string LogFileName { get { return logPath; } }
 
-        public IRunnerLogger InitializeLogger(string pipeName)
+        public IRunnerLogger InitializeLogger(string pipeName, IConfigurationRoot config)
         {
             return new RunnerLogger(
                 InitializeSerilog(pipeName),
-                InitializeDapper(),
-                InitializeElasticLogger()
+                InitializeDapper(config),
+                InitializeOpenSearchLogger(config),
+                config.GetSection("OpenSearchSettings")["DeploymentResultIndex"]
                 );
         }
 
@@ -45,11 +45,8 @@ namespace Dorc.Runner.Logger
             return seriLogger;
         }
 
-        private IDapperContext InitializeDapper()
+        private IDapperContext InitializeDapper(IConfigurationRoot config)
         {
-            var config = new ConfigurationBuilder()
-                .AddJsonFile("loggerSettings.json", optional: false).Build();
-
             var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
 
             var dapperContext = new DapperContext(connectionString);
@@ -57,12 +54,13 @@ namespace Dorc.Runner.Logger
             return dapperContext;
         }
 
-        private ElasticsearchClient InitializeElasticLogger()
+        private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationRoot config)
         {
-            var elasticClientSettings = new ElasticsearchClientSettings(new Uri(""))
-                .Authentication(new BasicAuthentication("", ""))
-                .DefaultIndex("test");
-            var client = new ElasticsearchClient(elasticClientSettings);
+            var openSearchConfigSection = config.GetSection("OpenSearchSettings");
+            var elasticClientSettings = new ConnectionSettings(new Uri(openSearchConfigSection["ConnectionUri"]))
+                .BasicAuthentication(openSearchConfigSection["UserName"], openSearchConfigSection["Password"])
+                .DefaultIndex(openSearchConfigSection["DeploymentResultIndex"]);
+            var client = new OpenSearchClient(elasticClientSettings);
 
             return client;
         }
