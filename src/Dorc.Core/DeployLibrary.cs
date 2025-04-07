@@ -38,7 +38,6 @@ namespace Dorc.Core
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
-            _componentsPersistentSource = componentsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
         }
 
