@@ -45,11 +45,11 @@
 
 				<Directory Id="INSTALLLOCATIONDEPLOYRUNNERNONPROD" Name="DeployRunner">
 					<Component Id="DeployMonitorServiceDeployRunnerNonProd.exe" Guid="{E96FFF42-7346-4934-8E63-11FEC7BD8426}">
-						<Json:JsonFile Id="DeployRunnerProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
-						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsUriConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
-						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
-						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
-						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeLogConfig" File="[#NonProdDeployRunnerExeLoggingConfig]" ElementPath="$.System.LogPath" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 					</Component>
 				</Directory>
