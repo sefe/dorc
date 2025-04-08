@@ -26,4 +26,14 @@ export interface ApiConfigModel {
      * @memberof ApiConfigModel
      */
     OAuthAuthority?: string | null;
+    /**
+     * @type {string}
+     * @memberof ApiConfigModel
+     */
+    OAuthUiClientId?: string | null;
+    /**
+     * @type {string}
+     * @memberof ApiConfigModel
+     */
+    OAuthUiRequestedScopes?: string | null;
 }

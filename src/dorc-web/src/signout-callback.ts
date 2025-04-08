@@ -1,5 +1,10 @@
+import { OAuthConfigurableSettings, oauthSettings } from "./OAuthSettings";
 import { oauthServiceContainer } from "./services/Account/OAuthService";
 
-const authority = localStorage.getItem("idsrv.authority") ?? '';
-oauthServiceContainer.setAuthority(authority);
+const configurableSettings: OAuthConfigurableSettings = JSON.parse(localStorage.getItem("idsrv.oauthsettings") ?? '{}');
+const settings = {
+    ...oauthSettings,
+    ...configurableSettings
+};
+oauthServiceContainer.setSettings(settings);
 oauthServiceContainer.service.signOutCallback();

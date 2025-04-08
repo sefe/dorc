@@ -21,9 +21,7 @@ using Microsoft.OpenApi.Models;
 using OnePassword.Connect.Client;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
-const string dorcApiResourceName = "dorc-api";
-const string dorcApiScope = "dorc-api.manage";
-const string apiScopeAuthorizationPolicy = "ApiScopeAuthorizationPolicy";
+const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
@@ -86,6 +84,8 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     }
 
     string? authority = configurationSettings.GetOAuthAuthority();
+    string dorcApiResourceName = configurationSettings.GetOAuthApiResourceName();
+    string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
     string dorcApiSecret = GetDorcApiSecret(builder, configurationSettings);
 
     builder.Services
@@ -122,7 +122,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
         options.AddPolicy(apiScopeAuthorizationPolicy, policy =>
         {
             policy.RequireAuthenticatedUser();
-            policy.RequireClaim("scope", dorcApiScope);
+            policy.RequireClaim("scope", dorcApiGlobalScope);
         });
     });
 }

@@ -48,6 +48,10 @@
 		<Json:JsonFile Id="CurrentDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
 		<Json:JsonFile Id="CurrentAuthenticationScheme" ElementPath="$.AppSettings.AuthenticationScheme" File="[#DeployApiWebConfig]" Value="[DORC.AUTHENTICATION.SCHEME]" />
 		<Json:JsonFile Id="CurrentOAuth2Authority" ElementPath="$.AppSettings.OAuth2.Authority" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
+		<Json:JsonFile Id="CurrentOAuth2UiClientId" ElementPath="$.AppSettings.OAuth2.UiClientId" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.CLIENT.ID]" />
+		<Json:JsonFile Id="CurrentOAuth2UiRequestedScopes" ElementPath="$.AppSettings.OAuth2.UiRequestedScopes" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.REQUESTED.SCOPES]" />
+		<Json:JsonFile Id="CurrentOAuth2ApiResourceName" ElementPath="$.AppSettings.OAuth2.ApiResourceName" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.RESOURCE.NAME]" />
+		<Json:JsonFile Id="CurrentOAuth2ApiGlobalScope" ElementPath="$.AppSettings.OAuth2.ApiGlobalScope" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
 		<Json:JsonFile Id="OnePasswordBaseUrl" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
 		<Json:JsonFile Id="OnePasswordApiKey" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.APIKEY]" />
 		<Json:JsonFile Id="OnePasswordVaultId" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
@@ -96,6 +100,10 @@
 		  <Json:JsonFile Id="CurrentDomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
 		  <Json:JsonFile Id="CurrentAuthenticationSchemeProd" ElementPath="$.AppSettings.AuthenticationScheme" File="[#DeployApiWebConfig]" Value="[DORC.AUTHENTICATION.SCHEME]" />
 		  <Json:JsonFile Id="CurrentOAuth2AuthorityProd" ElementPath="$.AppSettings.OAuth2.Authority" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
+		  <Json:JsonFile Id="CurrentOAuth2UiClientIdProd" ElementPath="$.AppSettings.OAuth2.UiClientId" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.CLIENT.ID]" />
+		  <Json:JsonFile Id="CurrentOAuth2UiRequestedScopesProd" ElementPath="$.AppSettings.OAuth2.UiRequestedScopes" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.REQUESTED.SCOPES]" />
+		  <Json:JsonFile Id="CurrentOAuth2ApiResourceNameProd" ElementPath="$.AppSettings.OAuth2.ApiResourceName" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.RESOURCE.NAME]" />
+		  <Json:JsonFile Id="CurrentOAuth2ApiGlobalScopeProd" ElementPath="$.AppSettings.OAuth2.ApiGlobalScope" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
 		  <Json:JsonFile Id="OnePasswordBaseUrlProd" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
 		  <Json:JsonFile Id="OnePasswordApiKeyProd" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.APIKEY]" />
 		  <Json:JsonFile Id="OnePasswordVaultIdProd" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />

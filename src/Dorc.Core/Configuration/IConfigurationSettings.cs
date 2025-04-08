@@ -9,6 +9,10 @@
         TimeSpan? GetADUserCacheTimeSpan();
         string? GetAuthenticationScheme();
         string? GetOAuthAuthority();
+        string? GetOAuthUiClientId();
+        string? GetOAuthUiRequestedScopes();
+        string? GetOAuthApiResourceName();
+        string? GetOAuthApiGlobalScope();
         string? GetOnePasswordBaseUrl();
         string? GetOnePasswordApiKey();
         string? GetOnePasswordVaultId();

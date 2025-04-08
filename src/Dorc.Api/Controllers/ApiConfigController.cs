@@ -31,7 +31,9 @@ namespace Dorc.Api.Controllers
             return new ApiConfigModel
             {
                 AuthenticationScheme = scheme == ConfigAuthScheme.Both ? ConfigAuthScheme.OAuth : scheme,
-                OAuthAuthority = _configurationSettings.GetOAuthAuthority()
+                OAuthAuthority = _configurationSettings.GetOAuthAuthority(),
+                OAuthUiClientId = _configurationSettings.GetOAuthUiClientId(),
+                OAuthUiRequestedScopes = _configurationSettings.GetOAuthUiRequestedScopes()
             };
         }
     }

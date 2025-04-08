@@ -1,5 +1,5 @@
 import { UserManagerSettings, UserManager, User } from 'oidc-client-ts';
-import { oauthSettings } from '../../OAuthSettings';
+import { OAuthConfigurableSettings, oauthSettings } from '../../OAuthSettings';
 import { catchError, from, Observable, tap } from 'rxjs';
 
 export const OAUTH_SCHEME = 'OAuth';
@@ -38,8 +38,17 @@ export class OAuthService {
    */
   public signIn(): void {
     console.log('signin redirect');
-    localStorage.setItem("idsrv.authority", this._mgr.settings.authority);
+    this.saveConfigurableSettings();
     this._mgr.signinRedirect().catch(err => console.error(err));
+  }
+
+  private saveConfigurableSettings() {
+    const configurableSettings: OAuthConfigurableSettings = {
+      authority: this._mgr.settings.authority,
+      client_id: this._mgr.settings.client_id,
+      scope: this._mgr.settings.scope
+    };
+    localStorage.setItem("idsrv.oauthsettings", JSON.stringify(configurableSettings));
   }
 
   /**
@@ -54,7 +63,7 @@ export class OAuthService {
           this._signedInUser = user;
         }
         console.log('signin response success');
-        localStorage.removeItem("idsrv.authority");
+        localStorage.removeItem("idsrv.oauthsettings");
         location.assign('/');
       })
       .catch(err => console.error(err));
@@ -85,7 +94,7 @@ export class OAuthService {
    * Signes out the user from Identity Provider
    */
   public signOut(): Observable<void> {
-    localStorage.setItem('idsrv.authority', this._mgr.settings.authority);
+    this.saveConfigurableSettings();
     return from(this._mgr.signoutRedirect()).pipe(
       tap(() => {
         console.log('signed out');
@@ -106,7 +115,7 @@ export class OAuthService {
       .signoutCallback()
       .then(() => {
         console.log('signout callback response success');
-        localStorage.removeItem("idsrv.authority");
+        localStorage.removeItem("idsrv.oauthsettings");
         location.assign('/');
       })
       .catch(err => console.error(err));
@@ -138,11 +147,8 @@ export class OAuthServiceContainer {
     return this._oauthService;
   }
 
-  public setAuthority(authority: string): void {
-    this._oauthService = new OAuthService({
-      ...oauthSettings,
-      authority: authority
-    });
+  public setSettings(settings: OAuthServiceSettings): void {
+    this._oauthService = new OAuthService(settings);
   }
 }
 

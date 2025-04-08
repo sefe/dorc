@@ -3,14 +3,20 @@ import { routes } from './routes.ts';
 import { router } from './router.ts';
 import { appConfig } from '../app-config';
 import { ApiConfigApi, ApiConfigModel } from '../apis/dorc-api';
-import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService';
+import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../services/Account/OAuthService';
+import { oauthSettings } from '../OAuthSettings.ts';
 
 new ApiConfigApi().apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
-    appConfig.oauthAuthority = apiConfig.OAuthAuthority ?? 'NotSet';
     if (appConfig.authenticationScheme == OAUTH_SCHEME) {
-      oauthServiceContainer.setAuthority(appConfig.oauthAuthority);
+      const settings: OAuthServiceSettings = {
+        ...oauthSettings,
+        authority: apiConfig.OAuthAuthority ?? '',
+        client_id: apiConfig.OAuthUiClientId ?? '',
+        scope: apiConfig.OAuthUiRequestedScopes ?? ''
+      };
+      oauthServiceContainer.setSettings(settings);
       oauthServiceContainer.service.getUser().subscribe(user => {
         if (!user || !user.access_token) {
           oauthServiceContainer.service.signIn();

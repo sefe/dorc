@@ -121,6 +121,22 @@
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
     },
     {
+      "MSIParameter": "DORC.OAUTH.UI.CLIENT.ID",
+      "DeployProperty": "DORC_OAUTH_UI_CLIENT_ID"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.UI.REQUESTED.SCOPES",
+      "DeployProperty": "DORC_OAUTH_UI_REQUESTED_SCOPES"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.API.RESOURCE.NAME",
+      "DeployProperty": "DORC_OAUTH_API_RESOURCE_NAME"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.API.GLOBAL.SCOPE",
+      "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
+    },
+    {
       "MSIParameter": "ONE.PASSWORD.BASE.URL",
       "DeployProperty": "ONE_PASSWORD_BASE_URL"
     },
