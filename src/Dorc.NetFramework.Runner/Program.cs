@@ -29,16 +29,6 @@ namespace Dorc.NetFramework.Runner
 
         private static void Main(string[] args)
         {
-            var loggerRegistry = new LoggerRegistry();
-            var config = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
-                .AddJsonFile("loggerSettings.json", optional: false)
-                .Build();
-
-            var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
-
-            Log.Logger = runnerLogger.Logger;
-
             try
             {
 #if LoggingForDebugging
@@ -65,6 +55,15 @@ namespace Dorc.NetFramework.Runner
                 }
 
                 options = arguments.Value;
+                var loggerRegistry = new LoggerRegistry();
+                var config = new ConfigurationBuilder()
+                    .AddJsonFile("appsettings.json")
+                    .AddJsonFile("loggerSettings.json", optional: false)
+                    .Build();
+
+                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
+
+                Log.Logger = runnerLogger.Logger;
 
                 var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
