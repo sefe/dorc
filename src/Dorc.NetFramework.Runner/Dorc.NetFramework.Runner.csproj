@@ -55,7 +55,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ScriptGroupProcessor.cs" />
-    <Compile Include="Startup\LoggerRegistry.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj">
@@ -66,9 +65,9 @@
       <Project>{6B2EC35D-930D-4387-B72F-975A8F16A25D}</Project>
       <Name>Dorc.NetFramework.PowerShell</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Dorc.PersistData.Dapper\Dorc.PersistData.Dapper.csproj">
-      <Project>{18B3A78A-FAC5-4FD8-88FA-84EF8C36A5D2}</Project>
-      <Name>Dorc.PersistData.Dapper</Name>
+    <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj">
+      <Project>{ddf154c7-9cc3-4c93-9611-96d576a29edf}</Project>
+      <Name>Dorc.Runner.Logger</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

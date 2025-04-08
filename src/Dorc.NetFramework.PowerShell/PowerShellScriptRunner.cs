@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.PersistData.Dapper;
+using Dorc.Runner.Logger;
 using Newtonsoft.Json;
 using Serilog;
 using Serilog.Core;
@@ -15,16 +14,14 @@ namespace Dorc.NetFramework.PowerShell
 {
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
-        private readonly ILogger logger;
-        private readonly IDapperContext dbContext;
+        private readonly IRunnerLogger logger;
         private int deploymentResultId;
 
         public StringWriter OutputObjects { get; private set; }
 
-        public PowerShellScriptRunner(ILogger logger, IDapperContext dbContext,int deploymentResultId)
+        public PowerShellScriptRunner(IRunnerLogger logger, int deploymentResultId)
         {
             this.logger = logger;
-            this.dbContext = dbContext;
             this.deploymentResultId = deploymentResultId;
         }
 
@@ -141,7 +138,7 @@ namespace Dorc.NetFramework.PowerShell
                     default:
                         break;
                 }
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
+                logger.UpdateLog(deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -157,7 +154,7 @@ namespace Dorc.NetFramework.PowerShell
                 var msg = GetOutput(data[e.Index]);
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Information(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
+                logger.UpdateLog(deploymentResultId, msg);
             }
             catch (Exception exception)
             {

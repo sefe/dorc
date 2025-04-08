@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using OpenSearch.Client;
 using Serilog;
 using Serilog.Events;
+using System;
 
 namespace Dorc.Runner.Logger
 {

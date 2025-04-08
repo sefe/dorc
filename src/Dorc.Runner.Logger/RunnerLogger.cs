@@ -51,7 +51,7 @@ namespace Dorc.Runner.Logger
             this.Logger.Information(message);
             SendDataToOpenSearch(message, LogType.Info);
         }
-        public void Information(string message, params object?[]? values)
+        public void Information(string message, params object[] values)
         {
             this.Logger.Information(message, values);
             if (values != null && values.Length > 0)
@@ -82,7 +82,7 @@ namespace Dorc.Runner.Logger
             this.Logger.Error(message, exception);
             SendDataToOpenSearch(message, LogType.Error, exception);
         }
-        public void Error(Exception exception, string message, params object?[]? values)
+        public void Error(Exception exception, string message, params object[] values)
         {
             this.Logger.Error(exception, message, values);
             if (values != null && values.Length > 0)
@@ -97,7 +97,7 @@ namespace Dorc.Runner.Logger
             SendDataToOpenSearch(message, LogType.Debug);
         }
 
-        private void SendDataToOpenSearch(string message, LogType type = LogType.Info, Exception? exception = null)
+        private void SendDataToOpenSearch(string message, LogType type = LogType.Info, Exception exception = null)
         {
             try
             {
