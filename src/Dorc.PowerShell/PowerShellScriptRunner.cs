@@ -1,4 +1,5 @@
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Runner.Logger;
 using Newtonsoft.Json;
 using Serilog;
 using System.Management.Automation;
@@ -8,10 +9,10 @@ namespace Dorc.PowerShell
 {
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
-        private readonly ILogger logger;
+        private readonly IRunnerLogger logger;
         private readonly OutputProcessor outputProcessor;
 
-        public PowerShellScriptRunner(ILogger logger, OutputProcessor outputProc)
+        public PowerShellScriptRunner(IRunnerLogger logger, OutputProcessor outputProc)
         {
             this.logger = logger;
             this.outputProcessor = outputProc;

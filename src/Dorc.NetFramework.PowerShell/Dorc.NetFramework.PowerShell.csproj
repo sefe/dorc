@@ -80,9 +80,9 @@
       <Project>{DC799176-4464-4129-9436-2EE7D6F83149}</Project>
       <Name>Dorc.ApiModel</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Dorc.PersistData.Dapper\Dorc.PersistData.Dapper.csproj">
-      <Project>{18B3A78A-FAC5-4FD8-88FA-84EF8C36A5D2}</Project>
-      <Name>Dorc.PersistData.Dapper</Name>
+    <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj">
+      <Project>{ddf154c7-9cc3-4c93-9611-96d576a29edf}</Project>
+      <Name>Dorc.Runner.Logger</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

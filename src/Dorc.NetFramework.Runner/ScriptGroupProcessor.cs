@@ -3,32 +3,30 @@ using System.Linq;
 using Dorc.ApiModel;
 using Dorc.NetFramework.PowerShell;
 using Dorc.NetFramework.Runner.Pipes;
-using Dorc.PersistData.Dapper;
-using Serilog;
+using Dorc.Runner.Logger;
 using Serilog.Context;
 
 namespace Dorc.NetFramework.Runner
 {
     internal class ScriptGroupProcessor : IScriptGroupProcessor
     {
-        private readonly ILogger logger;
+        private readonly IRunnerLogger logger;
         private readonly IScriptGroupPipeClient scriptGroupPipeClient;
-        private readonly IDapperContext dbContext;
 
         internal ScriptGroupProcessor(
-            ILogger logger,
-            IDapperContext dbContext,
+            IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient)
         {
             this.logger = logger;
             this.scriptGroupPipeClient = scriptGroupPipeClient;
-            this.dbContext = dbContext;
         }
 
         public void Process(string pipeName,int requestId)
         {
             ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
-            var deploymentResultId = scriptGroupProperties.DeployResultId;
+            var deploymentResultId = scriptGroupProperties.DeployResultId; 
+            this.logger.SetRequestId(requestId);
+            this.logger.SetDeploymentResultId(deploymentResultId);
 
             using (LogContext.PushProperty("RequestId", requestId)) 
             using(LogContext.PushProperty("DeploymentResultId", deploymentResultId))
@@ -47,7 +45,7 @@ namespace Dorc.NetFramework.Runner
 
                     logger.Information("ScriptGroup is received.");
 
-                    var scriptRunner = new PowerShellScriptRunner(logger, dbContext, deploymentResultId);
+                    var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
 
                     scriptRunner.Run(
                         scriptGroupProperties.ScriptsLocation,
@@ -57,8 +55,8 @@ namespace Dorc.NetFramework.Runner
                 }
                 catch (Exception e)
                 {
-                    logger.Error("An Exception has Occured: {0}",e.Message);
-                    dbContext.UpdateLog(logger,deploymentResultId, $"An Exception Occured running the deployment {e.Message}");
+                    logger.Error($"An Exception has Occured: {e.Message}");
+                    logger.UpdateLog(deploymentResultId, $"An Exception Occured running the deployment {e.Message}");
                     throw;
                 }
             }
