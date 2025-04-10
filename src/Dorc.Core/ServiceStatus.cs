@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -163,30 +164,28 @@ namespace Dorc.Core
 
         private List<ServicesAndStatus> GetServicesAndStatusForEnvironment(List<ServicesAndStatus> sas)
         {
-            var ping = new Ping();
-            var serviceController = new ServiceController();
-
-            var iResults = new List<ServicesAndStatus>();
+            var iResults = new ConcurrentBag<ServicesAndStatus>();
 
             try
             {
-                foreach (var sa in sas)
+                Parallel.ForEach(sas, sa =>
                 {
                     try
                     {
+                        var ping = new Ping();
                         var oPingReply = ping.Send(sa.ServerName ?? string.Empty, 5000);
                         if (oPingReply == null || oPingReply.Status != IPStatus.Success)
-                            continue;
+                            return;
 
                         try
                         {
                             _logger.Debug("Server is alive: " + sa.ServerName);
 
-                            _logger.Debug(sa.ServiceName);
-                            serviceController.MachineName = sa.ServerName;
-                            serviceController.ServiceName = sa.ServiceName;
-                            sa.ServiceStatus = serviceController.Status.ToString();
-                            iResults.Add(sa);
+                            using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName))
+                            {
+                                sa.ServiceStatus = serviceController.Status.ToString();
+                                iResults.Add(sa);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -195,21 +194,20 @@ namespace Dorc.Core
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
                         }
-
                     }
                     catch (Exception ex)
                     {
                         _logger.Debug("Error, couldn't ping: " + sa.ServerName +
                                      Environment.NewLine + ex.Message);
                     }
-                }
+                });
             }
             catch (Exception ex)
             {
                 _logger.Info("Error building list of servers/services" + Environment.NewLine + ex.Message);
             }
 
-            return iResults;
+            return iResults.ToList();
         }
 
         /// <summary>
