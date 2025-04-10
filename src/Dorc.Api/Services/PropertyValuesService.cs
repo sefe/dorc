@@ -20,6 +20,7 @@ namespace Dorc.Api.Services
         private readonly IPropertyValuesAuditPersistentSource _propertyValuesAuditPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly ILog _log; 
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public PropertyValuesService(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
             IPropertiesPersistentSource propertiesPersistentSource,
@@ -27,7 +28,9 @@ namespace Dorc.Api.Services
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            ILog log)
+            ILog log,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesAuditPersistentSource = propertyValuesAuditPersistentSource;
@@ -37,13 +40,14 @@ namespace Dorc.Api.Services
             _propertyEncryptor = propertyEncryptor;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _log = log;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName,
             ClaimsPrincipal user)
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             var allSids = string.Join(";", userSids);
 
@@ -144,11 +148,12 @@ namespace Dorc.Api.Services
                     }
 
                     var propertyApiModel = _propertiesPersistentSource.GetProperty(filteredPropertyValues?.Property.Name);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     if (filteredPropertyValues != null)
                         _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
                             filteredPropertyValues.Id, filteredPropertyValues.Property.Name,
                             filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
-                            user.Identity.Name, "Delete");
+                            username, "Delete");
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }
@@ -217,10 +222,11 @@ namespace Dorc.Api.Services
                     var newVariableValue = _propertyValuesPersistentSource.AddPropertyValue(propertyValueDto);
 
                     var propertyApiModel = _propertiesPersistentSource.GetProperty(newVariableValue.Property.Name);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
                         newVariableValue.Id, newVariableValue.Property.Name,
                         newVariableValue.PropertyValueFilter, string.Empty, newVariableValue.Value,
-                        user.Identity.Name, "Insert");
+                        username, "Insert");
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }
@@ -294,10 +300,11 @@ namespace Dorc.Api.Services
                         continue; // don't update if attempting to set the same value
 
                     var propertyApiModel = _propertiesPersistentSource.GetProperty(dbPropertyValueModel.Property.Name);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
                         dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
                         dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
-                        user.Identity.Name, "Update");
+                        username, "Update");
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }

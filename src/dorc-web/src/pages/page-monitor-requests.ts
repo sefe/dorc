@@ -28,6 +28,7 @@ import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { TextField } from '@vaadin/text-field';
+import { getShortLogonName } from '../helpers/user-extensions.js';
 
 const username = 'Username';
 const status = 'Status';
@@ -226,7 +227,7 @@ export class PageMonitorRequests extends LitElement {
             .subscribe({
               next: (data: GetRequestStatusesListResponseDto) => {
                 data.Items?.map(
-                  item => (item.UserName = item.UserName?.split('\\')[1])
+                  item => (item.UserName = getShortLogonName(item.UserName))
                 );
                 callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
                 
