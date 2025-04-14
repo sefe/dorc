@@ -8,6 +8,7 @@ import { DorcNavbar } from './dorc-navbar.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
+import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
 
 let dorcNavbar: DorcNavbar;
 
@@ -114,6 +115,7 @@ export class DorcApp extends ShortcutsStore {
             ${this.userRoles}
           </tr>
         </table>
+        <vaadin-button ?hidden="${!this.showSignOutButton}" @click="${this.signOut}">Sign Out</vaadin-button>
         <a
           class="plain"
           href="${this.dorcHelperPage}"
@@ -188,5 +190,11 @@ export class DorcApp extends ShortcutsStore {
       },
       error: (err: string) => console.error(err),
     });
+  }
+
+  @property({ type: Boolean }) showSignOutButton = appConfig.authenticationScheme == OAUTH_SCHEME;
+
+  private signOut() {
+    oauthServiceContainer.service.signOut();
   }
 }

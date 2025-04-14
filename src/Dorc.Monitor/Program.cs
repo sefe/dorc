@@ -89,6 +89,7 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
 });
 
 builder.Services.AddHostedService<MonitorService>();
+builder.Services.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
 
 IHost host = builder.Build();
 host.Run();

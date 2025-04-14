@@ -20,19 +20,23 @@ namespace Dorc.PersistentData.Sources
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IPropertyValuesPersistentSource propertyValuesPersistentSource;
         private readonly ILog logger;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public EnvironmentsPersistentSource(
             IDeploymentContextFactory contextFactory,
             ISecurityObjectFilter objectFilter,
             IRolePrivilegesChecker rolePrivilegesChecker,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            ILog logger)
+            ILog logger,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             this.propertyValuesPersistentSource = propertyValuesPersistentSource;
             _rolePrivilegesChecker = rolePrivilegesChecker;
             this.objectFilter = objectFilter;
             this.contextFactory = contextFactory;
             this.logger = logger;
+            this._claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public EnvironmentApiModel GetEnvironment(string environmentName)
@@ -59,12 +63,11 @@ namespace Dorc.PersistentData.Sources
                 }
                 else
                 {
-                    var userSplit = user.Identity.Name.Split('\\');
-                    var userName = userSplit[1];
+                    string username = _claimsPrincipalReader.GetUserName(user);
 
                     var ownedEnvDetailNames =
                         allEnvironments
-                            .Where(ed => ed.Owner.Contains(userName, StringComparison.InvariantCultureIgnoreCase))
+                            .Where(ed => ed.Owner.Contains(username, StringComparison.InvariantCultureIgnoreCase))
                             .Select(ed => ed.Name);
                     accessible.AddRange(allEnvironments.Where(e => ownedEnvDetailNames.Contains(e.Name)));
                 }
@@ -138,10 +141,9 @@ namespace Dorc.PersistentData.Sources
                 var env = EnvironmentUnifier.GetEnvironment(context, envName);
                 if (env == null) return false;
 
-                var userSplit = user.Identity.Name.Split('\\');
-                var userName = userSplit[1];
+                string username = _claimsPrincipalReader.GetUserName(user);
 
-                return env.Owner.Equals(userName, StringComparison.InvariantCultureIgnoreCase);
+                return env.Owner.Equals(username, StringComparison.InvariantCultureIgnoreCase);
             }
         }
 
@@ -156,9 +158,10 @@ namespace Dorc.PersistentData.Sources
                 if (envDetail == null)
                     return false;
 
+                string userFullDomainName = _claimsPrincipalReader.GetUserFullDomainName(updatedBy);
                 EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
                     "Owner Updated to " + user.DisplayName + " from " + envDetail.Owner,
-                    updatedBy.Identity.Name, "Env Owner Update", context);
+                    userFullDomainName, "Env Owner Update", context);
 
                 envDetail.Owner = user.Username;
 
@@ -178,9 +181,10 @@ namespace Dorc.PersistentData.Sources
                     var server = context.Servers.Find(serverId);
                     server.Environments.Add(envDetail);
 
+                    string username = _claimsPrincipalReader.GetUserName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
                         "Server " + server.Name + " attached to environment ",
-                        user.Identity.Name, "Attach Server To Env", context);
+                        username, "Attach Server To Env", context);
 
                     context.SaveChanges();
                     return GetEnvironment(envId, user);
@@ -202,9 +206,10 @@ namespace Dorc.PersistentData.Sources
                     var server = context.Servers.Find(serverId);
                     server.Environments.Remove(envDetail);
 
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
                         "Server " + server.Name + " detached from environment ",
-                        user.Identity.Name, "Detach Server From Env", context);
+                        username, "Detach Server From Env", context);
 
                     context.SaveChanges();
                     return GetEnvironment(envId, user);
@@ -227,10 +232,11 @@ namespace Dorc.PersistentData.Sources
                         "The specified database is already attached to the specified environment.");
                 }
 
+                string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                 envDetail.Databases.Add(db);
                 EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
                     "Database " + db.ServerName + ":" + db.Name + " attached to environment ",
-                    user.Identity.Name, "Attach Database To Env", context);
+                    username, "Attach Database To Env", context);
 
                 context.SaveChanges();
                 return GetEnvironment(envId, user);
@@ -251,9 +257,10 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 db.Environments.Remove(envToRemove);
+                string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                 EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
                     "Database " + db.ServerName + ":" + db.Name + " detached from environment ",
-                    user.Identity.Name, "Detach Database From Env", context);
+                    username, "Detach Database From Env", context);
 
                 context.SaveChanges();
                 return GetEnvironment(envId, user);
@@ -262,8 +269,8 @@ namespace Dorc.PersistentData.Sources
 
         public IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user)
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
             using (var context = contextFactory.GetContext())
             {
                 var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
@@ -281,8 +288,8 @@ namespace Dorc.PersistentData.Sources
         public IEnumerable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             string projectName, IPrincipal user, AccessLevel accessLevel)
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
             var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
             var output = (
@@ -333,8 +340,8 @@ namespace Dorc.PersistentData.Sources
 
         public EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user)
         {
-            var username = user.GetUsername();
-            var userSids = user.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
             using (var context = contextFactory.GetContext())
             {
                 var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
@@ -420,7 +427,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, IPrincipal principal)
+        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, IPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -437,14 +444,15 @@ namespace Dorc.PersistentData.Sources
 
                     context.Environments.Add(e);
 
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(e, string.Empty,
                         "Environment created",
-                        principal.Identity.Name, "Create Environment", context);
+                        username, "Create Environment", context);
 
                     context.SaveChanges();
                 }
 
-                return GetEnvironment(env.EnvironmentName, principal);
+                return GetEnvironment(env.EnvironmentName, user);
             }
         }
 
@@ -456,9 +464,10 @@ namespace Dorc.PersistentData.Sources
 
                 if (env.EnvironmentName != environment.Name)
                 {
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(environment, string.Empty,
                         "Environment Name Updated to " + env.EnvironmentName + " from " + environment.Name,
-                        user.Identity.Name, "Env Name Update", context);
+                        username, "Env Name Update", context);
 
                     // Need to also update the env properties
                     propertyValuesPersistentSource.ReassignPropertyValues(context, environment, env.EnvironmentName);
@@ -778,7 +787,8 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                var userSids = user.GetSidsForUser();
+                string username = _claimsPrincipalReader.GetUserName(user);
+                var userSids = username.GetSidsForUser();
                 var accessLevelRequired = AccessLevel.Write;
 
                 var allRelatedEnvs = context.Environments
@@ -818,6 +828,7 @@ namespace Dorc.PersistentData.Sources
                 if (childEnv is null)
                     throw new ArgumentException("Child environment not found.");
 
+                string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                 if (parentEnvId.HasValue)
                 {
                     var envChain = context.GetFullEnvironmentChain(parentEnvId.Value);
@@ -845,7 +856,7 @@ namespace Dorc.PersistentData.Sources
                     childEnv.ParentId = parentEnvId;
                     EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
                         "Attached as a child to parent environment " + parentEnv.Name,
-                        user.Identity.Name, "Attach Child Environment", context);
+                        username, "Attach Child Environment", context);
                 }
                 else
                 {
@@ -858,7 +869,7 @@ namespace Dorc.PersistentData.Sources
                     childEnv.ParentId = null;
                     EnvironmentHistoryPersistentSource.AddHistory(childEnv, string.Empty,
                         "Child environment detached from its parent.",
-                        user.Identity.Name, "Detach Child Environment", context);
+                        username, "Detach Child Environment", context);
                 }
 
                 context.SaveChanges();

@@ -5,6 +5,7 @@ export * from './AccountGranularity';
 export * from './ActiveDirectoryElementApiModel';
 export * from './AnalyticsDeploymentsPerProjectApiModel';
 export * from './ApiBoolResult';
+export * from './ApiConfigModel';
 export * from './ApiEndpoints';
 export * from './BundledRequestType';
 export * from './BundledRequestsApiModel';

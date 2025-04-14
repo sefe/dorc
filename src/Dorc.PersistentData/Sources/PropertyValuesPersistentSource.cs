@@ -1,16 +1,15 @@
-﻿using Dorc.ApiModel;
+﻿using System.Collections.Concurrent;
+using System.Linq.Expressions;
+using System.Security.Principal;
+using System.Text.Json;
+using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Concurrent;
-using System.Linq.Expressions;
-using System.Security.Principal;
-using System.Text.Json;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Property = Dorc.PersistentData.Model.Property;
-using System.Linq;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -21,12 +20,17 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IPropertyEncryptor _encrypt;
         private readonly Dictionary<PropertyFilter, string> _filters = new Dictionary<PropertyFilter, string>();
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public PropertyValuesPersistentSource(IDeploymentContextFactory contextFactory,
-            IPropertyEncryptor propertyEncrypt)
+        public PropertyValuesPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IPropertyEncryptor propertyEncrypt,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _contextFactory = contextFactory;
             _encrypt = propertyEncrypt;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public bool Remove(long? propertyValueId)
@@ -350,10 +354,10 @@ namespace Dorc.PersistentData.Sources
         }
 
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForScopeByPage(int limit, int page,
-            PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal principal)
+            PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal user)
         {
-            var userName = principal.GetUsername();
-            var userSids = principal.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -366,10 +370,10 @@ namespace Dorc.PersistentData.Sources
                                    propertyFilter.Id
                                join environment in context.Environments on propertyValueFilter.Value equals
                                    environment.Name
-                               let isOwner = environment.Owner == userName
+                               let isOwner = environment.Owner == username
                                let isDelegate =
                                    (from env in context.Environments
-                                    where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(userName)
+                                    where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                     select env.Name).Any()
                                let hasPermission =
                                    (from env in context.Environments
@@ -522,10 +526,10 @@ namespace Dorc.PersistentData.Sources
         }
 
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForSearchValueByPage(int limit, int page,
-            PagedDataOperators operators, IPrincipal principal)
+            PagedDataOperators operators, IPrincipal user)
         {
-            var userName = principal.GetUsername();
-            var userSids = principal.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -540,10 +544,10 @@ namespace Dorc.PersistentData.Sources
                                        propertyFilter.Id
                                    join environment in context.Environments on propertyValueFilter.Value equals
                                        environment.Name
-                                   let isOwner = environment.Owner == userName
+                                   let isOwner = environment.Owner == username
                                    let isDelegate =
                                        (from env in context.Environments
-                                        where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(userName)
+                                        where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                         select env.Name).Any()
                                    let hasPermission =
                                        (from env in context.Environments
