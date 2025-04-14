@@ -151,6 +151,22 @@
     {
       "MSIParameter": "ONE.PASSWORD.ITEM.ID",
       "DeployProperty": "ONE_PASSWORD_ITEM_ID"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.URI",
+      "DeployProperty": "OPENSEARCH_URI"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.USERNAME",
+      "DeployProperty": "OPENSEARCH_USERNAME"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.PASSWORD",
+      "DeployProperty": "OPENSEARCH_PASSWORD"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.DEPLOYMENTRESULTINDEX",
+      "DeployProperty": "OPENSEARCH_DEPLOYMENTRESULTINDEX"
     }
   ]
 }
