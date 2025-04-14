@@ -1,6 +1,7 @@
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
@@ -25,13 +26,15 @@ namespace Dorc.Api.Controllers
         private readonly ILog _logger;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IConfigurationSettings _configurationSettingsEngine;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ResetAppPasswordController(IDatabasesPersistentSource databasesPersistentSource,
             ISqlUserPasswordReset sqlUserPasswordReset,
             IConfigValuesPersistentSource configValuesPersistentSource,
             ILog logger,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IConfigurationSettings configurationSettingsEngine)
+            IConfigurationSettings configurationSettingsEngine,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _logger = logger;
@@ -39,6 +42,7 @@ namespace Dorc.Api.Controllers
             _sqlUserPasswordReset = sqlUserPasswordReset;
             _databasesPersistentSource = databasesPersistentSource;
             _configurationSettingsEngine = configurationSettingsEngine;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -51,12 +55,13 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(string envFilter, string envName)
         {
-            var userSplit = User?.Identity?.Name?.Split('\\');
-            if (userSplit == null)
+            string username = _claimsPrincipalReader.GetUserName(User);
+            if (string.IsNullOrEmpty(username))
+            {
                 return Ok(new ApiBoolResult
                     { Message = "You are not currently setup in this environment", Result = false });
-            var userName = userSplit[1];
-            return ResetPassword(envFilter, envName, userName);
+            }
+            return ResetPassword(envFilter, envName, username);
         }
 
         /// <summary>

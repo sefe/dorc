@@ -11,10 +11,15 @@ namespace Dorc.PersistentData.Sources
     public class UsersPersistentSource : IUsersPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public UsersPersistentSource(IDeploymentContextFactory contextFactory)
+        public UsersPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _contextFactory = contextFactory;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public UserApiModel GetUser(string lanId)
@@ -91,12 +96,11 @@ namespace Dorc.PersistentData.Sources
                     .Where(e => e.Environments.Any(en => en.Id == env.Id))
                     .Select(u => u);
 
-                var userSplit = user.Identity.Name.Split('\\');
-                var userName = userSplit[1];
+                string username = _claimsPrincipalReader.GetUserName(user);
 
                 return users.Any(user =>
                     EF.Functions.Collate(user.LanId, DeploymentContext.CaseInsensitiveCollation)
-                    == EF.Functions.Collate(userName, DeploymentContext.CaseInsensitiveCollation));
+                    == EF.Functions.Collate(username, DeploymentContext.CaseInsensitiveCollation));
             }
         }
 
@@ -188,9 +192,10 @@ namespace Dorc.PersistentData.Sources
 
                 environmentDetails.Users.Add(user);
 
+                var username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                 EnvironmentHistoryPersistentSource.AddHistory(environmentDetails, string.Empty,
                     "Adding Delegated user " + user.DisplayName,
-                    principal.Identity.Name, "Add Delegated User", context);
+                    username, "Add Delegated User", context);
 
                 context.SaveChanges();
                 return MapToUserApiModel(user);
@@ -208,9 +213,10 @@ namespace Dorc.PersistentData.Sources
                 if (user == null)
                     return false;
 
+                string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                 EnvironmentHistoryPersistentSource.AddHistory(environmentDetails, string.Empty,
                     "Removing Delegated user " + user.DisplayName,
-                    principal.Identity.Name, "Remove Delegated User", context);
+                    username, "Remove Delegated User", context);
 
                 environmentDetails.Users.Remove(user);
                 context.SaveChanges();

@@ -1,10 +1,9 @@
-﻿using Dorc.ApiModel;
+﻿using System.Security.Principal;
+using Dorc.ApiModel;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
-using System.Security.Claims;
-using System.Security.Principal;
 
 namespace Dorc.PersistentData
 {
@@ -12,13 +11,17 @@ namespace Dorc.PersistentData
     {
         private readonly IAccessControlPersistentSource accessControlPersistentSource;
         private readonly ILog logger;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public SecurityObjectFilter(
                    IAccessControlPersistentSource accessControlPersistentSource,
-                   ILog logger)
+                   ILog logger,
+                   IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             this.accessControlPersistentSource = accessControlPersistentSource;
             this.logger = logger;
+            this._claimsPrincipalReader = claimsPrincipalReader;
         }
 
         #region Implementation of ISecurityObjectFilter
@@ -30,7 +33,7 @@ namespace Dorc.PersistentData
                 return true;
             }
 
-            var userAccessControls = GetUserAccessControls(securityObject, user.Identity as ClaimsIdentity);
+            var userAccessControls = GetUserAccessControls(securityObject, user);
 
             var allowed = 0;
             var denied = 0;
@@ -52,15 +55,16 @@ namespace Dorc.PersistentData
             return (b & pos) != 0;
         }
 
-        private IEnumerable<AccessControlApiModel> GetUserAccessControls<T>(T securityObject, ClaimsIdentity identity)
+        private IEnumerable<AccessControlApiModel> GetUserAccessControls<T>(T securityObject, IPrincipal user)
             where T : SecurityObject
         {
             // Get access control entries for the object
             var accessControls = accessControlPersistentSource.GetAccessControls(securityObject.ObjectId).ToArray();
 
-            var sidsForUser = identity.Name.Split('\\')[1].GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
-            var userAccessControls = accessControls.Where(accessControl => sidsForUser.Contains(accessControl.Sid)).ToList();
+            var userAccessControls = accessControls.Where(accessControl => userSids.Contains(accessControl.Sid)).ToList();
 
             return userAccessControls;
         }

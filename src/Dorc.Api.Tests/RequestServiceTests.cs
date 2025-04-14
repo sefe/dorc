@@ -4,6 +4,7 @@ using Dorc.Api.Services;
 using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
@@ -22,6 +23,7 @@ namespace Dorc.Api.Tests
         {
             var mockContextFactory = Substitute.For<IDeploymentContextFactory>();
             var mockDeployContext = Substitute.For<IDeploymentContext>();
+            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
 
             int id = 1;
 
@@ -42,7 +44,7 @@ namespace Dorc.Api.Tests
 
             try
             {
-                IRequestsPersistentSource testService = new RequestsPersistentSource(mockContextFactory);
+                IRequestsPersistentSource testService = new RequestsPersistentSource(mockContextFactory, mockClaimsPrincipalReader);
                 var result = testService.GetRequestStatus(id);
                 Assert.AreEqual(id, result.Id);
                 Assert.AreEqual("Running", result.Status);

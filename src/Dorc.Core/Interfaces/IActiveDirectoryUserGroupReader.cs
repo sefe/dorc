@@ -1,4 +1,4 @@
-﻿namespace Dorc.Api.Interfaces
+﻿namespace Dorc.Core.Interfaces
 {
     public interface IActiveDirectoryUserGroupReader
     {
