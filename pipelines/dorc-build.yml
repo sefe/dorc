@@ -86,6 +86,8 @@ steps:
     projectKey: sh.devops.dorc
     projectName: sh.devops.dorc
     projectVersion: '$(Build.BuildNumber)'
+    extraProperties: |
+      sonar.sources=src/dorc-web,src
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
 
 - task: FileTransform@2
