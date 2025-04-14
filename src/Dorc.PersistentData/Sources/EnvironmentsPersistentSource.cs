@@ -175,7 +175,13 @@ namespace Dorc.PersistentData.Sources
                 try
                 {
                     var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-                    var server = context.Servers.Find(serverId);
+                    var server = context.Servers
+                        .Include(s => s.Environments)
+                        .FirstOrDefault(s => s.Id == serverId);
+
+                    if (server == null)
+                        throw new ArgumentOutOfRangeException(nameof(serverId), "Invalid or unknown server Id specified.");
+
                     server.Environments.Add(envDetail);
 
                     string username = _claimsPrincipalReader.GetUserName(user);
@@ -200,7 +206,13 @@ namespace Dorc.PersistentData.Sources
                 try
                 {
                     var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-                    var server = context.Servers.Find(serverId);
+                    var server = context.Servers
+                        .Include(s => s.Environments)
+                        .FirstOrDefault(s => s.Id == serverId);
+
+                    if (server == null)
+                        throw new ArgumentOutOfRangeException(nameof(serverId), "Invalid or unknown server Id specified.");
+
                     server.Environments.Remove(envDetail);
 
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
