@@ -89,7 +89,7 @@ steps:
     extraProperties: |
       sonar.sources=src/dorc-web
       sonar.exclusions=src/dorc-web/.gitignore
-  # condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
 
 - task: FileTransform@2
   displayName: 'Transform settings for tests during build time'
@@ -122,7 +122,7 @@ steps:
 - task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2
   displayName: 'Complete the SonarQube analysis'
   continueOnError: true
-  # condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
 
 - task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
   displayName: 'Copy Install Scripts'
