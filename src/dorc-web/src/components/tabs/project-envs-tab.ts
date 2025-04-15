@@ -3,7 +3,7 @@ import '@vaadin/icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
-import { urlForName } from '../../router';
+import { urlForName } from '../../router/router';
 import '@vaadin/icon';
 
 @customElement('project-envs-tab')
@@ -19,8 +19,9 @@ export class ProjectEnvsTab extends LitElement {
         width: 100%;
       }
       vaadin-icon {
-        width: var(--lumo-icon-size-m);
-        height: var(--lumo-icon-size-m);
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        font-size: var(--lumo-font-size-s);
       }
     `;
   }
@@ -38,8 +39,9 @@ export class ProjectEnvsTab extends LitElement {
           ${this.project?.ProjectName}
         </a>
         <vaadin-icon
-          style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
+          style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px; min-height: var(--lumo-size-xs);"
           icon="vaadin:close-small"
+          theme="small"
           @click="${this.removeProjEnvs}"
         ></vaadin-icon>
       </div>

@@ -7,7 +7,8 @@ import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
-import AppConfig from '../app-config';
+import { appConfig } from '../app-config.ts';
+import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
 
 let dorcNavbar: DorcNavbar;
 
@@ -114,6 +115,7 @@ export class DorcApp extends ShortcutsStore {
             ${this.userRoles}
           </tr>
         </table>
+        <vaadin-button ?hidden="${!this.showSignOutButton}" @click="${this.signOut}">Sign Out</vaadin-button>
         <a
           class="plain"
           href="${this.dorcHelperPage}"
@@ -139,16 +141,16 @@ export class DorcApp extends ShortcutsStore {
     super();
     this.getUserEmail();
     this.getUserRoles();
-    this.dorcHelperPage = new AppConfig().dorcHelperPage;
+    this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
+    super.firstUpdated(_changedProperties);
+
     this.dorcNavbar = this.shadowRoot?.getElementById(
       'dorcNavbar'
     ) as DorcNavbar;
     dorcNavbar = this.dorcNavbar;
-
-    super.firstUpdated(_changedProperties);
 
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {
@@ -172,12 +174,12 @@ export class DorcApp extends ShortcutsStore {
 
   private getUserRoles() {
     const api = new RefDataRolesApi();
-    api.refDataRolesGet().subscribe(
-      (data: string[]) => {
+    api.refDataRolesGet().subscribe({
+      next: (data: string[]) => {
         this.userRoles = data.join(' | ');
       },
-      (err: string) => console.error(err)
-    );
+      error: (err: string) => console.error(err)
+    });
   }
 
   private getUserEmail() {
@@ -187,7 +189,12 @@ export class DorcApp extends ShortcutsStore {
         this.userEmail = value;
       },
       error: (err: string) => console.error(err),
-      complete: () => {}
     });
+  }
+
+  @property({ type: Boolean }) showSignOutButton = appConfig.authenticationScheme == OAUTH_SCHEME;
+
+  private signOut() {
+    oauthServiceContainer.service.signOut();
   }
 }

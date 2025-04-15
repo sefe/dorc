@@ -55,24 +55,27 @@ export class PageProjectsList extends PageElement {
 
   constructor() {
     super();
-
-    GlobalCache.getInstance().allRolesResp?.subscribe((data: Array<string>) => {
-      this.userRoles = data;
-
-      if (this.userRoles.find(p => p === 'Admin') === undefined) {
-        this.isAdmin = false;
-      } else {
-        this.isAdmin = true;
-      }
-
-      if (this.userRoles.find(p => p === 'PowerUser') === undefined) {
-        this.isPowerUser = false;
-      } else {
-        this.isPowerUser = true;
-      }
-    });
-
+    this.getUserRoles();
     this.getProjects();
+  }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -214,14 +217,6 @@ export class PageProjectsList extends PageElement {
               multi-sort
               theme="compact row-stripes no-row-borders no-border"
             >
-              <vaadin-grid-sort-column
-                width="50px"
-                flex-grow="0"
-                path="ProjectId"
-                header="Id"
-                style="color:lightgray"
-                resizable
-              ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ProjectName"
                 header="Name"

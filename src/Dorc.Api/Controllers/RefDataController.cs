@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -17,13 +18,19 @@ namespace Dorc.Api.Controllers
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RefDataController(
-            IManageProjectsPersistentSource manageProjectsPersistentSource, IProjectsPersistentSource projectsPersistentSource, ISecurityPrivilegesChecker securityPrivilegesChecker)
+            IManageProjectsPersistentSource manageProjectsPersistentSource,
+            IProjectsPersistentSource projectsPersistentSource,
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _projectsPersistentSource = projectsPersistentSource;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -62,7 +69,8 @@ namespace Dorc.Api.Controllers
 
             try
             {
-                _manageProjectsPersistentSource.InsertRefDataAudit(User.Identity.Name, HttpRequestType.Put,
+                string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Put,
                     refData);
                 _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Put);
 
@@ -123,7 +131,8 @@ namespace Dorc.Api.Controllers
 
             refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
 
-            _manageProjectsPersistentSource.InsertRefDataAudit(User.Identity.Name, HttpRequestType.Post,
+            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+            _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Post,
                 refData);
 
             return StatusCode(StatusCodes.Status200OK, refData);

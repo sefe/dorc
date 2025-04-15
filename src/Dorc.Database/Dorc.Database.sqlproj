@@ -303,8 +303,6 @@
     <Build Include="deploy\Tables\RefDataAudit.sql" />
     <Build Include="deploy\Stored Procedures\AppendRequestLog.sql" />
     <Build Include="deploy\Stored Procedures\get_global_properties.sql" />
-    <Build Include="deploy\Stored Procedures\get_environment_properties_for_user.sql" />
-    <Build Include="deploy\Stored Procedures\get_property_values_by_PropertyName_for_user.sql" />
     <Build Include="deploy\Stored Procedures\get_environment_properties.sql" />
     <Build Include="deploy\Stored Procedures\get_property_values_by_PropertyName.sql" />
     <Build Include="dbo\Stored Procedures\usp_Delete_Environment_Database_Map.sql" />
@@ -374,6 +372,8 @@
     </Build>
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentResult_DeploymentRequestId.sql" />
     <Build Include="deploy\Tables\BundledRequests.sql" />
+    <Build Include="deploy\Stored Procedures\GetFullEnvironmentChain.sql" />
+    <Build Include="deploy\Stored Procedures\get_property_values_for_user_with_inheritance.sql" />
     <Build Include="Schema Objects\Schemas\archive\Tables\DeploymentRequest.table.sql" />
     <Build Include="Schema Objects\Schemas\archive\Tables\DeploymentResult.table.sql" />
     <Build Include="deploy\Stored Procedures\ArchiveDeploymentRequests.sql" />
@@ -384,6 +384,8 @@
       <SubType>NotInBuild</SubType>
     </None>
     <Build Include="Schema Objects\Database Level Objects\Security\Schemas\archive.schema.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValueFilter_PropertyValueId.index.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValue_PropertyId.index.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Pre-Deployment\Script.PreDeployment.sql" />

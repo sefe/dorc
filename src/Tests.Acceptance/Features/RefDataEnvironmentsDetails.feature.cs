@@ -366,6 +366,87 @@ this.AddOrRemoveEnvironmentComponents("280", "1", "detach", "server", ((string[]
 this.AddOrRemoveEnvironmentComponents("280", "1", "attach", "server", ((string[])(null)));
 #line hidden
         }
+        
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute()]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute("Set parent for environment")]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestPropertyAttribute("FeatureTitle", "RefDataEnvironmentsDetails")]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestCategoryAttribute("Environments")]
+        public void SetParentForEnvironment()
+        {
+            string[] tagsOfScenario = new string[] {
+                    "Environments"};
+            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
+            TechTalk.SpecFlow.ScenarioInfo scenarioInfo = new TechTalk.SpecFlow.ScenarioInfo("Set parent for environment", null, tagsOfScenario, argumentsOfScenario, featureTags);
+#line 45
+this.ScenarioInitialize(scenarioInfo);
+#line hidden
+            if ((TagHelper.ContainsIgnoreTag(tagsOfScenario) || TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                testRunner.SkipScenario();
+            }
+            else
+            {
+                this.ScenarioStart();
+#line 46
+ testRunner.Given("Environment with name \'Parent1 Env Testing\' created", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Given ");
+#line hidden
+#line 47
+ testRunner.And("Environment with name \'Child1 Env Testing\' created", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "And ");
+#line hidden
+#line 48
+ testRunner.When("I set parent to \'Child1 Env Testing\' environment equals the ID of the environment" +
+                        " with name \'Parent1 Env Testing\'", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "When ");
+#line hidden
+#line 49
+ testRunner.Then("The result should be Environment \'Child1 Env Testing\' with Parent", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Then ");
+#line hidden
+            }
+            this.ScenarioCleanup();
+        }
+        
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute()]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute("Set parent for child environment")]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestPropertyAttribute("FeatureTitle", "RefDataEnvironmentsDetails")]
+        [Microsoft.VisualStudio.TestTools.UnitTesting.TestCategoryAttribute("Environments")]
+        public void SetParentForChildEnvironment()
+        {
+            string[] tagsOfScenario = new string[] {
+                    "Environments"};
+            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
+            TechTalk.SpecFlow.ScenarioInfo scenarioInfo = new TechTalk.SpecFlow.ScenarioInfo("Set parent for child environment", null, tagsOfScenario, argumentsOfScenario, featureTags);
+#line 52
+this.ScenarioInitialize(scenarioInfo);
+#line hidden
+            if ((TagHelper.ContainsIgnoreTag(tagsOfScenario) || TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                testRunner.SkipScenario();
+            }
+            else
+            {
+                this.ScenarioStart();
+#line 53
+ testRunner.Given("Environment with name \'Parent2 Env Testing\' created", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Given ");
+#line hidden
+#line 54
+ testRunner.And("Environment with name \'Child2 Env Testing\' created", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "And ");
+#line hidden
+#line 55
+ testRunner.And("Environment with name \'Child3 Env Testing\' created", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "And ");
+#line hidden
+#line 56
+ testRunner.When("I set parent to \'Child2 Env Testing\' environment equals the ID of the environment" +
+                        " with name \'Parent2 Env Testing\'", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "When ");
+#line hidden
+#line 57
+ testRunner.And("I set parent to \'Child3 Env Testing\' environment equals the ID of the environment" +
+                        " with name \'Child2 Env Testing\'", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "And ");
+#line hidden
+#line 58
+ testRunner.Then("The result should not be Environment \'Child3 Env Testing\' with Parent", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Then ");
+#line hidden
+            }
+            this.ScenarioCleanup();
+        }
     }
 }
 #pragma warning restore

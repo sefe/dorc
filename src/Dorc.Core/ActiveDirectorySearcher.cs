@@ -42,33 +42,37 @@ namespace Dorc.Core
                 return output;
             }
 
-            var searcher = new DirectorySearcher(_activeDirectoryRoot)
+            using (var searcher = new DirectorySearcher(_activeDirectoryRoot)
+                {
+                    Filter = $"(&(anr={objectName})(|(objectCategory=group)(objectCategory=person)))"
+                })
             {
-                Filter = $"(&(anr={objectName})(|(objectCategory=group)(objectCategory=person)))"
-            };
+                searcher.PropertiesToLoad.AddRange(adProps);
 
-            searcher.PropertiesToLoad.AddRange(adProps);
-
-            foreach (SearchResult sr in searcher.FindAll())
-            {
-                var de = sr.GetDirectoryEntry();
-
-                if (de.NativeGuid == null)
+                using (var searchResults = searcher.FindAll())
                 {
-                    throw new ArgumentException("Failed to find a valid user giud for the AD Account of requester!");
-                }
+                    foreach (SearchResult sr in searchResults)
+                    {
+                        var de = sr.GetDirectoryEntry();
 
-                if (de.Properties["objectClass"]?.Contains("user") == true)
-                {
-                    var flags = (int)de.Properties["userAccountControl"].Value;
+                        if (de.NativeGuid == null)
+                        {
+                            throw new ArgumentException("Failed to find a valid user giud for the AD Account of requester!");
+                        }
 
-                    var enabled = !Convert.ToBoolean(flags & 0x0002);
-                    if (enabled)
-                        output.Add(de);
-                }
-                if (de.Properties["objectClass"]?.Contains("group") == true)
-                {
-                    output.Add(de);
+                        if (de.Properties["objectClass"]?.Contains("user") == true)
+                        {
+                            var flags = (int)de.Properties["userAccountControl"].Value;
+
+                            var enabled = !Convert.ToBoolean(flags & 0x0002);
+                            if (enabled)
+                                output.Add(de);
+                        }
+                        if (de.Properties["objectClass"]?.Contains("group") == true)
+                        {
+                            output.Add(de);
+                        }
+                    }
                 }
             }
 
@@ -132,41 +136,43 @@ namespace Dorc.Core
                 throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
             }
 
-            var dirEntry = new DirectoryEntry();
-            var dirSearcher = new DirectorySearcher(dirEntry)
+            using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = string.Format("(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))",
                     id)
-            };
-
-            dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
-            var searchResults = dirSearcher.FindAll();
-
-            foreach (SearchResult sr in searchResults)
+            })
             {
-                var Sid = string.Empty;
-                var de = sr.GetDirectoryEntry();
-                var obVal = de.Properties["objectSid"].Value;
-                if (null != obVal)
+                dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
+                using (var searchResults = dirSearcher.FindAll())
                 {
-                    Sid = ConvertByteToStringSid((byte[])obVal);
+                    foreach (SearchResult sr in searchResults)
+                    {
+                        var Sid = string.Empty;
+                        var de = sr.GetDirectoryEntry();
+                        var obVal = de.Properties["objectSid"].Value;
+                        if (null != obVal)
+                        {
+                            Sid = ConvertByteToStringSid((byte[])obVal);
+                        }
+
+                        if (!IsActive(de))
+                        { continue; }
+
+                        var user = new ActiveDirectoryElementApiModel
+                        {
+                            Username = de.Properties.Contains("SAMAccountName") ? de.Properties["SAMAccountName"][0].ToString() : string.Empty,
+                            DisplayName = de.Properties.Contains("DisplayName") ? de.Properties["DisplayName"][0].ToString() : string.Empty,
+                            Sid = Sid,
+                            IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
+                            Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
+                        };
+
+                        return user;
+                    }
                 }
-
-                if (!IsActive(de))
-                { continue; }
-
-                var user = new ActiveDirectoryElementApiModel
-                {
-                    Username = de.Properties.Contains("SAMAccountName") ? de.Properties["SAMAccountName"][0].ToString() : string.Empty,
-                    DisplayName = de.Properties.Contains("DisplayName") ? de.Properties["DisplayName"][0].ToString() : string.Empty,
-                    Sid = Sid,
-                    IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
-                    Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
-                };
-
-                return user;
             }
+
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
         private static bool IsActive(DirectoryEntry de)

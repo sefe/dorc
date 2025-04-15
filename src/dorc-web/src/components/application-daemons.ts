@@ -28,9 +28,13 @@ export class ApplicationDaemons extends LitElement {
 
   static get styles() {
     return css`
+        :host {
+            height: 100%;
+            display: flex;
+        }
       vaadin-grid#grid {
         overflow: hidden;
-        height: calc(100vh - 300px);
+        height: 100%
       }
       vaadin-button {
         padding: 0px;
@@ -46,7 +50,6 @@ export class ApplicationDaemons extends LitElement {
         .items="${this.daemonsAndStatuses}"
         theme="compact row-stripes no-row-borders no-border"
         multi-sort
-        all-rows-visible
       >
         <vaadin-grid-column
           path="ServerName"
@@ -85,19 +88,14 @@ export class ApplicationDaemons extends LitElement {
     );
   }
 
-  _setServicesDetails(data: CustomEvent) {
-    this.daemonsAndStatuses = data.detail.response;
-  }
-
   public loadDaemons() {
     const api = new DaemonStatusApi();
-
-    api.daemonStatusEnvNameGet({ envName: this.envName }).subscribe(
-      (data: ServiceStatusApiModel[]) => {
+    api.daemonStatusEnvNameGet({ envName: this.envName }).subscribe({
+      next: (data: ServiceStatusApiModel[]) => {
         this.setServiceStatuses(data);
       },
-      (err: any) => console.error(err),
-      () => console.log('done loading daemon statuses')
+      error: (err: any) => console.error(err),
+      complete: () => console.log('done loading daemon statuses')}
     );
   }
 

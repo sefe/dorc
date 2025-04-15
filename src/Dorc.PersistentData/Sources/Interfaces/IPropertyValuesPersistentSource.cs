@@ -12,8 +12,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         PropertyValueDto[] GetPropertyValuesByName(string propertyName);
         PropertyValueDto GetCachedPropertyValue(string propertyName);
         void AddEnvironmentFilter(string envName);
-        PropertyValueDto[] GetGlobalProperties();
-        PropertyValueDto[] GetEnvironmentProperties(string environment);
+        PropertyValueDto[] GetGlobalProperties(string? propertyName = null);
+        PropertyValueDto[] GetEnvironmentProperties(string environmentName, string? propertyName);
         IDictionary<string, PropertyValueDto> LoadAllPropertiesIntoCache();
         PropertyValueDto UpdatePropertyValue(long? propertyValueId, string newValue);
         PropertyValueDto AddPropertyValue(PropertyValueDto propertyValueDto);
@@ -25,8 +25,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
             PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal principal);
         GetScopedPropertyValuesResponseDto GetPropertyValuesForSearchValueByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal principal);
-        PropertyValueDto[] GetPropertyValuesByName(string propertyName, string username, string sidList);
-        PropertyValueDto[] GetEnvironmentProperties(string environment, string username, string sidList);
+        PropertyValueDto[] GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList);
         void ReassignPropertyValues(IDeploymentContext context, Environment oldEnv, string newEnvName);
     }
 }

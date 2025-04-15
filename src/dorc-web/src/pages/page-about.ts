@@ -2,7 +2,6 @@ import { css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/chart/hegs-chart';
-import { EChartOption, EChartTitleOption } from 'echarts';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { PageElement } from '../helpers/page-element';
@@ -11,12 +10,12 @@ import {
   AnalyticsDeploymentsMonthApi
 } from '../apis/dorc-api';
 import { AnalyticsDeploymentsPerProjectApiModel } from '../apis/dorc-api';
-import SeriesPie = echarts.EChartOption.SeriesPie;
-import Tooltip = echarts.EChartOption.Tooltip;
-import DataObject = echarts.EChartOption.SeriesPie.DataObject;
-import SeriesThemeRiver = echarts.EChartOption.SeriesThemeRiver;
-import SingleAxis = echarts.EChartOption.SingleAxis;
-import Format = echarts.EChartOption.Tooltip.Format;
+import type { EChartsOption, TitleComponentOption, TooltipComponentOption, SingleAxisComponentOption } from 'echarts';
+import type { PieSeriesOption, ThemeRiverSeriesOption } from 'echarts';
+import {CallbackDataParams, TopLevelFormatterParams} from "echarts/types/dist/shared";
+import {OptionDataValueDate, OptionDataValueNumeric} from "echarts/types/src/util/types";
+
+declare type ThemerRiverDataItem = [OptionDataValueDate, OptionDataValueNumeric, string];
 
 interface ProjectDeployments {
   project: string;
@@ -33,17 +32,11 @@ export class PageAbout extends PageElement {
   AnalyticsDeploymentsDateResponse: AnalyticsDeploymentsPerProjectApiModel[] =
     [];
 
-  @property({ type: Object }) top3PieChartOptions:
-    | EChartOption<SeriesPie>
-    | undefined;
+  @property({ type: Object }) top3PieChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) pieChartOptions:
-    | EChartOption<SeriesPie>
-    | undefined;
+  @property({ type: Object }) pieChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) riverChartOptions:
-    | EChartOption<SeriesThemeRiver>
-    | undefined;
+  @property({ type: Object }) riverChartOptions: EChartsOption | undefined;
 
   @property({ type: Array }) pieDataTable: (string | number)[][] = [
     ['Project', 'Deployments']
@@ -239,11 +232,11 @@ export class PageAbout extends PageElement {
   }
 
   private constructRiverChart(excludeDeprecated: boolean) {
-    const title: EChartTitleOption = {
+    const title: TitleComponentOption = {
       text: 'Deployments By Project'
     };
 
-    const tt: Tooltip = {
+    const tt: TooltipComponentOption = {
       trigger: 'axis',
       axisPointer: {
         type: 'line',
@@ -253,19 +246,25 @@ export class PageAbout extends PageElement {
           type: 'solid'
         }
       },
-      formatter(params) {
+      formatter(params: TopLevelFormatterParams) {
         let output = '';
-        if (params instanceof Array) {
-          params = params.sort((a: Format, b: Format): number => {
-            if (String(a.data[2]) > String(b.data[2])) return 1;
+
+        if (Array.isArray(params)) {
+          let arr = params as CallbackDataParams[];
+          arr = arr.sort((a, b) => {
+            const aa = a.data as string[];
+            const bb = b.data as string[];
+            if (String(aa[2] as string) > String(bb[2] as string))
+              return 1;
             return -1;
           });
-          for (let i = 0; i < params.length; i += 1) {
-            const ttFormat = params[i];
-            if (Number(ttFormat.data[1]) === 0) {
+          for (let i = 0; i < arr.length; i += 1) {
+            const ttFormat = arr[i];
+            const tttFormat = ttFormat.data as number[];
+            if (Number(tttFormat[1] as number) === 0) {
               continue;
             }
-            const current = `${ttFormat.data[2]} : ${ttFormat.data[1]} </br>`;
+            const current = `${tttFormat[2]} : ${tttFormat[1]} </br>`;
             output += current;
           }
         }
@@ -273,7 +272,7 @@ export class PageAbout extends PageElement {
       }
     };
 
-    const singleAxis: SingleAxis = {
+    const singleAxis: SingleAxisComponentOption = {
       axisTick: {},
       axisLabel: {},
       type: 'time',
@@ -291,13 +290,13 @@ export class PageAbout extends PageElement {
       }
     };
 
-    const data: (string | number | undefined)[][] = [];
+    const data: ThemerRiverDataItem[] = [];
 
     this.AnalyticsDeploymentsMonthResponse.map(m => {
       const date: string = `${String(m.Year)}/${String(m.Month)}/${String(1)}`;
-      const dataItem: (string | number | undefined)[] = [
+      const dataItem: ThemerRiverDataItem = [
         date,
-        m.CountOfDeployments,
+        m.CountOfDeployments ?? 0,
         m.ProjectName ?? ''
       ];
       if (
@@ -309,7 +308,7 @@ export class PageAbout extends PageElement {
       data.push(dataItem);
     });
 
-    const series: SeriesThemeRiver[] = [
+    const series: ThemeRiverSeriesOption[] = [
       {
         type: 'themeRiver',
         emphasis: {
@@ -423,23 +422,21 @@ export class PageAbout extends PageElement {
   }
 
   private constructTop3PieChart() {
-    const tt: Tooltip = {
+    const tt: TooltipComponentOption = {
       trigger: 'item'
     };
-    const title: EChartTitleOption = {
+    const title: TitleComponentOption = {
       text: 'Top 3 Total Deployments By Project This Year',
       subtext: `${String(this.PercentTop3ProjectsByDeploymentsThisYear)}%`
     };
-    const data: DataObject[] = [];
 
-    this.top3ProjectsByDeployments.forEach(value =>
-      data.push({ name: value.project, value: value.numDeployments })
-    );
-
-    const series: SeriesPie[] = [
+    const series: PieSeriesOption[] = [
       {
         type: 'pie',
-        data
+        data: this.top3ProjectsByDeployments.map(value => ({
+          name: value.project,
+          value: value.numDeployments
+        }))
       }
     ];
 
@@ -451,14 +448,13 @@ export class PageAbout extends PageElement {
   }
 
   private constructPieChart() {
-    const tt: Tooltip = {
+    const tt: TooltipComponentOption = {
       trigger: 'item'
     };
-    const title: EChartTitleOption = {
+    const title: TitleComponentOption = {
       text: 'Total Deployments By Project This Year',
       subtext: 'Not including top 3'
     };
-    const data: DataObject[] = [];
 
     const currentYear = new Date().getFullYear();
 
@@ -496,17 +492,13 @@ export class PageAbout extends PageElement {
       sortedNSummed.length - 3
     );
 
-    sortedNSummedNoTop3.forEach(value =>
-      data.push({
-        name: value.ProjectName ?? '',
-        value: value.CountOfDeployments
-      })
-    );
-
-    const series: SeriesPie[] = [
+    const series: PieSeriesOption[] = [
       {
         type: 'pie',
-        data
+        data: sortedNSummedNoTop3.map(value => ({
+          name: value.ProjectName ?? '',
+          value: value.CountOfDeployments
+        }))
       }
     ];
 

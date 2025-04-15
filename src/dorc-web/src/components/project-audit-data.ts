@@ -30,6 +30,9 @@ import {
   PagedDataFilter,
   RefDataAuditApiModel
 } from '../apis/dorc-api/models';
+import './hegs-json-viewer';
+import { HegsJsonViewer } from './hegs-json-viewer';
+import { getShortLogonName } from '../helpers/user-extensions';
 
 let _project: ProjectApiModel | undefined;
 
@@ -60,7 +63,7 @@ export class ProjectAuditData extends LitElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 225px);
-        width: 1500px;
+        width: calc(100vw - 400px);
         --divider-color: rgb(223, 232, 239);
       }
 
@@ -150,7 +153,7 @@ export class ProjectAuditData extends LitElement {
             .renderer="${this.valueRenderer}"
             .headerRenderer="${this.valueHeaderRenderer}"
             resizable
-            width="60em"
+            auto-width
           ></vaadin-grid-column>
         </vaadin-grid>
       </hegs-dialog>
@@ -239,7 +242,6 @@ export class ProjectAuditData extends LitElement {
             clear-button-visible
             slot="filter"
             focus-target
-            style="width: 100%"
             theme="small"
           ></vaadin-text-field>
         </vaadin-grid-filter>`,
@@ -289,10 +291,13 @@ export class ProjectAuditData extends LitElement {
     _column: GridColumn,
     model: GridItemModel<RefDataAuditApiModel>
   ) {
-    render(
-      html`<textarea name="" id="myTextarea" cols="130" rows="15">${JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)}</textarea>`,
-      root
-    );
+          root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
+            JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)
+          }</hegs-json-viewer>`;
+          const viewer = root.querySelector(
+            'hegs-json-viewer'
+          ) as unknown as HegsJsonViewer;
+          viewer.expand('*');
   }
 
   getProjectValuesAudit(
@@ -338,7 +343,7 @@ export class ProjectAuditData extends LitElement {
       .subscribe({
         next: (data: GetRefDataAuditListResponseDto) => {
           data.Items?.map(
-            item => (item.Username = item.Username?.split('\\')[1])
+            item => (item.Username = getShortLogonName(item.Username))
           );
           this.dispatchEvent(
             new CustomEvent('searching-audit-finished', {

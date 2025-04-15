@@ -15,7 +15,7 @@ import {
 } from '../apis/dorc-api';
 import '../helpers/cookies';
 import { deleteCookie, getCookie, setCookie } from '../helpers/cookies';
-import { urlForName } from '../router';
+import { urlForName } from '../router/router';
 import './tabs/env-detail-tab';
 import { EnvDetailTab } from './tabs/env-detail-tab';
 import './tabs/project-envs-tab';
@@ -23,6 +23,7 @@ import { ProjectEnvsTab } from './tabs/project-envs-tab';
 import './tabs/monitor-result-tab';
 import { MonitorResultTab } from './tabs/monitor-result-tab';
 import GlobalCache from '../global-cache.ts';
+import { EnvPageTabNames } from '../pages/page-environment.ts';
 
 @customElement('dorc-navbar')
 export class DorcNavbar extends LitElement {
@@ -118,44 +119,44 @@ export class DorcNavbar extends LitElement {
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
-            <vaadin-icon icon="vaadin:expand-square"></vaadin-icon>
+            <vaadin-icon icon="vaadin:expand-square" theme="small"></vaadin-icon>
             Deploy
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('monitor-requests')}">
-            <vaadin-icon icon="vaadin:clipboard"></vaadin-icon>
+            <vaadin-icon icon="vaadin:clipboard" theme="small"></vaadin-icon>
             Monitor
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('projects')}">
-            <vaadin-icon icon="vaadin:archives"></vaadin-icon>
+            <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
             Projects
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('environments')}">
-            <vaadin-icon icon="vaadin:cubes"></vaadin-icon>
+            <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
             Environments
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('servers')}">
-            <vaadin-icon icon="vaadin:server"></vaadin-icon>
+            <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
             Servers
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('databases')}">
-            <vaadin-icon icon="vaadin:database"></vaadin-icon>
+            <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
             Databases
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('sql-roles')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:key"></vaadin-icon>
+              <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
               Roles
             </div>
           </a>
@@ -163,32 +164,32 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab>
           <a href="${urlForName('sql-ports')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:connect"></vaadin-icon>
+              <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
               Ports
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('users')}">
-            <vaadin-icon icon="vaadin:users"></vaadin-icon>
+            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
             Users
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('daemons')}">
-            <vaadin-icon icon="vaadin:cogs"></vaadin-icon>
+            <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
             Daemons
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('scripts')}">
-            <vaadin-icon icon="inline:powershell-icon"></vaadin-icon>
+            <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
             Scripts
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('variables')}">
-            <vaadin-icon icon="inline:variables-icon"></vaadin-icon>
+            <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
             Variables
           </a>
         </vaadin-tab>
@@ -196,7 +197,7 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab>
           <a href="${urlForName('variables-audit')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:calendar-user"></vaadin-icon>
+              <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
               Audit
             </div>
           </a>
@@ -205,7 +206,7 @@ export class DorcNavbar extends LitElement {
           ? html`
               <vaadin-tab>
                 <a href="${urlForName('configuration')}">
-                  <vaadin-icon icon="vaadin:options"></vaadin-icon>
+                  <vaadin-icon icon="vaadin:options" theme="small"></vaadin-icon>
                   Configuration
                 </a>
               </vaadin-tab>
@@ -213,7 +214,7 @@ export class DorcNavbar extends LitElement {
           : html``}
         <vaadin-tab>
           <a href="${urlForName('about')}">
-            <vaadin-icon icon="vaadin:at"></vaadin-icon>
+            <vaadin-icon icon="vaadin:at" theme="small"></vaadin-icon>
             About
           </a>
         </vaadin-tab>
@@ -228,13 +229,26 @@ export class DorcNavbar extends LitElement {
 
   constructor() {
     super();
-
-    GlobalCache.getInstance().allRolesResp?.subscribe((data: Array<string>) => {
-      this.userRoles = data;
-      this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    });
-
+    this.getUserRoles();
     this.getMetaData();
+  }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -418,12 +432,10 @@ export class DorcNavbar extends LitElement {
     const tab = new Tab();
     render(html` <env-detail-tab .env="${env}"></env-detail-tab>`, tab);
 
-    const path = this.getEnvDetailPath(env);
     tabs.insertBefore(
       tab,
       tabs.children[this.getIndexOfPath(tabs, '/servers')]
     );
-    return path;
   }
 
   private getMonitorResultPath(result: DeploymentRequestApiModel) {
@@ -431,14 +443,13 @@ export class DorcNavbar extends LitElement {
   }
 
   private getEnvDetailPath(env: EnvironmentApiModel) {
-    return `/environment/${String(env.EnvironmentName)}/metadata`;
+    return `/environment/${String(env.EnvironmentName)}/${EnvPageTabNames.Metadata}`;
   }
 
   public setSelectedTab(path: string) {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     if (tabs) {
       tabs.selected = this.getIndexOfPath(tabs, path);
-      console.log('setting the selected tab');
     }
   }
 

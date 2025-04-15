@@ -1,16 +1,15 @@
 ﻿using System.Collections.Concurrent;
-using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Security.Principal;
 using System.Text.Json;
+using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Property = Dorc.PersistentData.Model.Property;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData;
-using Dorc.PersistentData.Contexts;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -21,12 +20,17 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IPropertyEncryptor _encrypt;
         private readonly Dictionary<PropertyFilter, string> _filters = new Dictionary<PropertyFilter, string>();
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public PropertyValuesPersistentSource(IDeploymentContextFactory contextFactory,
-            IPropertyEncryptor propertyEncrypt)
+        public PropertyValuesPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IPropertyEncryptor propertyEncrypt,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _contextFactory = contextFactory;
             _encrypt = propertyEncrypt;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public bool Remove(long? propertyValueId)
@@ -116,29 +120,37 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var values = context.PropertyValues
-                    .Include(pv => pv.Filters)
-                    .ThenInclude(f => f.PropertyFilter)
-                    .Include(pv => pv.Property)
-                    .Where(pv => pv.Property.Name == propertyName).ToList();
-                if (!values.Any())
-                    return new List<PropertyValueDto>();
-
-                var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
-
-                var propertyValues = new List<PropertyValue>();
                 if (!string.IsNullOrEmpty(environmentName))
-                    propertyValues.AddRange(values.Where(x =>
-                        x.Filters.Any(f => f.PropertyFilter.Name == EnvironmentPropertyFilterType
-                                        && f.Value == environmentName)));
+                {
+                    var envProps = GetEnvironmentProperties(environmentName, propertyName).ToList();
+                    
+                    if (!envProps.Any(p => p.Property.Name == propertyName))
+                    {
+                        var environmentSecure = context.Environments.First(e => e.Name.Equals(environmentName)).Secure;
+                        if (!environmentSecure)
+                        {
+                            var globalProperties = GetGlobalProperties(propertyName);
+                            envProps.AddRange(globalProperties);
+                        }
+                    }
 
-                if (propertyValues.Count == 0 && environment != null && !environment.Secure)
-                    propertyValues.AddRange(values.Where(x => !x.Filters.Any()));
+                    return envProps.Select(x => decryptProperty ? DecryptPropertyValue(ref x) : x).ToList();
+                }
+                else {
+                    var values = context.PropertyValues
+                        .Include(pv => pv.Filters)
+                        .ThenInclude(f => f.PropertyFilter)
+                        .Include(pv => pv.Property)
+                        .Where(pv => pv.Property.Name == propertyName).ToList();
 
-                if (propertyValues.Count == 0 && environment == null)
-                    propertyValues.AddRange(values.Where(x => !x.Filters.Any()));
+                    if (!values.Any())
+                    {
+                        return new List<PropertyValueDto>();
+                    }
 
-                return propertyValues.Select(x => MapToPropertyValueDto(x, decryptProperty)).ToList();
+                    var res = values.Where(x => !x.Filters.Any());
+                    return res.Select(x => MapToPropertyValueDto(x, decryptProperty)).ToList();                    
+                }
             }
         }
 
@@ -189,37 +201,6 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto[] GetPropertyValuesByName(string propertyName, string username, string sidList)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var ds = context.GetPropertyValuesByName(propertyName, username, sidList);
-                var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
-                for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
-                {
-                    var isOwner = ds.Tables[0].Rows[i][7] as int?;
-                    var isDelegate = ds.Tables[0].Rows[i][8] as int?;
-                    var hasPermission = ds.Tables[0].Rows[i][9] as int?;
-
-                    result[i] = new PropertyValueDto
-                    {
-                        Property = new PropertyApiModel
-                        {
-                            Name = ds.Tables[0].Rows[i][0].ToString(),
-                            Secure = (bool)ds.Tables[0].Rows[i][1],
-                            IsArray = (bool)ds.Tables[0].Rows[i][2]
-                        },
-                        Value = ds.Tables[0].Rows[i][3].ToString(),
-                        PropertyValueFilter = ds.Tables[0].Rows[i][4] as string,
-                        Id = ds.Tables[0].Rows[i][5] is long ? (long)ds.Tables[0].Rows[i][5] : 0,
-                        PropertyValueFilterId = ds.Tables[0].Rows[i][6] as long?,
-                        UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
-                    };
-                }
-                return result;
-            }
-        }
-
         public PropertyValueDto[] GetPropertyValuesByName(string propertyName)
         {
             using (var context = _contextFactory.GetContext())
@@ -265,11 +246,11 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto[] GetGlobalProperties()
+        public PropertyValueDto[] GetGlobalProperties(string? propertyName = null)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var ds = context.GetGlobalProperties();
+                var ds = context.GetGlobalProperties(propertyName);
                 var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
                 for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
                 {
@@ -285,16 +266,15 @@ namespace Dorc.PersistentData.Sources
                     };
                     result[i] = pv;
                 }
-
                 return result;
             }
         }
 
-        public PropertyValueDto[] GetEnvironmentProperties(string environment)
+        public PropertyValueDto[] GetEnvironmentProperties(string environmentName, string? propertyName = null)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var ds = context.GetEnvironmentProperties(environment);
+                var ds = context.GetEnvironmentProperties(environmentName, propertyName);
                 var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
                 for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
                 {
@@ -317,35 +297,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto[] GetEnvironmentProperties(string environment, string username, string sidList)
+        public PropertyValueDto[] GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList)
         {
+            if (environmentName is null && propertyName is null)
+                throw new ArgumentException("Both environmentName and propertyName cannot be null");
+
             using (var context = _contextFactory.GetContext())
             {
-                var ds = context.GetEnvironmentProperties(environment, username, sidList);
-                var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
-                for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
-                {
-                    var isOwner = ds.Tables[0].Rows[i][6] as int?;
-                    var isDelegate = ds.Tables[0].Rows[i][7] as int?;
-                    var hasPermission = ds.Tables[0].Rows[i][8] as int?;
-
-                    var propValue = new PropertyValueDto
-                    {
-                        Property = new PropertyApiModel
-                        {
-                            Name = ds.Tables[0].Rows[i][0].ToString(),
-                            Secure = (bool)ds.Tables[0].Rows[i][1],
-                            IsArray = (bool)ds.Tables[0].Rows[i][2]
-                        },
-                        Value = ds.Tables[0].Rows[i][3].ToString(),
-                        PropertyValueFilter = ds.Tables[0].Rows[i][4].ToString(),
-                        Priority = (int)ds.Tables[0].Rows[i][5],
-                        UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
-                    };
-                    result[i] = propValue;
-                }
-
-                return result;
+                var ds = context.GetPropertyValuesForUser(environmentName, propertyName, username, sidList);
+                return getPropertyValueDtosForUser(ds);
             }
         }
 
@@ -394,10 +354,10 @@ namespace Dorc.PersistentData.Sources
         }
 
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForScopeByPage(int limit, int page,
-            PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal principal)
+            PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal user)
         {
-            var userName = principal.GetUsername();
-            var userSids = principal.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -410,10 +370,10 @@ namespace Dorc.PersistentData.Sources
                                    propertyFilter.Id
                                join environment in context.Environments on propertyValueFilter.Value equals
                                    environment.Name
-                               let isOwner = environment.Owner == userName
+                               let isOwner = environment.Owner == username
                                let isDelegate =
                                    (from env in context.Environments
-                                    where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(userName)
+                                    where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                     select env.Name).Any()
                                let hasPermission =
                                    (from env in context.Environments
@@ -445,7 +405,7 @@ namespace Dorc.PersistentData.Sources
                                  join property in context.Properties on propertyValue.Property.Id equals property.Id
                                  join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
                                  from final in tmp.DefaultIfEmpty()
-                                 where final == null && !envProps.Select(pv => pv.Property).Contains(property.Name)
+                                 where final == null
                                  select new FlatPropertyValueApiModel
                                  {
                                      PropertyId = property.Id,
@@ -459,7 +419,41 @@ namespace Dorc.PersistentData.Sources
                                      UserEditable = false // admin privileges are set at the calling fn
                                  };
 
-                    scopedPropertyValuesQuery = envProps.Union(global);
+                    var parentEnv = context.Environments.FirstOrDefault(e => e.Id == scope.ParentId);
+                    if (parentEnv is not null)
+                    {
+                        var envParentProps = from propertyValue in context.PropertyValues
+                                             join property in context.Properties on propertyValue.Property.Id equals property.Id
+                                             join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
+                                                 propertyValueFilter.PropertyValue.Id
+                                             join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                                                 propertyFilter.Id
+                                             join environment in context.Environments on propertyValueFilter.Value equals
+                                                 environment.Name
+                                             where propertyFilter.Name == "environment" && (parentEnv.Name == propertyValueFilter.Value)
+                                             select new FlatPropertyValueApiModel
+                                             {
+                                                 PropertyId = property.Id,
+                                                 Property = property.Name,
+                                                 PropertyValueScope = propertyValueFilter.Value,
+                                                 PropertyValueScopeId = propertyValueFilter.Id,
+                                                 PropertyValue = propertyValue.Value,
+                                                 PropertyValueId = propertyValue.Id,
+                                                 Secure = property.Secure,
+                                                 IsArray = property.IsArray,
+                                                 UserEditable = false // Parent props not allowed to edit
+                                             };
+
+                        // Union the parent environment properties with the current environment properties and with global
+                        scopedPropertyValuesQuery = envProps
+                            .Union(envParentProps.Where(p => !envProps.Any(ep => ep.Property == p.Property)))
+                            .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property) && !envParentProps.Any(pp => pp.Property == g.Property)));
+                    }
+                    else
+                    {
+                        scopedPropertyValuesQuery = envProps
+                            .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property)));
+                    }                    
                 }
 
                 if (operators.Filters != null && operators.Filters.Any())
@@ -532,10 +526,10 @@ namespace Dorc.PersistentData.Sources
         }
 
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForSearchValueByPage(int limit, int page,
-            PagedDataOperators operators, IPrincipal principal)
+            PagedDataOperators operators, IPrincipal user)
         {
-            var userName = principal.GetUsername();
-            var userSids = principal.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -550,10 +544,10 @@ namespace Dorc.PersistentData.Sources
                                        propertyFilter.Id
                                    join environment in context.Environments on propertyValueFilter.Value equals
                                        environment.Name
-                                   let isOwner = environment.Owner == userName
+                                   let isOwner = environment.Owner == username
                                    let isDelegate =
                                        (from env in context.Environments
-                                        where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(userName)
+                                        where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                         select env.Name).Any()
                                    let hasPermission =
                                        (from env in context.Environments
@@ -704,21 +698,7 @@ namespace Dorc.PersistentData.Sources
                 var properties = new Dictionary<string, PropertyValueDto>();
                 var environmentProperties =
                     GetEnvironmentProperties(_filters.First(f => f.Key.Name == EnvironmentPropertyFilterType).Value);
-                foreach (var t in environmentProperties)
-                {
-                    switch (t.Property.Secure)
-                    {
-                        case true:
-                            {
-                                t.Value = _encrypt.DecryptValue(t.Value.ToString());
-                                AddKeyPair(properties, t.Property.Name, t);
-                                break;
-                            }
-                        case false:
-                            AddKeyPair(properties, t.Property.Name, t);
-                            break;
-                    }
-                }
+                properties = getPropertiesValuesDict(environmentProperties);
 
                 return properties;
             });
@@ -736,26 +716,34 @@ namespace Dorc.PersistentData.Sources
                     return properties;
 
                 var globalProperties = GetGlobalProperties();
-                foreach (var t in globalProperties)
-                {
-                    switch (t.Property.Secure)
-                    {
-                        case true:
-                            {
-                                t.Value = _encrypt.DecryptValue(t.Value.ToString());
-                                AddKeyPair(properties, t.Property.Name, t);
-                                break;
-                            }
-                        case false:
-                            AddKeyPair(properties, t.Property.Name, t);
-                            break;
-                    }
-                }
+                properties = getPropertiesValuesDict(globalProperties);
                 return properties;
             });
 
             task.Start();
             return task;
+        }
+
+        private Dictionary<string, PropertyValueDto> getPropertiesValuesDict(PropertyValueDto[] dtoProperties)
+        {
+            var properties = new Dictionary<string, PropertyValueDto>();
+            foreach (var t in dtoProperties)
+            {
+                switch (t.Property.Secure)
+                {
+                    case true:
+                        {
+                            t.Value = _encrypt.DecryptValue(t.Value.ToString());
+                            AddKeyPair(properties, t.Property.Name, t);
+                            break;
+                        }
+                    case false:
+                        AddKeyPair(properties, t.Property.Name, t);
+                        break;
+                }
+            }
+
+            return properties;
         }
 
         private PropertyValueDto MapToPropertyValueDto(PropertyValue pv, bool decryptProperty = false)
@@ -810,12 +798,52 @@ namespace Dorc.PersistentData.Sources
             return propertyValue.Value;
         }
 
+        private PropertyValueDto DecryptPropertyValue(ref PropertyValueDto propertyValue)
+        {
+            if (propertyValue.Property.Secure
+                && propertyValue.Value != null)
+            {
+                propertyValue.Value = _encrypt.DecryptValue(propertyValue.Value);
+            }
+
+            return propertyValue;
+        }
+
         private static void AddKeyPair(IDictionary<string, PropertyValueDto> properties, string key, PropertyValueDto value)
         {
             if (!properties.ContainsKey(key))
                 properties.Add(key, value);
             else
                 properties[key] = value;
+        }
+
+        private PropertyValueDto[] getPropertyValueDtosForUser(System.Data.DataSet ds)
+        {
+            var result = new PropertyValueDto[ds.Tables[0].Rows.Count];
+            for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
+            {
+                var isOwner = ds.Tables[0].Rows[i][7] as int?;
+                var isDelegate = ds.Tables[0].Rows[i][8] as int?;
+                var hasPermission = ds.Tables[0].Rows[i][9] as int?;
+
+                result[i] = new PropertyValueDto
+                {
+                    Property = new PropertyApiModel
+                    {
+                        Name = ds.Tables[0].Rows[i][0].ToString(),
+                        Secure = (bool)ds.Tables[0].Rows[i][1],
+                        IsArray = (bool)ds.Tables[0].Rows[i][2]
+                    },
+                    Value = ds.Tables[0].Rows[i][3].ToString(),
+                    PropertyValueFilter = ds.Tables[0].Rows[i][4] as string,
+                    Id = ds.Tables[0].Rows[i][5] is long ? (long)ds.Tables[0].Rows[i][5] : 0,
+                    PropertyValueFilterId = ds.Tables[0].Rows[i][6] as long?,
+                    Priority = ds.Tables[0].Rows[i][10] as int? ?? 0,
+                    UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
+                };
+            }
+
+            return result;
         }
     }
 }

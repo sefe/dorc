@@ -9,11 +9,18 @@ namespace Tests.Acceptance.StepDefinitions
     [Binding]
     public class RefDataEnvironmentsDetailsSteps
     {
+        private readonly ScenarioContext _scenarioContext;
+
         private ApiResult<TemplateApiModel<EnvironmentApiModel>> projectApiResult = default!;
         private ApiResult<EnvironmentContentApiModel> environmentApiResult = default!;
         private ApiResult<EnvironmentComponentsDto<DatabaseApiModel>> databasesApiResult = default!;
         private ApiResult<EnvironmentComponentsDto<ServerApiModel>> serversApiResult = default!;
         private ApiResult<ApiBoolResult> componentsActionApiResult = default!;
+
+        public RefDataEnvironmentsDetailsSteps(ScenarioContext scenarioContext)
+        {
+            _scenarioContext = scenarioContext;
+        }
 
         [Ignore("The endpoint requested in this scenario exists only in the previous version of DOrc.")]
         [Given(@"I have created GET request to RefDataEnvironmentsDetails with query '(.*)'='(.*)'")]
@@ -182,6 +189,102 @@ namespace Tests.Acceptance.StepDefinitions
             var model = componentsActionApiResult.Model as ApiBoolResult;
             Assert.AreEqual(expected, model?.Result);
             Console.WriteLine(model?.Message);
+        }
+
+        [Given(@"Environment with name '(.*)' created")]
+        public void GivenThereIsEnvironmentWithName(string environmentName)
+        {
+            var environmentId = new DataAccessor().GetEnvironments(environmentName).FirstOrDefault();
+            
+            if (environmentId != 0)
+            {
+                return;
+            }
+
+            environmentId = new DataAccessor().CreateEnvironment(environmentName);
+            _scenarioContext[$"{environmentName}_id"] = environmentId;
+        }
+
+        [When(@"I set parent to '(.*)' environment equals the ID of the environment with name '(.*)'")]
+        public void WhenISetParentForEnvironment(string childEnvName, string parentEnvName)
+        {
+            var parentEnvironmentId = new DataAccessor().GetEnvironments(parentEnvName).FirstOrDefault();
+
+            using (var caller = new ApiCaller())
+            {
+                var childEnvApiResponse = caller.Call<IList<EnvironmentApiModel>>(
+                    Endpoints.RefDataEnvironments,
+                    Method.Get,
+                    queryParameters: new Dictionary<string, string>
+                    {
+                        { "env", childEnvName }
+                    });
+
+                if (childEnvApiResponse.IsModelValid)
+                {
+                    var model = (childEnvApiResponse.Model as IList<EnvironmentApiModel>).FirstOrDefault();
+                    var segments = new List<string> { "SetParentForEnvironment" };
+                    var query = new Dictionary<string, string> { { "parentEnvId", parentEnvironmentId.ToString() }, { "childEnvId", model.EnvironmentId.ToString() } };
+                    _scenarioContext["setParentApiResult"] = caller.Call<ApiBoolResult>(
+                        Endpoints.RefDataEnvironmentsDetails,
+                        Method.Put,
+                        segments: segments,
+                        queryParameters: query);
+                }
+            }
+        }
+
+        [Then(@"The result should( not)? be Environment '(.*)' with Parent")]
+        public void ThenTheResultShouldBeEnvironmentWithParent(string shouldNot, string childEnvironmentName)
+        {
+            bool expectedResult = string.IsNullOrEmpty(shouldNot);
+            try
+            {
+                var setParentApiResult = _scenarioContext["setParentApiResult"] as ApiResult<ApiBoolResult>;
+                Assert.IsNotNull(setParentApiResult, "Api request failed");
+                Assert.IsTrue(setParentApiResult.IsModelValid);
+
+                Assert.AreEqual(expectedResult, (setParentApiResult.Model as ApiBoolResult).Result);
+
+                using (var caller = new ApiCaller())
+                {
+                    var getEnvActionApiResult = caller.Call<IEnumerable<EnvironmentApiModel>>(
+                                    Endpoints.RefDataEnvironments,
+                                    Method.Get,
+                                    queryParameters: new Dictionary<string, string> { { "env", childEnvironmentName } });
+
+                    var envList = getEnvActionApiResult.Model as IEnumerable<EnvironmentApiModel>;
+
+                    Assert.IsNotNull(getEnvActionApiResult, "Api request failed!");
+                    Assert.IsTrue(getEnvActionApiResult.IsModelValid);
+                    Assert.IsNotNull(envList, "Environment list is null");
+
+                    var envModel = envList.FirstOrDefault();
+                    Assert.IsNotNull(envModel);
+                    if (expectedResult)
+                    {
+                        Assert.IsNotNull(envModel.ParentId);
+                    }
+                    else
+                    {
+                        Assert.IsNull(envModel.ParentId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Parent set unsuccessful: {ex.Message}");
+            }
+            finally
+            {
+                foreach (var key in _scenarioContext.Keys.Reverse())
+                {
+                    if (key.EndsWith("_id"))
+                    {
+                        new DataAccessor().DeleteEnvironment(int.Parse(_scenarioContext[key].ToString()));
+                    }
+                }
+            }
         }
     }
 }

@@ -16,14 +16,19 @@ namespace Dorc.PersistentData.Sources
         private const string HttpsProtocolPrefix = "https://";
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private ILog _logger;
+        private readonly ILog _logger;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ProjectsPersistentSource(IDeploymentContextFactory contextFactory,
-            IEnvironmentsPersistentSource environmentsPersistentSource, ILog logger)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            ILog logger,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _logger = logger;
             _environmentsPersistentSource = environmentsPersistentSource;
             _contextFactory = contextFactory;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public IEnumerable<ProjectApiModel> GetProjects(IPrincipal user, int deprecated = 0)
@@ -244,7 +249,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool RemoveEnvironmentMappingFromProject(string project, string environment, IPrincipal principal)
+        public bool RemoveEnvironmentMappingFromProject(string project, string environment, IPrincipal user)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -260,9 +265,10 @@ namespace Dorc.PersistentData.Sources
                     if (env is null)
                         return false;
 
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(env.Name, string.Empty,
                         "Environment removed from project " + projects.Name,
-                        principal.Identity.Name, "Remove Environment Mapping From Project", context);
+                        username, "Remove Environment Mapping From Project", context);
 
                     projectsEnvironments.Remove(env);
                     context.SaveChanges();
@@ -277,7 +283,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool AddEnvironmentMappingToProject(string project, string environment, IPrincipal principal)
+        public bool AddEnvironmentMappingToProject(string project, string environment, IPrincipal user)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -292,9 +298,10 @@ namespace Dorc.PersistentData.Sources
 
                     proj.Environments.Add(env);
 
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(env.Name, string.Empty,
                         "Environment added to project " + proj.Name,
-                        principal.Identity.Name, "Add Environment Mapping To Project", context);
+                        username, "Add Environment Mapping To Project", context);
 
                     context.SaveChanges();
                     return true;

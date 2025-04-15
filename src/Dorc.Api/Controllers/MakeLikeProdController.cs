@@ -1,10 +1,12 @@
 using System.Runtime.Versioning;
 using System.Security.Claims;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using Microsoft.AspNetCore.Authorization;
@@ -24,30 +26,33 @@ namespace Dorc.Api.Controllers
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
-        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
+        private readonly IActiveDirectoryUserGroupReader _activeDirectoryReader;
         private readonly IVariableResolver _variableResolver;
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public MakeLikeProdController(ILog logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
-            IActiveDirectorySearcher activeDirectorySearcher,
+            IActiveDirectoryUserGroupReader activeDirectoryReader,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
-            IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource)
+            IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             _projectsPersistentSource = projectsPersistentSource;
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
             _variableResolver = variableResolver;
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;
-            _activeDirectorySearcher = activeDirectorySearcher;
+            _activeDirectoryReader = activeDirectoryReader;
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
             _deployLibrary = deployLibrary;
             _logger = logger;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -98,9 +103,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var email = GetUserEmail(User);
-
-                return Results.Ok(email);
+                return Results.Ok(GetUserEmail(User));
             }
             catch (Exception e)
             {
@@ -231,12 +234,7 @@ namespace Dorc.Api.Controllers
 
         private string GetUserEmail(ClaimsPrincipal user)
         {
-            string? userName = user.Identity?.Name.Split("\\")[1];
-
-            var directoryEntry = _activeDirectorySearcher.GetUserIdActiveDirectory(userName);
-
-            var email = directoryEntry.Email;
-            return email;
+            return _claimsPrincipalReader.GetUserEmail(user, _activeDirectoryReader);
         }
     }
 }

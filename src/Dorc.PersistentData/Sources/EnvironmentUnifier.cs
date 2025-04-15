@@ -15,7 +15,18 @@ namespace Dorc.PersistentData.Sources
 
         public static Environment GetEnvironment(IDeploymentContext context, int envId)
         {
-            return context.Environments.Include(d => d.Databases).Include(s => s.Servers).SingleOrDefault(x => x.Id == envId);
+            return context.Environments
+                .SingleOrDefault(x => x.Id == envId);
+        }
+
+        public static Environment? GetFullEnvironment(IDeploymentContext context, int envId)
+        {
+            return context.Environments
+                .Include(d => d.Databases)
+                .Include(s => s.Servers)
+                .Include(e => e.ParentEnvironment)
+                .Include(e => e.ChildEnvironments)
+                .SingleOrDefault(x => x.Id == envId);
         }
     }
 }

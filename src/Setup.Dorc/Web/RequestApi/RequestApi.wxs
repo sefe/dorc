@@ -3,14 +3,30 @@
   <Fragment>
     <CustomAction Id="ReconfigureLoadUserProfileRequestApi" Directory="RequestApi" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DeployApi&quot; -processmodel.loaduserprofile:true" Return="ignore" />
 
-    <Component Id="RequestApiComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApi">
+	<Binary Id="certBinaryApi" SourceFile="DorcNonProdSSLCert.pfx"/>
+	<Binary Id="certBinaryApiProd" SourceFile="deploymentportal.pfx"/>
+
+	<Component Id="RequestApiComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
         <util:User Id="ApiUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
         <iis:WebAppPool Id="DeployApiPool" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
 			<iis:RecycleTime Value="2:00" />
 		</iis:WebAppPool>
+
+		<iis:Certificate
+		 BinaryRef="certBinaryApi"
+		 Id="MySSLCertApi"
+		 Name="DorcNonProdSSLCert.pfx"
+		 Request="no"
+		 StoreLocation="localMachine"
+		 StoreName="root"
+		 PFXPassword="[CERTIFICATE.PASSWORD]">
+		</iis:Certificate>
+		
         <iis:WebSite Id="DOrcApi" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
           <iis:WebDirProperties Id="SiteDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
-          <iis:WebAddress Id="AllUnassigned" Port="8080" />
+		  <iis:WebAddress Id="AllUnassigned" Port="8443"  Secure="true" />
+		  <iis:WebAddress Id="AllUnassigned8080" Port="8080" />
+		  <iis:CertificateRef Id='MySSLCertApi' />
           <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApi" />
         </iis:WebSite>
         <Json:JsonFile Id="ReqApiConnectionString" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
@@ -30,6 +46,68 @@
 		<Json:JsonFile Id="CurrentAadTenant" ElementPath="$.AppSettings.AadTenant" File="[#DeployApiWebConfig]" Value="[AADTENANT]" />
 		<Json:JsonFile Id="CurrentDomainName" ElementPath="$.AppSettings.DomainName" File="[#DeployApiWebConfig]" Value="[DOMAINNAME]" />
 		<Json:JsonFile Id="CurrentDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
+		<Json:JsonFile Id="CurrentAuthenticationScheme" ElementPath="$.AppSettings.AuthenticationScheme" File="[#DeployApiWebConfig]" Value="[DORC.AUTHENTICATION.SCHEME]" />
+		<Json:JsonFile Id="CurrentOAuth2Authority" ElementPath="$.AppSettings.OAuth2.Authority" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
+		<Json:JsonFile Id="CurrentOAuth2UiClientId" ElementPath="$.AppSettings.OAuth2.UiClientId" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.CLIENT.ID]" />
+		<Json:JsonFile Id="CurrentOAuth2UiRequestedScopes" ElementPath="$.AppSettings.OAuth2.UiRequestedScopes" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.REQUESTED.SCOPES]" />
+		<Json:JsonFile Id="CurrentOAuth2ApiResourceName" ElementPath="$.AppSettings.OAuth2.ApiResourceName" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.RESOURCE.NAME]" />
+		<Json:JsonFile Id="CurrentOAuth2ApiGlobalScope" ElementPath="$.AppSettings.OAuth2.ApiGlobalScope" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
+		<Json:JsonFile Id="OnePasswordBaseUrl" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
+		<Json:JsonFile Id="OnePasswordApiKey" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.APIKEY]" />
+		<Json:JsonFile Id="OnePasswordVaultId" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
+		<Json:JsonFile Id="OnePasswordItemId" ElementPath="$.AppSettings.OnePassword.ItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.ITEM.ID]" />
       </Component>
+
+	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+		  <util:User Id="ApiUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+		  <iis:WebAppPool Id="DeployApiPoolProd" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
+			  <iis:RecycleTime Value="2:00" />
+		  </iis:WebAppPool>
+
+		  <iis:Certificate
+		   BinaryRef="certBinaryApiProd"
+		   Id="MySSLCertApiProd"
+		   Name="deploymentportal.pfx"
+		   Request="no"
+		   StoreLocation="localMachine"
+		   StoreName="root"
+		   PFXPassword="[CERTIFICATE.PASSWORD]">
+		  </iis:Certificate>
+
+		  <iis:WebSite Id="DOrcApiProd" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
+			  <iis:WebDirProperties Id="SiteDirPropertiesProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+			  <iis:WebAddress Id="AllUnassignedProd" Port="8443"  Secure="true" />
+			  <iis:WebAddress Id="AllUnassignedProd8080" Port="8080" />
+			  <iis:CertificateRef Id='MySSLCertApiProd' />
+			  <iis:WebApplication Id="DOrcApiWebAppProd" WebAppPool="DeployApiPoolProd" Name="DOrcApi" />
+		  </iis:WebSite>
+		  <Json:JsonFile Id="ReqApiConnectionStringProd" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+
+		  <Json:JsonFile Id="WebRequestApiCorsProd" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
+
+		  <Json:JsonFile Id="ADRoleProviderConfigRequestApiAdminProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
+		  <Json:JsonFile Id="ADRoleProviderConfigRequestApiPowerUserProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
+
+		  <Json:JsonFile Id="ReqApiUrlProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#DeployApiWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+
+		  <Json:JsonFile Id="CurrentEnvironmentProd" ElementPath="$.AppSettings.environment" File="[#DeployApiWebConfig]" Value="[ENVIRONMENT]" />
+
+		  <Json:JsonFile Id="CurrentAadAdosOrgUrlProd" ElementPath="$.AppSettings.AadAdosOrgUrl" File="[#DeployApiWebConfig]" Value="[AADADOSORGURL]" />
+		  <Json:JsonFile Id="CurrentAadClientIdProd" ElementPath="$.AppSettings.AadClientId" File="[#DeployApiWebConfig]" Value="[AADCLIENTID]" />
+		  <Json:JsonFile Id="CurrentAadSecretProd" ElementPath="$.AppSettings.AadSecret" File="[#DeployApiWebConfig]" Value="[AADSECRET]" />
+		  <Json:JsonFile Id="CurrentAadTenantProd" ElementPath="$.AppSettings.AadTenant" File="[#DeployApiWebConfig]" Value="[AADTENANT]" />
+		  <Json:JsonFile Id="CurrentDomainNameProd" ElementPath="$.AppSettings.DomainName" File="[#DeployApiWebConfig]" Value="[DOMAINNAME]" />
+		  <Json:JsonFile Id="CurrentDomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#DeployApiWebConfig]" Value="[DOMAINNAMEINTRA]" />
+		  <Json:JsonFile Id="CurrentAuthenticationSchemeProd" ElementPath="$.AppSettings.AuthenticationScheme" File="[#DeployApiWebConfig]" Value="[DORC.AUTHENTICATION.SCHEME]" />
+		  <Json:JsonFile Id="CurrentOAuth2AuthorityProd" ElementPath="$.AppSettings.OAuth2.Authority" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
+		  <Json:JsonFile Id="CurrentOAuth2UiClientIdProd" ElementPath="$.AppSettings.OAuth2.UiClientId" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.CLIENT.ID]" />
+		  <Json:JsonFile Id="CurrentOAuth2UiRequestedScopesProd" ElementPath="$.AppSettings.OAuth2.UiRequestedScopes" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.UI.REQUESTED.SCOPES]" />
+		  <Json:JsonFile Id="CurrentOAuth2ApiResourceNameProd" ElementPath="$.AppSettings.OAuth2.ApiResourceName" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.RESOURCE.NAME]" />
+		  <Json:JsonFile Id="CurrentOAuth2ApiGlobalScopeProd" ElementPath="$.AppSettings.OAuth2.ApiGlobalScope" File="[#DeployApiWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
+		  <Json:JsonFile Id="OnePasswordBaseUrlProd" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
+		  <Json:JsonFile Id="OnePasswordApiKeyProd" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.APIKEY]" />
+		  <Json:JsonFile Id="OnePasswordVaultIdProd" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
+		  <Json:JsonFile Id="OnePasswordItemIdProd" ElementPath="$.AppSettings.OnePassword.ItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.ITEM.ID]" />
+	  </Component>
   </Fragment>
 </Wix>

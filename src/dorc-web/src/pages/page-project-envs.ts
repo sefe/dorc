@@ -240,13 +240,26 @@ export class PageProjectEnvs extends PageElement {
   constructor() {
     super();
     this.getProjects();
-    GlobalCache.getInstance().allRolesResp?.subscribe((data: Array<string>) => {
-      this.userRoles = data;
+    this.getUserRoles();
+  }
 
-      this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-      this.isPowerUser =
-        this.userRoles.find(p => p === 'PowerUser') !== undefined;
-    });
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   private openProjectMetadata() {
