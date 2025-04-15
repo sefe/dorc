@@ -164,11 +164,12 @@ namespace Dorc.Core
 
         private List<ServicesAndStatus> GetServicesAndStatusForEnvironment(List<ServicesAndStatus> sas)
         {
-            var iResults = new ConcurrentBag<ServicesAndStatus>();
+            var resultsDict = new ConcurrentDictionary<int, ServicesAndStatus>();
+            var originalOrder = sas.Select((item, index) => new { item, index }).ToDictionary(x => x.item, x => x.index);
 
             try
             {
-                Parallel.ForEach(sas, sa =>
+                Parallel.ForEach(sas, (sa, _, index) =>
                 {
                     try
                     {
@@ -183,8 +184,14 @@ namespace Dorc.Core
 
                             using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName))
                             {
-                                sa.ServiceStatus = serviceController.Status.ToString();
-                                iResults.Add(sa);
+                                var resultItem = new ServicesAndStatus
+                                {
+                                    EnvName = sa.EnvName,
+                                    ServerName = sa.ServerName,
+                                    ServiceName = sa.ServiceName,
+                                    ServiceStatus = serviceController.Status.ToString()
+                                };
+                                resultsDict.TryAdd((int)index, resultItem);
                             }
                         }
                         catch (Exception ex)
@@ -207,7 +214,9 @@ namespace Dorc.Core
                 _logger.Info("Error building list of servers/services" + Environment.NewLine + ex.Message);
             }
 
-            return iResults.ToList();
+            return resultsDict.OrderBy(kvp => kvp.Key)
+                      .Select(kvp => kvp.Value)
+                      .ToList();
         }
 
         /// <summary>
