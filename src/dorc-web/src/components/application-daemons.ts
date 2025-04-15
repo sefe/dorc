@@ -68,20 +68,20 @@ export class ApplicationDaemons extends LitElement {
           flex-grow="0"
         >
         </vaadin-grid-sort-column>
-        <vaadin-grid-column
-          width="150px"
-          flex-grow="0"
-          .renderer="${this._boundDaemonsButtonsRenderer}"
-          .attachedAppDaemonControl="${this}"
-        >
-        </vaadin-grid-column>
         <vaadin-grid-sort-column
           path="ServiceStatus"
           header="Status"
           resizable
+          width="100px"
+          flex-grow="0"
           .renderer="${this._daemonStatusRenderer}"
         >
         </vaadin-grid-sort-column>
+        <vaadin-grid-column
+          .renderer="${this._boundDaemonsButtonsRenderer}"
+          .attachedAppDaemonControl="${this}"
+        >
+        </vaadin-grid-column>
       </vaadin-grid>
     `;
   }
