@@ -1,6 +1,7 @@
 ﻿using System;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Lamar;
 using log4net;
 
@@ -15,6 +16,7 @@ namespace Tools.PostRestoreEndurCLI
                 For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
+                For<IClaimsPrincipalReader>().Use<WinAuthClaimsPrincipalReader>();
             }
             catch (Exception e)
             {

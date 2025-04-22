@@ -101,7 +101,10 @@ namespace Dorc.PersistentData.Sources
                     .SingleOrDefault(environment =>
                     EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation));
-                return env?.Projects.Select(ProjectsPersistentSource.MapToProjectApiModel).ToList();
+                return env?.Projects
+                    .OrderBy(p => p.Name)
+                    .Select(ProjectsPersistentSource.MapToProjectApiModel)
+                    .ToList();
             }
         }
 
@@ -175,7 +178,13 @@ namespace Dorc.PersistentData.Sources
                 try
                 {
                     var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-                    var server = context.Servers.Find(serverId);
+                    var server = context.Servers
+                        .Include(s => s.Environments)
+                        .FirstOrDefault(s => s.Id == serverId);
+
+                    if (server == null)
+                        throw new ArgumentOutOfRangeException(nameof(serverId), "Invalid or unknown server Id specified.");
+
                     server.Environments.Add(envDetail);
 
                     string username = _claimsPrincipalReader.GetUserName(user);
@@ -200,7 +209,13 @@ namespace Dorc.PersistentData.Sources
                 try
                 {
                     var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-                    var server = context.Servers.Find(serverId);
+                    var server = context.Servers
+                        .Include(s => s.Environments)
+                        .FirstOrDefault(s => s.Id == serverId);
+
+                    if (server == null)
+                        throw new ArgumentOutOfRangeException(nameof(serverId), "Invalid or unknown server Id specified.");
+
                     server.Environments.Remove(envDetail);
 
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
@@ -376,6 +391,7 @@ namespace Dorc.PersistentData.Sources
                     .Include("Environment")
                     .Include("DeploymentRequest")
                     .Where(e => e.Environment.Name == environmentName && e.DeploymentRequest.CompletedTime < cutoffDate)
+                    .OrderByDescending(e => e.UpdateDate)
                     .Select(o => new
                     {
                         ComponentName = o.Component.Name,
