@@ -226,7 +226,7 @@ namespace Dorc.Api.Controllers
 
 
         /// <summary>
-        /// Creates new request
+        /// Cancel request
         /// </summary>
         /// <param name="requestId"></param>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
