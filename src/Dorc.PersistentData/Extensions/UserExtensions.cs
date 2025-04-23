@@ -1,7 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.DirectoryServices;
-using System.DirectoryServices.AccountManagement;
-using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
 
@@ -18,12 +16,6 @@ namespace Dorc.PersistentData.Extensions
             public List<string> Sids { get; set; }
             public DateTime Timestamp { get; set; }
         }
-
-        public static List<string> GetSidsForUser(this IPrincipal user)
-        {
-            return (user.Identity?.Name).GetSidsForUser();
-        }
-
         public static List<string> GetSidsForUser(this string username)
         {
             if (CacheDuration is not null && SidCache.TryGetValue(username, out var cacheEntry) && (DateTime.Now - cacheEntry.Timestamp) < CacheDuration)
@@ -35,8 +27,6 @@ namespace Dorc.PersistentData.Extensions
             var name = username;
 
             DirectorySearcher ds = new DirectorySearcher();
-            if (username.Contains('\\'))
-                name = username.Split('\\')[1];
 
             ds.Filter = $"(&(objectClass=user)(sAMAccountName={name}))";
             SearchResult sr = ds.FindOne();
@@ -61,13 +51,6 @@ namespace Dorc.PersistentData.Extensions
                 SidCache[username] = new CacheEntry { Sids = sidList, Timestamp = DateTime.Now };
 
             return sidList;
-        }
-
-        public static string GetUsername(this IPrincipal user)
-        {
-            var userSplit = user.Identity.Name.Split('\\');
-            var userName = userSplit[1];
-            return userName;
         }
     }
 }

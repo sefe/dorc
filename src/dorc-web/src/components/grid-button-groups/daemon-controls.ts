@@ -97,12 +97,15 @@ export class DaemonControls extends LitElement {
   requestChange(requestedChange: string) {
     if (this.daemonDetails !== undefined) {
       const api = new DaemonStatusApi();
-      this.daemonDetails.ServiceStatus = requestedChange;
+      
+      this.daemonDetails.ServiceStatus = requestedChange; 
+      this.updateParentWith(this.daemonDetails);
       api
         .daemonStatusPut({ serviceStatusApiModel: this.daemonDetails })
         .subscribe(
           (data: ServiceStatusApiModel) => {
             this.daemonDetails = data;
+            this.updateParentWith(data);
           },
           (err: any) => {
             if (err.response.ExceptionMessage !== undefined)
@@ -117,5 +120,14 @@ export class DaemonControls extends LitElement {
           }
         );
     }
+  }
+
+  private updateParentWith(data: ServiceStatusApiModel) {
+    const event = new CustomEvent('daemon-status-changed', {
+      detail: data,
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
   }
 }

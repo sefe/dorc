@@ -41,5 +41,55 @@ namespace Dorc.Core.Configuration
 
             return TimeSpan.FromMinutes(adUserCacheTimeMinutes);
         }
+
+        public string? GetAuthenticationScheme()
+        {
+            return _configuration.GetSection("AppSettings")["AuthenticationScheme"];
+        }
+
+        public string? GetOAuthAuthority()
+        {
+            return _configuration.GetSection("AppSettings:OAuth2")["Authority"];
+        }
+
+        public string? GetOAuthUiClientId()
+        {
+            return _configuration.GetSection("AppSettings:OAuth2")["UiClientId"];
+        }
+
+        public string? GetOAuthUiRequestedScopes()
+        {
+            return _configuration.GetSection("AppSettings:OAuth2")["UiRequestedScopes"];
+        }
+
+        public string? GetOAuthApiResourceName()
+        {
+            return _configuration.GetSection("AppSettings:OAuth2")["ApiResourceName"];
+        }
+
+        public string? GetOAuthApiGlobalScope()
+        {
+            return _configuration.GetSection("AppSettings:OAuth2")["ApiGlobalScope"];
+        }
+
+        public string? GetOnePasswordBaseUrl()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["BaseUrl"];
+        }
+
+        public string? GetOnePasswordApiKey()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["ApiKey"];
+        }
+
+        public string? GetOnePasswordVaultId()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["VaultId"];
+        }
+
+        public string? GetOnePasswordItemId()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["ItemId"];
+        }
     }
 }

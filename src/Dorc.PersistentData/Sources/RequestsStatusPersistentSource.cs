@@ -14,22 +14,28 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly ILog _log;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public RequestsStatusPersistentSource(IDeploymentContextFactory contextFactory,ILog log)
+        public RequestsStatusPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            ILog log,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _contextFactory = contextFactory;
             _log = log;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
-        public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal principal)
+        public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal user)
         {
-            var userName = principal.GetUsername();
-            var userSids = principal.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             PagedModel<DeploymentRequestApiModel> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var reqStatusesQueryable = GetDeploymentRequestApiModels(context, userName, userSids);
+                var reqStatusesQueryable = GetDeploymentRequestApiModels(context, username, userSids);
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {

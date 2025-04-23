@@ -381,22 +381,26 @@ export class PageVariables extends PageElement {
 
   constructor() {
     super();
+    this.getUserRoles();
+  }
 
-    GlobalCache.getInstance().allRolesResp?.subscribe((data: Array<string>) => {
-      this.userRoles = data;
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
 
-      if (this.userRoles.find(p => p === 'Admin') === undefined) {
-        this.isAdmin = false;
-      } else {
-        this.isAdmin = true;
-      }
-
-      if (this.userRoles.find(p => p === 'PowerUser') === undefined) {
-        this.isPowerUser = false;
-      } else {
-        this.isPowerUser = true;
-      }
-    });
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   cellClassNameGenerator(

@@ -40,7 +40,7 @@ namespace Dorc.Monitor
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             var requestsToAbandon = this.requestsPersistentSource
-                .GetRequestsWithStatus([DeploymentRequestStatus.Running,], isProduction)
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, isProduction)
                 .Where(runningRequest => runningRequest.RequestedTime != null
                     && (DateTimeOffset.Now - runningRequest.RequestedTime).Value.Days > 1)
                 .OrderBy(runningRequest => runningRequest.Id)
@@ -49,27 +49,27 @@ namespace Dorc.Monitor
 
             SwitchRequestsStatus(
                 requestsToAbandon,
-                Methods.Abandon, 
-                DeploymentRequestStatus.Running, 
-                DeploymentRequestStatus.Abandoned, 
-                requestCancellationSources, 
+                Methods.Abandon,
+                DeploymentRequestStatus.Running,
+                DeploymentRequestStatus.Abandoned,
+                requestCancellationSources,
                 monitorCancellationToken);
         }
 
         public void CancelRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             var requestsToCancel = this.requestsPersistentSource
-                .GetRequestsWithStatus([DeploymentRequestStatus.Cancelling], isProduction)
+                .GetRequestsWithStatus(DeploymentRequestStatus.Cancelling, isProduction)
                 .OrderBy(cancellingRequest => cancellingRequest.Id)
                 .Take(10)
                 .ToList();
 
             SwitchRequestsStatus(
                 requestsToCancel,
-                Methods.Cancel, 
-                DeploymentRequestStatus.Cancelling, 
-                DeploymentRequestStatus.Cancelled, 
-                requestCancellationSources, 
+                Methods.Cancel,
+                DeploymentRequestStatus.Cancelling,
+                DeploymentRequestStatus.Cancelled,
+                requestCancellationSources,
                 monitorCancellationToken);
 
             SwitchDeploymentResultsStatus(
@@ -149,7 +149,7 @@ namespace Dorc.Monitor
         public void RestartRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             var requestsToRestart = this.requestsPersistentSource
-                .GetRequestsWithStatus([DeploymentRequestStatus.Restarting], isProduction)
+                .GetRequestsWithStatus(DeploymentRequestStatus.Restarting, isProduction)
                 .OrderBy(restartingRequest => restartingRequest.Id)
                 .Take(10) // since it's bulk, more than 10 will take too much time
                 .ToList();
@@ -200,11 +200,9 @@ namespace Dorc.Monitor
             // Select only Pending requests for each of environments that do not have any Running requests.
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
                 .GetRequestsWithStatus(
-                    [
                         DeploymentRequestStatus.Pending,
-                        DeploymentRequestStatus.Running
-                    ],
-                    isProduction)
+                        DeploymentRequestStatus.Running,
+                        isProduction)
                 .OrderBy(pendingOrRunningRequest => pendingOrRunningRequest.Id)
                 .GroupBy(
                     pendingOrRunningRequest => pendingOrRunningRequest.EnvironmentName,
@@ -213,7 +211,7 @@ namespace Dorc.Monitor
                         this.serializer.Deserialize(pendingOrRunningRequest.RequestDetails)))
                 .Where(environmentRequestGroup => environmentRequestGroup.All(environmentRequest =>
                     environmentRequest.Request.Status != DeploymentRequestStatus.Running.ToString()));
-                
+
             IList<Task> requestGroupExecutionTasks = new List<Task>();
 
             foreach (var requestGroup in environmentRequestGroupsToExecute)
@@ -242,7 +240,7 @@ namespace Dorc.Monitor
                             (requestId, existingCancellationTokenSource) => requestCancellationTokenSource);
                         this.ExecuteRequest(requestToExecute, requestCancellationTokenSource.Token);
                     }
-                    catch (OperationCanceledException) 
+                    catch (OperationCanceledException)
                     {
                         this.logger.Error($"Canceled processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}");
                     }

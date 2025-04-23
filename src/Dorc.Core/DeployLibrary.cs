@@ -4,6 +4,7 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
@@ -20,11 +21,16 @@ namespace Dorc.Core
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ILog _logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IEnvironmentsPersistentSource environmentsPersistentSource, ILog logger, IRequestsPersistentSource requestsPersistentSource)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            ILog logger,
+            IRequestsPersistentSource requestsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _requestsPersistentSource = requestsPersistentSource;
             _logger = logger;
@@ -32,6 +38,7 @@ namespace Dorc.Core
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -122,7 +129,7 @@ namespace Dorc.Core
                 new DeploymentRequest
                 {
                     RequestDetails = serializer.Serialize(requestDetail),
-                    UserName = user.Identity.Name,
+                    UserName = _claimsPrincipalReader.GetUserFullDomainName(user),
                     RequestedTime = DateTimeOffset.Now,
                     Project = requestDetail.BuildDetail.Project,
                     Environment = requestDetail.EnvironmentName,

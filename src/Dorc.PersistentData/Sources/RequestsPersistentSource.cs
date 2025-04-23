@@ -6,7 +6,6 @@ using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Services.Common;
-using System.Net.NetworkInformation;
 using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
@@ -14,10 +13,15 @@ namespace Dorc.PersistentData.Sources
     public class RequestsPersistentSource : IRequestsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public RequestsPersistentSource(IDeploymentContextFactory contextFactory)
+        public RequestsPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _contextFactory = contextFactory;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public DeploymentRequestApiModel GetRequest(int requestId)
@@ -28,15 +32,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal principal)
+        public DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal user)
         {
-            var userName = principal.GetUsername();
-            var userSids = principal.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserName(user);
+            var userSids = username.GetSidsForUser();
 
             using (var context = _contextFactory.GetContext())
             {
                 var reqStatusesQueryable = RequestsStatusPersistentSource
-                    .GetDeploymentRequestApiModels(context, userName, userSids).Where(req => req.Id == requestId);
+                    .GetDeploymentRequestApiModels(context, username, userSids).Where(req => req.Id == requestId);
 
                 return reqStatusesQueryable.ToList().FirstOrDefault();
             }
@@ -51,12 +55,23 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus[] validStatuses, bool isProd)
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd)
         {
             using (var context = _contextFactory.GetContext())
             {
                 return context.DeploymentRequests.AsNoTracking()
-                    .Where(r => validStatuses.Select(s => s.ToString()).Contains(r.Status)
+                    .Where(r => status.ToString() == r.Status
+                        && r.IsProd == isProd)
+                    .ToList().Select(MapToDeploymentRequestApiModel).ToList();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests.AsNoTracking()
+                    .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status)
                         && r.IsProd == isProd)
                     .ToList().Select(MapToDeploymentRequestApiModel).ToList();
             }
