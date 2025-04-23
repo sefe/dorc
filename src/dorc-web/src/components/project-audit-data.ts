@@ -32,6 +32,7 @@ import {
 } from '../apis/dorc-api/models';
 import './hegs-json-viewer';
 import { HegsJsonViewer } from './hegs-json-viewer';
+import { getShortLogonName } from '../helpers/user-extensions';
 
 let _project: ProjectApiModel | undefined;
 
@@ -342,7 +343,7 @@ export class ProjectAuditData extends LitElement {
       .subscribe({
         next: (data: GetRefDataAuditListResponseDto) => {
           data.Items?.map(
-            item => (item.Username = item.Username?.split('\\')[1])
+            item => (item.Username = getShortLogonName(item.Username))
           );
           this.dispatchEvent(
             new CustomEvent('searching-audit-finished', {

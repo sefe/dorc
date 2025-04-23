@@ -18,18 +18,22 @@ namespace Dorc.Api.Controllers
         private readonly IActiveDirectorySearcher _activeDirectorySearcher;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RefDataProjectsController(
             IProjectsPersistentSource projectsPersistentSource,
             IAccessControlPersistentSource accessControlPersistentSource,
             IActiveDirectorySearcher activeDirectorySearcher, IRolePrivilegesChecker rolePrivilegesChecker,
-            ISecurityPrivilegesChecker securityPrivilegesChecker)
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _activeDirectorySearcher = activeDirectorySearcher;
             _accessControlPersistentSource = accessControlPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -96,7 +100,8 @@ namespace Dorc.Api.Controllers
 
                 var securityObject = _projectsPersistentSource.GetSecurityObject(project.ProjectName);
 
-                var adSearch = _activeDirectorySearcher.GetUserIdActiveDirectory(User.Identity.Name.Split('\\')[1]);
+                string username = _claimsPrincipalReader.GetUserName(User);
+                var adSearch = _activeDirectorySearcher.GetUserIdActiveDirectory(username);
 
                 _accessControlPersistentSource.AddAccessControl(new AccessControlApiModel
                 { Sid = adSearch.Sid, Name = adSearch.DisplayName, Allow = 3, Deny = 0 }, securityObject.ObjectId);

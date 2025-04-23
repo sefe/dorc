@@ -1,6 +1,7 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using Microsoft.AspNetCore.Authorization;
@@ -20,9 +21,13 @@ namespace Dorc.Api.Controllers
         private readonly IRequestsManager _requestsManager;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILog log,
-            IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource, IProjectsPersistentSource projectsPersistentSource)
+            IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
+            IProjectsPersistentSource projectsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _projectsPersistentSource = projectsPersistentSource;
             _requestsPersistentSource = requestsPersistentSource;
@@ -30,6 +35,7 @@ namespace Dorc.Api.Controllers
             _service = service;
             _apiSecurityService = apiSecurityService;
             _log = log;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -193,17 +199,17 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)
                 {
-                    _log.Info($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {User.Identity.Name}");
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _log.Info($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {User.Identity.Name}");
+                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
                 if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
                     || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
                     _requestsPersistentSource.UpdateRequestStatus(
                         requestId,
-                        DeploymentRequestStatus.Restarting,
-                        User.Identity.Name);
+                        DeploymentRequestStatus.Restarting);
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
@@ -236,9 +242,10 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)
                 {
-                    _log.Info($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {User.Identity.Name}");
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _log.Info($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {User.Identity.Name}");
+                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
                 if (deploymentRequest.Status == DeploymentRequestStatus.Running.ToString()
@@ -281,9 +288,10 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
-                    _log.Info($"Forbidden request to {requestDto.Environment} from {User.Identity.Name}");
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _log.Info($"Forbidden request to {requestDto.Environment} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
-                            $"Forbidden request to {requestDto.Environment} from {User.Identity.Name}");
+                            $"Forbidden request to {requestDto.Environment} from {username}");
                 }
 
                 try

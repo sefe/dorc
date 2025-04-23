@@ -8,9 +8,9 @@
     [Status]         NVARCHAR (32)      NOT NULL,
     [Log]            NVARCHAR (MAX)     NULL,
     [IsProd]		 bit                NOT NULL DEFAULT(0),
-    [Project]        NVARCHAR (MAX)     NULL,
-    [Environment]    NVARCHAR (MAX)     NULL,
-    [BuildNumber]    NVARCHAR (MAX)     NULL,
+    [Project]        NVARCHAR (64)      NULL,
+    [Environment]    NVARCHAR (64)      NULL,
+    [BuildNumber]    NVARCHAR (256)     NULL,
     [Components]     NVARCHAR (MAX)     NULL,
     [UNCLogPath]     NVARCHAR (1024)    NULL
     CONSTRAINT [PK_DeploymentRequest] PRIMARY KEY CLUSTERED ([Id] ASC)

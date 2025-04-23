@@ -37,6 +37,9 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<ServiceStatusApiModel>))]
         public IActionResult Get(int id)
         {
+            if (id == 0)
+                return StatusCode(StatusCodes.Status400BadRequest, "Environment ID is not valid!");
+
             var result = _apiServices.GetEnvDaemonsStatuses(id);
 
             return StatusCode(StatusCodes.Status200OK, result);
@@ -52,6 +55,9 @@ namespace Dorc.Api.Controllers
         [Route("{envName}")]
         public IActionResult Get(string envName)
         {
+            if (string.IsNullOrEmpty(envName))
+                return StatusCode(StatusCodes.Status400BadRequest, "Environment name is not valid!");
+
             var result = _apiServices.GetEnvDaemonsStatuses(envName, User);
 
             return StatusCode(StatusCodes.Status200OK, result);

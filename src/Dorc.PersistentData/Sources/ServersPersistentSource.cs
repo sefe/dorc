@@ -14,11 +14,17 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public ServersPersistentSource(IDeploymentContextFactory contextFactory, IRolePrivilegesChecker rolePrivilegesChecker)
+        public ServersPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            IClaimsPrincipalReader claimsPrincipalReader
+            )
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _contextFactory = contextFactory;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         public ServerApiModel UpdateServer(int id, ServerApiModel server, IPrincipal user)
@@ -80,8 +86,8 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
-
+                string username = _claimsPrincipalReader.GetUserName(user);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context);
                 var reqStatusesQueryable = context.Servers.Include(server => server.Environments).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
@@ -214,7 +220,8 @@ namespace Dorc.PersistentData.Sources
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context, svr.Environments.Select(ed => ed.Name));
+                string username = _claimsPrincipalReader.GetUserName(user);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context, svr.Environments.Select(ed => ed.Name));
 
                 var serverApiModel = new ServerApiModel
                 {
@@ -247,7 +254,8 @@ namespace Dorc.PersistentData.Sources
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context, svr.Environments.Select(ed => ed.Name));
+                string username = _claimsPrincipalReader.GetUserName(user);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context, svr.Environments.Select(ed => ed.Name));
 
                 var serverApiModel = new ServerApiModel
                 {
@@ -326,6 +334,7 @@ namespace Dorc.PersistentData.Sources
                 if (envDetail == null) return new List<ServerApiModel>();
                 var result = context.Servers
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
+                    .OrderBy(s => s.Name)
                     .Select(s => s);
                 return result.ToList().Select(MapToServerApiModel).ToList();
             }
