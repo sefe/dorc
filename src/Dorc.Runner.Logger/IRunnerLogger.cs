@@ -15,6 +15,7 @@ namespace Dorc.Runner.Logger
         void SetDeploymentResultId(int deploymentResultId);
 
         void UpdateLog(int deploymentResultId, string log);
+        void UpdateDbLog(int deploymentResultId, string log);
 
         void AddLogFilePath(int deploymentRequestId, string logFilePath);
 

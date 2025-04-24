@@ -46,6 +46,11 @@ namespace Dorc.Runner.Logger
             SendDataToOpenSearch(log, LogType.Info);
         }
 
+        public void UpdateDbLog(int deploymentResultId, string log)
+        {
+            this.DapperContext.UpdateLog(this.Logger, deploymentResultId, log);
+        }
+
         public void Information(string message)
         {
             this.Logger.Information(message);

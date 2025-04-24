@@ -47,13 +47,13 @@ namespace Dorc.PowerShell
 
                         powerShell.AddScript(File.ReadAllText(scriptName));
 
-                        //var outputCollection = new PSDataCollection<string>();
-                        //outputCollection.DataAdded += (sender, e) =>
-                        //{
-                        //    var data = sender as PSDataCollection<string>;
-                        //    var msg = data[e.Index]?.ToString();
-                        //    logMessage(msg, MessageType.None);
-                        //};
+                        var outputCollection = new PSDataCollection<string>();
+                        outputCollection.DataAdded += (sender, e) =>
+                        {
+                            var data = sender as PSDataCollection<string>;
+                            var msg = data[e.Index]?.ToString();
+                            logMessage(msg, MessageType.None);
+                        };
 
                         powerShell.Streams.Information.DataAdded += Powershell_Information_DataAdded;
                         powerShell.Streams.Debug.DataAdded += Powershell_Debug_DataAdded;
@@ -65,8 +65,7 @@ namespace Dorc.PowerShell
                         try
                         {
                             logger.Information("Execution of the powershell Script {0} is beginning", scriptName);
-                            //powerShell.Invoke(null, outputCollection);
-                            powerShell.Invoke();
+                            powerShell.Invoke(null, outputCollection);
                             logger.Information("Execution of the powershell Script {0} has completed", scriptName);
                         }
                         catch (Exception exception)
