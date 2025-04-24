@@ -61,14 +61,15 @@ namespace Dorc.NetFramework.PowerShell
                             logger.Information($"Adding Script for execution '{scriptName}'.");
 
                             // create a data collection for standard output
-                            var outputCollection = new PSDataCollection<PSObject>();
+                            //var outputCollection = new PSDataCollection<PSObject>();
                             // and register the event handler on that too
-                            outputCollection.DataAdded += Powershell_Output_DataAdded;
+                            //outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
                             {
                                 logger.Information($"Execution of the powershell Script {scriptName} is beginning");
-                                powerShell.Invoke(null, outputCollection);
+                                //powerShell.Invoke(null, outputCollection);
+                                powerShell.Invoke();
                                 logger.Information($" Execution of the powershell Script {scriptName} has completed");
                             }
                             catch (Exception exception)
