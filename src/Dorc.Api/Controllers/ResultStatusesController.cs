@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Dorc.OpenSearchData.Sources.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,12 @@ namespace Dorc.Api.Controllers
     public sealed class ResultStatusesController : ControllerBase
     {
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IDeploymentResultLogOsSource _deploymentResultLogOsSource;
 
-        public ResultStatusesController(IRequestsPersistentSource requestsPersistentSource)
+        public ResultStatusesController(IRequestsPersistentSource requestsPersistentSource, IDeploymentResultLogOsSource deploymentResultLogOsSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
+            _deploymentResultLogOsSource = deploymentResultLogOsSource;
         }
 
         /// <summary>
@@ -33,6 +36,8 @@ namespace Dorc.Api.Controllers
             }
 
             var deploymentResultModels = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
+
+            _deploymentResultLogOsSource.LoadDeploymentResultsLogs(deploymentResultModels);
 
             return Ok(deploymentResultModels);
         }
