@@ -33,11 +33,17 @@ namespace Dorc.OpenSearchData.Sources
                                             must => must
                                             .Terms(t => t
                                                 .Field(field => field.RequestId)
-                                                .Terms(requestIds))))));
+                                                .Terms(requestIds)))))
+                                .Size(10000));
+
             foreach (var deploymentResult in deploymentResults)
             {
-                deploymentResult.Log += String.Join(Environment.NewLine, logs.Documents.Where(d => d.DeploymentResultId == deploymentResult.Id && d.RequestId == deploymentResult.RequestId)
-                    .Select(d => d.Message));
+                var deploymentResultLogs = logs.Documents.Where(d => d.DeploymentResultId == deploymentResult.Id && d.RequestId == deploymentResult.RequestId);
+                if (deploymentResultLogs != null && deploymentResultLogs.Any())
+                {
+                    deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS:" + Environment.NewLine;
+                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.TimeStamp.ToString()}] {d.Message}"));
+                }
             }
         }
     }
