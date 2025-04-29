@@ -42,7 +42,7 @@ namespace Dorc.OpenSearchData.Sources
                 if (deploymentResultLogs != null && deploymentResultLogs.Any())
                 {
                     deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS:" + Environment.NewLine;
-                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.TimeStamp.ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.Message}"));
+                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.TimeStamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.Message}"));
                     deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS END" + Environment.NewLine;
                 }
             }
