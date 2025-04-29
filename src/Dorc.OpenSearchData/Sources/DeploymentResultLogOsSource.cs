@@ -38,11 +38,12 @@ namespace Dorc.OpenSearchData.Sources
 
             foreach (var deploymentResult in deploymentResults)
             {
-                var deploymentResultLogs = logs.Documents.Where(d => d.DeploymentResultId == deploymentResult.Id && d.RequestId == deploymentResult.RequestId);
+                var deploymentResultLogs = logs.Documents.Where(d => d.DeploymentResultId == deploymentResult.Id && d.RequestId == deploymentResult.RequestId)?.OrderBy(d => d.TimeStamp);
                 if (deploymentResultLogs != null && deploymentResultLogs.Any())
                 {
                     deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS:" + Environment.NewLine;
-                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.TimeStamp.ToString()}] {d.Message}"));
+                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.TimeStamp.ToString("O")}] {d.Message}"));
+                    deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS END" + Environment.NewLine;
                 }
             }
         }
