@@ -13,7 +13,7 @@ namespace Dorc.OpenSearchData.Sources
 
         public DeploymentResultLogOsSource(IOpenSearchClient openSearchClient, string deploymentResultIndex)
         {
-            this._openSearchClient = openSearchClient;
+            _openSearchClient = openSearchClient;
             _deploymentResultIndex = deploymentResultIndex;
         }
 
