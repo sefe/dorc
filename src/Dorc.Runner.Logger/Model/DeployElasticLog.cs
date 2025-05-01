@@ -7,26 +7,26 @@ namespace Dorc.Runner.Logger.Model
     internal class DeployElasticLog
     {
         [JsonProperty("request_id")]
-        public int RequestId {  get; set; }
+        public int request_id { get; set; }
         [JsonProperty("deployment_result_id")]
-        public int DeploymentResultId { get; set; }
+        public int deployment_result_id { get; set; }
         [JsonProperty("message")]
-        public string Message {  get; set; }
+        public string message { get; set; }
         [JsonProperty("exception")]
-        public Exception Exception { get; set; }
+        public Exception exception { get; set; }
         [JsonProperty("level")]
-        public LogLevel Level { get; set; }
+        public LogLevel level { get; set; }
         [JsonProperty("@timestamp")]
-        public DateTime TimeStamp { get; set; }
+        public DateTime @timestamp { get; set; }
 
         public DeployElasticLog(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null)
         {
-            RequestId = requestId;
-            DeploymentResultId = deploymentResultId;
-            Message = message;
-            Exception = exception;
-            Level = level;
-            TimeStamp = DateTime.UtcNow;
+            request_id = requestId;
+            deployment_result_id = deploymentResultId;
+            this.message = message;
+            this.exception = exception;
+            this.level = level;
+            this.@timestamp = DateTime.UtcNow;
         }
     }
 }

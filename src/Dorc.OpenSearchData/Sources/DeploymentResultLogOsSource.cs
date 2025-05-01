@@ -28,21 +28,21 @@ namespace Dorc.OpenSearchData.Sources
                                     .Bool(b => b
                                         .Must(must => must
                                             .Terms(t => t
-                                                .Field(field => field.DeploymentResultId)
+                                                .Field(field => field.deployment_result_id)
                                                 .Terms(deploymentResultIds)),
                                             must => must
                                             .Terms(t => t
-                                                .Field(field => field.RequestId)
+                                                .Field(field => field.request_id)
                                                 .Terms(requestIds)))))
                                 .Size(10000));
 
             foreach (var deploymentResult in deploymentResults)
             {
-                var deploymentResultLogs = logs.Documents.Where(d => d.DeploymentResultId == deploymentResult.Id && d.RequestId == deploymentResult.RequestId)?.OrderBy(d => d.TimeStamp);
+                var deploymentResultLogs = logs.Documents.Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)?.OrderBy(d => d.timestamp);
                 if (deploymentResultLogs != null && deploymentResultLogs.Any())
                 {
                     deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS:" + Environment.NewLine;
-                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.TimeStamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.Message}"));
+                    deploymentResult.Log += String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.message}"));
                     deploymentResult.Log += Environment.NewLine + "OPENSEARCH LOGS END" + Environment.NewLine;
                 }
             }
