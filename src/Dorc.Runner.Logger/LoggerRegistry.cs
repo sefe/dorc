@@ -60,7 +60,8 @@ namespace Dorc.Runner.Logger
             var openSearchConfigSection = config.GetSection("OpenSearchSettings");
             var elasticClientSettings = new ConnectionSettings(new Uri(openSearchConfigSection["ConnectionUri"]))
                 .BasicAuthentication(openSearchConfigSection["UserName"], openSearchConfigSection["Password"])
-                .DefaultIndex(openSearchConfigSection["DeploymentResultIndex"]);
+                .DefaultIndex(openSearchConfigSection["DeploymentResultIndex"])
+                .PrettyJson();
             var client = new OpenSearchClient(elasticClientSettings);
 
             return client;

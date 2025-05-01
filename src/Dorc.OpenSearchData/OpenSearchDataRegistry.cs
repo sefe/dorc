@@ -22,7 +22,8 @@ namespace Dorc.OpenSearchData
         {
             var elasticClientSettings = new ConnectionSettings(new Uri(config["ConnectionUri"]))
                 .BasicAuthentication(config["UserName"], config["Password"])
-                .DefaultIndex(config["DeploymentResultIndex"]);
+                .DefaultIndex(config["DeploymentResultIndex"])
+                .PrettyJson();
             var client = new OpenSearchClient(elasticClientSettings);
 
             return client;
