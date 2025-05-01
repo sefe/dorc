@@ -1,22 +1,22 @@
 ﻿using OpenSearch.Client;
 using System;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace Dorc.Runner.Logger.Model
 {
     internal class DeployElasticLog
     {
-        [JsonPropertyName("request_id")]
+        [JsonProperty("request_id")]
         public int RequestId {  get; set; }
-        [JsonPropertyName("deployment_result_id")]
+        [JsonProperty("deployment_result_id")]
         public int DeploymentResultId { get; set; }
-        [JsonPropertyName("message")]
+        [JsonProperty("message")]
         public string Message {  get; set; }
-        [JsonPropertyName("exception")]
+        [JsonProperty("exception")]
         public Exception Exception { get; set; }
-        [JsonPropertyName("level")]
+        [JsonProperty("level")]
         public LogLevel Level { get; set; }
-        [JsonPropertyName("@timestamp")]
+        [JsonProperty("@timestamp")]
         public DateTime TimeStamp { get; set; }
 
         public DeployElasticLog(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null)
