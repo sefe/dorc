@@ -43,7 +43,7 @@ namespace Dorc.Runner.Logger
         public void UpdateLog(int deploymentResultId, string log)
         {
             this.DapperContext.UpdateLog(this.Logger, deploymentResultId, log);
-            SendDataToOpenSearch(log, LogType.Info);
+            SendDataToOpenSearch(log, LogLevel.Info);
         }
 
         public void UpdateDbLog(int deploymentResultId, string log)
@@ -54,55 +54,55 @@ namespace Dorc.Runner.Logger
         public void Information(string message)
         {
             this.Logger.Information(message);
-            SendDataToOpenSearch(message, LogType.Info);
+            SendDataToOpenSearch(message, LogLevel.Info);
         }
         public void Information(string message, params object[] values)
         {
             this.Logger.Information(message, values);
             if (values != null && values.Length > 0)
-                SendDataToOpenSearch(String.Format(message, values), LogType.Info);
+                SendDataToOpenSearch(string.Format(message, values), LogLevel.Info);
             else
-                SendDataToOpenSearch(message, LogType.Info);
+                SendDataToOpenSearch(message, LogLevel.Info);
         }
 
         public void Verbose(string message)
         {
             this.Logger.Verbose(message);
-            SendDataToOpenSearch(message, LogType.Verbose);
+            SendDataToOpenSearch(message, LogLevel.Info);
         }
 
         public void Warning(string message)
         {
             this.Logger.Warning(message);
-            SendDataToOpenSearch(message, LogType.Warning);
+            SendDataToOpenSearch(message, LogLevel.Warn);
         }
 
         public void Error(string message)
         {
             this.Logger.Error(message);
-            SendDataToOpenSearch(message, LogType.Error);
+            SendDataToOpenSearch(message, LogLevel.Error);
         }
         public void Error(string message, Exception exception)
         {
             this.Logger.Error(message, exception);
-            SendDataToOpenSearch(message, LogType.Error, exception);
+            SendDataToOpenSearch(message, LogLevel.Error, exception);
         }
         public void Error(Exception exception, string message, params object[] values)
         {
             this.Logger.Error(exception, message, values);
             if (values != null && values.Length > 0)
-                SendDataToOpenSearch(String.Format(message, values), LogType.Error, exception);
+                SendDataToOpenSearch(string.Format(message, values), LogLevel.Error, exception);
             else
-                SendDataToOpenSearch(message, LogType.Error, exception);
+                SendDataToOpenSearch(message, LogLevel.Error, exception);
         }
 
         public void Debug(string message)
         {
             this.Logger.Debug(message);
-            SendDataToOpenSearch(message, LogType.Debug);
+            SendDataToOpenSearch(message, LogLevel.Debug);
         }
 
-        private void SendDataToOpenSearch(string message, LogType type = LogType.Info, Exception exception = null)
+        private void SendDataToOpenSearch(string message, LogLevel type = LogLevel.Info, Exception exception = null)
         {
             try
             {
