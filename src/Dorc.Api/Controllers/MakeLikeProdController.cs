@@ -112,36 +112,6 @@ namespace Dorc.Api.Controllers
             }
         }
 
-
-        /// <summary>
-        /// Get the list of request bundles
-        /// </summary>
-        /// <param name="projectNames"></param>
-        /// <returns></returns>
-        [HttpGet]
-        [Produces(typeof(IEnumerable<BundledRequestsApiModel>))]
-        [Route("BundledRequests")]
-        public IActionResult GetBundledRequests([FromQuery] List<string> projectNames)
-        {
-            try
-            {
-                List<BundledRequestsApiModel> output = new();
-                foreach (var p in projectNames)
-                {
-                    output.AddRange(_bundledRequestsPersistentSource.GetBundles(p));
-                }
-
-                return Ok(output);
-            }
-            catch (Exception ex)
-            {
-                string error = $"Error while locating Bundled Requests for project {projectNames}";
-                _logger.Error(error, ex);
-                return BadRequest(error + " - " + ex);
-            }
-        }
-
-
         /// <summary>
         /// Make Like Production a target environment
         /// </summary>
