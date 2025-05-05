@@ -154,7 +154,7 @@ mkdir dorc-api-gen
 cd dorc-api-gen
 ```
 
-Save the latest json file to v1.json first
+Save the latest json file to swagger.json first
 then cd into a new directory where you want the output
 use command:
 

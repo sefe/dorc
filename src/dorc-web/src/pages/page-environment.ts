@@ -20,6 +20,7 @@ export enum EnvPageTabNames {
   Daemons = 'daemons',
   Deployments = 'deployments',
   Tenants = 'tenants',
+  Bundles = 'bundles',
   Users = 'users',
   DelegatedUsers = 'delegated-users'
 }

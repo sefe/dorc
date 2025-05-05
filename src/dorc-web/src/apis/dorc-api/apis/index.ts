@@ -4,6 +4,7 @@ export * from './AnalyticsDeploymentsDateApi';
 export * from './AnalyticsDeploymentsMonthApi';
 export * from './ApiConfigApi';
 export * from './ApiRootApi';
+export * from './BundledRequestsApi';
 export * from './DaemonStatusApi';
 export * from './DelegatedUsersApi';
 export * from './DeploymentV2Api';
