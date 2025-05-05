@@ -1,5 +1,6 @@
 ﻿using Dorc.PersistData.Dapper;
 using Dorc.Runner.Logger.Model;
+using Newtonsoft.Json;
 using OpenSearch.Client;
 using Serilog;
 using System;
@@ -16,13 +17,17 @@ namespace Dorc.Runner.Logger
         private int? _requestId;
         private int? _deploymentResultId;
         private string _deploymentResultIndex;
+        private string _environment;
+        private string _environmentTier;
 
-        public RunnerLogger(ILogger logger, IDapperContext dapperContext, IOpenSearchClient openSearchClient, string deploymentResultIndex)
+        public RunnerLogger(ILogger logger, IDapperContext dapperContext, IOpenSearchClient openSearchClient, string deploymentResultIndex, string environment, string environmentTier)
         {
             Logger = logger;
             DapperContext = dapperContext;
             OpenSearchClient = openSearchClient;
             _deploymentResultIndex = deploymentResultIndex;
+            _environment = environment;
+            _environmentTier = environmentTier;
         }
 
         public void SetRequestId(int requestId)
@@ -106,7 +111,7 @@ namespace Dorc.Runner.Logger
         {
             try
             {
-                var log = new DeployElasticLog(this._requestId ?? 0, this._deploymentResultId ?? 0, message, type, exception);
+                var log = new DeployElasticLog(this._requestId ?? 0, this._deploymentResultId ?? 0, message, type, exception, _environment, _environmentTier);
                 var res = this.OpenSearchClient.IndexAsync<DeployElasticLog>(log, i => i.Index(this._deploymentResultIndex)).Result;
                 if (res.Result == Result.Error )
                 {

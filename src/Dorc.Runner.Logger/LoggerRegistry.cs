@@ -15,11 +15,14 @@ namespace Dorc.Runner.Logger
 
         public IRunnerLogger InitializeLogger(string pipeName, IConfigurationRoot config)
         {
+            var openSearchConfig = config.GetSection("OpenSearchSettings");
             return new RunnerLogger(
                 InitializeSerilog(pipeName),
                 InitializeDapper(config),
                 InitializeOpenSearchLogger(config),
-                config.GetSection("OpenSearchSettings")["DeploymentResultIndex"]
+                openSearchConfig["DeploymentResultIndex"],
+                openSearchConfig["Environment"],
+                openSearchConfig["EnvironmentTier"]
                 );
         }
 

@@ -9,6 +9,10 @@
       "DeployProperty": "ENVIRONMENT"
     },
     {
+      "MSIParameter": "ENVIRONMENT.TIER",
+      "DeployProperty": "ENVIRONMENT_TIER"
+    },
+    {
       "MSIParameter": "SERVICE.PASSWORD",
       "DeployProperty": "SERVICE_PASSWORD"
     },
