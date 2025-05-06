@@ -1,5 +1,4 @@
-﻿using Dorc.PersistData.Dapper;
-using OpenSearch.Client;
+﻿using OpenSearch.Client;
 using Serilog;
 using System;
 
@@ -8,16 +7,12 @@ namespace Dorc.Runner.Logger
     public interface IRunnerLogger
     {
         ILogger Logger { get; }
-        IDapperContext DapperContext { get; }
         IOpenSearchClient OpenSearchClient { get; }
 
         void SetRequestId(int requestId);
         void SetDeploymentResultId(int deploymentResultId);
 
         void UpdateLog(int deploymentResultId, string log);
-        void UpdateDbLog(int deploymentResultId, string log);
-
-        void AddLogFilePath(int deploymentRequestId, string logFilePath);
 
         void Information(string message);
         void Information(string message, params object[] values);

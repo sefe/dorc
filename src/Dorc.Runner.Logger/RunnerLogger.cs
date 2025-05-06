@@ -1,6 +1,4 @@
-﻿using Dorc.PersistData.Dapper;
-using Dorc.Runner.Logger.Model;
-using Newtonsoft.Json;
+﻿using Dorc.Runner.Logger.Model;
 using OpenSearch.Client;
 using Serilog;
 using System;
@@ -10,7 +8,6 @@ namespace Dorc.Runner.Logger
     public class RunnerLogger : IRunnerLogger
     {
         public ILogger Logger { get; }
-        public IDapperContext DapperContext { get; }
         public IOpenSearchClient OpenSearchClient { get; }
 
 
@@ -20,10 +17,9 @@ namespace Dorc.Runner.Logger
         private string _environment;
         private string _environmentTier;
 
-        public RunnerLogger(ILogger logger, IDapperContext dapperContext, IOpenSearchClient openSearchClient, string deploymentResultIndex, string environment, string environmentTier)
+        public RunnerLogger(ILogger logger, IOpenSearchClient openSearchClient, string deploymentResultIndex, string environment, string environmentTier)
         {
             Logger = logger;
-            DapperContext = dapperContext;
             OpenSearchClient = openSearchClient;
             _deploymentResultIndex = deploymentResultIndex;
             _environment = environment;
@@ -40,20 +36,9 @@ namespace Dorc.Runner.Logger
             this._deploymentResultId = deploymentResultId;
         }
 
-        public void AddLogFilePath(int deploymentRequestId, string logFilePath)
-        {
-            this.DapperContext.AddLogFilePath(this.Logger, deploymentRequestId, logFilePath);
-        }
-
         public void UpdateLog(int deploymentResultId, string log)
         {
-            this.DapperContext.UpdateLog(this.Logger, deploymentResultId, log);
             SendDataToOpenSearch(log, LogLevel.Info);
-        }
-
-        public void UpdateDbLog(int deploymentResultId, string log)
-        {
-            this.DapperContext.UpdateLog(this.Logger, deploymentResultId, log);
         }
 
         public void Information(string message)

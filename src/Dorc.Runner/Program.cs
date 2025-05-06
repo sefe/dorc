@@ -59,9 +59,7 @@ namespace Dorc.Runner
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, loggerRegistry.LogFileName);
-
-                runnerLogger.AddLogFilePath(requestId, uncDorcPath);
+                runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {

@@ -138,7 +138,6 @@ namespace Dorc.NetFramework.PowerShell
                     default:
                         break;
                 }
-                logger.UpdateDbLog(deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -154,7 +153,6 @@ namespace Dorc.NetFramework.PowerShell
                 var msg = GetOutput(data[e.Index]);
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Information(msg);
-                logger.UpdateDbLog(deploymentResultId, msg);
             }
             catch (Exception exception)
             {

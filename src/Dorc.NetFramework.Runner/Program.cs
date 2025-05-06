@@ -70,9 +70,6 @@ namespace Dorc.NetFramework.Runner
                 var dorcPath = loggerRegistry.LogFileName.Replace("c:",@"\\"+System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
                 contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
-                string uncLogPath = $"{dorcPath}\\{options.PipeName}.Txt";
-                runnerLogger.AddLogFilePath(requestId, uncLogPath);
-
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);

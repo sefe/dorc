@@ -1,5 +1,4 @@
-﻿using Dorc.PersistData.Dapper;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using OpenSearch.Client;
 using Serilog;
 using Serilog.Events;
@@ -18,7 +17,6 @@ namespace Dorc.Runner.Logger
             var openSearchConfig = config.GetSection("OpenSearchSettings");
             return new RunnerLogger(
                 InitializeSerilog(pipeName),
-                InitializeDapper(config),
                 InitializeOpenSearchLogger(config),
                 openSearchConfig["DeploymentResultIndex"],
                 openSearchConfig["Environment"],
@@ -47,15 +45,6 @@ namespace Dorc.Runner.Logger
                 .Enrich.FromLogContext()
                 .CreateLogger();
             return seriLogger;
-        }
-
-        private IDapperContext InitializeDapper(IConfigurationRoot config)
-        {
-            var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
-
-            var dapperContext = new DapperContext(connectionString);
-
-            return dapperContext;
         }
 
         private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationRoot config)
