@@ -49,7 +49,7 @@ namespace Dorc.Runner.Logger.Model
             this.version = appAssembly.GetName().Version.ToString();
             this.core_version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
             this.environment = environment;
-            this.environment_tier = environment_tier;
+            this.environment_tier = environmentTier;
             this.component_name = "Runner";
             this.machine_name = Environment.MachineName;
             this.process_user_identity = Environment.UserName;
