@@ -87,10 +87,6 @@ namespace Dorc.OpenSearchData.Sources
                 {
                     deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.message}"));
                 }
-                else
-                {
-                    deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
-                }
             }
         }
     }
