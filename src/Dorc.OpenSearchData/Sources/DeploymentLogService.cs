@@ -24,52 +24,61 @@ namespace Dorc.OpenSearchData.Sources
 
         public void LoadDeploymentResultsLogs(IEnumerable<DeploymentResultApiModel> deploymentResults)
         {
-            var requestIds = deploymentResults.Select(deploymentResult => deploymentResult.RequestId).Distinct().ToList();
-            var deploymentResultIds = deploymentResults.Select(deploymentResult => deploymentResult.Id).Distinct().ToList();
-
-            var logs = new List<DeployElasticLog>();
-
-            for (int pageNumber = 1; ; pageNumber++)
+            try
             {
+                var requestIds = deploymentResults.Select(deploymentResult => deploymentResult.RequestId).Distinct().ToList();
+                var deploymentResultIds = deploymentResults.Select(deploymentResult => deploymentResult.Id).Distinct().ToList();
 
-                var searchResult = _openSearchClient.Search<DeployElasticLog>(s => s
-                                    .Index(_deploymentResultIndex)
-                                    .Query(q => q
-                                        .Bool(b => b
-                                            .Must(must => must
-                                                .Terms(t => t
-                                                    .Field(field => field.deployment_result_id)
-                                                    .Terms(deploymentResultIds)),
-                                                must => must
-                                                .Terms(t => t
-                                                    .Field(field => field.request_id)
-                                                    .Terms(requestIds)))))
-                                    .From((pageNumber - 1) * _pageSize)
-                                    .Size(_pageSize));
+                var logs = new List<DeployElasticLog>();
 
-                if (!searchResult.IsValid)
+                for (int pageNumber = 1; ; pageNumber++)
                 {
-                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
-                    return;
+
+                    var searchResult = _openSearchClient.Search<DeployElasticLog>(s => s
+                                        .Index(_deploymentResultIndex)
+                                        .Query(q => q
+                                            .Bool(b => b
+                                                .Must(must => must
+                                                    .Terms(t => t
+                                                        .Field(field => field.deployment_result_id)
+                                                        .Terms(deploymentResultIds)),
+                                                    must => must
+                                                    .Terms(t => t
+                                                        .Field(field => field.request_id)
+                                                        .Terms(requestIds)))))
+                                        .From((pageNumber - 1) * _pageSize)
+                                        .Size(_pageSize));
+
+                    if (!searchResult.IsValid)
+                    {
+                        _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                        return;
+                    }
+
+                    if (searchResult.Documents != null && searchResult.Documents.Any())
+                        logs.AddRange(searchResult.Documents);
+                    else
+                        break;
                 }
 
-                if (searchResult.Documents != null && searchResult.Documents.Any())
-                    logs.AddRange(searchResult.Documents);
-                else
-                    break;
+                foreach (var deploymentResult in deploymentResults)
+                {
+                    var deploymentResultLogs = logs.Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)?.OrderBy(d => d.timestamp);
+                    if (deploymentResultLogs != null && deploymentResultLogs.Any())
+                    {
+                        deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.message}"));
+                    }
+                    else
+                    {
+                        deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
+                    }
+                }
             }
-
-            foreach (var deploymentResult in deploymentResults)
+            catch (Exception e)
             {
-                var deploymentResultLogs = logs.Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)?.OrderBy(d => d.timestamp);
-                if (deploymentResultLogs != null && deploymentResultLogs.Any())
-                {
-                    deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.message}"));
-                }
-                else
-                {
+                _logger.Error("Request for the deployment result logs to the OpenSearch failed.", e);
+                foreach (var deploymentResult in deploymentResults)
                     deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
-                }
             }
         }
     }
