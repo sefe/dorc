@@ -15,12 +15,25 @@ namespace Dorc.Runner.Logger
         public IRunnerLogger InitializeLogger(string pipeName, IConfigurationRoot config)
         {
             var openSearchConfig = config.GetSection("OpenSearchSettings");
+
+            var deploymentResultIndex = openSearchConfig["DeploymentResultIndex"];
+            if (String.IsNullOrEmpty(deploymentResultIndex))
+                throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the Runner appsettings");
+
+            var environmentName = openSearchConfig["Environment"];
+            if (String.IsNullOrEmpty(environmentName))
+                throw new Exception("'OpenSearchSettings.Environment' not set in the Runner appsettings");
+
+            var environmentTier = openSearchConfig["EnvironmentTier"];
+            if (String.IsNullOrEmpty(environmentTier))
+                throw new Exception("'OpenSearchSettings.EnvironmentTier' not set in the Runner appsettings");
+
             return new RunnerLogger(
                 InitializeSerilog(pipeName),
-                InitializeOpenSearchLogger(config),
-                openSearchConfig["DeploymentResultIndex"],
-                openSearchConfig["Environment"],
-                openSearchConfig["EnvironmentTier"]
+                InitializeOpenSearchLogger(openSearchConfig),
+                deploymentResultIndex,
+                environmentName,
+                environmentTier
                 );
         }
 
@@ -47,14 +60,29 @@ namespace Dorc.Runner.Logger
             return seriLogger;
         }
 
-        private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationRoot config)
+        private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationSection openSearchConfig)
         {
-            var openSearchConfigSection = config.GetSection("OpenSearchSettings");
-            var elasticClientSettings = new ConnectionSettings(new Uri(openSearchConfigSection["ConnectionUri"]))
-                .BasicAuthentication(openSearchConfigSection["UserName"], openSearchConfigSection["Password"])
-                .DefaultIndex(openSearchConfigSection["DeploymentResultIndex"])
+            var connectionUri = openSearchConfig["ConnectionUri"];
+            if (String.IsNullOrEmpty(connectionUri))
+                throw new Exception("'OpenSearchSettings.ConnectionUri' not set in the DOrc appsettings");
+
+            var userName = openSearchConfig["UserName"];
+            if (String.IsNullOrEmpty(userName))
+                throw new Exception("'OpenSearchSettings.UserName' not set in the DOrc appsettings");
+
+            var password = openSearchConfig["Password"];
+            if (String.IsNullOrEmpty(password))
+                throw new Exception("'OpenSearchSettings.Password' not set in the DOrc appsettings");
+
+            var deploymentResultIndex = openSearchConfig["DeploymentResultIndex"];
+            if (String.IsNullOrEmpty(deploymentResultIndex))
+                throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the DOrc appsettings");
+
+            var openSearchClientSettings = new ConnectionSettings(new Uri(connectionUri))
+                .BasicAuthentication(userName, password)
+                .DefaultIndex(deploymentResultIndex)
                 .PrettyJson();
-            var client = new OpenSearchClient(elasticClientSettings);
+            var client = new OpenSearchClient(openSearchClientSettings);
 
             return client;
         }

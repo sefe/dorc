@@ -15,16 +15,36 @@ namespace Dorc.OpenSearchData
             For<IOpenSearchClient>().Use(InitializeOpenSearchLogger(config));
 
             var deploymentResultIndex = config["DeploymentResultIndex"];
+
+            if (String.IsNullOrEmpty(deploymentResultIndex))
+                throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the Runner appsettings");
+
             For<IDeploymentResultLogOsSource>().Use<DeploymentResultLogOsSource>().Ctor<string>("deploymentResultIndex").Is(deploymentResultIndex).Scoped();
         }
 
         private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationSection config)
         {
-            var elasticClientSettings = new ConnectionSettings(new Uri(config["ConnectionUri"]))
-                .BasicAuthentication(config["UserName"], config["Password"])
-                .DefaultIndex(config["DeploymentResultIndex"])
+            var connectionUri = config["ConnectionUri"];
+            if (String.IsNullOrEmpty(connectionUri))
+                throw new Exception("'OpenSearchSettings.ConnectionUri' not set in the DOrc appsettings");
+
+            var userName = config["UserName"];
+            if (String.IsNullOrEmpty(userName))
+                throw new Exception("'OpenSearchSettings.UserName' not set in the DOrc appsettings");
+
+            var password = config["Password"];
+            if (String.IsNullOrEmpty(password))
+                throw new Exception("'OpenSearchSettings.Password' not set in the DOrc appsettings");
+
+            var deploymentResultIndex = config["DeploymentResultIndex"];
+            if (String.IsNullOrEmpty(deploymentResultIndex))
+                throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the DOrc appsettings");
+
+            var openSearchClientSettings = new ConnectionSettings(new Uri(connectionUri))
+                .BasicAuthentication(userName, password)
+                .DefaultIndex(deploymentResultIndex)
                 .PrettyJson();
-            var client = new OpenSearchClient(elasticClientSettings);
+            var client = new OpenSearchClient(openSearchClientSettings);
 
             return client;
         }
