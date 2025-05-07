@@ -19,7 +19,7 @@ namespace Dorc.OpenSearchData
             if (String.IsNullOrEmpty(deploymentResultIndex))
                 throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the Runner appsettings");
 
-            For<IDeploymentResultLogOsSource>().Use<DeploymentResultLogOsSource>().Ctor<string>("deploymentResultIndex").Is(deploymentResultIndex).Scoped();
+            For<IDeploymentLogService>().Use<DeploymentLogService>().Ctor<string>("deploymentResultIndex").Is(deploymentResultIndex).Scoped();
         }
 
         private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationSection config)

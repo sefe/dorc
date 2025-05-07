@@ -2,7 +2,7 @@
 
 namespace Dorc.OpenSearchData.Sources.Interfaces
 {
-    public interface IDeploymentResultLogOsSource
+    public interface IDeploymentLogService
     {
         void LoadDeploymentResultsLogs(IEnumerable<DeploymentResultApiModel> deploymentResults);
     }

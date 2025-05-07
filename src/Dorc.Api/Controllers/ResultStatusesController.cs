@@ -13,12 +13,12 @@ namespace Dorc.Api.Controllers
     public sealed class ResultStatusesController : ControllerBase
     {
         private readonly IRequestsPersistentSource _requestsPersistentSource;
-        private readonly IDeploymentResultLogOsSource _deploymentResultLogOsSource;
+        private readonly IDeploymentLogService _deploymentLogService;
 
-        public ResultStatusesController(IRequestsPersistentSource requestsPersistentSource, IDeploymentResultLogOsSource deploymentResultLogOsSource)
+        public ResultStatusesController(IRequestsPersistentSource requestsPersistentSource, IDeploymentLogService deploymentLogService)
         {
             _requestsPersistentSource = requestsPersistentSource;
-            _deploymentResultLogOsSource = deploymentResultLogOsSource;
+            _deploymentLogService = deploymentLogService;
         }
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace Dorc.Api.Controllers
 
             var deploymentResultModels = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
 
-            _deploymentResultLogOsSource.LoadDeploymentResultsLogs(deploymentResultModels);
+            _deploymentLogService.LoadDeploymentResultsLogs(deploymentResultModels);
 
             return Ok(deploymentResultModels);
         }

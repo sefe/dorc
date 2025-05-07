@@ -5,13 +5,13 @@ using OpenSearch.Client;
 
 namespace Dorc.OpenSearchData.Sources
 {
-    public class DeploymentResultLogOsSource : IDeploymentResultLogOsSource
+    public class DeploymentLogService : IDeploymentLogService
     {
         private readonly IOpenSearchClient _openSearchClient;
 
         private readonly string _deploymentResultIndex;
 
-        public DeploymentResultLogOsSource(IOpenSearchClient openSearchClient, string deploymentResultIndex)
+        public DeploymentLogService(IOpenSearchClient openSearchClient, string deploymentResultIndex)
         {
             _openSearchClient = openSearchClient;
             _deploymentResultIndex = deploymentResultIndex;
