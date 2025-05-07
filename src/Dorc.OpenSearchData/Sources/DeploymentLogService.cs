@@ -13,7 +13,7 @@ namespace Dorc.OpenSearchData.Sources
 
         private readonly string _deploymentResultIndex;
 
-        private const int _pageSize = 10;
+        private const int _pageSize = 5000;
 
         public DeploymentLogService(IOpenSearchClient openSearchClient, ILog logger, string deploymentResultIndex)
         {
@@ -49,7 +49,7 @@ namespace Dorc.OpenSearchData.Sources
 
                 if (!searchResult.IsValid)
                 {
-                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Query: {searchResult.DebugInformation}");
+                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
                     return;
                 }
 
@@ -65,6 +65,10 @@ namespace Dorc.OpenSearchData.Sources
                 if (deploymentResultLogs != null && deploymentResultLogs.Any())
                 {
                     deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}]   {d.message}"));
+                }
+                else
+                {
+                    deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
                 }
             }
         }
