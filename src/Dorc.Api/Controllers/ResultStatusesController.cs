@@ -37,7 +37,7 @@ namespace Dorc.Api.Controllers
 
             var deploymentResultModels = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
 
-            _deploymentLogService.LoadDeploymentResultsLogs(deploymentResultModels);
+            _deploymentLogService.EnrichDeploymentResultsWithLogs(deploymentResultModels);
 
             return Ok(deploymentResultModels);
         }
