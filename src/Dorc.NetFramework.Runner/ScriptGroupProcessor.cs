@@ -29,10 +29,10 @@ namespace Dorc.NetFramework.Runner
             this.logger.SetDeploymentResultId(deploymentResultId);
 
             using (LogContext.PushProperty("RequestId", requestId)) 
-            using(LogContext.PushProperty("DeploymentResultId", deploymentResultId))
+            using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
             {
-                logger.Information($"Request Id :{requestId}");
-                logger.Information($"Deployment Result Id :{deploymentResultId}");
+                logger.FileLogger.Information($"Request Id :{requestId}");
+                logger.FileLogger.Information($"Deployment Result Id :{deploymentResultId}");
                 try
                 {
                     if (scriptGroupProperties == null
@@ -43,7 +43,7 @@ namespace Dorc.NetFramework.Runner
                         throw new Exception("ScriptGroup is not initialized.");
                     }
 
-                    logger.Information("ScriptGroup is received.");
+                    logger.FileLogger.Information("ScriptGroup is received.");
 
                     var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
 
@@ -55,8 +55,7 @@ namespace Dorc.NetFramework.Runner
                 }
                 catch (Exception e)
                 {
-                    logger.Error($"An Exception has Occured: {e.Message}");
-                    logger.UpdateLog(deploymentResultId, $"An Exception Occured running the deployment {e.Message}");
+                    logger.Error($"An Exception Occured running the deployment: {e.Message}");
                     throw;
                 }
             }

@@ -55,26 +55,26 @@ namespace Dorc.Runner
                     .Build();
 
                 var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
-                Log.Logger = runnerLogger.Logger;
+                Log.Logger = runnerLogger.FileLogger;
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
+                Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    runnerLogger.Information("Runner process is started on behalf of the user: {0}", owner);
+                    Log.Logger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
 
-                runnerLogger.Information("Arguments: {args}", string.Join(", ", args));
+                Log.Logger.Information("Arguments: {args}", string.Join(", ", args));
   
                 try
                 {
                     IScriptGroupPipeClient scriptGroupReader;
                     if (options.UseFile)
                     {
-                        runnerLogger.Debug("Using file instead of pipes");
+                        Log.Logger.Debug("Using file instead of pipes");
                         scriptGroupReader = new ScriptGroupFileReader(Log.Logger);
                     }
                     else
@@ -89,7 +89,7 @@ namespace Dorc.Runner
                 }
                 catch (Exception ex)
                 {
-                    runnerLogger.Error(ex, "Deployment error");
+                    Log.Logger.Error(ex, "Deployment error");
 
                     Exit(-1);
                     throw;

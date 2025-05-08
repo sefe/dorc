@@ -11,7 +11,7 @@ namespace Dorc.Runner.Logger
 {
     public class RunnerLogger : IRunnerLogger
     {
-        public ILogger Logger { get; }
+        public ILogger FileLogger { get; }
         public IOpenSearchClient OpenSearchClient { get; }
 
 
@@ -25,7 +25,7 @@ namespace Dorc.Runner.Logger
 
         public RunnerLogger(ILogger logger, IOpenSearchClient openSearchClient, string deploymentResultIndex, string environment, string environmentTier, int flushEverySec = 10)
         {
-            Logger = logger;
+            FileLogger = logger;
             OpenSearchClient = openSearchClient;
             _deploymentResultIndex = deploymentResultIndex;
             _environment = environment;
@@ -52,12 +52,12 @@ namespace Dorc.Runner.Logger
 
         public void Information(string message)
         {
-            this.Logger.Information(message);
+            this.FileLogger.Information(message);
             EnqueueLog(message, LogLevel.Info);
         }
         public void Information(string message, params object[] values)
         {
-            this.Logger.Information(message, values);
+            this.FileLogger.Information(message, values);
             if (values != null && values.Length > 0)
                 EnqueueLog(string.Format(message, values), LogLevel.Info);
             else
@@ -66,29 +66,29 @@ namespace Dorc.Runner.Logger
 
         public void Verbose(string message)
         {
-            this.Logger.Verbose(message);
+            this.FileLogger.Verbose(message);
             EnqueueLog(message, LogLevel.Info);
         }
 
         public void Warning(string message)
         {
-            this.Logger.Warning(message);
+            this.FileLogger.Warning(message);
             EnqueueLog(message, LogLevel.Warn);
         }
 
         public void Error(string message)
         {
-            this.Logger.Error(message);
+            this.FileLogger.Error(message);
             EnqueueLog(message, LogLevel.Error);
         }
         public void Error(string message, Exception exception)
         {
-            this.Logger.Error(message, exception);
+            this.FileLogger.Error(message, exception);
             EnqueueLog(message, LogLevel.Error, exception);
         }
         public void Error(Exception exception, string message, params object[] values)
         {
-            this.Logger.Error(exception, message, values);
+            this.FileLogger.Error(exception, message, values);
             if (values != null && values.Length > 0)
                 EnqueueLog(string.Format(message, values), LogLevel.Error, exception);
             else
@@ -97,7 +97,7 @@ namespace Dorc.Runner.Logger
 
         public void Debug(string message)
         {
-            this.Logger.Debug(message);
+            this.FileLogger.Debug(message);
             EnqueueLog(message, LogLevel.Debug);
         }
 
@@ -139,13 +139,13 @@ namespace Dorc.Runner.Logger
                             .Document(document)));
                     if (res.IsValid)
                     {
-                        this.Logger.Warning($"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed." +
+                        this.FileLogger.Warning($"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed." +
                             res.ServerError != null ? res.ServerError.ToString() : "");
                     }
                 }
                 catch (Exception e)
                 {
-                    this.Logger.Error(e, $"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed.");
+                    this.FileLogger.Error(e, $"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed.");
                 }
             }
         }

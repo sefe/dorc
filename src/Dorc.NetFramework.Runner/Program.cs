@@ -63,7 +63,7 @@ namespace Dorc.NetFramework.Runner
 
                 var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
 
-                Log.Logger = runnerLogger.Logger;
+                Log.Logger = runnerLogger.FileLogger;
 
                 var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));

@@ -6,7 +6,7 @@ namespace Dorc.Runner.Logger
 {
     public interface IRunnerLogger
     {
-        ILogger Logger { get; }
+        ILogger FileLogger { get; }
         IOpenSearchClient OpenSearchClient { get; }
 
         void SetRequestId(int requestId);
