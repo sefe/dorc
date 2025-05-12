@@ -7,14 +7,17 @@ using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Sources
 {
-    public class PagingPersistentSourceBase
+    public abstract class PagingPersistentSourceBase
     {
-        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
-            string username,
+        protected abstract IClaimsPrincipalReader ClaimsPrincipalReader { get; }
+
+        protected Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
+            IPrincipal user,
             IDeploymentContext context,
             IEnumerable<string> environments
             )
         {
+            string username = ClaimsPrincipalReader.GetUserName(user);
             var userSids = username.GetSidsForUser();
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
@@ -61,11 +64,12 @@ namespace Dorc.PersistentData.Sources
             return envPrivilegeInfos;
         }
 
-        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
-            string username,
+        protected Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
+            IPrincipal user,
             IDeploymentContext context
             )
         {
+            string username = ClaimsPrincipalReader.GetUserName(user);
             var userSids = username.GetSidsForUser();
 
             var envGroups = (from ed in context.Environments
