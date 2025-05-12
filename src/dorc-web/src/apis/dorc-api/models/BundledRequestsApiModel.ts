@@ -21,6 +21,11 @@ import type {
  */
 export interface BundledRequestsApiModel {
     /**
+     * @type {number}
+     * @memberof BundledRequestsApiModel
+     */
+    Id?: number;
+    /**
      * @type {string}
      * @memberof BundledRequestsApiModel
      */

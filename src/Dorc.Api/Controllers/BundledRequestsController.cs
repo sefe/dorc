@@ -79,7 +79,6 @@ namespace Dorc.Api.Controllers
         /// <param name="model"></param>
         /// <returns></returns>
         [HttpPost]
-        [Route("Create")]
         public IActionResult Create([FromBody] BundledRequestsApiModel model)
         {
             try
@@ -107,7 +106,6 @@ namespace Dorc.Api.Controllers
         /// <param name="model"></param>
         /// <returns></returns>
         [HttpPut]
-        [Route("Update")]
         public IActionResult Update([FromBody] BundledRequestsApiModel model)
         {
             try
@@ -132,23 +130,25 @@ namespace Dorc.Api.Controllers
         /// <summary>
         /// Delete a bundled request
         /// </summary>
-        /// <param name="bundleName"></param>
+        /// <param name="id">The ID of the bundled request to delete</param>
         /// <returns></returns>
         [HttpDelete]
-        [Route("Delete")]
-        public IActionResult Delete([FromQuery] string bundleName)
+        public IActionResult Delete([FromQuery] int id)
         {
             try
             {
-                // Assuming the persistent source has a method to delete a bundle
-                return Ok("Bundled request deleted successfully.");
+                // Call the persistent source to delete the bundled request by ID
+                _bundledRequestsPersistentSource.DeleteRequestFromBundle(id);
+
+                return Ok($"Bundled request with ID {id} deleted successfully.");
             }
             catch (Exception ex)
             {
-                string error = $"Error while deleting bundled request {bundleName}";
+                string error = $"Error while deleting bundled request with ID {id}";
                 _logger.Error(error, ex);
                 return BadRequest(error + " - " + ex);
             }
         }
+
     }
 }

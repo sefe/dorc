@@ -50,6 +50,20 @@ namespace Dorc.PersistentData.Sources
         public void AddRequestToBundle(BundledRequestsApiModel model)
         {
             using var context = contextFactory.GetContext();
+
+            bool exists = context.BundledRequests.Any(br =>
+                br.ProjectId == (int?)model.ProjectId &&
+                EF.Functions.Collate(br.BundleName, DeploymentContext.CaseInsensitiveCollation) ==
+                EF.Functions.Collate(model.BundleName, DeploymentContext.CaseInsensitiveCollation) &&
+                EF.Functions.Collate(br.RequestName, DeploymentContext.CaseInsensitiveCollation) ==
+                EF.Functions.Collate(model.RequestName, DeploymentContext.CaseInsensitiveCollation));
+
+            if (exists)
+            {
+                logger.Warn($"A bundled request with ProjectId {model.ProjectId}, BundleName '{model.BundleName}', and RequestName '{model.RequestName}' already exists.");
+                return; // Do not add the duplicate entry
+            }
+
             var bundledRequest = new BundledRequests
             {
                 BundleName = model.BundleName,
@@ -66,9 +80,7 @@ namespace Dorc.PersistentData.Sources
         public void UpdateRequestInBundle(BundledRequestsApiModel model)
         {
             using var context = contextFactory.GetContext();
-            var existingBundle = context.BundledRequests.FirstOrDefault(br =>
-                EF.Functions.Collate(br.BundleName, DeploymentContext.CaseInsensitiveCollation) ==
-                EF.Functions.Collate(model.BundleName, DeploymentContext.CaseInsensitiveCollation));
+            var existingBundle = context.BundledRequests.FirstOrDefault(br =>br.Id == model.Id);
 
             if (existingBundle != null)
             {
@@ -85,10 +97,32 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void DeleteRequestFromBundle(int id)
+        {
+            using var context = contextFactory.GetContext();
+
+            // Find the bundled request by its ID
+            var bundledRequest = context.BundledRequests.FirstOrDefault(br => br.Id == id);
+
+            if (bundledRequest != null)
+            {
+                // Remove the bundled request from the database
+                context.BundledRequests.Remove(bundledRequest);
+                context.SaveChanges();
+            }
+            else
+            {
+                // Log a warning if the bundled request was not found
+                logger.Warn($"Bundled request with ID {id} not found for deletion.");
+            }
+        }
+
+
         static BundledRequestsApiModel MapToBundledRequestApiModel(BundledRequests bundledRequests)
         {
             return new BundledRequestsApiModel
             {
+                Id = bundledRequests.Id,
                 BundleName = bundledRequests.BundleName,
                 ProjectId = bundledRequests.ProjectId,
                 Type = bundledRequests.Type,

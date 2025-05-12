@@ -1,4 +1,4 @@
-import { css } from 'lit';
+import { css, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement } from 'lit/decorators.js';
@@ -8,12 +8,13 @@ import '@vaadin/details';
 import '../attached-app-users';
 import {
   BundledRequestsApi,
-  BundledRequestsApiModel, BundledRequestType
+  BundledRequestsApiModel, BundledRequestType,
 } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import { HegsJsonViewer } from '../hegs-json-viewer.ts';
+import '../grid-button-groups/bundle-request-controls';
 
 @customElement('env-bundles')
 export class EnvBundles extends PageEnvBase {
@@ -78,6 +79,11 @@ export class EnvBundles extends PageEnvBase {
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
+          .renderer="${this.bundleControlsRenderer}"
+          resizable
+          flex-grow="0"
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           path="Request"
           header="Request"
           resizable
@@ -85,6 +91,19 @@ export class EnvBundles extends PageEnvBase {
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
+  }
+
+  bundleControlsRenderer(
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<BundledRequestsApiModel>
+  ) {
+
+    render(
+      html`<bundle-request-controls .value="${model.item}">
+      </bundle-request-controls>`,
+      root
+    );
   }
 
   _jsonRenderer(
@@ -143,8 +162,10 @@ export class EnvBundles extends PageEnvBase {
 
   constructor() {
     super();
-
     super.loadEnvironmentInfo();
+  }
+
+  override notifyEnvironmentContentReady(){
     this.fetchBundledRequests();
   }
 }
