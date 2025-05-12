@@ -3,6 +3,7 @@ using System.DirectoryServices;
 using System.DirectoryServices.ActiveDirectory;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Dorc.ApiModel;
@@ -32,9 +33,9 @@ namespace Dorc.Core
             _activeDirectoryRoot = new DirectoryEntry(ldapRoot);
         }
 
-        public List<DirectoryEntry> Search(string objectName)
+        public List<ActiveDirectoryElementApiModel> Search(string objectName)
         {
-            var output = new List<DirectoryEntry>();
+            var output = new List<ActiveDirectoryElementApiModel>();
 
             // restrict the username and password to letters only
             if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ]+$"))
@@ -66,11 +67,11 @@ namespace Dorc.Core
 
                             var enabled = !Convert.ToBoolean(flags & 0x0002);
                             if (enabled)
-                                output.Add(de);
+                                output.Add(GetModelFromDirectoryEntry(de));
                         }
                         if (de.Properties["objectClass"]?.Contains("group") == true)
                         {
-                            output.Add(de);
+                            output.Add(GetModelFromDirectoryEntry(de));
                         }
                     }
                 }
@@ -79,11 +80,29 @@ namespace Dorc.Core
             return output;
         }
 
+        private ActiveDirectoryElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
+        {
+            var displayName = GetSafeString(de.Properties, "displayName");
+            if (string.IsNullOrEmpty(displayName))
+            {
+                displayName = GetSafeString(de.Properties, "cn");
+            }
+
+            return new ActiveDirectoryElementApiModel()
+            {
+                Username = GetSafeString(de.Properties, "SAMAccountName"),
+                DisplayName = displayName,
+                Sid = GetSidString((byte[])de.Properties["objectSid"].Value),
+                IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
+                Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
+            };
+        }
+
         [DllImport("advapi32", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern bool ConvertSidToStringSid([MarshalAs(UnmanagedType.LPArray)] byte[] pSID,
             out nint ptrSid);
 
-        public static string? GetSidString(byte[] sid)
+        private static string? GetSidString(byte[] sid)
         {
             string? sidString;
             if (!ConvertSidToStringSid(sid, out var ptrSid))
@@ -98,35 +117,6 @@ namespace Dorc.Core
             }
 
             return sidString;
-        }
-
-        public UserApiModel GetUserByLanId(string lanId)
-        {
-            var user = _usersPersistentSource.GetUser(lanId);
-
-            // Can't find in the DB now look in AD
-            if (user != null)
-                return user;
-
-            try
-            {
-                var activeDirectoryElementApiModel = GetUserIdActiveDirectory(lanId);
-                return new UserApiModel
-                {
-                    DisplayName = activeDirectoryElementApiModel.DisplayName,
-                    LanId = activeDirectoryElementApiModel.Username,
-                    LoginId = activeDirectoryElementApiModel.Username,
-                    LoginType = "Windows",
-                    LanIdType = activeDirectoryElementApiModel.IsGroup ? "GROUP" : "USER"
-                };
-            }
-            catch (Exception)
-            {
-                var errMsg = $"Unable to locate user {lanId}";
-                _log.Warn(errMsg);
-            }
-
-            return null;
         }
 
         public ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string id)
@@ -159,14 +149,8 @@ namespace Dorc.Core
                         if (!IsActive(de))
                         { continue; }
 
-                        var user = new ActiveDirectoryElementApiModel
-                        {
-                            Username = de.Properties.Contains("SAMAccountName") ? de.Properties["SAMAccountName"][0].ToString() : string.Empty,
-                            DisplayName = de.Properties.Contains("DisplayName") ? de.Properties["DisplayName"][0].ToString() : string.Empty,
-                            Sid = Sid,
-                            IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
-                            Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
-                        };
+                        var user = GetModelFromDirectoryEntry(de);
+                        user.Sid = Sid;
 
                         return user;
                     }

@@ -1,12 +1,10 @@
 using Dorc.ApiModel;
-using System.DirectoryServices;
 
 namespace Dorc.Core.Interfaces
 {
     public interface IActiveDirectorySearcher
     {
-        List<DirectoryEntry> Search(string objectName);
-        UserApiModel GetUserByLanId(string lanId);
+        List<ActiveDirectoryElementApiModel> Search(string objectName);
         ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string id);
     }
 }

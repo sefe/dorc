@@ -103,7 +103,7 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Get the logs for the specified request ID
+        /// Search users or groups in identity provider
         /// </summary>
         /// <param name="search"></param>
         /// <returns></returns>
@@ -113,17 +113,7 @@ namespace Dorc.Api.Controllers
         {
             var results = _activeDirectorySearcher.Search(search);
 
-            var objects = results
-                .Select(r => new ActiveDirectoryElementApiModel
-                {
-                    Sid = ActiveDirectorySearcher.GetSidString((byte[])r.Properties["objectsid"][0]),
-                    DisplayName = r.Properties.Contains("displayname")
-                        ? r.Properties["displayname"][0]?.ToString()
-                        : r.Properties["cn"][0]?.ToString(),
-                    Username = r.Properties["SAMAccountName"][0]?.ToString()
-                });
-
-            return StatusCode(StatusCodes.Status200OK, objects);
+            return StatusCode(StatusCodes.Status200OK, results);
         }
     }
 }
