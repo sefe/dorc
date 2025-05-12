@@ -1,6 +1,10 @@
-﻿using Dorc.Core;
+﻿using Dorc.Api.Services;
+using Dorc.Core;
+using Dorc.Core.Configuration;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -13,11 +17,16 @@ namespace Dorc.Api.Security
         private readonly WinAuthClaimsPrincipalReader _winAuthReader;
 
         public ClaimsPrincipalReaderFactory(
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IConfigurationSettings config, 
+            IMemoryCache cache, 
+            IActiveDirectorySearcher activeDirectorySearcher
+            )
         {
             _httpContextAccessor = httpContextAccessor;
-            _oauthReader = new OAuthClaimsPrincipalReader();
-            _winAuthReader = new WinAuthClaimsPrincipalReader();
+            var adGroupReader = new ActiveDirectoryUserGroupReader(config, cache, activeDirectorySearcher);
+            _oauthReader = new OAuthClaimsPrincipalReader(adGroupReader);
+            _winAuthReader = new WinAuthClaimsPrincipalReader(adGroupReader);
         }
 
         public string GetUserName(IPrincipal user)
@@ -32,10 +41,10 @@ namespace Dorc.Api.Security
             return reader.GetUserFullDomainName(user);
         }
 
-        public string GetUserEmail(ClaimsPrincipal user, object externalReader)
+        public string GetUserEmail(ClaimsPrincipal user)
         {
             var reader = ResolveReader();
-            return reader.GetUserEmail(user, externalReader);
+            return reader.GetUserEmail(user);
         }
 
         private IClaimsPrincipalReader ResolveReader()
@@ -49,6 +58,12 @@ namespace Dorc.Api.Security
             }
 
             return _winAuthReader; // Fallback to WinAuth reader
+        }
+
+        public List<string> GetSidsForUser(IPrincipal user)
+        {
+            var reader = ResolveReader();
+            return reader.GetSidsForUser(user);
         }
     }
 }

@@ -38,8 +38,7 @@ namespace Dorc.Api.Services
                     {
                         if (domain != null)
                             return new ActiveDirectorySearcher(domain,
-                                logger,
-                                _.GetInstance<IUsersPersistentSource>());
+                                logger);
                     }
                     catch (Exception)
                     { }

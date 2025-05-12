@@ -28,7 +28,6 @@ var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").B
 var configurationSettings = new ConfigurationSettings(configBuilder);
 
 var allowedCorsLocations = configurationSettings.GetAllowedCorsLocations();
-UserExtensions.CacheDuration = configurationSettings.GetADUserCacheTimeSpan();
 
 builder.Services.AddCors(options =>
 {
@@ -256,7 +255,7 @@ builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 
 builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<IActiveDirectoryUserGroupReader, ActiveDirectoryUserGroupReader>();
+builder.Services.AddSingleton<IUserGroupReader, ActiveDirectoryUserGroupReader>();
 
 // Enable throttling
 builder.Services.AddOptions();

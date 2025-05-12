@@ -35,7 +35,7 @@ namespace Dorc.PersistentData.Sources
         public DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             using (var context = _contextFactory.GetContext())
             {

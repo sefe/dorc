@@ -1,15 +1,15 @@
+using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Sources.Interfaces;
+using log4net;
 using System.ComponentModel;
 using System.DirectoryServices;
 using System.DirectoryServices.ActiveDirectory;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
-using Dorc.ApiModel;
-using Dorc.Core.Interfaces;
-using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 
 namespace Dorc.Core
 {
@@ -18,12 +18,10 @@ namespace Dorc.Core
     {
         private readonly DirectoryEntry _activeDirectoryRoot;
         private readonly ILog _log;
-        private readonly IUsersPersistentSource _usersPersistentSource;
         private static readonly string[] adProps = { "cn", "displayname", "objectsid", "mail" };
 
-        public ActiveDirectorySearcher(string domainName, ILog log, IUsersPersistentSource usersPersistentSource)
+        public ActiveDirectorySearcher(string domainName, ILog log)
         {
-            _usersPersistentSource = usersPersistentSource;
             _log = log;
 
             var context = new DirectoryContext(DirectoryContextType.Domain, domainName);
@@ -159,6 +157,37 @@ namespace Dorc.Core
 
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
+
+        public List<string> GetSidsForUser(string username)
+        {
+            var result = new HashSet<string>();
+            var name = username;
+
+            DirectorySearcher ds = new DirectorySearcher();
+
+            ds.Filter = $"(&(objectClass=user)(sAMAccountName={name}))";
+            SearchResult sr = ds.FindOne();
+
+            DirectoryEntry user = sr.GetDirectoryEntry();
+            user.RefreshCache(new string[] { "tokenGroups" });
+
+            for (int i = 0; i < user.Properties["tokenGroups"].Count; i++)
+            {
+                SecurityIdentifier sid = new SecurityIdentifier((byte[])user.Properties["tokenGroups"][i], 0);
+                result.Add(sid.ToString());
+            }
+
+            var f = new NTAccount(username);
+            var s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
+            var sidString = s.ToString();
+
+            result.Add(sidString);
+
+            var sidList = result.ToList();
+
+            return sidList;
+        }
+
         private static bool IsActive(DirectoryEntry de)
         {
             if (de.NativeGuid == null) return false;

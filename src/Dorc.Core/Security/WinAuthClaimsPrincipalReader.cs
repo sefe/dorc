@@ -7,6 +7,13 @@ namespace Dorc.Core
 {
     public class WinAuthClaimsPrincipalReader : IClaimsPrincipalReader
     {
+        private IUserGroupReader _userGroupReader;
+
+        public WinAuthClaimsPrincipalReader(IUserGroupReader userGroupReader)
+        {
+            _userGroupReader = userGroupReader;
+        }
+
         public string GetUserName(IPrincipal user)
         {
             return GetUserFullDomainName(user).Split('\\')[1];
@@ -17,14 +24,15 @@ namespace Dorc.Core
             return user?.Identity?.Name ?? string.Empty;
         }
 
-        public string GetUserEmail(ClaimsPrincipal user, object externalReader)
+        public string GetUserEmail(ClaimsPrincipal user)
         {
             string userName = GetUserName(user);
-            if (externalReader is IActiveDirectoryUserGroupReader activeDirectoryUserGroupReader)
-            {
-                return activeDirectoryUserGroupReader.GetUserMail(userName);
-            }
-            return string.Empty;
+            return _userGroupReader.GetUserMail(userName);
+        }
+
+        public List<string> GetSidsForUser(IPrincipal user)
+        {
+            return _userGroupReader.GetSidsForUser(GetUserName(user));
         }
     }
 }

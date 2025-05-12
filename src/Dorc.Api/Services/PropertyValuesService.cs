@@ -47,7 +47,7 @@ namespace Dorc.Api.Services
             ClaimsPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             var allSids = string.Join(";", userSids);
 

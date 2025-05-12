@@ -19,11 +19,11 @@ namespace Dorc.Api.Services
     [SupportedOSPlatform("windows")]
     public class ClaimsTransformer : IClaimsTransformation
     {
-        private readonly IActiveDirectoryUserGroupReader _adUserGroupReader;
+        private readonly IUserGroupReader _adUserGroupReader;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IActiveDirectoryUserGroupReader adUserGroupReader, IHttpContextAccessor httpContextAccessor)
+        public ClaimsTransformer(IConfiguration config, IUserGroupReader adUserGroupReader, IHttpContextAccessor httpContextAccessor)
         {
             _adUserGroupReader = adUserGroupReader;
             _httpContextAccessor = httpContextAccessor;

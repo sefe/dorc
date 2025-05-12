@@ -18,7 +18,7 @@ namespace Dorc.PersistentData.Sources
             )
         {
             string username = ClaimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
@@ -70,7 +70,7 @@ namespace Dorc.PersistentData.Sources
             )
         {
             string username = ClaimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
 
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
