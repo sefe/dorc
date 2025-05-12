@@ -8,4 +8,5 @@ public interface IBundledRequestsPersistentSource
     IEnumerable<BundledRequestsApiModel> GetBundles(string projectName);
     void AddRequestToBundle(BundledRequestsApiModel model);
     void UpdateRequestInBundle(BundledRequestsApiModel model); // Added missing method
+    void DeleteRequestFromBundle(int id);
 }

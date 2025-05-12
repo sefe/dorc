@@ -19,24 +19,24 @@ import type {
     BundledRequestsApiModel,
 } from '../models';
 
-export interface BundledRequestsCreatePostRequest {
-    bundledRequestsApiModel?: BundledRequestsApiModel;
-}
-
-export interface BundledRequestsDeleteDeleteRequest {
-    bundleName?: string;
+export interface BundledRequestsDeleteRequest {
+    id?: number;
 }
 
 export interface BundledRequestsGetRequest {
     projectNames?: Array<string>;
 }
 
-export interface BundledRequestsRequestsForBundleGetRequest {
-    bundleName?: string;
+export interface BundledRequestsPostRequest {
+    bundledRequestsApiModel?: BundledRequestsApiModel;
 }
 
-export interface BundledRequestsUpdatePutRequest {
+export interface BundledRequestsPutRequest {
     bundledRequestsApiModel?: BundledRequestsApiModel;
+}
+
+export interface BundledRequestsRequestsForBundleGetRequest {
+    bundleName?: string;
 }
 
 /**
@@ -46,34 +46,16 @@ export class BundledRequestsApi extends BaseAPI {
 
     /**
      */
-    bundledRequestsCreatePost({ bundledRequestsApiModel }: BundledRequestsCreatePostRequest): Observable<void>
-    bundledRequestsCreatePost({ bundledRequestsApiModel }: BundledRequestsCreatePostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    bundledRequestsCreatePost({ bundledRequestsApiModel }: BundledRequestsCreatePostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
-
-        const headers: HttpHeaders = {
-            'Content-Type': 'application/json',
-        };
-
-        return this.request<void>({
-            url: '/BundledRequests/Create',
-            method: 'POST',
-            headers,
-            body: bundledRequestsApiModel,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    bundledRequestsDeleteDelete({ bundleName }: BundledRequestsDeleteDeleteRequest): Observable<void>
-    bundledRequestsDeleteDelete({ bundleName }: BundledRequestsDeleteDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    bundledRequestsDeleteDelete({ bundleName }: BundledRequestsDeleteDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+    bundledRequestsDelete({ id }: BundledRequestsDeleteRequest): Observable<void>
+    bundledRequestsDelete({ id }: BundledRequestsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    bundledRequestsDelete({ id }: BundledRequestsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
         const query: HttpQuery = {};
 
-        if (bundleName != null) { query['bundleName'] = bundleName; }
+        if (id != null) { query['id'] = id; }
 
         return this.request<void>({
-            url: '/BundledRequests/Delete',
+            url: '/BundledRequests',
             method: 'DELETE',
             query,
         }, opts?.responseOpts);
@@ -98,6 +80,42 @@ export class BundledRequestsApi extends BaseAPI {
 
     /**
      */
+    bundledRequestsPost({ bundledRequestsApiModel }: BundledRequestsPostRequest): Observable<void>
+    bundledRequestsPost({ bundledRequestsApiModel }: BundledRequestsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    bundledRequestsPost({ bundledRequestsApiModel }: BundledRequestsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+        };
+
+        return this.request<void>({
+            url: '/BundledRequests',
+            method: 'POST',
+            headers,
+            body: bundledRequestsApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    bundledRequestsPut({ bundledRequestsApiModel }: BundledRequestsPutRequest): Observable<void>
+    bundledRequestsPut({ bundledRequestsApiModel }: BundledRequestsPutRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    bundledRequestsPut({ bundledRequestsApiModel }: BundledRequestsPutRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+        };
+
+        return this.request<void>({
+            url: '/BundledRequests',
+            method: 'PUT',
+            headers,
+            body: bundledRequestsApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     bundledRequestsRequestsForBundleGet({ bundleName }: BundledRequestsRequestsForBundleGetRequest): Observable<Array<BundledRequestsApiModel>>
     bundledRequestsRequestsForBundleGet({ bundleName }: BundledRequestsRequestsForBundleGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BundledRequestsApiModel>>>
     bundledRequestsRequestsForBundleGet({ bundleName }: BundledRequestsRequestsForBundleGetRequest, opts?: OperationOpts): Observable<Array<BundledRequestsApiModel> | AjaxResponse<Array<BundledRequestsApiModel>>> {
@@ -110,24 +128,6 @@ export class BundledRequestsApi extends BaseAPI {
             url: '/BundledRequests/RequestsForBundle',
             method: 'GET',
             query,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    bundledRequestsUpdatePut({ bundledRequestsApiModel }: BundledRequestsUpdatePutRequest): Observable<void>
-    bundledRequestsUpdatePut({ bundledRequestsApiModel }: BundledRequestsUpdatePutRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    bundledRequestsUpdatePut({ bundledRequestsApiModel }: BundledRequestsUpdatePutRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
-
-        const headers: HttpHeaders = {
-            'Content-Type': 'application/json',
-        };
-
-        return this.request<void>({
-            url: '/BundledRequests/Update',
-            method: 'PUT',
-            headers,
-            body: bundledRequestsApiModel,
         }, opts?.responseOpts);
     };
 
