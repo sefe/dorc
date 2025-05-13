@@ -11,6 +11,7 @@ namespace Dorc.Monitor.RunnerProcess
 
         public string RunnerExecutableFullName { get; set; } = string.Empty;
         public string ScriptGroupPipeName { get; set; } = string.Empty;
+        public string RunnerLogPath { get; set; } = string.Empty;
 
         private RunnerProcessStarter() { }
 
@@ -42,11 +43,16 @@ namespace Dorc.Monitor.RunnerProcess
             {
                 throw new Exception($"ScriptGroup pipe name is not specified for Runner process.");
             }
+            if (string.IsNullOrEmpty(this.RunnerLogPath))
+            {
+                throw new Exception($"LogPath is not specified for Runner process.");
+            }
             #endregion
                 
             var runnerFileInfo = new FileInfo(this.RunnerExecutableFullName);
             string commandLine = runnerFileInfo.Name
-                +" -p" + this.ScriptGroupPipeName;
+                +" -p" + this.ScriptGroupPipeName
+                +" -l" + this.RunnerLogPath;
 #if DEBUG
             commandLine += " --useFile=true";
 #endif

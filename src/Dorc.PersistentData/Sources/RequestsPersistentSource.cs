@@ -213,6 +213,24 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public bool UpdateUncLogPath(int requestId, string uncLogPath)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                int rowsAffected = context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.UncLogPath, uncLogPath));
+
+                if (rowsAffected == 0)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
 
         public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime)
         {

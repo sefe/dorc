@@ -61,7 +61,7 @@ namespace Dorc.NetFramework.Runner
                     .AddJsonFile("loggerSettings.json", optional: false)
                     .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
+                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
                 Log.Logger = runnerLogger.FileLogger;
 

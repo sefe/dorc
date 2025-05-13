@@ -12,7 +12,7 @@ namespace Dorc.Runner.Logger
 
         public string LogFileName { get { return logPath; } }
 
-        public IRunnerLogger InitializeLogger(string pipeName, IConfigurationRoot config)
+        public IRunnerLogger InitializeLogger(string runnerLogPath, IConfigurationRoot config)
         {
             var openSearchConfig = config.GetSection("OpenSearchSettings");
 
@@ -29,7 +29,7 @@ namespace Dorc.Runner.Logger
                 throw new Exception("'OpenSearchSettings.EnvironmentTier' not set in the Runner appsettings");
 
             return new RunnerLogger(
-                InitializeSerilog(pipeName),
+                InitializeSerilog(runnerLogPath),
                 InitializeOpenSearchLogger(openSearchConfig),
                 deploymentResultIndex,
                 environmentName,
@@ -37,7 +37,7 @@ namespace Dorc.Runner.Logger
                 );
         }
 
-        private ILogger InitializeSerilog(string pipeName)
+        private ILogger InitializeSerilog(string runnerLogPath)
         {
             var config = new ConfigurationBuilder()
                 .AddJsonFile("loggerSettings.json", optional: false).Build();
@@ -48,7 +48,7 @@ namespace Dorc.Runner.Logger
                 Serilog.Debugging.SelfLog.Enable(Console.Error);
             }
 
-            logPath = config["System:LogPath"] + $"\\{pipeName}.txt";
+            logPath = runnerLogPath;
             string outputTemplate = config["System:outputTemplate"];
             var logLevel = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), config["Serilog:MinimumLevel:Default"] ?? "Debug");
 

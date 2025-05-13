@@ -54,7 +54,7 @@ namespace Dorc.Runner
                     .AddJsonFile("loggerSettings.json", optional: false)
                     .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.PipeName, config);
+                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
                 Log.Logger = runnerLogger.FileLogger;
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
