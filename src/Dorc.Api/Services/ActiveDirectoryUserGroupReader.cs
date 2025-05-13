@@ -2,8 +2,6 @@
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
-using System.Configuration.Provider;
-using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
 
 namespace Dorc.Api.Services
@@ -40,7 +38,7 @@ namespace Dorc.Api.Services
                 return cachedSid;
             }
 
-            var sid = getGroupSidForUser(userName, groupName);
+            var sid = _activeDirectorySearcher.GetGroupSidIfUserIsMemberRecursive(userName, groupName, _domainName);
             if (_cacheExpiration.HasValue && sid != null)
             {
                 _cache.Set(cacheKey, sid, _cacheExpiration.Value);
@@ -81,33 +79,6 @@ namespace Dorc.Api.Services
                 SidCache[username] = new CacheEntry { Sids = sidList, Timestamp = DateTime.Now };
 
             return sidList;
-        }
-
-        private string? getGroupSidForUser(string userName, string groupName)
-        {
-            using (var context = new PrincipalContext(ContextType.Domain, null, _domainName))
-            {
-                try
-                {
-                    using (var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.SamAccountName, groupName))
-                    {
-                        if (groupPrincipal != null)
-                        {
-                            var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
-                            if (userPrincipal != null && groupPrincipal.GetMembers(true).Contains(userPrincipal))
-                            {
-                                return groupPrincipal.Sid.Value;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    throw new ProviderException("Unable to query Active Directory.", ex);
-                }
-            }
-
-            return string.Empty;
-        }
+        }        
     }
 }

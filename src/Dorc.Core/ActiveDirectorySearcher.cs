@@ -1,9 +1,9 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
-using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using System.ComponentModel;
 using System.DirectoryServices;
+using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices.ActiveDirectory;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -186,6 +186,33 @@ namespace Dorc.Core
             var sidList = result.ToList();
 
             return sidList;
+        }
+
+        public string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName)
+        {
+            using (var context = new PrincipalContext(ContextType.Domain, null, domainName))
+            {
+                try
+                {
+                    using (var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.SamAccountName, groupName))
+                    {
+                        if (groupPrincipal != null)
+                        {
+                            var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
+                            if (userPrincipal != null && groupPrincipal.GetMembers(true).Contains(userPrincipal))
+                            {
+                                return groupPrincipal.Sid.Value;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new System.Configuration.Provider.ProviderException("Unable to query Active Directory.", ex);
+                }
+            }
+
+            return string.Empty;
         }
 
         private static bool IsActive(DirectoryEntry de)

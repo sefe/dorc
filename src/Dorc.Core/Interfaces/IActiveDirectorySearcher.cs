@@ -7,5 +7,6 @@ namespace Dorc.Core.Interfaces
         List<ActiveDirectoryElementApiModel> Search(string objectName);
         ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string id);
         List<string> GetSidsForUser(string username);
+        string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName);
     }
 }
