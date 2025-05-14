@@ -2,7 +2,7 @@
     @env varchar(256) = NULL,
     @prop nvarchar(512) = NULL,
     @username varchar(256),
-    @sidList varchar(MAX)
+    @spidList varchar(MAX)
 AS
 BEGIN
     -- CTE to traverse the environment hierarchy and calculate distances (only when @env is provided)
@@ -105,7 +105,7 @@ BEGIN
                 FROM deploy.environment e
                 INNER JOIN deploy.Environment ed ON e.Name = ed.Name
                 INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
-                INNER JOIN STRING_SPLIT(@sidList, ';') sids ON sids.value = ac.Sid
+                INNER JOIN STRING_SPLIT(@spidList, ';') sids ON (sids.value = ac.Sid OR sids.value = ac.Pid)
                 WHERE e.Name = ISNULL(@env, e1.Name)  -- Use @env if provided, otherwise use e1.Name
                   AND (ac.Allow & 1) != 0
             ) THEN 1

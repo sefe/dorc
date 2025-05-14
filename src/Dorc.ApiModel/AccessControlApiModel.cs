@@ -7,5 +7,6 @@
         public string Sid { get; set; }
         public int Allow { get; set; }
         public int Deny { get; set; }
+        public string Pid { get; set; }
     }
 }

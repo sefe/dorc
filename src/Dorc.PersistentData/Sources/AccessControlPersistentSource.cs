@@ -111,7 +111,8 @@ namespace Dorc.PersistentData.Sources
                 Deny = ac.Deny,
                 Id = ac.Id,
                 Name = ac.Name,
-                Sid = ac.Sid
+                Sid = ac.Sid,
+                Pid = ac.Pid,
             };
         }
 
@@ -125,7 +126,8 @@ namespace Dorc.PersistentData.Sources
                 Id = ac.Id,
                 Name = ac.Name,
                 ObjectId = objectId,
-                Sid = ac.Sid
+                Sid = ac.Sid,
+                Pid = ac.Pid,
             };
         }
     }

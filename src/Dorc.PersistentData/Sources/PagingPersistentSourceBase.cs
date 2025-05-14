@@ -35,7 +35,7 @@ namespace Dorc.PersistentData.Sources
                 let hasPermission = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
+                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                           (ac.Allow & (int)AccessLevel.Write) != 0
                     select ed.Name).Any()
                 select new EnvironmentPrivInfo
@@ -87,7 +87,7 @@ namespace Dorc.PersistentData.Sources
                 let hasPermission = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
+                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                           (ac.Allow & (int)AccessLevel.Write) != 0
                     select ed.Name).Any()
                 select new EnvironmentPrivInfo

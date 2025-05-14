@@ -64,7 +64,10 @@ namespace Dorc.PersistentData
             string username = _claimsPrincipalReader.GetUserName(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
-            var userAccessControls = accessControls.Where(accessControl => userSids.Contains(accessControl.Sid)).ToList();
+            var userAccessControls = accessControls.Where(
+                accessControl => userSids.Contains(accessControl.Sid) ||
+                accessControl.Pid != null && userSids.Contains(accessControl.Pid)
+             ).ToList();
 
             return userAccessControls;
         }

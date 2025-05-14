@@ -318,7 +318,7 @@ namespace Dorc.PersistentData.Sources
                      select environment.Name).Any()
                 let hasPermission = (from env in context.Environments
                                      join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                     where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
+                                     where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                                            (ac.Allow & (int)accessLevel) != 0
                                      select env.Name).Any()
                 select new EnvironmentData
@@ -616,7 +616,7 @@ namespace Dorc.PersistentData.Sources
                                select env.Name).Any()
                           let isModify = (from env in context.Environments
                                           join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                          where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
+                                          where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                                                 (ac.Allow & (int)AccessLevel.Write) != 0
                                           select env.Name).Any()
                           select new EnvironmentData
@@ -647,7 +647,7 @@ namespace Dorc.PersistentData.Sources
                               select environment.Name).Any()
                          let isModify = (from env in context.Environments
                                          join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                         where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
+                                         where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                                                (ac.Allow & (int)AccessLevel.Write) != 0
                                          select env.Name).Any()
                          select new EnvironmentData
@@ -815,7 +815,7 @@ namespace Dorc.PersistentData.Sources
                           environment => environment.ObjectId,
                           ac => ac.ObjectId,
                           (environment, ac) => new { environment, ac })
-                    .Where(joined => userSids.Contains(joined.ac.Sid) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
+                    .Where(joined => (userSids.Contains(joined.ac.Sid) || joined.ac.Pid != null && userSids.Contains(joined.ac.Pid)) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
                     .Select(joined => joined.environment)
                     .Distinct();
 

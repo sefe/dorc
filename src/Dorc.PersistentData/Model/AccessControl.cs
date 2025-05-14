@@ -8,5 +8,6 @@
         public string Sid { get; set; } = null!;
         public int Allow { get; set; }
         public int Deny { get; set; }
+        public string? Pid { get; set; }
     }
 }
