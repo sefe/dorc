@@ -1,43 +1,44 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <title>DOrc</title>
 
-    <base href="/" />
+    <base href="/"/>
 
-    <link rel="icon" href="images/icon.ico" />
+    <link rel="icon" href="images/icon.ico"/>
 
     <script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify"></script>
     <script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.polyfills.min.js"></script>
     <link
-      href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css"
-      rel="stylesheet"
-      type="text/css"
+            href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css"
+            rel="stylesheet"
+            type="text/css"
     />
 
     <script
-      src="https://cdn.jsdelivr.net/npm/ace-builds@1.38.0/src-min/ace.js"
-      type="text/javascript"
-      charset="utf-8"
+            src="https://cdn.jsdelivr.net/npm/ace-builds@1.38.0/src-min/ace.js"
+            type="text/javascript"
+            charset="utf-8"
     ></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.38.0/src-min/ext-language_tools.js" type="text/javascript"
+            charset="utf-8"></script>
     <style>
-      html,
-      body,
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
+        html,
+        body,
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
 
-      noscript {
-        display: block;
-        margin: 1em;
-      }
+        noscript {
+            display: block;
+            margin: 1em;
+        }
     </style>
-  </head>
-  <body>
-    <div id="outlet"></div>
+</head>
+<body>
+<div id="outlet"></div>
 
-    <script type="module" src="src/router/index.ts"></script>
-  </body>
+<script type="module" src="src/router/index.ts"></script>
+</body>
 </html>
