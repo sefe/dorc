@@ -1,87 +1,50 @@
-import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
-import '@vaadin/password-field';
-import '@vaadin/vaadin-lumo-styles/icons.js';
-import { css, LitElement } from 'lit';
+import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { html } from 'lit/html.js';
-import { BundledRequestsApi, BundledRequestsApiModel } from '../../apis/dorc-api';
-import '../../icons/editor-icons.js';
-import '../../icons/iron-icons.js';
+import '@vaadin/button';
+import '@vaadin/icon';
+import '@vaadin/icons';
+import '@vaadin/horizontal-layout';
+import { BundledRequestsApiModel } from '../../apis/dorc-api';
 
 @customElement('bundle-request-controls')
-export class VariableValueControls extends LitElement {
+export class BundleRequestControls extends LitElement {
+  static styles = css`
+    :host {
+      display: block;
+    }
+    
+    vaadin-button {
+      margin-right: 4px;
+    }
+  `;
+
   @property({ type: Object })
   value!: BundledRequestsApiModel;
 
-  static get styles() {
-    return css`
-      :host{
-        width: 100%;
-      }
-      vaadin-button {
-        padding: 0px;
-        margin: 0px;
-      }
-    `;
-  }
-
   render() {
     return html`
-      <vaadin-button
-        id="edit"
-        title="Edit"
-        theme="icon small"
-        @click="${this._editClick}"
-      >
-        <vaadin-icon
-          icon="editor:mode-edit"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Delete Value"
-        theme="icon small"
-        @click="${this.removeBundleRequest}"
-      >
-        <vaadin-icon
-          icon="icons:clear"
-        ></vaadin-icon>
-      </vaadin-button>
+      <vaadin-horizontal-layout theme="spacing">
+        <vaadin-button theme="tertiary small" @click="${() => {
+          this.dispatchEvent(new CustomEvent('edit-click', {
+            detail: { bundle: this.value },
+            bubbles: true,
+            composed: true
+          }));
+        }}">
+          <vaadin-icon icon="editor:mode-edit"></vaadin-icon>
+        </vaadin-button>
+        <vaadin-button theme="tertiary small error" @click="${this._handleDeleteClick}">
+          <vaadin-icon icon="icons:clear"></vaadin-icon>
+        </vaadin-button>
+      </vaadin-horizontal-layout>
     `;
   }
 
-  removeBundleRequest() {
-    const answer = confirm(
-      `Confirm removing value: ${this.value?.RequestName}?\nfor Bundle: ${
-        this.value?.BundleName}`
-    );
-    if (answer && this.value?.Id) {
-      const api = new BundledRequestsApi();
-      api.bundledRequestsDelete({
-          id: this.value.Id
-        })
-        .subscribe({
-          next: () => {
-            this.fireVariableValueDeletedEvent();
-          },
-          error: () => this.fireVariableValueDeletedEvent(),
-          complete: () => console.log('done deleting variable value')
-        });
-    }
-  }
-
-  private fireVariableValueDeletedEvent() {
-    const event = new CustomEvent('variable-value-deleted', {
-      detail: {
-      },
+  private _handleDeleteClick() {
+    this.dispatchEvent(new CustomEvent('delete-click', {
+      detail: { bundleId: this.value.Id },
       bubbles: true,
       composed: true
-    });
-    this.dispatchEvent(event);
-  }
-
-  _editClick() {
-
+    }));
   }
 }
