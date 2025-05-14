@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import '@vaadin/dialog';
 import '@vaadin/text-field';
@@ -14,24 +14,28 @@ import {
   BundledRequestType
 } from '../apis/dorc-api';
 import { ErrorNotification } from './notifications/error-notification';
+import { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { guard } from 'lit/directives/guard.js';
+import * as ace from 'ace-builds';
 
+let editorValue: string | undefined = '';
 @customElement('bundle-editor-dialog')
 export class BundleEditorDialog extends LitElement {
   static styles = css`
     :host {
       display: block;
     }
-    
+
     .dialog-content {
       min-width: 500px;
       padding: 1rem;
     }
-    
+
     .field-container {
       margin-bottom: 1rem;
       width: 100%;
     }
-    
+
     .button-container {
       display: flex;
       justify-content: flex-end;
@@ -39,6 +43,8 @@ export class BundleEditorDialog extends LitElement {
       margin-top: 1rem;
     }
   `;
+
+  private editor: ace.Ace.Editor | undefined;
 
   @property({ type: Boolean })
   open = false;
@@ -79,67 +85,81 @@ export class BundleEditorDialog extends LitElement {
             );
           }
         }}"
-        header="${this.isEdit ? 'Edit Bundle Request' : 'Create Bundle Request'}"
+        header="${this.isEdit
+          ? 'Edit Bundle Request'
+          : 'Create Bundle Request'}"
         .renderer="${guard([], () => (root: HTMLElement) => {
           render(
-            html`        <vaadin-vertical-layout>
-          <div class="field-container">
-            <vaadin-text-field
-              label="Bundle Name"
-              .value="${this.bundleRequest.BundleName || ''}"
-              @change="${(e: Event) => this._updateValue('BundleName', (e.target as HTMLInputElement).value)}"
-              style="width: 100%;"
-            ></vaadin-text-field>
-          </div>
-          
-          <div class="field-container">
-            <vaadin-combo-box
-              label="Type"
-              .items="${this._typeOptions}"
-              item-label-path="label"
-              item-value-path="value"
-              .value="${this.bundleRequest.Type?.toString()}"
-              @change="${(e: CustomEvent) => this._updateValue('Type', parseInt(e.detail.value, 10))}"
-              style="width: 100%;"
-            ></vaadin-combo-box>
-          </div>
-          
-          <div class="field-container">
-            <vaadin-text-field
-              label="Request Name"
-              .value="${this.bundleRequest.RequestName || ''}"
-              @change="${(e: Event) => this._updateValue('RequestName', (e.target as HTMLInputElement).value)}"
-              style="width: 100%;"
-            ></vaadin-text-field>
-          </div>
-          
-          <div class="field-container">
-            <vaadin-number-field
-              label="Sequence"
-              .value="${this.bundleRequest.Sequence || 0}"
-              @change="${(e: Event) => this._updateValue('Sequence', parseInt((e.target as HTMLInputElement).value, 10))}"
-              style="width: 100%;"
-            ></vaadin-number-field>
-          </div>
-          
-          <div class="field-container" style="width: 50vw">
-            <vaadin-text-area
-              label="Request (JSON)"
-              .value="${this.bundleRequest.Request || '{}'}"
-              @change="${(e: Event) => this._updateValue('Request', (e.target as HTMLTextAreaElement).value)}"
-              style="width: 100%; min-height: 200px;"
-            ></vaadin-text-area>
-          </div>
-          
-          <div class="button-container">
-            <vaadin-button theme="tertiary" @click="${()=> {this.open = false}}">
-              Cancel
-            </vaadin-button>
-            <vaadin-button theme="primary" @click="${this._handleSave}">
-              ${this.isEdit ? 'Update' : 'Create'}
-            </vaadin-button>
-          </div>
-        </vaadin-vertical-layout>`,
+            html` <vaadin-vertical-layout>
+              <div class="field-container">
+                <vaadin-text-field
+                  label="Bundle Name"
+                  .value="${this.bundleRequest.BundleName || ''}"
+                  @change="${(e: Event) =>
+                    this._updateValue(
+                      'BundleName',
+                      (e.target as HTMLInputElement).value
+                    )}"
+                  style="width: 100%;"
+                ></vaadin-text-field>
+              </div>
+
+              <div class="field-container">
+                <vaadin-combo-box
+                  label="Type"
+                  .items="${this._typeOptions}"
+                  item-label-path="label"
+                  item-value-path="value"
+                  .value="${this.bundleRequest.Type?.toString()}"
+                  @change="${(e: CustomEvent) =>
+                    this._updateValue('Type', parseInt(e.detail.value, 10))}"
+                  style="width: 100%;"
+                ></vaadin-combo-box>
+              </div>
+
+              <div class="field-container">
+                <vaadin-text-field
+                  label="Request Name"
+                  .value="${this.bundleRequest.RequestName || ''}"
+                  @change="${(e: Event) =>
+                    this._updateValue(
+                      'RequestName',
+                      (e.target as HTMLInputElement).value
+                    )}"
+                  style="width: 100%;"
+                ></vaadin-text-field>
+              </div>
+
+              <div class="field-container">
+                <vaadin-number-field
+                  label="Sequence"
+                  .value="${this.bundleRequest.Sequence || 0}"
+                  @change="${(e: Event) =>
+                    this._updateValue(
+                      'Sequence',
+                      parseInt((e.target as HTMLInputElement).value, 10)
+                    )}"
+                  style="width: 100%;"
+                ></vaadin-number-field>
+              </div>
+              <div id="editor" style="width: 50vw; height: 20vw;">
+                Loading...
+              </div>
+
+              <div class="button-container">
+                <vaadin-button
+                  theme="tertiary"
+                  @click="${() => {
+                    this.open = false;
+                  }}"
+                >
+                  Cancel
+                </vaadin-button>
+                <vaadin-button theme="primary" @click="${this._handleSave}">
+                  ${this.isEdit ? 'Update' : 'Create'}
+                </vaadin-button>
+              </div>
+            </vaadin-vertical-layout>`,
             root
           );
         })}"
@@ -147,10 +167,16 @@ export class BundleEditorDialog extends LitElement {
     `;
   }
 
+  protected firstUpdated(_changedProperties: any) {
+    super.firstUpdated(_changedProperties);
+
+
+  }
+
   private _updateValue(property: keyof BundledRequestsApiModel, value: any) {
-    this.bundleRequest = { 
-      ...this.bundleRequest, 
-      [property]: value 
+    this.bundleRequest = {
+      ...this.bundleRequest,
+      [property]: value
     };
   }
 
@@ -161,19 +187,23 @@ export class BundleEditorDialog extends LitElement {
     }
 
     const api = new BundledRequestsApi();
-    
+
     // Make API call based on whether we're editing or creating
-    const apiCall = this.isEdit 
+    const apiCall = this.isEdit
       ? api.bundledRequestsPut({ bundledRequestsApiModel: this.bundleRequest })
-      : api.bundledRequestsPost({ bundledRequestsApiModel: this.bundleRequest });
-    
+      : api.bundledRequestsPost({
+          bundledRequestsApiModel: this.bundleRequest
+        });
+
     apiCall.subscribe(
       () => {
         // Success
         this.open = false;
-        this.dispatchEvent(new CustomEvent('bundle-saved', {
-          detail: { bundleRequest: this.bundleRequest }
-        }));
+        this.dispatchEvent(
+          new CustomEvent('bundle-saved', {
+            detail: { bundleRequest: this.bundleRequest }
+          })
+        );
       },
       error => {
         // Error
@@ -193,33 +223,35 @@ export class BundleEditorDialog extends LitElement {
   private _validateFields(): boolean {
     // Basic validation
     if (!this.bundleRequest.BundleName) {
-      this.showErrorNotification( 'Bundle Name is required' );
+      this.showErrorNotification('Bundle Name is required');
       return false;
     }
-    
+
     if (this.bundleRequest.Type === undefined) {
-      this.showErrorNotification ( 'Type is required' );
+      this.showErrorNotification('Type is required');
       return false;
     }
-    
+
     if (!this.bundleRequest.RequestName) {
-      this.showErrorNotification ( 'Request Name is required' );
+      this.showErrorNotification('Request Name is required');
       return false;
     }
-    
+
     // Validate JSON
     if (this.bundleRequest.Request) {
       try {
         JSON.parse(this.bundleRequest.Request);
       } catch (e: any) {
-        this.showErrorNotification ( 'Invalid JSON in Request field ' + e.toString() );
+        this.showErrorNotification(
+          'Invalid JSON in Request field ' + e.toString()
+        );
         return false;
       }
     } else {
-      this.showErrorNotification ( 'Request is required' );
+      this.showErrorNotification('Request is required');
       return false;
     }
-    
+
     return true;
   }
 
@@ -237,6 +269,7 @@ export class BundleEditorDialog extends LitElement {
       Sequence: 0,
       Request: '{}'
     };
+    this.attachAceEditor(this.bundleRequest.Request || '{}');
     this.open = true;
   }
 
@@ -246,18 +279,37 @@ export class BundleEditorDialog extends LitElement {
   public openEdit(bundle: BundledRequestsApiModel) {
     this.isEdit = true;
     this.bundleRequest = { ...bundle };
+    this.attachAceEditor(this.bundleRequest.Request || '{}');
     this.open = true;
   }
-}
 
-// Import the render function to use in the renderer
-import { render } from 'lit/html.js';
-import { DialogOpenedChangedEvent } from '@vaadin/dialog';
-import { guard } from 'lit/directives/guard.js';
+  public attachAceEditor(jsonRequest: string) {
+    const editorDiv = this.shadowRoot?.getElementById(
+      'editor'
+    ) as HTMLDivElement;
 
-// Make sure the component is defined for TypeScript
-declare global {
-  interface HTMLElementTagNameMap {
-    'bundle-editor-dialog': BundleEditorDialog;
+    this.editor = ace.edit(editorDiv);
+    this.editor.renderer.attachToShadowRoot();
+
+    this.editor.setTheme('ace/theme/terminal');
+    this.editor.session.setMode('ace/mode/json');
+    this.editor.getSession().setUseWorker(false);
+    this.editor.setReadOnly(false);
+    this.editor.setHighlightActiveLine(true);
+
+    this.editor.setOptions({
+      autoScrollEditorIntoView: true,
+      enableBasicAutocompletion: false,
+      enableLiveAutocompletion: false,
+      placeholder: '',
+      enableSnippets: false
+    });
+
+    this.editor.on('change', () => {
+      editorValue = this.editor?.getValue();
+    });
+
+    this.editor?.setValue(JSON.stringify(jsonRequest, null, 2), 0);
+    this.editor?.clearSelection();
   }
 }
