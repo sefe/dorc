@@ -1,7 +1,6 @@
 {
   "System": {
     "EnableLoggingDiagnostics": true,
-    "LogPath": "c:\\Log\\DOrc\\Deploy\\Services\\Requests",
     "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
   },
   "Serilog": {

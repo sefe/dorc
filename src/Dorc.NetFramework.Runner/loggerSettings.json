@@ -5,7 +5,7 @@
     "EnableLoggingDiagnostics": true,
     "EnvironmentName": "DV2",
     "EnvironmentTier": "DV",
-    "LogPath": "c:\\Log\\DOrc\\Deploy\\Services\\Requests"
+    "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
   },
   "Serilog": {
     "Using": [

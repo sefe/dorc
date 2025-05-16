@@ -3,10 +3,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Management;
 using CommandLine;
 using Dorc.ApiModel.Constants;
-using Dorc.PersistData.Dapper;
+using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
-using Dorc.Runner.Startup;
 using Microsoft.Extensions.Configuration;
+using OpenSearch.Client;
 using Serilog;
 
 namespace Dorc.Runner
@@ -50,26 +50,23 @@ namespace Dorc.Runner
 
                 var loggerRegistry = new LoggerRegistry();
                 var config = new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json").Build();
+                    .AddJsonFile("appsettings.json")
+                    .AddJsonFile("loggerSettings.json", optional: false)
+                    .Build();
 
-                var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
-
-                var dapperContext = new DapperContext(connectionString);
-
-                Log.Logger = loggerRegistry.InitialiseLogger(options.PipeName);
+                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
+                Log.Logger = runnerLogger.FileLogger;
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, loggerRegistry.LogFileName);
-
-                dapperContext.AddLogFilePath(Log.Logger, requestId, uncDorcPath);
+                Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
                     Log.Logger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
-                
+
                 Log.Logger.Information("Arguments: {args}", string.Join(", ", args));
   
                 try
@@ -84,8 +81,8 @@ namespace Dorc.Runner
                         scriptGroupReader = new ScriptGroupPipeClient(Log.Logger);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
-                        Log.Logger,
-                        scriptGroupReader, dapperContext);
+                        runnerLogger,
+                        scriptGroupReader);
 
                     var result = scriptGroupProcessor.Process(options.PipeName, requestId);
                     Exit(result);

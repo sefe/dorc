@@ -42,6 +42,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool UpdateResultStatus(DeploymentResultApiModel deploymentResultModel, DeploymentResultStatus status);
         bool UpdateResultLog(DeploymentResultApiModel deploymentResultModel, string log);
         bool UpdateUncLogPath(DeploymentRequestApiModel deploymentRequest, string uncLogPath);
+        bool UpdateUncLogPath(int requestId, string uncLogPath);
         DeploymentRequestApiModel GetRequest(int requestId);
         int SubmitRequest(DeploymentRequest deploymentRequest);
     }

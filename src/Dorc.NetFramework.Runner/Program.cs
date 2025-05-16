@@ -5,8 +5,7 @@ using System.Threading;
 using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.NetFramework.Runner.Pipes;
-using Dorc.NetFramework.Runner.Startup;
-using Dorc.PersistData.Dapper;
+using Dorc.Runner.Logger;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
@@ -30,17 +29,6 @@ namespace Dorc.NetFramework.Runner
 
         private static void Main(string[] args)
         {
-            var loggerRegistry = new LoggerRegistry();
-            var config = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json").Build();
-
-            var connectionString = config.GetSection("ConnectionStrings")["DOrcConnectionString"];
-
-            var dapperContext = new DapperContext(connectionString);
-
-
-            Log.Logger = loggerRegistry.InitialiseLogger();
-
             try
             {
 #if LoggingForDebugging
@@ -67,14 +55,20 @@ namespace Dorc.NetFramework.Runner
                 }
 
                 options = arguments.Value;
+                var loggerRegistry = new LoggerRegistry();
+                var config = new ConfigurationBuilder()
+                    .AddJsonFile("appsettings.json")
+                    .AddJsonFile("loggerSettings.json", optional: false)
+                    .Build();
+
+                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
+
+                Log.Logger = runnerLogger.FileLogger;
 
                 var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
-                var dorcPath = loggerRegistry.logPath.Replace("c:",@"\\"+System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
+                var dorcPath = loggerRegistry.LogFileName.Replace("c:",@"\\"+System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
                 contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
-
-                string uncLogPath = $"{dorcPath}\\{options.PipeName}.Txt";
-                dapperContext.AddLogFilePath(contextLogger,requestId, uncLogPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
@@ -103,8 +97,7 @@ namespace Dorc.NetFramework.Runner
                         scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
-                        contextLogger,
-                        dapperContext,
+                        runnerLogger,
                         scriptGroupReader);
 
                     scriptGroupProcessor.Process(arguments.Value.PipeName, requestId);
