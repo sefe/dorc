@@ -9,7 +9,7 @@ using System.Threading;
 
 namespace Dorc.Runner.Logger
 {
-    public class RunnerLogger : IRunnerLogger
+    public class RunnerLogger : IRunnerLogger, IDisposable
     {
         public ILogger FileLogger { get; }
         public IOpenSearchClient OpenSearchClient { get; }
@@ -21,7 +21,8 @@ namespace Dorc.Runner.Logger
         private string _environment;
         private string _environmentTier;
         private Timer _logTimer;
-        private ConcurrentQueue<DeployElasticLog> _logMessages;
+        private bool _disposedValue;
+        private ConcurrentQueue<DeployOpenSearchLogModel> _logMessages;
 
         public RunnerLogger(ILogger logger, IOpenSearchClient openSearchClient, string deploymentResultIndex, string environment, string environmentTier, int flushEverySec = 10)
         {
@@ -30,7 +31,7 @@ namespace Dorc.Runner.Logger
             _deploymentResultIndex = deploymentResultIndex;
             _environment = environment;
             _environmentTier = environmentTier;
-            _logMessages = new ConcurrentQueue<DeployElasticLog>();
+            _logMessages = new ConcurrentQueue<DeployOpenSearchLogModel>();
 
             _logTimer = new Timer(OnLogTimerElapsed, null, flushEverySec, flushEverySec * 1000);
         }
@@ -109,7 +110,7 @@ namespace Dorc.Runner.Logger
         private void EnqueueLog(string message, LogLevel type = LogLevel.Info, Exception exception = null)
         {
             _logMessages.Enqueue(
-                new DeployElasticLog(
+                new DeployOpenSearchLogModel(
                     this._requestId ?? 0,
                     this._deploymentResultId ?? 0,
                     message,
@@ -123,7 +124,7 @@ namespace Dorc.Runner.Logger
         {
             if (_logMessages.IsEmpty) return;
 
-            var logList = new List<DeployElasticLog>();
+            var logList = new List<DeployOpenSearchLogModel>();
             while (_logMessages.TryDequeue(out var log))
             {
                 logList.Add(log);
@@ -148,6 +149,25 @@ namespace Dorc.Runner.Logger
                     this.FileLogger.Error(e, $"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed.");
                 }
             }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
+            {
+                if (disposing)
+                {
+                    _logTimer.Dispose();
+                }
+
+                _disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }
