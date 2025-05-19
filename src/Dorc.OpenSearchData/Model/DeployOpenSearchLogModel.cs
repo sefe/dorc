@@ -3,7 +3,7 @@ using OpenSearch.Client;
 
 namespace Dorc.OpenSearchData.Model
 {
-    internal class DeployElasticLog
+    internal class DeployOpenSearchLogModel
     {
         [JsonProperty("request_id")]
         public int request_id { get; set; }
@@ -18,7 +18,7 @@ namespace Dorc.OpenSearchData.Model
         [JsonProperty("@timestamp")]
         public DateTime @timestamp { get; set; }
 
-        public DeployElasticLog(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null)
+        public DeployOpenSearchLogModel(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null)
         {
             request_id = requestId;
             deployment_result_id = deploymentResultId;

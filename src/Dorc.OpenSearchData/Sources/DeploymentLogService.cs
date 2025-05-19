@@ -41,14 +41,14 @@ namespace Dorc.OpenSearchData.Sources
             }
         }
 
-        private IEnumerable<DeployElasticLog> GetLogsFromOpenSearch(List<int> requestIds, List<int> deploymentResultIds)
+        private IEnumerable<DeployOpenSearchLogModel> GetLogsFromOpenSearch(List<int> requestIds, List<int> deploymentResultIds)
         {
-            var logs = new List<DeployElasticLog>();
+            var logs = new List<DeployOpenSearchLogModel>();
 
             for (int pageNumber = 1; ; pageNumber++)
             {
 
-                var searchResult = _openSearchClient.Search<DeployElasticLog>(s => s
+                var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
                                     .Index(_deploymentResultIndex)
                                     .Query(q => q
                                         .Bool(b => b
@@ -78,7 +78,7 @@ namespace Dorc.OpenSearchData.Sources
             return logs;
         }
 
-        private void MapLogsToDeploymentResults(IEnumerable<DeploymentResultApiModel> deploymentResults, IEnumerable<DeployElasticLog> logs)
+        private void MapLogsToDeploymentResults(IEnumerable<DeploymentResultApiModel> deploymentResults, IEnumerable<DeployOpenSearchLogModel> logs)
         {
             foreach (var deploymentResult in deploymentResults)
             {

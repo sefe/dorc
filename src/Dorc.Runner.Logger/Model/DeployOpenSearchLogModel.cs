@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace Dorc.Runner.Logger.Model
 {
-    internal class DeployElasticLog
+    internal class DeployOpenSearchLogModel
     {
         [JsonProperty("request_id")]
         public int request_id { get; set; }
@@ -37,7 +37,7 @@ namespace Dorc.Runner.Logger.Model
         [JsonProperty("process_user_identity")]
         public string process_user_identity { get; set; }
 
-        public DeployElasticLog(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null, string environment = "", string environmentTier = "")
+        public DeployOpenSearchLogModel(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null, string environment = "", string environmentTier = "")
         {
             request_id = requestId;
             deployment_result_id = deploymentResultId;
