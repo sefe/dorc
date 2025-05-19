@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using AspNetCoreRateLimit;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core;
@@ -10,7 +11,6 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
-using Dorc.PersistentData.Extensions;
 using Lamar.Microsoft.DependencyInjection;
 using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
@@ -18,7 +18,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
-using OnePassword.Connect.Client;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
@@ -26,6 +25,10 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 var configurationSettings = new ConfigurationSettings(configBuilder);
+var secretsReader = new OnePasswordSecretsReader(configurationSettings);
+
+builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
+builder.Services.AddSingleton<IUserGroupsReaderFactory, UserGroupReaderFactory>();
 
 var allowedCorsLocations = configurationSettings.GetAllowedCorsLocations();
 
@@ -48,13 +51,13 @@ string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
 switch (authenticationScheme)
 {
     case ConfigAuthScheme.OAuth:
-        ConfigureOAuth(builder, configurationSettings);
+        ConfigureOAuth(builder, configurationSettings, secretsReader);
         break;
     case ConfigAuthScheme.WinAuth:
         ConfigureWinAuth(builder);
         break;
     case ConfigAuthScheme.Both:
-        ConfigureBoth(builder, configurationSettings);
+        ConfigureBoth(builder, configurationSettings, secretsReader);
         break;
     default:
         ConfigureWinAuth(builder);
@@ -75,7 +78,7 @@ static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnRead
         .AddNegotiate();
 }
 
-static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, bool registerOwnReader = true)
+static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader, bool registerOwnReader = true)
 {
     if (registerOwnReader)
     {
@@ -85,7 +88,9 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     string? authority = configurationSettings.GetOAuthAuthority();
     string dorcApiResourceName = configurationSettings.GetOAuthApiResourceName();
     string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
-    string dorcApiSecret = GetDorcApiSecret(builder, configurationSettings);
+    
+    // Get DORC API secret from secrets manager
+    string dorcApiSecret = secretsReader.GetDorcApiSecret();
 
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -125,13 +130,14 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
         });
     });
 }
-static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings)
+
+static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader)
 {
     builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
     builder.Services.AddTransient<IClaimsPrincipalReader, ClaimsPrincipalReaderFactory>();
 
     ConfigureWinAuth(builder, false);
-    ConfigureOAuth(builder, configurationSettings, false);
+    ConfigureOAuth(builder, configurationSettings, secretsReader, false);
 
     // Add a Policy Scheme to dynamically select the authentication scheme
     builder.Services.AddAuthentication(options =>
@@ -143,36 +149,6 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
     {
         options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
     });
-}
-
-static string GetDorcApiSecret(WebApplicationBuilder builder, IConfigurationSettings configurationSettings)
-{
-    string? baseUrl = configurationSettings.GetOnePasswordBaseUrl();
-    string? apiKey = configurationSettings.GetOnePasswordApiKey();
-    string? vaultId = configurationSettings.GetOnePasswordVaultId();
-    string? itemId = configurationSettings.GetOnePasswordItemId();
-
-    if (string.IsNullOrEmpty(baseUrl)
-        || string.IsNullOrEmpty(apiKey)
-        || string.IsNullOrEmpty(vaultId)
-        || string.IsNullOrEmpty(itemId)
-        )
-    {
-        return string.Empty;
-    }
-
-    var onePasswordClient = new OnePasswordClient(baseUrl, apiKey);
-    try
-    {
-        string secret = Task.Run(() => onePasswordClient.GetSecretValueAsync(vaultId, itemId)).GetAwaiter().GetResult();
-        return secret;
-    }
-    catch (Exception ex)
-    {
-        var logger = builder.Logging.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Error fetching secret from OnePassword");
-        return string.Empty;
-    }
 }
 
 static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
@@ -255,7 +231,7 @@ builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 
 builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<IUserGroupReader, ActiveDirectoryUserGroupReader>();
+builder.Services.AddSingleton<IUserGroupReader, CachedUserGroupReader>();
 
 // Enable throttling
 builder.Services.AddOptions();

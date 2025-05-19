@@ -1,12 +1,11 @@
-﻿using System.Configuration.Provider;
-using System.DirectoryServices.AccountManagement;
-using System.Runtime.Versioning;
-using System.Security.Claims;
-using System.Security.Principal;
+﻿using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Runtime.Versioning;
+using System.Security.Claims;
+using System.Security.Principal;
 
 namespace Dorc.Api.Services
 {
@@ -23,9 +22,9 @@ namespace Dorc.Api.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IUserGroupReader adUserGroupReader, IHttpContextAccessor httpContextAccessor)
+        public ClaimsTransformer(IConfiguration config, IUserGroupsReaderFactory adUserGroupReaderFactory, IHttpContextAccessor httpContextAccessor)
         {
-            _adUserGroupReader = adUserGroupReader;
+            _adUserGroupReader = adUserGroupReaderFactory.GetWinAuthUserGroupsReader();
             _httpContextAccessor = httpContextAccessor;
             var activeDirectoryRoles = config.GetSection("AppSettings:ActiveDirectoryRoles").GetChildren()
                 .ToDictionary(x => x.Key, x => x.Value);

@@ -6,8 +6,7 @@ using System.Runtime.Versioning;
 
 namespace Dorc.Api.Services
 {
-    [SupportedOSPlatform("windows")]
-    public class ActiveDirectoryUserGroupReader : IUserGroupReader
+    public class CachedUserGroupReader : IUserGroupReader
     {
         private static readonly ConcurrentDictionary<string, CacheEntry> SidCache = new ConcurrentDictionary<string, CacheEntry>();
 
@@ -22,7 +21,7 @@ namespace Dorc.Api.Services
         private readonly IActiveDirectorySearcher _activeDirectorySearcher;
         private readonly TimeSpan? _cacheExpiration;
 
-        public ActiveDirectoryUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IActiveDirectorySearcher activeDirectorySearcher)
+        public CachedUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IActiveDirectorySearcher activeDirectorySearcher)
         {
             _domainName = config.GetConfigurationDomainNameIntra();
             _cacheExpiration = config.GetADUserCacheTimeSpan();

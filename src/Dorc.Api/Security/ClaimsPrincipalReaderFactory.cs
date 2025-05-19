@@ -1,10 +1,7 @@
-﻿using Dorc.Api.Services;
+﻿using Dorc.Api.Interfaces;
 using Dorc.Core;
-using Dorc.Core.Configuration;
-using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 using System.Security.Principal;
 
@@ -18,15 +15,13 @@ namespace Dorc.Api.Security
 
         public ClaimsPrincipalReaderFactory(
             IHttpContextAccessor httpContextAccessor,
-            IConfigurationSettings config, 
-            IMemoryCache cache, 
-            IActiveDirectorySearcher activeDirectorySearcher
+            IUserGroupsReaderFactory userGroupsReaderFactory
             )
         {
             _httpContextAccessor = httpContextAccessor;
-            var adGroupReader = new ActiveDirectoryUserGroupReader(config, cache, activeDirectorySearcher);
-            _oauthReader = new OAuthClaimsPrincipalReader(adGroupReader);
-            _winAuthReader = new WinAuthClaimsPrincipalReader(adGroupReader);
+
+            _oauthReader = new OAuthClaimsPrincipalReader(userGroupsReaderFactory.GetOAuthUserGroupsReader());
+            _winAuthReader = new WinAuthClaimsPrincipalReader(userGroupsReaderFactory.GetWinAuthUserGroupsReader());
         }
 
         public string GetUserName(IPrincipal user)
