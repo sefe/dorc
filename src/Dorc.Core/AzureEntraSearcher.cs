@@ -3,6 +3,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using log4net;
 using Microsoft.Graph;
+using Microsoft.Graph.Authentication;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Users.Item.CheckMemberGroups;
 using System.Runtime.Versioning;
@@ -32,12 +33,32 @@ namespace Dorc.Core
             if (_graphClient != null)
                 return _graphClient;
 
-            var scopes = new[] { "https://graph.microsoft.com/.default" };
+            try
+            {
+                var scopes = new[] { "https://graph.microsoft.com/.default" };
 
-            var clientSecretCredential = new ClientSecretCredential(
-                _tenantId, _clientId, _clientSecret);
+                var clientSecretCredential = new ClientSecretCredential(
+                    _tenantId,
+                    _clientId,
+                    _clientSecret,
+                    new ClientSecretCredentialOptions
+                    {
+                        AuthorityHost = AzureAuthorityHosts.AzurePublicCloud,                        
+                    });
 
-            _graphClient = new GraphServiceClient(clientSecretCredential, scopes);
+                var authProvider = new AzureIdentityAuthenticationProvider(
+                    clientSecretCredential,
+                    scopes: scopes,
+                    isCaeEnabled: false
+                );
+
+                _graphClient = new GraphServiceClient(authProvider);
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Error initializing GraphServiceClient.", ex);
+                throw new InvalidOperationException("Failed to initialize GraphServiceClient.", ex);
+            }
 
             return _graphClient;
         }
@@ -60,26 +81,32 @@ namespace Dorc.Core
                 var users = graphClient.Users
                     .GetAsync(requestConfiguration =>
                     {
+                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
+                        requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
                             $"startsWith(displayName,'{objectName}') or startsWith(givenName,'{objectName}') or " +
+                            $"startsWith(onPremisesSamAccountName,'{objectName}') or " +
                             $"startsWith(surname,'{objectName}') or startsWith(mail,'{objectName}') or " +
                             $"startsWith(userPrincipalName,'{objectName}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
 
-                foreach (var user in users.Value)
+                if (users?.Value != null)
                 {
-                    if (user.AccountEnabled == true)
+                    foreach (var user in users.Value)
                     {
-                        output.Add(new ActiveDirectoryElementApiModel()
+                        if (user.AccountEnabled == true)
                         {
-                            Username = user.UserPrincipalName,
-                            DisplayName = user.DisplayName,
-                            Sid = user.Id, // In Azure AD, Id is used instead of SID
-                            IsGroup = false,
-                            Email = user.Mail ?? user.UserPrincipalName
-                        });
+                            output.Add(new ActiveDirectoryElementApiModel()
+                            {
+                                Username = user.UserPrincipalName,
+                                DisplayName = user.DisplayName,
+                                Sid = user.Id, // In Azure AD, Id is used instead of SID
+                                IsGroup = false,
+                                Email = user.Mail ?? user.UserPrincipalName
+                            });
+                        }
                     }
                 }
 
@@ -93,30 +120,44 @@ namespace Dorc.Core
                             new[] { "id", "displayName", "mailNickname", "mail" };
                     }).Result;
 
-                foreach (var group in groups.Value)
+                if (groups?.Value != null)
                 {
-                    output.Add(new ActiveDirectoryElementApiModel()
+                    foreach (var group in groups.Value)
                     {
-                        Username = group.MailNickname,
-                        DisplayName = group.DisplayName,
-                        Sid = group.Id, // In Azure AD, Id is used instead of SID
-                        IsGroup = true,
-                        Email = group.Mail
-                    });
+                        output.Add(new ActiveDirectoryElementApiModel()
+                        {
+                            Username = group.MailNickname,
+                            DisplayName = group.DisplayName,
+                            Sid = group.Id, // In Azure AD, Id is used instead of SID
+                            IsGroup = true,
+                            Email = group.Mail
+                        });
+                    }
                 }
+            }
+            catch (ServiceException ex)
+            {
+                if (ex.ResponseStatusCode == 401 || ex.ResponseStatusCode == 403)
+                {
+                    _log.Error("Authentication/Authorization error when querying Azure Entra ID.", ex);
+                    throw new UnauthorizedAccessException("Failed to authenticate or authorize with Azure Entra ID.", ex);
+                }
+
+                _log.Error("Error searching Azure Entra ID.", ex);
+                throw;
             }
             catch (Exception ex)
             {
-                _log.Error("Error searching Azure Entra ID", ex);
+                _log.Error("Unexpected error searching Azure Entra ID.", ex);
                 throw;
             }
 
             return output;
         }
 
-        public ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string id)
+        public ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string username)
         {
-            if (!Regex.IsMatch(id, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
+            if (!Regex.IsMatch(username, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
             {
                 throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
             }
@@ -125,34 +166,13 @@ namespace Dorc.Core
 
             try
             {
-                // Try to find by userPrincipalName first
-                var user = graphClient.Users[id]
-                    .GetAsync(requestConfiguration =>
-                    {
-                        requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
-                    }).Result;
-
-                if (user != null && user.AccountEnabled == true)
-                {
-                    return new ActiveDirectoryElementApiModel()
-                    {
-                        Username = user.UserPrincipalName,
-                        DisplayName = user.DisplayName,
-                        Sid = user.Id,
-                        IsGroup = false,
-                        Email = user.Mail ?? user.UserPrincipalName
-                    };
-                }
-
-                // If not found by userPrincipalName, try search
                 var users = graphClient.Users
                     .GetAsync(requestConfiguration =>
                     {
                         requestConfiguration.QueryParameters.Filter =
-                            $"startsWith(displayName,'{id}') or startsWith(givenName,'{id}') or " +
-                            $"startsWith(surname,'{id}') or startsWith(mail,'{id}') or " +
-                            $"startsWith(userPrincipalName,'{id}')";
+                            $"startsWith(displayName,'{username}') or startsWith(mail,'{username}') or " +
+                            $"startsWith(onPremisesSamAccountName,'{username}') or " +
+                            $"startsWith(userPrincipalName,'{username}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
@@ -183,30 +203,22 @@ namespace Dorc.Core
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
 
-        public List<string> GetSidsForUser(string username)
+        public List<string> GetSidsForUser(string userId)
         {
+            if (String.IsNullOrEmpty(userId))
+            {
+                throw new ArgumentException("User ID cannot be null or empty.");
+            }
+
             var result = new List<string>();
             var graphClient = GetGraphClient();
 
             try
             {
-                // Get the user
-                var user = graphClient.Users[username]
-                    .GetAsync(requestConfiguration =>
-                    {
-                        requestConfiguration.QueryParameters.Select = new[] { "id" };
-                    }).Result;
-
-                if (user == null)
-                {
-                    throw new ArgumentException("User not found");
-                }
-
-                // Add the user's ID (equivalent to SID in Azure AD)
-                result.Add(user.Id);
+                result.Add(userId);
 
                 // Get all groups the user is a member of (including transitive memberships)
-                var memberOf = graphClient.Users[user.Id].MemberOf
+                var memberOf = graphClient.Users[userId].MemberOf
                     .GetAsync().Result;
 
                 var pageIterator = PageIterator<DirectoryObject, DirectoryObjectCollectionResponse>
