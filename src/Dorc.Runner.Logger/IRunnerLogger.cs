@@ -22,5 +22,7 @@ namespace Dorc.Runner.Logger
         void Error(string message, Exception exception);
         void Error(Exception exception, string message, params object[] values);
         void Debug(string message);
+
+        void FlushLogMessages();
     }
 }

@@ -10,12 +10,10 @@ namespace Dorc.PowerShell
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
         private readonly IRunnerLogger logger;
-        private readonly OutputProcessor outputProcessor;
 
-        public PowerShellScriptRunner(IRunnerLogger logger, OutputProcessor outputProc)
+        public PowerShellScriptRunner(IRunnerLogger logger)
         {
             this.logger = logger;
-            this.outputProcessor = outputProc;
         }
 
         public int Run(string scriptsLocation,
@@ -105,7 +103,7 @@ namespace Dorc.PowerShell
             }
             finally
             {
-                outputProcessor.FlushLogMessages();
+                logger.FlushLogMessages();
             }
             logger.FileLogger.Information("Execution of the powershell Script {0} was successful", scriptName);
             return 0;
@@ -121,24 +119,23 @@ namespace Dorc.PowerShell
                 {
                     case MessageType.None:
                     case MessageType.Info:
-                        logger.FileLogger.Information(psMessage);
+                        logger.Information(psMessage);
                         break;
                     case MessageType.Verbose:
-                        logger.FileLogger.Verbose(psMessage);
+                        logger.Verbose(psMessage);
                         break;
                     case MessageType.Warning:
-                        logger.FileLogger.Warning(psMessage);
+                        logger.Warning(psMessage);
                         break;
                     case MessageType.Error:
-                        logger.FileLogger.Error(psMessage);
+                        logger.Error(psMessage);
                         break;
                     case MessageType.Debug:
-                        logger.FileLogger.Debug(psMessage);
+                        logger.Debug(psMessage);
                         break;
                     default:
                         break;
                 }
-                outputProcessor.AddLogMessage(message);
             }
             catch (Exception exception)
             {

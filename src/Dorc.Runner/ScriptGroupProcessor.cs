@@ -36,9 +36,8 @@ namespace Dorc.Runner
 
             using (LogContext.PushProperty("RequestId", requestId))
             using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
-            using (var outputProc = new OutputProcessor(this.logger, deploymentResultId))
             {
-                var scriptRunner = new PowerShellScriptRunner(this.logger, outputProc);
+                var scriptRunner = new PowerShellScriptRunner(this.logger);
                 int sumResult = 0;
                 foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
                 {
