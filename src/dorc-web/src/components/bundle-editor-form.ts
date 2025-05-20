@@ -159,7 +159,10 @@ export class BundleEditorForm extends LitElement {
         'bundleType'
       ) as ComboBox;
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
-        typeComboBox.value = this.bundleRequest.Type;
+        if (typeComboBox.value)
+        {
+          typeComboBox.value = this.bundleRequest.Type;
+        }
       }
     }, 10);
   }
@@ -179,7 +182,8 @@ export class BundleEditorForm extends LitElement {
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonContent), null, 2);
         this.editor.setValue(formattedJson, -1);
-      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
         this.editor.setValue(jsonContent, -1);
       }
       this.editor.clearSelection();
@@ -248,8 +252,8 @@ export class BundleEditorForm extends LitElement {
           bundledRequestsApiModel: this.bundleRequest
         });
 
-    apiCall.subscribe(
-      () => {
+    apiCall.subscribe({
+      next: () => {
         // Success
         this.dispatchEvent(
           new CustomEvent(loadingChangeEvent, {
@@ -258,7 +262,7 @@ export class BundleEditorForm extends LitElement {
             composed: true
           })
         );
-
+    
         // Close the dialog and notify of a successful save
         this.dialog.closeDialog();
         console.log('Dispatching bundle-saved event from form');
@@ -270,7 +274,7 @@ export class BundleEditorForm extends LitElement {
         this.dispatchEvent(savedEvent);
         console.log('Bundle-saved event dispatched');
       },
-      error => {
+      error: (error) => {
         // Error
         console.error('Error saving bundle request:', error);
         this.dispatchEvent(
@@ -282,7 +286,7 @@ export class BundleEditorForm extends LitElement {
         );
         this._showError('Failed to save bundle request');
       }
-    );
+    });
   }
 
   /**
@@ -335,6 +339,7 @@ export class BundleEditorForm extends LitElement {
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonRequest), null, 2);
         this.editor.setValue(formattedJson, -1);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
         // If parsing fails, just set the raw value
         this.editor.setValue(jsonRequest, -1);
