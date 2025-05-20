@@ -9,12 +9,13 @@ import { BundledRequestsApiModel } from '../../apis/dorc-api';
 @customElement('bundle-request-controls')
 export class BundleRequestControls extends LitElement {
   static styles = css`
-    :host {
-      display: block;
-    }
-    
     vaadin-button {
-      margin-right: 4px;
+      padding: 0px;
+      margin: 0px;
+    }
+    vaadin-button:disabled,
+    vaadin-button[disabled] {
+      background-color: #dde2e8;
     }
   `;
 
@@ -24,16 +25,18 @@ export class BundleRequestControls extends LitElement {
   render() {
     return html`
       <vaadin-horizontal-layout theme="spacing">
-        <vaadin-button theme="tertiary small" @click="${() => {
-          this.dispatchEvent(new CustomEvent('edit-click', {
-            detail: { bundle: this.value },
+        <vaadin-button theme="icon" @click="${() => {
+          this.dispatchEvent(new CustomEvent('edit-bundle-request', {
+            detail: {
+              value: this.value
+            },
             bubbles: true,
             composed: true
           }));
         }}">
           <vaadin-icon icon="editor:mode-edit"></vaadin-icon>
         </vaadin-button>
-        <vaadin-button theme="tertiary small error" @click="${this._handleDeleteClick}">
+        <vaadin-button theme="icon error" @click="${this._handleDeleteClick}">
           <vaadin-icon icon="icons:clear"></vaadin-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
@@ -41,8 +44,10 @@ export class BundleRequestControls extends LitElement {
   }
 
   private _handleDeleteClick() {
-    this.dispatchEvent(new CustomEvent('delete-click', {
-      detail: { bundleId: this.value.Id },
+    this.dispatchEvent(new CustomEvent('delete-bundle-request', {
+      detail: {
+        value: this.value
+      },
       bubbles: true,
       composed: true
     }));
