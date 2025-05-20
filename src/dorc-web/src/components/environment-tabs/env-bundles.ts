@@ -14,7 +14,7 @@ import {
 } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
+import { Grid, GridItemModel } from '@vaadin/grid';
 import { HegsJsonViewer } from '../hegs-json-viewer.ts';
 import '../grid-button-groups/bundle-request-controls';
 import '../bundle-editor-dialog';
@@ -54,6 +54,8 @@ export class EnvBundles extends PageEnvBase {
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
 
+  @query('#grid') grid: Grid | undefined;
+
   render() {
     return html`
       <vaadin-details
@@ -70,18 +72,21 @@ export class EnvBundles extends PageEnvBase {
       </vaadin-details>
       
       <vaadin-grid
+        id="grid"
         .items="${this.bundledRequests}"
         column-reordering-allowed
         multi-sort
         theme="compact row-stripes no-row-borders no-border"
+        multi-sort-priority="append"
       >
-        <vaadin-grid-column
+        <vaadin-grid-sort-column
           path="BundleName"
           header="Bundle Name"
           auto-width
           flex-grow="0"
           resizable
-        ></vaadin-grid-column>
+          direction="asc"
+        ></vaadin-grid-sort-column>
         <vaadin-grid-column
           .renderer="${this._typeRenderer}"
           header="Type"
@@ -96,13 +101,14 @@ export class EnvBundles extends PageEnvBase {
           flex-grow="0"
           resizable
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-sort-column
           path="Sequence"
           header="Sequence"
           auto-width
           flex-grow="0"
           resizable
-        ></vaadin-grid-column>
+          direction="asc"
+        ></vaadin-grid-sort-column>
         <vaadin-grid-column
           .renderer="${this.bundleControlsRenderer}"
           resizable
@@ -126,6 +132,7 @@ export class EnvBundles extends PageEnvBase {
     super.firstUpdated(_changedProperties);
 
     this.addEventListener('edit-bundle-request', this._handleEditBundle as EventListener);
+    this.addEventListener('delete-bundle-request', this._handleDeleteBundle as EventListener);
   }
 
   private _openAddBundleDialog() {
@@ -134,7 +141,8 @@ export class EnvBundles extends PageEnvBase {
     this.bundleEditorDialog.openNew(projectId);
   }
   
-  private _handleBundleSaved() {
+  private _handleBundleSaved(e: CustomEvent) {
+    console.log('Bundle saved event received in env-bundles', e.detail);
     // Refresh the bundle list
     this.fetchBundledRequests();
   }
@@ -156,6 +164,13 @@ export class EnvBundles extends PageEnvBase {
             composed: true
           })
         );}}
+        @delete-click=${(e: CustomEvent) => {this.dispatchEvent(
+          new CustomEvent('delete-bundle-request', {
+            detail: e.detail,
+            bubbles: true,
+            composed: true
+          })
+        );}}
       >
       </bundle-request-controls>`,
       root
@@ -164,6 +179,27 @@ export class EnvBundles extends PageEnvBase {
 
   private _handleEditBundle(e: CustomEvent) {
     this.bundleEditorDialog.openEdit(e.detail.value);
+  }
+  
+  private _handleDeleteBundle(e: CustomEvent) {
+    if (e.detail.value.bundleId) {
+      // Confirm before deleting
+      const confirmDelete = confirm('Are you sure you want to delete this bundle request?');
+      
+      if (confirmDelete) {
+        const api = new BundledRequestsApi();
+        api.bundledRequestsDelete({ id: e.detail.value.bundleId }).subscribe(
+          () => {
+            // Success - refresh the grid
+            this.fetchBundledRequests();
+          },
+          error => {
+            console.error('Error deleting bundle request:', error);
+            new ErrorNotification().open();
+          }
+        );
+      }
+    }
   }
 
   _jsonRenderer(
@@ -210,8 +246,26 @@ export class EnvBundles extends PageEnvBase {
       ) || [];
     api.bundledRequestsGet({ projectNames: projs }).subscribe(
       data => {
-        this.bundledRequests = data;
-        this.requestUpdate();
+        // Sort the data by BundleName first, then by Sequence
+        this.bundledRequests = data.sort((a, b) => {
+          // First sort by BundleName
+          const nameCompare = (a.BundleName || '').localeCompare(b.BundleName || '');
+          
+          // If names are equal, sort by Sequence
+          if (nameCompare === 0) {
+            const seqA = a.Sequence || 0;
+            const seqB = b.Sequence || 0;
+            return seqA - seqB;
+          }
+          
+          return nameCompare;
+        });
+        
+        // Force grid to re-render with new data
+        if (this.grid) {
+          this.grid.clearCache();
+          this.requestUpdate();
+        }
       },
       error => {
         console.error('Error fetching bundled requests:', error);

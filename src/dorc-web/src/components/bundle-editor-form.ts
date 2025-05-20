@@ -9,7 +9,8 @@ import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import {
   BundledRequestsApiModel,
-  BundledRequestType
+  BundledRequestType,
+  BundledRequestsApi
 } from '../apis/dorc-api';
 import { BundleEditorDialog } from './bundle-editor-dialog';
 import * as ace from 'ace-builds';
@@ -38,7 +39,7 @@ export class BundleEditorForm extends LitElement {
 
   private editor: ace.Ace.Editor | undefined;
   private editorInitialized = false;
-  private jsonRequest: string = '{}';
+  private jsonRequest = '{}';
 
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {};
@@ -50,7 +51,7 @@ export class BundleEditorForm extends LitElement {
   dialog!: BundleEditorDialog;
 
   @state()
-  private _typeOptions = [
+  private readonly _typeOptions = [
     { value: BundledRequestType.NUMBER_1, label: 'JobRequest' },
     { value: BundledRequestType.NUMBER_2, label: 'CopyEnvBuild' }
   ];
@@ -114,15 +115,10 @@ export class BundleEditorForm extends LitElement {
           ></vaadin-number-field>
         </div>
 
-        <div id="editor" style="width: 50vw; height: 20vw;">
-          Loading...
-        </div>
+        <div id="editor" style="width: 50vw; height: 20vw;">Loading...</div>
 
         <div class="button-container">
-          <vaadin-button
-            theme="tertiary"
-            @click="${this._handleCancel}"
-          >
+          <vaadin-button theme="tertiary" @click="${this._handleCancel}">
             Cancel
           </vaadin-button>
           <vaadin-button theme="primary" @click="${this._handleSave}">
@@ -159,7 +155,9 @@ export class BundleEditorForm extends LitElement {
    */
   private _updateTypeComboBox() {
     setTimeout(() => {
-      const typeComboBox = this.shadowRoot?.getElementById('bundleType') as ComboBox;
+      const typeComboBox = this.shadowRoot?.getElementById(
+        'bundleType'
+      ) as ComboBox;
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
         typeComboBox.value = this.bundleRequest.Type;
       }
@@ -170,16 +168,18 @@ export class BundleEditorForm extends LitElement {
    * Initialize or update the editor
    */
   private _initOrUpdateEditor() {
-    if (!this.shadowRoot) return;
+    if (!this.shadowRoot) {
+      return;
+    }
 
     const jsonContent = this.bundleRequest.Request || '{}';
-    
+
     if (this.editorInitialized && this.editor) {
       // Update the existing editor
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonContent), null, 2);
         this.editor.setValue(formattedJson, -1);
-      } catch (e) {
+      } catch (e: any) {
         this.editor.setValue(jsonContent, -1);
       }
       this.editor.clearSelection();
@@ -197,10 +197,10 @@ export class BundleEditorForm extends LitElement {
       ...this.bundleRequest,
       [property]: value
     };
-    
+
     // Update the parent dialog's copy of the bundle request
     this.dialog.updateBundleRequest(updatedBundle);
-    
+
     // Also update the local copy
     this.bundleRequest = updatedBundle;
   }
@@ -221,9 +221,67 @@ export class BundleEditorForm extends LitElement {
       const editorValue = this.editor.getValue();
       this._updateValue('Request', editorValue);
     }
-    
-    // Trigger save in the parent dialog
-    this.dialog.handleSave(this.bundleRequest);
+
+    // Validate the bundle request before saving
+    if (!this._validateBundle()) {
+      return;
+    }
+
+    // Make the API call to save the updates
+    const api = new BundledRequestsApi();
+
+    // Show loading state
+    const loadingChangeEvent = 'loading-changed';
+    this.dispatchEvent(
+      new CustomEvent(loadingChangeEvent, {
+        detail: { loading: true },
+        bubbles: true,
+        composed: true
+      })
+    );
+
+    // Make API call based on whether we're editing or creating
+    const apiCall = this.isEdit
+      ? api.bundledRequestsPut({ bundledRequestsApiModel: this.bundleRequest })
+      : api.bundledRequestsPost({
+          bundledRequestsApiModel: this.bundleRequest
+        });
+
+    apiCall.subscribe(
+      () => {
+        // Success
+        this.dispatchEvent(
+          new CustomEvent(loadingChangeEvent, {
+            detail: { loading: false },
+            bubbles: true,
+            composed: true
+          })
+        );
+
+        // Close the dialog and notify of a successful save
+        this.dialog.closeDialog();
+        console.log('Dispatching bundle-saved event from form');
+        const savedEvent = new CustomEvent('bundle-saved', {
+          detail: { bundleRequest: this.bundleRequest },
+          bubbles: true,
+          composed: true
+        });
+        this.dispatchEvent(savedEvent);
+        console.log('Bundle-saved event dispatched');
+      },
+      error => {
+        // Error
+        console.error('Error saving bundle request:', error);
+        this.dispatchEvent(
+          new CustomEvent(loadingChangeEvent, {
+            detail: { loading: false },
+            bubbles: true,
+            composed: true
+          })
+        );
+        this._showError('Failed to save bundle request');
+      }
+    );
   }
 
   /**
@@ -232,10 +290,14 @@ export class BundleEditorForm extends LitElement {
   public attachAceEditor(jsonRequest: string) {
     setTimeout(() => {
       // Use setTimeout to ensure the DOM is ready
-      const editorDiv = this.shadowRoot?.getElementById('editor') as HTMLDivElement;
-      if (!editorDiv) return;
+      const editorDiv = this.shadowRoot?.getElementById(
+        'editor'
+      ) as HTMLDivElement;
+      if (!editorDiv) {
+        return;
+      }
 
-      // If editor already exists, destroy it first
+      // If an editor already exists, destroy it first
       if (this.editor) {
         this.editor.destroy();
         this.editor = undefined;
@@ -272,13 +334,68 @@ export class BundleEditorForm extends LitElement {
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonRequest), null, 2);
         this.editor.setValue(formattedJson, -1);
-      } catch (e) {
+      } catch (e: any) {
         // If parsing fails, just set the raw value
         this.editor.setValue(jsonRequest, -1);
       }
-      
+
       this.editor.clearSelection();
       this.editorInitialized = true;
     }, 100);
+  }
+
+  /**
+   * Basic validation for the bundle request
+   */
+  private _validateBundle(): boolean {
+    if (!this.bundleRequest.BundleName) {
+      this._showError('Bundle Name is required');
+      return false;
+    }
+
+    if (this.bundleRequest.Type === undefined) {
+      this._showError('Type is required');
+      return false;
+    }
+
+    if (!this.bundleRequest.RequestName) {
+      this._showError('Request Name is required');
+      return false;
+    }
+
+    // Validate JSON
+    if (this.bundleRequest.Request) {
+      try {
+        JSON.parse(this.bundleRequest.Request);
+      } catch (e: any) {
+        this._showError('Invalid JSON in Request field: ' + e.toString());
+        return false;
+      }
+    } else {
+      this._showError('Request is required');
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Helper method to show error notifications
+   */
+  private _showError(message: string) {
+    const notification = document.createElement('vaadin-notification');
+    notification.setAttribute('theme', 'error');
+    notification.setAttribute('position', 'top-center');
+    notification.setAttribute('duration', '3000');
+    notification.renderer = (root: HTMLElement) => {
+      if (root.firstElementChild) {
+        return;
+      }
+      const div = document.createElement('div');
+      div.textContent = message;
+      root.appendChild(div);
+    };
+    document.body.appendChild(notification);
+    notification.open();
   }
 }
