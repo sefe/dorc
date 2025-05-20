@@ -216,19 +216,20 @@ export class BundleEditorForm extends LitElement {
    * Save/Update button handler
    */
   private _handleSave() {
-    // Update the JSON request from the editor before saving
-    if (this.editor) {
-      const editorValue = this.editor.getValue();
-      this._updateValue('Request', editorValue);
-    }
-
+    // Synchronize the editor value with the bundleRequest
+    this._synchronizeEditorWithBundleRequest();
+    
+    console.log('Updated Request before save:', this.bundleRequest.Request);
+  
     // Validate the bundle request before saving
     if (!this._validateBundle()) {
       return;
     }
-
+  
     // Make the API call to save the updates
     const api = new BundledRequestsApi();
+    
+    console.log('Submitting bundle with Request:', this.bundleRequest.Request);
 
     // Show loading state
     const loadingChangeEvent = 'loading-changed';
@@ -325,8 +326,8 @@ export class BundleEditorForm extends LitElement {
       this.editor.on('change', () => {
         if (this.editor) {
           this.jsonRequest = this.editor.getValue();
-          // Don't update in real-time to avoid constant re-renders
-          // We'll capture the value when save is clicked
+          // Store the current value but don't update the bundleRequest yet to avoid
+          // constant re-renders - we'll apply it when saving or when needed
         }
       });
 
@@ -345,9 +346,32 @@ export class BundleEditorForm extends LitElement {
   }
 
   /**
+   * Synchronize the current editor value with the bundleRequest object
+   * to ensure the Request field is up-to-date
+   */
+  private _synchronizeEditorWithBundleRequest(): void {
+    if (this.editor) {
+      const editorValue = this.editor.getValue();
+      this.jsonRequest = editorValue;
+      
+      // Create a new object to ensure reactivity
+      this.bundleRequest = {
+        ...this.bundleRequest,
+        Request: editorValue
+      };
+      
+      // Update the dialog's copy
+      this.dialog.updateBundleRequest(this.bundleRequest);
+    }
+  }
+  
+  /**
    * Basic validation for the bundle request
    */
   private _validateBundle(): boolean {
+    // Make sure we have the latest editor value before validation
+    this._synchronizeEditorWithBundleRequest();
+    
     if (!this.bundleRequest.BundleName) {
       this._showError('Bundle Name is required');
       return false;

@@ -40,7 +40,7 @@ namespace Dorc.PersistentData.Sources
                 EF.Functions.Collate(p.Name, DeploymentContext.CaseInsensitiveCollation));
 
             if (project != null)
-                return context.BundledRequests.Where(br => br.ProjectId == project.Id).Select(requests =>
+                return context.BundledRequests.Where(br => br.ProjectId == project.Id).AsNoTracking().Select(requests =>
                     MapToBundledRequestApiModel(requests)).ToList();
 
             logger.Warn($"Project with name {projectName} not found");
