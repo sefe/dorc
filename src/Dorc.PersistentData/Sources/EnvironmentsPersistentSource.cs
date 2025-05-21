@@ -124,14 +124,13 @@ namespace Dorc.PersistentData.Sources
 
                 if (envDetail == null)
                     return false;
+                var existingAccessControl = getOwnerAccessControl(envDetail);
 
                 string userFullDomainName = _claimsPrincipalReader.GetUserFullDomainName(updatedBy);
                 EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
-                    "Owner Updated to " + user.DisplayName + " from " + envDetail.Owner,
+                    "Owner Updated to " + user.DisplayName + " from " + existingAccessControl?.Name,
                     userFullDomainName, "Env Owner Update", context);
 
-                //envDetail.Owner = user.Username;
-                var existingAccessControl = context.AccessControls.FirstOrDefault(ac => ac.ObjectId == envDetail.ObjectId && ac.Allow == (int)AccessLevel.Owner);
                 if (existingAccessControl != null)
                 {
                     existingAccessControl.Name = user.Username;
@@ -295,7 +294,6 @@ namespace Dorc.PersistentData.Sources
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                 where project.Name == projectName
-                let isOwner = environment.Owner == username
                 let isDelegate =
                     (from env in context.Environments
                      where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
@@ -306,6 +304,7 @@ namespace Dorc.PersistentData.Sources
                                            ac.Allow != 0
                                      select ac.Allow).ToList()
                 let hasPermission = permissions.Any(a => (a & (int)accessLevel) != 0)
+                let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
                 select new EnvironmentData
                 {
                     Environment = environment,
@@ -424,7 +423,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, IPrincipal user)
+        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -436,9 +435,13 @@ namespace Dorc.PersistentData.Sources
                 var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentName);
                 if (environment == null)
                 {
-                    var e = new Environment();
+                    var ownerId = _claimsPrincipalReader.GetUserId(user);
+                    var e = new Environment()
+                    {
+                        ObjectId = Guid.NewGuid()
+                    };
+
                     MapToEnvironment(env, e);
-                    e.ObjectId = Guid.NewGuid();
 
                     context.Environments.Add(e);
 
@@ -609,7 +612,6 @@ namespace Dorc.PersistentData.Sources
                           join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                               accessControlEnvironments
                           from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                          let isOwner = environment.Owner == username
                           let isDelegate =
                               (from env in context.Environments
                                where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
@@ -619,6 +621,7 @@ namespace Dorc.PersistentData.Sources
                                           where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
                                           select ac.Allow).ToList()
                           let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                          let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
                           select new EnvironmentData
                           {
                               Environment = environment,
@@ -640,7 +643,6 @@ namespace Dorc.PersistentData.Sources
                              accessControlEnvironments
                          from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                          where environment.Name == environmentName
-                         let isOwner = environment.Owner == username
                          let isDelegate =
                              (from env in context.Environments
                               where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
@@ -650,6 +652,7 @@ namespace Dorc.PersistentData.Sources
                                          where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
                                          select ac.Allow).ToList()
                          let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                         let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
                          select new EnvironmentData
                          {
                              Environment = environment,
@@ -693,7 +696,6 @@ namespace Dorc.PersistentData.Sources
 
             e.Name = env.EnvironmentName;
             e.Description = env.Details.Description;
-            e.Owner = env.Details.EnvironmentOwner;
             e.FileShare = env.Details.FileShare;
             e.LastUpdate = !string.IsNullOrEmpty(env.Details.LastUpdated)
                 ? DateTime.Parse(env.Details.LastUpdated)
@@ -702,6 +704,23 @@ namespace Dorc.PersistentData.Sources
             e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
             e.EnvNote = env.Details.Notes;
             e.ParentId = env.ParentId;
+
+            var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+            if (ownerAccess != null)
+            {
+                ownerAccess.Name = env.Details.EnvironmentOwner;
+                ownerAccess.Pid = env.Details.EnvironmentOwnerId;
+            }
+            else
+            {
+                e.AccessControls.Add(new AccessControl
+                {
+                    ObjectId = e.ObjectId,
+                    Name = env.Details.EnvironmentOwner,
+                    Pid = env.Details.EnvironmentOwnerId,
+                    Allow = (int)AccessLevel.Owner
+                });
+            }
         }
 
         private static EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
@@ -783,20 +802,27 @@ namespace Dorc.PersistentData.Sources
             if (details == null)
                 return null;
 
-            var ownerAc = details.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
-            if (ownerAc == null)
-                throw new ArgumentException($"Owner access control was not found for Environment '{details.Name}', ObjecId:{details.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
+            AccessControl ownerAc = getOwnerAccessControl(details);
 
             return new EnvironmentDetailsApiModel
             {
                 Description = details.Description,
                 EnvironmentOwner = ownerAc.Name,
+                EnvironmentOwnerId = ownerAc.Pid,
                 FileShare = details.FileShare,
                 LastUpdated = details.LastUpdate.ToString(),
                 ThinClient = details.ThinClientServer,
                 RestoredFromSourceDb = details.RestoredFromBackup,
                 Notes = details.EnvNote
             };
+        }
+
+        private static AccessControl getOwnerAccessControl(Environment env)
+        {
+            var ownerAc = env.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+            if (ownerAc == null)
+                throw new ArgumentException($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
+            return ownerAc;
         }
 
         public IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user)

@@ -18,7 +18,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         EnvironmentApiModel AttachDatabaseToEnv(int envId, int databaseId, ClaimsPrincipal user);
         EnvironmentApiModel DetachDatabaseFromEnv(int envId, int databaseId, ClaimsPrincipal user);
         Environment GetSecurityObject(string environmentName);
-        EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, IPrincipal principal);
+        EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal principal);
         IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user);
         EnvironmentApiModel GetEnvironment(int environmentId, ClaimsPrincipal user);
         IEnumerable<EnvironmentComponentStatusModel> GetEnvironmentComponentStatuses(int environmentId);

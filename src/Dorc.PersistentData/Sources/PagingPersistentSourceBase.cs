@@ -25,7 +25,6 @@ namespace Dorc.PersistentData.Sources
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                 where environments.Contains(ed.Name)
-                let isOwner = ed.Owner == username
                 let isDelegate =
                     (from envDetail in context.Environments
                         join env in context.Environments on envDetail.Name equals env.Name
@@ -42,7 +41,7 @@ namespace Dorc.PersistentData.Sources
                 select new EnvironmentPrivInfo
                 {
                     Environment = ed,
-                    IsOwner = isOwner || permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
+                    IsOwner = permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
                     IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);
@@ -78,7 +77,6 @@ namespace Dorc.PersistentData.Sources
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                let isOwner = ed.Owner == username
                 let isDelegate =
                     (from envDetail in context.Environments
                         join env in context.Environments on envDetail.Name equals env.Name
@@ -95,7 +93,7 @@ namespace Dorc.PersistentData.Sources
                 select new EnvironmentPrivInfo
                 {
                     Environment = ed,
-                    IsOwner = isOwner || permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
+                    IsOwner = permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
                     IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);

@@ -5,7 +5,6 @@
         public int Id { get; set; }
         public bool Secure { get; set; }
         public bool IsProd { get; set; }
-        public string? Owner { get; set; }
         public string? ThinClientServer { get; set; }
         public string? RestoredFromBackup { get; set; }
         public DateTime? LastUpdate { get; set; }

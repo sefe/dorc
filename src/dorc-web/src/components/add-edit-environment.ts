@@ -374,6 +374,7 @@ export class AddEditEnvironment extends LitElement {
         this.environment.Details !== undefined
       ) {
         this.environment.Details.EnvironmentOwner = found.Username;
+        this.environment.Details.EnvironmentOwnerId = found.Sid!;
 
         if (!this.addMode) {
           const api = new RefDataEnvironmentsUsersApi();
@@ -494,7 +495,7 @@ export class AddEditEnvironment extends LitElement {
           .subscribe({
             next: (data: Array<ActiveDirectoryElementApiModel>) => {
               const user = data.find(
-                u => u.Username === this.environment.Details?.EnvironmentOwner
+                u => u.Sid === this.environment.Details?.EnvironmentOwnerId
               );
               if (user)
                 this.EnvOwnerDisplayName =
@@ -536,6 +537,7 @@ export class AddEditEnvironment extends LitElement {
       Details: {
         Description: '',
         EnvironmentOwner: 'NotSet',
+        EnvironmentOwnerId: '',
         FileShare: '',
         LastUpdated: '',
         Notes: '',
