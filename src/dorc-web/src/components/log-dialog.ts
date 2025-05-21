@@ -79,7 +79,7 @@ export class LogDialog extends LitElement {
           root
         );
 
-        var editorDiv = root.querySelector('div');
+        let editorDiv = root.querySelector('div');
         if (!editorDiv){
           // Создаём новые элементы
           editorDiv = document.createElement('div');
