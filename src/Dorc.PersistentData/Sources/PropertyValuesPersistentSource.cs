@@ -378,7 +378,7 @@ namespace Dorc.PersistentData.Sources
                                let hasPermission =
                                    (from env in context.Environments
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) && (ac.Allow & (int)AccessLevel.Write) != 0
+                                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) && (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                                     select env.Name).Any()
                                where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
                                select new FlatPropertyValueApiModel
@@ -552,7 +552,7 @@ namespace Dorc.PersistentData.Sources
                                    let hasPermission =
                                        (from env in context.Environments
                                         join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                        where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) && (ac.Allow & (int)AccessLevel.Write) != 0
+                                        where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) && (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                                         select env.Name).Any()
                                    select new FlatPropertyValueApiModel
                                    {

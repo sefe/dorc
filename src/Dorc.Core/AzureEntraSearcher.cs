@@ -67,12 +67,6 @@ namespace Dorc.Core
         {
             var output = new List<ActiveDirectoryElementApiModel>();
 
-            // Restrict the search input to letters only (same as AD implementation)
-            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ]+$"))
-            {
-                return output;
-            }
-
             var graphClient = GetGraphClient();
 
             try
@@ -84,29 +78,27 @@ namespace Dorc.Core
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
                         requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
+                            $"accountEnabled eq true and " + // only enabled accounts
                             $"startsWith(displayName,'{objectName}') or startsWith(givenName,'{objectName}') or " +
                             $"startsWith(onPremisesSamAccountName,'{objectName}') or " +
                             $"startsWith(surname,'{objectName}') or startsWith(mail,'{objectName}') or " +
                             $"startsWith(userPrincipalName,'{objectName}')";
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
+                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSamAccountName" };
                     }).Result;
 
                 if (users?.Value != null)
                 {
                     foreach (var user in users.Value)
                     {
-                        if (user.AccountEnabled == true)
+                        output.Add(new ActiveDirectoryElementApiModel()
                         {
-                            output.Add(new ActiveDirectoryElementApiModel()
-                            {
-                                Username = user.UserPrincipalName,
-                                DisplayName = user.DisplayName,
-                                Sid = user.Id, // In Azure AD, Id is used instead of SID
-                                IsGroup = false,
-                                Email = user.Mail ?? user.UserPrincipalName
-                            });
-                        }
+                            Username = user.UserPrincipalName,
+                            DisplayName = user.DisplayName,
+                            Sid = user.Id, // In Azure AD, Id is used instead of SID
+                            IsGroup = false,
+                            Email = user.Mail ?? user.UserPrincipalName
+                        });
                     }
                 }
 
@@ -114,10 +106,13 @@ namespace Dorc.Core
                 var groups = graphClient.Groups
                     .GetAsync(requestConfiguration =>
                     {
+                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
+                        requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
-                            $"startsWith(displayName,'{objectName}') or startsWith(mailNickname,'{objectName}')";
+                            $"startsWith(displayName,'{objectName}') or startsWith(mailNickname,'{objectName}') or " +
+                            $"startsWith(onPremisesSamAccountName, '{objectName}')";
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "mailNickname", "mail" };
+                            new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSamAccountName" };
                     }).Result;
 
                 if (groups?.Value != null)
@@ -155,7 +150,84 @@ namespace Dorc.Core
             return output;
         }
 
-        public ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string username)
+        public ActiveDirectoryElementApiModel GetEntityById(string pid)
+        {
+            if (string.IsNullOrWhiteSpace(pid))
+            {
+                throw new ArgumentException("The ID cannot be null or empty.");
+            }
+
+            var graphClient = GetGraphClient();
+
+            try
+            {
+                var user = graphClient.Users[pid]
+                    .GetAsync(requestConfiguration =>
+                    {
+                        requestConfiguration.QueryParameters.Select =
+                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
+                    }).Result;
+
+                // If a user is found, return the user as ActiveDirectoryElementApiModel
+                if (user != null && user.AccountEnabled == true)
+                {
+                    return new ActiveDirectoryElementApiModel()
+                    {
+                        Username = user.UserPrincipalName,
+                        DisplayName = user.DisplayName,
+                        Sid = user.Id,
+                        IsGroup = false,
+                        Email = user.Mail ?? user.UserPrincipalName
+                    };
+                }
+            }
+            catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            {
+                // If the user is not found, swallow the exception and check for a group
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Error getting entity from Azure Entra ID", ex);
+                throw;
+            }
+
+            try
+            {
+                var group = graphClient.Groups[pid]
+                    .GetAsync(requestConfiguration =>
+                    {
+                        requestConfiguration.QueryParameters.Select =
+                            new[] { "id", "displayName", "mailNickname", "mail" };
+                    }).Result;
+
+                // If a group is found, return the group as ActiveDirectoryElementApiModel
+                if (group != null)
+                {
+                    return new ActiveDirectoryElementApiModel()
+                    {
+                        Username = group.MailNickname,
+                        DisplayName = group.DisplayName,
+                        Sid = group.Id,
+                        IsGroup = true, // This is a group, not a user
+                        Email = group.Mail
+                    };
+                }
+            }
+            catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            {
+                // Group not found, continue to throw ArgumentException
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Error getting entity from Azure Entra ID", ex);
+                throw;
+            }
+
+            // If neither user nor group was found, throw an error
+            throw new ArgumentException($"Failed to locate an entity with ID: {pid}");
+        }
+
+        public ActiveDirectoryElementApiModel GetUserData(string username)
         {
             if (!Regex.IsMatch(username, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
             {
@@ -169,6 +241,8 @@ namespace Dorc.Core
                 var users = graphClient.Users
                     .GetAsync(requestConfiguration =>
                     {
+                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
+                        requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
                             $"startsWith(displayName,'{username}') or startsWith(mail,'{username}') or " +
                             $"startsWith(onPremisesSamAccountName,'{username}') or " +

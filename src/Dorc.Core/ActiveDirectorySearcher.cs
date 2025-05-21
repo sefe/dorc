@@ -117,9 +117,61 @@ namespace Dorc.Core
             return sidString;
         }
 
-        public ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string id)
+        private byte[] ConvertSidStringToByteArray(string sid)
         {
-            if (!Regex.IsMatch(id, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
+            var securityIdentifier = new SecurityIdentifier(sid);
+
+            byte[] sidBytes = new byte[securityIdentifier.BinaryLength];
+            securityIdentifier.GetBinaryForm(sidBytes, 0);
+
+            return sidBytes;
+        }
+
+        public ActiveDirectoryElementApiModel GetEntityById(string sid)
+        {
+            if (string.IsNullOrEmpty(sid))
+            {
+                throw new ArgumentException("SID cannot be null or empty.");
+            }
+
+            byte[] sidBytes = ConvertSidStringToByteArray(sid);
+
+            using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
+            {
+                SearchScope = SearchScope.Subtree,
+                Filter = $"(objectSid={Encoding.ASCII.GetString(sidBytes)})"
+            })
+            {
+                dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
+                dirSearcher.PropertiesToLoad.Add("displayName");
+                dirSearcher.PropertiesToLoad.Add("sAMAccountName");
+
+                using (var searchResults = dirSearcher.FindAll())
+                {
+                    foreach (SearchResult sr in searchResults)
+                    {
+                        var de = sr.GetDirectoryEntry();
+
+                        if (!IsActive(de))
+                        {
+                            continue;
+                        }
+
+                        var entity = GetModelFromDirectoryEntry(de);
+
+                        entity.Sid = sid;
+
+                        return entity;
+                    }
+                }
+            }
+
+            throw new ArgumentException($"Failed to locate an entity with SID: {sid}");
+        }
+
+        public ActiveDirectoryElementApiModel GetUserData(string name)
+        {
+            if (!Regex.IsMatch(name, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
             {
                 throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
             }
@@ -128,7 +180,7 @@ namespace Dorc.Core
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = string.Format("(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))",
-                    id)
+                    name)
             })
             {
                 dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address

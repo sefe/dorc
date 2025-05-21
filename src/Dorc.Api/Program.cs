@@ -105,7 +105,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
                 ValidAudience = dorcApiResourceName,
                 ValidateLifetime = true,
                 RoleClaimType = "role",
-                NameClaimType = "samAccountName"
+                NameClaimType = "name"
             };
             options.MapInboundClaims = false;
             options.ForwardDefaultSelector = ReferenceTokenSelector.ForwardReferenceToken();
@@ -117,7 +117,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             // this maps to the "API resource" name and secret
             options.ClientId = dorcApiResourceName;
             options.ClientSecret = dorcApiSecret;
-            options.NameClaimType = "samAccountName";
+            options.NameClaimType = "name";
         });
 
     builder.Services.AddAuthorization(options =>

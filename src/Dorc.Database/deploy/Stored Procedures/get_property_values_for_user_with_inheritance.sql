@@ -107,7 +107,7 @@ BEGIN
                 INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
                 INNER JOIN STRING_SPLIT(@spidList, ';') sids ON (sids.value = ac.Sid OR sids.value = ac.Pid)
                 WHERE e.Name = ISNULL(@env, e1.Name)  -- Use @env if provided, otherwise use e1.Name
-                  AND (ac.Allow & 1) != 0
+                  AND (ac.Allow & 1) != 0 OR (ac.Allow & 4) != 0
             ) THEN 1
             ELSE 0
         END AS IsPermissioned,

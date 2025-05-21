@@ -378,6 +378,7 @@
     <Build Include="Schema Objects\Schemas\archive\Tables\DeploymentResult.table.sql" />
     <Build Include="deploy\Stored Procedures\ArchiveDeploymentRequests.sql" />
     <Build Include="Schema Objects\Schemas\archive\Tables\EnvironmentComponentStatus.table.sql" />
+    <None Include="Scripts\Post-Deployment\Environment_AccessControl_Populate.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">

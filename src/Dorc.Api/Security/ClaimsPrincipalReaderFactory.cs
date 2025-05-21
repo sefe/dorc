@@ -30,6 +30,12 @@ namespace Dorc.Api.Security
             return reader.GetUserName(user);
         }
 
+        public string GetUserId(ClaimsPrincipal user)
+        {
+            var reader = ResolveReader();
+            return reader.GetUserId(user);
+        }
+
         public string GetUserFullDomainName(IPrincipal user)
         {
             var reader = ResolveReader();

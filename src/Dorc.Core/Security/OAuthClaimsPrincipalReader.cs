@@ -8,6 +8,8 @@ namespace Dorc.Core
     public class OAuthClaimsPrincipalReader : IClaimsPrincipalReader
     {
         private const string EmailClaimType = "email";
+        private const string PidClaimType = "oid";
+        private const string SamAccountNameClaimType = "samAccountName";
         private IUserGroupReader _userGroupReader;
 
         public OAuthClaimsPrincipalReader(IUserGroupReader userGroupReader)
@@ -30,9 +32,21 @@ namespace Dorc.Core
             return user.FindFirst(EmailClaimType)?.Value ?? string.Empty;
         }
 
+        public string GetUserId(ClaimsPrincipal user)
+        {
+            return user?.FindFirst(PidClaimType)?.Value ?? string.Empty;
+        }
+
         public List<string> GetSidsForUser(IPrincipal user)
         {
-            return _userGroupReader.GetSidsForUser(GetUserName(user));
+            var pids = _userGroupReader.GetSidsForUser(GetUserId(user as ClaimsPrincipal));
+            
+            // add samAccountName as one of pids to support legacy
+            var samAccountName = (user as ClaimsPrincipal)?.FindFirst(SamAccountNameClaimType)?.Value;
+            if (!String.IsNullOrEmpty(samAccountName)) 
+                pids.Add(samAccountName);
+
+            return pids;
         }
     }
 }

@@ -32,16 +32,17 @@ namespace Dorc.PersistentData.Sources
                         where env.Name == environment.Name &&
                               envDetail.Users.Select(u => u.LoginId).Contains(username)
                         select envDetail.Name).Any()
-                let hasPermission = (from envDetail in context.Environments
+                let permissions = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                     where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
-                          (ac.Allow & (int)AccessLevel.Write) != 0
-                    select ed.Name).Any()
+                          (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
+                    select ac.Allow)
+                let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                 select new EnvironmentPrivInfo
                 {
                     Environment = ed,
-                    IsOwner = isOwner,
+                    IsOwner = isOwner || permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
                     IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);
@@ -84,16 +85,17 @@ namespace Dorc.PersistentData.Sources
                         where env.Name == environment.Name &&
                               envDetail.Users.Select(u => u.LoginId).Contains(username)
                         select envDetail.Name).Any()
-                let hasPermission = (from envDetail in context.Environments
-                    join env in context.Environments on envDetail.Name equals env.Name
-                    join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
-                          (ac.Allow & (int)AccessLevel.Write) != 0
-                    select ed.Name).Any()
+                let permissions = (from envDetail in context.Environments
+                                join env in context.Environments on envDetail.Name equals env.Name
+                                join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
+                                where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
+                                        (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
+                                select ac.Allow)
+                let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                 select new EnvironmentPrivInfo
                 {
                     Environment = ed,
-                    IsOwner = isOwner,
+                    IsOwner = isOwner || permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
                     IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);

@@ -6,6 +6,7 @@ namespace Dorc.PersistentData
     public interface IClaimsPrincipalReader
     { 
         string GetUserName(IPrincipal user);
+        string GetUserId(ClaimsPrincipal user);
         string GetUserFullDomainName(IPrincipal user);
         string GetUserEmail(ClaimsPrincipal user);
         List<string> GetSidsForUser(IPrincipal user);

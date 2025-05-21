@@ -101,7 +101,7 @@ namespace Dorc.Api.Controllers
                 var securityObject = _projectsPersistentSource.GetSecurityObject(project.ProjectName);
 
                 string username = _claimsPrincipalReader.GetUserName(User);
-                var adSearch = _activeDirectorySearcher.GetUserIdActiveDirectory(username);
+                var adSearch = _activeDirectorySearcher.GetUserData(username);
 
                 _accessControlPersistentSource.AddAccessControl(new AccessControlApiModel
                 { Sid = adSearch.Sid, Name = adSearch.DisplayName, Allow = 3, Deny = 0 }, securityObject.ObjectId);

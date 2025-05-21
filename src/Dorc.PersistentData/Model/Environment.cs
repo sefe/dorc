@@ -22,5 +22,21 @@
         public ICollection<Project> Projects { get; set; } = new List<Project>();
         public Environment? ParentEnvironment { get; set; } = null;
         public ICollection<Environment> ChildEnvironments { get; set; } = new List<Environment>();
+        public ICollection<AccessControl> AccessControls { get; set; } = new List<AccessControl>();
+    }
+
+    public class EnvironmentComparer : IEqualityComparer<Environment>
+    {
+        public bool Equals(Environment? x, Environment? y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (x is null || y is null) return false;
+            return x.Id == y.Id;
+        }
+
+        public int GetHashCode(Environment obj)
+        {
+            return obj.GetHashCode();
+        }
     }
 }

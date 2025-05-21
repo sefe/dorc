@@ -71,9 +71,9 @@ namespace Dorc.Api.Controllers
         public IActionResult GetOwner(int id)
         {
             // DO NOT use the USERS table here!
-            var owner = _environmentsPersistentSource.GetEnvironmentOwner(id);
+            var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(id);
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserIdActiveDirectory(owner);
+            var userIdActiveDirectory = _activeDirectorySearcher.GetEntityById(ownerId);
 
             return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory.DisplayName });
         }
@@ -96,7 +96,7 @@ namespace Dorc.Api.Controllers
                     new NonEnoughRightsException("User doesn't have \"Modify\" permission for this action!"));
             }
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserIdActiveDirectory(newOwner.DisplayName);
+            var userIdActiveDirectory = _activeDirectorySearcher.GetUserData(newOwner.DisplayName);
 
             var result = _environmentsPersistentSource.SetEnvironmentOwner(User, id, userIdActiveDirectory);
             return StatusCode(StatusCodes.Status200OK, result);

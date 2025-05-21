@@ -158,7 +158,6 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var project = context.Projects
-                    
                     .Include(project => project.Environments)
                     .FirstOrDefault(project => project.Name.Equals(projectName));
 
@@ -188,7 +187,8 @@ namespace Dorc.PersistentData.Sources
                 var project = new Project
                 {
                     Name = apiProject.ProjectName,
-                    Description = apiProject.ProjectDescription
+                    Description = apiProject.ProjectDescription,
+                    ObjectId = Guid.NewGuid()
                 };
 
                 if (ProjectArtifactsUriHttpValid(apiProject))

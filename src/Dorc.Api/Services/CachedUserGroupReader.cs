@@ -1,4 +1,5 @@
-﻿using Dorc.Core.Configuration;
+﻿using Dorc.ApiModel;
+using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
@@ -48,22 +49,27 @@ namespace Dorc.Api.Services
 
         public string GetUserMail(string userName)
         {
+            var data = this.GetUserData(userName);
+
+            return data.Email;
+        }
+
+        public ActiveDirectoryElementApiModel GetUserData(string userName)
+        {
             var cacheKey = $"{userName}";
-            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out string? cachedEmail))
+            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out ActiveDirectoryElementApiModel? cachedData))
             {
-                return cachedEmail;
+                return cachedData;
             }
 
-            var directoryEntry = _activeDirectorySearcher.GetUserIdActiveDirectory(userName);
+            var data = _activeDirectorySearcher.GetUserData(userName);
 
-            var email = directoryEntry.Email;
-
-            if (_cacheExpiration.HasValue && email != null)
+            if (_cacheExpiration.HasValue && data != null)
             {
-                _cache.Set(cacheKey, email, _cacheExpiration.Value);
+                _cache.Set(cacheKey, data, _cacheExpiration.Value);
             }
 
-            return email;
+            return data;
         }
 
         public List<string> GetSidsForUser(string username)

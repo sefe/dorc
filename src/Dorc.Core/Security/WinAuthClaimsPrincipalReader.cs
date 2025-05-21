@@ -19,6 +19,11 @@ namespace Dorc.Core
             return GetUserFullDomainName(user).Split('\\')[1];
         }
 
+        public string GetUserId(ClaimsPrincipal user)
+        {
+            return _userGroupReader.GetUserData(GetUserName(user)).Sid;
+        }
+
         public string GetUserFullDomainName(IPrincipal user)
         {
             return user?.Identity?.Name ?? string.Empty;
