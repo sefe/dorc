@@ -39,7 +39,6 @@ export class BundleEditorForm extends LitElement {
 
   private editor: ace.Ace.Editor | undefined;
   private editorInitialized = false;
-  private jsonRequest = '{}';
 
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {};
@@ -64,7 +63,7 @@ export class BundleEditorForm extends LitElement {
             id="bundleName"
             label="Bundle Name"
             .value="${this.bundleRequest.BundleName || ''}"
-            @change="${(e: Event) =>
+            @input="${(e: Event) =>
               this._updateValue(
                 'BundleName',
                 (e.target as HTMLInputElement).value
@@ -81,7 +80,7 @@ export class BundleEditorForm extends LitElement {
             item-label-path="label"
             item-value-path="value"
             .value="${this.bundleRequest.Type}"
-            @change="${(e: CustomEvent) =>
+            @value-changed="${(e: CustomEvent) =>
               this._updateValue('Type', parseInt(e.detail.value, 10))}"
             style="width: 100%;"
           ></vaadin-combo-box>
@@ -161,7 +160,12 @@ export class BundleEditorForm extends LitElement {
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
         if (typeComboBox.value)
         {
-          typeComboBox.value = this.bundleRequest.Type;
+          const typeOption = this._typeOptions.find(
+            option => option.value === this.bundleRequest.Type
+          );
+          if (typeOption) {
+            typeComboBox.selectedItem = typeOption;
+          }
         }
       }
     }, 10);
@@ -326,15 +330,6 @@ export class BundleEditorForm extends LitElement {
         enableSnippets: false
       });
 
-      // Update the bundleRequest Request field when the editor content changes
-      this.editor.on('change', () => {
-        if (this.editor) {
-          this.jsonRequest = this.editor.getValue();
-          // Store the current value but don't update the bundleRequest yet to avoid
-          // constant re-renders - we'll apply it when saving or when needed
-        }
-      });
-
       // Try to parse and format the JSON for better display
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonRequest), null, 2);
@@ -357,8 +352,7 @@ export class BundleEditorForm extends LitElement {
   private _synchronizeEditorWithBundleRequest(): void {
     if (this.editor) {
       const editorValue = this.editor.getValue();
-      this.jsonRequest = editorValue;
-      
+
       // Create a new object to ensure reactivity
       this.bundleRequest = {
         ...this.bundleRequest,
