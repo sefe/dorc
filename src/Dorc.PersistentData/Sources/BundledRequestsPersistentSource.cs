@@ -85,6 +85,7 @@ namespace Dorc.PersistentData.Sources
             if (existingBundle != null)
             {
                 existingBundle.ProjectId = (int?)model.ProjectId;
+                existingBundle.BundleName = model.BundleName;
                 existingBundle.Type = model.Type;
                 existingBundle.RequestName = model.RequestName;
                 existingBundle.Sequence = model.Sequence;
