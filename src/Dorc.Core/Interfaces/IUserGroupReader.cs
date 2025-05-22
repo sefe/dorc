@@ -6,7 +6,7 @@ namespace Dorc.Core.Interfaces
     {
         string? GetGroupSidIfUserIsMember(string userName, string groupName);
         string GetUserMail(string userName);
-        ActiveDirectoryElementApiModel GetUserData(string userName);
+        UserElementApiModel GetUserData(string userName);
         List<string> GetSidsForUser(string username);
     }
 }

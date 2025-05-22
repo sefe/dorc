@@ -1,6 +1,6 @@
 ﻿namespace Dorc.ApiModel
 {
-    public class ActiveDirectoryElementApiModel
+    public class UserElementApiModel
     {
         public string DisplayName { get; set; }
         public string Pid { get; set; }

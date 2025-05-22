@@ -63,9 +63,9 @@ namespace Dorc.Core
             return _graphClient;
         }
 
-        public List<ActiveDirectoryElementApiModel> Search(string objectName)
+        public List<UserElementApiModel> Search(string objectName)
         {
-            var output = new List<ActiveDirectoryElementApiModel>();
+            var output = new List<UserElementApiModel>();
 
             var graphClient = GetGraphClient();
 
@@ -91,7 +91,7 @@ namespace Dorc.Core
                 {
                     foreach (var user in users.Value)
                     {
-                        output.Add(new ActiveDirectoryElementApiModel()
+                        output.Add(new UserElementApiModel()
                         {
                             Username = user.UserPrincipalName,
                             DisplayName = user.DisplayName,
@@ -119,7 +119,7 @@ namespace Dorc.Core
                 {
                     foreach (var group in groups.Value)
                     {
-                        output.Add(new ActiveDirectoryElementApiModel()
+                        output.Add(new UserElementApiModel()
                         {
                             Username = group.MailNickname,
                             DisplayName = group.DisplayName,
@@ -150,7 +150,7 @@ namespace Dorc.Core
             return output;
         }
 
-        public ActiveDirectoryElementApiModel GetEntityById(string pid)
+        public UserElementApiModel GetEntityById(string pid)
         {
             if (string.IsNullOrWhiteSpace(pid))
             {
@@ -171,7 +171,7 @@ namespace Dorc.Core
                 // If a user is found, return the user as ActiveDirectoryElementApiModel
                 if (user != null && user.AccountEnabled == true)
                 {
-                    return new ActiveDirectoryElementApiModel()
+                    return new UserElementApiModel()
                     {
                         Username = user.UserPrincipalName,
                         DisplayName = user.DisplayName,
@@ -203,7 +203,7 @@ namespace Dorc.Core
                 // If a group is found, return the group as ActiveDirectoryElementApiModel
                 if (group != null)
                 {
-                    return new ActiveDirectoryElementApiModel()
+                    return new UserElementApiModel()
                     {
                         Username = group.MailNickname,
                         DisplayName = group.DisplayName,
@@ -227,7 +227,7 @@ namespace Dorc.Core
             throw new ArgumentException($"Failed to locate an entity with ID: {pid}");
         }
 
-        public ActiveDirectoryElementApiModel GetUserData(string username)
+        public UserElementApiModel GetUserData(string username)
         {
             if (!Regex.IsMatch(username, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
             {
@@ -254,7 +254,7 @@ namespace Dorc.Core
                 var activeUser = users.Value.FirstOrDefault(u => u.AccountEnabled == true);
                 if (activeUser != null)
                 {
-                    return new ActiveDirectoryElementApiModel()
+                    return new UserElementApiModel()
                     {
                         Username = activeUser.UserPrincipalName,
                         DisplayName = activeUser.DisplayName,

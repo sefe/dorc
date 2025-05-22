@@ -31,9 +31,9 @@ namespace Dorc.Core
             _activeDirectoryRoot = new DirectoryEntry(ldapRoot);
         }
 
-        public List<ActiveDirectoryElementApiModel> Search(string objectName)
+        public List<UserElementApiModel> Search(string objectName)
         {
-            var output = new List<ActiveDirectoryElementApiModel>();
+            var output = new List<UserElementApiModel>();
 
             // restrict the username and password to letters only
             if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ]+$"))
@@ -78,7 +78,7 @@ namespace Dorc.Core
             return output;
         }
 
-        private ActiveDirectoryElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
+        private UserElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
         {
             var displayName = GetSafeString(de.Properties, "displayName");
             if (string.IsNullOrEmpty(displayName))
@@ -86,7 +86,7 @@ namespace Dorc.Core
                 displayName = GetSafeString(de.Properties, "cn");
             }
 
-            return new ActiveDirectoryElementApiModel()
+            return new UserElementApiModel()
             {
                 Username = GetSafeString(de.Properties, "SAMAccountName"),
                 DisplayName = displayName,
@@ -127,7 +127,7 @@ namespace Dorc.Core
             return sidBytes;
         }
 
-        public ActiveDirectoryElementApiModel GetEntityById(string sid)
+        public UserElementApiModel GetEntityById(string sid)
         {
             if (string.IsNullOrEmpty(sid))
             {
@@ -169,7 +169,7 @@ namespace Dorc.Core
             throw new ArgumentException($"Failed to locate an entity with SID: {sid}");
         }
 
-        public ActiveDirectoryElementApiModel GetUserData(string name)
+        public UserElementApiModel GetUserData(string name)
         {
             if (!Regex.IsMatch(name, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
             {

@@ -78,7 +78,7 @@ namespace Dorc.Api.Controllers
         /// </summary>
         /// <param name="search"></param>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ActiveDirectoryElementApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<UserElementApiModel>))]
         [Route("SearchUsers")]
         [HttpGet]
         public IActionResult SearchUsers(string search)

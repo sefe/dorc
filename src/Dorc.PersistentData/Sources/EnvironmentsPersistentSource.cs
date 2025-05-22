@@ -114,7 +114,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, ActiveDirectoryElementApiModel user)
+        public bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, UserElementApiModel user)
         {
             if (string.IsNullOrEmpty(user.Username) || envId <= 0) return false;
 

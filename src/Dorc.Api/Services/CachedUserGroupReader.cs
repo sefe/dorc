@@ -54,10 +54,10 @@ namespace Dorc.Api.Services
             return data.Email;
         }
 
-        public ActiveDirectoryElementApiModel GetUserData(string userName)
+        public UserElementApiModel GetUserData(string userName)
         {
             var cacheKey = $"{userName}";
-            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out ActiveDirectoryElementApiModel? cachedData))
+            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out UserElementApiModel? cachedData))
             {
                 return cachedData;
             }
