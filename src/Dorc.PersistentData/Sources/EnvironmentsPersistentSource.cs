@@ -133,12 +133,31 @@ namespace Dorc.PersistentData.Sources
 
                 if (existingAccessControl != null)
                 {
-                    existingAccessControl.Name = user.Username;
-                    existingAccessControl.Pid = user.Sid;
+                    // Remove only the Owner flag for old user while preserving all other access levels
+                    existingAccessControl.Allow &= ~(int)AccessLevel.Owner;
+                    
+                    // If no access levels remain, remove the AccessControl record
+                    if (existingAccessControl.Allow == 0 && existingAccessControl.Deny == 0)
+                    {
+                        context.AccessControls.Remove(existingAccessControl);
+                    }
+                }
+
+                // Check if new owner already has an AccessControl record
+                var newOwnerAccessControl = context.AccessControls.FirstOrDefault(ac => 
+                    ac.ObjectId == envDetail.ObjectId && 
+                    (ac.Sid == user.Sid || ac.Pid == user.Sid));
+
+                if (newOwnerAccessControl != null)
+                {
+                    // Add Owner flag to existing access levels
+                    newOwnerAccessControl.Allow |= (int)AccessLevel.Owner;
+                    newOwnerAccessControl.Name = user.DisplayName;
                 }
                 else
                 {
-                    var newAccessControl = new AccessControl
+                    // Create new access control entry if none exists
+                    newOwnerAccessControl = new AccessControl
                     {
                         ObjectId = envDetail.ObjectId,
                         Sid = user.Sid,
@@ -146,8 +165,9 @@ namespace Dorc.PersistentData.Sources
                         Pid = user.Sid,
                         Allow = (int)AccessLevel.Owner
                     };
-                    context.AccessControls.Add(newAccessControl);
+                    context.AccessControls.Add(newOwnerAccessControl);
                 }
+                
                 context.SaveChanges();
 
                 return true;
@@ -572,21 +592,6 @@ namespace Dorc.PersistentData.Sources
 
             environment = envDetail;
             database = db;
-        }
-
-        private class EnvironmentDataComparer : IEqualityComparer<EnvironmentData>
-        {
-            public bool Equals(EnvironmentData x, EnvironmentData y)
-            {
-                if (ReferenceEquals(x, y)) return true;
-                if (x is null || y is null) return false;
-                return x.Environment.Id == y.Environment.Id;
-            }
-
-            public int GetHashCode(EnvironmentData obj)
-            {
-                return obj.Environment.Id.GetHashCode();
-            }
         }
 
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAdmin(IDeploymentContext context)
