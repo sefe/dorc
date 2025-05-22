@@ -10,7 +10,8 @@ import '@vaadin/horizontal-layout';
 import '../attached-app-users';
 import {
   BundledRequestsApi,
-  BundledRequestsApiModel, BundledRequestType,
+  BundledRequestsApiModel,
+  BundledRequestType
 } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
@@ -30,27 +31,14 @@ export class EnvBundles extends PageEnvBase {
         height: 100%;
         flex-direction: column;
       }
-
       vaadin-grid {
         height: 100%;
-      }
-      
-      .details-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        padding: 8px;
-      }
-      
-      .action-buttons {
-        margin-right: 8px;
       }
     `;
   }
 
   private bundledRequests: Array<BundledRequestsApiModel> = [];
-  
+
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
 
@@ -70,7 +58,7 @@ export class EnvBundles extends PageEnvBase {
           Add
         </vaadin-button>
       </vaadin-details>
-      
+
       <vaadin-grid
         id="grid"
         .items="${this.bundledRequests}"
@@ -121,7 +109,7 @@ export class EnvBundles extends PageEnvBase {
           .renderer="${this._jsonRenderer}"
         ></vaadin-grid-column>
       </vaadin-grid>
-      
+
       <bundle-editor-dialog
         @bundle-saved=${this._handleBundleSaved}
       ></bundle-editor-dialog>
@@ -131,19 +119,23 @@ export class EnvBundles extends PageEnvBase {
   protected override firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    this.addEventListener('edit-bundle-request', this._handleEditBundle as EventListener);
-    this.addEventListener('delete-bundle-request', this._handleDeleteBundle as EventListener);
+    this.addEventListener(
+      'edit-bundle-request',
+      this._handleEditBundle as EventListener
+    );
+    this.addEventListener(
+      'delete-bundle-request',
+      this._handleDeleteBundle as EventListener
+    );
   }
 
   private _openAddBundleDialog() {
-    // Get the project ID from the first mapped project if available
     const projectId = this.envContent?.MappedProjects?.[0]?.ProjectId || null;
     this.bundleEditorDialog.openNew(projectId);
   }
-  
+
   private _handleBundleSaved(e: CustomEvent) {
     console.log('Bundle saved event received in env-bundles', e.detail);
-    // Refresh the bundle list
     this.fetchBundledRequests();
   }
 
@@ -153,25 +145,7 @@ export class EnvBundles extends PageEnvBase {
     model: GridItemModel<BundledRequestsApiModel>
   ) {
     render(
-      html`<bundle-request-controls 
-        .value="${model.item}"
-        @edit-click=${() => {this.dispatchEvent(
-          new CustomEvent('edit-bundle-request', {
-            detail: {
-              value: model.item
-            },
-            bubbles: true,
-            composed: true
-          })
-        );}}
-        @delete-click=${(e: CustomEvent) => {this.dispatchEvent(
-          new CustomEvent('delete-bundle-request', {
-            detail: e.detail,
-            bubbles: true,
-            composed: true
-          })
-        );}}
-      >
+      html` <bundle-request-controls .value="${model.item}">
       </bundle-request-controls>`,
       root
     );
@@ -180,24 +154,29 @@ export class EnvBundles extends PageEnvBase {
   private _handleEditBundle(e: CustomEvent) {
     this.bundleEditorDialog.openEdit(e.detail.value);
   }
-  
+
   private _handleDeleteBundle(e: CustomEvent) {
-    if (e.detail.value.bundleId) {
-      // Confirm before deleting
-      const confirmDelete = confirm('Are you sure you want to delete this bundle request?');
-      
+    const bundle = e.detail.value as BundledRequestsApiModel;
+
+    if (bundle.Id) {
+      const confirmDelete = confirm(
+        'Are you sure you want to delete this bundle request: ' +
+          bundle.BundleName +
+          '-' + bundle.RequestName +
+          '?'
+      );
+
       if (confirmDelete) {
         const api = new BundledRequestsApi();
-        api.bundledRequestsDelete({ id: e.detail.value.bundleId }).subscribe(
-          () => {
-            // Success - refresh the grid
+        api.bundledRequestsDelete({ id: bundle.Id }).subscribe({
+          next: () => {
             this.fetchBundledRequests();
           },
-          error => {
+          error: (error) => {
             console.error('Error deleting bundle request:', error);
             new ErrorNotification().open();
           }
-        );
+        });
       }
     }
   }
@@ -225,12 +204,12 @@ export class EnvBundles extends PageEnvBase {
   ) {
     const bundle = model.item as BundledRequestsApiModel;
 
-    let typeString = '';
+    let typeString: string;
 
     if (bundle.Type === BundledRequestType.NUMBER_1) {
-      typeString = 'JobRequest'
+      typeString = 'JobRequest';
     } else if (bundle.Type === BundledRequestType.NUMBER_2) {
-      typeString = 'CopyEnvBuild'
+      typeString = 'CopyEnvBuild';
     } else {
       typeString = 'Unknown';
     }
@@ -244,34 +223,32 @@ export class EnvBundles extends PageEnvBase {
       this.envContent?.MappedProjects?.map(p => p.ProjectName || '').filter(
         name => name
       ) || [];
-    api.bundledRequestsGet({ projectNames: projs }).subscribe(
-      data => {
-        // Sort the data by BundleName first, then by Sequence
+    api.bundledRequestsGet({ projectNames: projs }).subscribe({
+      next: data => {
         this.bundledRequests = data.sort((a, b) => {
-          // First sort by BundleName
-          const nameCompare = (a.BundleName || '').localeCompare(b.BundleName || '');
-          
-          // If names are equal, sort by Sequence
+          const nameCompare = (a.BundleName || '').localeCompare(
+            b.BundleName || ''
+          );
+
           if (nameCompare === 0) {
             const seqA = a.Sequence || 0;
             const seqB = b.Sequence || 0;
             return seqA - seqB;
           }
-          
+
           return nameCompare;
         });
-        
-        // Force grid to re-render with new data
+
         if (this.grid) {
           this.grid.clearCache();
           this.requestUpdate();
         }
       },
-      error => {
+      error: error => {
         console.error('Error fetching bundled requests:', error);
         new ErrorNotification().open();
       }
-    );
+    });
   }
 
   constructor() {
@@ -279,7 +256,7 @@ export class EnvBundles extends PageEnvBase {
     super.loadEnvironmentInfo();
   }
 
-  override notifyEnvironmentContentReady(){
+  override notifyEnvironmentContentReady() {
     this.fetchBundledRequests();
   }
 }
