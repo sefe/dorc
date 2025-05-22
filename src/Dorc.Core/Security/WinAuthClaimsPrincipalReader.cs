@@ -21,7 +21,7 @@ namespace Dorc.Core
 
         public string GetUserId(ClaimsPrincipal user)
         {
-            return _userGroupReader.GetUserData(GetUserName(user)).Sid;
+            return _userGroupReader.GetUserData(GetUserName(user)).Pid;
         }
 
         public string GetUserFullDomainName(IPrincipal user)

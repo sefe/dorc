@@ -95,7 +95,7 @@ namespace Dorc.Core
                         {
                             Username = user.UserPrincipalName,
                             DisplayName = user.DisplayName,
-                            Sid = user.Id, // In Azure AD, Id is used instead of SID
+                            Pid = user.Id, // In Azure AD, Id is used instead of SID
                             IsGroup = false,
                             Email = user.Mail ?? user.UserPrincipalName
                         });
@@ -123,7 +123,7 @@ namespace Dorc.Core
                         {
                             Username = group.MailNickname,
                             DisplayName = group.DisplayName,
-                            Sid = group.Id, // In Azure AD, Id is used instead of SID
+                            Pid = group.Id, // In Azure AD, Id is used instead of SID
                             IsGroup = true,
                             Email = group.Mail
                         });
@@ -175,7 +175,7 @@ namespace Dorc.Core
                     {
                         Username = user.UserPrincipalName,
                         DisplayName = user.DisplayName,
-                        Sid = user.Id,
+                        Pid = user.Id,
                         IsGroup = false,
                         Email = user.Mail ?? user.UserPrincipalName
                     };
@@ -207,7 +207,7 @@ namespace Dorc.Core
                     {
                         Username = group.MailNickname,
                         DisplayName = group.DisplayName,
-                        Sid = group.Id,
+                        Pid = group.Id,
                         IsGroup = true, // This is a group, not a user
                         Email = group.Mail
                     };
@@ -258,7 +258,7 @@ namespace Dorc.Core
                     {
                         Username = activeUser.UserPrincipalName,
                         DisplayName = activeUser.DisplayName,
-                        Sid = activeUser.Id,
+                        Pid = activeUser.Id,
                         IsGroup = false,
                         Email = activeUser.Mail ?? activeUser.UserPrincipalName
                     };

@@ -146,7 +146,7 @@ namespace Dorc.PersistentData.Sources
                 // Check if new owner already has an AccessControl record
                 var newOwnerAccessControl = context.AccessControls.FirstOrDefault(ac => 
                     ac.ObjectId == envDetail.ObjectId && 
-                    (ac.Sid == user.Sid || ac.Pid == user.Sid));
+                    (ac.Sid == user.Pid || ac.Pid == user.Pid));
 
                 if (newOwnerAccessControl != null)
                 {
@@ -160,9 +160,8 @@ namespace Dorc.PersistentData.Sources
                     newOwnerAccessControl = new AccessControl
                     {
                         ObjectId = envDetail.ObjectId,
-                        Sid = user.Sid,
                         Name = user.DisplayName,
-                        Pid = user.Sid,
+                        Pid = user.Pid,
                         Allow = (int)AccessLevel.Owner
                     };
                     context.AccessControls.Add(newOwnerAccessControl);
