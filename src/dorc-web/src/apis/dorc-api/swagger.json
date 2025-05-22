@@ -123,7 +123,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               },
@@ -131,7 +131,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               }
@@ -273,6 +273,30 @@
                   "items": {
                     "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ApiConfig": {
+      "get": {
+        "tags": [
+          "ApiConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiConfigModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiConfigModel"
                 }
               }
             }
@@ -3178,88 +3202,6 @@
         }
       }
     },
-    "/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren": {
-      "get": {
-        "tags": [
-          "RefDataEnvironmentsDetails"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EnvironmentApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EnvironmentApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataEnvironmentsDetails/SetParentForEnvironment": {
-      "put": {
-        "tags": [
-          "RefDataEnvironmentsDetails"
-        ],
-        "parameters": [
-          {
-            "name": "parentEnvId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "childEnvId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/RefDataEnvironmentsDetails": {
       "get": {
         "tags": [
@@ -3334,6 +3276,88 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren": {
+      "get": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/SetParentForEnvironment": {
+      "put": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "parentEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "childEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -3623,7 +3647,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               },
@@ -3631,7 +3655,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               }
@@ -6182,7 +6206,8 @@
           },
           "Sid": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "deprecated": true
           },
           "Allow": {
             "type": "integer",
@@ -6191,6 +6216,10 @@
           "Deny": {
             "type": "integer",
             "format": "int32"
+          },
+          "Pid": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6240,31 +6269,6 @@
         "type": "integer",
         "format": "int32"
       },
-      "ActiveDirectoryElementApiModel": {
-        "type": "object",
-        "properties": {
-          "DisplayName": {
-            "type": "string",
-            "nullable": true
-          },
-          "Sid": {
-            "type": "string",
-            "nullable": true
-          },
-          "Username": {
-            "type": "string",
-            "nullable": true
-          },
-          "IsGroup": {
-            "type": "boolean"
-          },
-          "Email": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "AnalyticsDeploymentsPerProjectApiModel": {
         "type": "object",
         "properties": {
@@ -6302,6 +6306,28 @@
             "type": "boolean"
           },
           "Message": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiConfigModel": {
+        "type": "object",
+        "properties": {
+          "AuthenticationScheme": {
+            "type": "string",
+            "nullable": true
+          },
+          "OAuthAuthority": {
+            "type": "string",
+            "nullable": true
+          },
+          "OAuthUiClientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "OAuthUiRequestedScopes": {
             "type": "string",
             "nullable": true
           }
@@ -6739,14 +6765,19 @@
           "IsOwner": {
             "type": "boolean"
           },
+          "ParentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "IsParent": {
+            "type": "boolean"
+          },
           "Details": {
             "$ref": "#/components/schemas/EnvironmentDetailsApiModel"
           },
           "ParentEnvironment": {
             "$ref": "#/components/schemas/EnvironmentApiModel"
-          },
-          "IsParent": {
-            "type": "boolean"
           },
           "ChildEnvironments": {
             "type": "array",
@@ -6893,6 +6924,10 @@
             "nullable": true
           },
           "EnvironmentOwner": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentOwnerId": {
             "type": "string",
             "nullable": true
           },
@@ -7878,6 +7913,31 @@
             "nullable": true
           },
           "LanIdType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserElementApiModel": {
+        "type": "object",
+        "properties": {
+          "DisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Pid": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsGroup": {
+            "type": "boolean"
+          },
+          "Email": {
             "type": "string",
             "nullable": true
           }

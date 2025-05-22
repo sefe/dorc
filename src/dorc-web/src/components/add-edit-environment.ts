@@ -17,7 +17,7 @@ import '../icons/line awesome-svg.js';
 import { Notification } from '@vaadin/notification';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import {
-  ActiveDirectoryElementApiModel,
+  UserElementApiModel,
   RefDataEnvironmentsApi,
   RefDataEnvironmentsUsersApi
 } from '../apis/dorc-api';
@@ -30,7 +30,7 @@ export class AddEditEnvironment extends LitElement {
 
   @property() ErrorMessage = '';
 
-  @property({ type: Array }) searchResults!: ActiveDirectoryElementApiModel[];
+  @property({ type: Array }) searchResults!: UserElementApiModel[];
 
   @property({ type: Boolean }) searchingUsers = false;
 
@@ -374,7 +374,7 @@ export class AddEditEnvironment extends LitElement {
         this.environment.Details !== undefined
       ) {
         this.environment.Details.EnvironmentOwner = found.Username;
-        this.environment.Details.EnvironmentOwnerId = found.Sid!;
+        this.environment.Details.EnvironmentOwnerId = found.Pid;
 
         if (!this.addMode) {
           const api = new RefDataEnvironmentsUsersApi();
@@ -408,7 +408,7 @@ export class AddEditEnvironment extends LitElement {
   searchResultsRenderer(
     root: HTMLElement,
     _comboBox: ComboBox,
-    model: ComboBoxItemModel<ActiveDirectoryElementApiModel>
+    model: ComboBoxItemModel<UserElementApiModel>
   ) {
     render(
       html` <vaadin-vertical-layout>
@@ -464,7 +464,7 @@ export class AddEditEnvironment extends LitElement {
         search: this.searchADValue
       })
       .subscribe({
-        next: (data: Array<ActiveDirectoryElementApiModel>) => {
+        next: (data: Array<UserElementApiModel>) => {
           this.searchResults = data;
           this.searchingUsers = false;
           const combo = this.shadowRoot?.getElementById(
@@ -493,9 +493,9 @@ export class AddEditEnvironment extends LitElement {
             search: this.environment.Details?.EnvironmentOwner ?? ''
           })
           .subscribe({
-            next: (data: Array<ActiveDirectoryElementApiModel>) => {
+            next: (data: Array<UserElementApiModel>) => {
               const user = data.find(
-                u => u.Sid === this.environment.Details?.EnvironmentOwnerId
+                u => u.Pid === this.environment.Details?.EnvironmentOwnerId
               );
               if (user)
                 this.EnvOwnerDisplayName =

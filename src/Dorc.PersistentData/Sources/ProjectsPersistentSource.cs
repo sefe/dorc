@@ -173,7 +173,7 @@ namespace Dorc.PersistentData.Sources
                 return new TemplateApiModel<EnvironmentApiModel>
                 {
                     Items = accessibleEnvironmentsAccessLevel.ToList().Select(data =>
-                        EnvironmentsPersistentSource.MapToEnvironmentApiModel(data.Environment, data.UserEditable,
+                        _environmentsPersistentSource.MapToEnvironmentApiModel(data.Environment, data.UserEditable,
                             data.IsOwner)).ToList(),
                     Project = MapToProjectApiModel(project),
                 };

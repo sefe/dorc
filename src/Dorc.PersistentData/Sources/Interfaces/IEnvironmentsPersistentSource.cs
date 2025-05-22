@@ -36,5 +36,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool EnvironmentIsSecure(string envName);
         IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
         void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user);
+        EnvironmentApiModel MapToEnvironmentApiModel(Environment env, bool userEditable, bool isOwner);
     }
 }

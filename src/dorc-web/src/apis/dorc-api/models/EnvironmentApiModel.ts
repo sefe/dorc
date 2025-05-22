@@ -51,6 +51,16 @@ export interface EnvironmentApiModel {
      */
     IsOwner?: boolean;
     /**
+     * @type {number}
+     * @memberof EnvironmentApiModel
+     */
+    ParentId?: number | null;
+    /**
+     * @type {boolean}
+     * @memberof EnvironmentApiModel
+     */
+    IsParent?: boolean;
+    /**
      * @type {EnvironmentDetailsApiModel}
      * @memberof EnvironmentApiModel
      */
@@ -60,11 +70,6 @@ export interface EnvironmentApiModel {
      * @memberof EnvironmentApiModel
      */
     ParentEnvironment?: EnvironmentApiModel;
-    /**
-     * @type {boolean}
-     * @memberof EnvironmentApiModel
-     */
-    IsParent?: boolean;
     /**
      * @type {Array<EnvironmentApiModel>}
      * @memberof EnvironmentApiModel

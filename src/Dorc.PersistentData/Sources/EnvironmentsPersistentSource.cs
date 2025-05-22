@@ -727,7 +727,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
+        private EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
         {
             if (ed.Environment == null)
                 return null;
@@ -769,7 +769,7 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        public static EnvironmentApiModel MapToEnvironmentApiModel(Environment env,
+        public EnvironmentApiModel MapToEnvironmentApiModel(Environment env,
             bool userEditable, bool isOwner)
         {
             if (env == null)
@@ -782,7 +782,7 @@ namespace Dorc.PersistentData.Sources
             return resEnv;
         }
 
-        public static EnvironmentApiModel MapToEnvironmentApiModel(Environment? env)
+        public EnvironmentApiModel MapToEnvironmentApiModel(Environment? env)
         {
             if (env is null)
                 return null!;
@@ -801,7 +801,7 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        public static EnvironmentDetailsApiModel MapToEnvironmentDetailsApiModel(Environment details)
+        public EnvironmentDetailsApiModel MapToEnvironmentDetailsApiModel(Environment details)
         {
             if (details == null)
                 return null;
@@ -811,8 +811,8 @@ namespace Dorc.PersistentData.Sources
             return new EnvironmentDetailsApiModel
             {
                 Description = details.Description,
-                EnvironmentOwner = ownerAc.Name,
-                EnvironmentOwnerId = ownerAc.Pid,
+                EnvironmentOwner = ownerAc?.Name,
+                EnvironmentOwnerId = ownerAc?.Pid,
                 FileShare = details.FileShare,
                 LastUpdated = details.LastUpdate.ToString(),
                 ThinClient = details.ThinClientServer,
@@ -821,11 +821,11 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        private static AccessControl getOwnerAccessControl(Environment env)
+        private AccessControl? getOwnerAccessControl(Environment env)
         {
             var ownerAc = env.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
             if (ownerAc == null)
-                throw new ArgumentException($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
+                logger.Warn($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
             return ownerAc;
         }
 

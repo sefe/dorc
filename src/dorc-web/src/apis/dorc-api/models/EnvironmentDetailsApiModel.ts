@@ -30,7 +30,7 @@ export interface EnvironmentDetailsApiModel {
      * @type {string}
      * @memberof EnvironmentDetailsApiModel
      */
-    EnvironmentOwnerId: string;
+    EnvironmentOwnerId?: string | null;
     /**
      * @type {string}
      * @memberof EnvironmentDetailsApiModel
