@@ -91,7 +91,7 @@ namespace Tests.Acceptance.Support
                         }
 
                         using (SqlCommand insertAccessControl = new SqlCommand(
-                            "INSERT INTO [deploy].[AccessControl] (ObjectId, Name, Sid, Allow) " +
+                            "INSERT INTO [deploy].[AccessControl] (ObjectId, Name, Pid, Allow) " +
                             "VALUES (@objectId, @ownerName, @ownerSid, @allow);", sqlConnection, transaction))
                         {
                             insertAccessControl.Parameters.AddWithValue("@objectId", objectId);
