@@ -25,7 +25,6 @@ export class BundleEditorForm extends LitElement {
     }
 
     .field-container {
-      margin-bottom: 1rem;
       width: 100%;
     }
 
@@ -69,6 +68,8 @@ export class BundleEditorForm extends LitElement {
                 (e.target as HTMLInputElement).value
               )}"
             style="width: 100%;"
+            placeholder="Enter Bundle Name"
+            helper-text="To add to an existing Bundle, use the same name"
           ></vaadin-text-field>
         </div>
 
@@ -83,6 +84,8 @@ export class BundleEditorForm extends LitElement {
             @value-changed="${(e: CustomEvent) =>
               this._updateValue('Type', parseInt(e.detail.value, 10))}"
             style="width: 100%;"
+            placeholder="Select a type"
+            helper-text="JobRequest is a regular deployment, CopyEnvBuild copies environment state"
           ></vaadin-combo-box>
         </div>
 
@@ -97,6 +100,8 @@ export class BundleEditorForm extends LitElement {
                 (e.target as HTMLInputElement).value
               )}"
             style="width: 100%;"
+            placeholder="Enter Request Name"
+            helper-text="Describes this request inside the bundle"
           ></vaadin-text-field>
         </div>
 
@@ -111,6 +116,8 @@ export class BundleEditorForm extends LitElement {
                 parseInt((e.target as HTMLInputElement).value, 10)
               )}"
             style="width: 100%;"
+            placeholder="Enter Sequence"
+            helper-text="Order of execution in the bundle, lower is first"
           ></vaadin-number-field>
         </div>
 
@@ -128,30 +135,20 @@ export class BundleEditorForm extends LitElement {
     `;
   }
 
-  /**
-   * Setup ACE editor once the component is first rendered
-   */
   firstUpdated() {
     this._initOrUpdateEditor();
     this._updateTypeComboBox();
   }
 
-  /**
-   * Update when properties change
-   */
   updated(changedProperties: Map<string | number | symbol, unknown>) {
     super.updated(changedProperties);
 
-    // React to bundleRequest changes
     if (changedProperties.has('bundleRequest')) {
       this._initOrUpdateEditor();
       this._updateTypeComboBox();
     }
   }
 
-  /**
-   * Update the type combo box with the correct value
-   */
   private _updateTypeComboBox() {
     setTimeout(() => {
       const typeComboBox = this.shadowRoot?.getElementById(
@@ -171,9 +168,6 @@ export class BundleEditorForm extends LitElement {
     }, 10);
   }
 
-  /**
-   * Initialize or update the editor
-   */
   private _initOrUpdateEditor() {
     if (!this.shadowRoot) {
       return;
@@ -182,7 +176,6 @@ export class BundleEditorForm extends LitElement {
     const jsonContent = this.bundleRequest.Request || '{}';
 
     if (this.editorInitialized && this.editor) {
-      // Update the existing editor
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonContent), null, 2);
         this.editor.setValue(formattedJson, -1);
@@ -192,54 +185,38 @@ export class BundleEditorForm extends LitElement {
       }
       this.editor.clearSelection();
     } else {
-      // Initialize new editor
       this.attachAceEditor(jsonContent);
     }
   }
 
-  /**
-   * Update handler for form fields
-   */
   private _updateValue(property: keyof BundledRequestsApiModel, value: any) {
     const updatedBundle = {
       ...this.bundleRequest,
       [property]: value
     };
 
-    // Update the parent dialog's copy of the bundle request
     this.dialog.updateBundleRequest(updatedBundle);
 
-    // Also update the local copy
     this.bundleRequest = updatedBundle;
   }
 
-  /**
-   * Cancel button handler
-   */
   private _handleCancel() {
     this.dialog.closeDialog();
   }
 
-  /**
-   * Save/Update button handler
-   */
   private _handleSave() {
-    // Synchronize the editor value with the bundleRequest
     this._synchronizeEditorWithBundleRequest();
     
     console.log('Updated Request before save:', this.bundleRequest.Request);
   
-    // Validate the bundle request before saving
     if (!this._validateBundle()) {
       return;
     }
   
-    // Make the API call to save the updates
     const api = new BundledRequestsApi();
     
     console.log('Submitting bundle with Request:', this.bundleRequest.Request);
 
-    // Show loading state
     const loadingChangeEvent = 'loading-changed';
     this.dispatchEvent(
       new CustomEvent(loadingChangeEvent, {
@@ -249,7 +226,6 @@ export class BundleEditorForm extends LitElement {
       })
     );
 
-    // Make API call based on whether we're editing or creating
     const apiCall = this.isEdit
       ? api.bundledRequestsPut({ bundledRequestsApiModel: this.bundleRequest })
       : api.bundledRequestsPost({
@@ -258,7 +234,6 @@ export class BundleEditorForm extends LitElement {
 
     apiCall.subscribe({
       next: () => {
-        // Success
         this.dispatchEvent(
           new CustomEvent(loadingChangeEvent, {
             detail: { loading: false },
@@ -267,7 +242,6 @@ export class BundleEditorForm extends LitElement {
           })
         );
     
-        // Close the dialog and notify of a successful save
         this.dialog.closeDialog();
         console.log('Dispatching bundle-saved event from form');
         const savedEvent = new CustomEvent('bundle-saved', {
@@ -279,7 +253,6 @@ export class BundleEditorForm extends LitElement {
         console.log('Bundle-saved event dispatched');
       },
       error: (error) => {
-        // Error
         console.error('Error saving bundle request:', error);
         this.dispatchEvent(
           new CustomEvent(loadingChangeEvent, {
@@ -298,7 +271,6 @@ export class BundleEditorForm extends LitElement {
    */
   public attachAceEditor(jsonRequest: string) {
     setTimeout(() => {
-      // Use setTimeout to ensure the DOM is ready
       const editorDiv = this.shadowRoot?.getElementById(
         'editor'
       ) as HTMLDivElement;
@@ -306,13 +278,11 @@ export class BundleEditorForm extends LitElement {
         return;
       }
 
-      // If an editor already exists, destroy it first
       if (this.editor) {
         this.editor.destroy();
         this.editor = undefined;
       }
 
-      // Initialize ACE editor
       this.editor = ace.edit(editorDiv);
       this.editor.renderer.attachToShadowRoot();
 
@@ -330,13 +300,11 @@ export class BundleEditorForm extends LitElement {
         enableSnippets: false
       });
 
-      // Try to parse and format the JSON for better display
       try {
         const formattedJson = JSON.stringify(JSON.parse(jsonRequest), null, 2);
         this.editor.setValue(formattedJson, -1);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        // If parsing fails, just set the raw value
         this.editor.setValue(jsonRequest, -1);
       }
 
@@ -345,10 +313,6 @@ export class BundleEditorForm extends LitElement {
     }, 100);
   }
 
-  /**
-   * Synchronize the current editor value with the bundleRequest object
-   * to ensure the Request field is up-to-date
-   */
   private _synchronizeEditorWithBundleRequest(): void {
     if (this.editor) {
       const editorValue = this.editor.getValue();
@@ -364,11 +328,7 @@ export class BundleEditorForm extends LitElement {
     }
   }
   
-  /**
-   * Basic validation for the bundle request
-   */
   private _validateBundle(): boolean {
-    // Make sure we have the latest editor value before validation
     this._synchronizeEditorWithBundleRequest();
     
     if (!this.bundleRequest.BundleName) {
@@ -386,7 +346,6 @@ export class BundleEditorForm extends LitElement {
       return false;
     }
 
-    // Validate JSON
     if (this.bundleRequest.Request) {
       try {
         JSON.parse(this.bundleRequest.Request);
@@ -402,9 +361,6 @@ export class BundleEditorForm extends LitElement {
     return true;
   }
 
-  /**
-   * Helper method to show error notifications
-   */
   private _showError(message: string) {
     const notification = document.createElement('vaadin-notification');
     notification.setAttribute('theme', 'error');

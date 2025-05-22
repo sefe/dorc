@@ -145,7 +145,7 @@ export class EnvBundles extends PageEnvBase {
     model: GridItemModel<BundledRequestsApiModel>
   ) {
     render(
-      html` <bundle-request-controls .value="${model.item}">
+      html` <bundle-request-controls .value="${model.item}" .disabled="${this.environment?.UserEditable}">
       </bundle-request-controls>`,
       root
     );
