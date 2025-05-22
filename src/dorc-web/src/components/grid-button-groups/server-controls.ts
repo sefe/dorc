@@ -82,7 +82,8 @@ export class ServerControls extends LitElement {
           </vaadin-button>`
         : html``}
 
-      <vaadin-button
+      ${!this.envSet
+        ? html`<vaadin-button
         title="Delete server"
         theme="icon"
         @click="${this.deleteServer}"
@@ -92,7 +93,8 @@ export class ServerControls extends LitElement {
           icon="icons:delete"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
-      </vaadin-button>
+      </vaadin-button>`
+        : html``}
     `;
   }
 
