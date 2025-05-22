@@ -333,7 +333,7 @@ namespace Dorc.PersistentData.Sources
                     IsOwner = isOwner || permissions.Any(a => (a & (int)AccessLevel.Owner) != 0),
                 });
 
-            var environmentData = output.ToList().Distinct(new EnvironmentDataComparer());
+            var environmentData = output.ToList().DistinctBy(e => e.Environment.Id);
 
             if (isAdmin)
                 return environmentData;
@@ -612,7 +612,7 @@ namespace Dorc.PersistentData.Sources
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             ICollection<string> userSids, string username)
         {
-            var output = (from environment in context.Environments
+            var output = (from environment in context.Environments.Include(e => e.AccessControls)
                           join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                               accessControlEnvironments
                           from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
@@ -633,7 +633,7 @@ namespace Dorc.PersistentData.Sources
                               IsDelegate = isDelegate,
                               IsModify = isModify,
                               IsOwner = isOwner || permissions.Any(p => (p & (int)AccessLevel.Owner) != 0)
-                          }).Distinct(new EnvironmentDataComparer());
+                          });
 
             return output;
         }
@@ -642,7 +642,7 @@ namespace Dorc.PersistentData.Sources
             ICollection<string> userSids, string username, string environmentName)
         {
             var output = from
-                environment in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
+                environment in context.Environments.Include(e => e.AccessControls).Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                          join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                              accessControlEnvironments
                          from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
@@ -842,8 +842,7 @@ namespace Dorc.PersistentData.Sources
                     .ThenInclude(p => p.Environments)
                     .Where(e => e.Id == id)
                     .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
-                    .Where(e => e.Id != id && e.ParentId == null) // Exclude the parent and all children
-                    .Distinct(new EnvironmentComparer());
+                    .Where(e => e.Id != id && e.ParentId == null); // Exclude the parent and all children
 
                 var filteredByAccessLevelEnvs = allRelatedEnvs
                     .Join(context.AccessControls, // Join with AccessControls to filter by user access
@@ -851,14 +850,13 @@ namespace Dorc.PersistentData.Sources
                           ac => ac.ObjectId,
                           (environment, ac) => new { environment, ac })
                     .Where(joined => (userSids.Contains(joined.ac.Sid) || joined.ac.Pid != null && userSids.Contains(joined.ac.Pid)) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
-                    .Select(joined => joined.environment)
-                    .Distinct(new EnvironmentComparer());
+                    .Select(joined => joined.environment);
 
                 var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();
 
                 var envChain = context.GetFullEnvironmentChain(id);
 
-                mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList(); // filter all envs already in chain
+                mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList().DistinctBy(e => e.Id).ToList(); // filter all envs already in chain
 
                 var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel);
                 return possibleChildren;
