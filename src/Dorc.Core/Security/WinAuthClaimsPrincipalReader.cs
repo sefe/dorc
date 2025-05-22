@@ -21,7 +21,7 @@ namespace Dorc.Core
 
         public string GetUserId(ClaimsPrincipal user)
         {
-            return _userGroupReader.GetUserData(GetUserName(user)).Pid;
+            return GetUserName(user); // returning name as this is the identifier was used in Windows auth
         }
 
         public string GetUserFullDomainName(IPrincipal user)

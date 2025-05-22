@@ -454,7 +454,6 @@ namespace Dorc.PersistentData.Sources
                 var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentName);
                 if (environment == null)
                 {
-                    var ownerId = _claimsPrincipalReader.GetUserId(user);
                     var e = new Environment()
                     {
                         ObjectId = Guid.NewGuid()
