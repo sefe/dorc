@@ -94,7 +94,7 @@ export class LogDialog extends LitElement {
         this.editor.renderer.attachToShadowRoot();
     
         this.editor.setTheme('ace/theme/monokai');
-        this.editor.session.setMode('ace/mode/crystal');
+        this.editor.session.setMode('ace/mode/less');
         this.editor.getSession().setUseWorker(false);
         this.editor.setReadOnly(true);
         this.editor.setHighlightActiveLine(true);
@@ -126,7 +126,7 @@ export class LogDialog extends LitElement {
     const annotations: ace.Ace.Annotation[] = [];
 
     lines?.forEach((line, index) => {
-        if (line.includes("Run")) {
+        if (line.includes("error")) {
             annotations.push({
                 row: index,
                 column: 0,
@@ -135,7 +135,7 @@ export class LogDialog extends LitElement {
             });
             //session?.highlightLines(index, index+1, "gutter-error");
             //session?.addGutterDecoration(index, "gutter-error");
-        } else if (line.includes("Install")) {
+        } else if (line.includes("warn")) {
             annotations.push({
                 row: index,
                 column: 0,
