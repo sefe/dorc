@@ -812,7 +812,7 @@ namespace Dorc.PersistentData.Sources
             {
                 Description = details.Description,
                 EnvironmentOwner = ownerAc?.Name,
-                EnvironmentOwnerId = ownerAc?.Pid,
+                EnvironmentOwnerId = ownerAc?.Pid ?? ownerAc?.Sid,
                 FileShare = details.FileShare,
                 LastUpdated = details.LastUpdate.ToString(),
                 ThinClient = details.ThinClientServer,
