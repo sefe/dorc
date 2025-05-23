@@ -6,7 +6,7 @@ namespace Dorc.Core.Interfaces
     {
         List<UserElementApiModel> Search(string objectName);
         UserElementApiModel GetUserData(string name);
-        UserElementApiModel GetEntityById(string id);
+        UserElementApiModel GetUserDataById(string id);
         List<string> GetSidsForUser(string username);
         string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName);
     }

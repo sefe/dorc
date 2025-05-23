@@ -73,7 +73,7 @@ namespace Dorc.Api.Controllers
             // DO NOT use the USERS table here!
             var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(id);
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetEntityById(ownerId);
+            var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);
 
             return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory.DisplayName });
         }

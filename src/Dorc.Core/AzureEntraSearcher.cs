@@ -150,7 +150,7 @@ namespace Dorc.Core
             return output;
         }
 
-        public UserElementApiModel GetEntityById(string pid)
+        public UserElementApiModel GetUserDataById(string pid)
         {
             if (string.IsNullOrWhiteSpace(pid))
             {

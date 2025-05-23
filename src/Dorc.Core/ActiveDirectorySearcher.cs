@@ -127,7 +127,7 @@ namespace Dorc.Core
             return sidBytes;
         }
 
-        public UserElementApiModel GetEntityById(string sid)
+        public UserElementApiModel GetUserDataById(string sid)
         {
             if (string.IsNullOrEmpty(sid))
             {
