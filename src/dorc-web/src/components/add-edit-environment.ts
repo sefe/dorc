@@ -373,7 +373,7 @@ export class AddEditEnvironment extends LitElement {
         this.environment !== undefined &&
         this.environment.Details !== undefined
       ) {
-        this.environment.Details.EnvironmentOwner = found.Username;
+        this.environment.Details.EnvironmentOwner = found.DisplayName;
         this.environment.Details.EnvironmentOwnerId = found.Pid;
 
         if (!this.addMode) {
