@@ -25,6 +25,7 @@ BEGIN
 	DECLARE @sourceBuild_ID [int]  = NULL;
 	DECLARE @sourceLocked [int]  = NULL;
 	DECLARE @newEnvironmentObjectId [uniqueidentifier] = NULL;
+	DECLARE @sourceEnvironmentObjectId [uniqueidentifier] = NULL;
 
   	-- 1: Select from the source environment
 	SELECT 
@@ -34,7 +35,7 @@ BEGIN
       , @sourceLast_Update				= [LastUpdate]
       , @sourceFile_Share				= [FileShare]
       , @sourceEnv_Note					= [EnvNote]
-      
+      , @sourceEnvironmentObjectId		= [ObjectId]
   FROM deploy.Environment
   WHERE ID = @sourceEnvironmentId
 
@@ -120,6 +121,6 @@ BEGIN
 		([ObjectId], [Name], [Sid], [Allow], [Deny], [Pid])
 		SELECT @newEnvironmentObjectId, [Name] ,[Sid], [Allow], [Deny], [Pid]
 		 FROM deploy.AccessControl
-		 WHERE Id = @sourceEnvironmentId AND Allow & 4 != 0
+		 WHERE ObjectId = @sourceEnvironmentObjectId AND Allow & 4 != 0
 
 END
