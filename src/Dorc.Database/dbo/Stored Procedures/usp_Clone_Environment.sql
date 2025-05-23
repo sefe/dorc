@@ -1,4 +1,8 @@
-﻿
+﻿--- ###### usp_Clone_Environment
+--- This script is used to clone an environment in the database from outside of Dorc, please keep the logic up to date with the Dorc code
+--- Creates a new environment with the same properties as the source environment, except for the name and AccessControls
+--- ######
+
 CREATE PROCEDURE [dbo].[usp_Clone_Environment]
 	@sourceEnvironmentId int
 	, @newEnvironmentName nvarchar(50)
@@ -20,6 +24,7 @@ BEGIN
 	DECLARE @sourceEnv_Note [nvarchar](max)  = NULL;
 	DECLARE @sourceBuild_ID [int]  = NULL;
 	DECLARE @sourceLocked [int]  = NULL;
+	DECLARE @newEnvironmentObjectId [uniqueidentifier] = NULL;
 
   	-- 1: Select from the source environment
 	SELECT 
@@ -46,7 +51,7 @@ BEGIN
 	  , @debug;
 
 	  DECLARE @newEnvironmentId INT
-	  SELECT @newEnvironmentId = ID FROM deploy.Environment WHERE Name = @newEnvironmentName
+	  SELECT @newEnvironmentId = ID, @newEnvironmentObjectId = ObjectId FROM deploy.Environment WHERE Name = @newEnvironmentName
 
 	-- 3: Insert via SP the environment server mappings
 	DECLARE @serverId INT;
@@ -109,5 +114,12 @@ BEGIN
     CLOSE ENVIRONMENT_DATABASE_MAP_CURSOR;
     DEALLOCATE ENVIRONMENT_DATABASE_MAP_CURSOR;
     -- END: EnvironmentDatabase loop
+
+	--5: Insert Owner AccessControl
+	INSERT INTO deploy.AccessControl
+		([ObjectId], [Name], [Sid], [Allow], [Deny], [Pid])
+		SELECT @newEnvironmentObjectId, [Name] ,[Sid], [Allow], [Deny], [Pid]
+		 FROM deploy.AccessControl
+		 WHERE Id = @sourceEnvironmentId AND Allow & 4 != 0
 
 END
