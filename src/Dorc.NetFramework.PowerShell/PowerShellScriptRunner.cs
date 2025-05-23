@@ -49,10 +49,10 @@ namespace Dorc.NetFramework.PowerShell
 
                         using (var powerShell = System.Management.Automation.PowerShell.Create())
                         {
-                            host.HostUserInterface.MessageAdded += (sender, e) =>
-                            {
-                                LogMessage(e.Message, e.MessageType);
-                            };
+                            //host.HostUserInterface.MessageAdded += (sender, e) =>
+                            //{
+                            //    LogMessage(e.Message, e.MessageType);
+                            //};
                             powerShell.Runspace = runspace;
 
                             if (!string.IsNullOrEmpty(scriptsLocation))
