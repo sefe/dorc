@@ -97,7 +97,7 @@ namespace Tests.Acceptance.Support
                             insertAccessControl.Parameters.AddWithValue("@objectId", objectId);
                             insertAccessControl.Parameters.AddWithValue("@ownerName", "testOwner");
                             insertAccessControl.Parameters.AddWithValue("@ownerSid", "testOwner");
-                            insertAccessControl.Parameters.AddWithValue("@allow", 3); // AccessLevel.Owner
+                            insertAccessControl.Parameters.AddWithValue("@allow", 4); // AccessLevel.Owner
 
                             insertAccessControl.ExecuteNonQuery();
                         }
