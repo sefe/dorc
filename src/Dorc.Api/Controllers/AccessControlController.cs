@@ -102,6 +102,25 @@ namespace Dorc.Api.Controllers
                 accessControl.Type == AccessControlType.Project &&
                  _securityPrivilegesChecker.CanModifyProject(User, accessControl.Name))
             {
+                // For environments, ensure at least one owner remains
+                if (accessControl.Type == AccessControlType.Environment)
+                {
+                    var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                        .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
+                        .ToList();
+                    
+                    var newOwners = accessControl.Privileges
+                        .Where(p => (p.Allow & 4) != 0)
+                        .ToList();
+
+                    // If we're removing all owners, prevent the update
+                    if (currentOwners.Any() && !newOwners.Any())
+                    {
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "Cannot remove all owners from an environment. At least one owner must remain.");
+                    }
+                }
+
                 var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
                     .ToArray();
                 var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
