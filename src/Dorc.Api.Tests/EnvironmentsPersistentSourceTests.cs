@@ -73,7 +73,7 @@ namespace Dorc.Api.Tests
             var oldOwnerAccess = new AccessControl 
             { 
                 ObjectId = environment.ObjectId,
-                Sid = oldOwnerSid,
+                Pid = oldOwnerSid,
                 Name = "Old Owner",
                 Allow = (int)oldOwnerAccessLevel
             };
@@ -86,7 +86,7 @@ namespace Dorc.Api.Tests
                 var newOwnerAccess = new AccessControl 
                 { 
                     ObjectId = environment.ObjectId,
-                    Sid = newOwnerSid,
+                    Pid = newOwnerSid,
                     Name = "New Owner",
                     Allow = (int)newOwnerAccessLevel.Value
                 };
@@ -109,7 +109,8 @@ namespace Dorc.Api.Tests
                 Sid = ac.Sid,
                 Pid = ac.Pid,
                 Name = ac.Name,
-                Allow = ac.Allow
+                Allow = ac.Allow,
+                Deny = ac.Deny
             }));
 
             return new TestEnvironment
@@ -126,7 +127,7 @@ namespace Dorc.Api.Tests
         private void AssertOwnerChange(TestEnvironment testEnv, string oldOwnerSid, string newOwnerSid, AccessLevel? expectedOldOwnerAccess = null, AccessLevel? expectedNewOwnerAccess = null)
         {
             // Verify old owner's access
-            var oldOwnerAccessControl = testEnv.AccessControlsDbSet.FirstOrDefault(ac => ac.Sid == oldOwnerSid);
+            var oldOwnerAccessControl = testEnv.AccessControls.FirstOrDefault(ac => ac.Pid == oldOwnerSid);
             if (expectedOldOwnerAccess.HasValue)
             {
                 Assert.IsNotNull(oldOwnerAccessControl);
@@ -138,7 +139,7 @@ namespace Dorc.Api.Tests
             }
 
             // Verify new owner's access
-            var newOwnerAccessControl = testEnv.AccessControlsDbSet.FirstOrDefault(ac => ac.Sid == newOwnerSid);
+            var newOwnerAccessControl = testEnv.AccessControls.FirstOrDefault(ac => ac.Pid == newOwnerSid);
             if (expectedNewOwnerAccess.HasValue)
             {
                 Assert.IsNotNull(newOwnerAccessControl);
