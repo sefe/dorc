@@ -56,6 +56,10 @@
 		<Json:JsonFile Id="OnePasswordApiKey" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.APIKEY]" />
 		<Json:JsonFile Id="OnePasswordVaultId" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
 		<Json:JsonFile Id="OnePasswordItemId" ElementPath="$.AppSettings.OnePassword.ItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.ITEM.ID]" />
+		<Json:JsonFile Id="OpenSearchSettingsUriConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
+		<Json:JsonFile Id="OpenSearchSettingsUserNameConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
+		<Json:JsonFile Id="OpenSearchSettingsPasswordConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
+		<Json:JsonFile Id="OpenSearchSettingsDeploymentResultIndexConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -108,6 +112,10 @@
 		  <Json:JsonFile Id="OnePasswordApiKeyProd" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.APIKEY]" />
 		  <Json:JsonFile Id="OnePasswordVaultIdProd" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
 		  <Json:JsonFile Id="OnePasswordItemIdProd" ElementPath="$.AppSettings.OnePassword.ItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.ITEM.ID]" />
+		  <Json:JsonFile Id="OpenSearchSettingsUriConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
+		  <Json:JsonFile Id="OpenSearchSettingsUserNameConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
+		  <Json:JsonFile Id="OpenSearchSettingsPasswordConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
+		  <Json:JsonFile Id="OpenSearchSettingsDeploymentResultIndexConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 	  </Component>
   </Fragment>
 </Wix>

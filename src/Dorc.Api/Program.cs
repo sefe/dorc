@@ -9,6 +9,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
+using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Lamar.Microsoft.DependencyInjection;
@@ -211,6 +212,7 @@ builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
 
 builder.Host.UseLamar((context, registry) =>
 {
+    registry.IncludeRegistry<OpenSearchDataRegistry>();
     registry.IncludeRegistry<PersistentDataRegistry>();
     registry.IncludeRegistry<CoreRegistry>();
     registry.IncludeRegistry<ApiRegistry>();
