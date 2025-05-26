@@ -356,7 +356,7 @@ namespace Dorc.PersistentData.Sources
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForScopeByPage(int limit, int page,
             PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
@@ -531,7 +531,7 @@ namespace Dorc.PersistentData.Sources
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForSearchValueByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             PagedModel<FlatPropertyValueApiModel> output = null;

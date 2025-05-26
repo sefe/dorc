@@ -54,7 +54,7 @@ namespace Dorc.Core
         {
             var env = _environmentsPersistentSource.GetEnvironment(environmentName);
             var userApiModels = _usersPersistentSource.GetEnvironmentUsers(env.EnvironmentId, UserAccountType.NotSet);
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             return _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user) || userApiModels.Any(u => u.LanId == username);
         }
 

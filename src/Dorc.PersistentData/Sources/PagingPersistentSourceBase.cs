@@ -17,7 +17,7 @@ namespace Dorc.PersistentData.Sources
             IEnumerable<string> environments
             )
         {
-            string username = ClaimsPrincipalReader.GetUserName(user);
+            string username = ClaimsPrincipalReader.GetUserLogin(user);
             var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
@@ -36,7 +36,7 @@ namespace Dorc.PersistentData.Sources
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                     where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                           (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
-                    select ac.Allow)
+                    select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                 select new EnvironmentPrivInfo
                 {
@@ -69,7 +69,7 @@ namespace Dorc.PersistentData.Sources
             IDeploymentContext context
             )
         {
-            string username = ClaimsPrincipalReader.GetUserName(user);
+            string username = ClaimsPrincipalReader.GetUserLogin(user);
             var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
 
             var envGroups = (from ed in context.Environments
@@ -88,7 +88,7 @@ namespace Dorc.PersistentData.Sources
                                 join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                 where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
                                         (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
-                                select ac.Allow)
+                                select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                 select new EnvironmentPrivInfo
                 {

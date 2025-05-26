@@ -283,7 +283,7 @@ namespace Dorc.PersistentData.Sources
 
         public IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             using (var context = contextFactory.GetContext())
             {
@@ -302,7 +302,7 @@ namespace Dorc.PersistentData.Sources
         public IEnumerable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             string projectName, IPrincipal user, AccessLevel accessLevel)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
@@ -355,7 +355,7 @@ namespace Dorc.PersistentData.Sources
 
         public EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             using (var context = contextFactory.GetContext())
             {

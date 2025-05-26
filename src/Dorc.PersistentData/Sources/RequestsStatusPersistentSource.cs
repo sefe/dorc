@@ -29,7 +29,7 @@ namespace Dorc.PersistentData.Sources
 
         public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             PagedModel<DeploymentRequestApiModel> output = null;

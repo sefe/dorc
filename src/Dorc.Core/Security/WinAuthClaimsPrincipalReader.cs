@@ -1,7 +1,7 @@
-﻿using System.Security.Claims;
-using System.Security.Principal;
-using Dorc.Core.Interfaces;
+﻿using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using System.Security.Claims;
+using System.Security.Principal;
 
 namespace Dorc.Core
 {
@@ -27,6 +27,11 @@ namespace Dorc.Core
         public string GetUserFullDomainName(IPrincipal user)
         {
             return user?.Identity?.Name ?? string.Empty;
+        }
+
+        public string GetUserLogin(IPrincipal user)
+        {
+            return GetUserName(user); // returning name as this is the identifier was used in Windows auth
         }
 
         public string GetUserEmail(ClaimsPrincipal user)
