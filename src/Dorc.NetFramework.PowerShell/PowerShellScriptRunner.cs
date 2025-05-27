@@ -73,12 +73,8 @@ namespace Dorc.NetFramework.PowerShell
                                 LogMessage(msg, MessageType.None);
                             };
 
-                            powerShell.Streams.Information.DataAdded += Powershell_Information_DataAdded;
-                            powerShell.Streams.Debug.DataAdded += Powershell_Debug_DataAdded;
-                            powerShell.Streams.Warning.DataAdded += Powershell_Warning_DataAdded;
-                            powerShell.Streams.Verbose.DataAdded += Powershell_Verbose_DataAdded;
+                            //Add only Error Stream because all other streams supported by HostUserInterface
                             powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
-                            powerShell.Streams.Progress.DataAdded += Powershell_Information_DataAdded;
 
                             try
                             {
