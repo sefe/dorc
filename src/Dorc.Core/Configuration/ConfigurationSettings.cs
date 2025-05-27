@@ -106,5 +106,15 @@ namespace Dorc.Core.Configuration
         {
             return _configuration.GetSection("AppSettings")["AadSecret"];
         }
+
+        public string? GetIdentityServerClientId()
+        {
+            return _configuration.GetSection("AppSettings")["IdentityServerClientId"];
+        }
+
+        public string? GetOnePasswordIdentityServerApiSecretId()
+        {
+            return _configuration.GetSection("AppSettings:OnePassword")["IdentityServerApiSecretId"];
+        }
     }
 }

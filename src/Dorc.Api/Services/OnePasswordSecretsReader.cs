@@ -34,77 +34,40 @@ namespace Dorc.Api.Services
             }
         }
 
-        //public AzureEntraCredentials GetAzureEntraCredentials()
-        //{
-        //    if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(_azureEntraItemId))
-        //    {
-        //        return new AzureEntraCredentials();
-        //    }
-
-        //    try
-        //    {
-        //        var item = _onePasswordClient.GetItemAsync(_vaultId, _azureEntraItemId).GetAwaiter().GetResult();
-        //        if (item != null)
-        //        {
-        //            var credentials = new AzureEntraCredentials();
-
-        //            // Extract credentials based on field labels
-        //            foreach (var field in item.Fields)
-        //            {
-        //                switch (field.Label.ToLower())
-        //                {
-        //                    case "tenant id":
-        //                        credentials.TenantId = field.Value;
-        //                        break;
-        //                    case "client id":
-        //                        credentials.ClientId = field.Value;
-        //                        break;
-        //                    case "client secret":
-        //                        credentials.ClientSecret = field.Value;
-        //                        break;
-        //                }
-        //            }
-
-        //            if (!string.IsNullOrEmpty(credentials.TenantId) &&
-        //                !string.IsNullOrEmpty(credentials.ClientId) &&
-        //                !string.IsNullOrEmpty(credentials.ClientSecret))
-        //            {
-        //                _log.Info("Successfully retrieved Azure Entra credentials from 1Password");
-        //                return credentials;
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _log.Warn($"Error retrieving Azure Entra credentials from 1Password: {ex.Message}");
-        //    }
-
-        //    return new AzureEntraCredentials();
-        //}
-
-        public string GetDorcApiSecret()
+        public string GetIdentityServerApiSecret()
         {
-            var dorcApiItemId = _config.GetOnePasswordItemId();
-            if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(dorcApiItemId))
+            if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(_config.GetOnePasswordIdentityServerApiSecretId()))
             {
                 return string.Empty;
             }
 
             try
             {
-                string secret = _onePasswordClient.GetSecretValueAsync(_vaultId, dorcApiItemId).GetAwaiter().GetResult();
-                if (!string.IsNullOrEmpty(secret))
-                {
-                    _log.Info("Successfully retrieved DORC API secret from 1Password");
-                    return secret;
-                }
+                return _onePasswordClient.GetSecretValueAsync(_vaultId, _config.GetOnePasswordIdentityServerApiSecretId()).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
-                _log.Error($"Error retrieving DORC API secret from 1Password: {ex.Message}", ex);
+                _log.Error($"Failed to get IdentityServer API secret from 1Password: {ex.Message}", ex);
+                return string.Empty;
+            }
+        }
+
+        public string GetDorcApiSecret()
+        {
+            if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(_config.GetOnePasswordItemId()))
+            {
+                return string.Empty;
             }
 
-            return string.Empty;
+            try
+            {
+                return _onePasswordClient.GetSecretValueAsync(_vaultId, _config.GetOnePasswordItemId()).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"Failed to get DORC API secret from 1Password: {ex.Message}", ex);
+                return string.Empty;
+            }
         }
     }
 } 

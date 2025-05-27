@@ -17,6 +17,8 @@
         string? GetOnePasswordApiKey();
         string? GetOnePasswordVaultId();
         string? GetOnePasswordItemId();
+        string? GetIdentityServerClientId();
+        string? GetOnePasswordIdentityServerApiSecretId();
         
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();
