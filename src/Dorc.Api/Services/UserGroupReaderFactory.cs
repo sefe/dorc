@@ -17,7 +17,7 @@ namespace Dorc.Api.Services
             ILog log)
         {
             var adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
-            var azEntraSearcher = new AzureEntraSearcher(config.GetAzureEntraTenantId(), config.GetAzureEntraClientId(), config.GetAzureEntraClientSecret(), log);
+            var azEntraSearcher = new AzureEntraSearcher(config, log);
 
             _winUserGroupReader = new CachedUserGroupReader(config, cache, adSearcher);
             _oauthUserGroupsReader = new CachedUserGroupReader(config, cache, azEntraSearcher);

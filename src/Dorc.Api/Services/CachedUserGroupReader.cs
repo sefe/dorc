@@ -3,7 +3,6 @@ using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
-using System.Runtime.Versioning;
 
 namespace Dorc.Api.Services
 {

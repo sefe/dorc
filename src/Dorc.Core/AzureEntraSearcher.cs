@@ -1,5 +1,6 @@
 using Azure.Identity;
 using Dorc.ApiModel;
+using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using log4net;
 using Microsoft.Graph;
@@ -20,11 +21,11 @@ namespace Dorc.Core
         private readonly ILog _log;
         private GraphServiceClient? _graphClient;
 
-        public AzureEntraSearcher(string tenantId, string clientId, string clientSecret, ILog log)
+        public AzureEntraSearcher(IConfigurationSettings config, ILog log)
         {
-            _tenantId = tenantId;
-            _clientId = clientId;
-            _clientSecret = clientSecret;
+            _tenantId = config.GetAzureEntraTenantId() ?? throw new ArgumentNullException("Azure tenantId is not configured");
+            _clientId = config.GetAzureEntraClientId() ?? throw new ArgumentNullException("Azure clientId is not configured");
+            _clientSecret = config.GetAzureEntraClientSecret() ?? throw new ArgumentNullException("Azure clientSecret is not configured");
             _log = log;
         }
 
