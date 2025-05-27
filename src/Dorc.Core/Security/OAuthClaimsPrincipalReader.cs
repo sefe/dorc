@@ -10,7 +10,9 @@ namespace Dorc.Core
         private const string EmailClaimType = "email";
         private const string PidClaimType = "oid";
         private const string SamAccountNameClaimType = "samAccountName";
-        private IUserGroupReader _userGroupReader;
+        private const string M2MClaimType = "m2m";
+        private const string ClientIdClaimType = "client_id";
+        private readonly IUserGroupReader _userGroupReader;
 
         public OAuthClaimsPrincipalReader(IUserGroupReader userGroupReader)
         {
@@ -22,21 +24,32 @@ namespace Dorc.Core
             return user as ClaimsPrincipal ?? throw new ArgumentException("user is not a ClaimsPrincipal");
         }
 
+        private bool IsM2MAuthentication(ClaimsPrincipal user)
+        {
+            return user?.FindFirst(M2MClaimType)?.Value?.ToLower() == "true";
+        }
+
+        private string GetClientId(ClaimsPrincipal user)
+        {
+            return user?.FindFirst(ClientIdClaimType)?.Value ?? string.Empty;
+        }
+
         public string GetUserName(IPrincipal user)
         {
-            return user?.Identity?.Name ?? string.Empty;
+            var cUser = GetClaimsPrincipal(user);
+            return IsM2MAuthentication(cUser) ? GetClientId(cUser) : (user?.Identity?.Name ?? string.Empty);
         }
 
         public string GetUserFullDomainName(IPrincipal user)
         {
             var cUser = GetClaimsPrincipal(user);
-            return GetUserEmail(cUser);
+            return IsM2MAuthentication(cUser) ? GetClientId(cUser) : GetUserEmail(cUser);
         }
 
         public string GetUserLogin(IPrincipal user)
         {
             var cUser = GetClaimsPrincipal(user);
-            return GetSamAccountName(cUser) ?? GetUserEmail(cUser); // for backward compatibility with AD return samAccountName if available
+            return IsM2MAuthentication(cUser) ? GetClientId(cUser) : (GetSamAccountName(cUser) ?? GetUserEmail(cUser));
         }
 
         public string GetUserEmail(ClaimsPrincipal user)
@@ -46,10 +59,10 @@ namespace Dorc.Core
 
         public string GetUserId(ClaimsPrincipal user)
         {
-            return user?.FindFirst(PidClaimType)?.Value ?? string.Empty;
+            return IsM2MAuthentication(user) ? GetClientId(user) : (user?.FindFirst(PidClaimType)?.Value ?? string.Empty);
         }
 
-        public string GetSamAccountName(ClaimsPrincipal user)
+        private string GetSamAccountName(ClaimsPrincipal user)
         {
             return user?.FindFirst(SamAccountNameClaimType)?.Value ?? string.Empty;
         }
@@ -57,6 +70,12 @@ namespace Dorc.Core
         public List<string> GetSidsForUser(IPrincipal user)
         {
             var cUser = GetClaimsPrincipal(user);
+            
+            if (IsM2MAuthentication(cUser))
+            {
+                return new List<string> { GetClientId(cUser) };
+            }
+
             var pids = _userGroupReader.GetSidsForUser(GetUserId(cUser));
 
             // add samAccountName as one of pids for backward compatibility with AD
