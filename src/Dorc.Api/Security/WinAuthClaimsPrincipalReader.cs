@@ -3,7 +3,7 @@ using Dorc.PersistentData;
 using System.Security.Claims;
 using System.Security.Principal;
 
-namespace Dorc.Core
+namespace Dorc.Api.Security
 {
     public class WinAuthClaimsPrincipalReader : IClaimsPrincipalReader
     {

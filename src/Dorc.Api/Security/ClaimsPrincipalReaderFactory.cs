@@ -1,5 +1,4 @@
-﻿using Dorc.Api.Interfaces;
-using Dorc.Core;
+﻿using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
