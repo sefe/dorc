@@ -44,9 +44,10 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                string error = $"Error while locating Bundled Requests for project {projectNames}";
+                string error = "Error while locating Bundled Requests for project(s) " +
+                               string.Join('|', projectNames);
                 _logger.Error(error, ex);
-                return BadRequest(error + " - " + ex);
+                return BadRequest(error);
             }
         }
 
