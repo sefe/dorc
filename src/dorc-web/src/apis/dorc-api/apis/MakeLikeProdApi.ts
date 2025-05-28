@@ -16,13 +16,8 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
-    BundledRequestsApiModel,
     MakeLikeProdRequest,
 } from '../models';
-
-export interface MakeLikeProdBundledRequestsGetRequest {
-    projectNames?: Array<string>;
-}
 
 export interface MakeLikeProdDataBackupsGetRequest {
     projectId?: number;
@@ -36,23 +31,6 @@ export interface MakeLikeProdPutRequest {
  * no description
  */
 export class MakeLikeProdApi extends BaseAPI {
-
-    /**
-     */
-    makeLikeProdBundledRequestsGet({ projectNames }: MakeLikeProdBundledRequestsGetRequest): Observable<Array<BundledRequestsApiModel>>
-    makeLikeProdBundledRequestsGet({ projectNames }: MakeLikeProdBundledRequestsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BundledRequestsApiModel>>>
-    makeLikeProdBundledRequestsGet({ projectNames }: MakeLikeProdBundledRequestsGetRequest, opts?: OperationOpts): Observable<Array<BundledRequestsApiModel> | AjaxResponse<Array<BundledRequestsApiModel>>> {
-
-        const query: HttpQuery = {};
-
-        if (projectNames != null) { query['projectNames'] = projectNames; }
-
-        return this.request<Array<BundledRequestsApiModel>>({
-            url: '/MakeLikeProd/BundledRequests',
-            method: 'GET',
-            query,
-        }, opts?.responseOpts);
-    };
 
     /**
      */

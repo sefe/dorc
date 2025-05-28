@@ -280,6 +280,30 @@
         }
       }
     },
+    "/ApiConfig": {
+      "get": {
+        "tags": [
+          "ApiConfig"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiConfigModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiConfigModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -297,6 +321,165 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiEndpoints"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/BundledRequests": {
+      "get": {
+        "tags": [
+          "BundledRequests"
+        ],
+        "parameters": [
+          {
+            "name": "projectNames",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BundledRequestsApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BundledRequestsApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "BundledRequests"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundledRequestsApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundledRequestsApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundledRequestsApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "BundledRequests"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundledRequestsApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundledRequestsApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundledRequestsApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "BundledRequests"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/BundledRequests/RequestsForBundle": {
+      "get": {
+        "tags": [
+          "BundledRequests"
+        ],
+        "parameters": [
+          {
+            "name": "bundleName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BundledRequestsApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BundledRequestsApiModel"
+                  }
                 }
               }
             }
@@ -780,48 +963,6 @@
               "text/json": {
                 "schema": {
                   "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/MakeLikeProd/BundledRequests": {
-      "get": {
-        "tags": [
-          "MakeLikeProd"
-        ],
-        "parameters": [
-          {
-            "name": "projectNames",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BundledRequestsApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BundledRequestsApiModel"
-                  }
                 }
               }
             }
@@ -3178,88 +3319,6 @@
         }
       }
     },
-    "/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren": {
-      "get": {
-        "tags": [
-          "RefDataEnvironmentsDetails"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EnvironmentApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EnvironmentApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataEnvironmentsDetails/SetParentForEnvironment": {
-      "put": {
-        "tags": [
-          "RefDataEnvironmentsDetails"
-        ],
-        "parameters": [
-          {
-            "name": "parentEnvId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "childEnvId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/RefDataEnvironmentsDetails": {
       "get": {
         "tags": [
@@ -3334,6 +3393,88 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren": {
+      "get": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/SetParentForEnvironment": {
+      "put": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "parentEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "childEnvId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -6308,6 +6449,28 @@
         },
         "additionalProperties": false
       },
+      "ApiConfigModel": {
+        "type": "object",
+        "properties": {
+          "AuthenticationScheme": {
+            "type": "string",
+            "nullable": true
+          },
+          "OAuthAuthority": {
+            "type": "string",
+            "nullable": true
+          },
+          "OAuthUiClientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "OAuthUiRequestedScopes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ApiEndpoints": {
         "type": "object",
         "properties": {
@@ -6344,6 +6507,10 @@
       "BundledRequestsApiModel": {
         "type": "object",
         "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
           "BundleName": {
             "type": "string",
             "nullable": true
@@ -6739,14 +6906,19 @@
           "IsOwner": {
             "type": "boolean"
           },
+          "ParentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "IsParent": {
+            "type": "boolean"
+          },
           "Details": {
             "$ref": "#/components/schemas/EnvironmentDetailsApiModel"
           },
           "ParentEnvironment": {
             "$ref": "#/components/schemas/EnvironmentApiModel"
-          },
-          "IsParent": {
-            "type": "boolean"
           },
           "ChildEnvironments": {
             "type": "array",

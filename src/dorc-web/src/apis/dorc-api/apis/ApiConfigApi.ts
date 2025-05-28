@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpHeaders } from '../runtime';
+import type { OperationOpts } from '../runtime';
 import type {
     ApiConfigModel,
 } from '../models';
@@ -29,13 +29,9 @@ export class ApiConfigApi extends BaseAPI {
     apiConfigGet(): Observable<ApiConfigModel>
     apiConfigGet(opts?: OperationOpts): Observable<AjaxResponse<ApiConfigModel>>
     apiConfigGet(opts?: OperationOpts): Observable<ApiConfigModel | AjaxResponse<ApiConfigModel>> {
-        const headers: HttpHeaders = {
-        };
-
         return this.request<ApiConfigModel>({
             url: '/ApiConfig',
             method: 'GET',
-            headers,
         }, opts?.responseOpts);
     };
 
