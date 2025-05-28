@@ -13,9 +13,9 @@ namespace Dorc.Core.IdentityServer
         public IdentityServerSearcher(IConfigurationSettings config, IConfigurationSecretsReader secretsReader, ILog log)
         {
             _log = log;
-            var authority = config.GetOAuthAuthority() ?? throw new ArgumentNullException("OAuthAuthority is not configured");
-            var clientId = config.GetIdentityServerClientId() ?? throw new ArgumentNullException("IdentityServerClientId is not configured");
-            var clientSecret = secretsReader.GetIdentityServerApiSecret() ?? throw new ArgumentNullException("IdentityServer client secret is not configured");
+            var authority = config.GetOAuthAuthority();
+            var clientId = config.GetIdentityServerClientId();
+            var clientSecret = secretsReader.GetIdentityServerApiSecret();
 
             _client = new IdentityServerClient(authority, clientId, clientSecret, log);
         }

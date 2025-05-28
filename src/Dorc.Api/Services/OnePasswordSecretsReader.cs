@@ -36,36 +36,30 @@ namespace Dorc.Api.Services
 
         public string GetIdentityServerApiSecret()
         {
-            if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(_config.GetOnePasswordIdentityServerApiSecretId()))
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                return _onePasswordClient.GetSecretValueAsync(_vaultId, _config.GetOnePasswordIdentityServerApiSecretId()).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                _log.Error($"Failed to get IdentityServer API secret from 1Password: {ex.Message}", ex);
-                return string.Empty;
-            }
+            var itemId = _config.GetOnePasswordIdentityServerApiSecretId();
+            return GetSecretByItemId(itemId, "IdentityServer API secret");
         }
 
         public string GetDorcApiSecret()
         {
-            if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(_config.GetOnePasswordItemId()))
+            var itemId = _config.GetOnePasswordItemId();
+            return GetSecretByItemId(itemId, "DORC API secret");
+        }
+
+        private string GetSecretByItemId(string itemId, string humanizedName)
+        {
+            if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(itemId))
             {
                 return string.Empty;
             }
 
             try
             {
-                return _onePasswordClient.GetSecretValueAsync(_vaultId, _config.GetOnePasswordItemId()).GetAwaiter().GetResult();
+                return _onePasswordClient.GetSecretValueAsync(_vaultId, itemId).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to get DORC API secret from 1Password: {ex.Message}", ex);
+                _log.Error($"Failed to get secret {humanizedName} from 1Password by ItemId {itemId}: {ex.Message}", ex);
                 return string.Empty;
             }
         }

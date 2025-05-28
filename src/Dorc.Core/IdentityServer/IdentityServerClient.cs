@@ -33,6 +33,9 @@ namespace Dorc.Core.IdentityServer
                 return _accessToken;
             }
 
+            if (string.IsNullOrEmpty(_authority) || string.IsNullOrEmpty(_clientId) || string.IsNullOrEmpty(_clientSecret))
+                throw new ArgumentNullException("IdentityServerClient: BaseUrl or ClientId or ClientSecret are not configured");
+
             var tokenEndpoint = $"{_authority}/connect/token";
             var content = new FormUrlEncodedContent(new[]
             {
@@ -76,19 +79,12 @@ namespace Dorc.Core.IdentityServer
                 pageSize
             };
 
-            try
-            {
-                var response = await _httpClient.PostAsJsonAsync(searchEndpoint, searchRequest);
-                response.EnsureSuccessStatusCode();
+            var response = await _httpClient.PostAsJsonAsync(searchEndpoint, searchRequest);
+            response.EnsureSuccessStatusCode();
 
-                var result = await response.Content.ReadFromJsonAsync<List<ClientInfo>>();
-                return result ?? new List<ClientInfo>();
-            }
-            catch (Exception ex)
-            {
-                _log.Error($"Failed to search clients in IdentityServer: {ex.Message}", ex);
-                throw;
-            }
+            var result = await response.Content.ReadFromJsonAsync<SearchClientsResult>();
+
+            return result?.Items ?? new List<ClientInfo>();
         }
 
         public async Task<ClientInfo?> GetClientByIdAsync(string clientId)
@@ -98,22 +94,14 @@ namespace Dorc.Core.IdentityServer
 
             var endpoint = $"{_authority}/api/Clients/{clientId}";
 
-            try
+            var response = await _httpClient.GetAsync(endpoint);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                var response = await _httpClient.GetAsync(endpoint);
-                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    return null;
-                }
-                response.EnsureSuccessStatusCode();
+                return null;
+            }
+            response.EnsureSuccessStatusCode();
 
-                return await response.Content.ReadFromJsonAsync<ClientInfo>();
-            }
-            catch (Exception ex)
-            {
-                _log.Error($"Failed to get client from IdentityServer: {ex.Message}", ex);
-                throw;
-            }
+            return await response.Content.ReadFromJsonAsync<ClientInfo>();
         }
 
         private class TokenResponse
@@ -139,5 +127,20 @@ namespace Dorc.Core.IdentityServer
 
         [JsonPropertyName("clientName")]
         public string ClientName { get; set; } = string.Empty;
+    }
+
+    public class SearchClientsResult
+    {
+        [JsonPropertyName("totalCount")]
+        public int TotalCount { get; set; }
+
+        [JsonPropertyName("pageNumber")]
+        public int PageNumber { get; set; }
+
+        [JsonPropertyName("pageSize")]
+        public int PageSize { get; set; }
+
+        [JsonPropertyName("page")]
+        public List<ClientInfo> Items { get; set; } = new List<ClientInfo>();
     }
 } 

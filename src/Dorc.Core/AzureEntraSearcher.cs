@@ -23,9 +23,10 @@ namespace Dorc.Core
 
         public AzureEntraSearcher(IConfigurationSettings config, ILog log)
         {
-            _tenantId = config.GetAzureEntraTenantId() ?? throw new ArgumentNullException("Azure tenantId is not configured");
-            _clientId = config.GetAzureEntraClientId() ?? throw new ArgumentNullException("Azure clientId is not configured");
-            _clientSecret = config.GetAzureEntraClientSecret() ?? throw new ArgumentNullException("Azure clientSecret is not configured");
+            _tenantId = config.GetAzureEntraTenantId();
+            _clientId = config.GetAzureEntraClientId();
+            _clientSecret = config.GetAzureEntraClientSecret();            
+
             _log = log;
         }
 
@@ -33,6 +34,10 @@ namespace Dorc.Core
         {
             if (_graphClient != null)
                 return _graphClient;
+
+            if (string.IsNullOrEmpty(_tenantId)) throw new ArgumentNullException("Azure tenantId is not configured");
+            if (string.IsNullOrEmpty(_clientId)) throw new ArgumentNullException("Azure clientId is not configured");
+            if (string.IsNullOrEmpty(_clientSecret)) throw new ArgumentNullException("Azure clientSecret is not configured");
 
             try
             {
