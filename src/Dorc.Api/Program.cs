@@ -25,11 +25,13 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+
+builder.Logging.AddLog4Net();
+
 var configurationSettings = new ConfigurationSettings(configBuilder);
 var secretsReader = new OnePasswordSecretsReader(configurationSettings);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
-builder.Services.AddSingleton<IUserGroupsReaderFactory, UserGroupReaderFactory>();
 
 var allowedCorsLocations = configurationSettings.GetAllowedCorsLocations();
 
@@ -47,7 +49,6 @@ builder.Services.AddCors(options =>
         });
 });
 
-builder.Logging.AddLog4Net();
 string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
 switch (authenticationScheme)
 {
@@ -210,6 +211,10 @@ AddSwaggerGen(builder.Services, authenticationScheme);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
+builder.Services.AddMemoryCache();
+builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
+builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
+
 builder.Host.UseLamar((context, registry) =>
 {
     registry.IncludeRegistry<OpenSearchDataRegistry>();
@@ -228,12 +233,6 @@ XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
 var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));
-
-builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
-builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
-
-builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<IUserGroupReader, CachedUserGroupReader>();
 
 // Enable throttling
 builder.Services.AddOptions();

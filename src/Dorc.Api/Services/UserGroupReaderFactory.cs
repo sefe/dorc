@@ -1,8 +1,6 @@
 ﻿using Dorc.Api.Interfaces;
-using Dorc.Core;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
-using log4net;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -14,13 +12,10 @@ namespace Dorc.Api.Services
 
         public UserGroupReaderFactory(IConfigurationSettings config,
             IMemoryCache cache,
-            ILog log)
+            IDirectorySearcherFactory searcherFactory)
         {
-            var adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
-            var azEntraSearcher = new AzureEntraSearcher(config, log);
-
-            _winUserGroupReader = new CachedUserGroupReader(config, cache, adSearcher);
-            _oauthUserGroupsReader = new CachedUserGroupReader(config, cache, azEntraSearcher);
+            _winUserGroupReader = new CachedUserGroupReader(config, cache, searcherFactory.GetActiveDirectorySearcher());
+            _oauthUserGroupsReader = new CachedUserGroupReader(config, cache, searcherFactory.GetOAuthDirectorySearcher());
         }
 
         public IUserGroupReader GetWinAuthUserGroupsReader()

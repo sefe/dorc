@@ -1,6 +1,6 @@
 ﻿using Dorc.ApiModel;
 
-namespace Dorc.Core.Interfaces
+namespace Dorc.Api.Interfaces
 {
     public interface IUserGroupReader
     {

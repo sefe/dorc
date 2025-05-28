@@ -1,6 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
-using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Runtime.Versioning;

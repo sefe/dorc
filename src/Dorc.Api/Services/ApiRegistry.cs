@@ -35,7 +35,18 @@ namespace Dorc.Api.Services
                     var directorySearcher = new DirectorySearcher(directoryEntry);
                     return directorySearcher;
                 }).Scoped();
-                
+
+                For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()
+                    .Ctor<string>().Is(configSettings.GetConfigurationDomainNameIntra())
+                    .Ctor<TimeSpan?>().Is(configSettings.GetADUserCacheTimeSpan());
+                For<IActiveDirectorySearcher>().Use(context =>
+                {
+                    var factory = context.GetRequiredService<IDirectorySearcherFactory>();
+                    return factory.GetOAuthDirectorySearcher();
+                }).Singleton();
+
+                For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
+
                 For<IFileSystemHelper>().Use<FileSystemHelper>();
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();

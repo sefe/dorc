@@ -1,4 +1,4 @@
-﻿using Dorc.Core.Interfaces;
+﻿using Dorc.Api.Interfaces;
 using Dorc.PersistentData;
 using System.Security.Claims;
 using System.Security.Principal;

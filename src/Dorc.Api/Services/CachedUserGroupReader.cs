@@ -1,4 +1,5 @@
-﻿using Dorc.ApiModel;
+﻿using Dorc.Api.Interfaces;
+using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
