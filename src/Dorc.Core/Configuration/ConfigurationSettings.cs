@@ -112,9 +112,9 @@ namespace Dorc.Core.Configuration
             return _configuration.GetSection("AppSettings")["IdentityServerClientId"];
         }
 
-        public string? GetOnePasswordIdentityServerApiSecretId()
+        public string? GetOnePasswordIdentityServerApiSecretItemId()
         {
-            return _configuration.GetSection("AppSettings:OnePassword")["IdentityServerApiSecretId"];
+            return _configuration.GetSection("AppSettings:OnePassword")["IdentityServerApiSecretItemId"];
         }
     }
 }

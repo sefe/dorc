@@ -36,7 +36,7 @@ namespace Dorc.Api.Services
 
         public string GetIdentityServerApiSecret()
         {
-            var itemId = _config.GetOnePasswordIdentityServerApiSecretId();
+            var itemId = _config.GetOnePasswordIdentityServerApiSecretItemId();
             return GetSecretByItemId(itemId, "IdentityServer API secret");
         }
 
