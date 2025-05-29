@@ -494,9 +494,9 @@ export class AddEditEnvironment extends LitElement {
           })
           .subscribe({
             next: (data: Array<UserElementApiModel>) => {
-              const user = data.find(
-                u => u.Pid === this.environment.Details?.EnvironmentOwnerId
-              );
+                const user = data.length === 1 
+                ? data[0] 
+                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId);
               if (user)
                 this.EnvOwnerDisplayName =
                   user.DisplayName !== null ? user.DisplayName : undefined;
