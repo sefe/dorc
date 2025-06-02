@@ -17,12 +17,15 @@ new ApiConfigApi().apiConfigGet().subscribe({
         scope: apiConfig.OAuthUiRequestedScopes ?? ''
       };
       oauthServiceContainer.setSettings(settings);
-      oauthServiceContainer.service.getUser().subscribe(user => {
-        if (!user || !user.access_token) {
-          oauthServiceContainer.service.signIn();
-        } else {
-          router.setRoutes(routes);
-        }
+      oauthServiceContainer.service.getUser().subscribe({
+        next: (user) => {
+          if (!user || !user.access_token) {
+            oauthServiceContainer.service.signIn();
+          } else {
+            router.setRoutes(routes);
+          }
+        },
+        error: (err) => console.error('Error getting user:', err)
       });
     } else {
       router.setRoutes(routes);

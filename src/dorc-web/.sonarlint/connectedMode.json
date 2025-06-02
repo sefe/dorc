@@ -1,0 +1,4 @@
+{
+    "sonarQubeUri": "https://sonarqube_api",
+    "projectKey": "sh.devops.dorc"
+}
