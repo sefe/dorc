@@ -67,7 +67,12 @@ export class OAuthService {
         localStorage.removeItem("idsrv.oauthsettings");
         const lastUrl = localStorage.getItem("lastUrl") ?? '/';
         localStorage.removeItem("lastUrl");
-        location.assign(lastUrl);
+        const exceptions = ['signin.html'];
+        if (exceptions.some(exception => lastUrl.endsWith(exception))) {
+          location.assign('/');
+        } else {
+          location.assign(lastUrl);
+        }
       })
       .catch(err => console.error(err));
   }
