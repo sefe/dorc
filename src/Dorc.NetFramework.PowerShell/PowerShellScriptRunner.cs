@@ -69,15 +69,13 @@ namespace Dorc.NetFramework.PowerShell
                             // and register the event handler on that too
                             outputCollection.DataAdded += (sender, e) =>
                             {
-                                logger.FileLogger.Information("outputCollection.DataAdded1");
                                 var data = sender as PSDataCollection<string>;
-                                logger.FileLogger.Information("outputCollection.DataAdded2");
+                                logger.FileLogger.Information($"outputCollection.DataAdded2 typeof(sender) = {sender?.ToString()}");
+                                logger.FileLogger.Information($"outputCollection.DataAdded2 data is null = {data == null} e is null = {e == null}");
                                 var msg = GetOutput(data[e.Index]);
                                 logger.FileLogger.Information("outputCollection.DataAdded3");
                                 if (string.IsNullOrWhiteSpace(msg)) return;
-                                logger.FileLogger.Information("outputCollection.DataAdded4");
                                 LogMessage(msg, MessageType.None);
-                                logger.FileLogger.Information("outputCollection.DataAdded5");
                             };
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
