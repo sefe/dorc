@@ -70,12 +70,13 @@ namespace Dorc.NetFramework.PowerShell
                             outputCollection.DataAdded += (sender, e) =>
                             {
                                 var data = sender as PSDataCollection<PSObject>;
-                                logger.FileLogger.Information($"outputCollection.DataAdded2 typeof(sender) = {sender?.ToString()}");
+                                logger.FileLogger.Information($"outputCollection.DataAdded1 typeof(sender) = {sender?.ToString()}");
                                 logger.FileLogger.Information($"outputCollection.DataAdded2 data is null = {data == null} e is null = {e == null}");
                                 var msg = GetOutput(data[e.Index]);
                                 logger.FileLogger.Information("outputCollection.DataAdded3");
                                 if (string.IsNullOrWhiteSpace(msg)) return;
                                 LogMessage(msg, MessageType.None);
+                                logger.FileLogger.Information("outputCollection.DataAdded4");
                             };
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
