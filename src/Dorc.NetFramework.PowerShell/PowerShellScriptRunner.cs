@@ -70,12 +70,13 @@ namespace Dorc.NetFramework.PowerShell
                             outputCollection.DataAdded += (sender, e) =>
                             {
                                 var data = sender as PSDataCollection<string>;
-                                var msg = data[e.Index]?.ToString();
+                                var msg = GetOutput(data[e.Index]);
+                                if (string.IsNullOrWhiteSpace(msg)) return;
                                 LogMessage(msg, MessageType.None);
                             };
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
-                            //powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
+                            powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
                             //outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
