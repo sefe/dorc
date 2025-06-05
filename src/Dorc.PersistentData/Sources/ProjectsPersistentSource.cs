@@ -158,7 +158,6 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var project = context.Projects
-                    
                     .Include(project => project.Environments)
                     .FirstOrDefault(project => project.Name.Equals(projectName));
 
@@ -174,7 +173,7 @@ namespace Dorc.PersistentData.Sources
                 return new TemplateApiModel<EnvironmentApiModel>
                 {
                     Items = accessibleEnvironmentsAccessLevel.ToList().Select(data =>
-                        EnvironmentsPersistentSource.MapToEnvironmentApiModel(data.Environment, data.UserEditable,
+                        _environmentsPersistentSource.MapToEnvironmentApiModel(data.Environment, data.UserEditable,
                             data.IsOwner)).ToList(),
                     Project = MapToProjectApiModel(project),
                 };
@@ -188,7 +187,8 @@ namespace Dorc.PersistentData.Sources
                 var project = new Project
                 {
                     Name = apiProject.ProjectName,
-                    Description = apiProject.ProjectDescription
+                    Description = apiProject.ProjectDescription,
+                    ObjectId = Guid.NewGuid()
                 };
 
                 if (ProjectArtifactsUriHttpValid(apiProject))

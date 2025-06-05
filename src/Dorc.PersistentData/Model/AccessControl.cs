@@ -5,8 +5,10 @@
         public int Id { get; set; }
         public Guid ObjectId { get; set; }
         public string? Name { get; set; }
-        public string Sid { get; set; } = null!;
+        [Obsolete("Use Pid, this exists only for backward compatibility with AD")]
+        public string? Sid { get; set; }
         public int Allow { get; set; }
         public int Deny { get; set; }
+        public string? Pid { get; set; }
     }
 }

@@ -305,33 +305,12 @@
     <Build Include="deploy\Stored Procedures\get_global_properties.sql" />
     <Build Include="deploy\Stored Procedures\get_environment_properties.sql" />
     <Build Include="deploy\Stored Procedures\get_property_values_by_PropertyName.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Delete_Environment_Database_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Delete_Environment_Server_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Delete_Environment_User_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Delete_Server_Service_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Insert_AD_Group_Detail.sql" />
     <Build Include="dbo\Stored Procedures\usp_Insert_Database_Detail.sql" />
     <Build Include="dbo\Stored Procedures\usp_Insert_Environment_Database_Map.sql" />
     <Build Include="dbo\Stored Procedures\usp_Insert_Environment_Detail.sql" />
     <Build Include="dbo\Stored Procedures\usp_Insert_Environment_Server_Map.sql" />
     <Build Include="dbo\Stored Procedures\usp_Insert_Environment_User_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Insert_Permission_Detail.sql" />
     <Build Include="dbo\Stored Procedures\usp_Insert_Server_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Insert_Server_Service_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Insert_Service_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Insert_User_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Remove_Environment_User.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Select_All_Environment_Users.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Select_Environment_Database_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Select_Environment_Server_Map.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Select_Environment_User_Permission.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_Database_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_Environment_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_Environment_Owner.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_Permission_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_Server_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_Service_Detail.sql" />
-    <Build Include="dbo\Stored Procedures\usp_Update_User_Detail.sql" />
     <Build Include="dbo\Tables\AD_GROUP.sql" />
     <Build Include="dbo\Tables\DATABASE.sql" />
     <Build Include="dbo\Tables\ENVIRONMENT_USER_MAP.sql" />
@@ -378,6 +357,7 @@
     <Build Include="Schema Objects\Schemas\archive\Tables\DeploymentResult.table.sql" />
     <Build Include="deploy\Stored Procedures\ArchiveDeploymentRequests.sql" />
     <Build Include="Schema Objects\Schemas\archive\Tables\EnvironmentComponentStatus.table.sql" />
+    <None Include="Scripts\Post-Deployment\Environment_AccessControl_Populate.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">

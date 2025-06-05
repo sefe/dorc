@@ -4,6 +4,7 @@
     {
         public string LastUpdated { set; get; }
         public string EnvironmentOwner { set; get; }
+        public string EnvironmentOwnerId { set; get; }
         public string RestoredFromSourceDb { set; get; }
         public string Description { set; get; }
         public string FileShare { set; get; }

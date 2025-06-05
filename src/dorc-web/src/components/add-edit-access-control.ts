@@ -19,7 +19,7 @@ import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
 import {
   AccessSecureApiModel,
-  ActiveDirectoryElementApiModel
+  UserElementApiModel
 } from '../apis/dorc-api';
 import { AccessControlApi } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
@@ -30,6 +30,7 @@ import '@vaadin/icon';
 
 const AC_ALLOW_WRITE = 1;
 const AC_ALLOW_READ_SECRETS = 2;
+const AC_ALLOW_OWNER = 4;
 
 @customElement('add-edit-access-control')
 export class AddEditAccessControl extends LitElement {
@@ -45,7 +46,7 @@ export class AddEditAccessControl extends LitElement {
 
   searchADValue = '';
 
-  @property({ type: Array }) searchResults!: ActiveDirectoryElementApiModel[];
+  @property({ type: Array }) searchResults!: UserElementApiModel[];
 
   @property({ type: Boolean }) searchingUsers = false;
 
@@ -228,6 +229,13 @@ export class AddEditAccessControl extends LitElement {
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
+              header="Owner"
+              .renderer="${this.acCanOwner}"
+              .altThis="${this}"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
               .renderer="${this._boundACButtonsRenderer}"
               .ACControl="${this}"
               resizable
@@ -296,7 +304,7 @@ export class AddEditAccessControl extends LitElement {
     render(
       html`<access-control-controls
         .accessControl="${accessControl}"
-        .disabled="${!altThis.UserEditable}"
+        .disabled="${!altThis.UserEditable || model.item.Allow === AC_ALLOW_OWNER}"
         @access-control-removed="${() => {
           altThis.removeAccessControl(accessControl);
         }}"
@@ -315,7 +323,7 @@ export class AddEditAccessControl extends LitElement {
 
   removeAccessControl(accessControl: AccessControlApiModel) {
     const actual = this.Privileges?.find(
-      value => value.Sid === accessControl.Sid
+      value => value.Pid === accessControl.Pid
     );
 
     if (actual !== undefined) {
@@ -388,7 +396,7 @@ export class AddEditAccessControl extends LitElement {
         Name: user.DisplayName,
         Allow: 0,
         Deny: 0,
-        Sid: user.Sid
+        Pid: user.Pid
       };
       this.Privileges?.push(acam);
       this.Privileges = JSON.parse(JSON.stringify(this.Privileges));
@@ -398,7 +406,7 @@ export class AddEditAccessControl extends LitElement {
   searchResultsRenderer(
     root: HTMLElement,
     _comboBox: ComboBox,
-    model: ComboBoxItemModel<ActiveDirectoryElementApiModel>
+    model: ComboBoxItemModel<UserElementApiModel>
   ) {
     render(
       html`<vaadin-vertical-layout>
@@ -423,7 +431,7 @@ export class AddEditAccessControl extends LitElement {
     this.searchingUsers = true;
     const api = new AccessControlApi();
     api.accessControlSearchUsersGet({ search: this.searchADValue }).subscribe(
-      (data: Array<ActiveDirectoryElementApiModel>) => {
+      (data: Array<UserElementApiModel>) => {
         this.searchResults = data;
         this.searchingUsers = false;
         const combo = this.shadowRoot?.getElementById(
@@ -521,6 +529,23 @@ export class AddEditAccessControl extends LitElement {
       console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
     });
   }
+
+  acCanOwner(
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<AccessControlApiModel>
+  ) {
+    const canOwnerRender = ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
+
+    render(
+      html`<vaadin-checkbox
+        ?disabled="${true}"
+        ?checked="${canOwnerRender}"
+      ></vaadin-checkbox>`,
+      root
+    );
+  }
+
 
   setTextField(id: string, value: string) {
     const textField = this.shadowRoot?.getElementById(id) as TextField;

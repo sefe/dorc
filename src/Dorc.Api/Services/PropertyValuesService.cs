@@ -46,8 +46,8 @@ namespace Dorc.Api.Services
         public IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName,
             ClaimsPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             var allSids = string.Join(";", userSids);
 

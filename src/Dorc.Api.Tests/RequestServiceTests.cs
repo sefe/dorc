@@ -23,7 +23,7 @@ namespace Dorc.Api.Tests
         {
             var mockContextFactory = Substitute.For<IDeploymentContextFactory>();
             var mockDeployContext = Substitute.For<IDeploymentContext>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             int id = 1;
 

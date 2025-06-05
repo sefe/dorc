@@ -15,11 +15,7 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
 
             builder
                 .Property(x => x.ObjectId)
-                .ValueGeneratedOnAddOrUpdate();
-
-            builder
-                .Property(e => e.Owner)
-                .HasMaxLength(100);
+                .IsRequired();
 
             builder
                 .Property(e => e.ThinClientServer)
@@ -80,6 +76,12 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .Property(e => e.ParentId)
                 .HasColumnName("ParentId");
+
+            builder
+                .HasMany(e => e.AccessControls)
+                .WithOne()
+                .HasPrincipalKey(e => e.ObjectId)
+                .HasForeignKey("ObjectId");
         }
     }
 }

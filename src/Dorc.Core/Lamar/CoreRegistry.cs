@@ -28,7 +28,6 @@ namespace Dorc.Core.Lamar
             For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
 
             For<IEnvBackups>().Use<EnvSnapBackups>();
-            For<IActiveDirectorySearcher>().Use<ActiveDirectorySearcher>();
             For<IPropertyExpressionEvaluator>().Use<PropertyExpressionEvaluator>();
         }
     }

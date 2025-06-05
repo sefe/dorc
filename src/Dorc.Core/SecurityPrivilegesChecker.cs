@@ -54,14 +54,14 @@ namespace Dorc.Core
         {
             var env = _environmentsPersistentSource.GetEnvironment(environmentName);
             var userApiModels = _usersPersistentSource.GetEnvironmentUsers(env.EnvironmentId, UserAccountType.NotSet);
-            string username = _claimsPrincipalReader.GetUserName(user);
+            string username = _claimsPrincipalReader.GetUserLogin(user);
             return _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user) || userApiModels.Any(u => u.LanId == username);
         }
 
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
-            return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets);
+            return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets | AccessLevel.Owner);
         }
 
         public bool CanModifyProject(ClaimsPrincipal user, string projectName)
