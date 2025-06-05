@@ -394,7 +394,11 @@ export class AddEditEnvironment extends LitElement {
                   });
                   this.dispatchEvent(event);
                 }
-              }
+              },
+              error: (err: any) => {
+                console.error(err?.response?.ExceptionMessage);
+                this.ErrorMessage = err?.response?.ExceptionMessage ?? err?.response;
+              },
             });
         } else {
           this.setFoundOwnerLocally();
