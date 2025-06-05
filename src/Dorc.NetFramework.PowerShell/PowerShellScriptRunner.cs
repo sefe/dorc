@@ -67,13 +67,18 @@ namespace Dorc.NetFramework.PowerShell
                             // create a data collection for standard output
                             var outputCollection = new PSDataCollection<PSObject>();
                             // and register the event handler on that too
-                            //outputCollection.DataAdded += (sender, e) =>
-                            //{
-                            //    var data = sender as PSDataCollection<string>;
-                            //    var msg = GetOutput(data[e.Index]);
-                            //    if (string.IsNullOrWhiteSpace(msg)) return;
-                            //    LogMessage(msg, MessageType.None);
-                            //};
+                            outputCollection.DataAdded += (sender, e) =>
+                            {
+                                logger.FileLogger.Debug("outputCollection.DataAdded1");
+                                var data = sender as PSDataCollection<string>;
+                                logger.FileLogger.Debug("outputCollection.DataAdded2");
+                                var msg = GetOutput(data[e.Index]);
+                                logger.FileLogger.Debug("outputCollection.DataAdded3");
+                                if (string.IsNullOrWhiteSpace(msg)) return;
+                                logger.FileLogger.Debug("outputCollection.DataAdded4");
+                                LogMessage(msg, MessageType.None);
+                                logger.FileLogger.Debug("outputCollection.DataAdded5");
+                            };
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
                             powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
