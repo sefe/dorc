@@ -75,7 +75,7 @@ namespace Dorc.NetFramework.PowerShell
                             };
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
-                            powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
+                            //powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
                             //outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
