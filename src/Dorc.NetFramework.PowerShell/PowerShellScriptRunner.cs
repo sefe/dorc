@@ -69,7 +69,7 @@ namespace Dorc.NetFramework.PowerShell
                             // and register the event handler on that too
                             outputCollection.DataAdded += (sender, e) =>
                             {
-                                var data = sender as PSDataCollection<string>;
+                                var data = sender as PSDataCollection<PSObject>;
                                 logger.FileLogger.Information($"outputCollection.DataAdded2 typeof(sender) = {sender?.ToString()}");
                                 logger.FileLogger.Information($"outputCollection.DataAdded2 data is null = {data == null} e is null = {e == null}");
                                 var msg = GetOutput(data[e.Index]);
