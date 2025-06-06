@@ -70,18 +70,13 @@ namespace Dorc.NetFramework.PowerShell
                             outputCollection.DataAdded += (sender, e) =>
                             {
                                 var data = sender as PSDataCollection<PSObject>;
-                                logger.FileLogger.Information($"outputCollection.DataAdded1 typeof(sender) = {sender?.ToString()}");
-                                logger.FileLogger.Information($"outputCollection.DataAdded2 data is null = {data == null} e is null = {e == null}");
                                 var msg = GetOutput(data[e.Index]);
-                                logger.FileLogger.Information("outputCollection.DataAdded3");
                                 if (string.IsNullOrWhiteSpace(msg)) return;
                                 LogMessage(msg, MessageType.None);
-                                logger.FileLogger.Information("outputCollection.DataAdded4");
                             };
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
                             powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
-                            //outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
                             {
@@ -193,13 +188,9 @@ namespace Dorc.NetFramework.PowerShell
 
         void Powershell_Error_DataAdded(object sender, DataAddedEventArgs e)
         {
-            LogMessage("Powershell_Error_DataAdded 1", MessageType.Info);
             var data = (PSDataCollection<ErrorRecord>)sender;
-            LogMessage("Powershell_Error_DataAdded 2", MessageType.Info);
             var msg = GetErrorRecordData(data[e.Index]);
-            LogMessage("Powershell_Error_DataAdded 3", MessageType.Info);
             LogMessage(msg, MessageType.Error);
-            LogMessage("Powershell_Error_DataAdded 4", MessageType.Info);
         }
 
         private void Powershell_Output_DataAdded(object sender, DataAddedEventArgs e)
