@@ -21,7 +21,7 @@ import '../components/hegs-dialog';
 import { HegsDialog } from './hegs-dialog';
 import { ServerApiModel } from '../apis/dorc-api';
 import type { EnvironmentContentApiModel } from '../apis/dorc-api';
-import { splitTags } from '../utils/tag-utils';
+import { splitTags } from '../helpers/tag-parser';
 
 @customElement('attached-servers')
 export class AttachedServers extends LitElement {

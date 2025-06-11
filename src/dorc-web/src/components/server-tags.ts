@@ -6,7 +6,7 @@ import { Notification } from '@vaadin/notification';
 import { TagsInput } from './tags-input';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
-import { splitTags, joinTags } from '../utils/tag-utils';
+import { splitTags, joinTags } from '../helpers/tag-parser';
 
 @customElement('server-tags')
 export class ServerTags extends LitElement {
