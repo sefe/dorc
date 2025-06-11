@@ -42,7 +42,7 @@ import '../components/server-tags';
 import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
-import { splitTags } from '../utils/tag-utils';
+import { splitTags } from '../helpers/tag-parser';
 
 const environmentNames = 'EnvironmentNames';
 const name = 'Name';
