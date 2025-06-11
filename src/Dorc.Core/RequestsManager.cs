@@ -100,7 +100,7 @@ namespace Dorc.Core
 
                 var uiOutput = output.Select(i => new DeployableArtefact { Id = i.Id.ToString(), Name = i.Project.Name + "; " + i.Name });
 
-                return uiOutput;
+                return uiOutput.OrderBy(d => d.Name);
 
             }
             catch (Exception ex)
@@ -158,7 +158,7 @@ namespace Dorc.Core
                 else
                     output = new List<DeployableArtefact>();
 
-                return output;
+                return output.OrderBy(b => b.Name);
             }
             catch (Exception ex)
             {

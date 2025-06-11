@@ -6,6 +6,7 @@ import { Notification } from '@vaadin/notification';
 import { TagsInput } from './tags-input';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
+import { splitTags, joinTags } from '../utils/tag-utils';
 
 @customElement('server-tags')
 export class ServerTags extends LitElement {
@@ -44,21 +45,13 @@ export class ServerTags extends LitElement {
 
   public setTags(server: ServerApiModel) {
     this._server = server;
-
-    if (this._server?.ApplicationTags?.length === 0) {
-      this.tags = [];
-    } else {
-      const tagsStrings = this._server?.ApplicationTags?.split(';');
-      if (tagsStrings !== undefined) {
-        this.tags = tagsStrings;
-      }
-    }
+    this.tags = splitTags(this._server?.ApplicationTags);
   }
 
   public save() {
     if (this._server !== undefined) {
       const tags = this.tagsInput?.tags;
-      this._server.ApplicationTags = tags?.join(';');
+      this._server.ApplicationTags = joinTags(tags);
 
       const api = new RefDataServersApi();
       const server: ServerApiModel = {};
@@ -75,7 +68,7 @@ export class ServerTags extends LitElement {
         .subscribe({
           next: () => {
             const oldTags = this.tags;
-            const newTags = server.ApplicationTags?.split(';');
+            const newTags = splitTags(server.ApplicationTags);
             const removed = oldTags?.filter(x => !newTags?.includes(x));
             let removedTags = '';
             if (removed.length > 0) {
