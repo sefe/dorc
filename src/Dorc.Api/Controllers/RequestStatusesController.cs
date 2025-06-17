@@ -37,19 +37,26 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put([FromBody] PagedDataOperators operators, int page = 1, int limit = 50)
         {
-            var requestStatusesListResponseDto = _requestsStatusPersistentSource.GetRequestStatusesByPage(limit,
-                page, operators, User);
-
-            var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
-            if (!isAdmin)
-                return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
-
-            foreach (var prop in requestStatusesListResponseDto.Items)
+            try
             {
-                prop.UserEditable = true;
-            }
+                var requestStatusesListResponseDto = _requestsStatusPersistentSource.GetRequestStatusesByPage(limit,
+                    page, operators, User);
 
-            return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
+                var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
+                if (!isAdmin)
+                    return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
+
+                foreach (var prop in requestStatusesListResponseDto.Items)
+                {
+                    prop.UserEditable = true;
+                }
+
+                return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
+            }
+            catch (ArgumentException exception)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, exception.Message);
+            }
         }
 
         /// <summary>
