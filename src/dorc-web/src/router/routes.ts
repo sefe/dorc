@@ -13,11 +13,11 @@ import '../components/environment-tabs/env-servers.ts'
 import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
 import '../components/environment-tabs/env-tenants.ts'
+import '../components/environment-tabs/env-bundles.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-list.ts'
 import '../pages/page-databases-list.ts'
-import '../pages/page-deploy.ts'
 import '../pages/page-deploy.ts'
 import '../pages/page-env-history.ts'
 import '../pages/page-environment.ts'
@@ -328,6 +328,14 @@ export const routes: Route<RouteMeta>[] = [
             metadata: {
               title: 'Tenants',
               description: 'Environment tenants details'
+            }
+          },
+          {
+            path: '/bundles',
+            component: 'env-bundles',
+            metadata: {
+              title: 'Bundles',
+              description: 'Environment bundles details'
             }
           }
         ]
