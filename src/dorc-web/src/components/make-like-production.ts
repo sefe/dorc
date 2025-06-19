@@ -5,6 +5,7 @@ import '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
+  BundledRequestsApi,
   BundledRequestsApiModel,
   MakeLikeProdApi, PropertiesApi,
   PropertyApiModel,
@@ -27,9 +28,9 @@ export class MakeLikeProduction extends LitElement {
   set mappedProjects(value: string[] | undefined) {
     this._mappedProjects = value;
 
-    const api = new MakeLikeProdApi();
+    const api = new BundledRequestsApi();
     api
-      .makeLikeProdBundledRequestsGet({ projectNames: this._mappedProjects })
+      .bundledRequestsGet({ projectNames: this._mappedProjects })
       .subscribe({
         next: (data: BundledRequestsApiModel[]) => {
           this.bundleRequests = data;

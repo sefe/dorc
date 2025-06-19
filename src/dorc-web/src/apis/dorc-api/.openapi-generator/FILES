@@ -5,6 +5,7 @@ apis/AnalyticsDeploymentsDateApi.ts
 apis/AnalyticsDeploymentsMonthApi.ts
 apis/ApiConfigApi.ts
 apis/ApiRootApi.ts
+apis/BundledRequestsApi.ts
 apis/DaemonStatusApi.ts
 apis/DelegatedUsersApi.ts
 apis/DeploymentV2Api.ts

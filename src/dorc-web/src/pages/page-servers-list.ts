@@ -42,6 +42,7 @@ import '../components/server-tags';
 import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
+import { splitTags } from '../helpers/tag-parser';
 
 const environmentNames = 'EnvironmentNames';
 const name = 'Name';
@@ -685,12 +686,7 @@ export class PageServersList extends PageElement {
     model: GridItemModel<ServerApiModel>
   ) => {
     const server = model.item;
-    const appTags =
-      server.ApplicationTags !== undefined &&
-      server.ApplicationTags !== null &&
-      server.ApplicationTags.length > 0
-        ? server.ApplicationTags?.split(';')
-        : [];
+    const appTags = splitTags(server.ApplicationTags);
 
     render(
       html`

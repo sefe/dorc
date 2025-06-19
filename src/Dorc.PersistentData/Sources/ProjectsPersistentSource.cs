@@ -92,7 +92,6 @@ namespace Dorc.PersistentData.Sources
                     return components;
                 }
 
-                components.Add(new ComponentApiModel());
                 return components;
             }
         }

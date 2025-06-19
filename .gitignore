@@ -382,3 +382,4 @@ GitExtensions.settings.backup
 /src/dorc-web/.idea/
 
 src/.NCrunch_Dorc/
+.idea

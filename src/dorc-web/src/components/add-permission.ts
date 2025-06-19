@@ -5,6 +5,7 @@ import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { PermissionDto } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
 import { RefDataPermissionApi } from '../apis/dorc-api';
 
 @customElement('add-permission')
@@ -119,21 +120,26 @@ export class AddPermission extends LitElement {
     this.permission.DisplayName = this.displayName.trim();
     this.permission.PermissionName = this.permissionName.trim();
 
-    api.refDataPermissionPost({ permissionDto: this.permission }).subscribe(
-      () => {
+    api.refDataPermissionPost({ permissionDto: this.permission }).subscribe({
+      next: () => {
         this._addPermission(this.permission);
       },
-      (err: any) => {
+      error: (err: any) => {
         this.overlayMessage = 'Error creating permission!';
         if (err?.response)
           this.errorMessage =  err.response;
         console.error(err);
       },
-      () => {
+      complete: () => {
         console.log('done adding permission');
         this.reset();
+        Notification.show(`Permission added successfully`, {
+                      theme: 'success',
+                      position: 'bottom-start',
+                      duration: 3000
+                    });
       }
-    );
+    });
   }
 
   _addPermission(data: PermissionDto) {
