@@ -55,7 +55,7 @@ namespace Dorc.PersistentData.Extensions
             if (propertyExp.Type == typeof(int))
             {
                 if (!int.TryParse(propertyValue, out var intPropVal))
-                    throw new Exception("Invalid value detected for column");
+                    throw new ArgumentException($"Invalid value detected for column '{propertyName}', must be integer");
 
                 var method = typeof(int).GetMethod("Equals", new[] { typeof(int) });
 

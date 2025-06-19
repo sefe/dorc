@@ -25,6 +25,7 @@ import { AccessControlApi } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
 import { ErrorNotification } from './notifications/error-notification';
+import { Notification } from '@vaadin/notification';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
@@ -355,6 +356,11 @@ export class AddEditAccessControl extends LitElement {
       complete: () => {
         console.log('completed saving updated access controls');
         this.close();
+        Notification.show(`Access controls updated successfully`, {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 3000
+        });
       }
     });
   }
