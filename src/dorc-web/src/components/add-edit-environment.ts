@@ -17,7 +17,7 @@ import '../icons/line awesome-svg.js';
 import { Notification } from '@vaadin/notification';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import {
-  ActiveDirectoryElementApiModel,
+  UserElementApiModel,
   RefDataEnvironmentsApi,
   RefDataEnvironmentsUsersApi
 } from '../apis/dorc-api';
@@ -30,7 +30,7 @@ export class AddEditEnvironment extends LitElement {
 
   @property() ErrorMessage = '';
 
-  @property({ type: Array }) searchResults!: ActiveDirectoryElementApiModel[];
+  @property({ type: Array }) searchResults!: UserElementApiModel[];
 
   @property({ type: Boolean }) searchingUsers = false;
 
@@ -373,7 +373,8 @@ export class AddEditEnvironment extends LitElement {
         this.environment !== undefined &&
         this.environment.Details !== undefined
       ) {
-        this.environment.Details.EnvironmentOwner = found.Username;
+        this.environment.Details.EnvironmentOwner = found.DisplayName;
+        this.environment.Details.EnvironmentOwnerId = found.Pid;
 
         if (!this.addMode) {
           const api = new RefDataEnvironmentsUsersApi();
@@ -393,7 +394,11 @@ export class AddEditEnvironment extends LitElement {
                   });
                   this.dispatchEvent(event);
                 }
-              }
+              },
+              error: (err: any) => {
+                console.error(err?.response?.ExceptionMessage);
+                this.ErrorMessage = err?.response?.ExceptionMessage ?? err?.response;
+              },
             });
         } else {
           this.setFoundOwnerLocally();
@@ -407,7 +412,7 @@ export class AddEditEnvironment extends LitElement {
   searchResultsRenderer(
     root: HTMLElement,
     _comboBox: ComboBox,
-    model: ComboBoxItemModel<ActiveDirectoryElementApiModel>
+    model: ComboBoxItemModel<UserElementApiModel>
   ) {
     render(
       html` <vaadin-vertical-layout>
@@ -463,7 +468,7 @@ export class AddEditEnvironment extends LitElement {
         search: this.searchADValue
       })
       .subscribe({
-        next: (data: Array<ActiveDirectoryElementApiModel>) => {
+        next: (data: Array<UserElementApiModel>) => {
           this.searchResults = data;
           this.searchingUsers = false;
           const combo = this.shadowRoot?.getElementById(
@@ -492,10 +497,10 @@ export class AddEditEnvironment extends LitElement {
             search: this.environment.Details?.EnvironmentOwner ?? ''
           })
           .subscribe({
-            next: (data: Array<ActiveDirectoryElementApiModel>) => {
-              const user = data.find(
-                u => u.Username === this.environment.Details?.EnvironmentOwner
-              );
+            next: (data: Array<UserElementApiModel>) => {
+                const user = data.length === 1 
+                ? data[0] 
+                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId);
               if (user)
                 this.EnvOwnerDisplayName =
                   user.DisplayName !== null ? user.DisplayName : undefined;
@@ -536,6 +541,7 @@ export class AddEditEnvironment extends LitElement {
       Details: {
         Description: '',
         EnvironmentOwner: 'NotSet',
+        EnvironmentOwnerId: '',
         FileShare: '',
         LastUpdated: '',
         Notes: '',

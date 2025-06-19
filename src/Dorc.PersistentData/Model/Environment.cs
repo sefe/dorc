@@ -5,7 +5,6 @@
         public int Id { get; set; }
         public bool Secure { get; set; }
         public bool IsProd { get; set; }
-        public string? Owner { get; set; }
         public string? ThinClientServer { get; set; }
         public string? RestoredFromBackup { get; set; }
         public DateTime? LastUpdate { get; set; }
@@ -22,5 +21,6 @@
         public ICollection<Project> Projects { get; set; } = new List<Project>();
         public Environment? ParentEnvironment { get; set; } = null;
         public ICollection<Environment> ChildEnvironments { get; set; } = new List<Environment>();
+        public ICollection<AccessControl> AccessControls { get; set; } = new List<AccessControl>();
     }
 }

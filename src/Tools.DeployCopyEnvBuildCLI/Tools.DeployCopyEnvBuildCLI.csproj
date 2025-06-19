@@ -47,7 +47,7 @@
     <PackageReference Include="Microsoft.AspNetCore.SystemWebAdapters" Version="1.4.0" />
     <PackageReference Include="EntityFramework" Version="6.5.1" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.5" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
   </ItemGroup>

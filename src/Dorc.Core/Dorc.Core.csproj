@@ -5,8 +5,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.14.0" />
     <PackageReference Include="log4net" Version="2.0.17" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.11.0" />
+    <PackageReference Include="Microsoft.Graph" Version="5.78.0" />
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.5" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="171.30.0" />
     <PackageReference Include="NSwag.ApiDescription.Client" Version="14.1.0">

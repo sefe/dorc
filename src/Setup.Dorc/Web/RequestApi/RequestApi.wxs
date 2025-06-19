@@ -60,6 +60,8 @@
 		<Json:JsonFile Id="OpenSearchSettingsUserNameConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 		<Json:JsonFile Id="OpenSearchSettingsPasswordConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
 		<Json:JsonFile Id="OpenSearchSettingsDeploymentResultIndexConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
+		<Json:JsonFile Id="IdentityServerClientId" ElementPath="$.AppSettings.IdentityServerClientId" File="[#DeployApiWebConfig]" Value="[IDENTITYSERVER.CLIENTID]" />
+		<Json:JsonFile Id="IdentityServerApiSecretItemId" ElementPath="$.AppSettings.OnePassword.IdentityServerApiSecretItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -116,6 +118,8 @@
 		  <Json:JsonFile Id="OpenSearchSettingsUserNameConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 		  <Json:JsonFile Id="OpenSearchSettingsPasswordConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
 		  <Json:JsonFile Id="OpenSearchSettingsDeploymentResultIndexConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
+      <Json:JsonFile Id="IdentityServerClientIdProd" ElementPath="$.AppSettings.IdentityServerClientId" File="[#DeployApiWebConfig]" Value="[IDENTITYSERVER.CLIENTID]" />
+      <Json:JsonFile Id="IdentityServerApiSecretItemIdProd" ElementPath="$.AppSettings.OnePassword.IdentityServerApiSecretItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID]" />
 	  </Component>
   </Fragment>
 </Wix>

@@ -52,7 +52,6 @@ models/AccessControlApiModel.ts
 models/AccessControlType.ts
 models/AccessSecureApiModel.ts
 models/AccountGranularity.ts
-models/ActiveDirectoryElementApiModel.ts
 models/AnalyticsDeploymentsPerProjectApiModel.ts
 models/ApiBoolResult.ts
 models/ApiConfigModel.ts
@@ -115,6 +114,7 @@ models/ServiceStatusApiModel.ts
 models/SqlPortApiModel.ts
 models/UserAccountType.ts
 models/UserApiModel.ts
+models/UserElementApiModel.ts
 models/UserPermDto.ts
 models/UserSearchResult.ts
 models/index.ts

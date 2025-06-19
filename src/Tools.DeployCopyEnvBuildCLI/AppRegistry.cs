@@ -1,4 +1,5 @@
 ﻿using Dorc.Core;
+using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
 using log4net;
@@ -10,7 +11,7 @@ namespace Tools.DeployCopyEnvBuildCLI
         public AppRegistry()
         {
             For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
-            For<IClaimsPrincipalReader>().Use<WinAuthClaimsPrincipalReader>();
+            For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
         }
     }
 }

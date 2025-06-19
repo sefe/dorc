@@ -16,6 +16,8 @@ namespace Dorc.PersistentData.Sources
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
+        protected override IClaimsPrincipalReader ClaimsPrincipalReader => _claimsPrincipalReader;
+
         public ServersPersistentSource(
             IDeploymentContextFactory contextFactory,
             IRolePrivilegesChecker rolePrivilegesChecker,
@@ -86,8 +88,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                string username = _claimsPrincipalReader.GetUserName(user);
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
                 var reqStatusesQueryable = context.Servers.Include(server => server.Environments).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
@@ -220,8 +221,7 @@ namespace Dorc.PersistentData.Sources
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
-                string username = _claimsPrincipalReader.GetUserName(user);
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context, svr.Environments.Select(ed => ed.Name));
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context, svr.Environments.Select(ed => ed.Name));
 
                 var serverApiModel = new ServerApiModel
                 {
@@ -254,8 +254,7 @@ namespace Dorc.PersistentData.Sources
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
-                string username = _claimsPrincipalReader.GetUserName(user);
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context, svr.Environments.Select(ed => ed.Name));
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context, svr.Environments.Select(ed => ed.Name));
 
                 var serverApiModel = new ServerApiModel
                 {
