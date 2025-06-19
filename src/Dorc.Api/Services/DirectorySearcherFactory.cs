@@ -10,7 +10,7 @@ namespace Dorc.Api.Services
     public class DirectorySearcherFactory : IDirectorySearcherFactory
     {
         private readonly ActiveDirectorySearcher _adSearcher;
-        private readonly CompositeActiveDirectorySearcher _oauthDirectorySearcher;
+        private readonly IActiveDirectorySearcher _oauthDirectorySearcher;
 
         public DirectorySearcherFactory(IConfigurationSettings config,
             IMemoryCache cache,
@@ -19,13 +19,22 @@ namespace Dorc.Api.Services
         {
             var adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
             var azEntraSearcher = new AzureEntraSearcher(config, log);
-            var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, log);
-            var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
-                new List<IActiveDirectorySearcher> { azEntraSearcher, identityServerSearcher },
-                log);
 
-            _adSearcher = adSearcher;
-            _oauthDirectorySearcher = compositeOauthSearcher;
+            if (config.GetIsUseIdentityServerAsSearcher() == false)
+            {
+                _oauthDirectorySearcher = azEntraSearcher;
+            }
+            else
+            {
+                var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, log);
+
+                var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
+                    new List<IActiveDirectorySearcher> { azEntraSearcher, identityServerSearcher },
+                    log);
+                _oauthDirectorySearcher = compositeOauthSearcher;
+            }
+
+            _adSearcher = adSearcher;            
         }
 
         public IActiveDirectorySearcher GetActiveDirectorySearcher()
