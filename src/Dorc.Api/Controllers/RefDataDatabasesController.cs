@@ -124,6 +124,20 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Get Databas ServerNames list
+        /// </summary>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<String?>))]
+        [HttpGet]
+        [Route("GetDatabasServerNameslist")]
+        public IActionResult GetDatabasServerNameslist()
+        {
+            var result = _databasesPersistentSource.GetDatabasServerNameslist();
+
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Edit database entry
         /// </summary>
         /// <param name="id"></param>

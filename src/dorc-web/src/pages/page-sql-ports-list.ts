@@ -1,11 +1,12 @@
-import { css } from 'lit';
+import { css, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '../components/add-edit-server';
+import '../components/add-sql-port';
 import '@polymer/paper-dialog';
+import { PaperDialogElement } from '@polymer/paper-dialog';
 import '@vaadin/text-field';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -27,7 +28,10 @@ export class PageSqlPortsList extends PageElement {
 
   constructor() {
     super();
-
+    this.getSqlPortsList();
+  }
+  
+  private getSqlPortsList() {
     const api = new RefDataSqlPortsApi();
     api.refDataSqlPortsGet().subscribe(
       (data: SqlPortApiModel[]) => {
@@ -111,11 +115,11 @@ export class PageSqlPortsList extends PageElement {
       </div>
       <paper-dialog
         class="size-position"
-        id="add-server"
+        id="add-sqlport-dialog"
         allow-click-through
         modal
       >
-        <!--        <add-server id="attach-environments"></add-server>-->
+        <add-sql-port id="add-sql-port"></add-sql-port>
         <div style="display: flex; justify-content: flex-end">
           <vaadin-button dialog-confirm>Close</vaadin-button>
         </div>
@@ -148,6 +152,24 @@ export class PageSqlPortsList extends PageElement {
               ></vaadin-grid-sort-column>
             </vaadin-grid>
           `} `;
+  }  
+
+  firstUpdated(_changedProperties: PropertyValues) {
+    super.firstUpdated(_changedProperties);
+  
+    this.addEventListener(
+      'sqlport-created',
+      this.sqlPortCreated as EventListener
+    );
+  }
+  
+  sqlPortCreated() {
+    this.getSqlPortsList();
+  
+    const dialog = this.shadowRoot?.getElementById(
+      'add-sqlport-dialog'
+    ) as PaperDialogElement;
+    dialog.close();
   }
 
   updateSearch(e: CustomEvent) {
@@ -171,7 +193,9 @@ export class PageSqlPortsList extends PageElement {
   }
 
   addSqlPort() {
-    alert('Not ready yet :(');
-    console.log('Not Implemented');
+    const dialog = this.shadowRoot?.getElementById('add-sqlport-dialog') as PaperDialogElement;
+    dialog.open();
+    // alert('Not ready yet :(');
+    // console.log('Not Implemented');
   }
 }

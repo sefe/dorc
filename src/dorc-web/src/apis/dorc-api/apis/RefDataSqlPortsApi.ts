@@ -14,23 +14,17 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
-    PermissionDto,
     SqlPortApiModel,
 } from '../models';
 
 export interface RefDataSqlPortsDeleteRequest {
-    id?: number;
+    sqlPortApiModel?: SqlPortApiModel;
 }
 
 export interface RefDataSqlPortsPostRequest {
-    permissionDto?: PermissionDto;
-}
-
-export interface RefDataSqlPortsPutRequest {
-    id?: number;
-    permissionDto?: PermissionDto;
+    sqlPortApiModel?: SqlPortApiModel;
 }
 
 /**
@@ -40,18 +34,19 @@ export class RefDataSqlPortsApi extends BaseAPI {
 
     /**
      */
-    refDataSqlPortsDelete({ id }: RefDataSqlPortsDeleteRequest): Observable<void>
-    refDataSqlPortsDelete({ id }: RefDataSqlPortsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    refDataSqlPortsDelete({ id }: RefDataSqlPortsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+    refDataSqlPortsDelete({ sqlPortApiModel }: RefDataSqlPortsDeleteRequest): Observable<void>
+    refDataSqlPortsDelete({ sqlPortApiModel }: RefDataSqlPortsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    refDataSqlPortsDelete({ sqlPortApiModel }: RefDataSqlPortsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
-        const query: HttpQuery = {};
-
-        if (id != null) { query['id'] = id; }
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+        };
 
         return this.request<void>({
             url: '/RefDataSqlPorts',
             method: 'DELETE',
-            query,
+            headers,
+            body: sqlPortApiModel,
         }, opts?.responseOpts);
     };
 
@@ -68,9 +63,9 @@ export class RefDataSqlPortsApi extends BaseAPI {
 
     /**
      */
-    refDataSqlPortsPost({ permissionDto }: RefDataSqlPortsPostRequest): Observable<void>
-    refDataSqlPortsPost({ permissionDto }: RefDataSqlPortsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    refDataSqlPortsPost({ permissionDto }: RefDataSqlPortsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+    refDataSqlPortsPost({ sqlPortApiModel }: RefDataSqlPortsPostRequest): Observable<void>
+    refDataSqlPortsPost({ sqlPortApiModel }: RefDataSqlPortsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    refDataSqlPortsPost({ sqlPortApiModel }: RefDataSqlPortsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
@@ -80,30 +75,7 @@ export class RefDataSqlPortsApi extends BaseAPI {
             url: '/RefDataSqlPorts',
             method: 'POST',
             headers,
-            body: permissionDto,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    refDataSqlPortsPut({ id, permissionDto }: RefDataSqlPortsPutRequest): Observable<void>
-    refDataSqlPortsPut({ id, permissionDto }: RefDataSqlPortsPutRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    refDataSqlPortsPut({ id, permissionDto }: RefDataSqlPortsPutRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
-
-        const headers: HttpHeaders = {
-            'Content-Type': 'application/json',
-        };
-
-        const query: HttpQuery = {};
-
-        if (id != null) { query['id'] = id; }
-
-        return this.request<void>({
-            url: '/RefDataSqlPorts',
-            method: 'PUT',
-            headers,
-            query,
-            body: permissionDto,
+            body: sqlPortApiModel,
         }, opts?.responseOpts);
     };
 
