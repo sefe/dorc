@@ -195,7 +195,5 @@ export class PageSqlPortsList extends PageElement {
   addSqlPort() {
     const dialog = this.shadowRoot?.getElementById('add-sqlport-dialog') as PaperDialogElement;
     dialog.open();
-    // alert('Not ready yet :(');
-    // console.log('Not Implemented');
   }
 }
