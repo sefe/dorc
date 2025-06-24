@@ -130,8 +130,8 @@ export class EnvBundles extends PageEnvBase {
   }
 
   private _openAddBundleDialog() {
-    const projectId = this.envContent?.MappedProjects?.[0]?.ProjectId || null;
-    this.bundleEditorDialog.openNew(projectId);
+    const projects = this.envContent?.MappedProjects;
+    this.bundleEditorDialog.openNew(projects);
   }
 
   private _handleBundleSaved(e: CustomEvent) {

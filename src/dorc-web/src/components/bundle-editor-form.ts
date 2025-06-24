@@ -10,7 +10,8 @@ import '@vaadin/horizontal-layout';
 import {
   BundledRequestsApiModel,
   BundledRequestType,
-  BundledRequestsApi
+  BundledRequestsApi,
+  ProjectApiModel
 } from '../apis/dorc-api';
 import { BundleEditorDialog } from './bundle-editor-dialog';
 import * as ace from 'ace-builds';
@@ -41,6 +42,9 @@ export class BundleEditorForm extends LitElement {
 
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {};
+  
+  @property({ type: Array})
+  projects: ProjectApiModel[] | null  = [];
 
   @property({ type: Boolean })
   isEdit = false;
@@ -86,6 +90,21 @@ export class BundleEditorForm extends LitElement {
             style="width: 100%;"
             placeholder="Select a type"
             helper-text="JobRequest is a regular deployment, CopyEnvBuild copies environment state"
+          ></vaadin-combo-box>
+        </div>
+
+        <div class="field-container">
+          <vaadin-combo-box
+            id="bundleProjectId"
+            label="Project"
+            .items="${this.projects}"
+            item-label-path="ProjectName"
+            item-value-path="ProjectId"
+            .value="${this.bundleRequest.ProjectId}"
+            @value-changed="${(e: CustomEvent) =>
+              this._updateValue('ProjectId', parseInt(e.detail.value, 10))}"
+            style="width: 100%;"
+            placeholder="Select a Project"
           ></vaadin-combo-box>
         </div>
 
@@ -338,6 +357,11 @@ export class BundleEditorForm extends LitElement {
 
     if (this.bundleRequest.Type === undefined) {
       this._showError('Type is required');
+      return false;
+    }
+
+    if (!this.bundleRequest.ProjectId) {
+      this._showError('Project is required');
       return false;
     }
 
