@@ -116,6 +116,17 @@ export class RefDataDatabasesApi extends BaseAPI {
 
     /**
      */
+    refDataDatabasesGetDatabasServerNameslistGet(): Observable<Array<string>>
+    refDataDatabasesGetDatabasServerNameslistGet(opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
+    refDataDatabasesGetDatabasServerNameslistGet(opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
+        return this.request<Array<string>>({
+            url: '/RefDataDatabases/GetDatabasServerNameslist',
+            method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataDatabasesIdGet({ id }: RefDataDatabasesIdGetRequest): Observable<DatabaseApiModel>
     refDataDatabasesIdGet({ id }: RefDataDatabasesIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseApiModel>>
     refDataDatabasesIdGet({ id }: RefDataDatabasesIdGetRequest, opts?: OperationOpts): Observable<DatabaseApiModel | AjaxResponse<DatabaseApiModel>> {
