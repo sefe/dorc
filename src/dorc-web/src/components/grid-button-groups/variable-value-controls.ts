@@ -60,7 +60,7 @@ export class VariableValueControls extends LitElement {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;
             }}"
-            style="width: 720px; padding: 0px"
+            style="width: 80%; padding: 0px"
           ></vaadin-password-field>`
         : html` <vaadin-text-field
             id="${`propValue${this.value?.Id}`}"
@@ -71,7 +71,7 @@ export class VariableValueControls extends LitElement {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;
             }}"
-            style="width: 720px; padding: 0px"
+            style="width: 80%; padding: 0px"
           ></vaadin-text-field>`}
 
       <vaadin-button

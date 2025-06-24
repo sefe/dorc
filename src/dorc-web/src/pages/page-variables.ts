@@ -868,6 +868,7 @@ export class PageVariables extends PageElement {
       html`<variable-value-controls
         .value="${model.item}"
         .additionalInformation="${dup}"
+        style="min-width:150px"
       >
       </variable-value-controls>`,
       root
