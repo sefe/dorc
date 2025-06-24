@@ -66,7 +66,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var found = context.Permissions.FirstOrDefault(u => u.Name == perm.PermissionName);
+                var found = context.Permissions.FirstOrDefault(u => u.Name == perm.PermissionName && u.DisplayName == perm.DisplayName);
                 if (found == null)
                 {
                     context.Permissions.Add(MapToPermssion(perm));
