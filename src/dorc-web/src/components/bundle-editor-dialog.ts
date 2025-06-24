@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '@vaadin/dialog';
-import { BundledRequestsApiModel, BundledRequestType } from '../apis/dorc-api';
+import { BundledRequestsApiModel, BundledRequestType, ProjectApiModel } from '../apis/dorc-api';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import './bundle-editor-form';
@@ -13,6 +13,9 @@ export class BundleEditorDialog extends LitElement {
       display: block;
     }
   `;
+
+  @property({ type: Array})
+  projects: ProjectApiModel[] | null  = [];
 
   @property({ type: Boolean })
   open = false;
@@ -34,6 +37,7 @@ export class BundleEditorDialog extends LitElement {
       <bundle-editor-form
         id="bundle-form"
         .bundleRequest="${this.bundleRequest}"
+        .projects="${this.projects}"
         .isEdit="${this.isEdit}"
         .dialog="${this}"
         @bundle-saved="${(e: CustomEvent) => {
@@ -89,11 +93,12 @@ export class BundleEditorDialog extends LitElement {
   /**
    * Open the dialog to create a new bundle request
    */
-  public openNew(projectId: number | null = null) {
+  public openNew(projects: ProjectApiModel[] | null = null) {
     this.isEdit = false;
+    this.projects = projects;
     this.bundleRequest = {
       BundleName: '',
-      ProjectId: projectId,
+      ProjectId: 0,
       Type: BundledRequestType.NUMBER_1,
       RequestName: '',
       Sequence: 0,
