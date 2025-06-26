@@ -53,7 +53,7 @@ namespace Dorc.NetFramework.PowerShell
                             {
                                 LogMessage(e.Message, e.MessageType);
                             };
-                            //host.HostUserInterface.MessageAdded += HostUserInterface_MessageAdded;
+                            host.HostUserInterface.MessageAdded += HostUserInterface_MessageAdded;
                             powerShell.Runspace = runspace;
 
                             if (!string.IsNullOrEmpty(scriptsLocation))
@@ -122,6 +122,39 @@ namespace Dorc.NetFramework.PowerShell
                     throw;
                 }
                 logger.FileLogger.Information($" Execution of the powershell Script {scriptName} was successful");
+            }
+        }
+
+        private void HostUserInterface_MessageAdded(object sender, MessageAddedEventArgs e)
+        {
+            try
+            {
+                var msg = e.Message;
+                if (string.IsNullOrWhiteSpace(msg)) return;
+                switch (e.MessageType)
+                {
+                    case MessageType.Info:
+                        logger.Information(msg);
+                        break;
+                    case MessageType.Verbose:
+                        logger.Verbose(msg);
+                        break;
+                    case MessageType.Warning:
+                        logger.Warning(msg);
+                        break;
+                    case MessageType.Error:
+                        logger.Error(msg);
+                        break;
+                    case MessageType.Debug:
+                        logger.Debug(msg);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            catch (Exception exception)
+            {
+                logger.Error(exception, "Exception Occured logging Information Message from powershell execution");
             }
         }
 
