@@ -12,12 +12,14 @@ namespace Dorc.Core.VariableResolution
         private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
+        private readonly ILog _logger;
 
         public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILog logger, IPropertyEvaluator propertyEvaluator)
         {
             _propertyEvaluator = propertyEvaluator;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _expressionEvaluator = new PropertyExpressionEvaluator(logger);
+            _logger = logger;
         }
 
         public bool PropertiesLoaded()
@@ -42,36 +44,46 @@ namespace Dorc.Core.VariableResolution
             }
 
             var dictionary = localProperties.Keys.AsParallel()
-                .ToDictionary(x => x, GetPropertyValue);
+                .Select(x => new { Key = x, Value = GetPropertyValue(x) })
+                .Where(x => x.Value != null)
+                .ToDictionary(x => x.Key, x => x.Value!);
 
             return dictionary;
         }
 
         public VariableValue? GetPropertyValue(string property)
         {
-            VariableValue? propertyValue;
-            if (localProperties.ContainsKey(property))
+            try
             {
-                if (_propertyValuesPersistentSource.IsCachedPropertySecure(property))
-                    return localProperties[property];
+                VariableValue? propertyValue;
+                if (localProperties.ContainsKey(property))
+                {
+                    if (_propertyValuesPersistentSource.IsCachedPropertySecure(property))
+                        return localProperties[property];
 
-                propertyValue = EvaluatePropertyValue(localProperties[property]);
+                    propertyValue = EvaluatePropertyValue(localProperties[property]);
+                }
+                else
+                {
+                    var repositoryValue = _propertyValuesPersistentSource.GetCachedPropertyValue(property);
+                    if (repositoryValue == null)
+                        return null;
+
+                    var variableValue = new VariableValue { Value = repositoryValue.Value, Type = repositoryValue.Value.GetType() };
+                    if (repositoryValue.Property.Secure)
+                        return variableValue;
+
+                    propertyValue = EvaluatePropertyValue(variableValue);
+                }
+
+                var o = _expressionEvaluator.Evaluate(propertyValue.Value);
+                return new VariableValue { Value = o, Type = o.GetType() };
             }
-            else
+            catch (Exception ex)
             {
-                var repositoryValue = _propertyValuesPersistentSource.GetCachedPropertyValue(property);
-                if (repositoryValue == null)
-                    return null;
-
-                var variableValue = new VariableValue { Value = repositoryValue.Value, Type = repositoryValue.Value.GetType() };
-                if (repositoryValue.Property.Secure)
-                    return variableValue;
-
-                propertyValue = EvaluatePropertyValue(variableValue);
+                _logger.Error($"Failed to evaluate property '{property}': {ex.Message}", ex);
+                return null;
             }
-
-            var o = _expressionEvaluator.Evaluate(propertyValue.Value);
-            return new VariableValue { Value = o, Type = o.GetType() };
         }
 
         public void SetPropertyValue(string property, VariableValue? value)

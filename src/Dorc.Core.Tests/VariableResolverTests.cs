@@ -101,14 +101,8 @@ namespace Dorc.Core.Tests
 
             // Act
             IDictionary<string, VariableValue> result = null;
-            try
-            {
-                result = _resolver.LoadProperties();
-            }
-            catch
-            {
-                // This is the bug: should not throw, should skip bad property
-            }
+            result = _resolver.LoadProperties();
+            
             Assert.IsNotNull(result, "LoadProperties should not throw, but return a dictionary");
             Assert.IsTrue(result.ContainsKey(prop1), "prop1 should be loaded");
             Assert.IsTrue(result.ContainsKey(prop3), "prop3 should be loaded");
