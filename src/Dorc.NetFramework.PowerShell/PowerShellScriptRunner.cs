@@ -49,7 +49,10 @@ namespace Dorc.NetFramework.PowerShell
 
                         using (var powerShell = System.Management.Automation.PowerShell.Create())
                         {
-                            host.HostUserInterface.MessageAdded += HostUserInterface_MessageAdded;
+                            host.HostUserInterface.MessageAdded += (sender, e) =>
+                            {
+                                LogMessage(e.Message, e.MessageType);
+                            };
                             powerShell.Runspace = runspace;
 
                             if (!string.IsNullOrEmpty(scriptsLocation))
@@ -63,6 +66,16 @@ namespace Dorc.NetFramework.PowerShell
                             // create a data collection for standard output
                             var outputCollection = new PSDataCollection<PSObject>();
                             // and register the event handler on that too
+                            outputCollection.DataAdded += (sender, e) =>
+                            {
+                                var data = sender as PSDataCollection<PSObject>;
+                                var msg = GetOutput(data[e.Index]);
+                                if (string.IsNullOrWhiteSpace(msg)) return;
+                                LogMessage(msg, MessageType.None);
+                            };
+
+                            //Add only Error Stream because all other streams supported by HostUserInterface
+                            powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
                             outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
@@ -112,13 +125,12 @@ namespace Dorc.NetFramework.PowerShell
             }
         }
 
-        private void HostUserInterface_MessageAdded(object sender, MessageAddedEventArgs e)
+        private void LogMessage(string msg, MessageType type = MessageType.None)
         {
             try
             {
-                var msg = e.Message;
                 if (string.IsNullOrWhiteSpace(msg)) return;
-                switch (e.MessageType)
+                switch (type)
                 {
                     case MessageType.Info:
                         logger.Information(msg);
@@ -143,6 +155,13 @@ namespace Dorc.NetFramework.PowerShell
             {
                 logger.Error(exception, "Exception Occured logging Information Message from powershell execution");
             }
+        }
+
+        void Powershell_Error_DataAdded(object sender, DataAddedEventArgs e)
+        {
+            var data = (PSDataCollection<ErrorRecord>)sender;
+            var msg = GetErrorRecordData(data[e.Index]);
+            LogMessage(msg, MessageType.Error);
         }
 
         private void Powershell_Output_DataAdded(object sender, DataAddedEventArgs e)
