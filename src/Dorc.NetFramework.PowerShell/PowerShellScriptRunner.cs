@@ -53,7 +53,6 @@ namespace Dorc.NetFramework.PowerShell
                             {
                                 LogMessage(e.Message, e.MessageType);
                             };
-                            //host.HostUserInterface.MessageAdded += HostUserInterface_MessageAdded;
                             powerShell.Runspace = runspace;
 
                             if (!string.IsNullOrEmpty(scriptsLocation))
@@ -77,6 +76,7 @@ namespace Dorc.NetFramework.PowerShell
 
                             //Add only Error Stream because all other streams supported by HostUserInterface
                             powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
+                            outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
                             {
@@ -125,7 +125,6 @@ namespace Dorc.NetFramework.PowerShell
             }
         }
 
-
         private void LogMessage(string msg, MessageType type = MessageType.None)
         {
             try
@@ -156,34 +155,6 @@ namespace Dorc.NetFramework.PowerShell
             {
                 logger.Error(exception, "Exception Occured logging Information Message from powershell execution");
             }
-        }
-
-        void Powershell_Information_DataAdded(object sender, DataAddedEventArgs e)
-        {
-            var data = (PSDataCollection<InformationRecord>)sender;
-            var msg = data[e.Index]?.MessageData?.ToString();
-            LogMessage(msg, MessageType.Info);
-        }
-
-        void Powershell_Verbose_DataAdded(object sender, DataAddedEventArgs e)
-        {
-            var data = (PSDataCollection<VerboseRecord>)sender;
-            var msg = data[e.Index]?.Message;
-            LogMessage(msg, MessageType.Verbose);
-        }
-
-        void Powershell_Debug_DataAdded(object sender, DataAddedEventArgs e)
-        {
-            var data = (PSDataCollection<DebugRecord>)sender;
-            var msg = data[e.Index]?.Message;
-            LogMessage(msg, MessageType.Debug);
-        }
-
-        void Powershell_Warning_DataAdded(object sender, DataAddedEventArgs e)
-        {
-            var data = (PSDataCollection<WarningRecord>)sender;
-            var msg = data[e.Index].Message;
-            LogMessage(msg, MessageType.Warning);
         }
 
         void Powershell_Error_DataAdded(object sender, DataAddedEventArgs e)
