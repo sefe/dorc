@@ -158,7 +158,7 @@ namespace Dorc.Core
                 else
                     output = new List<DeployableArtefact>();
 
-                return output.OrderBy(b => b.Name);
+                return output.OrderByDescending(b => b.Name);
             }
             catch (Exception ex)
             {

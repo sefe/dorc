@@ -309,6 +309,17 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public List<String?> GetDatabasServerNameslist()
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var list = context.Databases
+                    .Where(d => d.ServerName != null && d.ServerName != "")
+                    .Select(d => d.ServerName)
+                    .Distinct().ToList();
+                return list ?? new List<String?>();
+            }
+        }
 
         public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string envFilter,
             string envName)

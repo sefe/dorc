@@ -2915,6 +2915,36 @@
         }
       }
     },
+    "/RefDataDatabases/GetDatabasServerNameslist": {
+      "get": {
+        "tags": [
+          "RefDataDatabases"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataDatabaseUsers": {
       "get": {
         "tags": [
@@ -5108,56 +5138,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
+                "$ref": "#/components/schemas/SqlPortApiModel"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
+                "$ref": "#/components/schemas/SqlPortApiModel"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "RefDataSqlPorts"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
+                "$ref": "#/components/schemas/SqlPortApiModel"
               }
             }
           }
@@ -5172,16 +5163,25 @@
         "tags": [
           "RefDataSqlPorts"
         ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SqlPortApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SqlPortApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SqlPortApiModel"
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "OK"

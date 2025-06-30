@@ -17,6 +17,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string user, string filter, string envFilter);
         GetDatabaseApiModelListResponseDto GetDatabaseApiModelByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user);
+        List<String?> GetDatabasServerNameslist();
         public IEnumerable<string> GetEnvironmentNamesForDatabaseId(int serverId);
         DatabaseApiModel? UpdateDatabase(int id, DatabaseApiModel database, IPrincipal user);
     }
