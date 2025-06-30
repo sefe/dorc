@@ -84,11 +84,11 @@ namespace Dorc.Core
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
                         requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
-                            $"accountEnabled eq true and " + // only enabled accounts
+                            $"accountEnabled eq true and (" + // only enabled accounts
                             $"startsWith(displayName,'{objectName}') or startsWith(givenName,'{objectName}') or " +
                             $"startsWith(onPremisesSamAccountName,'{objectName}') or " +
                             $"startsWith(surname,'{objectName}') or startsWith(mail,'{objectName}') or " +
-                            $"startsWith(userPrincipalName,'{objectName}')";
+                            $"startsWith(userPrincipalName,'{objectName}'))";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSamAccountName" };
                     }).Result;
