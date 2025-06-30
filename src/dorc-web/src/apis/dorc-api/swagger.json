@@ -123,7 +123,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               },
@@ -131,7 +131,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               }
@@ -3794,7 +3794,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               },
@@ -3802,7 +3802,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ActiveDirectoryElementApiModel"
+                    "$ref": "#/components/schemas/UserElementApiModel"
                   }
                 }
               }
@@ -6323,7 +6323,8 @@
           },
           "Sid": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "deprecated": true
           },
           "Allow": {
             "type": "integer",
@@ -6332,6 +6333,10 @@
           "Deny": {
             "type": "integer",
             "format": "int32"
+          },
+          "Pid": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6380,31 +6385,6 @@
         ],
         "type": "integer",
         "format": "int32"
-      },
-      "ActiveDirectoryElementApiModel": {
-        "type": "object",
-        "properties": {
-          "DisplayName": {
-            "type": "string",
-            "nullable": true
-          },
-          "Sid": {
-            "type": "string",
-            "nullable": true
-          },
-          "Username": {
-            "type": "string",
-            "nullable": true
-          },
-          "IsGroup": {
-            "type": "boolean"
-          },
-          "Email": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
       },
       "AnalyticsDeploymentsPerProjectApiModel": {
         "type": "object",
@@ -7065,6 +7045,10 @@
             "nullable": true
           },
           "EnvironmentOwner": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentOwnerId": {
             "type": "string",
             "nullable": true
           },
@@ -8050,6 +8034,31 @@
             "nullable": true
           },
           "LanIdType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserElementApiModel": {
+        "type": "object",
+        "properties": {
+          "DisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Pid": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsGroup": {
+            "type": "boolean"
+          },
+          "Email": {
             "type": "string",
             "nullable": true
           }

@@ -27,7 +27,6 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
-        private readonly IActiveDirectoryUserGroupReader _activeDirectoryReader;
         private readonly IVariableResolver _variableResolver;
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
@@ -36,7 +35,6 @@ namespace Dorc.Api.Controllers
         public MakeLikeProdController(ILog logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
-            IActiveDirectoryUserGroupReader activeDirectoryReader,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
@@ -46,7 +44,6 @@ namespace Dorc.Api.Controllers
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
             _variableResolver = variableResolver;
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;
-            _activeDirectoryReader = activeDirectoryReader;
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -204,7 +201,7 @@ namespace Dorc.Api.Controllers
 
         private string GetUserEmail(ClaimsPrincipal user)
         {
-            return _claimsPrincipalReader.GetUserEmail(user, _activeDirectoryReader);
+            return _claimsPrincipalReader.GetUserEmail(user);
         }
     }
 }

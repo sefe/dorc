@@ -1,4 +1,4 @@
-﻿using Dorc.Core;
+﻿using Dorc.Api.Interfaces;
 using Dorc.PersistentData;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
@@ -13,11 +13,14 @@ namespace Dorc.Api.Security
         private readonly WinAuthClaimsPrincipalReader _winAuthReader;
 
         public ClaimsPrincipalReaderFactory(
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IUserGroupsReaderFactory userGroupsReaderFactory
+            )
         {
             _httpContextAccessor = httpContextAccessor;
-            _oauthReader = new OAuthClaimsPrincipalReader();
-            _winAuthReader = new WinAuthClaimsPrincipalReader();
+
+            _oauthReader = new OAuthClaimsPrincipalReader(userGroupsReaderFactory.GetOAuthUserGroupsReader());
+            _winAuthReader = new WinAuthClaimsPrincipalReader(userGroupsReaderFactory.GetWinAuthUserGroupsReader());
         }
 
         public string GetUserName(IPrincipal user)
@@ -26,16 +29,28 @@ namespace Dorc.Api.Security
             return reader.GetUserName(user);
         }
 
+        public string GetUserId(ClaimsPrincipal user)
+        {
+            var reader = ResolveReader();
+            return reader.GetUserId(user);
+        }
+
+        public string GetUserLogin(IPrincipal user)
+        {
+            var reader = ResolveReader();
+            return reader.GetUserLogin(user);
+        }
+
         public string GetUserFullDomainName(IPrincipal user)
         {
             var reader = ResolveReader();
             return reader.GetUserFullDomainName(user);
         }
 
-        public string GetUserEmail(ClaimsPrincipal user, object externalReader)
+        public string GetUserEmail(ClaimsPrincipal user)
         {
             var reader = ResolveReader();
-            return reader.GetUserEmail(user, externalReader);
+            return reader.GetUserEmail(user);
         }
 
         private IClaimsPrincipalReader ResolveReader()
@@ -49,6 +64,12 @@ namespace Dorc.Api.Security
             }
 
             return _winAuthReader; // Fallback to WinAuth reader
+        }
+
+        public List<string> GetSidsForUser(IPrincipal user)
+        {
+            var reader = ResolveReader();
+            return reader.GetSidsForUser(user);
         }
     }
 }

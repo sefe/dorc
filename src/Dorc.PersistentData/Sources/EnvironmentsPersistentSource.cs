@@ -10,6 +10,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Contexts;
+using System.Security.Claims;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -21,6 +22,7 @@ namespace Dorc.PersistentData.Sources
         private readonly IPropertyValuesPersistentSource propertyValuesPersistentSource;
         private readonly ILog logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IAccessControlPersistentSource _accessControlPersistentSource;
 
         public EnvironmentsPersistentSource(
             IDeploymentContextFactory contextFactory,
@@ -28,7 +30,8 @@ namespace Dorc.PersistentData.Sources
             IRolePrivilegesChecker rolePrivilegesChecker,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             ILog logger,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IAccessControlPersistentSource accessControlPersistentSource
             )
         {
             this.propertyValuesPersistentSource = propertyValuesPersistentSource;
@@ -37,6 +40,7 @@ namespace Dorc.PersistentData.Sources
             this.contextFactory = contextFactory;
             this.logger = logger;
             this._claimsPrincipalReader = claimsPrincipalReader;
+            this._accessControlPersistentSource = accessControlPersistentSource;
         }
 
         public EnvironmentApiModel GetEnvironment(string environmentName)
@@ -46,50 +50,6 @@ namespace Dorc.PersistentData.Sources
                 var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
                 return MapToEnvironmentApiModel(environment, false, false);
             }
-        }
-
-        public IEnumerable<string> GetEnvironmentNames(AccessLevel accessLevel, IPrincipal user,
-            string thinClientServer, bool excludeProd)
-        {
-            var environmentNames = new List<string>();
-            using (var context = contextFactory.GetContext())
-            {
-                var allEnvironments = context.Environments.ToList();
-
-                var accessible = new List<Environment>();
-                if (_rolePrivilegesChecker.IsAdmin(user))
-                {
-                    accessible = allEnvironments;
-                }
-                else
-                {
-                    string username = _claimsPrincipalReader.GetUserName(user);
-
-                    var ownedEnvDetailNames =
-                        allEnvironments
-                            .Where(ed => ed.Owner.Contains(username, StringComparison.InvariantCultureIgnoreCase))
-                            .Select(ed => ed.Name);
-                    accessible.AddRange(allEnvironments.Where(e => ownedEnvDetailNames.Contains(e.Name)));
-                }
-
-                foreach (var environment in accessible.Distinct())
-                {
-                    var environmentDetail = EnvironmentUnifier.GetEnvironment(context, environment.Name);
-                    if (environmentDetail == null)
-                        continue;
-
-                    if (!environmentDetail.ThinClientServer.Equals(thinClientServer,
-                            StringComparison.InvariantCultureIgnoreCase))
-                        continue;
-
-                    if (excludeProd && environment.IsProd)
-                        continue;
-
-                    environmentNames.Add(environment.Name);
-                }
-            }
-
-            return environmentNames;
         }
 
         public IEnumerable<ProjectApiModel> GetMappedProjects(string envName)
@@ -121,33 +81,40 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public string GetEnvironmentOwner(int envId)
+        public string GetEnvironmentOwnerId(int envId)
         {
             using (var context = contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envId);
+
                 if (env == null) return string.Empty;
 
-                var owner = env.Owner;
+                var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
+                var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
+
+                var owner = ownerAccess?.Pid ?? ownerAccess?.Sid;
 
                 return owner;
             }
         }
 
-        public bool IsEnvironmentOwner(string envName, IPrincipal user)
+        public bool IsEnvironmentOwner(string envName, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envName);
                 if (env == null) return false;
 
-                string username = _claimsPrincipalReader.GetUserName(user);
+                var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
+                var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
 
-                return env.Owner.Equals(username, StringComparison.InvariantCultureIgnoreCase);
+                string userId = _claimsPrincipalReader.GetUserId(user);
+
+                return ownerAccess?.Pid == userId || ownerAccess?.Sid == userId;
             }
         }
 
-        public bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, ActiveDirectoryElementApiModel user)
+        public bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, UserElementApiModel user)
         {
             if (string.IsNullOrEmpty(user.Username) || envId <= 0) return false;
 
@@ -157,21 +124,56 @@ namespace Dorc.PersistentData.Sources
 
                 if (envDetail == null)
                     return false;
+                var existingAccessControl = getOwnerAccessControl(envDetail);
 
                 string userFullDomainName = _claimsPrincipalReader.GetUserFullDomainName(updatedBy);
                 EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
-                    "Owner Updated to " + user.DisplayName + " from " + envDetail.Owner,
+                    "Owner Updated to " + user.DisplayName + " from " + existingAccessControl?.Name,
                     userFullDomainName, "Env Owner Update", context);
 
-                envDetail.Owner = user.Username;
+                if (existingAccessControl != null)
+                {
+                    // Remove only the Owner flag for old user while preserving all other access levels
+                    existingAccessControl.Allow &= ~(int)AccessLevel.Owner;
+                    
+                    // If no access levels remain, remove the AccessControl record
+                    if (existingAccessControl.Allow == 0 && existingAccessControl.Deny == 0)
+                    {
+                        context.AccessControls.Remove(existingAccessControl);
+                    }
+                }
 
+                // Check if new owner already has an AccessControl record
+                var newOwnerAccessControl = context.AccessControls.FirstOrDefault(ac => 
+                    ac.ObjectId == envDetail.ObjectId && 
+                    (ac.Sid == user.Pid || ac.Pid == user.Pid));
+
+                if (newOwnerAccessControl != null)
+                {
+                    // Add Owner flag to existing access levels
+                    newOwnerAccessControl.Allow |= (int)AccessLevel.Owner;
+                    newOwnerAccessControl.Name = user.DisplayName;
+                }
+                else
+                {
+                    // Create new access control entry if none exists
+                    newOwnerAccessControl = new AccessControl
+                    {
+                        ObjectId = envDetail.ObjectId,
+                        Name = user.DisplayName,
+                        Pid = user.Pid,
+                        Allow = (int)AccessLevel.Owner
+                    };
+                    context.AccessControls.Add(newOwnerAccessControl);
+                }
+                
                 context.SaveChanges();
 
                 return true;
             }
         }
 
-        public EnvironmentApiModel AttachServerToEnv(int envId, int serverId, IPrincipal user)
+        public EnvironmentApiModel AttachServerToEnv(int envId, int serverId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -202,7 +204,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel DetachServerFromEnv(int envId, int serverId, IPrincipal user)
+        public EnvironmentApiModel DetachServerFromEnv(int envId, int serverId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -233,7 +235,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel AttachDatabaseToEnv(int envId, int databaseId, IPrincipal user)
+        public EnvironmentApiModel AttachDatabaseToEnv(int envId, int databaseId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -255,7 +257,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel DetachDatabaseFromEnv(int envId, int databaseId, IPrincipal user)
+        public EnvironmentApiModel DetachDatabaseFromEnv(int envId, int databaseId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -281,8 +283,8 @@ namespace Dorc.PersistentData.Sources
 
         public IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             using (var context = contextFactory.GetContext())
             {
                 var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
@@ -300,37 +302,38 @@ namespace Dorc.PersistentData.Sources
         public IEnumerable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             string projectName, IPrincipal user, AccessLevel accessLevel)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
             var output = (
-                from project in context.Projects
+                from project in context.Projects.Include(p => p.Environments).ThenInclude(e => e.AccessControls)
                 from environment in project.Environments
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                 where project.Name == projectName
-                let isOwner = environment.Owner == username
                 let isDelegate =
                     (from env in context.Environments
                      where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
                      select environment.Name).Any()
-                let hasPermission = (from env in context.Environments
+                let permissions = (from env in context.Environments
                                      join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                     where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
-                                           (ac.Allow & (int)accessLevel) != 0
-                                     select env.Name).Any()
+                                     where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
+                                           ac.Allow != 0
+                                     select ac.Allow).ToList()
+                let hasPermission = permissions.Any(a => (a & (int)accessLevel) != 0)
+                let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
                 select new EnvironmentData
                 {
                     Environment = environment,
                     UserEditable = isOwner || hasPermission || isDelegate || isAdmin,
                     IsDelegate = isDelegate,
                     IsModify = hasPermission,
-                    IsOwner = isOwner
-                }).Distinct();
+                    IsOwner = isOwner || permissions.Any(a => (a & (int)AccessLevel.Owner) != 0),
+                });
 
-            var environmentData = output.ToList();
+            var environmentData = output.ToList().DistinctBy(e => e.Environment.Id);
 
             if (isAdmin)
                 return environmentData;
@@ -352,8 +355,8 @@ namespace Dorc.PersistentData.Sources
 
         public EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             using (var context = contextFactory.GetContext())
             {
                 var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
@@ -366,7 +369,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel GetEnvironment(int environmentId, IPrincipal user)
+        public EnvironmentApiModel GetEnvironment(int environmentId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -439,7 +442,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, IPrincipal user)
+        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -451,7 +454,11 @@ namespace Dorc.PersistentData.Sources
                 var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentName);
                 if (environment == null)
                 {
-                    var e = new Environment();
+                    var e = new Environment()
+                    {
+                        ObjectId = Guid.NewGuid()
+                    };
+
                     MapToEnvironment(env, e);
 
                     context.Environments.Add(e);
@@ -499,6 +506,7 @@ namespace Dorc.PersistentData.Sources
             using (var dbContextTransaction = context.Database.BeginTransaction())
             {
                 var environment = context.Environments
+                    .Include(e => e.AccessControls)
                     .Include(e => e.Databases)
                     .Include(e => e.ComponentStatus)
                     .Include(e => e.Histories)
@@ -517,6 +525,7 @@ namespace Dorc.PersistentData.Sources
                 context.PropertyValueFilters.Where(pvf => pvf.Value.Equals(environment.Name)).ExecuteDelete();
                 context.PropertyValues.Where(pv => propertyValueIds.Contains(pv.Id)).ExecuteDelete();
 
+                environment.AccessControls.Clear();
                 environment.Databases.Clear();
                 environment.Servers.Clear();
                 environment.Users.Clear();
@@ -547,8 +556,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                if (!context.Environments.Any(x => x.Name == envName)) return false;
-                var env = context.Environments.FirstOrDefault(x => x.Name == envName);
+                var env = EnvironmentUnifier.GetEnvironment(context, envName);
                 return env != null && env.IsProd;
             }
         }
@@ -557,8 +565,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
-                var env = context.Environments
-                    .FirstOrDefault(e => e.Name.Equals(envName));
+                var env = EnvironmentUnifier.GetEnvironment(context, envName);
                 return !(env is null) && env.Secure;
             }
         }
@@ -587,16 +594,15 @@ namespace Dorc.PersistentData.Sources
 
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAdmin(IDeploymentContext context)
         {
-            return (from env in context.Environments
-                    select new EnvironmentData
-                    { Environment = env, UserEditable = true })
-                .Distinct();
+            return context.Environments
+                .Include(e => e.AccessControls)
+                .Select(env => new EnvironmentData { Environment = env, UserEditable = true });
         }
 
         private static IQueryable<EnvironmentData> AccessibleEnvironmentAdmin(IDeploymentContext context,
             string environmentName)
         {
-            return from env in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
+            return from env in context.Environments.Include(e => e.AccessControls).Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                    where env.Name == environmentName
                    select new EnvironmentData
                    { Environment = env, UserEditable = true };
@@ -605,28 +611,28 @@ namespace Dorc.PersistentData.Sources
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             ICollection<string> userSids, string username)
         {
-            var output = (from environment in context.Environments
+            var output = (from environment in context.Environments.Include(e => e.AccessControls)
                           join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                               accessControlEnvironments
                           from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                          let isOwner = environment.Owner == username
                           let isDelegate =
                               (from env in context.Environments
                                where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                select env.Name).Any()
-                          let isModify = (from env in context.Environments
+                          let permissions = (from env in context.Environments
                                           join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                          where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
-                                                (ac.Allow & (int)AccessLevel.Write) != 0
-                                          select env.Name).Any()
+                                          where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
+                                          select ac.Allow).ToList()
+                          let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                          let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
                           select new EnvironmentData
                           {
                               Environment = environment,
                               UserEditable = isOwner || isModify || isDelegate,
                               IsDelegate = isDelegate,
                               IsModify = isModify,
-                              IsOwner = isOwner
-                          }).Distinct();
+                              IsOwner = isOwner || permissions.Any(p => (p & (int)AccessLevel.Owner) != 0)
+                          });
 
             return output;
         }
@@ -635,21 +641,21 @@ namespace Dorc.PersistentData.Sources
             ICollection<string> userSids, string username, string environmentName)
         {
             var output = from
-                environment in context.Environments.Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
+                environment in context.Environments.Include(e => e.AccessControls).Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
                          join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                              accessControlEnvironments
                          from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                          where environment.Name == environmentName
-                         let isOwner = environment.Owner == username
                          let isDelegate =
                              (from env in context.Environments
                               where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
                               select environment.Name).Any()
-                         let isModify = (from env in context.Environments
+                         let permissions = (from env in context.Environments
                                          join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                         where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
-                                               (ac.Allow & (int)AccessLevel.Write) != 0
-                                         select env.Name).Any()
+                                         where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
+                                         select ac.Allow).ToList()
+                         let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                         let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
                          select new EnvironmentData
                          {
                              Environment = environment,
@@ -693,7 +699,6 @@ namespace Dorc.PersistentData.Sources
 
             e.Name = env.EnvironmentName;
             e.Description = env.Details.Description;
-            e.Owner = env.Details.EnvironmentOwner;
             e.FileShare = env.Details.FileShare;
             e.LastUpdate = !string.IsNullOrEmpty(env.Details.LastUpdated)
                 ? DateTime.Parse(env.Details.LastUpdated)
@@ -702,9 +707,26 @@ namespace Dorc.PersistentData.Sources
             e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
             e.EnvNote = env.Details.Notes;
             e.ParentId = env.ParentId;
+
+            var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+            if (ownerAccess != null)
+            {
+                ownerAccess.Name = env.Details.EnvironmentOwner;
+                ownerAccess.Pid = env.Details.EnvironmentOwnerId;
+            }
+            else
+            {
+                e.AccessControls.Add(new AccessControl
+                {
+                    ObjectId = e.ObjectId,
+                    Name = env.Details.EnvironmentOwner,
+                    Pid = env.Details.EnvironmentOwnerId,
+                    Allow = (int)AccessLevel.Owner
+                });
+            }
         }
 
-        private static EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
+        private EnvironmentApiModel MapToEnvironmentApiModel(EnvironmentData ed)
         {
             if (ed.Environment == null)
                 return null;
@@ -746,7 +768,7 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        public static EnvironmentApiModel MapToEnvironmentApiModel(Environment env,
+        public EnvironmentApiModel MapToEnvironmentApiModel(Environment env,
             bool userEditable, bool isOwner)
         {
             if (env == null)
@@ -759,7 +781,7 @@ namespace Dorc.PersistentData.Sources
             return resEnv;
         }
 
-        public static EnvironmentApiModel MapToEnvironmentApiModel(Environment? env)
+        public EnvironmentApiModel MapToEnvironmentApiModel(Environment? env)
         {
             if (env is null)
                 return null!;
@@ -778,15 +800,18 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        public static EnvironmentDetailsApiModel MapToEnvironmentDetailsApiModel(Environment details)
+        public EnvironmentDetailsApiModel MapToEnvironmentDetailsApiModel(Environment details)
         {
             if (details == null)
                 return null;
 
+            AccessControl ownerAc = getOwnerAccessControl(details);
+
             return new EnvironmentDetailsApiModel
             {
                 Description = details.Description,
-                EnvironmentOwner = details.Owner,
+                EnvironmentOwner = ownerAc?.Name,
+                EnvironmentOwnerId = ownerAc?.Pid ?? ownerAc?.Sid,
                 FileShare = details.FileShare,
                 LastUpdated = details.LastUpdate.ToString(),
                 ThinClient = details.ThinClientServer,
@@ -795,36 +820,42 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
+        private AccessControl? getOwnerAccessControl(Environment env)
+        {
+            var ownerAc = env.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+            if (ownerAc == null)
+                logger.Warn($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
+            return ownerAc;
+        }
+
         public IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
-                string username = _claimsPrincipalReader.GetUserName(user);
-                var userSids = username.GetSidsForUser();
-                var accessLevelRequired = AccessLevel.Write;
+                var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+                var accessLevelRequired = AccessLevel.Write | AccessLevel.Owner;
 
                 var allRelatedEnvs = context.Environments
+                    .Include(e => e.AccessControls)
                     .Include(e => e.Projects)
                     .ThenInclude(p => p.Environments)
                     .Where(e => e.Id == id)
                     .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
-                    .Where(e => e.Id != id && e.ParentId == null) // Exclude the parent and all children
-                    .Distinct();
+                    .Where(e => e.Id != id && e.ParentId == null); // Exclude the parent and all children
 
                 var filteredByAccessLevelEnvs = allRelatedEnvs
                     .Join(context.AccessControls, // Join with AccessControls to filter by user access
                           environment => environment.ObjectId,
                           ac => ac.ObjectId,
                           (environment, ac) => new { environment, ac })
-                    .Where(joined => userSids.Contains(joined.ac.Sid) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
-                    .Select(joined => joined.environment)
-                    .Distinct();
+                    .Where(joined => (userSids.Contains(joined.ac.Sid) || joined.ac.Pid != null && userSids.Contains(joined.ac.Pid)) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
+                    .Select(joined => joined.environment);
 
                 var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();
 
                 var envChain = context.GetFullEnvironmentChain(id);
 
-                mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList(); // filter all envs already in chain
+                mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList().DistinctBy(e => e.Id).ToList(); // filter all envs already in chain
 
                 var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel);
                 return possibleChildren;

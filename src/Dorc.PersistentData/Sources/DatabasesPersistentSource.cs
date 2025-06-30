@@ -16,6 +16,8 @@ namespace Dorc.PersistentData.Sources
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
+        protected override IClaimsPrincipalReader ClaimsPrincipalReader => _claimsPrincipalReader;
+
         public DatabasesPersistentSource(
             IDeploymentContextFactory contextFactory,
             IRolePrivilegesChecker rolePrivilegesChecker,
@@ -191,8 +193,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                string username = _claimsPrincipalReader.GetUserName(user);
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
 
                 var reqStatusesQueryable = context.Databases.Include(database => database.Environments)
                     .Include(database => database.Group).AsQueryable();

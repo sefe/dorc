@@ -1,5 +1,6 @@
 using Dorc.Core;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Pipes;
@@ -89,7 +90,7 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
 });
 
 builder.Services.AddHostedService<MonitorService>();
-builder.Services.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
+builder.Services.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalReader>();
 
 IHost host = builder.Build();
 host.Run();

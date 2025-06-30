@@ -22,7 +22,7 @@ namespace Dorc.Api.Tests
         {
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             var mockPvs = Substitute.For<IPropertyValuesService>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             mockPropertiesPersistentSource
                 .CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>())
@@ -52,7 +52,7 @@ namespace Dorc.Api.Tests
             const string testErrorMessage = "test: Failed property creation";
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             var mockPvs = Substitute.For<IPropertyValuesService>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             mockPropertiesPersistentSource
                 .When(w => w.CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>()))
@@ -79,7 +79,7 @@ namespace Dorc.Api.Tests
         {
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             var mockPvs = Substitute.For<IPropertyValuesService>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             mockPropertiesPersistentSource.DeleteProperty(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(true);
@@ -108,7 +108,7 @@ namespace Dorc.Api.Tests
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             //const string testErrorMessage = "test: Failed property deletion";
             mockPropertiesPersistentSource.DeleteProperty(Arg.Any<string>(), string.Empty).Returns(false);
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var erroredService = new PropertiesService(mockPropertiesPersistentSource, Substitute.For<IPropertyValuesService>(),
                 mockClaimsPrincipalReader);
 
@@ -133,7 +133,7 @@ namespace Dorc.Api.Tests
         public void UpdatePropertiesTestSuccessfulCase()
         {
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var testProperty = new PropertyApiModel { Name = "PropertyName", Secure = false };
 
             mockPropertiesPersistentSource.UpdateProperty(Arg.Any<PropertyApiModel>())
@@ -165,7 +165,7 @@ namespace Dorc.Api.Tests
         public void UpdatePropertiesTestFailedGetPropertyCase()
         {
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testProperty = new PropertyApiModel { Name = "PropertyName", Secure = false };
 
@@ -195,7 +195,7 @@ namespace Dorc.Api.Tests
         public void UpdatePropertiesTestFailedPropertyUpdateCase()
         {
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
-            var mockClaimsPrincipalReader = new MockedClaimsPrincipalReader();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var testProperty = new PropertyApiModel { Name = "PropertyName", Secure = false };
 
             mockPropertiesPersistentSource.UpdateProperty(Arg.Any<PropertyApiModel>())

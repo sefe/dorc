@@ -65,24 +65,52 @@ namespace Tests.Acceptance.Support
         public int CreateEnvironment(string environmentName)
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
-            using (SqlCommand insertCommand = new SqlCommand(
-                "INSERT INTO [deploy].[Environment] (ObjectId, Name, Secure, IsProd, Owner) " +
-                "OUTPUT INSERTED.Id " +
-                "VALUES (@objectId, @environmentName, 0, 0, 'testOwner');", sqlConnection))
             {
-                SqlParameter environmentNameParameter = new SqlParameter("@environmentName", SqlDbType.NChar, environmentName.Length);
-                environmentNameParameter.Value = environmentName;
-                insertCommand.Parameters.Add(environmentNameParameter);
-
-                SqlParameter objectIdParameter = new SqlParameter("@objectId", SqlDbType.UniqueIdentifier);
-                objectIdParameter.Value = Guid.NewGuid();
-                insertCommand.Parameters.Add(objectIdParameter);
-
                 sqlConnection.Open();
+                using (SqlTransaction transaction = sqlConnection.BeginTransaction())
+                {
+                    try
+                    {
+                        var objectId = Guid.NewGuid();
+                        int environmentId;
 
-                var insertedRowId = insertCommand.ExecuteScalar();
+                        using (SqlCommand insertCommand = new SqlCommand(
+                            "INSERT INTO [deploy].[Environment] (ObjectId, Name, Secure, IsProd) " +
+                            "OUTPUT INSERTED.Id " +
+                            "VALUES (@objectId, @environmentName, 0, 0);", sqlConnection, transaction))
+                        {
+                            SqlParameter environmentNameParameter = new SqlParameter("@environmentName", SqlDbType.NChar, environmentName.Length);
+                            environmentNameParameter.Value = environmentName;
+                            insertCommand.Parameters.Add(environmentNameParameter);
 
-                return (int)insertedRowId;
+                            SqlParameter objectIdParameter = new SqlParameter("@objectId", SqlDbType.UniqueIdentifier);
+                            objectIdParameter.Value = objectId;
+                            insertCommand.Parameters.Add(objectIdParameter);
+
+                            environmentId = (int)insertCommand.ExecuteScalar();
+                        }
+
+                        using (SqlCommand insertAccessControl = new SqlCommand(
+                            "INSERT INTO [deploy].[AccessControl] (ObjectId, Name, Pid, Allow) " +
+                            "VALUES (@objectId, @ownerName, @ownerSid, @allow);", sqlConnection, transaction))
+                        {
+                            insertAccessControl.Parameters.AddWithValue("@objectId", objectId);
+                            insertAccessControl.Parameters.AddWithValue("@ownerName", "testOwner");
+                            insertAccessControl.Parameters.AddWithValue("@ownerSid", "testOwner");
+                            insertAccessControl.Parameters.AddWithValue("@allow", 4); // AccessLevel.Owner
+
+                            insertAccessControl.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+                        return environmentId;
+                    }
+                    catch
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
             }
         }
 

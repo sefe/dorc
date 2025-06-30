@@ -96,7 +96,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(e => e.Environments.Any(en => en.Id == env.Id))
                     .Select(u => u);
 
-                string username = _claimsPrincipalReader.GetUserName(user);
+                string username = _claimsPrincipalReader.GetUserLogin(user);
 
                 return users.Any(user =>
                     EF.Functions.Collate(user.LanId, DeploymentContext.CaseInsensitiveCollation)
