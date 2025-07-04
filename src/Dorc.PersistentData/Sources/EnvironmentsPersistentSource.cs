@@ -529,12 +529,11 @@ namespace Dorc.PersistentData.Sources
                 environment.Databases.Clear();
                 environment.Servers.Clear();
                 environment.Users.Clear();
+                string username = _claimsPrincipalReader.GetUserName(principal);
 
-                foreach (var h in environment.Histories.ToList())
-                {
-                    context.EnvironmentHistories.Remove(h);
-                }
-                environment.Histories.Clear();
+                EnvironmentHistoryPersistentSource.AddHistory(environment, string.Empty,
+                    "Environment DELETED by " + username,
+                    username, "Environment DELETED", context);
 
                 environment.Projects.Clear();
 
