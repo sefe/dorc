@@ -109,8 +109,11 @@ namespace Dorc.PersistentData.Sources
                 var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
 
                 string userId = _claimsPrincipalReader.GetUserId(user);
+                string userlogin = _claimsPrincipalReader.GetUserLogin(user);
 
-                return ownerAccess?.Pid == userId || ownerAccess?.Sid == userId;
+                return ownerAccess?.Pid == userId || // 1. oauth user, permission was added via oauth with pid
+                    ownerAccess?.Sid == userId ||    // 2. winauth user, permission  was added via AD with sid (compatibility with WinAuth)
+                    ownerAccess?.Sid == userlogin;   // 3. oauth user, permission was added via AD and sid was set as loginId (migration from old AD users)
             }
         }
 
