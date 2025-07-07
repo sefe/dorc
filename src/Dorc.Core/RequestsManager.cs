@@ -149,7 +149,7 @@ namespace Dorc.Core
                                           where (!filterOnlyPinned || build.KeepForever) &&
                                             build.Status == Build.StatusEnum.Completed &&
                                             (build.Result == Build.ResultEnum.Succeeded || build.Result == Build.ResultEnum.PartiallySucceeded)
-                                          select new DeployableArtefact { Id = build.Url, Name = CheckForPinnedBuild(build) }).ToList();
+                                          select new DeployableArtefact { Id = build.Url, Date = build.FinishTime, Name = CheckForPinnedBuild(build) }).ToList();
 
                     output = tfsBuildModels;
                 }
@@ -158,7 +158,7 @@ namespace Dorc.Core
                 else
                     output = new List<DeployableArtefact>();
 
-                return output.OrderByDescending(b => b.Name);
+                return output.OrderByDescending(b => b.Date);
             }
             catch (Exception ex)
             {
@@ -179,7 +179,8 @@ namespace Dorc.Core
                     .Select(f => new DeployableArtefact
                     {
                         Id = f,
-                        Name = Path.GetFileName(f)
+                        Name = Path.GetFileName(f),
+                        Date = File.GetLastWriteTime(f)
                     });
                 result.AddRange(builds);
 
