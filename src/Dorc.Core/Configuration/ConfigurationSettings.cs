@@ -122,5 +122,11 @@ namespace Dorc.Core.Configuration
             var isUseIdentityServerAsSearcherConfig = _configuration.GetSection("AppSettings")["IsUseIdentityServerAsSearcher"];
             return bool.TryParse(isUseIdentityServerAsSearcherConfig, out bool isUseIdentityServerAsSearcher) && isUseIdentityServerAsSearcher;
         }
+
+        public bool GetIsUseAdSidsForAccessControl()
+        {
+            var isUseAdSidsForAccessControlConfig = _configuration.GetSection("AppSettings")["IsUseAdSidsForAccessControl"];
+            return bool.TryParse(isUseAdSidsForAccessControlConfig, out bool isUseAdSidsForAccessControl) && isUseAdSidsForAccessControl;
+        }
     }
 }

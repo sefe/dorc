@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Core.Configuration;
 using Dorc.PersistentData;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
@@ -8,15 +9,18 @@ namespace Dorc.Api.Security
 {
     public class ClaimsPrincipalReaderFactory : IClaimsPrincipalReader
     {
+        private readonly IConfigurationSettings _config;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly OAuthClaimsPrincipalReader _oauthReader;
         private readonly WinAuthClaimsPrincipalReader _winAuthReader;
 
         public ClaimsPrincipalReaderFactory(
+            IConfigurationSettings config,
             IHttpContextAccessor httpContextAccessor,
             IUserGroupsReaderFactory userGroupsReaderFactory
             )
         {
+            _config = config;
             _httpContextAccessor = httpContextAccessor;
 
             _oauthReader = new OAuthClaimsPrincipalReader(userGroupsReaderFactory.GetOAuthUserGroupsReader());
@@ -68,6 +72,11 @@ namespace Dorc.Api.Security
 
         public List<string> GetSidsForUser(IPrincipal user)
         {
+            if (_config.GetIsUseAdSidsForAccessControl())
+            {
+                return _winAuthReader.GetSidsForUser(user);
+            }
+
             var reader = ResolveReader();
             return reader.GetSidsForUser(user);
         }
