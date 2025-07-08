@@ -25,6 +25,11 @@ export interface UserElementApiModel {
      * @type {string}
      * @memberof UserElementApiModel
      */
+    Sid?: string | null;
+    /**
+     * @type {string}
+     * @memberof UserElementApiModel
+     */
     Pid?: string | null;
     /**
      * @type {string}

@@ -19,7 +19,8 @@
         string? GetOnePasswordItemId();
         string? GetIdentityServerClientId();
         string? GetOnePasswordIdentityServerApiSecretItemId();
-        bool GetIsUseIdentityServerAsSearcher();
+        bool GetIsUseAdAsSearcher();
+        bool GetIsUseAdSidsForAccessControl();
 
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();
