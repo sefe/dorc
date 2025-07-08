@@ -17,24 +17,26 @@ namespace Dorc.Api.Services
             IConfigurationSecretsReader secretsReader,
             ILog log)
         {
-            var adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
+            _adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
             var azEntraSearcher = new AzureEntraSearcher(config, log);
 
-            if (config.GetIsUseIdentityServerAsSearcher() == false)
+            var searchersList = new List<IActiveDirectorySearcher>();
+            if (config.GetIsUseAdAsSearcher() == true)
             {
-                _oauthDirectorySearcher = azEntraSearcher;
+                searchersList.Add(_adSearcher);
             }
             else
             {
                 var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, log);
-
-                var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
-                    new List<IActiveDirectorySearcher> { azEntraSearcher, identityServerSearcher },
-                    log);
-                _oauthDirectorySearcher = compositeOauthSearcher;
+                searchersList.Add(identityServerSearcher);
+                searchersList.Add(azEntraSearcher);
             }
 
-            _adSearcher = adSearcher;            
+            var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
+                    searchersList,
+                    log);
+
+            _oauthDirectorySearcher = compositeOauthSearcher;
         }
 
         public IActiveDirectorySearcher GetActiveDirectorySearcher()

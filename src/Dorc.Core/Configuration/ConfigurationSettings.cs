@@ -117,9 +117,9 @@ namespace Dorc.Core.Configuration
             return _configuration.GetSection("AppSettings:OnePassword")["IdentityServerApiSecretItemId"];
         }
 
-        public bool GetIsUseIdentityServerAsSearcher()
+        public bool GetIsUseAdAsSearcher()
         {
-            var isUseIdentityServerAsSearcherConfig = _configuration.GetSection("AppSettings")["IsUseIdentityServerAsSearcher"];
+            var isUseIdentityServerAsSearcherConfig = _configuration.GetSection("AppSettings")["IsUseAdAsSearcher"];
             return bool.TryParse(isUseIdentityServerAsSearcherConfig, out bool isUseIdentityServerAsSearcher) && isUseIdentityServerAsSearcher;
         }
 
