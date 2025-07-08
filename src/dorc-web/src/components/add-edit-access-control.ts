@@ -324,7 +324,7 @@ export class AddEditAccessControl extends LitElement {
 
   removeAccessControl(accessControl: AccessControlApiModel) {
     const actual = this.Privileges?.find(
-      value => value.Pid === accessControl.Pid
+      value => value.Pid === accessControl.Pid || value.Sid === accessControl.Sid
     );
 
     if (actual !== undefined) {
@@ -402,7 +402,8 @@ export class AddEditAccessControl extends LitElement {
         Name: user.DisplayName,
         Allow: 0,
         Deny: 0,
-        Pid: user.Pid
+        Pid: user.Pid,
+        Sid: user.Sid,
       };
       this.Privileges?.push(acam);
       this.Privileges = JSON.parse(JSON.stringify(this.Privileges));

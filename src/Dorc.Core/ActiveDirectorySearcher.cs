@@ -90,7 +90,7 @@ namespace Dorc.Core
             {
                 Username = GetSafeString(de.Properties, "SAMAccountName"),
                 DisplayName = displayName,
-                Pid = GetSidString((byte[])de.Properties["objectSid"].Value),
+                Sid = GetSidString((byte[])de.Properties["objectSid"].Value),
                 IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
                 Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
             };
@@ -159,7 +159,7 @@ namespace Dorc.Core
 
                         var entity = GetModelFromDirectoryEntry(de);
 
-                        entity.Pid = sid;
+                        entity.Sid = sid;
 
                         return entity;
                     }
@@ -200,7 +200,7 @@ namespace Dorc.Core
                         { continue; }
 
                         var user = GetModelFromDirectoryEntry(de);
-                        user.Pid = Sid;
+                        user.Sid = Sid;
 
                         return user;
                     }

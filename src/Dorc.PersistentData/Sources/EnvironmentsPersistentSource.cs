@@ -164,6 +164,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         ObjectId = envDetail.ObjectId,
                         Name = user.DisplayName,
+                        Sid = user.Sid,
                         Pid = user.Pid,
                         Allow = (int)AccessLevel.Owner
                     };
@@ -716,6 +717,7 @@ namespace Dorc.PersistentData.Sources
             {
                 ownerAccess.Name = env.Details.EnvironmentOwner;
                 ownerAccess.Pid = env.Details.EnvironmentOwnerId;
+                ownerAccess.Sid = env.Details.EnvironmentOwnerId;
             }
             else
             {
@@ -724,6 +726,7 @@ namespace Dorc.PersistentData.Sources
                     ObjectId = e.ObjectId,
                     Name = env.Details.EnvironmentOwner,
                     Pid = env.Details.EnvironmentOwnerId,
+                    Sid = env.Details.EnvironmentOwnerId,
                     Allow = (int)AccessLevel.Owner
                 });
             }

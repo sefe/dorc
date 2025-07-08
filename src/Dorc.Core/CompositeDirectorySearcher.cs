@@ -27,8 +27,9 @@ namespace Dorc.Core
                     var searcherResults = searcher.Search(objectName);
                     foreach (var result in searcherResults)
                     {
-                        // Only add if we haven't seen this PID before
-                        if (!string.IsNullOrEmpty(result.Pid) && seenPids.Add(result.Pid))
+                        // Only add if we haven't seen this PID or Sid before
+                        if ((!string.IsNullOrEmpty(result.Pid) && seenPids.Add(result.Pid)) || 
+                            (!string.IsNullOrEmpty(result.Sid) && seenPids.Add(result.Sid)))
                         {
                             results.Add(result);
                         }
