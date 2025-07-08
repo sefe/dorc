@@ -9,8 +9,9 @@ namespace Dorc.Api.Security
 {
     public class ClaimsPrincipalReaderFactory : IClaimsPrincipalReader
     {
-        private readonly IConfigurationSettings _config;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IConfigurationSettings _config;
+        private readonly IUserGroupReader _adUserGroupsReader;
         private readonly OAuthClaimsPrincipalReader _oauthReader;
         private readonly WinAuthClaimsPrincipalReader _winAuthReader;
 
@@ -20,11 +21,13 @@ namespace Dorc.Api.Security
             IUserGroupsReaderFactory userGroupsReaderFactory
             )
         {
-            _config = config;
             _httpContextAccessor = httpContextAccessor;
+            _config = config;
+
+            _adUserGroupsReader = userGroupsReaderFactory.GetWinAuthUserGroupsReader();
 
             _oauthReader = new OAuthClaimsPrincipalReader(userGroupsReaderFactory.GetOAuthUserGroupsReader());
-            _winAuthReader = new WinAuthClaimsPrincipalReader(userGroupsReaderFactory.GetWinAuthUserGroupsReader());
+            _winAuthReader = new WinAuthClaimsPrincipalReader(_adUserGroupsReader);
         }
 
         public string GetUserName(IPrincipal user)
@@ -74,7 +77,7 @@ namespace Dorc.Api.Security
         {
             if (_config.GetIsUseAdSidsForAccessControl())
             {
-                return _winAuthReader.GetSidsForUser(user);
+                return _adUserGroupsReader.GetSidsForUser(GetUserLogin(user));
             }
 
             var reader = ResolveReader();

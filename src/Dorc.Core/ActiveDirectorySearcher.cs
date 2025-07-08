@@ -210,10 +210,10 @@ namespace Dorc.Core
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
 
-        public List<string> GetSidsForUser(string username)
+        public List<string> GetSidsForUser(string samAccountName)
         {
             var result = new HashSet<string>();
-            var name = username;
+            var name = samAccountName;
 
             DirectorySearcher ds = new DirectorySearcher();
 
@@ -229,7 +229,7 @@ namespace Dorc.Core
                 result.Add(sid.ToString());
             }
 
-            var f = new NTAccount(username);
+            var f = new NTAccount(samAccountName);
             var s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
             var sidString = s.ToString();
 
