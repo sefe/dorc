@@ -323,7 +323,11 @@ export class AddEditAccessControl extends LitElement {
   }
 
   removeAccessControl(accessControl: AccessControlApiModel) {
-    const actual = this.Privileges?.find(value => value.Id === accessControl.Id);
+    const actual = this.Privileges?.find(value =>
+      value.Id === accessControl.Id &&
+      value.Pid === accessControl.Pid &&
+      value.Sid === accessControl.Sid
+    );
 
     if (actual !== undefined) {
       const splicedArray = this.removeItem(this.Privileges ?? [], actual);
