@@ -374,7 +374,7 @@ export class AddEditEnvironment extends LitElement {
         this.environment.Details !== undefined
       ) {
         this.environment.Details.EnvironmentOwner = found.DisplayName;
-        this.environment.Details.EnvironmentOwnerId = found.Pid;
+        this.environment.Details.EnvironmentOwnerId = found.Pid ?? found.Sid;
 
         if (!this.addMode) {
           const api = new RefDataEnvironmentsUsersApi();
@@ -500,7 +500,11 @@ export class AddEditEnvironment extends LitElement {
             next: (data: Array<UserElementApiModel>) => {
                 const user = data.length === 1 
                 ? data[0] 
-                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId);
+                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId) ?? 
+                  data.find(u => u.Sid === this.environment.Details?.EnvironmentOwnerId) ??
+                  data.find(u => u.Username === this.environment.Details?.EnvironmentOwner) ??
+                  data.find(u => u.DisplayName === this.environment.Details?.EnvironmentOwner);
+
               if (user)
                 this.EnvOwnerDisplayName =
                   user.DisplayName !== null ? user.DisplayName : undefined;
