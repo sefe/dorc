@@ -714,6 +714,7 @@ namespace Dorc.PersistentData.Sources
 
             var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
 
+            // TODO: remove this together with supporting AD and Sids
             bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&
                         env.Details.EnvironmentOwnerId.StartsWith("S-1-5-");
 
