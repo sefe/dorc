@@ -713,11 +713,15 @@ namespace Dorc.PersistentData.Sources
             e.ParentId = env.ParentId;
 
             var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+
+            bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&
+                        env.Details.EnvironmentOwnerId.StartsWith("S-1-5-");
+
             if (ownerAccess != null)
             {
                 ownerAccess.Name = env.Details.EnvironmentOwner;
-                ownerAccess.Pid = env.Details.EnvironmentOwnerId;
-                ownerAccess.Sid = env.Details.EnvironmentOwnerId;
+                ownerAccess.Pid = isSid ? null : env.Details.EnvironmentOwnerId;
+                ownerAccess.Sid = isSid ? env.Details.EnvironmentOwnerId : null;
             }
             else
             {
@@ -725,8 +729,8 @@ namespace Dorc.PersistentData.Sources
                 {
                     ObjectId = e.ObjectId,
                     Name = env.Details.EnvironmentOwner,
-                    Pid = env.Details.EnvironmentOwnerId,
-                    Sid = env.Details.EnvironmentOwnerId,
+                    Pid = isSid ? null : env.Details.EnvironmentOwnerId,
+                    Sid = isSid ? env.Details.EnvironmentOwnerId : null,
                     Allow = (int)AccessLevel.Owner
                 });
             }
