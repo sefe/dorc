@@ -5,6 +5,28 @@
     @spidList varchar(MAX)
 AS
 BEGIN
+    IF OBJECT_ID('tempdb..#PermittedEnvs') IS NOT NULL DROP TABLE #PermittedEnvs;
+
+    IF OBJECT_ID('tempdb..#TempSids') IS NOT NULL DROP TABLE #TempSids;
+
+	-- Split the string once and store in temp table
+	CREATE TABLE #TempSids (value varchar(256) COLLATE DATABASE_DEFAULT);
+
+	INSERT INTO #TempSids
+	SELECT value COLLATE DATABASE_DEFAULT FROM STRING_SPLIT(@spidList, ';');
+
+	-- First get environments that user have permissions Owner (4) or Write(1) to
+	SELECT e.Id, 
+		e.Name COLLATE DATABASE_DEFAULT AS Name,
+		CASE WHEN (ac.Allow & 4) != 0 THEN 1 ELSE 0 END AS IsOwner
+	INTO #PermittedEnvs
+	FROM deploy.environment e
+		INNER JOIN deploy.Environment ed ON e.Name = ed.Name
+		INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
+		INNER JOIN #TempSids sids ON (sids.value = ac.Sid COLLATE DATABASE_DEFAULT
+									OR sids.value = ac.Pid COLLATE DATABASE_DEFAULT) 
+	WHERE (ac.Allow & 1) != 0 OR (ac.Allow & 4) != 0;
+
     -- CTE to traverse the environment hierarchy and calculate distances (only when @env is provided)
     WITH Ancestors AS (
         SELECT 
@@ -84,9 +106,14 @@ BEGIN
             ELSE NULL 
         END AS PropertyValueFilterId,
         CASE
-            WHEN e1.Owner = @username THEN 1
-            ELSE 0
-        END AS IsOwner,
+			WHEN e1.Owner = @username OR 
+				 EXISTS (
+					 SELECT 1 FROM #PermittedEnvs pe 
+					 WHERE pe.Name = ISNULL(@env, e1.Name) AND pe.IsOwner = 1
+				 )
+			THEN 1
+			ELSE 0
+		END AS IsOwner,
         CASE
             WHEN EXISTS (
                 SELECT e.Id
@@ -101,13 +128,8 @@ BEGIN
         END AS IsDelegate,
         CASE
             WHEN EXISTS (
-                SELECT e.Id
-                FROM deploy.environment e
-                INNER JOIN deploy.Environment ed ON e.Name = ed.Name
-                INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
-                INNER JOIN STRING_SPLIT(@spidList, ';') sids ON (sids.value = ac.Sid OR sids.value = ac.Pid)
-                WHERE e.Name = ISNULL(@env, e1.Name)  -- Use @env if provided, otherwise use e1.Name
-                  AND (ac.Allow & 1) != 0 OR (ac.Allow & 4) != 0
+                SELECT 1 FROM #PermittedEnvs pe 
+				WHERE pe.Name = ISNULL(@env, e1.Name)
             ) THEN 1
             ELSE 0
         END AS IsPermissioned,
