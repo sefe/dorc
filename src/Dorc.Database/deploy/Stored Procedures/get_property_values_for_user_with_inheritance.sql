@@ -21,7 +21,6 @@ BEGIN
 		CASE WHEN (ac.Allow & 4) != 0 THEN 1 ELSE 0 END AS IsOwner
 	INTO #PermittedEnvs
 	FROM deploy.environment e
-		INNER JOIN deploy.Environment ed ON e.Name = ed.Name
 		INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
 		INNER JOIN #TempSids sids ON (sids.value = ac.Sid COLLATE DATABASE_DEFAULT
 									OR sids.value = ac.Pid COLLATE DATABASE_DEFAULT) 
