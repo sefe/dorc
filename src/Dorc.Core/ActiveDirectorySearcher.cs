@@ -35,15 +35,16 @@ namespace Dorc.Core
         {
             var output = new List<UserElementApiModel>();
 
-            // restrict the username and password to letters only
-            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ]+$"))
+            // restrict the username and password to letters and parenthesis only
+            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ()]+$"))
             {
                 return output;
             }
 
             using (var searcher = new DirectorySearcher(_activeDirectoryRoot)
                 {
-                    Filter = $"(&(anr={objectName})(|(objectCategory=group)(objectCategory=person)))"
+                    // anr (Ambiguous Name Resolution) has some limitations with special characters, have to escape them
+                    Filter = $"(&(anr={EscapeLdapFilter(objectName)})(|(objectCategory=group)(objectCategory=person)))"
                 })
             {
                 searcher.PropertiesToLoad.AddRange(adProps);
@@ -76,6 +77,41 @@ namespace Dorc.Core
             }
 
             return output;
+        }
+
+        public static string EscapeLdapFilter(string filter)
+        {
+            if (string.IsNullOrEmpty(filter)) return filter;
+
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in filter)
+            {
+                switch (c)
+                {
+                    case '\\':
+                        sb.Append("\\5c");
+                        break;
+                    case '*':
+                        sb.Append("\\2a");
+                        break;
+                    case '(':
+                        sb.Append("\\28");
+                        break;
+                    case ')':
+                        sb.Append("\\29");
+                        break;
+                    case '\u0000':
+                        sb.Append("\\00");
+                        break;
+                    case '/':
+                        sb.Append("\\2f");
+                        break;
+                    default:
+                        sb.Append(c);
+                        break;
+                }
+            }
+            return sb.ToString();
         }
 
         private UserElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
