@@ -16,15 +16,18 @@ BEGIN
 	SELECT value COLLATE DATABASE_DEFAULT FROM STRING_SPLIT(@spidList, ';');
 
 	-- First get environments that user have permissions Owner (4) or Write(1) to
-	SELECT e.Id, 
-		e.Name COLLATE DATABASE_DEFAULT AS Name,
-		CASE WHEN (ac.Allow & 4) != 0 THEN 1 ELSE 0 END AS IsOwner
-	INTO #PermittedEnvs
-	FROM deploy.environment e
-		INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
-		INNER JOIN #TempSids sids ON (sids.value = ac.Sid COLLATE DATABASE_DEFAULT
-									OR sids.value = ac.Pid COLLATE DATABASE_DEFAULT) 
-	WHERE (ac.Allow & 1) != 0 OR (ac.Allow & 4) != 0;
+	DECLARE @ACL_WRITE INT = 1;  
+	DECLARE @ACL_OWNER INT = 4;  
+
+	SELECT e.Id,  
+		e.Name COLLATE DATABASE_DEFAULT AS Name,  
+		CASE WHEN (ac.Allow & @ACL_OWNER) != 0 THEN 1 ELSE 0 END AS IsOwner  
+	INTO #PermittedEnvs  
+	FROM deploy.environment e  
+		INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId  
+		INNER JOIN #TempSids sids ON (sids.value = ac.Sid COLLATE DATABASE_DEFAULT  
+									OR sids.value = ac.Pid COLLATE DATABASE_DEFAULT)  
+	WHERE (ac.Allow & @ACL_WRITE) != 0 OR (ac.Allow & @ACL_OWNER) != 0;
 
     -- CTE to traverse the environment hierarchy and calculate distances (only when @env is provided)
     WITH Ancestors AS (
