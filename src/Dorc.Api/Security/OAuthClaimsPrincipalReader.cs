@@ -62,9 +62,9 @@ namespace Dorc.Api.Security
             return IsM2MAuthentication(user) ? GetClientId(user) : (user?.FindFirst(PidClaimType)?.Value ?? string.Empty);
         }
 
-        private string GetSamAccountName(ClaimsPrincipal user)
+        private string? GetSamAccountName(ClaimsPrincipal user)
         {
-            return user?.FindFirst(SamAccountNameClaimType)?.Value ?? string.Empty;
+            return user?.FindFirst(SamAccountNameClaimType)?.Value;
         }
 
         public List<string> GetSidsForUser(IPrincipal user)
