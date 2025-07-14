@@ -102,11 +102,14 @@ export class BundleEditorForm extends LitElement {
             item-value-path="ProjectId"
             .value="${this.bundleRequest.ProjectId}"
             @value-changed="${(e: CustomEvent) =>
-              this._updateValue('ProjectId', parseInt(e.detail.value, 10))}"
+              this._updateValue('ProjectId', 
+                (e.detail.value !== null && e.detail.value !== '') 
+                ? parseInt(e.detail.value, 10) 
+                : 0)}"
             style="width: 100%;"
             placeholder="Select a Project"
           ></vaadin-combo-box>
-        </div>
+        </div>-
 
         <div class="field-container">
           <vaadin-text-field

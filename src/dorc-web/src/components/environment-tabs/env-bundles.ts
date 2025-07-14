@@ -152,7 +152,8 @@ export class EnvBundles extends PageEnvBase {
   }
 
   private _handleEditBundle(e: CustomEvent) {
-    this.bundleEditorDialog.openEdit(e.detail.value);
+    const projects = this.envContent?.MappedProjects;
+    this.bundleEditorDialog.openEdit(e.detail.value, projects);
   }
 
   private _handleDeleteBundle(e: CustomEvent) {

@@ -110,8 +110,9 @@ export class BundleEditorDialog extends LitElement {
   /**
    * Open the dialog to edit an existing bundle request
    */
-  public openEdit(bundle: BundledRequestsApiModel) {
+  public openEdit(bundle: BundledRequestsApiModel, projects: ProjectApiModel[] | null = null) {
     this.isEdit = true;
+    this.projects = projects;
     this.bundleRequest = { ...bundle };
     this.open = true;
   }
