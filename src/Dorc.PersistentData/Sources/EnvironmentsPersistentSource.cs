@@ -695,6 +695,11 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
+        /// <summary>
+        /// Maps the EnvironmentApiModel to the Environment entity. Does not updates ownership, but creates for new environment
+        /// </summary>
+        /// <param name="env">model to set values from</param>
+        /// <param name="e">model to set values to. DTO for DB</param>
         private static void MapToEnvironment(EnvironmentApiModel env, Environment e)
         {
             e.Name = env.EnvironmentName;
@@ -714,18 +719,13 @@ namespace Dorc.PersistentData.Sources
 
             var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
 
-            // TODO: remove this together with supporting AD and Sids
-            bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&
-                        env.Details.EnvironmentOwnerId.StartsWith("S-1-5-");
+            // for new environment we have to add owner access control, for old env ownership is not changing via update method
+            if (ownerAccess == null)
+            {
+                // TODO: remove this together with supporting AD and Sids
+                bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&
+                env.Details.EnvironmentOwnerId.StartsWith("S-1-5-");
 
-            if (ownerAccess != null)
-            {
-                ownerAccess.Name = env.Details.EnvironmentOwner;
-                ownerAccess.Pid = isSid ? null : env.Details.EnvironmentOwnerId;
-                ownerAccess.Sid = isSid ? env.Details.EnvironmentOwnerId : null;
-            }
-            else
-            {
                 e.AccessControls.Add(new AccessControl
                 {
                     ObjectId = e.ObjectId,
