@@ -243,7 +243,7 @@ export class PageMonitorRequests extends LitElement {
                 const notification = new ErrorNotification();
                 notification.setAttribute(
                   'errorMessage',
-                  err.response.ExceptionMessage
+                  err.response?.ExceptionMessage ?? err.response
                 );
                 this.shadowRoot?.appendChild(notification);
                 notification.open();

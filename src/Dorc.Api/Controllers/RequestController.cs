@@ -197,9 +197,9 @@ namespace Dorc.Api.Controllers
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                     _log.Info($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
@@ -209,7 +209,8 @@ namespace Dorc.Api.Controllers
                     || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
                     _requestsPersistentSource.UpdateRequestStatus(
                         requestId,
-                        DeploymentRequestStatus.Restarting);
+                        DeploymentRequestStatus.Restarting,
+                        username);
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
@@ -226,7 +227,7 @@ namespace Dorc.Api.Controllers
 
 
         /// <summary>
-        /// Creates new request
+        /// Cancel request
         /// </summary>
         /// <param name="requestId"></param>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]

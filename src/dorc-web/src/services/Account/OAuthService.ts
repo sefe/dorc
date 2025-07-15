@@ -38,6 +38,7 @@ export class OAuthService {
    */
   public signIn(): void {
     console.log('signin redirect');
+    localStorage.setItem("lastUrl", window.location.href);
     this.saveConfigurableSettings();
     this._mgr.signinRedirect().catch(err => console.error(err));
   }
@@ -64,7 +65,14 @@ export class OAuthService {
         }
         console.log('signin response success');
         localStorage.removeItem("idsrv.oauthsettings");
-        location.assign('/');
+        const lastUrl = localStorage.getItem("lastUrl") ?? '/';
+        localStorage.removeItem("lastUrl");
+        const exceptions = ['signin.html'];
+        if (exceptions.some(exception => lastUrl.endsWith(exception))) {
+          location.assign('/');
+        } else {
+          location.assign(lastUrl);
+        }
       })
       .catch(err => console.error(err));
   }

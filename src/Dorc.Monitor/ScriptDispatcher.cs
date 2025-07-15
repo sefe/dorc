@@ -12,6 +12,8 @@ using System.Text;
 using System.Text.Json;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using System.Management.Automation.Language;
+using Dorc.PersistentData.Sources;
 
 namespace Dorc.Monitor
 {
@@ -27,6 +29,7 @@ namespace Dorc.Monitor
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IScriptGroupPipeServer scriptGroupPipeServer;
         private readonly IConfigurationSettings configurationSettingsEngine;
+        private readonly IRequestsPersistentSource requestsPersistentSource;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -37,13 +40,15 @@ namespace Dorc.Monitor
             IConfigValuesPersistentSource configValuesPersistentSource,
             ILog logger,
             IScriptGroupPipeServer scriptGroupPipeServer,
-            IConfigurationSettings configurationSettingsEngine)
+            IConfigurationSettings configurationSettingsEngine,
+            IRequestsPersistentSource requestsPersistentSource)
         {
             this.processesPersistentSource = processesPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
             this.logger = logger;
             this.scriptGroupPipeServer = scriptGroupPipeServer;
             this.configurationSettingsEngine = configurationSettingsEngine;
+            this.requestsPersistentSource = requestsPersistentSource;
         }
 
         public bool Dispatch(string scriptsLocation,
@@ -103,11 +108,19 @@ namespace Dorc.Monitor
 
                     using (var securityContext = contextBuilder.Build())
                     {
+                        var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                        .GetSection("AppSettings")["RunnerLogPath"]!;
+                        var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
+                        var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
+
+                        requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
+
                         var processStarter = new RunnerProcessStarter(logger)
                         {
                             RunnerExecutableFullName = GetDeploymentRunnerFileFullName(
                                 scriptGroup.PowerShellVersionNumber),
-                            ScriptGroupPipeName = startedScriptGroupPipeName
+                            ScriptGroupPipeName = startedScriptGroupPipeName,
+                            RunnerLogPath = runnerLogPath
                         };
 
                         try

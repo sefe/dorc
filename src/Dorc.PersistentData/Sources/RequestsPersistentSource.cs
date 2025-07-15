@@ -34,8 +34,8 @@ namespace Dorc.PersistentData.Sources
 
         public DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             using (var context = _contextFactory.GetContext())
             {
@@ -209,6 +209,24 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 deploymentRequest.UncLogPath = uncLogPath;
+                return true;
+            }
+        }
+
+        public bool UpdateUncLogPath(int requestId, string uncLogPath)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                int rowsAffected = context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.UncLogPath, uncLogPath));
+
+                if (rowsAffected == 0)
+                {
+                    return false;
+                }
+
                 return true;
             }
         }

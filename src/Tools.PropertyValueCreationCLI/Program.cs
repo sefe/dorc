@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using Dorc.Core;
+using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
@@ -32,7 +33,7 @@ namespace Tools.PropertyValueCreationCLI
                 // requires explicit registration; doesn't follow convention
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
-                For<IClaimsPrincipalReader>().Use<WinAuthClaimsPrincipalReader>();
+                For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
                 For<ILog>().Use(LogManager.GetLogger("Log")).Singleton();
             }
         }

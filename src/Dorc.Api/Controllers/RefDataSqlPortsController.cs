@@ -19,7 +19,7 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Gets list of Permissions
+        ///     Gets list of SqlPortApiModel
         /// </summary>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<SqlPortApiModel>))]
@@ -37,28 +37,20 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         /// <exception cref="UnauthorizedAccessException"></exception>
         [HttpPost]
-        public IActionResult Post([FromBody] PermissionDto value)
+        public IActionResult Post([FromBody] SqlPortApiModel value)
         {
             if (!User.IsInRole("Admin"))
-                throw new UnauthorizedAccessException("User must be part of the 'Admin' group to create new Permissions");
+                throw new UnauthorizedAccessException("User must be part of the 'Admin' group to create new SQL Port");
+            try
+            {
+                _sqlPortsPersistentSource.CreateSqlPort(value);
 
-            return StatusCode(StatusCodes.Status501NotImplemented);
-        }
-
-        /// <summary>
-        /// Edit SQL Port entry
-        /// </summary>
-        /// <param name="id"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        /// <exception cref="UnauthorizedAccessException"></exception>
-        [HttpPut]
-        public IActionResult Put(int id, [FromBody] PermissionDto value)
-        {
-            if (!User.IsInRole("Admin"))
-                throw new UnauthorizedAccessException("User must be part of the 'Admin' group to edit Permissions");
-
-            return StatusCode(StatusCodes.Status501NotImplemented);
+                return StatusCode(StatusCodes.Status200OK);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
         }
 
         /// <summary>
@@ -68,7 +60,7 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         /// <exception cref="UnauthorizedAccessException"></exception>
         [HttpDelete]
-        public IActionResult Delete(int id)
+        public IActionResult Delete([FromBody] SqlPortApiModel value)
         {
             if (!User.IsInRole("Admin"))
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to delete Permissions");

@@ -21,6 +21,7 @@ import '../components/hegs-dialog';
 import { HegsDialog } from './hegs-dialog';
 import { ServerApiModel } from '../apis/dorc-api';
 import type { EnvironmentContentApiModel } from '../apis/dorc-api';
+import { splitTags } from '../helpers/tag-parser';
 
 @customElement('attached-servers')
 export class AttachedServers extends LitElement {
@@ -154,12 +155,7 @@ export class AttachedServers extends LitElement {
     model: GridItemModel<ServerApiModel>
   ) => {
     const server = model.item;
-    const appTags =
-      server.ApplicationTags !== undefined &&
-      server.ApplicationTags !== null &&
-      server.ApplicationTags.length > 0
-        ? server.ApplicationTags?.split(';')?.sort()
-        : [];
+    const appTags = splitTags(server.ApplicationTags);
 
     render(
       html`

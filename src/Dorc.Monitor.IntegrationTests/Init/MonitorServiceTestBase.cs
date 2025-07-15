@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
@@ -50,7 +51,7 @@ namespace Dorc.Monitor.Tests.Init
             collection.AddTransient<IScriptGroupPipeServer, ScriptGroupPipeServer>();
             collection.AddTransient<ISecurityObjectFilter, SecurityObjectFilter>();
             collection.AddTransient<IRolePrivilegesChecker, RolePrivilegesChecker>();
-            collection.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
+            collection.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalReader>();
 
             var configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.test.json").Build();
             var monitorConfiguration = new MonitorConfiguration(configurationRoot);

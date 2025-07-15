@@ -29,8 +29,8 @@ namespace Dorc.PersistentData.Sources
 
         public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             PagedModel<DeploymentRequestApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -145,18 +145,20 @@ namespace Dorc.PersistentData.Sources
             var reqStatusesQueryable = from req in context.DeploymentRequests
                                        join environment in context.Environments on req.Environment equals
                                            environment.Name
-                                       let isOwner = environment.Owner == userName
                                        let isDelegate =
                                            (from envDetail in context.Environments
                                             join env in context.Environments on envDetail.Name equals env.Name
                                             where env.Name == environment.Name && envDetail.Users.Select(u => u.LoginId).Contains(userName)
                                             select envDetail.Name).Any()
-                                       let isPermissioned =
-                                           (from envDetail in context.Environments
-                                            join env in context.Environments on envDetail.Name equals env.Name
+                                       let permissions =
+                                           (from env in context.Environments
                                             join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                            where env.Name == environment.Name && userSids.Contains(ac.Sid) && (ac.Allow & (int)AccessLevel.Write) != 0
-                                            select envDetail.Name).Any()
+                                            where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
+                                            select ac.Allow).ToList()
+                                       let isPermissioned =
+                                           permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                                       let isOwner =
+                                           permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
                                        select new DeploymentRequestApiModel
                                        {
                                            Id = req.Id,

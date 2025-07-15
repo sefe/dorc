@@ -9,6 +9,10 @@
       "DeployProperty": "ENVIRONMENT"
     },
     {
+      "MSIParameter": "ENVIRONMENT.TIER",
+      "DeployProperty": "ENVIRONMENT_TIER"
+    },
+    {
       "MSIParameter": "SERVICE.PASSWORD",
       "DeployProperty": "SERVICE_PASSWORD"
     },
@@ -151,6 +155,30 @@
     {
       "MSIParameter": "ONE.PASSWORD.ITEM.ID",
       "DeployProperty": "ONE_PASSWORD_ITEM_ID"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.URI",
+      "DeployProperty": "OPENSEARCH_URI"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.USERNAME",
+      "DeployProperty": "OPENSEARCH_USERNAME"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.PASSWORD",
+      "DeployProperty": "OPENSEARCH_PASSWORD"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.DEPLOYMENTRESULTINDEX",
+      "DeployProperty": "OPENSEARCH_DEPLOYMENTRESULTINDEX"
+    },
+    {
+      "MSIParameter": "IDENTITYSERVER.CLIENTID",
+      "DeployProperty": "IDENTITYSERVER_CLIENTID"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID",
+      "DeployProperty": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID"
     }
   ]
 }

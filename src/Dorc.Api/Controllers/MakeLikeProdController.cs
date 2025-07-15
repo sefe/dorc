@@ -27,7 +27,6 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
-        private readonly IActiveDirectoryUserGroupReader _activeDirectoryReader;
         private readonly IVariableResolver _variableResolver;
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
@@ -36,7 +35,6 @@ namespace Dorc.Api.Controllers
         public MakeLikeProdController(ILog logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
-            IActiveDirectoryUserGroupReader activeDirectoryReader,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
@@ -46,7 +44,6 @@ namespace Dorc.Api.Controllers
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
             _variableResolver = variableResolver;
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;
-            _activeDirectoryReader = activeDirectoryReader;
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -111,36 +108,6 @@ namespace Dorc.Api.Controllers
                 return Results.Problem(e.Message, statusCode: StatusCodes.Status500InternalServerError);
             }
         }
-
-
-        /// <summary>
-        /// Get the list of request bundles
-        /// </summary>
-        /// <param name="projectNames"></param>
-        /// <returns></returns>
-        [HttpGet]
-        [Produces(typeof(IEnumerable<BundledRequestsApiModel>))]
-        [Route("BundledRequests")]
-        public IActionResult GetBundledRequests([FromQuery] List<string> projectNames)
-        {
-            try
-            {
-                List<BundledRequestsApiModel> output = new();
-                foreach (var p in projectNames)
-                {
-                    output.AddRange(_bundledRequestsPersistentSource.GetBundles(p));
-                }
-
-                return Ok(output);
-            }
-            catch (Exception ex)
-            {
-                string error = $"Error while locating Bundled Requests for project {projectNames}";
-                _logger.Error(error, ex);
-                return BadRequest(error + " - " + ex);
-            }
-        }
-
 
         /// <summary>
         /// Make Like Production a target environment
@@ -234,7 +201,7 @@ namespace Dorc.Api.Controllers
 
         private string GetUserEmail(ClaimsPrincipal user)
         {
-            return _claimsPrincipalReader.GetUserEmail(user, _activeDirectoryReader);
+            return _claimsPrincipalReader.GetUserEmail(user);
         }
     }
 }

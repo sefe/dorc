@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Dorc.Core.Models;
 using log4net;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
@@ -205,16 +206,22 @@ namespace Dorc.Core.AzureDevOpsServer
 
             var builds = new List<Build>();
 
-            var resultTypes = new List<Build.ResultEnum>
-                { Build.ResultEnum.Succeeded, Build.ResultEnum.PartiallySucceeded };
+            var buildStatusResultFilters = new List<BuildApiFilter>
+                {
+                    new BuildApiFilter(null, Build.ResultEnum.Succeeded ),
+                    new BuildApiFilter(null, Build.ResultEnum.PartiallySucceeded),
+                    new BuildApiFilter(Build.StatusEnum.InProgress, null)
+                };
 
-            foreach (Build.ResultEnum resultType in resultTypes)
+            foreach (var filter in buildStatusResultFilters)
             {
                 string? continuationToken = null;
                 do
                 {
                     var response = instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
-                        buildNumber: buildNumber + "*", resultFilter: resultType.ToString(),
+                        buildNumber: buildNumber + "*",
+                        statusFilter: filter.Status != null ? filter.Status.ToString() : null,
+                        resultFilter: filter.Result != null ? filter.Result.ToString() : null,
                         continuationToken: continuationToken);
 
                     foreach (var header in response.Result.Headers)

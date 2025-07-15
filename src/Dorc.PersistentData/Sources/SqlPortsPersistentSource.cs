@@ -33,12 +33,38 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void CreateSqlPort(SqlPortApiModel value)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var currentSqlPort = context.SqlPorts.FirstOrDefault(
+                    sqlPort => sqlPort.Instance_Name == value.InstanceName
+                    && sqlPort.SQL_Port == value.SqlPort);
+                if (currentSqlPort != null)
+                {
+                    throw new ArgumentException($"Pair {value.InstanceName} - {value.SqlPort} already exist");
+                }
+
+                context.SqlPorts.Add(MapToSqlPort(value));
+                context.SaveChanges();
+            }
+        }
+
         private SqlPortApiModel MapToSqlPortApiModel(SqlPort sql)
         {
             return new SqlPortApiModel
             {
                 InstanceName = sql.Instance_Name,
                 SqlPort = sql.SQL_Port
+            };
+        }
+
+        private SqlPort MapToSqlPort(SqlPortApiModel sql)
+        {
+            return new SqlPort
+            {
+                Instance_Name = sql.InstanceName,
+                SQL_Port = sql.SqlPort
             };
         }
     }

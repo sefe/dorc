@@ -74,28 +74,18 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Get the logs for the specified request ID
+        /// Search users or groups in identity provider
         /// </summary>
         /// <param name="search"></param>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ActiveDirectoryElementApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<UserElementApiModel>))]
         [Route("SearchUsers")]
         [HttpGet]
         public IActionResult SearchUsers(string search)
         {
             var results = _adSearcher.Search(search);
 
-            var objects = results
-                .Select(r => new ActiveDirectoryElementApiModel
-                {
-                    Sid = ActiveDirectorySearcher.GetSidString((byte[])r.Properties["objectsid"][0]),
-                    DisplayName = r.Properties.Contains("displayname")
-                        ? r.Properties["displayname"][0].ToString()
-                        : r.Properties["cn"][0].ToString(),
-                    Username = r.Properties["SAMAccountName"][0].ToString()
-                });
-
-            return StatusCode(StatusCodes.Status200OK, objects);
+            return StatusCode(StatusCodes.Status200OK, results);
         }
 
         /// <summary>
@@ -112,6 +102,25 @@ namespace Dorc.Api.Controllers
                 accessControl.Type == AccessControlType.Project &&
                  _securityPrivilegesChecker.CanModifyProject(User, accessControl.Name))
             {
+                // For environments, ensure at least one owner remains
+                if (accessControl.Type == AccessControlType.Environment)
+                {
+                    var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                        .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
+                        .ToList();
+                    
+                    var newOwners = accessControl.Privileges
+                        .Where(p => (p.Allow & 4) != 0)
+                        .ToList();
+
+                    // If we're removing all owners, prevent the update
+                    if (currentOwners.Any() && !newOwners.Any())
+                    {
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "Cannot remove all owners from an environment. At least one owner must remain.");
+                    }
+                }
+
                 var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
                     .ToArray();
                 var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();

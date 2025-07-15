@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.PersistData.Dapper;
+using Dorc.Runner.Logger;
 using Newtonsoft.Json;
 using Serilog;
 using Serilog.Core;
@@ -15,16 +14,14 @@ namespace Dorc.NetFramework.PowerShell
 {
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
-        private readonly ILogger logger;
-        private readonly IDapperContext dbContext;
+        private readonly IRunnerLogger logger;
         private int deploymentResultId;
 
         public StringWriter OutputObjects { get; private set; }
 
-        public PowerShellScriptRunner(ILogger logger, IDapperContext dbContext,int deploymentResultId)
+        public PowerShellScriptRunner(IRunnerLogger logger, int deploymentResultId)
         {
             this.logger = logger;
-            this.dbContext = dbContext;
             this.deploymentResultId = deploymentResultId;
         }
 
@@ -35,7 +32,7 @@ namespace Dorc.NetFramework.PowerShell
             foreach ((string, IDictionary<string, VariableValue>) script in scripts)
             {
                 string scriptName = script.Item1;
-                logger.Information("\tStarting execution of script '" + scriptName + "'.");
+                logger.FileLogger.Information("\tStarting execution of script '" + scriptName + "'.");
 
                 IDictionary<string, VariableValue> scriptProperties = script.Item2;
                 IDictionary<string, VariableValue> combinedProperties = this.CombineProperties(scriptProperties, commonProperties);
@@ -52,7 +49,10 @@ namespace Dorc.NetFramework.PowerShell
 
                         using (var powerShell = System.Management.Automation.PowerShell.Create())
                         {
-                            host.HostUserInterface.MessageAdded += HostUserInterface_MessageAdded;
+                            host.HostUserInterface.MessageAdded += (sender, e) =>
+                            {
+                                LogMessage(e.Message, e.MessageType);
+                            };
                             powerShell.Runspace = runspace;
 
                             if (!string.IsNullOrEmpty(scriptsLocation))
@@ -61,18 +61,28 @@ namespace Dorc.NetFramework.PowerShell
                             }
 
                             powerShell.AddScript(File.ReadAllText(scriptName));
-                            logger.Information($"Adding Script for execution '{scriptName}'.");
+                            logger.FileLogger.Information($"Adding Script for execution '{scriptName}'.");
 
                             // create a data collection for standard output
                             var outputCollection = new PSDataCollection<PSObject>();
                             // and register the event handler on that too
+                            outputCollection.DataAdded += (sender, e) =>
+                            {
+                                var data = sender as PSDataCollection<PSObject>;
+                                var msg = GetOutput(data[e.Index]);
+                                if (string.IsNullOrWhiteSpace(msg)) return;
+                                LogMessage(msg, MessageType.None);
+                            };
+
+                            //Add only Error Stream because all other streams supported by HostUserInterface
+                            powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
                             outputCollection.DataAdded += Powershell_Output_DataAdded;
 
                             try
                             {
-                                logger.Information($"Execution of the powershell Script {scriptName} is beginning");
+                                logger.FileLogger.Information($"Execution of the powershell Script {scriptName} is beginning");
                                 powerShell.Invoke(null, outputCollection);
-                                logger.Information($" Execution of the powershell Script {scriptName} has completed");
+                                logger.FileLogger.Information($" Execution of the powershell Script {scriptName} has completed");
                             }
                             catch (Exception exception)
                             {
@@ -82,11 +92,11 @@ namespace Dorc.NetFramework.PowerShell
                                 {
                                     throw;
                                 }
-                                logger.Information($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
+                                logger.FileLogger.Information($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
                                 throw new RemoteException(exceptionMessage, exception);
                             }
 
-                            logger.Debug("Checking runspace State");
+                            logger.FileLogger.Debug("Checking runspace State");
 
                             if (runspace.RunspaceStateInfo != null
                                 && runspace.RunspaceStateInfo.State == RunspaceState.Broken)
@@ -94,34 +104,33 @@ namespace Dorc.NetFramework.PowerShell
                                 throw new Exception(
                                     $"The runspace has been disconnected abnormally. Reason: {runspace.RunspaceStateInfo.Reason}");
                             }
-                            logger.Debug("Checking runspace State...Done");
-                            logger.Debug("Checking InvocationStateInfo");
+                            logger.FileLogger.Debug("Checking runspace State...Done");
+                            logger.FileLogger.Debug("Checking InvocationStateInfo");
                             if (powerShell.InvocationStateInfo != null
                                 && powerShell.InvocationStateInfo.State == PSInvocationState.Failed)
                             {
                                 throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
                             }
-                            logger.Debug("Checking InvocationStateInfo...Done");
+                            logger.FileLogger.Debug("Checking InvocationStateInfo...Done");
                         }
                     }
 
                 }
                 catch (Exception e)
                 {
-                    logger.Error(e, $"Exception occured in the powershell execution of script {scriptName}");
+                    logger.FileLogger.Error(e, $"Exception occured in the powershell execution of script {scriptName}");
                     throw;
                 }
-                logger.Information($" Execution of the powershell Script {scriptName} was successful");
+                logger.FileLogger.Information($" Execution of the powershell Script {scriptName} was successful");
             }
         }
 
-        private void HostUserInterface_MessageAdded(object sender, MessageAddedEventArgs e)
+        private void LogMessage(string msg, MessageType type = MessageType.None)
         {
             try
             {
-                var msg = e.Message;
                 if (string.IsNullOrWhiteSpace(msg)) return;
-                switch (e.MessageType)
+                switch (type)
                 {
                     case MessageType.Info:
                         logger.Information(msg);
@@ -141,12 +150,18 @@ namespace Dorc.NetFramework.PowerShell
                     default:
                         break;
                 }
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
                 logger.Error(exception, "Exception Occured logging Information Message from powershell execution");
             }
+        }
+
+        void Powershell_Error_DataAdded(object sender, DataAddedEventArgs e)
+        {
+            var data = (PSDataCollection<ErrorRecord>)sender;
+            var msg = GetErrorRecordData(data[e.Index]);
+            LogMessage(msg, MessageType.Error);
         }
 
         private void Powershell_Output_DataAdded(object sender, DataAddedEventArgs e)
@@ -157,7 +172,6 @@ namespace Dorc.NetFramework.PowerShell
                 var msg = GetOutput(data[e.Index]);
                 if (string.IsNullOrWhiteSpace(msg)) return;
                 logger.Information(msg);
-                dbContext.UpdateLog(this.logger, deploymentResultId, msg);
             }
             catch (Exception exception)
             {
@@ -214,7 +228,7 @@ namespace Dorc.NetFramework.PowerShell
                 catch (Exception ex)
                 {
                     var val = JsonConvert.SerializeObject(property.Value);
-                    logger.Error($"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}'",
+                    logger.FileLogger.Error($"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}'",
                         ex);
                     Console.WriteLine(
                         $"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}': {ex}");
