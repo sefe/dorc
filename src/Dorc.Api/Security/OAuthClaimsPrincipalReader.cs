@@ -42,8 +42,23 @@ namespace Dorc.Api.Security
 
         public string GetUserFullDomainName(IPrincipal user)
         {
-            var cUser = GetClaimsPrincipal(user);
-            return IsM2MAuthentication(cUser) ? GetClientId(cUser) : GetUserEmail(cUser);
+            var claimsPrincipal = GetClaimsPrincipal(user);
+
+            // for M2M authentication, we return the client ID as the name
+            if (IsM2MAuthentication(claimsPrincipal))
+            {
+                return GetClientId(claimsPrincipal);
+            }
+
+            // for normal Oauth user return the email (ideally UPN but token does not have it yet)
+            var email = GetUserEmail(claimsPrincipal);
+            if (!string.IsNullOrEmpty(email))
+            {
+                return email;
+            }
+
+            // if the email is not available (for test users for example) - return the SamAccountName if it exists or just the user name
+            return GetSamAccountName(claimsPrincipal) ?? GetUserName(user);
         }
 
         public string GetUserLogin(IPrincipal user)
