@@ -53,6 +53,7 @@ export class EnvBundles extends PageEnvBase {
       >
         <vaadin-button
           theme="primary small"
+          .disabled="${true}"
           @click=${this._openAddBundleDialog}
         >
           Add
@@ -145,7 +146,10 @@ export class EnvBundles extends PageEnvBase {
     model: GridItemModel<BundledRequestsApiModel>
   ) {
     render(
-      html` <bundle-request-controls .value="${model.item}" .disabled="${this.environment?.UserEditable}">
+      //buttons disabled until fix for env/total bundle change
+      html` <bundle-request-controls .value="${model.item}"
+      .disabled="${true || this.environment?.UserEditable}"
+      >
       </bundle-request-controls>`,
       root
     );
