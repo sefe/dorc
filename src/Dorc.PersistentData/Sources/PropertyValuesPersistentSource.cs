@@ -358,6 +358,7 @@ namespace Dorc.PersistentData.Sources
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -377,7 +378,7 @@ namespace Dorc.PersistentData.Sources
                                let permissions =
                                    (from env in context.Environments
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
+                                    where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid))
                                     select ac.Allow).ToList()
                                let hasPermission =
                                    permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -533,6 +534,7 @@ namespace Dorc.PersistentData.Sources
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -554,7 +556,7 @@ namespace Dorc.PersistentData.Sources
                                    let permissions =
                                        (from env in context.Environments
                                         join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                        where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid))
+                                        where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid))
                                         select ac.Allow).ToList()
                                    let hasPermission =
                                        permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
