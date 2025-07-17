@@ -310,34 +310,40 @@ namespace Dorc.PersistentData.Sources
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-            var output = (
-                from project in context.Projects.Include(p => p.Environments).ThenInclude(e => e.AccessControls)
-                from environment in project.Environments
-                join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
-                    into accessControlEnvironments
-                from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
+            var userAccessControls = context.AccessControls
+                .AsNoTracking()
+                .Where(ac => ac.Allow != 0 && (userSids.Contains(ac.Sid) || (ac.Pid != null && userSids.Contains(ac.Pid))))
+                .ToList();
+
+            var environments = (
+                from project in context.Projects.AsNoTracking()
                 where project.Name == projectName
-                let isDelegate =
-                    (from env in context.Environments
-                     where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
-                     select environment.Name).Any()
-                let permissions = (from env in context.Environments
-                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                     where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
-                                           ac.Allow != 0
-                                     select ac.Allow).ToList()
-                let hasPermission = permissions.Any(a => (a & (int)accessLevel) != 0)
-                let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
-                select new EnvironmentData
+                from environment in project.Environments
+                select new
                 {
                     Environment = environment,
+                    Users = environment.Users.Select(u => u.LoginId).ToList()
+                }).ToList();
+
+            var output = environments.Select(e =>
+            {
+                var accessControlsForEnv = userAccessControls.Where(ac => ac.ObjectId == e.Environment.ObjectId);
+
+                bool hasPermission = accessControlsForEnv.Any(ac => (ac.Allow & (int)accessLevel) != 0);
+                bool isOwner = accessControlsForEnv.Any(ac => (ac.Allow & (int)AccessLevel.Owner) != 0);
+                bool isDelegate = e.Users.Contains(username);
+
+                return new EnvironmentData
+                {
+                    Environment = e.Environment,
                     UserEditable = isOwner || hasPermission || isDelegate || isAdmin,
                     IsDelegate = isDelegate,
                     IsModify = hasPermission,
-                    IsOwner = isOwner || permissions.Any(a => (a & (int)AccessLevel.Owner) != 0),
-                });
+                    IsOwner = isOwner
+                };
+            });
 
-            var environmentData = output.ToList().DistinctBy(e => e.Environment.Id);
+            var environmentData = output.DistinctBy(e => e.Environment.Id);
 
             if (isAdmin)
                 return environmentData;
