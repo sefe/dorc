@@ -55,7 +55,7 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(string envFilter, string envName)
         {
-            string username = _claimsPrincipalReader.GetUserName(User);
+            string username = _claimsPrincipalReader.GetUserLogin(User);
             if (string.IsNullOrEmpty(username))
             {
                 return Ok(new ApiBoolResult
