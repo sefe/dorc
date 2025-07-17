@@ -649,28 +649,30 @@ namespace Dorc.PersistentData.Sources
         {
             var sidSet = userSids.ToHashSet(); // HashSet for faster lookup
 
-            var environments = context.Environments
-                .Where(e => e.Name == environmentName)
-                .Select(e => new
-                {
-                    Environment = e,
-                    AccessControls = e.AccessControls.Where(ac =>
-                        sidSet.Contains(ac.Sid) ||
-                        (ac.Pid != null && sidSet.Contains(ac.Pid))),
-                    IsDelegate = e.Users.Any(u => u.LoginId == username),
-                    e.ParentEnvironment,
-                    e.ChildEnvironments
-                });
-
-            var output = environments.Select(e => new EnvironmentData
-            {
-                Environment = e.Environment,
-                IsDelegate = e.IsDelegate,
-                IsModify = e.AccessControls.Any(ac => (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0),
-                IsOwner = e.AccessControls.Any(ac => (ac.Allow & (int)AccessLevel.Owner) != 0),
-                UserEditable = e.IsDelegate ||
-                               e.AccessControls.Any(ac => (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
-            });
+            var output = from
+                environment in context.Environments.Include(e => e.AccessControls).Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
+                         join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
+                             accessControlEnvironments
+                         from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
+                         where environment.Name == environmentName
+                         let isDelegate =
+                             (from env in context.Environments
+                              where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
+                              select environment.Name).Any()
+                         let permissions = (from env in context.Environments
+                                            join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
+                                            where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid))
+                                            select ac.Allow).ToList()
+                         let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                         let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
+                         select new EnvironmentData
+                         {
+                             Environment = environment,
+                             UserEditable = isOwner || isModify || isDelegate,
+                             IsDelegate = isDelegate,
+                             IsModify = isModify,
+                             IsOwner = isOwner
+                         };
 
             return output;
         }
