@@ -651,13 +651,9 @@ namespace Dorc.PersistentData.Sources
                 Environment = e.Environment,
                 IsDelegate = e.IsDelegate,
                 IsModify = e.Permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0),
-                IsOwner = e.Permissions.Any(p => (p & (int)AccessLevel.Owner) != 0)
-            })
-            .AsEnumerable()
-            .Select(e =>
-            {
-                e.UserEditable = e.IsOwner || e.IsModify || e.IsDelegate;
-                return e;
+                IsOwner = e.Permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
+                UserEditable = e.IsDelegate ||
+                               e.Permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
             }).AsQueryable();
 
             return output;
@@ -688,8 +684,7 @@ namespace Dorc.PersistentData.Sources
                 IsModify = e.AccessControls.Any(ac => (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0),
                 IsOwner = e.AccessControls.Any(ac => (ac.Allow & (int)AccessLevel.Owner) != 0),
                 UserEditable = e.IsDelegate ||
-                               e.AccessControls.Any(ac => (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0) ||
-                               e.AccessControls.Any(ac => (ac.Allow & (int)AccessLevel.Owner) != 0)
+                               e.AccessControls.Any(ac => (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
             });
 
             return output;
