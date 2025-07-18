@@ -167,18 +167,19 @@ namespace Dorc.Api.Controllers
                             var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
                             if (copyEnvBuildRequest != null)
                             {
-                                if (copyEnvBuildRequest.Components.Any())
+                                if (copyEnvBuildRequest.Components != null && copyEnvBuildRequest.Components.Any())
                                 {
                                     reqIds.AddRange(_deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         copyEnvBuildRequest.Components.ToArray(), User));
                                 }
-                                else
+                                else if (copyEnvBuildRequest.Components == null)
                                 {
                                     reqIds.AddRange(_deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         User));
                                 }
+                                // If Components is not null but empty, skip CopyEnvBuild entirely (Mini MLP)
                             }
                             break;
                     }
