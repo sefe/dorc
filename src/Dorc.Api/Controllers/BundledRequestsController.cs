@@ -63,7 +63,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var requests = _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName);
+                var requests = _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).OrderBy(br => br.Sequence);
                 return Ok(requests);
             }
             catch (Exception ex)
