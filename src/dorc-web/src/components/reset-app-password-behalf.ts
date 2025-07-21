@@ -75,7 +75,7 @@ export class ResetAppPasswordBehalf extends LitElement {
 
           <div style="margin-right: 30px">
             <vaadin-button @click="${this.resetAppPassword}"
-              >Reset Password</vaadin-button
+              >Reset SQL User Password</vaadin-button
             >
             ${this.resettingAppPassword
               ? html` <div class="small-loader"></div> `
@@ -95,7 +95,7 @@ export class ResetAppPasswordBehalf extends LitElement {
     if (user === undefined) return;
 
     const answer = confirm(
-      `Are you sure you want to reset the application password for ${
+      `Are you sure you want to reset the SQL user password for ${
         user.DisplayName
       }?`
     );
@@ -131,7 +131,7 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   errorAlert(result: any) {
     const event = new CustomEvent('error-alert', {
-      detail: { description: 'Failed to reset the password', result },
+      detail: { description: 'Failed to reset the sql user password', result },
       bubbles: true,
       composed: true
     });

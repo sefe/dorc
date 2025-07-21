@@ -159,25 +159,15 @@ export class EnvControlCenter extends PageEnvBase {
             Bundle Request...
           </vaadin-button>
           <vaadin-button
-            id="reset-password"
-            title="Reset my Application Password"
-            @click="${this.resetAppPassword}"
-            .disabled="${this.environment?.EnvironmentIsProd}"
-            ?hidden="${!this.isEndur}"
-          >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>
-            Reset my App Password...
-          </vaadin-button>
-          <vaadin-button
             id="reset-others-password"
-            title="Reset Application Password for another user"
+            title="Reset SQL Instance Account Password for another user"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
             .disabled="${this.environment?.EnvironmentIsProd ||
             !(this.isEnvOwnerOrDelegate || this.isAdmin)}"
           >
             <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>
-            Reset App Password for...
+            Reset SQL Instance Account Password for...
           </vaadin-button>
         </div>
       </vaadin-details>
@@ -300,39 +290,6 @@ export class EnvControlCenter extends PageEnvBase {
       'reset-app-password-behalf'
     ) as ResetAppPasswordBehalf;
     dialog.open();
-  }
-
-  resetAppPassword() {
-    const answer = confirm(
-      'Are you sure you want to reset your application password?'
-    );
-    if (answer) {
-      const api = new ResetAppPasswordApi();
-      api
-        .resetAppPasswordPut({
-          envFilter: this.envFilter ?? '',
-          envName: this.environment?.EnvironmentName ?? ''
-        })
-        .subscribe(
-          (result: ApiBoolResult) => {
-            if (result.Result) {
-              const appName = this.envFilter ?? '';
-              const message = `Password successfully reset, it is now set as the same as your ${
-                appName
-              } login name, you will need to login without encryption the first time.`;
-              const notification = new SuccessNotification();
-              notification.setAttribute('successMessage', message);
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-            } else {
-              this.errorAlert(result);
-            }
-          },
-          (err: any) => {
-            this.errorAlert(err.response);
-          }
-        );
-    }
   }
 
   errorAlert(result: any) {

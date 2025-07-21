@@ -46,25 +46,6 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Reset the password for the current user
-        /// </summary>
-        /// <param name="envFilter"></param>
-        /// <param name="envName"></param>
-        /// <returns></returns>
-        [Produces(typeof(ApiBoolResult))]
-        [HttpPut]
-        public IActionResult Put(string envFilter, string envName)
-        {
-            string username = _claimsPrincipalReader.GetUserLogin(User);
-            if (string.IsNullOrEmpty(username))
-            {
-                return Ok(new ApiBoolResult
-                    { Message = "You are not currently setup in this environment", Result = false });
-            }
-            return ResetPassword(envFilter, envName, username);
-        }
-
-        /// <summary>
         /// Reset the password for the specified user
         /// </summary>
         /// <param name="envFilter"></param>
@@ -89,45 +70,49 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var user = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployUsername");
-                var pwd = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployPassword");
-
-                var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
-
-                var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(username, envFilter, envName);
+                var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(envFilter, envName);
                 if (db == null)
                     return Ok(new ApiBoolResult
                     { Message = "You are not currently setup in this environment", Result = false });
 
-                if (user == null || pwd == null)
-                    return Ok(new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false });
-
-
-                const int logon32ProviderDefault = 0;
-                //This parameter causes LogonUser to create a primary token.   
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (false == returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
-
-                return WindowsIdentity.RunImpersonated<IActionResult>(
-                    safeAccessTokenHandle,
-                    // User action  
-                    () => Ok(_sqlUserPasswordReset.ResetSqlUserPassword(db.ServerName, username)));
+                return Ok(ResetSqlServerPasswordForUser(username, db.ServerName));
             }
             catch (Exception e)
             {
                 _logger.Error(e);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
+        }
+
+        private ApiBoolResult ResetSqlServerPasswordForUser(string username, string serverName)
+        {
+            var user = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployUsername");
+            var pwd = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployPassword");
+
+            var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            
+            if (user == null || pwd == null)
+                return new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false };
+
+            const int logon32ProviderDefault = 0;
+            //This parameter causes LogonUser to create a primary token.   
+            const int logon32LogonInteractive = 2;
+
+            bool returnValue = LogonUser(user, domainName, pwd,
+                logon32LogonInteractive, logon32ProviderDefault,
+                out var safeAccessTokenHandle);
+
+            if (false == returnValue)
+            {
+                int ret = Marshal.GetLastWin32Error();
+                Console.WriteLine("LogonUser failed with error code : {0}", ret);
+                throw new System.ComponentModel.Win32Exception(ret);
+            }
+
+            return WindowsIdentity.RunImpersonated(
+                safeAccessTokenHandle,
+                // User action  
+                () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
         }
     }
 }

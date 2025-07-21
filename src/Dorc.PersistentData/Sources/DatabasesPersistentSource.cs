@@ -321,8 +321,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string envFilter,
-            string envName)
+        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string envFilter, string envName)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -337,7 +336,7 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
+                        dbIds.Contains(eu.Database.Id) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
