@@ -27,6 +27,7 @@ import '../pages/page-monitor-result.ts'
 import '../pages/page-not-found.ts'
 import '../pages/page-permissions-list.ts'
 import '../pages/page-project-envs.ts'
+import '../pages/page-project-bundles.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
@@ -222,6 +223,15 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Environments for Project',
           description: 'All environments attached to a project'
+        }
+      },
+      {
+        path: '/project-envs/:id/bundles',
+        name: 'project-bundles',
+        component: 'page-project-bundles',
+        metadata: {
+          title: 'Bundles for Project',
+          description: 'All bundles for a project'
         }
       },
       {

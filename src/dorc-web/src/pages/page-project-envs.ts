@@ -193,6 +193,16 @@ export class PageProjectEnvs extends PageElement {
               ></vaadin-icon>
             </vaadin-button>
             <vaadin-button
+              title="Bundles"
+              theme="icon"
+              @click="${this.openBundles}"
+            >
+              <vaadin-icon
+                icon="vaadin:package"
+                style="color: cornflowerblue"
+              ></vaadin-icon>
+            </vaadin-button>
+            <vaadin-button
               title="Reference Data"
               theme="icon"
               @click="${this.openRefData}"
@@ -307,6 +317,10 @@ export class PageProjectEnvs extends PageElement {
       composed: true
     });
     this.dispatchEvent(event);
+  }
+
+  openBundles() {
+    Router.go(`project-envs/${this.project}/bundles`);
   }
 
   private renderMapEnvDialog = () => html`
