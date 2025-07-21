@@ -19,6 +19,8 @@ namespace Dorc.PersistentData.Sources
         {
             string username = ClaimsPrincipalReader.GetUserLogin(user);
             var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
+
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
@@ -34,7 +36,7 @@ namespace Dorc.PersistentData.Sources
                 let permissions = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
+                    where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)) &&
                           (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                     select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -71,6 +73,7 @@ namespace Dorc.PersistentData.Sources
         {
             string username = ClaimsPrincipalReader.GetUserLogin(user);
             var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
 
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
@@ -86,7 +89,7 @@ namespace Dorc.PersistentData.Sources
                 let permissions = (from envDetail in context.Environments
                                 join env in context.Environments on envDetail.Name equals env.Name
                                 join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
+                                where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)) &&
                                         (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                                 select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
