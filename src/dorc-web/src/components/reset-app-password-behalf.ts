@@ -25,6 +25,8 @@ export class ResetAppPasswordBehalf extends LitElement {
   @property({ type: String }) protected envFilter: string | undefined;
 
   @property({ type: String }) protected environmentName: string | undefined;
+  @property({ type: String }) protected serverName: string | undefined;
+  @property({ type: String }) protected databaseName: string | undefined;
 
   static get styles() {
     return css`
@@ -49,6 +51,25 @@ export class ResetAppPasswordBehalf extends LitElement {
         top: 16px;
         overflow: auto;
         padding: 10px;
+      }
+      .info-section {
+        background: #f7f7f7;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+      .info-label {
+        font-weight: 500;
+        color: #555;
+      }
+      .info-value {
+        font-weight: 400;
+        color: #222;
       }
     `;
   }
@@ -75,14 +96,24 @@ export class ResetAppPasswordBehalf extends LitElement {
 
           <div style="margin-right: 30px">
             <vaadin-button @click="${this.resetAppPassword}"
-              >Reset SQL User Password</vaadin-button
+              >Reset Password For SQL User</vaadin-button
             >
             ${this.resettingAppPassword
               ? html` <div class="small-loader"></div> `
               : html``}
           </div>
-        </div>
 
+          <div class="info-section">
+            <div class="info-row">
+              <span class="info-label">Server:</span>
+              <span class="info-value">${this.serverName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Database:</span>
+              <span class="info-value">${this.databaseName}</span>
+            </div>
+          </div>
+        </div>
         <div style="display: flex; justify-content: flex-end">
           <vaadin-button dialog-confirm>Close</vaadin-button>
         </div>
@@ -131,7 +162,7 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   errorAlert(result: any) {
     const event = new CustomEvent('error-alert', {
-      detail: { description: 'Failed to reset the sql user password', result },
+      detail: { description: 'Failed to reset the SQL user password', result },
       bubbles: true,
       composed: true
     });

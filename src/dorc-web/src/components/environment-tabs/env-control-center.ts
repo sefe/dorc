@@ -7,9 +7,8 @@ import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import {
   AccessControlType,
-  ApiBoolResult,
-  RefDataEnvironmentsApi,
-  ResetAppPasswordApi
+  DatabaseApiModel,
+  RefDataEnvironmentsApi
 } from '../../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -56,6 +55,8 @@ export class EnvControlCenter extends PageEnvBase {
   @state()
   private isAdmin = false;
 
+  private appDbServer: DatabaseApiModel | undefined;
+
   static get styles() {
     return css`
       :host {
@@ -99,9 +100,11 @@ export class EnvControlCenter extends PageEnvBase {
     return html`
       <reset-app-password-behalf
         id="reset-app-password-behalf"
-        .appUsers="${this.envContent?.EndurUsers}"
+        .appUsers="${this.envContent?.EndurUsers ?? []}"
         .envFilter="${this.envFilter}"
         .environmentName="${this.environment?.EnvironmentName}"
+        .serverName="${this.appDbServer?.ServerName}"
+        .databaseName="${this.appDbServer?.Name}"
       ></reset-app-password-behalf>
       <make-like-production-dialog
         id="make-like-prod-dialog"
@@ -160,7 +163,7 @@ export class EnvControlCenter extends PageEnvBase {
           </vaadin-button>
           <vaadin-button
             id="reset-others-password"
-            title="Reset SQL Instance Account Password for another user"
+            title="Reset Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
             .disabled="${this.environment?.EnvironmentIsProd ||
@@ -321,5 +324,8 @@ export class EnvControlCenter extends PageEnvBase {
     this.mappedProjects = this.envContent?.MappedProjects?.map(
       p => p.ProjectName ?? ''
     );
+
+    // since ThinClient is a DB tag and DB type and environment filter, we can use it to find the app database server
+    this.appDbServer = this.envContent?.DbServers?.find(s => s.Type === this.environment?.Details?.ThinClient);
   }
 }
