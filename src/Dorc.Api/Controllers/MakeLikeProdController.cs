@@ -147,6 +147,12 @@ namespace Dorc.Api.Controllers
                         case BundledRequestType.JobRequest:
                             var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
 
+                            // Skip JobRequest if Components is empty (Mini MLP)
+                            if (job.Components != null && !job.Components.Any())
+                            {
+                                break;
+                            }
+
                             _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
                             _variableResolver.LoadProperties();
                             List<RequestProperty> variables = new();
@@ -184,7 +190,7 @@ namespace Dorc.Api.Controllers
                             break;
                     }
 
-                    if (initialRequestIdNotSet)
+                    if (initialRequestIdNotSet && reqIds.Any())
                     {
                         _variableResolver.SetPropertyValue("StartingRequestId", reqIds.First().ToString());
                         initialRequestIdNotSet = false;
