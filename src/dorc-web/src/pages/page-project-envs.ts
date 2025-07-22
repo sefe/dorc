@@ -2,6 +2,8 @@ import { css, PropertyValues } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/icon';
+import '@vaadin/vertical-layout';
+import '@vaadin/horizontal-layout';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
@@ -181,51 +183,53 @@ export class PageProjectEnvs extends PageElement {
                   >${this.projectData?.ProjectDescription}</span
                 >`}
           </div>
-          <div style="float: right; width: 100px; display: flex; flex-wrap: wrap; justify-content: flex-end;">
-            <vaadin-button
-              title="Attach Environment"
-              theme="icon"
-              @click="${this.openAttachEnv}"
-              style="margin: 2px;"
-            >
-              <vaadin-icon
-                icon="icons:link"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-            <vaadin-button
-              title="Bundles"
-              theme="icon"
-              @click="${this.openBundles}"
-              style="margin: 2px;"
-            >
-              <vaadin-icon
-                icon="vaadin:package"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-            <vaadin-button
-              title="Reference Data"
-              theme="icon"
-              @click="${this.openRefData}"
-              style="margin: 2px;"
-            >
-              <vaadin-icon
-                icon="vaadin:curly-brackets"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-            <vaadin-button
-              title="Edit Metadata..."
-              theme="icon"
-              @click="${this.openProjectMetadata}"
-              style="margin: 2px;"
-            >
-              <vaadin-icon
-                icon="lumo:edit"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
+          <div style="left: 200px; top: 40px; position: relative">
+            <vaadin-vertical-layout>
+              <vaadin-horizontal-layout>
+                <vaadin-button
+                  title="Attach Environment"
+                  theme="icon"
+                  @click="${this.openAttachEnv}"
+                >
+                  <vaadin-icon
+                    icon="icons:link"
+                    style="color: cornflowerblue"
+                  ></vaadin-icon>
+                </vaadin-button>
+                <vaadin-button
+                  title="Bundles"
+                  theme="icon"
+                  @click="${this.openBundles}"
+                >
+                  <vaadin-icon
+                    icon="vaadin:package"
+                    style="color: cornflowerblue"
+                  ></vaadin-icon>
+                </vaadin-button>
+              </vaadin-horizontal-layout>
+              <vaadin-horizontal-layout>
+                <vaadin-button
+                  title="Reference Data"
+                  theme="icon"
+                  @click="${this.openRefData}"
+                >
+                  <vaadin-icon
+                    icon="vaadin:curly-brackets"
+                    style="color: cornflowerblue"
+                  ></vaadin-icon>
+                </vaadin-button>
+                <vaadin-button
+                  title="Edit Metadata..."
+                  theme="icon"
+                  @click="${this.openProjectMetadata}"
+                >
+                  <vaadin-icon
+                    icon="lumo:edit"
+                    style="color: cornflowerblue"
+                  ></vaadin-icon>
+                </vaadin-button>
+              </vaadin-horizontal-layout>
+            </vaadin-vertical-layout>
           </div>
         </div>
         ${this.environments?.map(
