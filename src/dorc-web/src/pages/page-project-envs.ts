@@ -62,7 +62,7 @@ export class PageProjectEnvs extends PageElement {
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
         height: 126px;
-        right: 50px;
+        position: relative;
       }
 
       .card-element__heading {
@@ -169,7 +169,7 @@ export class PageProjectEnvs extends PageElement {
       ></add-edit-project>
       <div class="environments">
         <div class="statistics-cards__item card-element">
-          <div style="float: left">
+          <div style="position: absolute; left: 10px; max-width: 250px">
             <h3 class="card-element__heading" style="margin: 0px">
               ${this.project}
             </h3>
@@ -183,6 +183,7 @@ export class PageProjectEnvs extends PageElement {
                   >${this.projectData?.ProjectDescription}</span
                 >`}
           </div>
+
           <div style="left: 200px; top: 40px; position: relative">
             <vaadin-vertical-layout>
               <vaadin-horizontal-layout>
