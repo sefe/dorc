@@ -108,20 +108,21 @@ export class PageProjectBundles extends PageElement {
   private bundledRequests: Array<BundledRequestsApiModel> = [];
   private filteredBundledRequests: Array<BundledRequestsApiModel> = [];
   private projectData: EnvironmentApiModelTemplateApiModel | undefined;
+  private uniqueBundleNames: string[] = [];
 
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
 
   @query('#grid') grid: Grid | undefined;
 
-  get uniqueBundleNames(): string[] {
+  private updateUniqueBundleNames() {
     const names = new Set<string>();
     this.bundledRequests.forEach(bundle => {
       if (bundle.BundleName) {
         names.add(bundle.BundleName);
       }
     });
-    return Array.from(names).sort();
+    this.uniqueBundleNames = Array.from(names).sort();
   }
 
   private applyBundleNameFilter() {
@@ -132,7 +133,12 @@ export class PageProjectBundles extends PageElement {
         bundle.BundleName === this.bundleNameFilter
       );
     }
-    this.requestUpdate();
+  }
+
+  private handleBundleNameFilterChange(e: CustomEvent) {
+    const comboBox = e.target as ComboBox;
+    this.bundleNameFilter = comboBox.value || '';
+    this.applyBundleNameFilter();
   }
 
   bundleNameHeaderRenderer(root: HTMLElement) {
@@ -151,11 +157,7 @@ export class PageProjectBundles extends PageElement {
           style="width: 200px"
           theme="small"
           .value="${this.bundleNameFilter}"
-          @value-changed="${(e: CustomEvent) => {
-            const comboBox = e.target as ComboBox;
-            this.bundleNameFilter = comboBox.value || '';
-            this.applyBundleNameFilter();
-          }}"
+          @value-changed="${this.handleBundleNameFilterChange}"
         ></vaadin-combo-box>
       `,
       root
@@ -256,6 +258,9 @@ export class PageProjectBundles extends PageElement {
       'delete-bundle-request',
       this._handleDeleteBundle as EventListener
     );
+
+    // Bind the filter change handler to this component's context
+    this.handleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
 
     // Get project name from URL
     const projectName = location.pathname.split('/')[2];
@@ -397,11 +402,11 @@ export class PageProjectBundles extends PageElement {
           return nameCompare;
         });
 
+        this.updateUniqueBundleNames();
         this.applyBundleNameFilter();
 
         if (this.grid) {
           this.grid.clearCache();
-          this.requestUpdate();
         }
 
         this.loading = false;
