@@ -1,7 +1,6 @@
 import { css, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/icon';
@@ -21,12 +20,12 @@ import {
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { Grid, GridItemModel } from '@vaadin/grid';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
 import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';
 import { BundleEditorDialog } from '../components/bundle-editor-dialog';
 import { Router } from '@vaadin/router';
+import { ComboBox } from '@vaadin/combo-box';
 
 @customElement('page-project-bundles')
 export class PageProjectBundles extends PageElement {
@@ -35,6 +34,9 @@ export class PageProjectBundles extends PageElement {
 
   @property({ type: Boolean })
   private loading = true;
+
+  @property({ type: String })
+  private bundleNameFilter = '';
 
   static get styles() {
     return css`
@@ -104,6 +106,7 @@ export class PageProjectBundles extends PageElement {
   }
 
   private bundledRequests: Array<BundledRequestsApiModel> = [];
+  private filteredBundledRequests: Array<BundledRequestsApiModel> = [];
   private projectData: EnvironmentApiModelTemplateApiModel | undefined;
 
   @query('bundle-editor-dialog')
@@ -121,38 +124,40 @@ export class PageProjectBundles extends PageElement {
     return Array.from(names).sort();
   }
 
+  private applyBundleNameFilter() {
+    if (!this.bundleNameFilter) {
+      this.filteredBundledRequests = [...this.bundledRequests];
+    } else {
+      this.filteredBundledRequests = this.bundledRequests.filter(bundle => 
+        bundle.BundleName === this.bundleNameFilter
+      );
+    }
+    this.requestUpdate();
+  }
+
   bundleNameHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-grid-sorter path="BundleName" direction="asc"
           >Bundle Name</vaadin-grid-sorter
         >
-        <vaadin-grid-filter path="BundleName">
-          <vaadin-combo-box
-            clear-button-visible
-            slot="filter"
-            focus-target
-            .items="${this.uniqueBundleNames}"
-            placeholder="Select bundle..."
-            style="width: 200px"
-            theme="small"
-          ></vaadin-combo-box>
-        </vaadin-grid-filter>
+        <vaadin-combo-box
+          clear-button-visible
+          focus-target
+          .items="${this.uniqueBundleNames}"
+          placeholder="Select bundle..."
+          style="width: 200px"
+          theme="small"
+          .value="${this.bundleNameFilter}"
+          @value-changed="${(e: CustomEvent) => {
+            const comboBox = e.target as ComboBox;
+            this.bundleNameFilter = comboBox.value || '';
+            this.applyBundleNameFilter();
+          }}"
+        ></vaadin-combo-box>
       `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    const comboBox = root.querySelector('vaadin-combo-box');
-    if (comboBox) {
-      // Update items whenever the component renders
-      comboBox.items = this.uniqueBundleNames;
-      comboBox.addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-      });
-    }
   };
 
   render() {
@@ -183,7 +188,7 @@ export class PageProjectBundles extends PageElement {
 
       <vaadin-grid
         id="grid"
-        .items="${this.bundledRequests}"
+        .items="${this.filteredBundledRequests}"
         column-reordering-allowed
         multi-sort
         theme="compact row-stripes no-row-borders no-border"
@@ -389,6 +394,8 @@ export class PageProjectBundles extends PageElement {
 
           return nameCompare;
         });
+
+        this.applyBundleNameFilter();
 
         if (this.grid) {
           this.grid.clearCache();
