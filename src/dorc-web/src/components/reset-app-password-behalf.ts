@@ -57,6 +57,8 @@ export class ResetAppPasswordBehalf extends LitElement {
         padding: 12px 16px;
         border-radius: 6px;
         margin-bottom: 16px;
+        margin-top: 16px;
+        width: 300px;
       }
       .info-row {
         display: flex;
@@ -91,12 +93,14 @@ export class ResetAppPasswordBehalf extends LitElement {
             .items="${this.appUsers}"
             .renderer="${this.appUsersRenderer}"
             @value-changed="${this.appUserValueChanged}"
-            style="width: 300px"
+            style="width: 100%"
           ></vaadin-combo-box>
 
           <div style="margin-right: 30px">
-            <vaadin-button @click="${this.resetAppPassword}"
-              >Reset Password For SQL User</vaadin-button
+            <vaadin-button 
+              @click="${this.resetAppPassword}" 
+              ?disabled="${this.serverName === undefined && this.databaseName === undefined}"
+              >Reset Password</vaadin-button
             >
             ${this.resettingAppPassword
               ? html` <div class="small-loader"></div> `
@@ -104,6 +108,10 @@ export class ResetAppPasswordBehalf extends LitElement {
           </div>
 
           <div class="info-section">
+            <div class="action-description">
+              This will reset the selected user's SQL account password for the next server and database:
+            </div>
+            <br/>
             <div class="info-row">
               <span class="info-label">Server:</span>
               <span class="info-value">${this.serverName}</span>
@@ -126,11 +134,12 @@ export class ResetAppPasswordBehalf extends LitElement {
     if (user === undefined) return;
 
     const answer = confirm(
-      `Are you sure you want to reset the SQL user password for ${
+      `Are you sure you want to reset the SQL account password for ${
         user.DisplayName
       }?`
     );
     if (answer) {
+      this.resettingAppPassword = true;
       const api = new ResetAppPasswordApi();
       api
         .resetAppPasswordForUserPut({
@@ -152,9 +161,11 @@ export class ResetAppPasswordBehalf extends LitElement {
             } else {
               this.errorAlert(result);
             }
+            this.resettingAppPassword = false;
           },
           error: (err: any) => {
             this.errorAlert(err.response);
+            this.resettingAppPassword = false;
           }
         });
     }
@@ -162,7 +173,7 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   errorAlert(result: any) {
     const event = new CustomEvent('error-alert', {
-      detail: { description: 'Failed to reset the SQL user password', result },
+      detail: { description: 'Failed to reset the SQL account password', result },
       bubbles: true,
       composed: true
     });

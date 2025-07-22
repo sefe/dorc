@@ -134,44 +134,39 @@ export class EnvControlCenter extends PageEnvBase {
             @click="${this.deleteEnvironment}"
             ?disabled="${!(this.isAdmin || this.isEnvOwnerOrDelegate)}"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>
-            Delete Environment...
-          </vaadin-button>
+            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
+            >Delete Environment...</vaadin-button>
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
-            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon>
-            Environment History
-          </vaadin-button>
+            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
+            >Environment History</vaadin-button>
           <vaadin-button
             title="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon>
-            Environment Access...
-          </vaadin-button>
+            <vaadin-icon icon="vaadin:lock"></vaadin-icon
+            >Environment Access...</vaadin-button>
           <vaadin-button
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
           >
-            <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon>
-            Bundle Request...
-          </vaadin-button>
+            <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
+            >Bundle Request...</vaadin-button>
           <vaadin-button
             id="reset-others-password"
-            title="Reset Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
+            title="Reset SQL Account Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
             .disabled="${this.environment?.EnvironmentIsProd ||
             !(this.isEnvOwnerOrDelegate || this.isAdmin)}"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>
-            Reset SQL Instance Account Password for...
-          </vaadin-button>
+            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
+            >Reset SQL Account Password for...</vaadin-button>
         </div>
       </vaadin-details>
     `;
@@ -293,15 +288,6 @@ export class EnvControlCenter extends PageEnvBase {
       'reset-app-password-behalf'
     ) as ResetAppPasswordBehalf;
     dialog.open();
-  }
-
-  errorAlert(result: any) {
-    const event = new CustomEvent('error-alert', {
-      detail: { description: 'Failed to reset your password: ', result },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
   }
 
   makeLikeProd() {

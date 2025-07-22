@@ -73,7 +73,7 @@ namespace Dorc.Api.Controllers
                 var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(envFilter, envName);
                 if (db == null)
                     return Ok(new ApiBoolResult
-                    { Message = "You are not currently setup in this environment", Result = false });
+                    { Message = $"No application database found for environment '{envName}' with users of login type '{envFilter}'", Result = false });
 
                 return Ok(ResetSqlServerPasswordForUser(username, db.ServerName));
             }
