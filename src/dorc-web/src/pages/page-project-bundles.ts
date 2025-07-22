@@ -50,9 +50,7 @@ export class PageProjectBundles extends PageElement {
         margin-bottom: 20px;
       }
 
-      .back-button {
-        min-width: auto;
-      }
+
 
       h2 {
         margin: 0;
@@ -119,13 +117,6 @@ export class PageProjectBundles extends PageElement {
       </div>
 
       <div class="header">
-        <vaadin-button 
-          theme="tertiary" 
-          class="back-button"
-          @click="${this.goBack}"
-        >
-          <vaadin-icon icon="vaadin:arrow-left"></vaadin-icon>
-        </vaadin-button>
         <h2>Bundles for ${this.project}</h2>
       </div>
 
@@ -219,9 +210,7 @@ export class PageProjectBundles extends PageElement {
     this.loadProjectData();
   }
 
-  private goBack() {
-    Router.go(`/project-envs/${this.project}`);
-  }
+
 
   private loadProjectData() {
     const api = new RefDataProjectEnvironmentMappingsApi();
