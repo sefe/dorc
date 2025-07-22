@@ -28,50 +28,35 @@ export class ProjectControls extends LitElement {
         theme="icon"
         @click="${this.openProjectMetadata}"
       >
-        <vaadin-icon
-          icon="lumo:edit"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="edit" color="primary"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         title="Project Access..."
         theme="icon"
         @click="${this.openAccessControl}"
       >
-        <vaadin-icon
-          icon="vaadin:lock"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="lock" color="primary"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         title="Environments"
         theme="icon"
         @click="${this.openEnvironmentDetails}"
       >
-        <vaadin-icon
-          icon="vaadin:records"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="list" color="primary"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         title="Reference Data"
         theme="icon"
         @click="${this.openRefData}"
       >
-        <vaadin-icon
-          icon="vaadin:curly-brackets"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="code" color="primary"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         title="Audit"
         theme="icon"
         @click="${this.openAuditData}"
       >
-        <vaadin-icon
-          icon="vaadin:list"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="list" color="primary"></dorc-icon>
       </vaadin-button>
     `;
   }

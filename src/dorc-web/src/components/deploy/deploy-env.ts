@@ -355,7 +355,7 @@ export class DeployEnv extends LitElement {
         <vaadin-horizontal-layout>
           ${template.Name?.replace('[PINNED]', '')}
           ${template.Name?.includes('[PINNED]')
-            ? html`<vaadin-icon icon="vaadin:pin"></vaadin-icon>`
+            ? html`<dorc-icon icon="settings"></dorc-icon>`
             : html``}
         </vaadin-horizontal-layout>
       `,

@@ -1,10 +1,10 @@
 import { css, PropertyValues } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons';
-import '@vaadin/icon';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { Router } from '@vaadin/router';
@@ -18,7 +18,6 @@ import { PageElement } from '../helpers/page-element';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
 import GlobalCache from '../global-cache';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { AddEditProject } from '../components/add-edit-project';
 import '../components/add-edit-project';
 import {
@@ -192,10 +191,7 @@ export class PageProjectEnvs extends PageElement {
                   @click="${this.openAttachEnv}"
                   style="margin: 0;"
                 >
-                  <vaadin-icon
-                    icon="icons:link"
-                    style="color: cornflowerblue"
-                  ></vaadin-icon>
+                  <dorc-icon icon="link" color="primary"></dorc-icon>
                 </vaadin-button>
                 <vaadin-button
                   title="Bundles"
@@ -203,10 +199,7 @@ export class PageProjectEnvs extends PageElement {
                   @click="${this.openBundles}"
                   style="margin: 0;"
                 >
-                  <vaadin-icon
-                    icon="vaadin:package"
-                    style="color: cornflowerblue"
-                  ></vaadin-icon>
+                  <dorc-icon icon="package" color="primary"></dorc-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
               <vaadin-horizontal-layout style="gap: 8px;">
@@ -216,10 +209,7 @@ export class PageProjectEnvs extends PageElement {
                   @click="${this.openRefData}"
                   style="margin: 0;"
                 >
-                  <vaadin-icon
-                    icon="vaadin:curly-brackets"
-                    style="color: cornflowerblue"
-                  ></vaadin-icon>
+                  <dorc-icon icon="code" color="primary"></dorc-icon>
                 </vaadin-button>
                 <vaadin-button
                   title="Edit Metadata..."
@@ -227,10 +217,7 @@ export class PageProjectEnvs extends PageElement {
                   @click="${this.openProjectMetadata}"
                   style="margin: 0;"
                 >
-                  <vaadin-icon
-                    icon="lumo:edit"
-                    style="color: cornflowerblue"
-                  ></vaadin-icon>
+                  <dorc-icon icon="edit" color="primary"></dorc-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
             </vaadin-vertical-layout>

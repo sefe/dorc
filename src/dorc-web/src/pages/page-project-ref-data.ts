@@ -1,8 +1,8 @@
 import { css, PropertyValues } from 'lit';
 import * as ace from 'ace-builds';
 import { customElement, property } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
-import '../icons/iron-icons';
 import { Notification } from '@vaadin/notification';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
@@ -77,10 +77,7 @@ export class PageProjectRefData extends PageElement {
         .disabled="${this.refDataLoading}"
         @click="${this.saveRefData}"
       >
-        <vaadin-icon
-          icon="icons:save"
-          style="color: white; text-align: center;"
-        ></vaadin-icon>
+        <dorc-icon icon="save" color="white"></dorc-icon>
       </button>
     `;
   }

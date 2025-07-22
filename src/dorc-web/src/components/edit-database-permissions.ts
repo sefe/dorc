@@ -2,11 +2,10 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@vaadin/button';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import {
   PermissionDto,
@@ -126,12 +125,7 @@ export class EditDatabasePermissions extends LitElement {
               userPerm => html`
                 <paper-item>
                   <span>${userPerm.Database} - ${userPerm.Role}</span>
-                  <vaadin-icon
-                    icon="vaadin:unlink"
-                    style="color: #FF3131"
-                    @click="${this._remove}"
-                    .data="${userPerm}"
-                  ></vaadin-icon>
+                  <dorc-icon icon="unlink" color="#FF3131"></dorc-icon>
                 </paper-item>
               `
             )}

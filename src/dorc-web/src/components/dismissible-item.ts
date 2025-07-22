@@ -1,8 +1,8 @@
 import '@vaadin/button';
 import '@vaadin/horizontal-layout';
-import '@vaadin/icon';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import './tags-input';
 
@@ -26,7 +26,7 @@ export class DismissibleItem extends LitElement {
         aria-label="Close"
         @click="${() => (this.style.display = 'none')}"
       >
-        <vaadin-icon icon="lumo:cross"></vaadin-icon>
+        <dorc-icon icon="close"></dorc-icon>
       </vaadin-button>
       <div style="padding-top: 3px">${this.message}</div>
     `;

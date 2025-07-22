@@ -4,7 +4,6 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/notification';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
@@ -12,6 +11,7 @@ import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import { css, LitElement, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import '../../dorc-icon.js';
 import { html } from 'lit/html.js';
 import {
   NotificationOpenedChangedEvent,
@@ -84,10 +84,7 @@ export class SuccessfulDeployNotification extends LitElement {
             }}"
             theme="primary"
           >
-            <vaadin-icon
-              icon="vaadin:clipboard-pulse"
-              slot="prefix"
-            ></vaadin-icon>
+            <dorc-icon icon="clipboard"></dorc-icon>
             ${this.requestedDeploymentId}
           </vaadin-button>
           <vaadin-button
@@ -95,7 +92,7 @@ export class SuccessfulDeployNotification extends LitElement {
             @click="${() => (this.notificationOpened = false)}"
             aria-label="Close"
           >
-            <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+            <dorc-icon icon="close-small"></dorc-icon>
           </vaadin-button>
         </vaadin-horizontal-layout>
       `,

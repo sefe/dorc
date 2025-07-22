@@ -1,10 +1,10 @@
 import '@vaadin/button';
 import '@vaadin/dialog';
-import '@vaadin/icon';
 import '@vaadin/text-area';
 import * as ace from 'ace-builds';
 import { LitElement, PropertyValues, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { guard } from 'lit/directives/guard.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
@@ -48,10 +48,7 @@ export class LogDialog extends LitElement {
                   })
                 )}"
             >
-              <vaadin-icon
-                style="color: cornflowerblue;"
-                icon="vaadin:close-small"
-              ></vaadin-icon>
+              <dorc-icon icon="close-small" color="primary"></dorc-icon>
             </vaadin-button>`,
           root
         );

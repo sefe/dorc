@@ -95,7 +95,7 @@ export class DorcApp extends ShortcutsStore {
           style="padding: 5px; margin-left: 10px"
           @click="${this.toggleSideBar}"
         >
-          <vaadin-icon icon="lumo:menu"></vaadin-icon>
+          <dorc-icon icon="menu"></dorc-icon>
         </vaadin-button>
         <img
           src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png"
@@ -122,7 +122,7 @@ export class DorcApp extends ShortcutsStore {
           target="_blank"
           style="padding-left: 10px"
         >
-          <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
+          <dorc-icon icon="info"></dorc-icon>
           Help
         </a>
       </div>

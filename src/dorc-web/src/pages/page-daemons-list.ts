@@ -2,13 +2,12 @@ import { css, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '../components/add-daemon';
 import '@polymer/paper-dialog';
 import '@vaadin/text-field';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { DaemonApiModel } from '../apis/dorc-api';
@@ -106,10 +105,7 @@ export class PageDaemonsList extends PageElement {
           style="width: 250px"
           @click="${this.addDaemon}"
         >
-          <vaadin-icon
-            icon="vaadin:cog"
-            style="color: cornflowerblue"
-          ></vaadin-icon
+          <dorc-icon icon="settings" color="primary"></dorc-icon></vaadin-icon
           >Add Daemon...
         </vaadin-button>
       </div>

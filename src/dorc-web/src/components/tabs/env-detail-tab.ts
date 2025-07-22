@@ -1,11 +1,10 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/icons';
-import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { EnvironmentApiModel } from '../../apis/dorc-api';
 import { urlForName } from '../../router/router';
-import '../../icons/hardware-icons.js';
 
 @customElement('env-detail-tab')
 export class EnvDetailTab extends LitElement {
@@ -36,18 +35,10 @@ export class EnvDetailTab extends LitElement {
             id: String(this.env?.EnvironmentName)
           })}"
         >
-          <vaadin-icon
-            icon="hardware:developer-board"
-            theme="small"
-          ></vaadin-icon>
+          <dorc-icon icon="environment"></dorc-icon>
           ${this.env?.EnvironmentName}
         </a>
-        <vaadin-icon
-          style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
-          icon="vaadin:close-small"
-          theme="small"
-          @click="${this.removeEnvDetail}"
-        ></vaadin-icon>
+        <dorc-icon icon="close-small" color="lightblue"></dorc-icon>
       </div>
     </div>`;
   }

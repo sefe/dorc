@@ -1,19 +1,14 @@
 import '@vaadin/button';
 import { Button } from '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@vaadin/password-field';
 import { TextField } from '@vaadin/text-field';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { PropertyValuesApi } from '../../apis/dorc-api';
 import type { PropertyValueDto } from '../../apis/dorc-api';
 import { Response } from '../../apis/dorc-api';
-import '../../icons/editor-icons.js';
-import '../../icons/iron-icons.js';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -42,12 +37,6 @@ export class VariableValueControls extends LitElement {
   }
 
   render() {
-    const editStyles = {
-      color: this.value.UserEditable ? 'cornflowerblue' : 'grey'
-    };
-    const deleteStyles = {
-      color: this.value.UserEditable ? '#FF3131' : 'grey'
-    };
     return html`
       ${this.value?.Property?.Secure
         ? html`<vaadin-password-field
@@ -82,10 +71,7 @@ export class VariableValueControls extends LitElement {
         ?disabled="${!this.value.UserEditable}"
         ?hidden="${this.editHidden}"
       >
-        <vaadin-icon
-          icon="editor:mode-edit"
-          style=${styleMap(editStyles)}
-        ></vaadin-icon>
+        <dorc-icon icon="edit"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         aria-label="Save"
@@ -107,10 +93,7 @@ export class VariableValueControls extends LitElement {
         @click="${this.removePropertyValue}"
         ?disabled="${!this.value.UserEditable}"
       >
-        <vaadin-icon
-          icon="icons:clear"
-          style=${styleMap(deleteStyles)}
-        ></vaadin-icon>
+        <dorc-icon icon="clear"></dorc-icon>
       </vaadin-button>
       ${this.additionalInformation !== ''
         ? html`<div style="display: inline-block">

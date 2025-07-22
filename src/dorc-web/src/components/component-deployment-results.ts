@@ -7,14 +7,13 @@ import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/server-controls';
 import './log-dialog';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/server-tags';
 import { DeploymentResultApiModel } from '../apis/dorc-api';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 
 @customElement('component-deployment-results')
 export class ComponentDeploymentResults extends LitElement {
@@ -139,10 +138,7 @@ export class ComponentDeploymentResults extends LitElement {
                   })
                 )}"
             >
-              <vaadin-icon
-                icon="vaadin:ellipsis-dots-h"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
+              <dorc-icon icon="more" color="primary"></dorc-icon>
             </vaadin-button>
           </td>
           <td>

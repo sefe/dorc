@@ -1,11 +1,8 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '../../icons/av-icons.js';
-import { styleMap } from 'lit/directives/style-map.js';
+import '../dorc-icon.js';
 import { RequestApi } from '../../apis/dorc-api';
 
 @customElement('request-controls')
@@ -49,12 +46,6 @@ export class RequestControls extends LitElement {
   }
 
   render() {
-    const cancelStyles = {
-      color: this.cancelable ? '#FF3131' : 'grey'
-    };
-    const restartStyles = {
-      color: this.canRestart ? 'cornflowerblue' : 'grey'
-    };
     return html`
       <table style="height: 36px">
         <tr>
@@ -65,10 +56,10 @@ export class RequestControls extends LitElement {
               @click="${this.cancel}"
               ?disabled="${!this.cancelable}"
             >
-              <vaadin-icon
-                icon="av:stop"
-                style=${styleMap(cancelStyles)}
-              ></vaadin-icon>
+              <dorc-icon
+                icon="stop"
+                color="${this.cancelable ? 'danger' : 'neutral'}"
+              ></dorc-icon>
             </vaadin-button>
           </td>
           <td class="table-button">
@@ -78,10 +69,10 @@ export class RequestControls extends LitElement {
               @click="${this.restart}"
               ?disabled="${!this.canRestart}"
             >
-              <vaadin-icon
-                icon="av:repeat"
-                style=${styleMap(restartStyles)}
-              ></vaadin-icon>
+              <dorc-icon
+                icon="repeat"
+                color="${this.canRestart ? 'primary' : 'neutral'}"
+              ></dorc-icon>
             </vaadin-button>
           </td>
         </tr>

@@ -2,12 +2,11 @@ import { css, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@polymer/paper-dialog';
 import '@vaadin/text-field';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
@@ -135,10 +134,7 @@ export class PageConfigValuesList extends PageElement {
           style="width: 250px"
           @click="${this.addConfigValue}"
         >
-          <vaadin-icon
-            icon="vaadin:options"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
+          <dorc-icon icon="settings" color="primary"></dorc-icon>
           Add Config Value...
         </vaadin-button>
       </div>

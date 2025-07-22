@@ -2,16 +2,14 @@ import '@vaadin/item';
 import '@vaadin/list-box';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import {
   RefDataDatabaseUsersApi,
   RefDataUserPermissionsApi,
   UserApiModel,
   UserPermDto
 } from '../apis/dorc-api';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 
 @customElement('view-database-permissions')
 export class ViewDatabasePermissions extends LitElement {
@@ -63,9 +61,6 @@ export class ViewDatabasePermissions extends LitElement {
   }
 
   render() {
-    const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
-    };
     return html`
       <div>            
       <span>Select user to see permissions</span>
@@ -97,11 +92,7 @@ export class ViewDatabasePermissions extends LitElement {
                       @click="${this._remove}"
                       ?disabled="${this.readonly}"
                     >
-                      <vaadin-icon
-                        icon="vaadin:unlink"
-                        style=${styleMap(unlinkStyles)}
-                        .data="${userPerm}"
-                      ></vaadin-icon>
+                      <dorc-icon icon="unlink"></dorc-icon>
                     </vaadin-button>
                   </vaadin-item>`
               )}

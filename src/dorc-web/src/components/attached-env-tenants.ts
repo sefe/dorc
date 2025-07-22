@@ -8,7 +8,6 @@ import { html } from 'lit/html.js';
 import '@polymer/paper-dialog';
 import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
-import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
 
 @customElement('attached-env-tenants')
@@ -48,9 +47,6 @@ export class AttachedEnvTenants extends LitElement {
   }
 
   private environmentActionsRenderer = (root: HTMLElement, _: HTMLElement, model: { item: EnvironmentApiModel }) => {
-    const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
-    };
     const environment = model.item;
 
     render(
@@ -60,10 +56,7 @@ export class AttachedEnvTenants extends LitElement {
           theme="icon"
           @click="${() => this.openEnvironmentDetails(environment)}"
         >
-          <vaadin-icon
-            icon="hardware:developer-board"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
+          <dorc-icon icon="environment" color="primary"></dorc-icon>
         </vaadin-button>
         <vaadin-button
           title="Detach tenant"
@@ -71,10 +64,7 @@ export class AttachedEnvTenants extends LitElement {
           @click="${() => this.detachTenant(environment?.EnvironmentId)}"
           ?disabled="${this.readonly}"
         >
-          <vaadin-icon
-            icon="vaadin:unlink"
-            style=${styleMap(unlinkStyles)}
-          ></vaadin-icon>
+          <dorc-icon icon="unlink"></dorc-icon>
         </vaadin-button>
       `,
       root

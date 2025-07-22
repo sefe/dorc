@@ -1,12 +1,10 @@
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icons/vaadin-iconset.js';
-import '@vaadin/icon';
 import '@vaadin/tabs';
 import { Tabs } from '@vaadin/tabs';
 import { Tab } from '@vaadin/tabs/vaadin-tab';
 import '@vaadin/vertical-layout';
 import { css, html, LitElement, PropertyValues, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import {
   DeploymentRequestApiModel,
   EnvironmentApiModel,
@@ -119,44 +117,44 @@ export class DorcNavbar extends LitElement {
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
-            <vaadin-icon icon="vaadin:expand-square" theme="small"></vaadin-icon>
+            <dorc-icon icon="expand"></dorc-icon>
             Deploy
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('monitor-requests')}">
-            <vaadin-icon icon="vaadin:clipboard" theme="small"></vaadin-icon>
+            <dorc-icon icon="clipboard"></dorc-icon>
             Monitor
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('projects')}">
-            <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+            <dorc-icon icon="archive"></dorc-icon>
             Projects
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('environments')}">
-            <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
+            <dorc-icon icon="container"></dorc-icon>
             Environments
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('servers')}">
-            <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
+            <dorc-icon icon="server"></dorc-icon>
             Servers
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('databases')}">
-            <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
+            <dorc-icon icon="database"></dorc-icon>
             Databases
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('sql-roles')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
+              <dorc-icon icon="key"></dorc-icon>
               Roles
             </div>
           </a>
@@ -164,32 +162,32 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab>
           <a href="${urlForName('sql-ports')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
+              <dorc-icon icon="connect"></dorc-icon>
               Ports
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('users')}">
-            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
+            <dorc-icon icon="users"></dorc-icon>
             Users
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('daemons')}">
-            <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
+            <dorc-icon icon="settings"></dorc-icon>
             Daemons
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('scripts')}">
-            <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
+            <dorc-icon icon="powershell"></dorc-icon>
             Scripts
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('variables')}">
-            <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
+            <dorc-icon icon="variables"></dorc-icon>
             Variables
           </a>
         </vaadin-tab>
@@ -197,7 +195,7 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab>
           <a href="${urlForName('variables-audit')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+              <dorc-icon icon="user"></dorc-icon>
               Audit
             </div>
           </a>
@@ -206,7 +204,7 @@ export class DorcNavbar extends LitElement {
           ? html`
               <vaadin-tab>
                 <a href="${urlForName('configuration')}">
-                  <vaadin-icon icon="vaadin:options" theme="small"></vaadin-icon>
+                  <dorc-icon icon="settings"></dorc-icon>
                   Configuration
                 </a>
               </vaadin-tab>
@@ -214,7 +212,7 @@ export class DorcNavbar extends LitElement {
           : html``}
         <vaadin-tab>
           <a href="${urlForName('about')}">
-            <vaadin-icon icon="vaadin:at" theme="small"></vaadin-icon>
+            <dorc-icon icon="notification"></dorc-icon>
             About
           </a>
         </vaadin-tab>

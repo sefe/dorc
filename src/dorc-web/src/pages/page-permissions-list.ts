@@ -2,14 +2,13 @@ import { css, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '../components/add-edit-server';
 import '@polymer/paper-dialog';
 import '@vaadin/text-field';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import '../components/add-permission';
 import { customElement, property } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { PermissionDto } from '../apis/dorc-api';
@@ -100,17 +99,14 @@ export class PagePermissionsList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <dorc-icon icon="search"></dorc-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add SQL Role"
           style="width: 250px"
           @click="${this.addPermission}"
         >
-          <vaadin-icon
-            icon="vaadin:key"
-            style="color: cornflowerblue"
-          ></vaadin-icon
+          <dorc-icon icon="key" color="primary"></dorc-icon></vaadin-icon
           >Add SQL Role...
         </vaadin-button>
       </div>

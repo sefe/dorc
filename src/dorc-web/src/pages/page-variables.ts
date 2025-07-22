@@ -160,10 +160,7 @@ export class PageVariables extends PageElement {
         @click="${() => {
           Router.go('/variables/value-lookup');
         }}"
-        ><vaadin-icon
-          icon="vaadin:search"
-          style="color: cornflowerblue"
-        ></vaadin-icon
+        ><dorc-icon icon="search" color="primary"></dorc-icon></vaadin-icon
       ></vaadin-button>
       ${this.radioValue === 'existing'
         ? html`

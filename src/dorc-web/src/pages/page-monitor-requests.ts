@@ -10,10 +10,10 @@ import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
 import { css, LitElement, PropertyValueMap, render } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
@@ -25,7 +25,6 @@ import {
   RequestStatusesApi
 } from '../apis/dorc-api';
 import '@vaadin/vaadin-lumo-styles/typography.js';
-import '../icons/iron-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { TextField } from '@vaadin/text-field';
 import { getShortLogonName } from '../helpers/user-extensions.js';
@@ -565,10 +564,7 @@ export class PageMonitorRequests extends LitElement {
               this.dispatchEvent(event);
             }}"
           >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: cornflowerblue"
-            ></vaadin-icon>
+            <dorc-icon icon="more" color="primary"></dorc-icon>
           </vaadin-button>
         </vaadin-horizontal-layout>
       `,
@@ -610,10 +606,7 @@ export class PageMonitorRequests extends LitElement {
             this.dispatchEvent(event);
           }}"
         >
-          <vaadin-icon
-            icon="icons:refresh"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
+          <dorc-icon icon="refresh" color="primary"></dorc-icon>
         </vaadin-button>
         <vaadin-grid-sorter
           path="Id"

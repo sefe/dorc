@@ -8,12 +8,11 @@ import '@vaadin/details';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { customElement, property, state } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
 import '@vaadin/horizontal-layout';
 import { TextField } from '@vaadin/text-field';
-import '@vaadin/icon';
-import '../icons/line awesome-svg.js';
 import { Notification } from '@vaadin/notification';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import {
@@ -177,10 +176,7 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-details-summary slot="summary">
             <vaadin-horizontal-layout>
               <div style="padding-right: 5px">Environment Owner:</div>
-              <vaadin-icon
-                icon="line awesome-svg:chess-king-solid"
-                style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
-              ></vaadin-icon>
+              <dorc-icon icon="admin"></dorc-icon>
               ${this.isEmptyOrSpaces(this.EnvOwnerDisplayName)
                 ? html`<div style="font-style: italic; color: red">
                     Press 'Set Owner' to fill

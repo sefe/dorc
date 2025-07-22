@@ -4,22 +4,18 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
 import '@vaadin/vertical-layout';
 import { css, LitElement, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import './component-deployment-results';
 import './log-dialog';
 import './grid-button-groups/request-controls';
-import { styleMap } from 'lit/directives/style-map.js';
-import '../icons/iron-icons.js';
 import { Notification } from '@vaadin/notification';
-import '../icons/notification-icons.js';
-import '../icons/hardware-icons.js';
 import { ErrorNotification } from './notifications/error-notification';
 import { BuildsApi } from '../apis/azure-devops-build';
 import type { DeploymentRequestApiModel } from '../apis/dorc-api';
@@ -132,10 +128,7 @@ export class RequestStatusCard extends LitElement {
                 theme="icon"
                 @click="${this.refresh}"
               >
-                <vaadin-icon
-                  icon="icons:refresh"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
+                <dorc-icon icon="refresh" color="primary"></dorc-icon>
               </vaadin-button>
             </td>
             ${this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
@@ -145,10 +138,7 @@ export class RequestStatusCard extends LitElement {
                     theme="icon"
                     @click="${this.viewLog}"
                   >
-                    <vaadin-icon
-                      icon="notification:sms-failed"
-                      style="color: indianred"
-                    ></vaadin-icon>
+                    <dorc-icon icon="error" color="indianred"></dorc-icon>
                   </vaadin-button>
                 </td>`
               : html``}
@@ -171,10 +161,7 @@ export class RequestStatusCard extends LitElement {
                   theme="icon"
                   @click="${this.openEnvironmentDetails}"
                 >
-                  <vaadin-icon
-                    icon="hardware:developer-board"
-                    style="color: cornflowerblue"
-                  ></vaadin-icon>
+                  <dorc-icon icon="environment" color="primary"></dorc-icon>
                 </vaadin-button>
               </h4>
             </td>
@@ -254,10 +241,7 @@ export class RequestStatusCard extends LitElement {
                       theme="icon"
                       @click="${this.copyRawLog}"
                     >
-                      <vaadin-icon
-                        icon="icons:content-copy"
-                        style="color: cornflowerblue"
-                      ></vaadin-icon>
+                      <dorc-icon icon="copy" color="primary"></dorc-icon>
                     </vaadin-button>
                   </h4>
                 </td>

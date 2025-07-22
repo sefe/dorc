@@ -2,12 +2,11 @@ import '@vaadin/button';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/grid/vaadin-grid-filter';
-import '@vaadin/icon';
 import '@vaadin/text-field';
 import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
 import '@vaadin/dialog';
@@ -455,10 +454,7 @@ export class PageServersList extends PageElement {
             this.dispatchEvent(event);
           }}"
         >
-          <vaadin-icon
-            icon="vaadin:server"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
+          <dorc-icon icon="server" color="primary"></dorc-icon>
           Add Server...
         </vaadin-button>
       `,

@@ -1,10 +1,9 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { RequestProperty } from '../../apis/dorc-api/index.js';
-import '../../icons/iron-icons.js';
 
 @customElement('property-override-controls')
 export class PropertyOverrideControls extends LitElement {
@@ -26,7 +25,7 @@ export class PropertyOverrideControls extends LitElement {
         theme="icon"
         @click="${this.detailedResults}"
       >
-        <vaadin-icon icon="icons:delete" style="color: #FF3131"></vaadin-icon>
+        <dorc-icon icon="delete" color="#FF3131"></dorc-icon>
       </vaadin-button>
     `;
   }

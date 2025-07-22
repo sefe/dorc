@@ -1,16 +1,12 @@
 import '@vaadin/button';
 import { Button } from '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@vaadin/password-field';
 import { TextField } from '@vaadin/text-field';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ConfigValueApiModel, RefDataConfigApi } from '../../apis/dorc-api';
-import '../../icons/editor-icons.js';
-import '../../icons/iron-icons.js';
+import '../dorc-icon.js';
 
 @customElement('config-value-controls')
 export class ConfigValueControls extends LitElement {
@@ -72,10 +68,10 @@ export class ConfigValueControls extends LitElement {
         @click="${this._editClick}"
         ?hidden="${this.editHidden}"
       >
-        <vaadin-icon
-          icon="editor:mode-edit"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon
+          icon="edit"
+          color="primary"
+        ></dorc-icon>
       </vaadin-button>
       <vaadin-button
         aria-label="Save"
@@ -96,7 +92,7 @@ export class ConfigValueControls extends LitElement {
         theme="icon"
         @click="${this.removeConfigValue}"
       >
-        <vaadin-icon icon="icons:clear" style="color: #FF3131"></vaadin-icon>
+        <dorc-icon icon="clear" color="danger"></dorc-icon>
       </vaadin-button>
       ${this.additionalInformation !== ''
         ? html`<div style="display: inline-block">

@@ -15,6 +15,7 @@ import { TextField } from '@vaadin/text-field';
 import '@vaadin/vertical-layout';
 import { css, LitElement, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
 import {
@@ -26,8 +27,6 @@ import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
 import { ErrorNotification } from './notifications/error-notification';
 import { Notification } from '@vaadin/notification';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 
 const AC_ALLOW_WRITE = 1;
 const AC_ALLOW_READ_SECRETS = 2;
@@ -131,18 +130,12 @@ export class AddEditAccessControl extends LitElement {
               ${this.UserEditable
                 ? html`
                     <vaadin-button theme="icon">
-                      <vaadin-icon
-                        icon="vaadin:unlock"
-                        style="color: cornflowerblue"
-                      ></vaadin-icon>
+                      <dorc-icon icon="unlock" color="primary"></dorc-icon>
                     </vaadin-button>
                   `
                 : html`
                     <vaadin-button theme="icon">
-                      <vaadin-icon
-                        icon="vaadin:lock"
-                        style="color: cornflowerblue"
-                      ></vaadin-icon>
+                      <dorc-icon icon="lock" color="primary"></dorc-icon>
                     </vaadin-button>
                   `}
             </td>

@@ -1,7 +1,7 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi, ServiceStatusApiModel } from '../../apis/dorc-api';
 
@@ -34,12 +34,9 @@ export class DaemonControls extends LitElement {
           ?disabled="${this.startDisabled}"
           @click="${this.serviceStart}"
         >
-          <vaadin-icon
-            icon="vaadin:play"
-            style="color: ${this.startDisabled
+          <dorc-icon icon="play" color="${this.startDisabled
               ? 'lightgrey'
-              : 'cornflowerblue'}"
-          ></vaadin-icon>
+              : 'cornflowerblue'}"></dorc-icon>
         </vaadin-button>
         <vaadin-button
           title="Stop"
@@ -47,10 +44,7 @@ export class DaemonControls extends LitElement {
           ?disabled="${this.stopDisabled}"
           @click="${this.serviceStop}"
         >
-          <vaadin-icon
-            icon="vaadin:stop"
-            style="color: ${this.stopDisabled ? 'lightgrey' : 'cornflowerblue'}"
-          ></vaadin-icon>
+          <dorc-icon icon="stop" color="${this.stopDisabled ? 'lightgrey' : 'cornflowerblue'}"></dorc-icon>
         </vaadin-button>
         <vaadin-button
           title="Restart"
@@ -58,12 +52,9 @@ export class DaemonControls extends LitElement {
           ?disabled="${this.restartDisabled}"
           @click="${this.serviceRestart}"
         >
-          <vaadin-icon
-            icon="vaadin:refresh"
-            style="color: ${this.restartDisabled
+          <dorc-icon icon="refresh" color="${this.restartDisabled
               ? 'lightgrey'
-              : 'cornflowerblue'}"
-          ></vaadin-icon>
+              : 'cornflowerblue'}"></dorc-icon>
         </vaadin-button>
         <span style="color: darkred">${this.error}</span>
       </div>

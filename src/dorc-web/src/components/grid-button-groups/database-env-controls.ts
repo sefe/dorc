@@ -1,15 +1,12 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import {
   DatabaseApiModel,
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
-import '../../icons/social-icons.js';
 
 @customElement('database-env-controls')
 export class DatabaseEnvControls extends LitElement {
@@ -30,12 +27,6 @@ export class DatabaseEnvControls extends LitElement {
   }
 
   render() {
-    const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
-    };
-    const editStyles = {
-      color: this.readonly ? 'grey' : 'cornflowerblue'
-    };
     return html`
       <vaadin-button
         title="Detach database"
@@ -43,10 +34,7 @@ export class DatabaseEnvControls extends LitElement {
         @click="${this.detailedResults}"
         ?disabled="${this.readonly}"
       >
-        <vaadin-icon
-          icon="vaadin:unlink"
-          style=${styleMap(unlinkStyles)}
-        ></vaadin-icon>
+        <dorc-icon icon="unlink"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         title="Manage permissions"
@@ -54,20 +42,14 @@ export class DatabaseEnvControls extends LitElement {
         @click="${this.manage}"
         ?disabled="${this.readonly}"
       >
-        <vaadin-icon
-          icon="social:group-add"
-          style=${styleMap(editStyles)}
-        ></vaadin-icon>
+        <dorc-icon icon="group-add"></dorc-icon>
       </vaadin-button>
       <vaadin-button
         title="View database permissions"
         theme="icon"
         @click="${this.view}"
       >
-        <vaadin-icon
-          icon="social:group"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="group" color="primary"></dorc-icon>
       </vaadin-button>
     `;
   }

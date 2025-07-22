@@ -2,13 +2,10 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { RefDataProjectEnvironmentMappingsApi } from '../apis/dorc-api';
-import '../icons/hardware-icons.js';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
-import '../icons/iron-icons.js';
 import { AccessControlType } from '../apis/dorc-api';
 
 @customElement('environment-card')
@@ -77,10 +74,7 @@ export class EnvironmentCard extends LitElement {
                 @click="${this.openEnvironmentDetails}"
                 style="margin: 0;"
               >
-                <vaadin-icon
-                  icon="hardware:developer-board"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
+                <dorc-icon icon="environment" color="primary"></dorc-icon>
               </vaadin-button>
               <vaadin-button
                 title="Environment History"
@@ -89,10 +83,7 @@ export class EnvironmentCard extends LitElement {
                 @click="${this.openEnvHistory}"
                 style="margin: 0;"
               >
-                <vaadin-icon
-                  icon="icons:history"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
+                <dorc-icon icon="history" color="primary"></dorc-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>
             <vaadin-horizontal-layout style="gap: 8px;">
@@ -103,10 +94,7 @@ export class EnvironmentCard extends LitElement {
                 .env="${this.environment}"
                 style="margin: 0;"
               >
-                <vaadin-icon
-                  icon="vaadin:unlink"
-                  style="color: #FF3131"
-                ></vaadin-icon>
+                <dorc-icon icon="unlink" color="#FF3131"></dorc-icon>
               </vaadin-button>
               <vaadin-button
                 title="Access Control..."
@@ -114,10 +102,7 @@ export class EnvironmentCard extends LitElement {
                 @click="${this.openAccessControl}"
                 style="margin: 0;"
               >
-                <vaadin-icon
-                  icon="vaadin:lock"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
+                <dorc-icon icon="lock" color="primary"></dorc-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>
           </vaadin-vertical-layout>

@@ -1,9 +1,8 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { DelegatedUsersApi, UserApiModel } from '../../apis/dorc-api';
 
 @customElement('delegated-user-controls')
@@ -31,9 +30,6 @@ export class DelegatedUserControls extends LitElement {
   }
 
   render() {
-    const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
-    };
     return html`
       <vaadin-button
         title="Remove Delegation"
@@ -41,10 +37,7 @@ export class DelegatedUserControls extends LitElement {
         @click="${this.detailedResults}"
         ?disabled="${this.readonly}"
       >
-        <vaadin-icon
-          icon="vaadin:unlink"
-          style=${styleMap(unlinkStyles)}
-        ></vaadin-icon>
+        <dorc-icon icon="unlink"></dorc-icon>
       </vaadin-button>
     `;
   }

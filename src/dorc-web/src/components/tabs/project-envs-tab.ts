@@ -1,10 +1,10 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/icons';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
 import { urlForName } from '../../router/router';
-import '@vaadin/icon';
 
 @customElement('project-envs-tab')
 export class ProjectEnvsTab extends LitElement {
@@ -35,15 +35,10 @@ export class ProjectEnvsTab extends LitElement {
             id: String(this.project?.ProjectName)
           })}"
         >
-          <vaadin-icon icon="vaadin:records"></vaadin-icon>
+          <dorc-icon icon="list"></dorc-icon>
           ${this.project?.ProjectName}
         </a>
-        <vaadin-icon
-          style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px; min-height: var(--lumo-size-xs);"
-          icon="vaadin:close-small"
-          theme="small"
-          @click="${this.removeProjEnvs}"
-        ></vaadin-icon>
+        <dorc-icon icon="close-small" color="lightblue"></dorc-icon>
       </div>
     </div>`;
   }

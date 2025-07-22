@@ -1,12 +1,8 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import '../../icons/iron-icons.js';
-import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../dorc-icon.js';
 import { ErrorNotification } from '../notifications/error-notification';
 import {
   ApiBoolResult,
@@ -37,12 +33,6 @@ export class ServerControls extends LitElement {
   }
 
   render() {
-    const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
-    };
-    const editStyles = {
-      color: this.readonly ? 'grey' : 'cornflowerblue'
-    };
     return html`
       <vaadin-button
         title="Edit Server Details"
@@ -50,10 +40,10 @@ export class ServerControls extends LitElement {
         @click="${this.editServer}"
         ?disabled="${this.readonly}"
       >
-        <vaadin-icon
-          icon="lumo:edit"
-          style=${styleMap(editStyles)}
-        ></vaadin-icon>
+        <dorc-icon
+          icon="edit"
+          color="${this.readonly ? 'neutral' : 'primary'}"
+        ></dorc-icon>
       </vaadin-button>
 
       <vaadin-button
@@ -62,10 +52,10 @@ export class ServerControls extends LitElement {
         @click="${this.manage}"
         ?disabled="${this.readonly}"
       >
-        <vaadin-icon
-          icon="vaadin:tags"
-          style=${styleMap(editStyles)}
-        ></vaadin-icon>
+        <dorc-icon
+          icon="settings"
+          color="${this.readonly ? 'neutral' : 'primary'}"
+        ></dorc-icon>
       </vaadin-button>
 
       ${this.envSet
@@ -75,10 +65,10 @@ export class ServerControls extends LitElement {
             @click="${this.detachServer}"
             ?disabled="${this.readonly}"
           >
-            <vaadin-icon
-              icon="vaadin:unlink"
-              style=${styleMap(unlinkStyles)}
-            ></vaadin-icon>
+            <dorc-icon
+              icon="unlink"
+              color="${this.readonly ? 'neutral' : 'danger'}"
+            ></dorc-icon>
           </vaadin-button>`
         : html``}
 
@@ -89,10 +79,10 @@ export class ServerControls extends LitElement {
         @click="${this.deleteServer}"
         ?disabled="${this.readonly}"
       >
-        <vaadin-icon
-          icon="icons:delete"
-          style=${styleMap(unlinkStyles)}
-        ></vaadin-icon>
+        <dorc-icon
+          icon="delete"
+          color="${this.readonly ? 'neutral' : 'danger'}"
+        ></dorc-icon>
       </vaadin-button>`
         : html``}
     `;

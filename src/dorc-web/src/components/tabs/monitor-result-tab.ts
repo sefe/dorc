@@ -1,7 +1,7 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/icons';
-import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { urlForName } from '../../router/router';
 import '@vaadin/horizontal-layout';
@@ -41,10 +41,7 @@ export class MonitorResultTab extends LitElement {
           <vaadin-horizontal-layout
             style="line-height: var(--lumo-line-height-m);"
           >
-            <vaadin-icon
-              icon="vaadin:clipboard-pulse"
-              theme="small"
-            ></vaadin-icon>
+            <dorc-icon icon="clipboard"></dorc-icon>
             <span
               >${this.requestStatus?.Id}
               ${this.requestStatus?.EnvironmentName}</span
@@ -58,12 +55,7 @@ export class MonitorResultTab extends LitElement {
           </div>
         </vaadin-vertical-layout>
       </a>
-      <vaadin-icon
-        style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
-        icon="vaadin:close-small"
-        theme="small"
-        @click="${this.removeMonitorResult}"
-      ></vaadin-icon>
+      <dorc-icon icon="close-small" color="lightblue"></dorc-icon>
     </div>`;
   }
 

@@ -80,11 +80,7 @@ export class HegsDialog extends LitElement {
         ></div>
         <div class="dialog">
           <h2 id="title">${this.title}</h2>
-          <vaadin-icon
-            style="color: lightblue; float: right;  position: absolute; right: 10px; top: 10px;"
-            icon="vaadin:close-small"
-            @click="${this.close}"
-          ></vaadin-icon>
+          <dorc-icon icon="close-small" color="lightblue"></dorc-icon>
           <slot></slot>
         </div>
       </div>

@@ -2,13 +2,13 @@ import { css, LitElement } from 'lit';
 import '@vaadin/list-box/vaadin-list-box.js';
 import '@vaadin/item';
 import '@vaadin/icons';
-import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import { ListBox } from '@vaadin/list-box';
 import { Item } from '@vaadin/item';
 import { ComboBox } from '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { ErrorNotification } from './notifications/error-notification';
@@ -73,10 +73,7 @@ export class AttachEnvironment extends LitElement {
           theme="icon"
           @click="${this.shortListEnv}"
         >
-          <vaadin-icon
-            icon="vaadin:list-select"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
+          <dorc-icon icon="list" color="primary"></dorc-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
       <vaadin-horizontal-layout>
@@ -97,10 +94,7 @@ export class AttachEnvironment extends LitElement {
           theme="icon"
           @click="${this.removeEnv}"
         >
-          <vaadin-icon
-            icon="vaadin:close-small"
-            style="color: cornflowerblue"
-          ></vaadin-icon>
+          <dorc-icon icon="close-small" color="primary"></dorc-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
 
@@ -109,10 +103,7 @@ export class AttachEnvironment extends LitElement {
         theme="icon"
         @click="${this.attachEnvironment}"
       >
-        <vaadin-icon
-          icon="vaadin:link"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
+        <dorc-icon icon="link" color="primary"></dorc-icon>
         Attach Environment(s)
       </vaadin-button>
     `;

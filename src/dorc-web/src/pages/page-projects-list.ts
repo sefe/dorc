@@ -1,10 +1,9 @@
 import '@vaadin/grid';
 import type { GridItemModel } from '@vaadin/grid';
 import '@vaadin/text-field';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-project';
 import { Notification } from '@vaadin/notification';
@@ -168,17 +167,14 @@ export class PageProjectsList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <dorc-icon icon="search"></dorc-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add Project"
           style="width: 250px"
           @click="${this.addProject}"
         >
-          <vaadin-icon
-            icon="vaadin:archive"
-            style="color: cornflowerblue"
-          ></vaadin-icon
+          <dorc-icon icon="archive" color="primary"></dorc-icon></vaadin-icon
           >Add Project...
         </vaadin-button>
       </div>

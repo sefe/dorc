@@ -72,11 +72,7 @@ export class PageEnvironment extends PageElement {
           </td>
           <td>
             ${this.parentName
-              ? html`<vaadin-icon
-                  icon="vaadin:child"
-                  title="Child of ${this.parentName}"
-                  style="color: grey"
-                ></vaadin-icon>`
+              ? html`<dorc-icon icon="child" color="grey"" aria-label="Child of ${this.parentName}"></dorc-icon>`
               : html``}
           </td>
           <td>

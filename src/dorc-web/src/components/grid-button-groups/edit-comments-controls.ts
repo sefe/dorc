@@ -2,10 +2,9 @@ import { Button } from '@vaadin/button';
 import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { RefDataEnvironmentsHistoryApi } from '../../apis/dorc-api/apis';
 import { EnvironmentHistoryApiModel } from '../../apis/dorc-api/models';
@@ -42,7 +41,7 @@ export class EditCommentsControls extends LitElement {
           focus-target
           @click="${this._editClick}"
         >
-          <vaadin-icon icon="lumo:edit"></vaadin-icon>
+          <dorc-icon icon="edit"></dorc-icon>
         </vaadin-button>
         <vaadin-button
           aria-label="Save"

@@ -1,8 +1,8 @@
 import { css, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { customElement, property, state } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import {
@@ -11,8 +11,6 @@ import {
   RefDataEnvironmentsApi
 } from '../../apis/dorc-api';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@vaadin/details';
 import '../make-like-production-dialog';
 import '@polymer/paper-dialog';
@@ -22,7 +20,6 @@ import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
 import '../reset-app-password-behalf';
-import '../../icons/iron-icons.js';
 import { SuccessNotification } from '../notifications/success-notification';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
 
@@ -121,10 +118,7 @@ export class EnvControlCenter extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <vaadin-horizontal-layout>
-            <vaadin-icon
-              icon="vaadin:automation"
-              style="display: table-cell; padding-right: 5px"
-            ></vaadin-icon>
+            <dorc-icon icon="automation"></dorc-icon>
             <span> Environment Control Center </span>
           </vaadin-horizontal-layout>
         </vaadin-details-summary>
@@ -134,28 +128,28 @@ export class EnvControlCenter extends PageEnvBase {
             @click="${this.deleteEnvironment}"
             ?disabled="${!(this.isAdmin || this.isEnvOwnerOrDelegate)}"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
+            <dorc-icon icon="delete"></dorc-icon></vaadin-icon
             >Delete Environment...</vaadin-button>
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
-            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
+            <dorc-icon icon="history"></dorc-icon></vaadin-icon
             >Environment History</vaadin-button>
           <vaadin-button
             title="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon
+            <dorc-icon icon="lock"></dorc-icon></vaadin-icon
             >Environment Access...</vaadin-button>
           <vaadin-button
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
           >
-            <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
+            <dorc-icon icon="settings"></dorc-icon></vaadin-icon
             >Bundle Request...</vaadin-button>
           <vaadin-button
             id="reset-others-password"
@@ -165,7 +159,7 @@ export class EnvControlCenter extends PageEnvBase {
             .disabled="${this.environment?.EnvironmentIsProd ||
             !(this.isEnvOwnerOrDelegate || this.isAdmin)}"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
+            <dorc-icon icon="safe"></dorc-icon></vaadin-icon
             >Reset SQL Account Password for...</vaadin-button>
         </div>
       </vaadin-details>

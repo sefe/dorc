@@ -4,12 +4,11 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
 import '@vaadin/text-field';
 import { Checkbox } from '@vaadin/checkbox';
 import { css, render } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import '../components/dorc-icon.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
 import '../components/grid-button-groups/env-controls';
@@ -111,17 +110,14 @@ export class PageEnvironmentsList extends PageElement {
             clear-button-visible
             helper-text="Use | for multiple search terms"
           >
-            <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+            <dorc-icon icon="search"></dorc-icon>
           </vaadin-text-field>
           <vaadin-button
             title="Add Environment"
             style="width: 250px; padding-left: 10px"
             @click="${this.addEnvironment}"
           >
-            <vaadin-icon
-              icon="vaadin:cube"
-              style="color: cornflowerblue"
-            ></vaadin-icon>
+            <dorc-icon icon="container" color="primary"></dorc-icon>
             Add Environment...
           </vaadin-button>
         </vaadin-horizontal-layout>

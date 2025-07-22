@@ -2,11 +2,8 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
+import './dorc-icon.js';
 import { html } from 'lit/html.js';
-import '../icons/hardware-icons.js';
-import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icon';
-import '../icons/iron-icons.js';
 import { ProjectApiModel } from '../apis/dorc-api';
 
 @customElement('project-card')
@@ -67,10 +64,7 @@ export class ProjectCard extends LitElement {
               theme="icon"
               @click="${this.openProjectEnvironments}"
             >
-              <vaadin-icon
-                icon="vaadin:records"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
+              <dorc-icon icon="list" color="primary"></dorc-icon>
             </vaadin-button>
           </div>
         </div>

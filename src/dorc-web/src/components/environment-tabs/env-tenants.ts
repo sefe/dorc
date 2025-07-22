@@ -55,10 +55,7 @@ export class EnvTenants extends PageEnvBase {
               theme="icon"
               @click="${this.openEnvironmentDetails}"
             >
-              <vaadin-icon
-                icon="hardware:developer-board"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
+              <dorc-icon icon="environment" color="primary"></dorc-icon>
             </vaadin-button>
           </h4>
       `: html``}

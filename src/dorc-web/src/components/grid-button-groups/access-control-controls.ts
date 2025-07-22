@@ -1,11 +1,9 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
+import '../dorc-icon.js';
 import { html } from 'lit/html.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { AccessControlApiModel } from '../../apis/dorc-api';
-import '../../icons/iron-icons.js';
 
 @customElement('access-control-controls')
 export class AccessControlControls extends LitElement {
@@ -27,7 +25,6 @@ export class AccessControlControls extends LitElement {
   }
 
   render() {
-    const styles = { color: this.disabled ? '#F3F5F7' : '#FF3131' };
     return html`
       <vaadin-button
         title="Remove Access"
@@ -35,10 +32,10 @@ export class AccessControlControls extends LitElement {
         @click="${this.removeAccess}"
         ?disabled="${this.disabled}"
       >
-        <vaadin-icon
-          icon="icons:delete"
-          style=${styleMap(styles)}
-        ></vaadin-icon>
+        <dorc-icon 
+          icon="delete"
+          color="${this.disabled ? 'neutral' : 'danger'}"
+        ></dorc-icon>
       </vaadin-button>
     `;
   }
