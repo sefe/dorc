@@ -52,6 +52,10 @@ export class EnvironmentCard extends LitElement {
         color: blue;
         text-decoration: none; /* no underline */
       }
+
+      vaadin-button {
+        padding: 2px;
+      }
     `;
   }
 
