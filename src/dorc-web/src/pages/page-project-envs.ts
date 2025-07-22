@@ -143,7 +143,6 @@ export class PageProjectEnvs extends PageElement {
 
       vaadin-button {
         padding: 2px;
-        margin: 4px;
       }
     `;
   }
@@ -184,13 +183,14 @@ export class PageProjectEnvs extends PageElement {
                 >`}
           </div>
 
-          <div style="left: 200px; top: 40px; position: absolute">
-            <vaadin-vertical-layout>
-              <vaadin-horizontal-layout>
+          <div style="left: 212px; top: 46px; position: absolute">
+            <vaadin-vertical-layout style="--lumo-space-xs: 8px;">
+              <vaadin-horizontal-layout style="--lumo-space-xs: 8px;">
                 <vaadin-button
                   title="Attach Environment"
                   theme="icon"
                   @click="${this.openAttachEnv}"
+                  style="margin: 0;"
                 >
                   <vaadin-icon
                     icon="icons:link"
@@ -201,6 +201,7 @@ export class PageProjectEnvs extends PageElement {
                   title="Bundles"
                   theme="icon"
                   @click="${this.openBundles}"
+                  style="margin: 0;"
                 >
                   <vaadin-icon
                     icon="vaadin:package"
@@ -208,11 +209,12 @@ export class PageProjectEnvs extends PageElement {
                   ></vaadin-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
-              <vaadin-horizontal-layout>
+              <vaadin-horizontal-layout style="--lumo-space-xs: 8px;">
                 <vaadin-button
                   title="Reference Data"
                   theme="icon"
                   @click="${this.openRefData}"
+                  style="margin: 0;"
                 >
                   <vaadin-icon
                     icon="vaadin:curly-brackets"
@@ -223,6 +225,7 @@ export class PageProjectEnvs extends PageElement {
                   title="Edit Metadata..."
                   theme="icon"
                   @click="${this.openProjectMetadata}"
+                  style="margin: 0;"
                 >
                   <vaadin-icon
                     icon="lumo:edit"
