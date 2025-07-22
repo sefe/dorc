@@ -184,7 +184,7 @@ export class PageProjectEnvs extends PageElement {
                 >`}
           </div>
 
-          <div style="left: 200px; top: 40px; position: relative">
+          <div style="left: 200px; top: 40px; position: absolute">
             <vaadin-vertical-layout>
               <vaadin-horizontal-layout>
                 <vaadin-button
