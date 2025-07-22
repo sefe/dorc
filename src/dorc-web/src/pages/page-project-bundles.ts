@@ -1,6 +1,8 @@
 import { css, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
+import '@vaadin/grid/vaadin-grid-filter';
+import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/icon';
 import '@vaadin/icons';
@@ -19,6 +21,7 @@ import {
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { Grid, GridItemModel } from '@vaadin/grid';
+import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
 import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';
@@ -108,6 +111,50 @@ export class PageProjectBundles extends PageElement {
 
   @query('#grid') grid: Grid | undefined;
 
+  get uniqueBundleNames(): string[] {
+    const names = new Set<string>();
+    this.bundledRequests.forEach(bundle => {
+      if (bundle.BundleName) {
+        names.add(bundle.BundleName);
+      }
+    });
+    return Array.from(names).sort();
+  }
+
+  bundleNameHeaderRenderer = (root: HTMLElement) => {
+    render(
+      html`
+        <vaadin-grid-sorter path="BundleName" direction="asc"
+          >Bundle Name</vaadin-grid-sorter
+        >
+        <vaadin-grid-filter path="BundleName">
+          <vaadin-combo-box
+            clear-button-visible
+            slot="filter"
+            focus-target
+            .items="${this.uniqueBundleNames}"
+            placeholder="Select bundle..."
+            style="width: 200px"
+            theme="small"
+          ></vaadin-combo-box>
+        </vaadin-grid-filter>
+      `,
+      root
+    );
+
+    const filter: GridFilter = root.querySelector(
+      'vaadin-grid-filter'
+    ) as GridFilter;
+    const comboBox = root.querySelector('vaadin-combo-box');
+    if (comboBox) {
+      // Update items whenever the component renders
+      comboBox.items = this.uniqueBundleNames;
+      comboBox.addEventListener('value-changed', (e: any) => {
+        filter.value = e.detail.value;
+      });
+    }
+  };
+
   render() {
     return html`
       <div class="overlay" ?hidden="${!this.loading}">
@@ -142,14 +189,14 @@ export class PageProjectBundles extends PageElement {
         theme="compact row-stripes no-row-borders no-border"
         multi-sort-priority="append"
       >
-        <vaadin-grid-sort-column
+        <vaadin-grid-column
           path="BundleName"
           header="Bundle Name"
           auto-width
           flex-grow="0"
           resizable
-          direction="asc"
-        ></vaadin-grid-sort-column>
+          .headerRenderer="${this.bundleNameHeaderRenderer}"
+        ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._typeRenderer}"
           header="Type"
