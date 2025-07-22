@@ -40,7 +40,7 @@
     <HarvestDirectory Include="$(TestsAcceptanceDir)">
       <DirectoryRefId>TestingDir</DirectoryRefId>
       <ComponentGroupName>TestsAcceptanceComGroup</ComponentGroupName>
-      <Transforms>$(Projectdir)HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.TestsAcceptanceDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
