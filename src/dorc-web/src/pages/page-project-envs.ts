@@ -183,9 +183,9 @@ export class PageProjectEnvs extends PageElement {
                 >`}
           </div>
 
-          <div style="left: 212px; top: 46px; position: absolute">
-            <vaadin-vertical-layout style="--lumo-space-xs: 8px;">
-              <vaadin-horizontal-layout style="--lumo-space-xs: 8px;">
+          <div style="right: 8px; bottom: 8px; position: absolute;">
+            <vaadin-vertical-layout style="gap: 8px; align-items: end;">
+              <vaadin-horizontal-layout style="gap: 8px;">
                 <vaadin-button
                   title="Attach Environment"
                   theme="icon"
@@ -209,7 +209,7 @@ export class PageProjectEnvs extends PageElement {
                   ></vaadin-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
-              <vaadin-horizontal-layout style="--lumo-space-xs: 8px;">
+              <vaadin-horizontal-layout style="gap: 8px;">
                 <vaadin-button
                   title="Reference Data"
                   theme="icon"
