@@ -69,7 +69,7 @@ export class PageProjectEnvs extends PageElement {
 
       .card-element__text {
         color: gray;
-        width: 250px;
+        width: 180px;
         word-wrap: break-word;
         display: block;
         font-size: small;
@@ -181,11 +181,12 @@ export class PageProjectEnvs extends PageElement {
                   >${this.projectData?.ProjectDescription}</span
                 >`}
           </div>
-          <div style="float: right; width: 40px">
+          <div style="float: right; width: 100px; display: flex; flex-wrap: wrap; justify-content: flex-end;">
             <vaadin-button
               title="Attach Environment"
               theme="icon"
               @click="${this.openAttachEnv}"
+              style="margin: 2px;"
             >
               <vaadin-icon
                 icon="icons:link"
@@ -196,6 +197,7 @@ export class PageProjectEnvs extends PageElement {
               title="Bundles"
               theme="icon"
               @click="${this.openBundles}"
+              style="margin: 2px;"
             >
               <vaadin-icon
                 icon="vaadin:package"
@@ -206,6 +208,7 @@ export class PageProjectEnvs extends PageElement {
               title="Reference Data"
               theme="icon"
               @click="${this.openRefData}"
+              style="margin: 2px;"
             >
               <vaadin-icon
                 icon="vaadin:curly-brackets"
@@ -216,6 +219,7 @@ export class PageProjectEnvs extends PageElement {
               title="Edit Metadata..."
               theme="icon"
               @click="${this.openProjectMetadata}"
+              style="margin: 2px;"
             >
               <vaadin-icon
                 icon="lumo:edit"
