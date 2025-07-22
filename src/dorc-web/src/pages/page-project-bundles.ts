@@ -40,7 +40,6 @@ export class PageProjectBundles extends PageElement {
         width: 100%;
         height: 100%;
         flex-direction: column;
-        padding: 20px;
       }
 
       .header {
@@ -48,6 +47,7 @@ export class PageProjectBundles extends PageElement {
         align-items: center;
         gap: 10px;
         margin-bottom: 20px;
+        padding: 20px 20px 0 20px;
       }
 
 
@@ -117,7 +117,7 @@ export class PageProjectBundles extends PageElement {
       </div>
 
       <div class="header">
-        <h2>Bundles for ${this.project}</h2>
+        <h2>${this.project} Bundles</h2>
       </div>
 
       <vaadin-details
