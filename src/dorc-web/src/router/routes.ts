@@ -13,7 +13,6 @@ import '../components/environment-tabs/env-servers.ts'
 import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
 import '../components/environment-tabs/env-tenants.ts'
-import '../components/environment-tabs/env-bundles.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-list.ts'
@@ -27,6 +26,7 @@ import '../pages/page-monitor-result.ts'
 import '../pages/page-not-found.ts'
 import '../pages/page-permissions-list.ts'
 import '../pages/page-project-envs.ts'
+import '../pages/page-project-bundles.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
@@ -225,6 +225,15 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/project-envs/:id/bundles',
+        name: 'project-bundles',
+        component: 'page-project-bundles',
+        metadata: {
+          title: 'Bundles for Project',
+          description: 'All bundles for a project'
+        }
+      },
+      {
         path: '/project-ref-data/:id',
         name: 'project-ref-data',
         component: 'page-project-ref-data',
@@ -328,14 +337,6 @@ export const routes: Route<RouteMeta>[] = [
             metadata: {
               title: 'Tenants',
               description: 'Environment tenants details'
-            }
-          },
-          {
-            path: '/bundles',
-            component: 'env-bundles',
-            metadata: {
-              title: 'Bundles',
-              description: 'Environment bundles details'
             }
           }
         ]

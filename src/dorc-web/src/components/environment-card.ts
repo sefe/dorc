@@ -52,9 +52,6 @@ export class EnvironmentCard extends LitElement {
         color: blue;
         text-decoration: none; /* no underline */
       }
-      vaadin-button {
-        margin: 4px;
-      }
     `;
   }
 
@@ -71,13 +68,14 @@ export class EnvironmentCard extends LitElement {
           >
         </div>
 
-        <div style="left: 200px; top: 40px; position: relative">
-          <vaadin-vertical-layout>
-            <vaadin-horizontal-layout>
+        <div style="right: 8px; bottom: 8px; position: absolute;">
+          <vaadin-vertical-layout style="gap: 8px; align-items: end;">
+            <vaadin-horizontal-layout style="gap: 8px;">
               <vaadin-button
                 title="Environment Details"
                 theme="icon"
                 @click="${this.openEnvironmentDetails}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="hardware:developer-board"
@@ -89,6 +87,7 @@ export class EnvironmentCard extends LitElement {
                 theme="icon"
                 ?disabled="${this.environment === undefined}"
                 @click="${this.openEnvHistory}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="icons:history"
@@ -96,12 +95,13 @@ export class EnvironmentCard extends LitElement {
                 ></vaadin-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>
-            <vaadin-horizontal-layout>
+            <vaadin-horizontal-layout style="gap: 8px;">
               <vaadin-button
                 title="Detach Environment"
                 theme="icon"
                 @click="${this.removeMapping}"
                 .env="${this.environment}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="vaadin:unlink"
@@ -112,6 +112,7 @@ export class EnvironmentCard extends LitElement {
                 title="Access Control..."
                 theme="icon"
                 @click="${this.openAccessControl}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="vaadin:lock"

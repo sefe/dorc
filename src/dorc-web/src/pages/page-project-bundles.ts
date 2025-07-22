@@ -2,27 +2,37 @@ import { css, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import { customElement, query } from 'lit/decorators.js';
+import '@vaadin/icon';
+import '@vaadin/icons';
+import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { PageEnvBase } from './page-env-base';
+import { PageElement } from '../helpers/page-element';
 import '@vaadin/details';
 import '@vaadin/horizontal-layout';
-import '../attached-app-users';
 import {
   BundledRequestsApi,
   BundledRequestsApiModel,
-  BundledRequestType
-} from '../../apis/dorc-api';
-import { ErrorNotification } from '../notifications/error-notification.ts';
+  BundledRequestType,
+  RefDataProjectEnvironmentMappingsApi,
+  EnvironmentApiModelTemplateApiModel
+} from '../apis/dorc-api';
+import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { Grid, GridItemModel } from '@vaadin/grid';
-import { HegsJsonViewer } from '../hegs-json-viewer.ts';
-import '../grid-button-groups/bundle-request-controls';
-import '../bundle-editor-dialog';
-import { BundleEditorDialog } from '../bundle-editor-dialog';
+import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
+import '../components/grid-button-groups/bundle-request-controls';
+import '../components/bundle-editor-dialog';
+import { BundleEditorDialog } from '../components/bundle-editor-dialog';
+import { Router } from '@vaadin/router';
 
-@customElement('env-bundles')
-export class EnvBundles extends PageEnvBase {
+@customElement('page-project-bundles')
+export class PageProjectBundles extends PageElement {
+  @property({ type: String })
+  project: string | undefined;
+
+  @property({ type: Boolean })
+  private loading = true;
+
   static get styles() {
     return css`
       :host {
@@ -31,13 +41,67 @@ export class EnvBundles extends PageEnvBase {
         height: 100%;
         flex-direction: column;
       }
+
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        padding: 20px 20px 0 20px;
+      }
+
+
+
+      h2 {
+        margin: 0;
+        color: #333;
+      }
+
       vaadin-grid {
         height: 100%;
+      }
+
+      .overlay {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 1000;
+      }
+
+      .overlay__inner {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .spinner {
+        width: 75px;
+        height: 75px;
+        display: inline-block;
+        border-width: 2px;
+        border-color: rgba(255, 255, 255, 0.05);
+        border-top-color: cornflowerblue;
+        animation: spin 1s infinite linear;
+        border-radius: 100%;
+        border-style: solid;
+      }
+
+      @keyframes spin {
+        100% {
+          transform: rotate(360deg);
+        }
       }
     `;
   }
 
   private bundledRequests: Array<BundledRequestsApiModel> = [];
+  private projectData: EnvironmentApiModelTemplateApiModel | undefined;
 
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
@@ -46,6 +110,16 @@ export class EnvBundles extends PageEnvBase {
 
   render() {
     return html`
+      <div class="overlay" ?hidden="${!this.loading}">
+        <div class="overlay__inner">
+          <span class="spinner"></span>
+        </div>
+      </div>
+
+      <div class="header">
+        <h2>${this.project} Bundles</h2>
+      </div>
+
       <vaadin-details
         opened
         summary="Bundles"
@@ -128,15 +202,44 @@ export class EnvBundles extends PageEnvBase {
       'delete-bundle-request',
       this._handleDeleteBundle as EventListener
     );
+
+    // Get project name from URL
+    const projectName = location.pathname.split('/')[2];
+    this.project = decodeURIComponent(projectName);
+
+    this.loadProjectData();
+  }
+
+
+
+  private loadProjectData() {
+    const api = new RefDataProjectEnvironmentMappingsApi();
+    if (this.project !== undefined) {
+      api
+        .refDataProjectEnvironmentMappingsGet({
+          project: this.project,
+          includeRead: true
+        })
+        .subscribe(
+          (data: EnvironmentApiModelTemplateApiModel) => {
+            this.projectData = data;
+            this.fetchBundledRequests();
+          },
+          (err: any) => {
+            console.error(err);
+            Router.go('not-found');
+          }
+        );
+    }
   }
 
   private _openAddBundleDialog() {
-    const projects = this.envContent?.MappedProjects;
+    const projects = this.projectData?.Project ? [this.projectData.Project] : [];
     this.bundleEditorDialog.openNew(projects);
   }
 
   private _handleBundleSaved(e: CustomEvent) {
-    console.log('Bundle saved event received in env-bundles', e.detail);
+    console.log('Bundle saved event received in page-project-bundles', e.detail);
     this.fetchBundledRequests();
   }
 
@@ -146,7 +249,6 @@ export class EnvBundles extends PageEnvBase {
     model: GridItemModel<BundledRequestsApiModel>
   ) {
     render(
-      //buttons disabled until fix for env/total bundle change. Previous value "${this.environment?.UserEditable}"
       html` <bundle-request-controls .value="${model.item}"
       .disabled="${true}"
       >
@@ -223,11 +325,9 @@ export class EnvBundles extends PageEnvBase {
 
   private fetchBundledRequests() {
     const api = new BundledRequestsApi();
-    const projs: string[] =
-      this.envContent?.MappedProjects?.map(p => p.ProjectName || '').filter(
-        name => name
-      ) || [];
-    api.bundledRequestsGet({ projectNames: projs }).subscribe({
+    const projectNames = this.project ? [this.project] : [];
+    
+    api.bundledRequestsGet({ projectNames }).subscribe({
       next: data => {
         this.bundledRequests = data.sort((a, b) => {
           const nameCompare = (a.BundleName || '').localeCompare(
@@ -247,20 +347,14 @@ export class EnvBundles extends PageEnvBase {
           this.grid.clearCache();
           this.requestUpdate();
         }
+
+        this.loading = false;
       },
       error: error => {
         console.error('Error fetching bundled requests:', error);
         new ErrorNotification().open();
+        this.loading = false;
       }
     });
-  }
-
-  constructor() {
-    super();
-    super.loadEnvironmentInfo();
-  }
-
-  override notifyEnvironmentContentReady() {
-    this.fetchBundledRequests();
   }
 }
