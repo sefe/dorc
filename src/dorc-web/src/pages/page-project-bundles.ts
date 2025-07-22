@@ -135,12 +135,14 @@ export class PageProjectBundles extends PageElement {
     this.requestUpdate();
   }
 
-  bundleNameHeaderRenderer = (root: HTMLElement) => {
+  bundleNameHeaderRenderer(root: HTMLElement) {
     render(
       html`
-        <vaadin-grid-sorter path="BundleName" direction="asc"
-          >Bundle Name</vaadin-grid-sorter
-        >
+        <vaadin-grid-sorter
+          path="BundleName" 
+          direction="asc"
+          style="align-items: normal"
+        >Bundle Name</vaadin-grid-sorter>
         <vaadin-combo-box
           clear-button-visible
           focus-target
@@ -158,7 +160,7 @@ export class PageProjectBundles extends PageElement {
       `,
       root
     );
-  };
+  }
 
   render() {
     return html`
@@ -200,7 +202,7 @@ export class PageProjectBundles extends PageElement {
           auto-width
           flex-grow="0"
           resizable
-          .headerRenderer="${this.bundleNameHeaderRenderer}"
+          .headerRenderer="${this.bundleNameHeaderRenderer.bind(this)}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._typeRenderer}"
