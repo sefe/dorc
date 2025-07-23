@@ -231,8 +231,6 @@ export class AttachEnvironment extends LitElement {
             errorMessage = err.response;
           } else if (err.message) {
             errorMessage = err.message;
-          } else if (err.response) {
-            errorMessage = String(err.response);
           }
           
           notification.setAttribute('errorMessage', errorMessage);
