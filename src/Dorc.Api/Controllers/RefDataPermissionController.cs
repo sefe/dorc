@@ -39,7 +39,7 @@ namespace Dorc.Api.Controllers
         [HttpPost]
         public IActionResult Post([FromBody] PermissionDto value)
         {
-            if (!User.IsInRole("PowerUser") && !User.IsInRole("Admin"))
+            if (!User.IsInRole("PowerUser"))
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "User must be part of the 'PowerUser' group to create new Permissions");
 
