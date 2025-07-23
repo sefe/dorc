@@ -764,8 +764,6 @@ export class EnvVariables extends PageEnvBase {
                   ></td>
           </tr>
         </table>
-          </tr>
-        </table>
       `,
       root
     );
