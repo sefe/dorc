@@ -170,6 +170,18 @@ function Add-NonProdEndurUser
 }
 filter Convert-CsvToCsvProperties([Parameter(Mandatory = $true, ValueFromPipeline = $true)]$csvProperty)
 {
+    # Validate PropertyName is not blank or empty
+    if ([string]::IsNullOrWhiteSpace($csvProperty.PropertyName))
+    {
+        throw "PropertyName cannot be blank or empty. Found blank PropertyName in CSV data."
+    }
+    
+    # Validate Value is not blank or empty
+    if ([string]::IsNullOrWhiteSpace($csvProperty.Value))
+    {
+        throw "Property value cannot be blank or empty. Found blank value for property '$($csvProperty.PropertyName)'."
+    }
+    
     $property = new-object -TypeName CsvProperties
     $property.Environment = $csvProperty.Environment
     $property.Value = $csvProperty.Value
