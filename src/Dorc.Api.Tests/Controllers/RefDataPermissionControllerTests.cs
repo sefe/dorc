@@ -104,5 +104,59 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
             Assert.AreEqual("User must be part of the 'PowerUser' group to create new Permissions", result.Value);
         }
+
+        [TestMethod]
+        public void Put_UserIsAdmin_ReturnsOk()
+        {
+            // Arrange
+            var permissionDto = new PermissionDto { DisplayName = "Test", PermissionName = "TestPermission" };
+            
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Role, "Admin")
+            };
+            var identity = new ClaimsIdentity(claims, "Test");
+            var principal = new ClaimsPrincipal(identity);
+            
+            _controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = principal }
+            };
+
+            // Act
+            var result = _controller.Put(1, permissionDto) as StatusCodeResult;
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            _permissionsPersistentSource.Received(1).UpdatePermission(1, permissionDto);
+        }
+
+        [TestMethod]
+        public void Put_UserIsPowerUser_ReturnsForbidden()
+        {
+            // Arrange
+            var permissionDto = new PermissionDto { DisplayName = "Test", PermissionName = "TestPermission" };
+            
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Role, "PowerUser")
+            };
+            var identity = new ClaimsIdentity(claims, "Test");
+            var principal = new ClaimsPrincipal(identity);
+            
+            _controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = principal }
+            };
+
+            // Act
+            var result = _controller.Put(1, permissionDto) as ObjectResult;
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            Assert.AreEqual("User must be part of the 'Admin' group to edit Permissions", result.Value);
+        }
     }
 }
