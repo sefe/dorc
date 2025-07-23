@@ -20,11 +20,4 @@ namespace Dorc.ApiModel
 
         public string Json { get; set; }
     }
-
-    public enum ScriptAuditAction
-    {
-        Create,
-        Update,
-        Delete
-    }
 }

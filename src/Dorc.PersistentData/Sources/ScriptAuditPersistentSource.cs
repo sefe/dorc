@@ -28,13 +28,22 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
+                // Ensure the action type exists, create if it doesn't
+                var action = context.ScriptAuditActions.FirstOrDefault(x => x.Action == actionType);
+                if (action == null)
+                {
+                    action = new Model.ScriptAuditAction { Action = actionType };
+                    context.ScriptAuditActions.Add(action);
+                    context.SaveChanges();
+                }
+
                 var scriptAudit = new ScriptAudit
                 {
                     Date = DateTime.Now,
                     Username = username,
                     ScriptId = scriptApiModel.Id,
                     Json = JsonSerializer.Serialize(scriptApiModel, new JsonSerializerOptions { WriteIndented = true }),
-                    Action = context.ScriptAuditActions.First(x => x.Action == actionType)
+                    Action = action
                 };
 
                 context.ScriptAudits.Add(scriptAudit);
