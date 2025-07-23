@@ -14,5 +14,6 @@ namespace Dorc.ApiModel
         public bool StopOnFailure { get; set; }
         public int ParentId { get; set; }
         public bool? IsEnabled { set; get; }
+        public ComponentType ComponentType { get; set; } = ComponentType.PowerShell;
     }
 }

@@ -5,7 +5,7 @@ namespace Dorc.Monitor
 {
     internal interface IComponentProcessor
     {
-        bool DeployComponent(ComponentApiModel component,
+        Task<bool> DeployComponentAsync(ComponentApiModel component,
             DeploymentResultApiModel deploymentResult,
             int requestId,
             bool isProductionRequest,

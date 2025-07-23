@@ -44,7 +44,7 @@ namespace Dorc.Monitor.RequestProcessors
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
         }
 
-        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
         {
             logger.Info($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
 
@@ -168,7 +168,7 @@ namespace Dorc.Monitor.RequestProcessors
                             var componentId = enabledNonSkippedComponent.ComponentId!.Value;
                             var deploymentResult = deploymentResults[componentId];
 
-                            bool isSuccessful = componentProcessor.DeployComponent(
+                            bool isSuccessful = await componentProcessor.DeployComponentAsync(
                                 enabledNonSkippedComponent,
                                 deploymentResult,
                                 requestToExecute.Request.Id,
