@@ -27,12 +27,28 @@ export class AttachedDatabases extends LitElement {
   envContent: EnvironmentContentApiModel | undefined;
 
   @property({ type: Array })
-  databases: Array<DatabaseApiModel> | undefined = [];
+  private _parentDatabases: Array<DatabaseApiModel> | undefined = [];
 
   @property({ type: Number })
   envId = 0;
 
   @property({ type: Boolean }) private readonly = true;
+
+  private _refreshedDatabases: Array<DatabaseApiModel> | undefined = [];
+  private _hasRefreshedData = false;
+
+  // Use refreshed data if available, otherwise fall back to parent data
+  get databases(): Array<DatabaseApiModel> | undefined {
+    return this._hasRefreshedData ? this._refreshedDatabases : this._parentDatabases;
+  }
+
+  set databases(value: Array<DatabaseApiModel> | undefined) {
+    // Only update from parent if we don't have refreshed data
+    if (!this._hasRefreshedData) {
+      this._parentDatabases = value;
+      this.requestUpdate();
+    }
+  }
 
   static get styles() {
     return css`
@@ -231,7 +247,9 @@ export class AttachedDatabases extends LitElement {
 
   setEnvironmentDetails(envDetails: EnvironmentContentApiModel) {
     this.envContent = envDetails;
-    this.databases = envDetails.DbServers?.sort(this.sortDbs);
+    this._refreshedDatabases = envDetails.DbServers?.sort(this.sortDbs);
+    this._hasRefreshedData = true;
+    this.requestUpdate();
   }
 
   sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
