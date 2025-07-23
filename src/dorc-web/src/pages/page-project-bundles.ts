@@ -1,6 +1,7 @@
 import { css, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
+import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/icon';
 import '@vaadin/icons';
@@ -24,6 +25,7 @@ import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';
 import { BundleEditorDialog } from '../components/bundle-editor-dialog';
 import { Router } from '@vaadin/router';
+import { ComboBox } from '@vaadin/combo-box';
 
 @customElement('page-project-bundles')
 export class PageProjectBundles extends PageElement {
@@ -32,6 +34,9 @@ export class PageProjectBundles extends PageElement {
 
   @property({ type: Boolean })
   private loading = true;
+
+  @property({ type: String })
+  private bundleNameFilter = '';
 
   static get styles() {
     return css`
@@ -101,12 +106,63 @@ export class PageProjectBundles extends PageElement {
   }
 
   private bundledRequests: Array<BundledRequestsApiModel> = [];
+  private filteredBundledRequests: Array<BundledRequestsApiModel> = [];
   private projectData: EnvironmentApiModelTemplateApiModel | undefined;
+  private uniqueBundleNames: string[] = [];
 
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
 
   @query('#grid') grid: Grid | undefined;
+
+  private updateUniqueBundleNames() {
+    const names = new Set<string>();
+    this.bundledRequests.forEach(bundle => {
+      if (bundle.BundleName) {
+        names.add(bundle.BundleName);
+      }
+    });
+    this.uniqueBundleNames = Array.from(names).sort();
+  }
+
+  private applyBundleNameFilter() {
+    if (!this.bundleNameFilter) {
+      this.filteredBundledRequests = [...this.bundledRequests];
+    } else {
+      this.filteredBundledRequests = this.bundledRequests.filter(bundle => 
+        bundle.BundleName === this.bundleNameFilter
+      );
+    }
+  }
+
+  private handleBundleNameFilterChange(e: CustomEvent) {
+    const comboBox = e.target as ComboBox;
+    this.bundleNameFilter = comboBox.value || '';
+    this.applyBundleNameFilter();
+  }
+
+  bundleNameHeaderRenderer(root: HTMLElement) {
+    render(
+      html`
+        <vaadin-grid-sorter
+          path="BundleName" 
+          direction="asc"
+          style="align-items: normal"
+        >Bundle Name</vaadin-grid-sorter>
+        <vaadin-combo-box
+          clear-button-visible
+          focus-target
+          .items="${this.uniqueBundleNames}"
+          placeholder="Select bundle..."
+          style="width: 200px"
+          theme="small"
+          .value="${this.bundleNameFilter}"
+          @value-changed="${this.handleBundleNameFilterChange}"
+        ></vaadin-combo-box>
+      `,
+      root
+    );
+  }
 
   render() {
     return html`
@@ -136,20 +192,20 @@ export class PageProjectBundles extends PageElement {
 
       <vaadin-grid
         id="grid"
-        .items="${this.bundledRequests}"
+        .items="${this.filteredBundledRequests}"
         column-reordering-allowed
         multi-sort
         theme="compact row-stripes no-row-borders no-border"
         multi-sort-priority="append"
       >
-        <vaadin-grid-sort-column
+        <vaadin-grid-column
           path="BundleName"
           header="Bundle Name"
           auto-width
           flex-grow="0"
           resizable
-          direction="asc"
-        ></vaadin-grid-sort-column>
+          .headerRenderer="${this.bundleNameHeaderRenderer.bind(this)}"
+        ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._typeRenderer}"
           header="Type"
@@ -202,6 +258,9 @@ export class PageProjectBundles extends PageElement {
       'delete-bundle-request',
       this._handleDeleteBundle as EventListener
     );
+
+    // Bind the filter change handler to this component's context
+    this.handleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
 
     // Get project name from URL
     const projectName = location.pathname.split('/')[2];
@@ -343,9 +402,11 @@ export class PageProjectBundles extends PageElement {
           return nameCompare;
         });
 
+        this.updateUniqueBundleNames();
+        this.applyBundleNameFilter();
+
         if (this.grid) {
           this.grid.clearCache();
-          this.requestUpdate();
         }
 
         this.loading = false;
