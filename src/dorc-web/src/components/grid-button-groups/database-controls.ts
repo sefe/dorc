@@ -8,7 +8,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import '../../icons/iron-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ApiBoolResult, DatabaseApiModel, RefDataDatabasesApi } from '../../apis/dorc-api';
-import { ErrorNotification } from '../notifications/error-notification.ts';
+import { ErrorNotification } from '../notifications/error-notification';
 
 @customElement('database-controls')
 export class DatabaseControls extends LitElement {
@@ -90,7 +90,25 @@ export class DatabaseControls extends LitElement {
               console.error(result.Message);
             }
           },
-          error: err => console.error(err),
+          error: (err: any) => {
+            console.error(err);
+            const notification = new ErrorNotification();
+            let errorMessage = 'Failed to delete database';
+            
+            if (err.response?.Message) {
+              errorMessage = err.response.Message;
+            } else if (err.response?.ExceptionMessage) {
+              errorMessage = err.response.ExceptionMessage;
+            } else if (err.message) {
+              errorMessage = err.message;
+            } else if (typeof err === 'string') {
+              errorMessage = err;
+            }
+            
+            notification.setAttribute('errorMessage', errorMessage);
+            this.shadowRoot?.appendChild(notification);
+            notification.open();
+          },
           complete: () =>
             console.log(`Deleted Server ${this.databaseDetails?.Name}`)
         });
