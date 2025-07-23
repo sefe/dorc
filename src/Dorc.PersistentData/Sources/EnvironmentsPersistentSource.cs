@@ -524,22 +524,10 @@ namespace Dorc.PersistentData.Sources
 
                 if (environment == null) return false;
 
-                // Add audit record for environment deletion before removing the environment
+                // Add environment history record for deletion
                 string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                 var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
-                var auditRecord = new Audit
-                {
-                    PropertyId = null,
-                    PropertyValueId = null,
-                    PropertyName = null,
-                    EnvironmentName = environment.Name,
-                    FromValue = environmentDetails,
-                    ToValue = "DELETED",
-                    UpdatedBy = username,
-                    UpdatedDate = DateTime.Now,
-                    Type = "ENVIRONMENT_DELETION"
-                };
-                context.Audits.Add(auditRecord);
+                EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
 
                 var propertyValueIds = context.PropertyValueFilters.Where(pvf => pvf.Value.Equals(environment.Name))
                     .Select(pvf => pvf.PropertyValue.Id).ToList();
