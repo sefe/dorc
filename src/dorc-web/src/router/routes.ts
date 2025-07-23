@@ -13,6 +13,9 @@ import '../components/environment-tabs/env-servers.ts'
 import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
 import '../components/environment-tabs/env-tenants.ts'
+import '../components/environment-tabs/env-containers.ts'
+import '../components/environment-tabs/env-cloud.ts'
+import '../components/environment-tabs/env-apis.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-list.ts'
@@ -20,6 +23,7 @@ import '../pages/page-databases-list.ts'
 import '../pages/page-deploy.ts'
 import '../pages/page-env-history.ts'
 import '../pages/page-environment.ts'
+import '../pages/page-environment-components.ts'
 import '../pages/page-environments-list.ts'
 import '../pages/page-monitor-requests.ts'
 import '../pages/page-monitor-result.ts'
@@ -260,28 +264,62 @@ export const routes: Route<RouteMeta>[] = [
             }
           },
           {
-            path: '/servers',
-            component: 'env-servers',
+            path: '/components',
+            component: 'page-environment-components',
             metadata: {
-              title: 'Servers',
-              description: 'Environment servers details'
-            }
-          },
-          {
-            path: '/databases',
-            component: 'env-databases',
-            metadata: {
-              title: 'Databases',
-              description: 'Environment database details'
-            }
-          },
-          {
-            path: '/daemons',
-            component: 'env-daemons',
-            metadata: {
-              title: 'Daemons',
-              description: 'Environment daemons details'
-            }
+              title: 'Components',
+              description: 'Environment components'
+            },
+            children: [
+              {
+                path: '/servers',
+                component: 'env-servers',
+                metadata: {
+                  title: 'Servers',
+                  description: 'Environment servers details'
+                }
+              },
+              {
+                path: '/databases',
+                component: 'env-databases',
+                metadata: {
+                  title: 'Databases',
+                  description: 'Environment database details'
+                }
+              },
+              {
+                path: '/daemons',
+                component: 'env-daemons',
+                metadata: {
+                  title: 'Daemons',
+                  description: 'Environment daemons details'
+                }
+              },
+              {
+                path: '/containers',
+                component: 'env-containers',
+                metadata: {
+                  title: 'Containers',
+                  description: 'Environment containers details'
+                }
+              },
+              {
+                path: '/cloud',
+                component: 'env-cloud',
+                metadata: {
+                  title: 'Cloud',
+                  description: 'Environment cloud resources details'
+                }
+              },
+              {
+                path: '/apis',
+                component: 'env-apis',
+                metadata: {
+                  title: 'APIs',
+                  description: 'Environment APIs details'
+                }
+              }
+            ]
           },
           {
             path: '/deployments',
@@ -297,14 +335,6 @@ export const routes: Route<RouteMeta>[] = [
             metadata: {
               title: 'Users',
               description: 'Environment user details'
-            }
-          },
-          {
-            path: '/delegated-users',
-            component: 'env-delegated-users',
-            metadata: {
-              title: 'Delegated Users',
-              description: 'Environment delegated User details'
             }
           },
           {
