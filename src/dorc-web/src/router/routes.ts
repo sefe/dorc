@@ -272,6 +272,14 @@ export const routes: Route<RouteMeta>[] = [
             },
             children: [
               {
+                path: '/',
+                redirect: '/servers',
+                metadata: {
+                  title: 'Components',
+                  description: 'Redirect to servers'
+                }
+              },
+              {
                 path: '/servers',
                 component: 'env-servers',
                 metadata: {

@@ -63,7 +63,13 @@ export class PageEnvironmentComponents extends PageElement {
     if (componentTabName) {
       this.tabId = this.tabNames.findIndex(p => p === componentTabName);
     } else {
-      this.tabId = 0; // Default to first tab (servers)
+      // If no component specified, default to servers and redirect
+      this.tabId = 0;
+      const envName = pathParts[2];
+      if (envName) {
+        Router.go(`/environment/${envName}/components/servers`);
+        return;
+      }
     }
 
     const tabs = this.shadowRoot?.getElementById('component-tabs') as unknown as Tabs;
