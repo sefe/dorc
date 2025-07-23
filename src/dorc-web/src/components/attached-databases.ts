@@ -36,9 +36,22 @@ export class AttachedDatabases extends LitElement {
 
   private _refreshedDatabases: Array<DatabaseApiModel> | undefined = [];
   private _hasRefreshedData = false;
+  private _lastEnvId = 0;
+
+  /**
+   * Smart database state management:
+   * - Uses refreshed API data when available (after detach/attach operations)
+   * - Falls back to parent data for initial load or environment changes
+   * - Prevents stale parent data from overriding fresh API data
+   */
 
   // Use refreshed data if available, otherwise fall back to parent data
   get databases(): Array<DatabaseApiModel> | undefined {
+    // Reset refreshed data if environment changed (and envId is valid)
+    if (this.envId > 0 && this.envId !== this._lastEnvId) {
+      this._hasRefreshedData = false;
+      this._lastEnvId = this.envId;
+    }
     return this._hasRefreshedData ? this._refreshedDatabases : this._parentDatabases;
   }
 
@@ -270,6 +283,13 @@ export class AttachedDatabases extends LitElement {
       (err: any) => console.error(err),
       () => console.log('done loading env details')
     );
+  }
+
+  // Reset to use parent data (e.g., when environment changes)
+  resetToParentData() {
+    this._hasRefreshedData = false;
+    this._refreshedDatabases = [];
+    this.requestUpdate();
   }
 
   openDialog(name: string) {
