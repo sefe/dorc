@@ -11,12 +11,12 @@
 
         public string? UpdateType { get; set; }
 
-        public string? OldVersion { get; set; }
-        public string? NewVersion { get; set; }
+        public string? FromValue { get; set; }
+        public string? ToValue { get; set; }
 
         public string? UpdatedBy { get; set; }
 
-        public string? Action { get; set; }
+        public string? Details { get; set; }
 
         public string? Comment { get; set; }
     }
