@@ -157,42 +157,56 @@ namespace Dorc.Monitor
             int requestToRestartCount = requestsToRestart.Count();
             if (requestToRestartCount > 0)
             {
-                this.logger.Info($"Going to restart {requestToRestartCount} requests");
+                this.logger.Info($"Going to restart {requestToRestartCount} requests by cloning them");
 
-                var ids = requestsToRestart.Select(c => c.Id).ToList();
-                var idsString = string.Join(',', ids);
+                var originalIds = requestsToRestart.Select(c => c.Id).ToList();
+                var originalIdsString = string.Join(',', originalIds);
+                var newIds = new List<int>();
+
                 try
                 {
-                    this.logger.Debug($"Removing All results for IDs [{idsString}].");
+                    // Clone each request instead of modifying the original
+                    foreach (var requestToRestart in requestsToRestart)
+                    {
+                        this.logger.Debug($"Cloning request ID {requestToRestart.Id} for restart");
+                        
+                        // Clone the request to create a new entry
+                        var newRequestId = this.requestsPersistentSource.CloneRequest(requestToRestart.Id, requestToRestart.UserName);
+                        newIds.Add(newRequestId);
+                        
+                        this.logger.Info($"Request ID {requestToRestart.Id} cloned as new request ID {newRequestId}");
+                    }
 
-                    this.requestsPersistentSource.ClearAllDeploymentResults(ids);
+                    var newIdsString = string.Join(',', newIds);
+                    this.logger.Info($"Cloned requests with new IDs [{newIdsString}] from original IDs [{originalIdsString}]");
 
-                    this.logger.Debug($"Finish removing All results for IDs [{idsString}].");
+                    // Mark original requests as superseded instead of modifying them
+                    var supersededRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        requestsToRestart, 
+                        DeploymentRequestStatus.Restarting, 
+                        DeploymentRequestStatus.Superseded);
+
+                    if (supersededRequestCount == requestToRestartCount)
+                    {
+                        originalIds.ForEach(id =>
+                        {
+                            TerminateRequestExecution(id, requestCancellationSources);
+                            TerminateRunnerProcesses(id);
+                        });
+
+                        this.logger.Info($"Original requests IDs [{originalIdsString}] marked as superseded. New cloned requests [{newIdsString}] are ready for processing.");
+                    }
+                    else
+                    {
+                        this.logger.Error($"{requestToRestartCount - supersededRequestCount} requests from {requestToRestartCount} could NOT be marked as superseded. Original IDs [{originalIdsString}]");
+                    }
                 }
                 catch (Exception exception)
                 {
-                    this.logger.Error($"Removing All Results for IDs [{idsString}] has failed. Exception: {exception}");
+                    this.logger.Error($"Cloning requests for IDs [{originalIdsString}] has failed. Exception: {exception}");
                 }
-
-                monitorCancellationToken.ThrowIfCancellationRequested();
-
-                this.logger.Info($"Restarting All requests, IDs [{idsString}]");
-
-                var pendingRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(requestsToRestart, DeploymentRequestStatus.Restarting, DeploymentRequestStatus.Pending);
-
-                if (pendingRequestCount == requestToRestartCount)
-                {
-                    ids.ForEach(id =>
-                    {
-                        TerminateRequestExecution(id, requestCancellationSources);
-                        TerminateRunnerProcesses(id);
-                    });
-
-                    this.logger.Info($"Requests IDs [{idsString}] have been restarted.");
-                }
-                else
-                    this.logger.Error($"{requestToRestartCount - pendingRequestCount} requests from {requestToRestartCount} have NOT been restarted. IDs [{idsString}]");
             }
+        }
         }
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)

@@ -503,6 +503,36 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public int CloneRequest(int originalRequestId, string user)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var originalRequest = context.DeploymentRequests.FirstOrDefault(x => x.Id == originalRequestId);
+                if (originalRequest == null)
+                {
+                    throw new ArgumentException($"Request with ID {originalRequestId} not found", nameof(originalRequestId));
+                }
+
+                // Create new request based on the original
+                var clonedRequest = new DeploymentRequest
+                {
+                    RequestDetails = originalRequest.RequestDetails,
+                    UserName = user,
+                    RequestedTime = DateTimeOffset.Now,
+                    Status = "Pending",
+                    Project = originalRequest.Project,
+                    Environment = originalRequest.Environment,
+                    BuildNumber = originalRequest.BuildNumber,
+                    Components = originalRequest.Components,
+                    IsProd = originalRequest.IsProd
+                };
+
+                var request = context.DeploymentRequests.Add(clonedRequest);
+                context.SaveChanges();
+                return request.Entity.Id;
+            }
+        }
+
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
         {
             DeploymentResultStatus status;

@@ -14,6 +14,7 @@ namespace Dorc.ApiModel
         Errored,
         Failed,
         Abandoned,
+        Superseded,
 
 #if DeploymentRequestTesting
         PendingTesting,
