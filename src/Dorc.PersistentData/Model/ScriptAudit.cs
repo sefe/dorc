@@ -1,8 +1,5 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Dorc.PersistentData.Model
 {
-    [Table("deploy.ScriptAudit")]
     public class ScriptAudit
     {
         public int ScriptAuditId { get; set; }
