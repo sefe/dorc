@@ -150,35 +150,43 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put([FromQuery] int id, [FromBody] DatabaseApiModel database)
         {
-            var environmentIdsForServerName = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
-            foreach (var envIds in environmentIdsForServerName)
+            try
             {
-                var env = _environmentsPersistentSource.GetEnvironment(envIds, User);
-                if (env == null)
+                var environmentIdsForServerName = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
+                foreach (var envIds in environmentIdsForServerName)
                 {
-                    return BadRequest(
-                       "Error while checking permissions, probably Environment missing in Deployment database");
+                    var env = _environmentsPersistentSource.GetEnvironment(envIds, User);
+                    if (env == null)
+                    {
+                        return BadRequest(
+                           "Error while checking permissions, probably Environment missing in Deployment database");
+                    }
+                    if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
+                    {
+                        return StatusCode((int)HttpStatusCode.Forbidden, $"You should have write permission on " + env.EnvironmentName + " to modify this database");
+                    }
                 }
-                if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
-                {
-                    return StatusCode((int)HttpStatusCode.Forbidden, $"You should have write permission on " + env.EnvironmentName + " to modify this database");
-                }
+
+                if (id != database.Id)
+                    return BadRequest("'id' must be the same as database.Id");
+
+                if (id <= 0)
+                    return BadRequest("'id' cannot be 0");
+
+                var databaseApiModel = _databasesPersistentSource.GetDatabase(database.Id);
+                if (databaseApiModel != null && databaseApiModel.Id != id)
+                    return BadRequest("Cannot set the server name to the same as one that already exists!");
+
+                var result = _databasesPersistentSource.UpdateDatabase(id, database, User);
+                return result != null
+                    ? Ok(result)
+                    : NotFound("Error updating entry");
             }
-
-            if (id != database.Id)
-                return BadRequest("'id' must be the same as database.Id");
-
-            if (id <= 0)
-                return BadRequest("'id' cannot be 0");
-
-            var databaseApiModel = _databasesPersistentSource.GetDatabase(database.Id);
-            if (databaseApiModel != null && databaseApiModel.Id != id)
-                return BadRequest("Cannot set the server name to the same as one that already exists!");
-
-            var result = _databasesPersistentSource.UpdateDatabase(id, database, User);
-            return result != null
-                ? Ok(result)
-                : NotFound("Error updating entry");
+            catch (Exception exception)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    exception.Message);
+            }
         }
     }
 }
