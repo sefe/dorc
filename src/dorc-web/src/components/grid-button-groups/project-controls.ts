@@ -73,6 +73,16 @@ export class ProjectControls extends LitElement {
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
+      <vaadin-button
+        title="Delete Project"
+        theme="icon"
+        @click="${this.deleteProject}"
+      >
+        <vaadin-icon
+          icon="vaadin:trash"
+          style="color: red"
+        ></vaadin-icon>
+      </vaadin-button>
     `;
   }
 
@@ -122,6 +132,17 @@ export class ProjectControls extends LitElement {
 
   openAuditData() {
     const event = new CustomEvent('open-project-audit-data', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  deleteProject() {
+    const event = new CustomEvent('delete-project', {
       detail: {
         Project: this.project
       },

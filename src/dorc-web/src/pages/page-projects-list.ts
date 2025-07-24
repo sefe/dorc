@@ -19,6 +19,8 @@ import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/project-audit-data'
 import { ProjectAuditData } from '../components/project-audit-data';
+import '../components/confirm-dialog';
+import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
 
 @customElement('page-projects-list')
@@ -42,6 +44,8 @@ export class PageProjectsList extends PageElement {
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
   @query('#open-project-audit-control') projectAuditData!: ProjectAuditData;
+
+  @query('#confirm-delete-dialog') confirmDeleteDialog!: ConfirmDialog;
 
   @property({ type: String }) secureName = '';
 
@@ -97,6 +101,14 @@ export class PageProjectsList extends PageElement {
     this.addEventListener(
       'project-updated',
       this.projectUpdated as EventListener
+    );
+    this.addEventListener(
+      'delete-project',
+      this.deleteProject as EventListener
+    );
+    this.addEventListener(
+      'confirm-dialog-confirm',
+      this.confirmDeleteProject as EventListener
     );
   }
 
@@ -198,6 +210,14 @@ export class PageProjectsList extends PageElement {
         id="open-project-audit-control"
         .project="${this.selectedProject}">
       </project-audit-data>
+
+      <confirm-dialog
+        id="confirm-delete-dialog"
+        title="Delete Project"
+        message="Are you sure you want to delete this project? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel">
+      </confirm-dialog>
 
       ${this.loading
         ? html`
@@ -357,5 +377,53 @@ export class PageProjectsList extends PageElement {
     });
     this.selectedProject = this.getEmptyProj();
     this.addEditProject.close();
+  }
+
+  private deleteProject(e: CustomEvent) {
+    const project = e.detail.Project as ProjectApiModel;
+    this.selectedProject = project;
+    this.confirmDeleteDialog.open();
+  }
+
+  private confirmDeleteProject() {
+    if (!this.selectedProject || !this.selectedProject.ProjectId) {
+      return;
+    }
+
+    // For now, I'll create a simple fetch call since the API client needs to be regenerated
+    const projectId = this.selectedProject.ProjectId;
+    const projectName = this.selectedProject.ProjectName;
+
+    fetch(`/RefDataProjects/${projectId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': 'Bearer ' + localStorage.getItem('access_token') || ''
+      }
+    })
+    .then(response => {
+      if (response.ok) {
+        this.getProjects();
+        Notification.show(`Project ${projectName} deleted successfully`, {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        return Promise.resolve();
+      } else {
+        return response.text().then(errorText => {
+          throw new Error(errorText || 'Failed to delete project');
+        });
+      }
+    })
+    .catch(error => {
+      console.error('Error deleting project:', error);
+      Notification.show(`Error deleting project: ${error.message}`, {
+        theme: 'error',
+        position: 'bottom-start',
+        duration: 10000
+      });
+    });
+
+    this.selectedProject = this.getEmptyProj();
   }
 }
