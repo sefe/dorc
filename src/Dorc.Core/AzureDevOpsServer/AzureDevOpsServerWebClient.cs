@@ -259,36 +259,74 @@ namespace Dorc.Core.AzureDevOpsServer
 
         public List<BuildArtifact> GetBuildArtifacts(string collection, string project, int buildId)
         {
-            var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains("dev.azure.com"))
+            try
             {
-                config = new Org.OpenAPITools.Client.Configuration
+                var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
+                Org.OpenAPITools.Client.Configuration config;
+
+                if (azureEndpoint.Contains("dev.azure.com"))
                 {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
+                    config = new Org.OpenAPITools.Client.Configuration
+                    {
+                        BasePath = azureEndpoint,
+                        AccessToken = _authTokenGenerator.GetToken()
+                    };
+                }
+                else
+                {
+                    config = new Org.OpenAPITools.Client.Configuration
+                    {
+                        BasePath = azureEndpoint,
+                        UseDefaultCredentials = true,
+                    };
+                }
+
+                var instance = new ArtifactsApi(config);
+
+                string apiVersion = ApiVersion;
+                var artifacts = instance.ArtifactsList(coll, project, buildId, apiVersion);
+                
+                if (artifacts == null || artifacts.Count == 0)
+                {
+                    throw new Exceptions.ArtifactNotFoundException($"No artifacts found for build ID {buildId} in project '{project}'. Can't find artifact, ensure that it was published correctly in Azure DevOps");
+                }
+                
+                return artifacts;
             }
-            else
+            catch (Exceptions.ArtifactNotFoundException)
             {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
+                // Re-throw our custom exception
+                throw;
             }
-
-            var instance = new ArtifactsApi(config);
-
-            string apiVersion = ApiVersion;
-            return instance.ArtifactsList(coll, project, buildId, apiVersion);
+            catch (Exception ex)
+            {
+                throw new Exceptions.ArtifactNotFoundException($"Failed to retrieve artifacts for build ID {buildId} in project '{project}'. Can't find artifact, ensure that it was published correctly in Azure DevOps", ex);
+            }
         }
 
         public int ExtractBuildId(string buildUri)
         {
-            var uri = new Uri(buildUri);
-            return Convert.ToInt32(uri.LocalPath.Split('/').Last());
+            try
+            {
+                var uri = new Uri(buildUri);
+                var pathSegments = uri.LocalPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (pathSegments.Length == 0)
+                {
+                    throw new Exceptions.ArtifactNotFoundException($"Invalid build URI format: {buildUri}. Can't find artifact, ensure that it was published correctly in Azure DevOps");
+                }
+                
+                var buildIdString = pathSegments.Last();
+                if (!int.TryParse(buildIdString, out var buildId))
+                {
+                    throw new Exceptions.ArtifactNotFoundException($"Invalid build ID in URI: {buildUri}. Can't find artifact, ensure that it was published correctly in Azure DevOps");
+                }
+                
+                return buildId;
+            }
+            catch (UriFormatException ex)
+            {
+                throw new Exceptions.ArtifactNotFoundException($"Invalid build URI format: {buildUri}. Can't find artifact, ensure that it was published correctly in Azure DevOps", ex);
+            }
         }
     }
 }
