@@ -91,16 +91,17 @@ export class RequestControls extends LitElement {
 
   restart() {
     const answer = confirm(
-      `Are you sure you want to restart the job with ID ${this.requestId} ?`
+      `Are you sure you want to restart the job with ID ${this.requestId} ? This will create a new request with the same configuration.`
     );
 
     if (answer) {
       const api = new RequestApi();
-      api.requestRestartPost({ requestId: this.requestId }).subscribe(() => {
+      api.requestRestartPost({ requestId: this.requestId }).subscribe((response) => {
         const event = new CustomEvent('request-restarted', {
           detail: {
             requestId: this.requestId,
-            message: 'Requested deploy has been restarted'
+            newRequestId: response.Id,
+            message: `Request has been cloned as new request ${response.Id}`
           },
           bubbles: true,
           composed: true
