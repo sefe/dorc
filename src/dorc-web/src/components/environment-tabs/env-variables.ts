@@ -39,6 +39,7 @@ import { ErrorNotification } from '../notifications/error-notification';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
+const variableScope = 'PropertyValueScope';
 const variableSecure = 'PropertyValueScope';
 
 let _environment: EnvironmentApiModel | undefined;
@@ -68,6 +69,7 @@ export class EnvVariables extends PageEnvBase {
 
   variableValue: string = '';
   variableName: string = '';
+  variableScope: string = '';
   variableSecure: boolean = false;
 
   static get styles() {
@@ -274,7 +276,17 @@ export class EnvVariables extends PageEnvBase {
                     });
                   }
 
-                  if (this.variableSecure) {
+                  if (
+                    this.variableScope !== '' &&
+                    this.variableScope !== undefined
+                  ) {
+                    params.filters.push({
+                      path: variableScope,
+                      value: this.variableScope
+                    });
+                  }
+
+                  if (!this.variableSecure) {
                     params.filters.push({
                       path: variableSecure,
                       value: _environment?.EnvironmentName ?? ''
@@ -415,6 +427,9 @@ export class EnvVariables extends PageEnvBase {
           break;
         case variableName:
           this.variableName = value;
+          break;
+        case variableScope:
+          this.variableScope = value;
           break;
         case variableSecure:
           this.variableSecure = !this.variableSecure;
@@ -732,36 +747,55 @@ export class EnvVariables extends PageEnvBase {
   scopeHeaderRenderer(root: HTMLElement) {
     render(
       html`
+        <vaadin-grid-sorter path="PropertyValueScope">Scope</vaadin-grid-sorter>
+        <vaadin-grid-filter path="PropertyValueScope">
+          <vaadin-text-field
+            clear-button-visible
+            slot="filter"
+            focus-target
+            style="width: 100%"
+            theme="small"
+            placeholder="Scope"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as TextField;
+
+              this.dispatchEvent(
+                new CustomEvent('searching-env-variables-started', {
+                  detail: {
+                    field: variableScope,
+                    value: textField?.value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            }}"
+          ></vaadin-text-field>
+        </vaadin-grid-filter>
         <table>
           <tr>
             <td>
-              <vaadin-grid-sorter
-                path="PropertyValueScope"
-                style="align-items: normal"
-              ></vaadin-grid-sorter>
-            </td>
-              <td>
-                  <vaadin-checkbox slot='filter' style="font-size: var(--lumo-font-size-s)"
-                                   theme="small"
-                                   ?checked="${!_environment?.EnvironmentSecure}"
-                                   @change="${(e: any) => {
-                                     this.dispatchEvent(
-                                       new CustomEvent(
-                                         'searching-env-variables-started',
-                                         {
-                                           detail: {
-                                             field: variableSecure,
-                                             value: e.target.checked
-                                           },
-                                           bubbles: true,
-                                           composed: true
-                                         }
-                                       )
-                                     );
-                                   }}"
-                  ><label slot="label" title='Show default property values also'
-                  >Show Defaults</vaadin-checkbox
-                  ></td>
+              <vaadin-checkbox slot='filter' style="font-size: var(--lumo-font-size-s)"
+                               theme="small"
+                               ?checked="${!_environment?.EnvironmentSecure}"
+                               @change="${(e: any) => {
+                                 this.dispatchEvent(
+                                   new CustomEvent(
+                                     'searching-env-variables-started',
+                                     {
+                                       detail: {
+                                         field: variableSecure,
+                                         value: e.target.checked
+                                       },
+                                       bubbles: true,
+                                       composed: true
+                                     }
+                                   )
+                                 );
+                               }}"
+              ><label slot="label" title='Show default property values also'
+              >Show Defaults</vaadin-checkbox
+              ></td>
           </tr>
         </table>
       `,
