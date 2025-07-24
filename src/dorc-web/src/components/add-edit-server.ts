@@ -323,7 +323,9 @@ export class AddEditServer extends LitElement {
 
   private showError(err: any) {
     const notification = new ErrorNotification();
-    notification.setAttribute('errorMessage', err.response.Message);
+    // Handle different error response formats
+    const message = err.response?.Message ?? err.response?.ExceptionMessage ?? err.response ?? 'An error occurred';
+    notification.setAttribute('errorMessage', message);
     this.shadowRoot?.appendChild(notification);
     notification.open();
     console.error(err);
