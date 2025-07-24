@@ -4,6 +4,8 @@ using Dorc.Core.VariableResolution;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
+using System;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Dorc.Core
 {
@@ -15,7 +17,7 @@ namespace Dorc.Core
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IUserPermsPersistentSource _userPermsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly IActiveDirectorySearcher? _directorySearcher;
+        private readonly IServiceProvider? _serviceProvider;
         private readonly ILog _logger;
 
         public VariableScopeOptionsResolver(IPropertiesPersistentSource propertiesPersistentSource,
@@ -24,8 +26,8 @@ namespace Dorc.Core
             IDatabasesPersistentSource databasesPersistentSource,
             IUserPermsPersistentSource userPermsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IActiveDirectorySearcher? directorySearcher,
-            ILog logger)
+            ILog logger,
+            IServiceProvider? serviceProvider = null)
         {
             _userPermsPersistentSource = userPermsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
@@ -33,7 +35,7 @@ namespace Dorc.Core
             _serversPersistentSource = serversPersistentSource;
             _propertiesPersistentSource = propertiesPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _directorySearcher = directorySearcher;
+            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
@@ -211,11 +213,24 @@ namespace Dorc.Core
                     variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
                     
                     // Try to resolve the email address if directory searcher is available
-                    if (_directorySearcher != null)
+                    IActiveDirectorySearcher? directorySearcher = null;
+                    if (_serviceProvider != null)
                     {
                         try
                         {
-                            var userData = _directorySearcher.GetUserDataById(ownerId);
+                            directorySearcher = _serviceProvider.GetService(typeof(IActiveDirectorySearcher)) as IActiveDirectorySearcher;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Debug($"Could not resolve IActiveDirectorySearcher from service provider: {ex.Message}");
+                        }
+                    }
+                    
+                    if (directorySearcher != null)
+                    {
+                        try
+                        {
+                            var userData = directorySearcher.GetUserDataById(ownerId);
                             if (userData != null && !string.IsNullOrEmpty(userData.Email))
                             {
                                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, userData.Email);

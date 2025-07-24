@@ -52,7 +52,17 @@ PersistentSourcesRegistry.Register(builder.Services);
 builder.Services.AddTransient<IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
-builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
+builder.Services.AddTransient<IVariableScopeOptionsResolver>(serviceProvider => 
+    new VariableScopeOptionsResolver(
+        serviceProvider.GetRequiredService<IPropertiesPersistentSource>(),
+        serviceProvider.GetRequiredService<IServersPersistentSource>(),
+        serviceProvider.GetRequiredService<IDaemonsPersistentSource>(),
+        serviceProvider.GetRequiredService<IDatabasesPersistentSource>(),
+        serviceProvider.GetRequiredService<IUserPermsPersistentSource>(),
+        serviceProvider.GetRequiredService<IEnvironmentsPersistentSource>(),
+        serviceProvider.GetRequiredService<ILog>(),
+        serviceProvider
+    ));
 
 #if DEBUG
 builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();

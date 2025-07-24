@@ -5,6 +5,7 @@ using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using NSubstitute;
+using System;
 
 namespace Dorc.Core.Tests
 {
@@ -18,6 +19,7 @@ namespace Dorc.Core.Tests
         private IUserPermsPersistentSource _userPermsPersistentSource;
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
         private IActiveDirectorySearcher _directorySearcher;
+        private IServiceProvider _serviceProvider;
         private ILog _logger;
         private IVariableResolver _variableResolver;
         private VariableScopeOptionsResolver _resolver;
@@ -32,8 +34,12 @@ namespace Dorc.Core.Tests
             _userPermsPersistentSource = Substitute.For<IUserPermsPersistentSource>();
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             _directorySearcher = Substitute.For<IActiveDirectorySearcher>();
+            _serviceProvider = Substitute.For<IServiceProvider>();
             _logger = Substitute.For<ILog>();
             _variableResolver = Substitute.For<IVariableResolver>();
+
+            // Configure service provider to return the directory searcher
+            _serviceProvider.GetService(typeof(IActiveDirectorySearcher)).Returns(_directorySearcher);
 
             _resolver = new VariableScopeOptionsResolver(
                 _propertiesPersistentSource,
@@ -42,8 +48,8 @@ namespace Dorc.Core.Tests
                 _databasesPersistentSource,
                 _userPermsPersistentSource,
                 _environmentsPersistentSource,
-                _directorySearcher,
-                _logger);
+                _logger,
+                _serviceProvider);
 
             // Setup default empty returns for required calls
             _databasesPersistentSource.GetDatabasesForEnvironmentName(Arg.Any<string>()).Returns(new List<DatabaseApiModel>());
@@ -139,8 +145,8 @@ namespace Dorc.Core.Tests
                 _databasesPersistentSource,
                 _userPermsPersistentSource,
                 _environmentsPersistentSource,
-                null, // No directory searcher
-                _logger);
+                _logger,
+                null); // No service provider
 
             _environmentsPersistentSource.GetEnvironmentOwnerId(123).Returns(ownerId);
 
