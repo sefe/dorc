@@ -540,10 +540,8 @@ namespace Dorc.PersistentData.Sources
                 environment.Servers.Clear();
                 environment.Users.Clear();
 
-                foreach (var h in environment.Histories.ToList())
-                {
-                    context.EnvironmentHistories.Remove(h);
-                }
+                // Environment histories will be preserved automatically by the database foreign key constraint
+                // The EnvId will be set to NULL when the environment is deleted, preserving audit trail
                 environment.Histories.Clear();
 
                 environment.Projects.Clear();

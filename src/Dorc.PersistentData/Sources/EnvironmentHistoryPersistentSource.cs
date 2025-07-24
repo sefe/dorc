@@ -98,6 +98,7 @@ namespace Dorc.PersistentData.Sources
         {
             var newHistory = new EnvironmentHistory
             {
+                EnvId = null, // Explicitly set to null for deletion records
                 Environment = null,
                 UpdateDate = DateTime.Now,
                 UpdateType = updateType,
@@ -113,7 +114,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var result = context.EnvironmentHistories
                     .Include(h => h.Environment)
-                    .Where(e => e.Environment.Id == envId)
+                    .Where(e => e.EnvId == envId || (e.Environment != null && e.Environment.Id == envId))
                     .Select(MapToEnvironmentHistoryApiModel).ToList();
                 return result;
             }
@@ -138,7 +139,7 @@ namespace Dorc.PersistentData.Sources
             {
                 Comment = h.Comment,
                 Id = h.Id,
-                EnvName = h.Environment.Name,
+                EnvName = h.Environment?.Name ?? "DELETED ENVIRONMENT", // Handle deleted environments
                 FromValue = h.FromValue,
                 ToValue = h.ToValue,
                 Details = h.Details,

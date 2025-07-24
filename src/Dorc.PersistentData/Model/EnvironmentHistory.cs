@@ -4,8 +4,8 @@
     {
         public int Id { get; set; }
 
-        public int EnvId { get; set; }
-        public Environment Environment { get; set; } = null!;
+        public int? EnvId { get; set; }
+        public Environment? Environment { get; set; }
 
         public DateTime? UpdateDate { get; set; }
 
