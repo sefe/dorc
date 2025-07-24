@@ -61,7 +61,8 @@ export class PageEnvironmentComponents extends PageElement {
     const pathParts = location.pathname.split('/');
     const componentTabName = pathParts[4]; // components is at index 3, component name at index 4
     if (componentTabName) {
-      this.tabId = this.tabNames.findIndex(p => p === componentTabName);
+      const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
+      this.tabId = foundIndex >= 0 ? foundIndex : 0;
     } else {
       // If no component specified, default to servers and redirect
       this.tabId = 0;

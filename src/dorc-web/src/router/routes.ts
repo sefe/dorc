@@ -263,6 +263,31 @@ export const routes: Route<RouteMeta>[] = [
               description: 'Environment metadata details'
             }
           },
+          // Redirects from old routes to new components routes
+          {
+            path: '/servers',
+            redirect: '/components/servers',
+            metadata: {
+              title: 'Servers Redirect',
+              description: 'Redirect to components/servers'
+            }
+          },
+          {
+            path: '/databases',
+            redirect: '/components/databases',
+            metadata: {
+              title: 'Databases Redirect',
+              description: 'Redirect to components/databases'
+            }
+          },
+          {
+            path: '/daemons',
+            redirect: '/components/daemons',
+            metadata: {
+              title: 'Daemons Redirect',
+              description: 'Redirect to components/daemons'
+            }
+          },
           {
             path: '/components',
             component: 'page-environment-components',
