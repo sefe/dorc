@@ -173,16 +173,16 @@ export class PagePermissionsList extends PageElement {
                   root.innerHTML = `
                     <vaadin-button 
                       class="edit-btn" 
-                      theme="small icon"
+                      theme="icon"
                       title="Edit Permission"
                       style="margin-right: 5px;">
-                      <vaadin-icon icon="lumo:edit"></vaadin-icon>
+                      <vaadin-icon icon="lumo:edit" style="color: cornflowerblue;"></vaadin-icon>
                     </vaadin-button>
                     <vaadin-button 
                       class="delete-btn" 
-                      theme="small icon error"
+                      theme="icon"
                       title="Delete Permission">
-                      <vaadin-icon icon="icons:delete"></vaadin-icon>
+                      <vaadin-icon icon="icons:delete" style="color: #FF3131;"></vaadin-icon>
                     </vaadin-button>
                   `;
                   
