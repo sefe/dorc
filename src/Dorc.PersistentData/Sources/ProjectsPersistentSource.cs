@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Security.Principal;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -16,12 +16,12 @@ namespace Dorc.PersistentData.Sources
         private const string HttpsProtocolPrefix = "https://";
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILog _logger;
+        private readonly ILogger<ProjectsPersistentSource> _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ProjectsPersistentSource(IDeploymentContextFactory contextFactory,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ILog logger,
+            ILogger<ProjectsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -309,7 +309,7 @@ namespace Dorc.PersistentData.Sources
                 catch (Exception e)
                 {
                     var errMsg = $"Unable to map environment '{environment}' to '{project}'";
-                    _logger.Error(errMsg, e);
+                    _logger.LogError(e, errMsg);
                     throw new ArgumentOutOfRangeException(errMsg, e);
                 }
             }

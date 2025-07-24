@@ -2,17 +2,17 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
 {
     public class PropertiesPersistentSource : IPropertiesPersistentSource
     {
-        private readonly ILog _log;
+        private readonly ILogger<PropertiesPersistentSource> _log;
         private readonly IDeploymentContextFactory _contextFactory;
 
-        public PropertiesPersistentSource(IDeploymentContextFactory contextFactory, ILog logger)
+        public PropertiesPersistentSource(IDeploymentContextFactory contextFactory, ILogger<PropertiesPersistentSource> logger)
         {
             _contextFactory = contextFactory;
             _log = logger;
@@ -26,10 +26,10 @@ namespace Dorc.PersistentData.Sources
                 {
                     var property = new Property { Name = propertyName, Secure = secure };
 
-                    _log.Info("Adding Property " + propertyName);
+                    _log.LogInformation("Adding Property " + propertyName);
                     context.Properties.Add(property);
 
-                    _log.Info("Saving into the Database");
+                    _log.LogInformation("Saving into the Database");
                     context.SaveChanges();
 
                     var prop = context.Properties.First(p => p.Name.Equals(propertyName));
@@ -50,7 +50,7 @@ namespace Dorc.PersistentData.Sources
                     return MapToPropertyApiModel(prop);
                 }
 
-                _log.Warn("Property " + propertyName + " Already Exists");
+                _log.LogWarning("Property " + propertyName + " Already Exists");
                 return MapToPropertyApiModel(context.Properties.First(p => p.Name.Equals(propertyName)));
             }
         }

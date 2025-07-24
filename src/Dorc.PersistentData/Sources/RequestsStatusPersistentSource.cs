@@ -6,19 +6,19 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.PersistentData.Sources
 {
     public class RequestsStatusPersistentSource : IRequestsStatusPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private readonly ILog _log;
+        private readonly ILogger<RequestsStatusPersistentSource> _log;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RequestsStatusPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILog log,
+            ILogger<RequestsStatusPersistentSource> log,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -129,15 +129,15 @@ namespace Dorc.PersistentData.Sources
 
         public void AppendLogToJob(int deploymentResultId, string log)
         {
-            _log.Debug($"Initialising Context");
+            _log.LogDebug($"Initialising Context");
             using var context = _contextFactory.GetContext();
-            _log.Debug($"Initialising Context...Done");
-            _log.Debug($"Execute SQL");
+            _log.LogDebug($"Initialising Context...Done");
+            _log.LogDebug($"Execute SQL");
             context.DeploymentResults
             .Where(dr => dr.Id==deploymentResultId)
             .ExecuteUpdate(setters =>
                 setters.SetProperty(u => u.Log, u => u.Log + System.Environment.NewLine + log));
-            _log.Debug($"Execute SQL...Done");
+            _log.LogDebug($"Execute SQL...Done");
         }
 
         public static IQueryable<DeploymentRequestApiModel> GetDeploymentRequestApiModels(IDeploymentContext context, string userName, List<string> userSids)

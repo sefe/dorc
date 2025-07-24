@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Principal;
 using System.Xml;
@@ -20,7 +20,7 @@ namespace Dorc.PersistentData.Sources
         private readonly ISecurityObjectFilter objectFilter;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IPropertyValuesPersistentSource propertyValuesPersistentSource;
-        private readonly ILog logger;
+        private readonly ILogger<EnvironmentsPersistentSource> logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
 
@@ -29,7 +29,7 @@ namespace Dorc.PersistentData.Sources
             ISecurityObjectFilter objectFilter,
             IRolePrivilegesChecker rolePrivilegesChecker,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            ILog logger,
+            ILogger<EnvironmentsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader,
             IAccessControlPersistentSource accessControlPersistentSource
             )
@@ -841,7 +841,7 @@ namespace Dorc.PersistentData.Sources
         {
             var ownerAc = env.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
             if (ownerAc == null)
-                logger.Warn($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
+                logger.LogWarning($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
             return ownerAc;
         }
 
@@ -901,7 +901,7 @@ namespace Dorc.PersistentData.Sources
 
                     if (childEnv.ParentId == parentEnvId)
                     {
-                        logger.Debug($"Environment {childEnv.Name} is already a child of {parentEnv.Name}");
+                        logger.LogDebug($"Environment {childEnv.Name} is already a child of {parentEnv.Name}");
                         return;
                     }
 
@@ -924,7 +924,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     if (!childEnv.ParentId.HasValue)
                     {
-                        logger.Debug($"Environment {childEnv.Name} is not a child");
+                        logger.LogDebug($"Environment {childEnv.Name} is not a child");
                         return;
                     }
 

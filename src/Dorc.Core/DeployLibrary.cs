@@ -7,7 +7,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 // ReSharper disable AsyncConverter.AsyncWait
 
@@ -19,7 +19,7 @@ namespace Dorc.Core
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILog _logger;
+        private readonly ILogger<DeployLibrary> _logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
@@ -27,7 +27,7 @@ namespace Dorc.Core
             IComponentsPersistentSource componentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ILog logger,
+            ILogger<DeployLibrary> logger,
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader
             )

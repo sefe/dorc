@@ -3,7 +3,7 @@ using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Models;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Model;
 using System.Text.Json;
 
@@ -11,12 +11,12 @@ namespace Dorc.Core
 {
     public class RequestsManager : IRequestsManager
     {
-        private readonly ILog _logger;
+        private readonly ILogger<RequestsManager> _logger;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
-        public RequestsManager(ILog logger,
+        public RequestsManager(ILogger<RequestsManager> logger,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource)
         {
@@ -49,7 +49,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetComponents", ex);
+                _logger.LogError(ex, "An error occurred in GetComponents");
 
                 throw;
             }
@@ -76,7 +76,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetComponents", ex);
+                _logger.LogError(ex, "An error occurred in GetComponents");
 
                 throw;
             }
@@ -105,7 +105,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetBuildDefinitions", ex);
+                _logger.LogError(ex, "An error occurred in GetBuildDefinitions");
 
                 throw;
             }
@@ -162,7 +162,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetBuildsAsync", ex);
+                _logger.LogError(ex, "An error occurred in GetBuildsAsync");
 
                 throw;
             }
@@ -188,7 +188,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetFolderBuilds", ex);
+                _logger.LogError(ex, "An error occurred in GetFolderBuilds");
 
                 throw;
             }

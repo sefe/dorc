@@ -1,15 +1,15 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core
 {
     public class CompositeActiveDirectorySearcher : IActiveDirectorySearcher
     {
         private readonly IEnumerable<IActiveDirectorySearcher> _searchers;
-        private readonly ILog _log;
+        private readonly ILogger<CompositeActiveDirectorySearcher> _log;
 
-        public CompositeActiveDirectorySearcher(IEnumerable<IActiveDirectorySearcher> searchers, ILog log)
+        public CompositeActiveDirectorySearcher(IEnumerable<IActiveDirectorySearcher> searchers, ILogger<CompositeActiveDirectorySearcher> log)
         {
             _searchers = searchers ?? throw new ArgumentNullException(nameof(searchers));
             _log = log;
@@ -37,7 +37,7 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Error searching with {searcher.GetType().Name}: {ex.Message}", ex);
+                    _log.LogError(ex, $"Error searching with {searcher.GetType().Name}: {ex.Message}");
                     // Continue with other searchers even if one fails
                 }
             }
@@ -55,7 +55,7 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Debug($"Error getting user data with {searcher.GetType().Name}: {ex.Message}", ex);
+                    _log.LogDebug($"Error getting user data with {searcher.GetType().Name}: {ex.Message}", ex);
                     // Continue with other searchers
                 }
             }
@@ -73,7 +73,7 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Debug($"Error getting user data by ID with {searcher.GetType().Name}: {ex.Message}", ex);
+                    _log.LogDebug($"Error getting user data by ID with {searcher.GetType().Name}: {ex.Message}", ex);
                     // Continue with other searchers
                 }
             }
@@ -97,7 +97,7 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Debug($"Error getting SIDs with {searcher.GetType().Name}: {ex.Message}", ex);
+                    _log.LogDebug($"Error getting SIDs with {searcher.GetType().Name}: {ex.Message}", ex);
                     // Continue with other searchers
                 }
             }
@@ -119,7 +119,7 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Debug($"Error checking group membership with {searcher.GetType().Name}: {ex.Message}", ex);
+                    _log.LogDebug($"Error checking group membership with {searcher.GetType().Name}: {ex.Message}", ex);
                     // Continue with other searchers
                 }
             }

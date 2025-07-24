@@ -3,19 +3,19 @@ using Dorc.ApiModel;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.PersistentData
 {
     public class SecurityObjectFilter : ISecurityObjectFilter
     {
         private readonly IAccessControlPersistentSource accessControlPersistentSource;
-        private readonly ILog logger;
+        private readonly ILogger<SecurityObjectFilter> logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public SecurityObjectFilter(
                    IAccessControlPersistentSource accessControlPersistentSource,
-                   ILog logger,
+                   ILogger<SecurityObjectFilter> logger,
                    IClaimsPrincipalReader claimsPrincipalReader
             )
         {
