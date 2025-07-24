@@ -15,5 +15,9 @@ namespace Dorc.Monitor
             string environmentName,
             StringBuilder resultLogBuilder,
             CancellationToken cancellationToken);
+
+        Task<bool> ExecuteConfirmedPlanAsync(
+            int deploymentResultId,
+            CancellationToken cancellationToken);
     }
 }

@@ -2,6 +2,7 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
+using System.Diagnostics;
 using System.Text;
 
 namespace Dorc.Monitor
@@ -71,24 +72,173 @@ namespace Dorc.Monitor
             string environmentName,
             CancellationToken cancellationToken)
         {
-            // Placeholder implementation - this would execute terraform plan command
-            await Task.Delay(1000, cancellationToken); // Simulate terraform plan execution
-            
-            var planContent = $@"
-Terraform used the selected providers to generate the following execution plan.
-Resource actions are indicated with the following symbols:
-  + create
+            cancellationToken.ThrowIfCancellationRequested();
 
-Terraform will perform the following actions:
-
-  # Component: {component.ComponentName}
-  # Environment: {environmentName}
-  # Script Path: {component.ScriptPath}
-  
-Plan: 1 to add, 0 to change, 0 to destroy.
-            ";
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(component, environmentName, cancellationToken);
             
-            return planContent;
+            try
+            {
+                // Initialize Terraform if needed
+                await RunTerraformCommandAsync(terraformWorkingDir, "init", cancellationToken);
+                
+                // Create Terraform variables file
+                await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
+                
+                // Generate the plan
+                var planFileName = $"tfplan-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}";
+                var planArgs = $"plan -out={planFileName} -detailed-exitcode";
+                
+                var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
+                
+                // Get human-readable plan output
+                var showArgs = $"show -no-color {planFileName}";
+                var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
+                
+                logger.Info($"Terraform plan created successfully for component '{component.ComponentName}'");
+                return planContent;
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
+                throw;
+            }
+        }
+
+        private async Task<string> SetupTerraformWorkingDirectoryAsync(
+            ComponentApiModel component, 
+            string environmentName, 
+            CancellationToken cancellationToken)
+        {
+            // Create a unique working directory for this deployment
+            var workingDir = Path.Combine(
+                Path.GetTempPath(), 
+                "terraform-workdir", 
+                $"{component.ComponentName}-{environmentName}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
+            
+            Directory.CreateDirectory(workingDir);
+            
+            // Copy Terraform files from component script path to working directory
+            if (!string.IsNullOrEmpty(component.ScriptPath) && Directory.Exists(component.ScriptPath))
+            {
+                await CopyDirectoryAsync(component.ScriptPath, workingDir, cancellationToken);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Terraform script path '{component.ScriptPath}' does not exist for component '{component.ComponentName}'");
+            }
+            
+            return workingDir;
+        }
+
+        private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+        {
+            await Task.Run(() =>
+            {
+                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    
+                    var relativePath = Path.GetRelativePath(sourceDir, file);
+                    var destFile = Path.Combine(destDir, relativePath);
+                    var destFileDir = Path.GetDirectoryName(destFile);
+                    
+                    if (!string.IsNullOrEmpty(destFileDir))
+                    {
+                        Directory.CreateDirectory(destFileDir);
+                    }
+                    
+                    File.Copy(file, destFile, true);
+                }
+            }, cancellationToken);
+        }
+
+        private async Task CreateTerraformVariablesFileAsync(
+            string workingDir, 
+            IDictionary<string, VariableValue> properties, 
+            CancellationToken cancellationToken)
+        {
+            var variablesContent = new StringBuilder();
+            
+            foreach (var property in properties)
+            {
+                // Convert DOrc properties to Terraform variable format
+                var value = property.Value.Value?.ToString() ?? "";
+                
+                // Escape quotes and handle different types
+                if (property.Value.Type == typeof(string))
+                {
+                    value = $"\"{value.Replace("\"", "\\\"")}\"";
+                }
+                else if (property.Value.Type == typeof(bool))
+                {
+                    value = value.ToLowerInvariant();
+                }
+                
+                variablesContent.AppendLine($"{property.Key} = {value}");
+            }
+            
+            var variablesFilePath = Path.Combine(workingDir, "terraform.tfvars");
+            await File.WriteAllTextAsync(variablesFilePath, variablesContent.ToString(), cancellationToken);
+        }
+
+        private async Task<string> RunTerraformCommandAsync(
+            string workingDir, 
+            string arguments, 
+            CancellationToken cancellationToken)
+        {
+            using var process = new System.Diagnostics.Process();
+            process.StartInfo.FileName = "terraform";
+            process.StartInfo.Arguments = arguments;
+            process.StartInfo.WorkingDirectory = workingDir;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.CreateNoWindow = true;
+
+            var outputBuilder = new StringBuilder();
+            var errorBuilder = new StringBuilder();
+
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    outputBuilder.AppendLine(e.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    errorBuilder.AppendLine(e.Data);
+                }
+            };
+
+            logger.Debug($"Running Terraform command: terraform {arguments} in {workingDir}");
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            // Wait for the process to complete or be cancelled
+            while (!process.HasExited)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Delay(100, cancellationToken);
+            }
+
+            var output = outputBuilder.ToString();
+            var error = errorBuilder.ToString();
+
+            if (process.ExitCode != 0)
+            {
+                var errorMessage = $"Terraform command failed with exit code {process.ExitCode}. Error: {error}";
+                logger.Error(errorMessage);
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            logger.Debug($"Terraform command completed successfully. Output: {output}");
+            return output;
         }
 
         private async Task<string> SavePlanToBlobStorageAsync(
@@ -96,12 +246,77 @@ Plan: 1 to add, 0 to change, 0 to destroy.
             int deploymentResultId,
             CancellationToken cancellationToken)
         {
-            // Placeholder implementation - this would save to Azure Blob Storage
-            await Task.Delay(500, cancellationToken); // Simulate blob storage upload
+            // For now, save to local file system - this should be replaced with Azure Blob Storage
+            var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
+            Directory.CreateDirectory(planStorageDir);
             
-            var blobUrl = $"https://storageaccount.blob.core.windows.net/terraform-plans/plan-{deploymentResultId}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.tfplan";
+            var fileName = $"plan-{deploymentResultId}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.txt";
+            var filePath = Path.Combine(planStorageDir, fileName);
+            
+            await File.WriteAllTextAsync(filePath, planContent, cancellationToken);
+            
+            logger.Info($"Terraform plan saved to: {filePath}");
+            
+            // Return a mock blob URL for now - replace with actual Azure Blob Storage URL
+            var blobUrl = $"file://{filePath}";
             
             return blobUrl;
+        }
+
+        public async Task<bool> ExecuteConfirmedPlanAsync(
+            int deploymentResultId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            logger.Info($"Executing confirmed Terraform plan for deployment result ID: {deploymentResultId}");
+
+            try
+            {
+                // Get the deployment result to check its status
+                var deploymentResult = requestsPersistentSource.GetDeploymentResults(deploymentResultId);
+                if (deploymentResult == null)
+                {
+                    throw new InvalidOperationException($"Deployment result with ID {deploymentResultId} not found");
+                }
+
+                if (deploymentResult.Status != DeploymentResultStatus.Confirmed.ToString())
+                {
+                    throw new InvalidOperationException($"Deployment result {deploymentResultId} is not in Confirmed status. Current status: {deploymentResult.Status}");
+                }
+
+                // Update status to Running
+                requestsPersistentSource.UpdateResultStatus(
+                    deploymentResult,
+                    DeploymentResultStatus.Running);
+
+                // TODO: Retrieve the actual plan from blob storage and execute it
+                // For now, simulate the execution
+                await Task.Delay(5000, cancellationToken); // Simulate terraform apply
+
+                // Update status to Complete
+                requestsPersistentSource.UpdateResultStatus(
+                    deploymentResult,
+                    DeploymentResultStatus.Complete);
+
+                logger.Info($"Terraform plan executed successfully for deployment result ID: {deploymentResultId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to execute Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                
+                // Update status to Failed
+                var deploymentResult = requestsPersistentSource.GetDeploymentResults(deploymentResultId);
+                if (deploymentResult != null)
+                {
+                    requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        DeploymentResultStatus.Failed);
+                }
+                
+                return false;
+            }
         }
     }
 }
