@@ -53,13 +53,13 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void DeleteProject_PowerUserDeletingExistingProject_Success()
+        public void DeleteProject_AdminDeletingExistingProject_Success()
         {
             // Arrange
             var projectId = 123;
             var project = new ProjectApiModel { ProjectId = projectId, ProjectName = "TestProject" };
             
-            _rolePrivilegesChecker.IsPowerUser(_user).Returns(true);
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
             _projectsPersistentSource.GetProject(projectId).Returns(project);
             _securityPrivilegesChecker.CanModifyProject(_user, project.ProjectName).Returns(true);
 
@@ -71,6 +71,26 @@ namespace Dorc.Api.Tests.Controllers
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(200, objectResult.StatusCode);
             _projectsPersistentSource.Received(1).DeleteProject(projectId);
+        }
+
+        [TestMethod]
+        public void DeleteProject_PowerUserDeletingExistingProject_Forbidden()
+        {
+            // Arrange
+            var projectId = 123;
+            
+            _rolePrivilegesChecker.IsPowerUser(_user).Returns(true);
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+
+            // Act
+            var result = _controller.Delete(projectId);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(403, objectResult.StatusCode);
+            Assert.AreEqual("Projects can only be deleted by Admins!", objectResult.Value);
+            _projectsPersistentSource.DidNotReceive().DeleteProject(Arg.Any<int>());
         }
 
         [TestMethod]
@@ -89,6 +109,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(403, objectResult.StatusCode);
+            Assert.AreEqual("Projects can only be deleted by Admins!", objectResult.Value);
             _projectsPersistentSource.DidNotReceive().DeleteProject(Arg.Any<int>());
         }
 

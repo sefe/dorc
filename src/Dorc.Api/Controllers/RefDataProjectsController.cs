@@ -157,9 +157,9 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK)]
         public IActionResult Delete(int projectId)
         {
-            if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
+            if (!_rolePrivilegesChecker.IsAdmin(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    "Projects can only be deleted by PowerUsers or Admins!");
+                    "Projects can only be deleted by Admins!");
 
             var projectApiModel = _projectsPersistentSource.GetProject(projectId);
             if (projectApiModel == null)

@@ -295,7 +295,7 @@ export class PageProjectsList extends PageElement {
   ) {
     const project = item as ProjectApiModel;
     render(
-      html` <project-controls .project="${project}"></project-controls>`,
+      html` <project-controls .project="${project}" .isAdmin="${this.isAdmin}"></project-controls>`,
       root
     );
   }
