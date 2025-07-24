@@ -222,13 +222,21 @@ export class AttachEnvironment extends LitElement {
         },
         error: (err: any) => {
           const notification = new ErrorNotification();
-          notification.setAttribute(
-            'errorMessage',
-            err.response.ExceptionMessage
-          );
+          
+          // Handle different error response structures
+          let errorMessage = 'An error occurred while attaching environment';
+          if (err.response?.ExceptionMessage) {
+            errorMessage = err.response.ExceptionMessage;
+          } else if (err.response && typeof err.response === 'string') {
+            errorMessage = err.response;
+          } else if (err.message) {
+            errorMessage = err.message;
+          }
+          
+          notification.setAttribute('errorMessage', errorMessage);
           this.shadowRoot?.appendChild(notification);
           notification.open();
-          console.error(`error adding mappings${err}`);
+          console.error(`error adding mappings: ${errorMessage}`, err);
         },
         complete: () => {
           this.cleanupUI();
