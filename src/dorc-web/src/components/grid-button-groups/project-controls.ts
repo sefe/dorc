@@ -4,6 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../../icons/iron-icons.js';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -81,7 +82,7 @@ export class ProjectControls extends LitElement {
           @click="${this.deleteProject}"
         >
           <vaadin-icon
-            icon="vaadin:trash"
+            icon="icons:delete"
             style="color: red"
           ></vaadin-icon>
         </vaadin-button>
