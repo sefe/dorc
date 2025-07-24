@@ -323,7 +323,24 @@ export class AddEditServer extends LitElement {
 
   private showError(err: any) {
     const notification = new ErrorNotification();
-    notification.setAttribute('errorMessage', err.response.Message);
+    
+    // Handle different error response formats
+    let errorMessage = '';
+    if (err.response) {
+      if (err.response.ExceptionMessage) {
+        errorMessage = err.response.ExceptionMessage;
+      } else if (err.response.Message) {
+        errorMessage = err.response.Message;
+      } else if (typeof err.response === 'string') {
+        errorMessage = err.response;
+      } else {
+        errorMessage = 'An error occurred while processing your request';
+      }
+    } else {
+      errorMessage = err.message || 'An unexpected error occurred';
+    }
+    
+    notification.setAttribute('errorMessage', errorMessage);
     this.shadowRoot?.appendChild(notification);
     notification.open();
     console.error(err);
