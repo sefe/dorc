@@ -10,14 +10,14 @@ namespace Dorc.Core.IdentityServer
         private readonly IdentityServerClient _client;
         private readonly ILogger<IdentityServerSearcher> _log;
 
-        public IdentityServerSearcher(IConfigurationSettings config, IConfigurationSecretsReader secretsReader, ILogger<IdentityServerSearcher> log)
+        public IdentityServerSearcher(IConfigurationSettings config, IConfigurationSecretsReader secretsReader, ILogger<IdentityServerSearcher> log, ILoggerFactory loggerFactory)
         {
             _log = log;
             var authority = config.GetOAuthAuthority();
             var clientId = config.GetIdentityServerClientId();
             var clientSecret = secretsReader.GetIdentityServerApiSecret();
 
-            _client = new IdentityServerClient(authority, clientId, clientSecret, log);
+            _client = new IdentityServerClient(authority, clientId, clientSecret, loggerFactory.CreateLogger<IdentityServerClient>());
         }
 
         public List<UserElementApiModel> Search(string objectName)

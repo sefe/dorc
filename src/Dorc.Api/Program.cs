@@ -13,7 +13,7 @@ using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Lamar.Microsoft.DependencyInjection;
-using log4net.Config;
+using Serilog;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
@@ -26,7 +26,15 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
-builder.Logging.AddLog4Net();
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(configBuilder)
+    .WriteTo.Console()
+    .WriteTo.File("logs/dorc-api-.log", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+builder.Services.AddLogging();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
 var secretsReader = new OnePasswordSecretsReader(configurationSettings);

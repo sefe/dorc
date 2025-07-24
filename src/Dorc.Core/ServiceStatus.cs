@@ -140,7 +140,7 @@ namespace Dorc.Core
                             }
                             catch (Exception ex)
                             {
-                                _logger.Info("Error retrieving servicesAndStatus info for " +
+                                _logger.LogInformation("Error retrieving servicesAndStatus info for " +
                                              daemonApiModel.Name + Environment.NewLine +
                                              "        " + ex.Message + Environment.NewLine +
                                              "        " + ex.InnerException);
@@ -149,7 +149,7 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.Info("Error, couldn't ping: " + serverApiModel.Name +
+                        _logger.LogInformation("Error, couldn't ping: " + serverApiModel.Name +
                                      Environment.NewLine + ex.Message);
                     }
                 }
@@ -196,7 +196,7 @@ namespace Dorc.Core
                         }
                         catch (Exception ex)
                         {
-                            _logger.Debug("Error retrieving servicesAndStatus info for " +
+                            _logger.LogDebug("Error retrieving servicesAndStatus info for " +
                                          sa.ServiceName + Environment.NewLine +
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
@@ -204,7 +204,7 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.Debug("Error, couldn't ping: " + sa.ServerName +
+                        _logger.LogDebug("Error, couldn't ping: " + sa.ServerName +
                                      Environment.NewLine + ex.Message);
                     }
                 });

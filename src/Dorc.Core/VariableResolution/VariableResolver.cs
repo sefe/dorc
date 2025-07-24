@@ -14,11 +14,11 @@ namespace Dorc.Core.VariableResolution
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILogger<VariableResolver> _logger;
 
-        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILogger<VariableResolver> logger, IPropertyEvaluator propertyEvaluator)
+        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILogger<VariableResolver> logger, IPropertyEvaluator propertyEvaluator, ILoggerFactory loggerFactory)
         {
             _propertyEvaluator = propertyEvaluator;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
-            _expressionEvaluator = new PropertyExpressionEvaluator(logger);
+            _expressionEvaluator = new PropertyExpressionEvaluator(loggerFactory.CreateLogger<PropertyExpressionEvaluator>());
             _logger = logger;
         }
 

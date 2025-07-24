@@ -15,15 +15,17 @@ namespace Dorc.Core
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly ILoggerFactory _loggerFactory;
 
         public RequestsManager(ILogger<RequestsManager> logger,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
-            IEnvironmentsPersistentSource environmentsPersistentSource)
+            IEnvironmentsPersistentSource environmentsPersistentSource, ILoggerFactory loggerFactory)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _logger = logger;
+            _loggerFactory = loggerFactory;
         }
 
         public IEnumerable<DeployableComponent> GetComponents(int? projectId, int? parentId)
@@ -93,7 +95,7 @@ namespace Dorc.Core
                     return
                         new List<DeployableArtefact> { new() { Id = project.ArtefactsUrl, Name = "Not an Azure DevOps Server Project" } };
 
-                var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+                var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
 
                 var output = tfsRestClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
                         project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
@@ -130,7 +132,7 @@ namespace Dorc.Core
                     var azureDevOpsProjectName = azureDevOpsBuildDefinitionAndBuildName[0].Trim();
                     var azureDevOpsBuildDefinitionName = azureDevOpsBuildDefinitionAndBuildName[1].Trim();
 
-                    var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+                    var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
 
                     var buildDefsForProject = tfsRestClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
                             project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
@@ -204,7 +206,7 @@ namespace Dorc.Core
         public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
-            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
             var result = new List<DeploymentRequestDetail>();
             var bundleJson = new StreamReader(createRequest.BuildUrl).ReadToEnd();
             var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson);
@@ -315,7 +317,7 @@ namespace Dorc.Core
         {
             var buildDetail = new BuildDetail();
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
-            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
 
             var tfsProjects = project.ArtefactsSubPaths.Split(';');
 

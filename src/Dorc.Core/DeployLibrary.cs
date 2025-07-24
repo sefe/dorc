@@ -22,6 +22,7 @@ namespace Dorc.Core
         private readonly ILogger<DeployLibrary> _logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly ILoggerFactory _loggerFactory;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -29,7 +30,8 @@ namespace Dorc.Core
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ILogger<DeployLibrary> logger,
             IRequestsPersistentSource requestsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            ILoggerFactory loggerFactory
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
@@ -39,6 +41,7 @@ namespace Dorc.Core
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _loggerFactory = loggerFactory;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -184,7 +187,7 @@ namespace Dorc.Core
             if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
 
                 var projects = project.ArtefactsSubPaths.Split(';');
 
