@@ -1,7 +1,8 @@
 ﻿using Dorc.ApiModel;
 using Dorc.OpenSearchData.Model;
 using Dorc.OpenSearchData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
+using OpenSearchLogLevel = OpenSearch.Client.LogLevel;
 using OpenSearch.Client;
 
 namespace Dorc.OpenSearchData.Sources
@@ -9,13 +10,13 @@ namespace Dorc.OpenSearchData.Sources
     public class DeploymentLogService : IDeploymentLogService
     {
         private readonly IOpenSearchClient _openSearchClient;
-        private readonly ILog _logger;
+        private readonly ILogger<DeploymentLogService> _logger;
 
         private readonly string _deploymentResultIndex;
 
         private const int _pageSize = 5000;
 
-        public DeploymentLogService(IOpenSearchClient openSearchClient, ILog logger, string deploymentResultIndex)
+        public DeploymentLogService(IOpenSearchClient openSearchClient, ILogger<DeploymentLogService> logger, string deploymentResultIndex)
         {
             _openSearchClient = openSearchClient;
             _logger = logger;
@@ -35,7 +36,7 @@ namespace Dorc.OpenSearchData.Sources
             }
             catch (Exception e)
             {
-                _logger.Error("Request for the deployment result logs to the OpenSearch failed.", e);
+                _logger.LogError(e, "Request for the deployment result logs to the OpenSearch failed.");
                 foreach (var deploymentResult in deploymentResults)
                     deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
             }
@@ -65,7 +66,7 @@ namespace Dorc.OpenSearchData.Sources
 
                 if (!searchResult.IsValid)
                 {
-                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                    _logger.LogError("OpenSearch query exception: {ExceptionMessage}.{NewLine}Request information: {DebugInformation}", searchResult.OriginalException?.Message, Environment.NewLine, searchResult.DebugInformation);
                     return logs;
                 }
 
@@ -92,7 +93,7 @@ namespace Dorc.OpenSearchData.Sources
 
         private string GetLogLevelString(DeployOpenSearchLogModel logModel)
         {
-            return (logModel.level == LogLevel.Error || logModel.level == LogLevel.Warn)
+            return (logModel.level == OpenSearchLogLevel.Error || logModel.level == OpenSearchLogLevel.Warn)
                 ? "[" + logModel.level.ToString().ToUpper() + "]"
                 : string.Empty;
         }
