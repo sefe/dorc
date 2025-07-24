@@ -390,38 +390,31 @@ export class PageProjectsList extends PageElement {
       return;
     }
 
-    // For now, I'll create a simple fetch call since the API client needs to be regenerated
+    const api = new RefDataProjectsApi();
     const projectId = this.selectedProject.ProjectId;
     const projectName = this.selectedProject.ProjectName;
 
-    fetch(`/RefDataProjects/${projectId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': 'Bearer ' + localStorage.getItem('access_token') || ''
-      }
-    })
-    .then(response => {
-      if (response.ok) {
+    api.refDataProjectsDelete({ projectId }).subscribe({
+      next: () => {
         this.getProjects();
         Notification.show(`Project ${projectName} deleted successfully`, {
           theme: 'success',
           position: 'bottom-start',
           duration: 5000
         });
-        return Promise.resolve();
-      } else {
-        return response.text().then(errorText => {
-          throw new Error(errorText || 'Failed to delete project');
+      },
+      error: (error: any) => {
+        console.error('Error deleting project:', error);
+        const errorMessage = error.response?.text || error.message || 'Failed to delete project';
+        Notification.show(`Error deleting project: ${errorMessage}`, {
+          theme: 'error',
+          position: 'bottom-start',
+          duration: 10000
         });
+      },
+      complete: () => {
+        console.log('Delete operation completed');
       }
-    })
-    .catch(error => {
-      console.error('Error deleting project:', error);
-      Notification.show(`Error deleting project: ${error.message}`, {
-        theme: 'error',
-        position: 'bottom-start',
-        duration: 10000
-      });
     });
 
     this.selectedProject = this.getEmptyProj();
