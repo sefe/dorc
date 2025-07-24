@@ -771,7 +771,7 @@ export class PageVariables extends PageElement {
           } else {
             // Revert checkbox if update failed
             checkbox.checked = !checkbox.checked;
-            this.errorAlert(data[0]);
+            this.errorAlert([data[0]]);
           }
         },
         error: (err: any) => {
