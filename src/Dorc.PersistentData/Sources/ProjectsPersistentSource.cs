@@ -435,7 +435,6 @@ namespace Dorc.PersistentData.Sources
                 var project = context.Projects
                     .Include(p => p.Components)
                     .Include(p => p.Environments)
-                    .Include(p => p.RefDataAudits)
                     .FirstOrDefault(p => p.Id == projectId);
 
                 if (project == null)
@@ -444,12 +443,6 @@ namespace Dorc.PersistentData.Sources
                 // Remove relationships before deleting the project
                 project.Components.Clear();
                 project.Environments.Clear();
-                
-                // Delete RefDataAudits associated with this project
-                foreach (var audit in project.RefDataAudits.ToList())
-                {
-                    context.RefDataAudits.Remove(audit);
-                }
 
                 // Remove the project itself
                 context.Projects.Remove(project);
