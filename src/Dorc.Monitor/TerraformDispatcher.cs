@@ -255,6 +255,21 @@ namespace Dorc.Monitor
             
             await File.WriteAllTextAsync(filePath, planContent, cancellationToken);
             
+            // Also save metadata about the plan for later execution
+            var metadataFileName = $"plan-{deploymentResultId}-metadata.json";
+            var metadataFilePath = Path.Combine(planStorageDir, metadataFileName);
+            
+            var metadata = new
+            {
+                DeploymentResultId = deploymentResultId,
+                PlanContentPath = filePath,
+                CreatedAt = DateTime.UtcNow,
+                Status = "WaitingConfirmation"
+            };
+            
+            var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(metadataFilePath, metadataJson, cancellationToken);
+            
             logger.Info($"Terraform plan saved to: {filePath}");
             
             // Return a mock blob URL for now - replace with actual Azure Blob Storage URL
@@ -271,10 +286,11 @@ namespace Dorc.Monitor
 
             logger.Info($"Executing confirmed Terraform plan for deployment result ID: {deploymentResultId}");
 
+            DeploymentResultApiModel? deploymentResult = null;
             try
             {
                 // Get the deployment result to check its status
-                var deploymentResult = requestsPersistentSource.GetDeploymentResults(deploymentResultId);
+                deploymentResult = requestsPersistentSource.GetDeploymentResults(deploymentResultId);
                 if (deploymentResult == null)
                 {
                     throw new InvalidOperationException($"Deployment result with ID {deploymentResultId} not found");
@@ -290,24 +306,35 @@ namespace Dorc.Monitor
                     deploymentResult,
                     DeploymentResultStatus.Running);
 
-                // TODO: Retrieve the actual plan from blob storage and execute it
-                // For now, simulate the execution
-                await Task.Delay(5000, cancellationToken); // Simulate terraform apply
+                // Execute the actual Terraform plan
+                var executionResult = await ExecuteTerraformPlanAsync(deploymentResultId, cancellationToken);
 
-                // Update status to Complete
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    DeploymentResultStatus.Complete);
+                if (executionResult.Success)
+                {
+                    // Update status to Complete
+                    requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        DeploymentResultStatus.Complete);
 
-                logger.Info($"Terraform plan executed successfully for deployment result ID: {deploymentResultId}");
-                return true;
+                    logger.Info($"Terraform plan executed successfully for deployment result ID: {deploymentResultId}");
+                    return true;
+                }
+                else
+                {
+                    // Update status to Failed
+                    requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        DeploymentResultStatus.Failed);
+
+                    logger.Error($"Terraform plan execution failed for deployment result ID {deploymentResultId}: {executionResult.ErrorMessage}");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
                 logger.Error($"Failed to execute Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
                 
                 // Update status to Failed
-                var deploymentResult = requestsPersistentSource.GetDeploymentResults(deploymentResultId);
                 if (deploymentResult != null)
                 {
                     requestsPersistentSource.UpdateResultStatus(
@@ -317,6 +344,115 @@ namespace Dorc.Monitor
                 
                 return false;
             }
+        }
+
+        private async Task<TerraformExecutionResult> ExecuteTerraformPlanAsync(
+            int deploymentResultId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                // Find the stored plan files and working directory from the temporary storage
+                var planInfo = await FindStoredPlanInfoAsync(deploymentResultId, cancellationToken);
+                if (planInfo == null)
+                {
+                    return new TerraformExecutionResult 
+                    { 
+                        Success = false, 
+                        ErrorMessage = "Terraform plan files not found or have been cleaned up" 
+                    };
+                }
+
+                // Execute terraform apply using the stored plan
+                var applyArgs = $"apply -auto-approve {planInfo.PlanFileName}";
+                logger.Info($"Executing Terraform apply for deployment result ID: {deploymentResultId}");
+                
+                var applyOutput = await RunTerraformCommandAsync(planInfo.WorkingDirectory, applyArgs, cancellationToken);
+
+                logger.Info($"Terraform apply completed successfully for deployment result ID: {deploymentResultId}");
+                
+                return new TerraformExecutionResult 
+                { 
+                    Success = true, 
+                    Output = applyOutput 
+                };
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Terraform apply failed for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                return new TerraformExecutionResult 
+                { 
+                    Success = false, 
+                    ErrorMessage = ex.Message,
+                    Output = ex.StackTrace 
+                };
+            }
+        }
+
+        private async Task<TerraformPlanInfo?> FindStoredPlanInfoAsync(
+            int deploymentResultId,
+            CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // Remove async warning
+            
+            try
+            {
+                // Look for terraform working directories that match this deployment
+                var tempDir = Path.GetTempPath();
+                var terraformWorkDir = Path.Combine(tempDir, "terraform-workdir");
+                
+                if (!Directory.Exists(terraformWorkDir))
+                {
+                    return null;
+                }
+
+                // Find directories that might contain our plan
+                var workingDirs = Directory.GetDirectories(terraformWorkDir)
+                    .Where(dir => Directory.GetFiles(dir, "tfplan-*").Length > 0)
+                    .OrderByDescending(dir => Directory.GetCreationTime(dir))
+                    .ToList();
+
+                foreach (var workingDir in workingDirs)
+                {
+                    var planFiles = Directory.GetFiles(workingDir, "tfplan-*");
+                    if (planFiles.Length > 0)
+                    {
+                        // Use the most recent plan file
+                        var planFile = planFiles.OrderByDescending(f => File.GetCreationTime(f)).First();
+                        var planFileName = Path.GetFileName(planFile);
+                        
+                        return new TerraformPlanInfo
+                        {
+                            WorkingDirectory = workingDir,
+                            PlanFileName = planFileName,
+                            PlanFilePath = planFile
+                        };
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to find stored plan info for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                return null;
+            }
+        }
+
+        private class TerraformExecutionResult
+        {
+            public bool Success { get; set; }
+            public string? Output { get; set; }
+            public string? ErrorMessage { get; set; }
+        }
+
+        private class TerraformPlanInfo
+        {
+            public string WorkingDirectory { get; set; } = "";
+            public string PlanFileName { get; set; } = "";
+            public string PlanFilePath { get; set; } = "";
         }
     }
 }
