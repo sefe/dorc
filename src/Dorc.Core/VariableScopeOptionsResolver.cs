@@ -1,7 +1,9 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.VariableResolution;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
+using log4net;
 
 namespace Dorc.Core
 {
@@ -12,22 +14,34 @@ namespace Dorc.Core
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IUserPermsPersistentSource _userPermsPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IActiveDirectorySearcher? _directorySearcher;
+        private readonly ILog _logger;
 
         public VariableScopeOptionsResolver(IPropertiesPersistentSource propertiesPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
-            IUserPermsPersistentSource userPermsPersistentSource)
+            IUserPermsPersistentSource userPermsPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IActiveDirectorySearcher? directorySearcher,
+            ILog logger)
         {
             _userPermsPersistentSource = userPermsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
             _daemonsPersistentSource = daemonsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _propertiesPersistentSource = propertiesPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _directorySearcher = directorySearcher;
+            _logger = logger;
         }
 
         public void SetPropertyValues(IVariableResolver variableResolver, EnvironmentApiModel environment)
         {
+            // Set environment owner information
+            SetEnvironmentOwnerProperties(variableResolver, environment);
+
             var databasesForEnvId = _databasesPersistentSource.GetDatabasesForEnvironmentName(environment.EnvironmentName);
             var serverApiModels = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId);
 
@@ -181,6 +195,61 @@ namespace Dorc.Core
                 }
                 else
                     variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}", serverType.Value.Single());
+            }
+        }
+
+        private void SetEnvironmentOwnerProperties(IVariableResolver variableResolver, EnvironmentApiModel environment)
+        {
+            try
+            {
+                // Get the environment owner ID
+                var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(environment.EnvironmentId);
+                
+                if (!string.IsNullOrEmpty(ownerId))
+                {
+                    // Set the existing EnvOwner property with the owner ID
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
+                    
+                    // Try to resolve the email address if directory searcher is available
+                    if (_directorySearcher != null)
+                    {
+                        try
+                        {
+                            var userData = _directorySearcher.GetUserDataById(ownerId);
+                            if (userData != null && !string.IsNullOrEmpty(userData.Email))
+                            {
+                                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, userData.Email);
+                            }
+                            else
+                            {
+                                _logger.Warn($"Could not resolve email for environment owner ID '{ownerId}' in environment '{environment.EnvironmentName}'");
+                                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error($"Error resolving email for environment owner ID '{ownerId}' in environment '{environment.EnvironmentName}': {ex.Message}", ex);
+                            variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+                        }
+                    }
+                    else
+                    {
+                        _logger.Debug($"Directory searcher not available, cannot resolve email for environment owner in environment '{environment.EnvironmentName}'");
+                        variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+                    }
+                }
+                else
+                {
+                    _logger.Debug($"No environment owner ID found for environment '{environment.EnvironmentName}'");
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Error getting environment owner information for environment '{environment.EnvironmentName}': {ex.Message}", ex);
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
             }
         }
     }
