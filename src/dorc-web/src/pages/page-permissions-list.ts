@@ -4,6 +4,8 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import '../icons/iron-icons.js';
+import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../components/add-edit-server';
 import '@polymer/paper-dialog';
 import '@vaadin/text-field';
@@ -174,13 +176,13 @@ export class PagePermissionsList extends PageElement {
                       theme="small icon"
                       title="Edit Permission"
                       style="margin-right: 5px;">
-                      <vaadin-icon icon="vaadin:edit"></vaadin-icon>
+                      <vaadin-icon icon="lumo:edit"></vaadin-icon>
                     </vaadin-button>
                     <vaadin-button 
                       class="delete-btn" 
                       theme="small icon error"
                       title="Delete Permission">
-                      <vaadin-icon icon="vaadin:trash"></vaadin-icon>
+                      <vaadin-icon icon="icons:delete"></vaadin-icon>
                     </vaadin-button>
                   `;
                   
