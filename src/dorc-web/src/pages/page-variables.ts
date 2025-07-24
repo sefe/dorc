@@ -221,7 +221,8 @@ export class PageVariables extends PageElement {
                     <vaadin-checkbox
                       id="is-variable-secure"
                       label="Secure"
-                      disabled="true"
+                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                      @change="${this.updatePropertySecure}"
                     ></vaadin-checkbox>
                   </td>
                 </tr>
@@ -733,6 +734,52 @@ export class PageVariables extends PageElement {
           this.setVariableValues([]);
         },
         complete: () => console.log('done loading variable values')
+      });
+    }
+  }
+
+  updatePropertySecure(event: Event) {
+    const checkbox = event.target as Checkbox;
+    const existingProperty = this.properties?.find(
+      value => value.Name === this.propertyName
+    );
+
+    if (existingProperty && this.propertyName) {
+      const updatedProperty: PropertyApiModel = {
+        ...existingProperty,
+        Secure: checkbox.checked
+      };
+
+      const api = new PropertiesApi();
+      const requestBody = { [this.propertyName]: updatedProperty };
+      
+      api.propertiesPut({ requestBody }).subscribe({
+        next: (data: Response[]) => {
+          if (data[0].Status === 'success') {
+            // Update the local property object
+            existingProperty.Secure = checkbox.checked;
+            
+            // Show success notification
+            const message = `Property "${this.propertyName}" ${checkbox.checked ? 'secured' : 'unsecured'} successfully`;
+            Notification.show(message, { position: 'top-center', theme: 'success' });
+            
+            // If changed to secure, show info about automatic encryption
+            if (checkbox.checked) {
+              const encryptionMessage = `Existing property values for "${this.propertyName}" have been automatically encrypted`;
+              Notification.show(encryptionMessage, { position: 'top-center', theme: 'success', duration: 5000 });
+            }
+          } else {
+            // Revert checkbox if update failed
+            checkbox.checked = !checkbox.checked;
+            this.errorAlert(data[0]);
+          }
+        },
+        error: (err: any) => {
+          // Revert checkbox if update failed
+          checkbox.checked = !checkbox.checked;
+          this.errorAlert(err);
+        },
+        complete: () => console.log('done updating property security')
       });
     }
   }
