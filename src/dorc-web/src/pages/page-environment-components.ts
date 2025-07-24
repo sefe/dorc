@@ -57,8 +57,14 @@ export class PageEnvironmentComponents extends PageElement {
   ): void {
     super.firstUpdated(_changedProperties);
 
-    // Extract the component tab name from the URL: /environment/{env}/components/{component}
+    // Extract the environment name from URL
     const pathParts = location.pathname.split('/');
+    const envName = pathParts[2];
+    if (envName) {
+      this.environmentName = decodeURIComponent(envName);
+    }
+
+    // Extract the component tab name from the URL: /environment/{env}/components/{component}
     const componentTabName = pathParts[4]; // components is at index 3, component name at index 4
     if (componentTabName) {
       const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
@@ -66,7 +72,6 @@ export class PageEnvironmentComponents extends PageElement {
     } else {
       // If no component specified, default to servers and redirect
       this.tabId = 0;
-      const envName = pathParts[2];
       if (envName) {
         Router.go(`/environment/${envName}/components/servers`);
         return;

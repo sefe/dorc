@@ -266,7 +266,7 @@ export const routes: Route<RouteMeta>[] = [
           // Redirects from old routes to new components routes
           {
             path: '/servers',
-            redirect: '/components/servers',
+            redirect: 'components/servers',
             metadata: {
               title: 'Servers Redirect',
               description: 'Redirect to components/servers'
@@ -274,7 +274,7 @@ export const routes: Route<RouteMeta>[] = [
           },
           {
             path: '/databases',
-            redirect: '/components/databases',
+            redirect: 'components/databases',
             metadata: {
               title: 'Databases Redirect',
               description: 'Redirect to components/databases'
@@ -282,7 +282,7 @@ export const routes: Route<RouteMeta>[] = [
           },
           {
             path: '/daemons',
-            redirect: '/components/daemons',
+            redirect: 'components/daemons',
             metadata: {
               title: 'Daemons Redirect',
               description: 'Redirect to components/daemons'
@@ -298,7 +298,7 @@ export const routes: Route<RouteMeta>[] = [
             children: [
               {
                 path: '/',
-                redirect: '/servers',
+                redirect: 'servers',
                 metadata: {
                   title: 'Components',
                   description: 'Redirect to servers'
