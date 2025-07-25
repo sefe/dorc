@@ -1,3 +1,5 @@
+import { AjaxError } from "rxjs/ajax";
+
 /**
  * Retrieves a user-friendly error message from an error object.
  * @param err The error object, which may contain various properties.
@@ -5,7 +7,7 @@
  * @returns A string containing the error message.
  */
 export function retrieveErrorMessage(
-  err: Error | { response?: { Message?: string; ExceptionMessage?: string } } | string,
+  err: AjaxError | string,
   baseMessage?: string
 ): string {
   let errorMessage = baseMessage ?? 'An unexpected error occurred. Please try again or contact support.';
