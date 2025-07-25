@@ -18,6 +18,7 @@ import { PageElement } from '../helpers/page-element';
 import { PermissionDto } from '../apis/dorc-api';
 import { RefDataPermissionApi } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 
 @customElement('page-permissions-list')
 export class PagePermissionsList extends PageElement {
@@ -279,8 +280,9 @@ export class PagePermissionsList extends PageElement {
           });
         },
         error: (err: any) => {
-          console.error('Error deleting permission:', err);
-          Notification.show(`Error deleting permission: ${err.message || 'Unknown error'}`, {
+          const errMessage = retrieveErrorMessage(err);
+          console.error(`Error deleting permission: ${errMessage}`, err);
+          Notification.show(`Error deleting permission: ${errMessage}`, {
             theme: 'error',
             position: 'bottom-start',
             duration: 5000
