@@ -23,11 +23,13 @@ namespace Dorc.Api.Tests
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             var mockPvs = Substitute.For<IPropertyValuesService>();
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
 
             mockPropertiesPersistentSource
                 .CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>())
                 .Returns(x => x.ArgAt<PropertyApiModel>(0));
-            var happyService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader);
+            var happyService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader, mockPropertyValuesPersistentSource, mockPropertyEncryptor);
             var correctInput = new List<PropertyApiModel>
                 {new PropertyApiModel {Name = "valid property name", Secure = true}};
             try
@@ -53,11 +55,13 @@ namespace Dorc.Api.Tests
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             var mockPvs = Substitute.For<IPropertyValuesService>();
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
 
             mockPropertiesPersistentSource
                 .When(w => w.CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>()))
                 .Throw(c => new Exception(testErrorMessage));
-            var erroredService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader);
+            var erroredService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader, mockPropertyValuesPersistentSource, mockPropertyEncryptor);
             var wrongInput = new List<PropertyApiModel>
                 {new PropertyApiModel {Name = "Invalid property name", Secure = false}};
             try
@@ -80,10 +84,12 @@ namespace Dorc.Api.Tests
             var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
             var mockPvs = Substitute.For<IPropertyValuesService>();
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
 
             mockPropertiesPersistentSource.DeleteProperty(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(true);
-            var happyService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader);
+            var happyService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader, mockPropertyValuesPersistentSource, mockPropertyEncryptor);
 
             var correctInput = new List<string>
                 {"Valid property Name"};
@@ -110,7 +116,7 @@ namespace Dorc.Api.Tests
             mockPropertiesPersistentSource.DeleteProperty(Arg.Any<string>(), string.Empty).Returns(false);
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var erroredService = new PropertiesService(mockPropertiesPersistentSource, Substitute.For<IPropertyValuesService>(),
-                mockClaimsPrincipalReader);
+                mockClaimsPrincipalReader, Substitute.For<IPropertyValuesPersistentSource>(), Substitute.For<IPropertyEncryptor>());
 
             var incorrectInput = new List<string>
                 {"Invalid property Name"};
@@ -136,11 +142,13 @@ namespace Dorc.Api.Tests
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var testProperty = new PropertyApiModel { Name = "PropertyName", Secure = false };
 
+            // Setup the mock to return the current property for GetProperty call
+            mockPropertiesPersistentSource.GetProperty(testProperty.Name).Returns(testProperty);
             mockPropertiesPersistentSource.UpdateProperty(Arg.Any<PropertyApiModel>())
                 .Returns(true);
 
             var happyService = new PropertiesService(mockPropertiesPersistentSource, Substitute.For<IPropertyValuesService>(),
-                mockClaimsPrincipalReader);
+                mockClaimsPrincipalReader, Substitute.For<IPropertyValuesPersistentSource>(), Substitute.For<IPropertyEncryptor>());
             var correctInput = new Dictionary<string, PropertyApiModel>
                 {{testProperty.Name, testProperty}};
             try
@@ -169,11 +177,13 @@ namespace Dorc.Api.Tests
 
             var testProperty = new PropertyApiModel { Name = "PropertyName", Secure = false };
 
+            // Setup GetProperty to return null to simulate property not found
+            mockPropertiesPersistentSource.GetProperty(testProperty.Name).Returns((PropertyApiModel)null);
             mockPropertiesPersistentSource.UpdateProperty(Arg.Any<PropertyApiModel>())
                 .Returns(false);
 
             var service = new PropertiesService(mockPropertiesPersistentSource, Substitute.For<IPropertyValuesService>(),
-                mockClaimsPrincipalReader);
+                mockClaimsPrincipalReader, Substitute.For<IPropertyValuesPersistentSource>(), Substitute.For<IPropertyEncryptor>());
 
             var correctInput = new Dictionary<string, PropertyApiModel>
                 {{testProperty.Name, testProperty}};
@@ -198,11 +208,13 @@ namespace Dorc.Api.Tests
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var testProperty = new PropertyApiModel { Name = "PropertyName", Secure = false };
 
+            // Setup GetProperty to return the property so we get past the null check
+            mockPropertiesPersistentSource.GetProperty(testProperty.Name).Returns(testProperty);
             mockPropertiesPersistentSource.UpdateProperty(Arg.Any<PropertyApiModel>())
                 .Returns(false);
 
             var service = new PropertiesService(mockPropertiesPersistentSource, Substitute.For<IPropertyValuesService>(),
-                mockClaimsPrincipalReader);
+                mockClaimsPrincipalReader, Substitute.For<IPropertyValuesPersistentSource>(), Substitute.For<IPropertyEncryptor>());
             var correctInput = new Dictionary<string, PropertyApiModel>
                 {{testProperty.Name, testProperty}};
             try
@@ -217,6 +229,138 @@ namespace Dorc.Api.Tests
             {
                 Assert.Fail(e.Message);
             }
+        }
+
+        [TestMethod]
+        public void PutPropertiesEncryptsValuesWhenChangedToSecure()
+        {
+            // Arrange
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockPvs = Substitute.For<IPropertyValuesService>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+
+            const string propertyName = "TestProperty";
+            const string originalValue = "plaintext_value";
+            const string encryptedValue = "encrypted_value";
+
+            var currentProperty = new PropertyApiModel
+            {
+                Id = 1,
+                Name = propertyName,
+                Secure = false // Currently non-secure
+            };
+
+            var updatedProperty = new PropertyApiModel
+            {
+                Id = 1,
+                Name = propertyName,
+                Secure = true // Changing to secure
+            };
+
+            var existingPropertyValues = new[]
+            {
+                new PropertyValueDto
+                {
+                    Id = 1,
+                    Value = originalValue,
+                    Property = currentProperty,
+                    PropertyValueFilter = "TestEnv"
+                }
+            };
+
+            // Setup mock behaviors
+            mockPropertiesPersistentSource.GetProperty(propertyName).Returns(currentProperty);
+            mockPropertiesPersistentSource.UpdateProperty(updatedProperty).Returns(true);
+            mockPropertyValuesPersistentSource.GetPropertyValuesByName(propertyName).Returns(existingPropertyValues);
+            mockPropertyEncryptor.EncryptValue(originalValue).Returns(encryptedValue);
+            mockPropertyValuesPersistentSource.UpdatePropertyValue(1, encryptedValue).Returns(existingPropertyValues[0]);
+
+            var service = new PropertiesService(
+                mockPropertiesPersistentSource, 
+                mockPvs, 
+                mockClaimsPrincipalReader, 
+                mockPropertyValuesPersistentSource, 
+                mockPropertyEncryptor);
+
+            var propertiesToUpdate = new Dictionary<string, PropertyApiModel>
+            {
+                { propertyName, updatedProperty }
+            };
+
+            // Act
+            var results = service.PutProperties(propertiesToUpdate, _user);
+
+            // Assert
+            var resultsList = results.ToList();
+            Assert.AreEqual(1, resultsList.Count);
+            Assert.AreEqual("success", resultsList[0].Status);
+
+            // Verify encryption workflow was triggered
+            mockPropertiesPersistentSource.Received(1).GetProperty(propertyName);
+            mockPropertiesPersistentSource.Received(1).UpdateProperty(updatedProperty);
+            mockPropertyValuesPersistentSource.Received(1).GetPropertyValuesByName(propertyName);
+            mockPropertyEncryptor.Received(1).EncryptValue(originalValue);
+            mockPropertyValuesPersistentSource.Received(1).UpdatePropertyValue(1, encryptedValue);
+        }
+
+        [TestMethod]
+        public void PutPropertiesDoesNotEncryptWhenChangedToNonSecure()
+        {
+            // Arrange
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockPvs = Substitute.For<IPropertyValuesService>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+
+            const string propertyName = "TestProperty";
+
+            var currentProperty = new PropertyApiModel
+            {
+                Id = 1,
+                Name = propertyName,
+                Secure = true // Currently secure
+            };
+
+            var updatedProperty = new PropertyApiModel
+            {
+                Id = 1,
+                Name = propertyName,
+                Secure = false // Changing to non-secure
+            };
+
+            // Setup mock behaviors
+            mockPropertiesPersistentSource.GetProperty(propertyName).Returns(currentProperty);
+            mockPropertiesPersistentSource.UpdateProperty(updatedProperty).Returns(true);
+
+            var service = new PropertiesService(
+                mockPropertiesPersistentSource, 
+                mockPvs, 
+                mockClaimsPrincipalReader, 
+                mockPropertyValuesPersistentSource, 
+                mockPropertyEncryptor);
+
+            var propertiesToUpdate = new Dictionary<string, PropertyApiModel>
+            {
+                { propertyName, updatedProperty }
+            };
+
+            // Act
+            var results = service.PutProperties(propertiesToUpdate, _user);
+
+            // Assert
+            var resultsList = results.ToList();
+            Assert.AreEqual(1, resultsList.Count);
+            Assert.AreEqual("success", resultsList[0].Status);
+
+            // Verify encryption workflow was NOT triggered
+            mockPropertiesPersistentSource.Received(1).GetProperty(propertyName);
+            mockPropertiesPersistentSource.Received(1).UpdateProperty(updatedProperty);
+            mockPropertyValuesPersistentSource.DidNotReceive().GetPropertyValuesByName(Arg.Any<string>());
+            mockPropertyEncryptor.DidNotReceive().EncryptValue(Arg.Any<string>());
+            mockPropertyValuesPersistentSource.DidNotReceive().UpdatePropertyValue(Arg.Any<long>(), Arg.Any<string>());
         }
 
     }
