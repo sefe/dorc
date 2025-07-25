@@ -4,7 +4,10 @@
  * @param baseMessage An optional base message to return if no specific error message is found.
  * @returns A string containing the error message.
  */
-export function retrieveErrorMessage(err: any, baseMessage?: string): string {
+export function retrieveErrorMessage(
+  err: Error | { response?: { Message?: string; ExceptionMessage?: string } } | string,
+  baseMessage?: string
+): string {
   let errorMessage = baseMessage ?? 'An unexpected error occurred. Please try again or contact support.';
   if (!err) {
     return errorMessage;
