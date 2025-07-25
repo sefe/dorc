@@ -223,9 +223,10 @@ export class AttachEnvironment extends LitElement {
         error: (err: any) => {
           const notification = new ErrorNotification();
           
-          // Handle different error response structures
           let errorMessage = 'An error occurred while attaching environment';
-          if (err.response?.ExceptionMessage) {
+          if (err.response?.Message) {
+              errorMessage = err.response.Message;
+          } else if (err.response?.ExceptionMessage) {
             errorMessage = err.response.ExceptionMessage;
           } else if (err.response && typeof err.response === 'string') {
             errorMessage = err.response;
