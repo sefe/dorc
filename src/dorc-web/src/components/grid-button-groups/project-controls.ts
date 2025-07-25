@@ -4,6 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../../icons/iron-icons.js';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -11,6 +12,7 @@ import { ProjectApiModel } from '../../apis/dorc-api';
 @customElement('project-controls')
 export class ProjectControls extends LitElement {
   @property({ type: Object }) project: ProjectApiModel | undefined;
+  @property({ type: Boolean }) isAdmin: boolean = false;
 
   static get styles() {
     return css`
@@ -73,6 +75,18 @@ export class ProjectControls extends LitElement {
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
+      ${this.isAdmin ? html`
+        <vaadin-button
+          title="Delete Project"
+          theme="icon"
+          @click="${this.deleteProject}"
+        >
+          <vaadin-icon
+            icon="icons:delete"
+            style="color: red"
+          ></vaadin-icon>
+        </vaadin-button>
+      ` : ''}
     `;
   }
 
@@ -122,6 +136,17 @@ export class ProjectControls extends LitElement {
 
   openAuditData() {
     const event = new CustomEvent('open-project-audit-data', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  deleteProject() {
+    const event = new CustomEvent('delete-project', {
       detail: {
         Project: this.project
       },
