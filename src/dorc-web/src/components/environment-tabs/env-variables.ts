@@ -775,27 +775,36 @@ export class EnvVariables extends PageEnvBase {
         <table>
           <tr>
             <td>
-              <vaadin-checkbox slot='filter' style="font-size: var(--lumo-font-size-s)"
-                               theme="small"
-                               ?checked="${!_environment?.EnvironmentSecure}"
-                               @change="${(e: any) => {
-                                 this.dispatchEvent(
-                                   new CustomEvent(
-                                     'searching-env-variables-started',
-                                     {
-                                       detail: {
-                                         field: variableSecure,
-                                         value: e.target.checked
-                                       },
-                                       bubbles: true,
-                                       composed: true
-                                     }
-                                   )
-                                 );
-                               }}"
+              <vaadin-grid-sorter
+                path="PropertyValueScope"
+                style="align-items: normal"
+              ></vaadin-grid-sorter>
+            </td>
+            <td>
+              <vaadin-checkbox 
+                slot='filter' 
+                style="font-size: var(--lumo-font-size-s)"
+                theme="small"
+                ?checked="${!_environment?.EnvironmentSecure}"
+                @change="${(e: any) => {
+                  this.dispatchEvent(
+                    new CustomEvent(
+                      'searching-env-variables-started',
+                      {
+                        detail: {
+                          field: variableSecure,
+                          value: e.target.checked
+                        },
+                        bubbles: true,
+                        composed: true
+                      }
+                    )
+                  );
+                }}"
               ><label slot="label" title='Show default property values also'
               >Show Defaults</vaadin-checkbox
-              ></td>
+              >
+            </td>
           </tr>
         </table>
       `,

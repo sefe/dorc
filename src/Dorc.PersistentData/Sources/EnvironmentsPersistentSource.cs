@@ -524,6 +524,11 @@ namespace Dorc.PersistentData.Sources
 
                 if (environment == null) return false;
 
+                // Add environment history record for deletion
+                string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
+                var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
+                EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
+
                 var propertyValueIds = context.PropertyValueFilters.Where(pvf => pvf.Value.Equals(environment.Name))
                     .Select(pvf => pvf.PropertyValue.Id).ToList();
 
@@ -535,10 +540,8 @@ namespace Dorc.PersistentData.Sources
                 environment.Servers.Clear();
                 environment.Users.Clear();
 
-                foreach (var h in environment.Histories.ToList())
-                {
-                    context.EnvironmentHistories.Remove(h);
-                }
+                // Environment histories will be preserved automatically by the database foreign key constraint
+                // The EnvId will be set to NULL when the environment is deleted, preserving audit trail
                 environment.Histories.Clear();
 
                 environment.Projects.Clear();
