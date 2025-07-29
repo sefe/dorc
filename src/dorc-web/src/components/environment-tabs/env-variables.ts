@@ -288,10 +288,10 @@ export class EnvVariables extends PageEnvBase {
 
                   // When Show Defaults is unchecked (variableSecure = false), 
                   // filter to show only current environment properties
-                  if (!this.variableSecure) {
+                  if (!this.variableSecure && _environment?.EnvironmentName) {
                     params.filters.push({
                       path: variableSecure,
-                      value: _environment?.EnvironmentName ?? ''
+                      value: _environment.EnvironmentName
                     });
                   }
 
@@ -303,7 +303,7 @@ export class EnvVariables extends PageEnvBase {
                           Filters: params.filters.map(
                             (f: GridFilterDefinition): PagedDataFilter => ({
                               Path: f.path,
-                              FilterValue: f.value
+                              FilterValue: String(f.value ?? '')
                             })
                           ),
                           SortOrders: params.sortOrders.map(
