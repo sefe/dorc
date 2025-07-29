@@ -353,12 +353,12 @@ namespace Dorc.PersistentData.Sources
                     return null;
 
                 // Check if another database already exists with the same name and server (excluding current database)
-                var duplicateDatabase = context.Databases.SingleOrDefault(d => 
+                var duplicateExists = context.Databases.Any(d => 
                     d.Name.Equals(database.Name) && 
                     d.ServerName.Equals(database.ServerName) && 
                     d.Id != database.Id);
 
-                if (duplicateDatabase != null)
+                if (duplicateExists)
                 {
                     throw new ArgumentException($"Database already exists {database.ServerName}:{database.Name}");
                 }
