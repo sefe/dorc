@@ -286,9 +286,9 @@ export class EnvVariables extends PageEnvBase {
                     });
                   }
 
-                  // When Show Defaults is unchecked (variableSecure = false), 
+                  // When Show Defaults is unchecked (variableSecure = true), 
                   // filter to show only current environment properties
-                  if (!this.variableSecure && _environment?.EnvironmentName) {
+                  if (this.variableSecure && _environment?.EnvironmentName) {
                     params.filters.push({
                       path: variableSecure,
                       value: _environment.EnvironmentName
