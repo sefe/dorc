@@ -286,6 +286,8 @@ export class EnvVariables extends PageEnvBase {
                     });
                   }
 
+                  // When Show Defaults is unchecked (variableSecure = false), 
+                  // filter to show only current environment properties
                   if (!this.variableSecure) {
                     params.filters.push({
                       path: variableSecure,
@@ -420,19 +422,21 @@ export class EnvVariables extends PageEnvBase {
   }
 
   private debouncedInputHandler = this.debounce(
-    (field: string, value: string) => {
+    (field: string, value: string | boolean) => {
       switch (field) {
         case variableValue:
-          this.variableValue = value;
+          this.variableValue = value as string;
           break;
         case variableName:
-          this.variableName = value;
+          this.variableName = value as string;
           break;
         case variableScope:
-          this.variableScope = value;
+          this.variableScope = value as string;
           break;
         case variableSecure:
-          this.variableSecure = !this.variableSecure;
+          // When checkbox is checked, show defaults (variableSecure = false)
+          // When checkbox is unchecked, filter to current env only (variableSecure = true)
+          this.variableSecure = !(value as boolean);
           break;
         default:
           break;
@@ -747,31 +751,6 @@ export class EnvVariables extends PageEnvBase {
   scopeHeaderRenderer(root: HTMLElement) {
     render(
       html`
-        <vaadin-grid-sorter path="PropertyValueScope">Scope</vaadin-grid-sorter>
-        <vaadin-grid-filter path="PropertyValueScope">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-            placeholder="Scope"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as TextField;
-
-              this.dispatchEvent(
-                new CustomEvent('searching-env-variables-started', {
-                  detail: {
-                    field: variableScope,
-                    value: textField?.value
-                  },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            }}"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
         <table>
           <tr>
             <td>
@@ -781,11 +760,33 @@ export class EnvVariables extends PageEnvBase {
               ></vaadin-grid-sorter>
             </td>
             <td>
+              <vaadin-text-field
+                clear-button-visible
+                placeholder="Scope"
+                focus-target
+                style="width: 100px"
+                theme="small"
+                @input="${(e: InputEvent) => {
+                  const textField = e.target as TextField;
+
+                  this.dispatchEvent(
+                    new CustomEvent('searching-env-variables-started', {
+                      detail: {
+                        field: variableScope,
+                        value: textField?.value
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  );
+                }}"
+              ></vaadin-text-field>
+            </td>
+            <td>
               <vaadin-checkbox 
-                slot='filter' 
                 style="font-size: var(--lumo-font-size-s)"
                 theme="small"
-                ?checked="${!_environment?.EnvironmentSecure}"
+                ?checked="${true}"
                 @change="${(e: any) => {
                   this.dispatchEvent(
                     new CustomEvent(
@@ -801,9 +802,10 @@ export class EnvVariables extends PageEnvBase {
                     )
                   );
                 }}"
-              ><label slot="label" title='Show default property values also'
-              >Show Defaults</vaadin-checkbox
               >
+                <label slot="label" title='Show default property values also'
+                >Show Defaults</label>
+              </vaadin-checkbox>
             </td>
           </tr>
         </table>
