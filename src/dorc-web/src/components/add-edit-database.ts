@@ -108,6 +108,12 @@ export class AddEditDatabase extends LitElement {
     );
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // Reset all validation state when component is connected/shown
+    this._reset();
+  }
+
   static get styles() {
     return css`
       .block {
@@ -446,7 +452,7 @@ export class AddEditDatabase extends LitElement {
   checkDatabaseComplete(db: DatabaseApiModel){
     let nameValid = false;
     let instanceValid = false;
-    let adGroupValid = false;
+    let typeValid = false;
 
     if (
     db.Name &&
@@ -463,13 +469,13 @@ export class AddEditDatabase extends LitElement {
       instanceValid = true;
     }
     if (
-      db.AdGroup &&
-      db.AdGroup?.length > 0)
+      db.Type &&
+      db.Type?.length > 0)
     {
-      adGroupValid = true;
+      typeValid = true;
     }
 
-    return nameValid && instanceValid && adGroupValid;
+    return nameValid && instanceValid && typeValid;
   }
 
   getEmptyDatabase(): DatabaseApiModel {
