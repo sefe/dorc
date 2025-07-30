@@ -40,7 +40,7 @@ import { ErrorNotification } from '../notifications/error-notification';
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
 const variableScope = 'PropertyValueScope';
-const variableSecure = 'PropertyValueScope';
+const variableIsShowDefaultProps = 'ShowDefaults';
 
 let _environment: EnvironmentApiModel | undefined;
 @customElement('env-variables')
@@ -70,7 +70,7 @@ export class EnvVariables extends PageEnvBase {
   variableValue: string = '';
   variableName: string = '';
   variableScope: string = '';
-  variableSecure: boolean = false;
+  isShowDefaultProps: boolean = false;
 
   static get styles() {
     return css`
@@ -286,11 +286,9 @@ export class EnvVariables extends PageEnvBase {
                     });
                   }
 
-                  // When Show Defaults is unchecked (variableSecure = true), 
-                  // filter to show only current environment properties
-                  if (this.variableSecure && _environment?.EnvironmentName) {
+                  if (this.isShowDefaultProps && _environment?.EnvironmentName) {
                     params.filters.push({
-                      path: variableSecure,
+                      path: variableScope,
                       value: _environment.EnvironmentName
                     });
                   }
@@ -433,10 +431,8 @@ export class EnvVariables extends PageEnvBase {
         case variableScope:
           this.variableScope = value as string;
           break;
-        case variableSecure:
-          // When checkbox is checked, show defaults (variableSecure = false)
-          // When checkbox is unchecked, filter to current env only (variableSecure = true)
-          this.variableSecure = !(value as boolean);
+        case variableIsShowDefaultProps:
+          this.isShowDefaultProps = !(value as boolean);
           break;
         default:
           break;
@@ -793,7 +789,7 @@ export class EnvVariables extends PageEnvBase {
                       'searching-env-variables-started',
                       {
                         detail: {
-                          field: variableSecure,
+                          field: variableIsShowDefaultProps,
                           value: e.target.checked
                         },
                         bubbles: true,
