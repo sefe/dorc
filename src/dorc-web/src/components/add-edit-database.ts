@@ -40,6 +40,10 @@ export class AddEditDatabase extends LitElement {
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
 
+    // Clear any previous error messages when setting new database
+    this.ErrorMessage = '';
+    this.infoMessage = '';
+
     const adGroupCombo = this.shadowRoot?.getElementById('active-dir-groups') as ComboBox;
     if (adGroupCombo) {
       const group = this.groups.find(t => t.GroupName === this._database.AdGroup);
@@ -210,6 +214,12 @@ export class AddEditDatabase extends LitElement {
     this.DatabaseName = '';
     this.DatabaseType = '';
     this.DbServerName = '';
+    this.ArrayName = '';
+    this.AdGroup = '';
+    this.ErrorMessage = '';
+    this.infoMessage = '';
+    this.isNameValid = false;
+    this.canSubmit = false;
   }
 
   saveDatabase() {
@@ -427,8 +437,6 @@ export class AddEditDatabase extends LitElement {
     this.canSubmit = this.isNameValid;
 
     console.log(`isNameValid: ${this.isNameValid}`);
-
-    this.isNameValid = false;
   }
 
   checkDatabaseComplete(db: DatabaseApiModel){
