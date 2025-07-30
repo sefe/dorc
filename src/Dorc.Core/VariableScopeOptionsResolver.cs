@@ -2,6 +2,7 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
+using log4net;
 
 namespace Dorc.Core
 {
@@ -12,22 +13,36 @@ namespace Dorc.Core
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IUserPermsPersistentSource _userPermsPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly ILog _logger;
 
         public VariableScopeOptionsResolver(IPropertiesPersistentSource propertiesPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
-            IUserPermsPersistentSource userPermsPersistentSource)
+            IUserPermsPersistentSource userPermsPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            ILog logger)
         {
             _userPermsPersistentSource = userPermsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
             _daemonsPersistentSource = daemonsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _propertiesPersistentSource = propertiesPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _logger = logger;
         }
 
         public void SetPropertyValues(IVariableResolver variableResolver, EnvironmentApiModel environment)
         {
+            SetPropertyValues(variableResolver, environment, null);
+        }
+
+        public void SetPropertyValues(IVariableResolver variableResolver, EnvironmentApiModel environment, DeploymentRequestApiModel? deploymentRequest)
+        {
+            // Set environment owner information
+            SetEnvironmentOwnerProperties(variableResolver, environment, deploymentRequest);
+
             var databasesForEnvId = _databasesPersistentSource.GetDatabasesForEnvironmentName(environment.EnvironmentName);
             var serverApiModels = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId);
 
@@ -181,6 +196,42 @@ namespace Dorc.Core
                 }
                 else
                     variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}", serverType.Value.Single());
+            }
+        }
+
+        private void SetEnvironmentOwnerProperties(IVariableResolver variableResolver, EnvironmentApiModel environment, DeploymentRequestApiModel? deploymentRequest)
+        {
+            try
+            {
+                // Try to get environment owner email from deployment request first (if available)
+                if (deploymentRequest != null && !string.IsNullOrEmpty(deploymentRequest.EnvironmentOwnerEmail))
+                {
+                    _logger.Debug($"Using environment owner email from deployment request for environment '{environment.EnvironmentName}': {deploymentRequest.EnvironmentOwnerEmail}");
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, deploymentRequest.EnvironmentOwnerEmail);
+                }
+                else
+                {
+                    _logger.Debug($"No environment owner email available for environment '{environment.EnvironmentName}'");
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+                }
+
+                // Set environment owner ID if available
+                var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(environment.EnvironmentId);
+                if (!string.IsNullOrEmpty(ownerId))
+                {
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
+                }
+                else
+                {
+                    _logger.Debug($"No environment owner ID found for environment '{environment.EnvironmentName}'");
+                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Error setting environment owner properties for environment '{environment.EnvironmentName}': {ex.Message}", ex);
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
             }
         }
     }

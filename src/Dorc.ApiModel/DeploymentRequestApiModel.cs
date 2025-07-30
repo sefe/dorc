@@ -21,5 +21,6 @@ namespace Dorc.ApiModel
         public bool IsProd { get; set; }
         public string UncLogPath { get; set; }
         public bool UserEditable { set; get; }
+        public string EnvironmentOwnerEmail { get; set; }
     }
 }
