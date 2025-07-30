@@ -337,24 +337,62 @@ DOrc properties are automatically converted to Terraform variables:
 - **State Management**: Terraform state is managed automatically
 - **Sensitive Values**: Use DOrc's secure property features for secrets
 
+## Complete Project Reference Data Example
+
+Here's a complete example of the JSON format for project reference data with Terraform components:
+
+```json
+{
+  "Project": {
+    "ProjectId": 230,
+    "ProjectName": "Terraform Testing",
+    "ProjectDescription": "Terraform infrastructure project",
+    "ArtefactsUrl": "https://dev.azure.com/sefe/",
+    "ArtefactsSubPaths": "Deployment Orchestrator",
+    "ArtefactsBuildRegex": "",
+    "SourceDatabase": null
+  },
+  "Components": [{
+    "ComponentName": "SQL Database Infrastructure",
+    "ScriptPath": "0001-Terraform\\terraform-project",
+    "NonProdOnly": false,
+    "StopOnFailure": false,
+    "ParentId": 0,
+    "IsEnabled": true,
+    "ComponentType": "Terraform",
+    "Children": []
+  }]
+}
+```
+
+### Important Notes:
+
+1. **ComponentType**: Must be the string `"Terraform"` (case-sensitive)
+2. **ScriptPath**: Must be a simple string path, not a JSON object
+3. **Path Separators**: Use double backslashes `\\` for Windows paths or forward slashes `/` for Unix paths
+
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Component Type not set to Terraform**
-   - Ensure `ComponentType` is set to `Terraform` in component configuration
+   - Ensure `ComponentType` is set to `"Terraform"` in component configuration
    - PowerShell components will not trigger the Terraform workflow
 
-2. **Plan generation fails**
+2. **Invalid JSON format**
+   - ScriptPath must be a string, not an object: `"ScriptPath": "path/to/terraform"`
+   - ComponentType must be a string: `"ComponentType": "Terraform"`
+
+3. **Plan generation fails**
    - Check Terraform file syntax
    - Verify all required variables are defined
    - Ensure Terraform is installed on DOrc servers
 
-3. **Permission errors**
+4. **Permission errors**
    - Verify user has deployment permissions for target environment
    - Check Azure credentials configuration
 
-4. **State lock errors**
+5. **State lock errors**
    - Ensure no other Terraform operations are running
    - Check Azure storage account accessibility
 

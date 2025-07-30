@@ -203,6 +203,7 @@ builder.Services
         opts.JsonSerializerOptions.MaxDepth = 64;
         opts.JsonSerializerOptions.IncludeFields = true;
         opts.JsonSerializerOptions.Converters.Add(new ExceptionJsonConverter());
+        opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
