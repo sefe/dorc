@@ -782,7 +782,7 @@ export class EnvVariables extends PageEnvBase {
               <vaadin-checkbox 
                 style="font-size: var(--lumo-font-size-s)"
                 theme="small"
-                ?checked="${true}"
+                ?checked="${!_environment?.EnvironmentSecure}"
                 @change="${(e: any) => {
                   this.dispatchEvent(
                     new CustomEvent(
