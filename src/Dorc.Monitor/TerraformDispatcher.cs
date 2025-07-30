@@ -32,7 +32,7 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            logger.Info($"Creating Terraform plan for component '{component.ComponentName}' with id '{component.ComponentId}'.");
+            logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
 
             try
             {
@@ -40,6 +40,8 @@ namespace Dorc.Monitor
                 requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
                     DeploymentResultStatus.Running);
+
+                logger.Info($"Updated deployment result {deploymentResult.Id} status to Running.");
 
                 // Create terraform plan (placeholder implementation)
                 var planContent = await CreateTerraformPlanAsync(component, properties, environmentName, cancellationToken);

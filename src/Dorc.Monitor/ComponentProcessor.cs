@@ -42,7 +42,7 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            _logger.Info($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}' of type '{component.ComponentType}'.");
+            _logger.Info($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}' of type '{component.ComponentType}' (Enum Value: {(int)component.ComponentType}).");
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
             StringBuilder componentResultLogBuilder = new StringBuilder();
@@ -58,7 +58,7 @@ namespace Dorc.Monitor
                 // Route to appropriate dispatcher based on component type
                 if (component.ComponentType == ComponentType.Terraform)
                 {
-                    _logger.Info($"Processing Terraform component '{component.ComponentName}'.");
+                    _logger.Info($"Processing Terraform component '{component.ComponentName}' - routing to TerraformDispatcher.");
                     isSuccessful = await terraformDispatcher.DispatchAsync(
                         component,
                         deploymentResult,
