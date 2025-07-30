@@ -62,7 +62,37 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public void InsertScriptAuditsForComponents(IList<ComponentApiModel> components, HttpRequestType requestType, string username)
+        public void ProcessComponentCreationWithAudit(IList<ComponentApiModel> components, int projectId, string username)
+        {
+            // Create components first
+            TraverseComponents(components, null, projectId, CreateComponent);
+
+            // Create script audits for components that have scripts
+            InsertScriptAuditsForComponents(components, ActionType.Create, username);
+        }
+
+        public void ProcessComponentsWithAudit(IList<ComponentApiModel> components, int projectId, string username, HttpRequestType requestType)
+        {
+            // Perform the component operations
+            var updateAndInsertComponents = UpdateComponent;
+            updateAndInsertComponents += CreateComponent;
+
+            TraverseComponents(components, null, projectId, updateAndInsertComponents);
+
+            var flattenedComponents = new List<ComponentApiModel>();
+            FlattenApiComponents(components, flattenedComponents);
+
+            DeleteComponents(flattenedComponents, projectId);
+
+            // Create script audits for components that have scripts
+            var actionType = requestType == HttpRequestType.Post ? ActionType.Create : ActionType.Update;
+            InsertScriptAuditsForComponents(components, actionType, username);
+            
+            // Handle delete audits for components that were deleted
+            HandleDeletedComponentScriptAudits(flattenedComponents, projectId, username);
+        }
+
+        internal void InsertScriptAuditsForComponents(IList<ComponentApiModel> components, ActionType actionType, string username)
         {
             if (components == null || string.IsNullOrEmpty(username)) return;
             
@@ -95,9 +125,40 @@ namespace Dorc.PersistentData.Sources
                                 PowerShellVersionNumber = script.PowerShellVersionNumber
                             };
                             
-                            var actionType = requestType == HttpRequestType.Post ? ActionType.Create : ActionType.Update;
                             _scriptAuditPersistentSource.InsertScriptAudit(username, actionType, scriptApiModel);
                         }
+                    }
+                }
+            }
+        }
+
+        private void HandleDeletedComponentScriptAudits(IList<ComponentApiModel> apiComponents, int projectId, string username)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var components = context.Components
+                    .Include(c => c.Projects)
+                    .Include(c => c.Script)
+                    .Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
+                
+                var componentsToDelete = components.Where(x => apiComponents.All(y => y.ComponentId != x.Id));
+                
+                foreach (var component in componentsToDelete)
+                {
+                    if (component.Script != null)
+                    {
+                        var scriptApiModel = new ScriptApiModel
+                        {
+                            Id = component.Script.Id,
+                            Name = component.Script.Name,
+                            Path = component.Script.Path,
+                            IsPathJSON = component.Script.IsPathJSON,
+                            NonProdOnly = component.Script.NonProdOnly,
+                            IsEnabled = component.IsEnabled ?? true,
+                            PowerShellVersionNumber = component.Script.PowerShellVersionNumber
+                        };
+                        
+                        _scriptAuditPersistentSource.InsertScriptAudit(username, ActionType.Delete, scriptApiModel);
                     }
                 }
             }

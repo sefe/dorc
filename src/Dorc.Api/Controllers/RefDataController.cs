@@ -1,6 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -79,21 +80,8 @@ namespace Dorc.Api.Controllers
 
                 _projectsPersistentSource.UpdateProject(refData.Project);
 
-                var updateAndInsertComponents =
-                    _manageProjectsPersistentSource.UpdateComponent;
-                updateAndInsertComponents += _manageProjectsPersistentSource.CreateComponent;
-
-                _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                    refData.Project.ProjectId, updateAndInsertComponents);
-
-                var flattenedComponents = new List<ComponentApiModel>();
-                _manageProjectsPersistentSource.FlattenApiComponents(refData.Components, flattenedComponents);
-
-                _manageProjectsPersistentSource.DeleteComponents(flattenedComponents,
-                    refData.Project.ProjectId);
-
-                // Create script audit records for all components with scripts
-                _manageProjectsPersistentSource.InsertScriptAuditsForComponents(refData.Components, HttpRequestType.Put, username);
+                // Process components with audit tracking
+                _manageProjectsPersistentSource.ProcessComponentsWithAudit(refData.Components, refData.Project.ProjectId, username, HttpRequestType.Put);
 
                 refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
@@ -129,11 +117,8 @@ namespace Dorc.Api.Controllers
 
             string username = _claimsPrincipalReader.GetUserFullDomainName(User);
 
-            _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                refData.Project.ProjectId, _manageProjectsPersistentSource.CreateComponent);
-
-            // Create script audit records for all components with scripts  
-            _manageProjectsPersistentSource.InsertScriptAuditsForComponents(refData.Components, HttpRequestType.Post, username);
+            // Create components and audit scripts in one operation
+            _manageProjectsPersistentSource.ProcessComponentCreationWithAudit(refData.Components, refData.Project.ProjectId, username);
 
             refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
