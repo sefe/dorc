@@ -745,6 +745,9 @@ export class PageVariables extends PageElement {
     );
 
     if (existingProperty && this.propertyName) {
+      // Store the original state for proper reverting
+      const originalSecureState = existingProperty.Secure ?? false;
+      
       let confirmMessage = '';
       
       // Ask for confirmation for both directions
@@ -757,8 +760,10 @@ export class PageVariables extends PageElement {
       }
       
       if (confirmMessage && !confirm(confirmMessage)) {
-        // User cancelled, revert checkbox
-        checkbox.checked = existingProperty.Secure ?? false;
+        // User cancelled, revert checkbox - use setTimeout to ensure it works properly
+        setTimeout(() => {
+          checkbox.checked = originalSecureState;
+        }, 0);
         return;
       }
 
@@ -788,15 +793,22 @@ export class PageVariables extends PageElement {
               position: 'bottom-start', 
               theme: 'success'
             });
+            
+            // Reload page data to reflect changes
+            this.loadVariableValues();
           } else {
             // Revert checkbox if update failed
-            checkbox.checked = existingProperty.Secure ?? false;
+            setTimeout(() => {
+              checkbox.checked = originalSecureState;
+            }, 0);
             this.errorAlert([data[0]]);
           }
         },
         error: (err: any) => {
           // Revert checkbox if update failed
-          checkbox.checked = existingProperty.Secure ?? false;
+          setTimeout(() => {
+            checkbox.checked = originalSecureState;
+          }, 0);
           this.errorAlert(err);
         },
         complete: () => console.log('done updating property security')
