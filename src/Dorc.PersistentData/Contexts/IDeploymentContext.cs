@@ -32,7 +32,6 @@ namespace Dorc.PersistentData.Contexts
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         DbSet<ScriptAudit> ScriptAudits { get; set; }
-        DbSet<ScriptAuditAction> ScriptAuditActions { get; set; }
         DbSet<AdGroup> AdGroups { get; set; }
         DbSet<Database> Databases { get; set; }
         DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }

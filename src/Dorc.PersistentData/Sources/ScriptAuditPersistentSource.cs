@@ -27,11 +27,11 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 // Ensure the action type exists, create if it doesn't
-                var action = context.ScriptAuditActions.FirstOrDefault(x => x.Action == actionType);
+                var action = context.RefDataAuditActions.FirstOrDefault(x => x.Action == actionType);
                 if (action == null)
                 {
-                    action = new Model.ScriptAuditAction { Action = actionType };
-                    context.ScriptAuditActions.Add(action);
+                    action = new Model.RefDataAuditAction { Action = actionType };
+                    context.RefDataAuditActions.Add(action);
                     context.SaveChanges();
                 }
 

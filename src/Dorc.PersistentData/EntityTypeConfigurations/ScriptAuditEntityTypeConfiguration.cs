@@ -14,14 +14,15 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .HasOne(x => x.Action)
                 .WithMany(x => x.ScriptAudits)
-                .HasForeignKey(x => x.ScriptAuditActionId)
+                .HasForeignKey(x => x.RefDataAuditActionId)
                 .IsRequired();
 
             builder
                 .HasOne(x => x.Script)
                 .WithMany()
                 .HasForeignKey(x => x.ScriptId)
-                .IsRequired();
+                .IsRequired()
+                .OnDelete(DeleteBehavior.NoAction); // Preserve audit records when script is deleted
         }
     }
 }

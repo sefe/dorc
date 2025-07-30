@@ -8,9 +8,9 @@ namespace Dorc.PersistentData.Model
 
         public virtual Script Script { get; set; } = null!;
 
-        public int ScriptAuditActionId { get; set; }
+        public int RefDataAuditActionId { get; set; }
 
-        public ScriptAuditAction Action { get; set; } = null!;
+        public RefDataAuditAction Action { get; set; } = null!;
 
         public string? Username { get; set; }
 
