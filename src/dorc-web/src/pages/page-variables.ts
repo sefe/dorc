@@ -745,15 +745,21 @@ export class PageVariables extends PageElement {
     );
 
     if (existingProperty && this.propertyName) {
-      // If changing from non-secure to secure, ask for confirmation
+      let confirmMessage = '';
+      
+      // Ask for confirmation for both directions
       if (!existingProperty.Secure && checkbox.checked) {
-        const confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
-        
-        if (!confirm(confirmMessage)) {
-          // User cancelled, revert checkbox
-          checkbox.checked = false;
-          return;
-        }
+        // Changing from non-secure to secure
+        confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
+      } else if (existingProperty.Secure && !checkbox.checked) {
+        // Changing from secure to non-secure
+        confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
+      }
+      
+      if (confirmMessage && !confirm(confirmMessage)) {
+        // User cancelled, revert checkbox
+        checkbox.checked = existingProperty.Secure ?? false;
+        return;
       }
 
       const updatedProperty: PropertyApiModel = {
@@ -770,24 +776,27 @@ export class PageVariables extends PageElement {
             // Update the local property object
             existingProperty.Secure = checkbox.checked;
             
-            // Show success notification
-            const message = `Property "${this.propertyName}" ${checkbox.checked ? 'secured' : 'unsecured'} successfully`;
-            Notification.show(message, { position: 'top-center', theme: 'success' });
-            
-            // If changed to secure, show info about automatic encryption
+            // Show single success notification with encryption info if applicable
+            let message = '';
             if (checkbox.checked) {
-              const encryptionMessage = `Existing property values for "${this.propertyName}" have been automatically encrypted`;
-              Notification.show(encryptionMessage, { position: 'top-center', theme: 'success', duration: 5000 });
+              message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
+            } else {
+              message = `Property "${this.propertyName}" unsecured successfully.`;
             }
+            
+            Notification.show(message, { 
+              position: 'bottom-start', 
+              theme: 'success'
+            });
           } else {
             // Revert checkbox if update failed
-            checkbox.checked = !checkbox.checked;
+            checkbox.checked = existingProperty.Secure ?? false;
             this.errorAlert([data[0]]);
           }
         },
         error: (err: any) => {
           // Revert checkbox if update failed
-          checkbox.checked = !checkbox.checked;
+          checkbox.checked = existingProperty.Secure ?? false;
           this.errorAlert(err);
         },
         complete: () => console.log('done updating property security')
