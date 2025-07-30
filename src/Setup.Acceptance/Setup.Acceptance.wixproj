@@ -1,5 +1,5 @@
 ﻿<Project>
-  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="6.0.1" />
   <PropertyGroup>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
     <TestsAcceptanceDir>$(SolutionDir)Tests.Acceptance\bin\$(Configuration)\net8.0\publish</TestsAcceptanceDir>
@@ -18,10 +18,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="WixJsonFileExtension" Version="5.0.0.41" />
-    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
-    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
-    <PackageReference Include="WixToolset.Iis.wixext" Version="5.0.2" />
+    <PackageReference Include="WixJsonFileExtension" Version="6.0.0.47" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Tests.Acceptance\Tests.Acceptance.csproj">
@@ -40,13 +40,13 @@
     <HarvestDirectory Include="$(TestsAcceptanceDir)">
       <DirectoryRefId>TestingDir</DirectoryRefId>
       <ComponentGroupName>TestsAcceptanceComGroup</ComponentGroupName>
-      <Transforms>$(Projectdir)HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.TestsAcceptanceDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
     </HarvestDirectory>
   </ItemGroup>
-  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="6.0.1" />
   <PropertyGroup>
     <PostBuildEvent>copy $(ProjectDir)%2a.bat $(TargetDir)\.
 copy $(ProjectDir)%2a.msi.json $(TargetDir)\.</PostBuildEvent>

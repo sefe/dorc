@@ -16,6 +16,8 @@ namespace Dorc.PersistentData.Sources
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
+        protected override IClaimsPrincipalReader ClaimsPrincipalReader => _claimsPrincipalReader;
+
         public DatabasesPersistentSource(
             IDeploymentContextFactory contextFactory,
             IRolePrivilegesChecker rolePrivilegesChecker,
@@ -191,8 +193,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                string username = _claimsPrincipalReader.GetUserName(user);
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(username, context);
+                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
 
                 var reqStatusesQueryable = context.Databases.Include(database => database.Environments)
                     .Include(database => database.Group).AsQueryable();
@@ -320,8 +321,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string envFilter,
-            string envName)
+        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string envFilter, string envName)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -336,7 +336,7 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
+                        dbIds.Contains(eu.Database.Id) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);

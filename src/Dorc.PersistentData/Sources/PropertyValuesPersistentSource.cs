@@ -356,8 +356,9 @@ namespace Dorc.PersistentData.Sources
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForScopeByPage(int limit, int page,
             PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -370,16 +371,19 @@ namespace Dorc.PersistentData.Sources
                                    propertyFilter.Id
                                join environment in context.Environments on propertyValueFilter.Value equals
                                    environment.Name
-                               let isOwner = environment.Owner == username
                                let isDelegate =
                                    (from env in context.Environments
                                     where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                     select env.Name).Any()
-                               let hasPermission =
+                               let permissions =
                                    (from env in context.Environments
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                    where env.Name == environment.Name && userSids.Contains(ac.Sid) && (ac.Allow & (int)AccessLevel.Write) != 0
-                                    select env.Name).Any()
+                                    where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid))
+                                    select ac.Allow).ToList()
+                               let hasPermission =
+                                   permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                               let isOwner =
+                                   permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
                                where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
                                select new FlatPropertyValueApiModel
                                {
@@ -528,8 +532,9 @@ namespace Dorc.PersistentData.Sources
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForSearchValueByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user)
         {
-            string username = _claimsPrincipalReader.GetUserName(user);
-            var userSids = username.GetSidsForUser();
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -544,16 +549,19 @@ namespace Dorc.PersistentData.Sources
                                        propertyFilter.Id
                                    join environment in context.Environments on propertyValueFilter.Value equals
                                        environment.Name
-                                   let isOwner = environment.Owner == username
                                    let isDelegate =
                                        (from env in context.Environments
                                         where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
                                         select env.Name).Any()
-                                   let hasPermission =
+                                   let permissions =
                                        (from env in context.Environments
                                         join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                        where env.Name == environment.Name && userSids.Contains(ac.Sid) && (ac.Allow & (int)AccessLevel.Write) != 0
-                                        select env.Name).Any()
+                                        where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid))
+                                        select ac.Allow).ToList()
+                                   let hasPermission =
+                                       permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                                   let isOwner =
+                                       permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
                                    select new FlatPropertyValueApiModel
                                    {
                                        PropertyId = property.Id,

@@ -1,5 +1,5 @@
 ﻿<Project>
-  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="6.0.1" />
   <PropertyGroup>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
     <Name>Setup.Dorc</Name>
@@ -87,14 +87,14 @@
     <HarvestDirectory Include="$(DorcWebUIDir)">
       <DirectoryRefId>DorcWebFolder</DirectoryRefId>
       <ComponentGroupName>DOrcWebComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Web\Orchestrator\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Web/Orchestrator/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcWebUIDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
     </HarvestDirectory>
     <HarvestDirectory Include="$(DorcApiDir)">
       <DirectoryRefId>RequestApi</DirectoryRefId>
       <ComponentGroupName>DOrcAPIComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Web\RequestApi\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Web/RequestApi/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcApiDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -102,7 +102,7 @@
     <HarvestDirectory Include="$(DorcMonitorDir)">
       <DirectoryRefId>INSTALLLOCATIONNONPROD</DirectoryRefId>
       <ComponentGroupName>NonProdDeployMonitorComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Monitors\NonProd\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -110,7 +110,7 @@
     <HarvestDirectory Include="$(DorcRunnerDir)">
       <DirectoryRefId>INSTALLLOCATIONDORCRUNNERNONPROD</DirectoryRefId>
       <ComponentGroupName>NonProdDorcRunnerComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Monitors\NonProd\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -118,7 +118,7 @@
     <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
       <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERNONPROD</DirectoryRefId>
       <ComponentGroupName>NonProdDeployRunnerComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Monitors\NonProd\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -126,7 +126,7 @@
     <HarvestDirectory Include="$(DorcMonitorDir)">
       <DirectoryRefId>INSTALLLOCATIONPROD</DirectoryRefId>
       <ComponentGroupName>ProdDeployMonitorComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Monitors\Prod\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -134,7 +134,7 @@
     <HarvestDirectory Include="$(DorcRunnerDir)">
       <DirectoryRefId>INSTALLLOCATIONDORCRUNNERPROD</DirectoryRefId>
       <ComponentGroupName>ProdDorcRunnerComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Monitors\Prod\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -142,7 +142,7 @@
     <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
       <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERPROD</DirectoryRefId>
       <ComponentGroupName>ProdDeployRunnerComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Monitors\Prod\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -150,7 +150,7 @@
     <HarvestDirectory Include="$(ToolsDCEBDir)">
       <DirectoryRefId>DeployCopyEnvBuildDir</DirectoryRefId>
       <ComponentGroupName>ToolsDeployCopyEnvBuildComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.ToolsDCEBDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -158,7 +158,7 @@
     <HarvestDirectory Include="$(ToolsPREDir)">
       <DirectoryRefId>PostRestoreEndurDir</DirectoryRefId>
       <ComponentGroupName>ToolsPostRestoreEndurComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.ToolsPREDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -166,7 +166,7 @@
     <HarvestDirectory Include="$(ToolsPVCDir)">
       <DirectoryRefId>PropertyValueCreationDir</DirectoryRefId>
       <ComponentGroupName>ToolsPropertyValueCreationComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.ToolsPVCDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -174,7 +174,7 @@
     <HarvestDirectory Include="$(ToolsReqDir)">
       <DirectoryRefId>RequestDir</DirectoryRefId>
       <ComponentGroupName>ToolsRequestComGroup</ComponentGroupName>
-      <Transforms>$(ProjectDir)Tools\HeatTransform.xslt</Transforms>
+      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.ToolsReqDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
@@ -184,12 +184,12 @@
     <None Include="Tools\HeatTransform.xslt" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="WixJsonFileExtension" Version="5.0.0.41" />
-    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
-    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
-    <PackageReference Include="WixToolset.Iis.wixext" Version="5.0.2" />
+    <PackageReference Include="WixJsonFileExtension" Version="6.0.0.47" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.1" />
   </ItemGroup>
-  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="5.0.1" />
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="6.0.1" />
   <PropertyGroup>
     <PreBuildEvent />
   </PropertyGroup>

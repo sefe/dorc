@@ -1,14 +1,15 @@
+using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
+using log4net;
 using System.ComponentModel;
 using System.DirectoryServices;
+using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices.ActiveDirectory;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
-using Dorc.ApiModel;
-using Dorc.Core.Interfaces;
-using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 
 namespace Dorc.Core
 {
@@ -17,12 +18,10 @@ namespace Dorc.Core
     {
         private readonly DirectoryEntry _activeDirectoryRoot;
         private readonly ILog _log;
-        private readonly IUsersPersistentSource _usersPersistentSource;
         private static readonly string[] adProps = { "cn", "displayname", "objectsid", "mail" };
 
-        public ActiveDirectorySearcher(string domainName, ILog log, IUsersPersistentSource usersPersistentSource)
+        public ActiveDirectorySearcher(string domainName, ILog log)
         {
-            _usersPersistentSource = usersPersistentSource;
             _log = log;
 
             var context = new DirectoryContext(DirectoryContextType.Domain, domainName);
@@ -32,19 +31,20 @@ namespace Dorc.Core
             _activeDirectoryRoot = new DirectoryEntry(ldapRoot);
         }
 
-        public List<DirectoryEntry> Search(string objectName)
+        public List<UserElementApiModel> Search(string objectName)
         {
-            var output = new List<DirectoryEntry>();
+            var output = new List<UserElementApiModel>();
 
-            // restrict the username and password to letters only
-            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ]+$"))
+            // restrict the username and password to letters and parenthesis only
+            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ()]+$"))
             {
                 return output;
             }
 
             using (var searcher = new DirectorySearcher(_activeDirectoryRoot)
                 {
-                    Filter = $"(&(anr={objectName})(|(objectCategory=group)(objectCategory=person)))"
+                    // anr (Ambiguous Name Resolution) has some limitations with special characters, have to escape them
+                    Filter = $"(&(anr={EscapeLdapFilter(objectName)})(|(objectCategory=group)(objectCategory=person)))"
                 })
             {
                 searcher.PropertiesToLoad.AddRange(adProps);
@@ -66,11 +66,11 @@ namespace Dorc.Core
 
                             var enabled = !Convert.ToBoolean(flags & 0x0002);
                             if (enabled)
-                                output.Add(de);
+                                output.Add(GetModelFromDirectoryEntry(de));
                         }
                         if (de.Properties["objectClass"]?.Contains("group") == true)
                         {
-                            output.Add(de);
+                            output.Add(GetModelFromDirectoryEntry(de));
                         }
                     }
                 }
@@ -79,11 +79,64 @@ namespace Dorc.Core
             return output;
         }
 
+        public static string EscapeLdapFilter(string filter)
+        {
+            if (string.IsNullOrEmpty(filter)) return filter;
+
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in filter)
+            {
+                switch (c)
+                {
+                    case '\\':
+                        sb.Append("\\5c");
+                        break;
+                    case '*':
+                        sb.Append("\\2a");
+                        break;
+                    case '(':
+                        sb.Append("\\28");
+                        break;
+                    case ')':
+                        sb.Append("\\29");
+                        break;
+                    case '\u0000':
+                        sb.Append("\\00");
+                        break;
+                    case '/':
+                        sb.Append("\\2f");
+                        break;
+                    default:
+                        sb.Append(c);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        private UserElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
+        {
+            var displayName = GetSafeString(de.Properties, "displayName");
+            if (string.IsNullOrEmpty(displayName))
+            {
+                displayName = GetSafeString(de.Properties, "cn");
+            }
+
+            return new UserElementApiModel()
+            {
+                Username = GetSafeString(de.Properties, "SAMAccountName"),
+                DisplayName = displayName,
+                Sid = GetSidString((byte[])de.Properties["objectSid"].Value),
+                IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
+                Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
+            };
+        }
+
         [DllImport("advapi32", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern bool ConvertSidToStringSid([MarshalAs(UnmanagedType.LPArray)] byte[] pSID,
             out nint ptrSid);
 
-        public static string? GetSidString(byte[] sid)
+        private static string? GetSidString(byte[] sid)
         {
             string? sidString;
             if (!ConvertSidToStringSid(sid, out var ptrSid))
@@ -100,38 +153,61 @@ namespace Dorc.Core
             return sidString;
         }
 
-        public UserApiModel GetUserByLanId(string lanId)
+        private byte[] ConvertSidStringToByteArray(string sid)
         {
-            var user = _usersPersistentSource.GetUser(lanId);
+            var securityIdentifier = new SecurityIdentifier(sid);
 
-            // Can't find in the DB now look in AD
-            if (user != null)
-                return user;
+            byte[] sidBytes = new byte[securityIdentifier.BinaryLength];
+            securityIdentifier.GetBinaryForm(sidBytes, 0);
 
-            try
-            {
-                var activeDirectoryElementApiModel = GetUserIdActiveDirectory(lanId);
-                return new UserApiModel
-                {
-                    DisplayName = activeDirectoryElementApiModel.DisplayName,
-                    LanId = activeDirectoryElementApiModel.Username,
-                    LoginId = activeDirectoryElementApiModel.Username,
-                    LoginType = "Windows",
-                    LanIdType = activeDirectoryElementApiModel.IsGroup ? "GROUP" : "USER"
-                };
-            }
-            catch (Exception)
-            {
-                var errMsg = $"Unable to locate user {lanId}";
-                _log.Warn(errMsg);
-            }
-
-            return null;
+            return sidBytes;
         }
 
-        public ActiveDirectoryElementApiModel GetUserIdActiveDirectory(string id)
+        public UserElementApiModel GetUserDataById(string sid)
         {
-            if (!Regex.IsMatch(id, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
+            if (string.IsNullOrEmpty(sid))
+            {
+                throw new ArgumentException("SID cannot be null or empty.");
+            }
+
+            byte[] sidBytes = ConvertSidStringToByteArray(sid);
+
+            using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
+            {
+                SearchScope = SearchScope.Subtree,
+                Filter = $"(objectSid={Encoding.ASCII.GetString(sidBytes)})"
+            })
+            {
+                dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
+                dirSearcher.PropertiesToLoad.Add("displayName");
+                dirSearcher.PropertiesToLoad.Add("sAMAccountName");
+
+                using (var searchResults = dirSearcher.FindAll())
+                {
+                    foreach (SearchResult sr in searchResults)
+                    {
+                        var de = sr.GetDirectoryEntry();
+
+                        if (!IsActive(de))
+                        {
+                            continue;
+                        }
+
+                        var entity = GetModelFromDirectoryEntry(de);
+
+                        entity.Sid = sid;
+
+                        return entity;
+                    }
+                }
+            }
+
+            throw new ArgumentException($"Failed to locate an entity with SID: {sid}");
+        }
+
+        public UserElementApiModel GetUserData(string name)
+        {
+            if (!Regex.IsMatch(name, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
             {
                 throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
             }
@@ -140,7 +216,7 @@ namespace Dorc.Core
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = string.Format("(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))",
-                    id)
+                    name)
             })
             {
                 dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
@@ -159,14 +235,8 @@ namespace Dorc.Core
                         if (!IsActive(de))
                         { continue; }
 
-                        var user = new ActiveDirectoryElementApiModel
-                        {
-                            Username = de.Properties.Contains("SAMAccountName") ? de.Properties["SAMAccountName"][0].ToString() : string.Empty,
-                            DisplayName = de.Properties.Contains("DisplayName") ? de.Properties["DisplayName"][0].ToString() : string.Empty,
-                            Sid = Sid,
-                            IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
-                            Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
-                        };
+                        var user = GetModelFromDirectoryEntry(de);
+                        user.Sid = Sid;
 
                         return user;
                     }
@@ -175,6 +245,64 @@ namespace Dorc.Core
 
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
+
+        public List<string> GetSidsForUser(string samAccountName)
+        {
+            var result = new HashSet<string>();
+            var name = samAccountName;
+
+            DirectorySearcher ds = new DirectorySearcher();
+
+            ds.Filter = $"(&(objectClass=user)(sAMAccountName={name}))";
+            SearchResult sr = ds.FindOne();
+
+            DirectoryEntry user = sr.GetDirectoryEntry();
+            user.RefreshCache(new string[] { "tokenGroups" });
+
+            for (int i = 0; i < user.Properties["tokenGroups"].Count; i++)
+            {
+                SecurityIdentifier sid = new SecurityIdentifier((byte[])user.Properties["tokenGroups"][i], 0);
+                result.Add(sid.ToString());
+            }
+
+            var f = new NTAccount(samAccountName);
+            var s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
+            var sidString = s.ToString();
+
+            result.Add(sidString);
+
+            var sidList = result.ToList();
+
+            return sidList;
+        }
+
+        public string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName)
+        {
+            using (var context = new PrincipalContext(ContextType.Domain, null, domainName))
+            {
+                try
+                {
+                    using (var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.SamAccountName, groupName))
+                    {
+                        if (groupPrincipal != null)
+                        {
+                            var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, userName);
+                            if (userPrincipal != null && groupPrincipal.GetMembers(true).Contains(userPrincipal))
+                            {
+                                return groupPrincipal.Sid.Value;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new System.Configuration.Provider.ProviderException("Unable to query Active Directory.", ex);
+                }
+            }
+
+            return string.Empty;
+        }
+
         private static bool IsActive(DirectoryEntry de)
         {
             if (de.NativeGuid == null) return false;

@@ -56,6 +56,9 @@ namespace Dorc.PersistentData.Sources
 
                 if (existingAccessControl == null) return null;
 
+                existingAccessControl.Pid = accessControl.Pid;
+                existingAccessControl.Sid = accessControl.Sid;
+                existingAccessControl.Name = accessControl.Name;
                 existingAccessControl.Allow = accessControl.Allow;
                 existingAccessControl.Deny = accessControl.Deny;
 
@@ -111,7 +114,8 @@ namespace Dorc.PersistentData.Sources
                 Deny = ac.Deny,
                 Id = ac.Id,
                 Name = ac.Name,
-                Sid = ac.Sid
+                Sid = ac.Sid,
+                Pid = ac.Pid,
             };
         }
 
@@ -125,7 +129,8 @@ namespace Dorc.PersistentData.Sources
                 Id = ac.Id,
                 Name = ac.Name,
                 ObjectId = objectId,
-                Sid = ac.Sid
+                Pid = ac.Pid,
+                Sid = ac.Sid,
             };
         }
     }

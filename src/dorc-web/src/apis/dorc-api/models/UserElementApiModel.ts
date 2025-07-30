@@ -13,32 +13,37 @@
 
 /**
  * @export
- * @interface ActiveDirectoryElementApiModel
+ * @interface UserElementApiModel
  */
-export interface ActiveDirectoryElementApiModel {
+export interface UserElementApiModel {
     /**
      * @type {string}
-     * @memberof ActiveDirectoryElementApiModel
+     * @memberof UserElementApiModel
      */
     DisplayName?: string | null;
     /**
      * @type {string}
-     * @memberof ActiveDirectoryElementApiModel
+     * @memberof UserElementApiModel
      */
     Sid?: string | null;
     /**
      * @type {string}
-     * @memberof ActiveDirectoryElementApiModel
+     * @memberof UserElementApiModel
+     */
+    Pid?: string | null;
+    /**
+     * @type {string}
+     * @memberof UserElementApiModel
      */
     Username?: string | null;
     /**
      * @type {boolean}
-     * @memberof ActiveDirectoryElementApiModel
+     * @memberof UserElementApiModel
      */
     IsGroup?: boolean;
     /**
      * @type {string}
-     * @memberof ActiveDirectoryElementApiModel
+     * @memberof UserElementApiModel
      */
     Email?: string | null;
 }

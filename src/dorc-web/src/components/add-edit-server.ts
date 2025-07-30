@@ -16,6 +16,7 @@ import {
 } from '../apis/dorc-api';
 import { WarningNotification } from './notifications/warning-notification';
 import { ErrorNotification } from './notifications/error-notification';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('add-edit-server')
 export class AddEditServer extends LitElement {
@@ -323,7 +324,10 @@ export class AddEditServer extends LitElement {
 
   private showError(err: any) {
     const notification = new ErrorNotification();
-    notification.setAttribute('errorMessage', err.response.Message);
+    
+    const errorMessage = retrieveErrorMessage(err, 'Failed to save server');
+    
+    notification.setAttribute('errorMessage', errorMessage);
     this.shadowRoot?.appendChild(notification);
     notification.open();
     console.error(err);

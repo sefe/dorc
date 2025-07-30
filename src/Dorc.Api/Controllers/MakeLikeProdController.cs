@@ -27,7 +27,6 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
-        private readonly IActiveDirectoryUserGroupReader _activeDirectoryReader;
         private readonly IVariableResolver _variableResolver;
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
@@ -36,7 +35,6 @@ namespace Dorc.Api.Controllers
         public MakeLikeProdController(ILog logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
-            IActiveDirectoryUserGroupReader activeDirectoryReader,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
@@ -46,7 +44,6 @@ namespace Dorc.Api.Controllers
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
             _variableResolver = variableResolver;
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;
-            _activeDirectoryReader = activeDirectoryReader;
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -150,6 +147,12 @@ namespace Dorc.Api.Controllers
                         case BundledRequestType.JobRequest:
                             var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
 
+                            // Skip JobRequest if Components is null or empty (Mini MLP)
+                            if (job.Components == null || !job.Components.Any())
+                            {
+                                break;
+                            }
+
                             _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
                             _variableResolver.LoadProperties();
                             List<RequestProperty> variables = new();
@@ -170,23 +173,24 @@ namespace Dorc.Api.Controllers
                             var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
                             if (copyEnvBuildRequest != null)
                             {
-                                if (copyEnvBuildRequest.Components.Any())
+                                if (copyEnvBuildRequest.Components != null && copyEnvBuildRequest.Components.Any())
                                 {
                                     reqIds.AddRange(_deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         copyEnvBuildRequest.Components.ToArray(), User));
                                 }
-                                else
+                                else if (copyEnvBuildRequest.Components == null)
                                 {
                                     reqIds.AddRange(_deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         User));
                                 }
+                                // If Components is not null but empty, skip CopyEnvBuild entirely (Mini MLP)
                             }
                             break;
                     }
 
-                    if (initialRequestIdNotSet)
+                    if (initialRequestIdNotSet && reqIds.Any())
                     {
                         _variableResolver.SetPropertyValue("StartingRequestId", reqIds.First().ToString());
                         initialRequestIdNotSet = false;
@@ -204,7 +208,7 @@ namespace Dorc.Api.Controllers
 
         private string GetUserEmail(ClaimsPrincipal user)
         {
-            return _claimsPrincipalReader.GetUserEmail(user, _activeDirectoryReader);
+            return _claimsPrincipalReader.GetUserEmail(user);
         }
     }
 }

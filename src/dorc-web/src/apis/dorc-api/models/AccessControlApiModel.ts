@@ -41,4 +41,9 @@ export interface AccessControlApiModel {
      * @memberof AccessControlApiModel
      */
     Deny?: number;
+    /**
+     * @type {string}
+     * @memberof AccessControlApiModel
+     */
+    Pid?: string | null;
 }

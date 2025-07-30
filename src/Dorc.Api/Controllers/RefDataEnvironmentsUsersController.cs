@@ -71,9 +71,9 @@ namespace Dorc.Api.Controllers
         public IActionResult GetOwner(int id)
         {
             // DO NOT use the USERS table here!
-            var owner = _environmentsPersistentSource.GetEnvironmentOwner(id);
+            var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(id);
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserIdActiveDirectory(owner);
+            var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);
 
             return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory.DisplayName });
         }
@@ -96,34 +96,24 @@ namespace Dorc.Api.Controllers
                     new NonEnoughRightsException("User doesn't have \"Modify\" permission for this action!"));
             }
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserIdActiveDirectory(newOwner.DisplayName);
+            var userIdActiveDirectory = _activeDirectorySearcher.GetUserData(newOwner.DisplayName);
 
             var result = _environmentsPersistentSource.SetEnvironmentOwner(User, id, userIdActiveDirectory);
             return StatusCode(StatusCodes.Status200OK, result);
         }
 
         /// <summary>
-        ///     Get the logs for the specified request ID
+        /// Search users or groups in identity provider
         /// </summary>
         /// <param name="search"></param>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ActiveDirectoryElementApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<UserElementApiModel>))]
         [HttpGet("SearchUsers/{search}")]
         public IActionResult SearchUsers(string search)
         {
             var results = _activeDirectorySearcher.Search(search);
 
-            var objects = results
-                .Select(r => new ActiveDirectoryElementApiModel
-                {
-                    Sid = ActiveDirectorySearcher.GetSidString((byte[])r.Properties["objectsid"][0]),
-                    DisplayName = r.Properties.Contains("displayname")
-                        ? r.Properties["displayname"][0]?.ToString()
-                        : r.Properties["cn"][0]?.ToString(),
-                    Username = r.Properties["SAMAccountName"][0]?.ToString()
-                });
-
-            return StatusCode(StatusCodes.Status200OK, objects);
+            return StatusCode(StatusCodes.Status200OK, results);
         }
     }
 }

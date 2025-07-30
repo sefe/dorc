@@ -8,6 +8,7 @@ trigger:
 - fix/*
 - hotfix/*
 - migration/*
+- copilot/*
 
 pool:
   name: TRADING-DOTNET-03

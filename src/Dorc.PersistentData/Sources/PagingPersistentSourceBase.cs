@@ -7,38 +7,43 @@ using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Sources
 {
-    public class PagingPersistentSourceBase
+    public abstract class PagingPersistentSourceBase
     {
-        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
-            string username,
+        protected abstract IClaimsPrincipalReader ClaimsPrincipalReader { get; }
+
+        protected Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
+            IPrincipal user,
             IDeploymentContext context,
             IEnumerable<string> environments
             )
         {
-            var userSids = username.GetSidsForUser();
+            string username = ClaimsPrincipalReader.GetUserLogin(user);
+            var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
+
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                 where environments.Contains(ed.Name)
-                let isOwner = ed.Owner == username
                 let isDelegate =
                     (from envDetail in context.Environments
                         join env in context.Environments on envDetail.Name equals env.Name
                         where env.Name == environment.Name &&
                               envDetail.Users.Select(u => u.LoginId).Contains(username)
                         select envDetail.Name).Any()
-                let hasPermission = (from envDetail in context.Environments
+                let permissions = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
-                          (ac.Allow & (int)AccessLevel.Write) != 0
-                    select ed.Name).Any()
+                    where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)) &&
+                          (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
+                    select ac.Allow).ToList()
+                let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                 select new EnvironmentPrivInfo
                 {
                     Environment = ed,
-                    IsOwner = isOwner,
+                    IsOwner = permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
                     IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);
@@ -61,35 +66,37 @@ namespace Dorc.PersistentData.Sources
             return envPrivilegeInfos;
         }
 
-        protected static Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
-            string username,
+        protected Dictionary<string, EnvironmentPrivInfo> GetEnvironmentPrivInfos(
+            IPrincipal user,
             IDeploymentContext context
             )
         {
-            var userSids = username.GetSidsForUser();
+            string username = ClaimsPrincipalReader.GetUserLogin(user);
+            var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = new HashSet<string>(userSids);
 
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                let isOwner = ed.Owner == username
                 let isDelegate =
                     (from envDetail in context.Environments
                         join env in context.Environments on envDetail.Name equals env.Name
                         where env.Name == environment.Name &&
                               envDetail.Users.Select(u => u.LoginId).Contains(username)
                         select envDetail.Name).Any()
-                let hasPermission = (from envDetail in context.Environments
-                    join env in context.Environments on envDetail.Name equals env.Name
-                    join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && userSids.Contains(ac.Sid) &&
-                          (ac.Allow & (int)AccessLevel.Write) != 0
-                    select ed.Name).Any()
+                let permissions = (from envDetail in context.Environments
+                                join env in context.Environments on envDetail.Name equals env.Name
+                                join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
+                                where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)) &&
+                                        (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
+                                select ac.Allow).ToList()
+                let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                 select new EnvironmentPrivInfo
                 {
                     Environment = ed,
-                    IsOwner = isOwner,
+                    IsOwner = permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
                     IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);

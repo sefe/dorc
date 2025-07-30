@@ -16,10 +16,10 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
-    ActiveDirectoryElementApiModel,
     EnvironmentOwnerApiModel,
     UserAccountType,
     UserApiModel,
+    UserElementApiModel,
 } from '../models';
 
 export interface RefDataEnvironmentsUsersGetRequest {
@@ -114,12 +114,12 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
 
     /**
      */
-    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest): Observable<Array<ActiveDirectoryElementApiModel>>
-    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ActiveDirectoryElementApiModel>>>
-    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<Array<ActiveDirectoryElementApiModel> | AjaxResponse<Array<ActiveDirectoryElementApiModel>>> {
+    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest): Observable<Array<UserElementApiModel>>
+    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserElementApiModel>>>
+    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<Array<UserElementApiModel> | AjaxResponse<Array<UserElementApiModel>>> {
         throwIfNullOrUndefined(search, 'search', 'refDataEnvironmentsUsersSearchUsersSearchGet');
 
-        return this.request<Array<ActiveDirectoryElementApiModel>>({
+        return this.request<Array<UserElementApiModel>>({
             url: '/RefDataEnvironmentsUsers/SearchUsers/{search}'.replace('{search}', encodeURI(search)),
             method: 'GET',
         }, opts?.responseOpts);
