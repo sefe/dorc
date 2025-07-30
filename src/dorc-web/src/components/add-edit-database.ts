@@ -433,6 +433,10 @@ export class AddEditDatabase extends LitElement {
       this.infoMessage = '';
     } else {
       this.isNameValid = false;
+      // Clear the "Database Name already exists" message if the database doesn't exist
+      if (!foundDatabase) {
+        this.infoMessage = '';
+      }
     }
     this.canSubmit = this.isNameValid;
 
