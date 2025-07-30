@@ -745,6 +745,17 @@ export class PageVariables extends PageElement {
     );
 
     if (existingProperty && this.propertyName) {
+      // If changing from non-secure to secure, ask for confirmation
+      if (!existingProperty.Secure && checkbox.checked) {
+        const confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
+        
+        if (!confirm(confirmMessage)) {
+          // User cancelled, revert checkbox
+          checkbox.checked = false;
+          return;
+        }
+      }
+
       const updatedProperty: PropertyApiModel = {
         ...existingProperty,
         Secure: checkbox.checked
