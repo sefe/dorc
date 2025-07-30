@@ -92,6 +92,9 @@ namespace Dorc.Api.Controllers
                 _manageProjectsPersistentSource.DeleteComponents(flattenedComponents,
                     refData.Project.ProjectId);
 
+                // Create script audit records for all components with scripts
+                _manageProjectsPersistentSource.InsertScriptAuditsForComponents(refData.Components, HttpRequestType.Put, username);
+
                 refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
                 refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
@@ -124,14 +127,18 @@ namespace Dorc.Api.Controllers
 
             _projectsPersistentSource.InsertProject(refData.Project);
 
+            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+
             _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
                 refData.Project.ProjectId, _manageProjectsPersistentSource.CreateComponent);
+
+            // Create script audit records for all components with scripts  
+            _manageProjectsPersistentSource.InsertScriptAuditsForComponents(refData.Components, HttpRequestType.Post, username);
 
             refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
             refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
 
-            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
             _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Post,
                 refData);
 

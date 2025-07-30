@@ -23,11 +23,13 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IScriptAuditPersistentSource _scriptAuditPersistentSource;
 
-        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource)
+        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptAuditPersistentSource scriptAuditPersistentSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _contextFactory = contextFactory;
+            _scriptAuditPersistentSource = scriptAuditPersistentSource;
         }
 
         public void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel)
@@ -57,6 +59,47 @@ namespace Dorc.PersistentData.Sources
 
                 context.RefDataAudits.Add(refDataAudit);
                 context.SaveChanges();
+            }
+        }
+
+        public void InsertScriptAuditsForComponents(IList<ComponentApiModel> components, HttpRequestType requestType, string username)
+        {
+            if (components == null || string.IsNullOrEmpty(username)) return;
+            
+            var flattenedComponents = new List<ComponentApiModel>();
+            FlattenApiComponents(components, flattenedComponents);
+            
+            foreach (var component in flattenedComponents)
+            {
+                if (!string.IsNullOrEmpty(component.ScriptPath))
+                {
+                    // For components with scripts, we need to find the corresponding script in the database
+                    using (var context = _contextFactory.GetContext())
+                    {
+                        var script = context.Components
+                            .Include(c => c.Script)
+                            .Where(c => c.Id == component.ComponentId)
+                            .Select(c => c.Script)
+                            .FirstOrDefault();
+                            
+                        if (script != null)
+                        {
+                            var scriptApiModel = new ScriptApiModel
+                            {
+                                Id = script.Id,
+                                Name = script.Name,
+                                Path = script.Path,
+                                IsPathJSON = script.IsPathJSON,
+                                NonProdOnly = script.NonProdOnly,
+                                IsEnabled = component.IsEnabled ?? true,
+                                PowerShellVersionNumber = script.PowerShellVersionNumber
+                            };
+                            
+                            var actionType = requestType == HttpRequestType.Post ? ActionType.Create : ActionType.Update;
+                            _scriptAuditPersistentSource.InsertScriptAudit(username, actionType, scriptApiModel);
+                        }
+                    }
+                }
             }
         }
 

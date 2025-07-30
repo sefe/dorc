@@ -25,6 +25,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
 
         void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel);
 
+        void InsertScriptAuditsForComponents(IList<ComponentApiModel> components, HttpRequestType requestType, string username);
+
         GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators);
 
         IList<ComponentApiModel> GetOrderedComponents(IEnumerable<string> components);
