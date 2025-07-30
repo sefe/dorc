@@ -89,7 +89,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                     SetUpConfigValuesAsProperties();
 
-                    SetUpEnvironmentAsProperty(environment);
+                    SetUpEnvironmentAsProperty(environment, requestToExecute.Request);
 
                     SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
@@ -330,6 +330,11 @@ namespace Dorc.Monitor.RequestProcessors
         private void SetUpEnvironmentAsProperty(EnvironmentApiModel environment)
         {
             _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
+        }
+
+        private void SetUpEnvironmentAsProperty(EnvironmentApiModel environment, DeploymentRequestApiModel deploymentRequest)
+        {
+            _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment, deploymentRequest);
         }
 
         private void SetUpConfigValuesAsProperties()

@@ -21,19 +21,7 @@ namespace Dorc.Core.Lamar
                     secureKeyPersistentDataSource.GetSymmetricKey());
             });
 
-            For<IVariableScopeOptionsResolver>().Use(context => 
-            {
-                return new VariableScopeOptionsResolver(
-                    context.GetInstance<IPropertiesPersistentSource>(),
-                    context.GetInstance<IServersPersistentSource>(),
-                    context.GetInstance<IDaemonsPersistentSource>(),
-                    context.GetInstance<IDatabasesPersistentSource>(),
-                    context.GetInstance<IUserPermsPersistentSource>(),
-                    context.GetInstance<IEnvironmentsPersistentSource>(),
-                    context.GetInstance<log4net.ILog>(),
-                    context
-                );
-            });
+            For<IVariableScopeOptionsResolver>().Use<VariableScopeOptionsResolver>();
 
             For<IPropertyEvaluator>().Use<PropertyEvaluator>();
             For<ISecurityPrivilegesChecker>().Use<SecurityPrivilegesChecker>();

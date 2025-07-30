@@ -552,7 +552,8 @@ namespace Dorc.PersistentData.Sources
                 StartedTime = req.StartedTime,
                 Status = status.ToString(),
                 UserName = req.UserName,
-                UncLogPath = req.UncLogPath
+                UncLogPath = req.UncLogPath,
+                EnvironmentOwnerEmail = req.EnvironmentOwnerEmail
             };
         }
 

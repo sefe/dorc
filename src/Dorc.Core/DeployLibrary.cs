@@ -22,6 +22,7 @@ namespace Dorc.Core
         private readonly ILog _logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IActiveDirectorySearcher? _activeDirectorySearcher;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -29,7 +30,8 @@ namespace Dorc.Core
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ILog logger,
             IRequestsPersistentSource requestsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IActiveDirectorySearcher? activeDirectorySearcher = null
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
@@ -39,6 +41,7 @@ namespace Dorc.Core
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _activeDirectorySearcher = activeDirectorySearcher;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -134,12 +137,54 @@ namespace Dorc.Core
                     Project = requestDetail.BuildDetail.Project,
                     Environment = requestDetail.EnvironmentName,
                     BuildNumber = requestDetail.BuildDetail.BuildNumber,
-                    Components = string.Join("|", requestDetail.Components)
+                    Components = string.Join("|", requestDetail.Components),
+                    EnvironmentOwnerEmail = ResolveEnvironmentOwnerEmail(requestDetail.EnvironmentName)
                 };
 
             var requestId = _requestsPersistentSource.SubmitRequest(deploymentRequest);
 
             return requestId;
+        }
+
+        private string? ResolveEnvironmentOwnerEmail(string environmentName)
+        {
+            try
+            {
+                var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
+                if (environment == null)
+                {
+                    _logger.Debug($"Environment '{environmentName}' not found");
+                    return null;
+                }
+
+                var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(environment.EnvironmentId);
+                if (string.IsNullOrEmpty(ownerId))
+                {
+                    _logger.Debug($"No environment owner ID found for environment '{environmentName}'");
+                    return null;
+                }
+
+                if (_activeDirectorySearcher == null)
+                {
+                    _logger.Debug("Active Directory searcher not available, cannot resolve environment owner email");
+                    return null;
+                }
+
+                var userData = _activeDirectorySearcher.GetUserDataById(ownerId);
+                if (userData != null && !string.IsNullOrEmpty(userData.Email))
+                {
+                    _logger.Debug($"Resolved environment owner email for '{environmentName}': {userData.Email}");
+                    return userData.Email;
+                }
+
+                _logger.Warn($"Could not resolve email for environment owner ID '{ownerId}' in environment '{environmentName}'");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Error resolving environment owner email for environment '{environmentName}': {ex.Message}", ex);
+                return null;
+            }
         }
 
         private CreateResponse CreateRequest(ProjectApiModel project, EnvironmentApiModel environment,

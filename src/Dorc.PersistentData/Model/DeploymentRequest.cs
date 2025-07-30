@@ -39,6 +39,8 @@ namespace Dorc.PersistentData.Model
 
         public string? Components { get; set; }
         public string? UncLogPath { get; set; }
+        
+        public string? EnvironmentOwnerEmail { get; set; }
 
         public string DropLocation
         {

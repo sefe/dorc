@@ -18,8 +18,6 @@ namespace Dorc.Core.Tests
         private IDatabasesPersistentSource _databasesPersistentSource;
         private IUserPermsPersistentSource _userPermsPersistentSource;
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private IActiveDirectorySearcher _directorySearcher;
-        private IServiceProvider _serviceProvider;
         private ILog _logger;
         private IVariableResolver _variableResolver;
         private VariableScopeOptionsResolver _resolver;
@@ -33,13 +31,8 @@ namespace Dorc.Core.Tests
             _databasesPersistentSource = Substitute.For<IDatabasesPersistentSource>();
             _userPermsPersistentSource = Substitute.For<IUserPermsPersistentSource>();
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
-            _directorySearcher = Substitute.For<IActiveDirectorySearcher>();
-            _serviceProvider = Substitute.For<IServiceProvider>();
             _logger = Substitute.For<ILog>();
             _variableResolver = Substitute.For<IVariableResolver>();
-
-            // Configure service provider to return the directory searcher
-            _serviceProvider.GetService(typeof(IActiveDirectorySearcher)).Returns(_directorySearcher);
 
             _resolver = new VariableScopeOptionsResolver(
                 _propertiesPersistentSource,
@@ -48,8 +41,7 @@ namespace Dorc.Core.Tests
                 _databasesPersistentSource,
                 _userPermsPersistentSource,
                 _environmentsPersistentSource,
-                _logger,
-                _serviceProvider);
+                _logger);
 
             // Setup default empty returns for required calls
             _databasesPersistentSource.GetDatabasesForEnvironmentName(Arg.Any<string>()).Returns(new List<DatabaseApiModel>());
@@ -57,7 +49,7 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void SetPropertyValues_SetsEnvironmentOwnerEmail_WhenOwnerFoundAndEmailResolved()
+        public void SetPropertyValues_WithDeploymentRequest_SetsEnvironmentOwnerEmailFromRequest()
         {
             // Arrange
             var environment = new EnvironmentApiModel 
@@ -66,23 +58,50 @@ namespace Dorc.Core.Tests
                 EnvironmentName = "TestEnv",
                 Details = new EnvironmentDetailsApiModel()
             };
+            var deploymentRequest = new DeploymentRequestApiModel
+            {
+                EnvironmentOwnerEmail = "test.owner@example.com"
+            };
             var ownerId = "user123";
-            var ownerEmail = "test.owner@example.com";
-            var userData = new UserElementApiModel { Email = ownerEmail, Pid = ownerId };
 
             _environmentsPersistentSource.GetEnvironmentOwnerId(123).Returns(ownerId);
-            _directorySearcher.GetUserDataById(ownerId).Returns(userData);
 
             // Act
-            _resolver.SetPropertyValues(_variableResolver, environment);
+            _resolver.SetPropertyValues(_variableResolver, environment, deploymentRequest);
 
             // Assert
             _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, ownerEmail);
+            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, "test.owner@example.com");
         }
 
         [TestMethod]
-        public void SetPropertyValues_SetsEmptyEmail_WhenOwnerFoundButEmailNotResolved()
+        public void SetPropertyValues_WithDeploymentRequestButNoEmail_SetsEmptyEmail()
+        {
+            // Arrange
+            var environment = new EnvironmentApiModel 
+            { 
+                EnvironmentId = 123, 
+                EnvironmentName = "TestEnv",
+                Details = new EnvironmentDetailsApiModel()
+            };
+            var deploymentRequest = new DeploymentRequestApiModel
+            {
+                EnvironmentOwnerEmail = null
+            };
+            var ownerId = "user123";
+
+            _environmentsPersistentSource.GetEnvironmentOwnerId(123).Returns(ownerId);
+
+            // Act
+            _resolver.SetPropertyValues(_variableResolver, environment, deploymentRequest);
+
+            // Assert
+            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
+            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+        }
+
+        [TestMethod]
+        public void SetPropertyValues_WithoutDeploymentRequest_SetsEmptyEmail()
         {
             // Arrange
             var environment = new EnvironmentApiModel 
@@ -92,10 +111,8 @@ namespace Dorc.Core.Tests
                 Details = new EnvironmentDetailsApiModel()
             };
             var ownerId = "user123";
-            var userData = new UserElementApiModel { Email = null, Pid = ownerId };
 
             _environmentsPersistentSource.GetEnvironmentOwnerId(123).Returns(ownerId);
-            _directorySearcher.GetUserDataById(ownerId).Returns(userData);
 
             // Act
             _resolver.SetPropertyValues(_variableResolver, environment);
@@ -124,84 +141,6 @@ namespace Dorc.Core.Tests
             // Assert
             _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
             _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
-        }
-
-        [TestMethod]
-        public void SetPropertyValues_SetsEmptyEmail_WhenDirectorySearcherIsNull()
-        {
-            // Arrange
-            var environment = new EnvironmentApiModel 
-            { 
-                EnvironmentId = 123, 
-                EnvironmentName = "TestEnv",
-                Details = new EnvironmentDetailsApiModel()
-            };
-            var ownerId = "user123";
-
-            var resolverWithoutDirectorySearcher = new VariableScopeOptionsResolver(
-                _propertiesPersistentSource,
-                _serversPersistentSource,
-                _daemonsPersistentSource,
-                _databasesPersistentSource,
-                _userPermsPersistentSource,
-                _environmentsPersistentSource,
-                _logger,
-                null); // No service provider
-
-            _environmentsPersistentSource.GetEnvironmentOwnerId(123).Returns(ownerId);
-
-            // Act
-            resolverWithoutDirectorySearcher.SetPropertyValues(_variableResolver, environment);
-
-            // Assert
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
-        }
-
-        [TestMethod]
-        public void SetPropertyValues_HandlesDirectorySearcherException_Gracefully()
-        {
-            // Arrange
-            var environment = new EnvironmentApiModel 
-            { 
-                EnvironmentId = 123, 
-                EnvironmentName = "TestEnv",
-                Details = new EnvironmentDetailsApiModel()
-            };
-            var ownerId = "user123";
-
-            _environmentsPersistentSource.GetEnvironmentOwnerId(123).Returns(ownerId);
-            _directorySearcher.When(x => x.GetUserDataById(ownerId)).Do(x => throw new Exception("Directory service error"));
-
-            // Act
-            _resolver.SetPropertyValues(_variableResolver, environment);
-
-            // Assert
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
-            _logger.Received(1).Error(Arg.Any<string>(), Arg.Any<Exception>());
-        }
-
-        [TestMethod]
-        public void SetPropertyValues_HandlesEnvironmentsPersistentSourceException_Gracefully()
-        {
-            // Arrange
-            var environment = new EnvironmentApiModel 
-            { 
-                EnvironmentId = 123, 
-                EnvironmentName = "TestEnv",
-                Details = new EnvironmentDetailsApiModel()
-            };
-
-            _environmentsPersistentSource.When(x => x.GetEnvironmentOwnerId(123)).Do(x => throw new Exception("Database error"));
-
-            // Act
-            _resolver.SetPropertyValues(_variableResolver, environment);
-
-            // Assert
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
-            _variableResolver.Received(1).SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
-            _logger.Received(1).Error(Arg.Any<string>(), Arg.Any<Exception>());
         }
     }
 }
