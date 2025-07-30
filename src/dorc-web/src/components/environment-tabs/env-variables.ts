@@ -67,9 +67,9 @@ export class EnvVariables extends PageEnvBase {
 
   private propertyName = '';
 
-  variableValue: string = '';
-  variableName: string = '';
-  variableScope: string = '';
+  filterVariableValue: string = '';
+  filterVariableName: string = '';
+  filterVariableScope: string = '';
   isShowDefaultProps: boolean = false;
 
   static get styles() {
@@ -257,32 +257,32 @@ export class EnvVariables extends PageEnvBase {
                   callback: GridDataProviderCallback<FlatPropertyValueApiModel>
                 ) => {
                   if (
-                    this.variableValue !== '' &&
-                    this.variableValue !== undefined
+                    this.filterVariableValue !== '' &&
+                    this.filterVariableValue !== undefined
                   ) {
                     params.filters.push({
                       path: variableValue,
-                      value: this.variableValue
+                      value: this.filterVariableValue
                     });
                   }
 
                   if (
-                    this.variableName !== '' &&
-                    this.variableName !== undefined
+                    this.filterVariableName !== '' &&
+                    this.filterVariableName !== undefined
                   ) {
                     params.filters.push({
                       path: variableName,
-                      value: this.variableName
+                      value: this.filterVariableName
                     });
                   }
 
                   if (
-                    this.variableScope !== '' &&
-                    this.variableScope !== undefined
+                    this.filterVariableScope !== '' &&
+                    this.filterVariableScope !== undefined
                   ) {
                     params.filters.push({
                       path: variableScope,
-                      value: this.variableScope
+                      value: this.filterVariableScope
                     });
                   }
 
@@ -423,13 +423,13 @@ export class EnvVariables extends PageEnvBase {
     (field: string, value: string | boolean) => {
       switch (field) {
         case variableValue:
-          this.variableValue = value as string;
+          this.filterVariableValue = value as string;
           break;
         case variableName:
-          this.variableName = value as string;
+          this.filterVariableName = value as string;
           break;
         case variableScope:
-          this.variableScope = value as string;
+          this.filterVariableScope = value as string;
           break;
         case variableIsShowDefaultProps:
           this.isShowDefaultProps = !(value as boolean);
