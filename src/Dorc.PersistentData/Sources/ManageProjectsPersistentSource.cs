@@ -342,6 +342,9 @@ namespace Dorc.PersistentData.Sources
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
 
+                // Update ComponentType for all updates
+                component.ComponentType = apiComponent.ComponentType;
+
                 DuplicateComponent(apiComponent, component, context);
 
                 if (component.Parent == null && parentId != null)
