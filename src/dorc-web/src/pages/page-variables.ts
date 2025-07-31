@@ -746,29 +746,29 @@ export class PageVariables extends PageElement {
 
     if (existingProperty && this.propertyName) {
       // Store the original state for proper reverting
-      const originalSecureState = existingProperty.Secure ?? false;
+      const originallySecured = existingProperty.Secure ?? false;
       
       let confirmMessage = '';
       
-      if (!existingProperty.Secure && checkbox.checked) {
+      if (!originallySecured) {
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
-      } else if (existingProperty.Secure && !checkbox.checked) {
+      } else if (originallySecured) {
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
       }
       
-      const revertCheckboxTo = (originalSecureState: boolean) => {
+      const revertCheckboxState = () => {
         event.preventDefault();
-        checkbox.checked = originalSecureState;
+        checkbox.checked = originallySecured;
       };
 
-      if (confirmMessage && !confirm(confirmMessage)) {
-        revertCheckboxTo(originalSecureState);
+      if (!confirm(confirmMessage)) {
+        revertCheckboxState();
         return;
       }
 
       const updatedProperty: PropertyApiModel = {
         ...existingProperty,
-        Secure: !originalSecureState
+        Secure: !originallySecured
       };
 
       const api = new PropertiesApi();
@@ -778,10 +778,10 @@ export class PageVariables extends PageElement {
         next: (data: Response[]) => {
           if (data[0].Status === 'success') {
             // Update the local property object
-            existingProperty.Secure = !originalSecureState;
+            existingProperty.Secure = !originallySecured;
             
             let message = '';
-            if (!originalSecureState) {
+            if (!originallySecured) {
               message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
               message = `Property "${this.propertyName}" unsecured successfully.`;
@@ -795,12 +795,12 @@ export class PageVariables extends PageElement {
             // Reload page data to reflect changes
             this.loadVariableValues();
           } else {
-            revertCheckboxTo(originalSecureState)
+            revertCheckboxState();
             this.errorAlert([data[0]]);
           }
         },
         error: (err: any) => {
-          revertCheckboxTo(originalSecureState)
+          revertCheckboxState();
           this.errorAlert(err);
         },
         complete: () => console.log('done updating property security')
