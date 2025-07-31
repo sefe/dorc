@@ -11,13 +11,16 @@ namespace Dorc.Monitor
     {
         private readonly ILog logger;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IConfigValuesPersistentSource configValuesPersistentSource;
 
         public TerraformDispatcher(
             ILog logger,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IConfigValuesPersistentSource configValuesPersistentSource)
         {
             this.logger = logger;
             this.requestsPersistentSource = requestsPersistentSource;
+            this.configValuesPersistentSource = configValuesPersistentSource;
         }
 
         public async Task<bool> DispatchAsync(
@@ -111,6 +114,16 @@ namespace Dorc.Monitor
             string environmentName, 
             CancellationToken cancellationToken)
         {
+            // Get the script root from configuration
+            var scriptRoot = configValuesPersistentSource.GetConfigValue("ScriptRoot");
+            
+            // Resolve the full script path by combining script root with component script path
+            var fullScriptPath = string.IsNullOrEmpty(scriptRoot) 
+                ? component.ScriptPath 
+                : Path.Combine(scriptRoot, component.ScriptPath);
+
+            logger.Info($"Resolving Terraform script path for component '{component.ComponentName}': ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}', FullPath='{fullScriptPath}'");
+            
             // Create a unique working directory for this deployment
             var workingDir = Path.Combine(
                 Path.GetTempPath(), 
@@ -120,13 +133,14 @@ namespace Dorc.Monitor
             Directory.CreateDirectory(workingDir);
             
             // Copy Terraform files from component script path to working directory
-            if (!string.IsNullOrEmpty(component.ScriptPath) && Directory.Exists(component.ScriptPath))
+            if (!string.IsNullOrEmpty(fullScriptPath) && Directory.Exists(fullScriptPath))
             {
-                await CopyDirectoryAsync(component.ScriptPath, workingDir, cancellationToken);
+                logger.Info($"Copying Terraform files from '{fullScriptPath}' to working directory '{workingDir}'");
+                await CopyDirectoryAsync(fullScriptPath, workingDir, cancellationToken);
             }
             else
             {
-                throw new InvalidOperationException($"Terraform script path '{component.ScriptPath}' does not exist for component '{component.ComponentName}'");
+                throw new InvalidOperationException($"Terraform script path '{fullScriptPath}' does not exist for component '{component.ComponentName}'. ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}'");
             }
             
             return workingDir;

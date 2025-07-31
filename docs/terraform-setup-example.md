@@ -11,6 +11,19 @@ DOrc's Terraform Runner provides a complete workflow for deploying Terraform inf
 3. **Execution**: Approved plans are executed with full logging
 4. **Monitoring**: Status tracking throughout the deployment process
 
+## Prerequisites
+
+### Configure ScriptRoot
+
+Before setting up Terraform projects, ensure the `ScriptRoot` configuration value is set in DOrc. This determines the base directory where DOrc looks for component scripts.
+
+**Example**: If your Terraform projects are stored in `C:\DOrc\Scripts\`, set the ScriptRoot configuration value to `C:\DOrc\Scripts\`.
+
+The component's `ScriptPath` will be resolved relative to this ScriptRoot:
+- ScriptRoot: `C:\DOrc\Scripts\`
+- Component ScriptPath: `0001-Terraform\terraform-project`  
+- Full resolved path: `C:\DOrc\Scripts\0001-Terraform\terraform-project`
+
 ## Project Structure
 
 Create your Terraform project with the following structure:
@@ -379,20 +392,26 @@ Here's a complete example of the JSON format for project reference data with Ter
    - Ensure `ComponentType` is set to `"Terraform"` in component configuration
    - PowerShell components will not trigger the Terraform workflow
 
-2. **Invalid JSON format**
+2. **Terraform script path does not exist**
+   - Error: `Terraform script path 'path' does not exist for component 'name'`
+   - **Solution**: Ensure the ScriptRoot configuration is set correctly in DOrc
+   - **Check**: ScriptRoot + ComponentScriptPath should resolve to the actual Terraform files
+   - **Example**: ScriptRoot=`C:\DOrc\Scripts\`, ComponentScriptPath=`0001-Terraform\terraform-project` → Full path: `C:\DOrc\Scripts\0001-Terraform\terraform-project`
+
+3. **Invalid JSON format**
    - ScriptPath must be a string, not an object: `"ScriptPath": "path/to/terraform"`
    - ComponentType must be a string: `"ComponentType": "Terraform"`
 
-3. **Plan generation fails**
+4. **Plan generation fails**
    - Check Terraform file syntax
    - Verify all required variables are defined
    - Ensure Terraform is installed on DOrc servers
 
-4. **Permission errors**
+5. **Permission errors**
    - Verify user has deployment permissions for target environment
    - Check Azure credentials configuration
 
-5. **State lock errors**
+6. **State lock errors**
    - Ensure no other Terraform operations are running
    - Check Azure storage account accessibility
 
