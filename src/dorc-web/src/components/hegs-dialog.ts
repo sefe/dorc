@@ -34,10 +34,19 @@ export class HegsDialog extends LitElement {
         align-items: start;
         display: flex;
         justify-content: center;
-        width: calc(100% - 300px);
+        width: 100%;
         height: 100%;
         opacity: 1;
         visibility: visible;
+        padding: 0 20px;
+        box-sizing: border-box;
+      }
+
+      @media (min-width: 1000px) {
+        .wrapper.open {
+          width: calc(100% - 300px);
+          padding: 0;
+        }
       }
 
       .overlay {
@@ -61,6 +70,18 @@ export class HegsDialog extends LitElement {
         box-shadow:
           0 0 0 1px var(--lumo-shade-5pct),
           var(--lumo-box-shadow-xl);
+        max-width: calc(100vw - 40px);
+        max-height: calc(100vh - 40px);
+        overflow: auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      @media (min-width: 600px) {
+        .dialog {
+          width: auto;
+          min-width: 500px;
+        }
       }
 
       .dialog h2 {

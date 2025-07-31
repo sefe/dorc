@@ -68,13 +68,29 @@ export class AddEditEnvironment extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-width: 490px;
+        width: 100%;
+        min-width: 250px;
+        max-width: 490px;
         padding: 5px;
       }
 
+      @media (min-width: 600px) {
+        vaadin-text-field {
+          min-width: 490px;
+        }
+      }
+
       vaadin-combo-box {
-        min-width: 490px;
+        width: 100%;
+        min-width: 250px;
+        max-width: 490px;
         padding: 5px;
+      }
+
+      @media (min-width: 600px) {
+        vaadin-combo-box {
+          min-width: 490px;
+        }
       }
 
       vaadin-combo-box.vaadin-text-field {
