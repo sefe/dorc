@@ -221,8 +221,8 @@ export class PageVariables extends PageElement {
                     <vaadin-checkbox
                       id="is-variable-secure"
                       label="Secure"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                      @change="${this.updatePropertySecure}"
+                      ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
+                      @click="${this.updatePropertySecure}"
                     ></vaadin-checkbox>
                   </td>
                 </tr>
@@ -750,26 +750,25 @@ export class PageVariables extends PageElement {
       
       let confirmMessage = '';
       
-      // Ask for confirmation for both directions
       if (!existingProperty.Secure && checkbox.checked) {
-        // Changing from non-secure to secure
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
       } else if (existingProperty.Secure && !checkbox.checked) {
-        // Changing from secure to non-secure
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
       }
       
+      const revertCheckboxTo = (originalSecureState: boolean) => {
+        event.preventDefault();
+        checkbox.checked = originalSecureState;
+      };
+
       if (confirmMessage && !confirm(confirmMessage)) {
-        // User cancelled, revert checkbox - use setTimeout to ensure it works properly
-        setTimeout(() => {
-          checkbox.checked = originalSecureState;
-        }, 0);
+        revertCheckboxTo(originalSecureState);
         return;
       }
 
       const updatedProperty: PropertyApiModel = {
         ...existingProperty,
-        Secure: checkbox.checked
+        Secure: !originalSecureState
       };
 
       const api = new PropertiesApi();
@@ -779,11 +778,10 @@ export class PageVariables extends PageElement {
         next: (data: Response[]) => {
           if (data[0].Status === 'success') {
             // Update the local property object
-            existingProperty.Secure = checkbox.checked;
+            existingProperty.Secure = !originalSecureState;
             
-            // Show single success notification with encryption info if applicable
             let message = '';
-            if (checkbox.checked) {
+            if (!originalSecureState) {
               message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
               message = `Property "${this.propertyName}" unsecured successfully.`;
@@ -797,18 +795,12 @@ export class PageVariables extends PageElement {
             // Reload page data to reflect changes
             this.loadVariableValues();
           } else {
-            // Revert checkbox if update failed
-            setTimeout(() => {
-              checkbox.checked = originalSecureState;
-            }, 0);
+            revertCheckboxTo(originalSecureState)
             this.errorAlert([data[0]]);
           }
         },
         error: (err: any) => {
-          // Revert checkbox if update failed
-          setTimeout(() => {
-            checkbox.checked = originalSecureState;
-          }, 0);
+          revertCheckboxTo(originalSecureState)
           this.errorAlert(err);
         },
         complete: () => console.log('done updating property security')
