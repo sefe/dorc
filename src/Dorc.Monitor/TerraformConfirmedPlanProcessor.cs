@@ -82,21 +82,39 @@ namespace Dorc.Monitor
                 var confirmedResults = new List<DeploymentResultApiModel>();
                 
                 // Get running and recently completed requests (they might have confirmed Terraform components)
-                var runningRequests = requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Running, true)
-                    .Concat(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Running, false))
-                    .Concat(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Completed, true))
-                    .Concat(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Completed, false));
+                var requests = new List<DeploymentRequestApiModel>();
                 
-                foreach (var request in runningRequests)
+                try
                 {
-                    var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(request.Id);
-                    
-                    foreach (var result in deploymentResults)
+                    requests.AddRange(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Running, true));
+                    requests.AddRange(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Running, false));
+                    requests.AddRange(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Completed, true));
+                    requests.AddRange(requestsPersistentSource.GetRequestsWithStatus(DeploymentRequestStatus.Completed, false));
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Failed to retrieve deployment requests: {ex.Message}", ex);
+                    return Enumerable.Empty<DeploymentResultApiModel>();
+                }
+                
+                foreach (var request in requests.Where(r => r != null))
+                {
+                    try
                     {
-                        if (result.Status == DeploymentResultStatus.Confirmed.ToString())
+                        var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(request.Id);
+                        
+                        foreach (var result in deploymentResults)
                         {
-                            confirmedResults.Add(result);
+                            if (result.Status == DeploymentResultStatus.Confirmed.ToString())
+                            {
+                                confirmedResults.Add(result);
+                            }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Warn($"Failed to get deployment results for request {request.Id}: {ex.Message}");
+                        // Continue processing other requests
                     }
                 }
                 
