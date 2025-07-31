@@ -24,11 +24,12 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasOne(environmentHistory => environmentHistory.Environment)
                 .WithMany(environment => environment.Histories)
                 .HasForeignKey(environmentHistory => environmentHistory.EnvId)
-                .IsRequired();
+                .IsRequired(false) // Allow null environment references for deleted environments
+                .OnDelete(DeleteBehavior.SetNull); // Set EnvId to null when environment is deleted
 
             builder
                 .Navigation(environmentHistory => environmentHistory.Environment)
-                .IsRequired();
+                .IsRequired(false); // Allow null environment navigation
         }
     }
 }

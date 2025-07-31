@@ -65,7 +65,7 @@ namespace Dorc.Api.Controllers
         public IActionResult Put(RefDataApiModel refData)
         {
             if (!_securityPrivilegesChecker.CanModifyProject(User, refData.Project.ProjectId))
-                StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
 
             try
             {
