@@ -362,15 +362,40 @@ namespace Dorc.PersistentData.Sources
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var sidSet = userSids.ToHashSet();
+
             using (var context = contextFactory.GetContext())
             {
-                var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
-                    ? AccessibleEnvironmentAdmin(context, environmentName)
-                    : AccessibleEnvironmentAccessLevel(context, userSids, username, environmentName);
-                var environments = from environment in accessibleEnvNames.ToList()
-                                   select MapToEnvironmentApiModel(environment);
+                var environment = EnvironmentUnifier.GetEnvironmentWithParentChild(context, environmentName);
+                var result = MapToEnvironmentApiModel(environment);
 
-                return environments.FirstOrDefault();
+                var envPermissions = context.AccessControls
+                    .Where(ac => ac.ObjectId == environment.ObjectId && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)))
+                    .ToList();
+
+                var isOwner = envPermissions
+                    .Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+                
+                result.IsOwner = isOwner;
+
+                if (_rolePrivilegesChecker.IsAdmin(user))
+                {
+                    result.UserEditable = true;
+                }
+                else
+                {                    
+                    var isDelegate = context.Environments
+                        .Where(env => env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username))
+                        .Select(env => env.Name).Any();
+
+                    var isModify = envPermissions
+                        .Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0);
+
+                    var userEditable = isOwner || isModify || isDelegate;
+                    result.UserEditable = userEditable;
+
+                }
+                return result;
             }
         }
 
@@ -607,15 +632,6 @@ namespace Dorc.PersistentData.Sources
                 .Select(env => new EnvironmentData { Environment = env, UserEditable = true });
         }
 
-        private static IQueryable<EnvironmentData> AccessibleEnvironmentAdmin(IDeploymentContext context,
-            string environmentName)
-        {
-            return from env in context.Environments.Include(e => e.AccessControls).Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
-                   where env.Name == environmentName
-                   select new EnvironmentData
-                   { Environment = env, UserEditable = true };
-        }
-
         private static IQueryable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             ICollection<string> userSids, string username)
         {
@@ -645,42 +661,6 @@ namespace Dorc.PersistentData.Sources
                           });
 
             return output;
-        }
-
-        private static IQueryable<EnvironmentData> AccessibleEnvironmentAccessLevel(IDeploymentContext context,
-            ICollection<string> userSids, string username, string environmentName)
-        {
-            var sidSet = userSids.ToHashSet(); // HashSet for faster lookup
-
-            var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
-            if (environment == null)
-            {
-                return Enumerable.Empty<EnvironmentData>().AsQueryable();
-            }
-            var isDelegate = (context.Environments
-                .Where(env => env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username))
-                .Select(env => env.Name).Any());
-
-            var envPermissions = context.AccessControls
-                .Where(ac => ac.ObjectId == environment.ObjectId && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)))
-                .ToList();
-
-            var isOwner = envPermissions
-                .Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
-            var isModify = envPermissions
-                .Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0);
-
-            return new List<EnvironmentData>
-            { 
-                new EnvironmentData
-                {
-                    Environment = environment,
-                    UserEditable = isOwner || isModify || isDelegate,
-                    IsDelegate = isDelegate,
-                    IsModify = isModify,
-                    IsOwner = isOwner
-                }
-            }.AsQueryable();
         }
 
         private string xPathToString(string value)
