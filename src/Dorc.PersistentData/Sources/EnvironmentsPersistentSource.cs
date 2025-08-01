@@ -652,32 +652,35 @@ namespace Dorc.PersistentData.Sources
         {
             var sidSet = userSids.ToHashSet(); // HashSet for faster lookup
 
-            var output = from
-                environment in context.Environments.Include(e => e.AccessControls).Include(e => e.ParentEnvironment).Include(e => e.ChildEnvironments)
-                         join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
-                             accessControlEnvironments
-                         from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                         where environment.Name == environmentName
-                         let isDelegate =
-                             (from env in context.Environments
-                              where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
-                              select environment.Name).Any()
-                         let permissions = (from env in context.Environments
-                                            join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                            where env.Name == environment.Name && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid))
-                                            select ac.Allow).ToList()
-                         let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
-                         let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
-                         select new EnvironmentData
-                         {
-                             Environment = environment,
-                             UserEditable = isOwner || isModify || isDelegate,
-                             IsDelegate = isDelegate,
-                             IsModify = isModify,
-                             IsOwner = isOwner
-                         };
+            var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
+            if (environment == null)
+            {
+                return Enumerable.Empty<EnvironmentData>().AsQueryable();
+            }
+            var isDelegate = (context.Environments
+                .Where(env => env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username))
+                .Select(env => env.Name).Any());
 
-            return output;
+            var envPermissions = context.AccessControls
+                .Where(ac => ac.ObjectId == environment.ObjectId && (sidSet.Contains(ac.Sid) || ac.Pid != null && sidSet.Contains(ac.Pid)))
+                .ToList();
+
+            var isOwner = envPermissions
+                .Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+            var isModify = envPermissions
+                .Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0);
+
+            return new List<EnvironmentData>
+            { 
+                new EnvironmentData
+                {
+                    Environment = environment,
+                    UserEditable = isOwner || isModify || isDelegate,
+                    IsDelegate = isDelegate,
+                    IsModify = isModify,
+                    IsOwner = isOwner
+                }
+            }.AsQueryable();
         }
 
         private string xPathToString(string value)
