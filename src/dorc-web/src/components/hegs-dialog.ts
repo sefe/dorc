@@ -53,7 +53,6 @@ export class HegsDialog extends LitElement {
         background: #ffffff;
         border-radius: 13px;
         padding: 1rem;
-        display: grid;
         position: absolute;
         z-index: 10;
         box-shadow:
