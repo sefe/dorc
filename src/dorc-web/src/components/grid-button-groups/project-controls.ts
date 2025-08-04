@@ -12,7 +12,7 @@ import { ProjectApiModel } from '../../apis/dorc-api';
 @customElement('project-controls')
 export class ProjectControls extends LitElement {
   @property({ type: Object }) project: ProjectApiModel | undefined;
-  @property({ type: Boolean }) isAdmin: boolean = false;
+  @property({ type: Boolean }) deleteHidden: boolean = true;
 
   static get styles() {
     return css`
@@ -75,18 +75,17 @@ export class ProjectControls extends LitElement {
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
-      ${this.isAdmin ? html`
-        <vaadin-button
-          title="Delete Project"
-          theme="icon"
-          @click="${this.deleteProject}"
-        >
-          <vaadin-icon
-            icon="icons:delete"
-            style="color: red"
-          ></vaadin-icon>
-        </vaadin-button>
-      ` : ''}
+      <vaadin-button
+        title="Delete Project"
+        theme="icon"
+        @click="${this.deleteProject}"
+        ?hidden="${this.deleteHidden}"
+      >
+        <vaadin-icon
+          icon="icons:delete"
+          style="color: red"
+        ></vaadin-icon>
+      </vaadin-button>
     `;
   }
 

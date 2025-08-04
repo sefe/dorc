@@ -263,6 +263,7 @@ export class PageProjectsList extends PageElement {
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
+                .attachedPPLControl="${this}"
                 .renderer="${this._projectEnvsButtonsRenderer}"
               ></vaadin-grid-column>
             </vaadin-grid>
@@ -294,8 +295,12 @@ export class PageProjectsList extends PageElement {
     { item }: GridItemModel<ProjectApiModel>
   ) {
     const project = item as ProjectApiModel;
+    // The below line has a horrible hack
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const altThis = _column.attachedPPLControl as PageProjectsList;
     render(
-      html` <project-controls .project="${project}" .isAdmin="${this.isAdmin}"></project-controls>`,
+      html` <project-controls .project="${project}" .deleteHidden="${!altThis.isAdmin}"></project-controls>`,
       root
     );
   }
