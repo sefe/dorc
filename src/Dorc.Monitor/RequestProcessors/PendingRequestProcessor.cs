@@ -91,6 +91,8 @@ namespace Dorc.Monitor.RequestProcessors
 
                     SetUpEnvironmentAsProperty(environment, requestToExecute.Request);
 
+                    SetUpEnvironmentOwnerEmailAsProperty(requestToExecute.Request);
+
                     SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
                     InitializeDeploymentRequest(
@@ -335,6 +337,18 @@ namespace Dorc.Monitor.RequestProcessors
         private void SetUpEnvironmentAsProperty(EnvironmentApiModel environment, DeploymentRequestApiModel deploymentRequest)
         {
             _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment, deploymentRequest);
+        }
+
+        private void SetUpEnvironmentOwnerEmailAsProperty(DeploymentRequestApiModel deploymentRequest)
+        {
+            if (!string.IsNullOrEmpty(deploymentRequest.EnvironmentOwnerEmail))
+            {
+                _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, deploymentRequest.EnvironmentOwnerEmail);
+            }
+            else
+            {
+                _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
+            }
         }
 
         private void SetUpConfigValuesAsProperties()

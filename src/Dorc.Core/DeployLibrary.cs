@@ -22,7 +22,7 @@ namespace Dorc.Core
         private readonly ILog _logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
-        private readonly IActiveDirectorySearcher? _activeDirectorySearcher;
+        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -31,7 +31,7 @@ namespace Dorc.Core
             ILog logger,
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IActiveDirectorySearcher? activeDirectorySearcher = null
+            IActiveDirectorySearcher activeDirectorySearcher
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
@@ -153,31 +153,24 @@ namespace Dorc.Core
                 var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
                 if (environment == null)
                 {
-                    _logger.Debug($"Environment '{environmentName}' not found");
+                    _logger.Debug($"Could not resolve email for environment {environmentName}");
                     return null;
                 }
 
                 var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(environment.EnvironmentId);
                 if (string.IsNullOrEmpty(ownerId))
                 {
-                    _logger.Debug($"No environment owner ID found for environment '{environmentName}'");
-                    return null;
-                }
-
-                if (_activeDirectorySearcher == null)
-                {
-                    _logger.Debug("Active Directory searcher not available, cannot resolve environment owner email");
+                    _logger.Debug($"Could not resolve email for environment {environmentName}");
                     return null;
                 }
 
                 var userData = _activeDirectorySearcher.GetUserDataById(ownerId);
                 if (userData != null && !string.IsNullOrEmpty(userData.Email))
                 {
-                    _logger.Debug($"Resolved environment owner email for '{environmentName}': {userData.Email}");
                     return userData.Email;
                 }
 
-                _logger.Warn($"Could not resolve email for environment owner ID '{ownerId}' in environment '{environmentName}'");
+                _logger.Debug($"Could not resolve email for environment {environmentName}");
                 return null;
             }
             catch (Exception ex)
@@ -332,21 +325,6 @@ namespace Dorc.Core
             }
         }
 
-        public List<int> CopyEnvBuildWithComponentIds(string sourceEnv, string targetEnv, string strProjectName,
-            int[] doDeploy, ClaimsPrincipal user)
-        {
-            var skipComponents = new[] { "" };
-            var project = _projectsPersistentSource.GetProject(strProjectName);
-            var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
-                .Where(x => !x.Children.Any())
-                .Where(x => doDeploy.Any(i => i == x.ComponentId))
-                .Select(x => new ProjectComponentPair { Project = strProjectName, Component = x.ComponentName }).ToArray();
-            var requestProperties = new RequestProperty[] { };
-            var response = CopyEnvironment(sourceEnv, targetEnv, projComponents, skipComponents, requestProperties, user);
-            var returnValue = response.Any() ? response : throw new Exception("CopyEnvBuildWithComponentIds Fail");
-            return returnValue;
-        }
-
         public List<int> CopyEnvBuildAllComponents(string sourceEnv, string targetEnv, string projectName,
             ClaimsPrincipal user)
         {
@@ -365,29 +343,18 @@ namespace Dorc.Core
             return returnValue;
         }
 
-        public List<int> DeployCopyEnvBuildWithComponentNames(string sourceEnv, string targetEnv, string projectName,
-            string components, ClaimsPrincipal user)
+        public List<int> CopyEnvBuildWithComponentIds(string sourceEnv, string targetEnv, string strProjectName,
+            int[] doDeploy, ClaimsPrincipal user)
         {
-            var dontDeploy = new[] { "" };
             var skipComponents = new[] { "" };
-            var project = _projectsPersistentSource.GetProject(projectName);
-            if (project == null) throw new WrongComponentsException($"Project \"{projectName}\" not found.");
-            var componentsNames = components.Split(';').ToList();
+            var project = _projectsPersistentSource.GetProject(strProjectName);
             var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
                 .Where(x => !x.Children.Any())
-                .Where(x => !dontDeploy.Contains(x.ComponentName));
-            foreach (var component in componentsNames)
-                if (!projComponents.Contains(_componentsPersistentSource.GetComponentByName(component)))
-                    throw new WrongComponentsException($"Component \"{component}\" doesn't belong to the project.");
-
-            var selectedComponents = componentsNames
-                .Select(x => new ProjectComponentPair { Project = projectName, Component = x }).ToArray();
-
+                .Where(x => doDeploy.Any(i => i == x.ComponentId))
+                .Select(x => new ProjectComponentPair { Project = strProjectName, Component = x.ComponentName }).ToArray();
             var requestProperties = new RequestProperty[] { };
-
-            var response = CopyEnvironment(sourceEnv, targetEnv, selectedComponents, skipComponents, requestProperties, user);
-            var returnValue = response.Any() ? response : throw new Exception("DeployCopyEnvBuildWithComponentNames Fail");
-
+            var response = CopyEnvironment(sourceEnv, targetEnv, projComponents, skipComponents, requestProperties, user);
+            var returnValue = response.Any() ? response : throw new Exception("CopyEnvBuildWithComponentIds Fail");
             return returnValue;
         }
     }

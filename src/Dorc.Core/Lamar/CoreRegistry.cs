@@ -14,6 +14,8 @@ namespace Dorc.Core.Lamar
 
             For<IDeployLibrary>().Use<DeployLibrary>();
 
+            For<ICopyEnvironmentsLibrary>().Use<CopyEnvironmentsLibrary>();
+
             For<IPropertyEncryptor>().Use(x =>
             {
                 var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();

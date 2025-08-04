@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Security.Principal;
+using Dorc.Core;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
@@ -25,7 +26,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             //Console.WriteLine(container.WhatDidIScan());
             //Console.WriteLine(container.WhatDoIHave());
 
-            var deployLibrary = container.GetInstance<IDeployLibrary>();
+            var copyEnvironmentsLibrary = container.GetInstance<ICopyEnvironmentsLibrary>();
             var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
             var intReturnCode = 0;
             
@@ -48,7 +49,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             {
                 try
                 {
-                    var result = deployLibrary.DeployCopyEnvBuildWithComponentNames(arguments.SourceEnv,
+                    var result = copyEnvironmentsLibrary.DeployCopyEnvBuildWithComponentNames(arguments.SourceEnv,
                         arguments.TargetEnv, arguments.Project,
                         arguments.Components, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
                     intReturnCode = 0;
@@ -68,7 +69,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             }
             else
             {
-                deployLibrary.CopyEnvBuildAllComponents(arguments.SourceEnv, arguments.TargetEnv, arguments.Project, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+                copyEnvironmentsLibrary.CopyEnvBuildAllComponents(arguments.SourceEnv, arguments.TargetEnv, arguments.Project, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
             }
 
             return intReturnCode;

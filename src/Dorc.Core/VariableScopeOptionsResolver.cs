@@ -206,31 +206,16 @@ namespace Dorc.Core
                 // Try to get environment owner email from deployment request first (if available)
                 if (deploymentRequest != null && !string.IsNullOrEmpty(deploymentRequest.EnvironmentOwnerEmail))
                 {
-                    _logger.Debug($"Using environment owner email from deployment request for environment '{environment.EnvironmentName}': {deploymentRequest.EnvironmentOwnerEmail}");
                     variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, deploymentRequest.EnvironmentOwnerEmail);
                 }
                 else
                 {
-                    _logger.Debug($"No environment owner email available for environment '{environment.EnvironmentName}'");
                     variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
-                }
-
-                // Set environment owner ID if available
-                var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(environment.EnvironmentId);
-                if (!string.IsNullOrEmpty(ownerId))
-                {
-                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, ownerId);
-                }
-                else
-                {
-                    _logger.Debug($"No environment owner ID found for environment '{environment.EnvironmentName}'");
-                    variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
                 }
             }
             catch (Exception ex)
             {
                 _logger.Error($"Error setting environment owner properties for environment '{environment.EnvironmentName}': {ex.Message}", ex);
-                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwner, string.Empty);
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentOwnerEmail, string.Empty);
             }
         }

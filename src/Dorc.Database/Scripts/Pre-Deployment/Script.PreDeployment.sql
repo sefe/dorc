@@ -9,10 +9,3 @@
                SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
-
--- Add EnvironmentOwnerEmail column to DeploymentRequest table if it doesn't exist
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('[deploy].[DeploymentRequest]') AND name = 'EnvironmentOwnerEmail')
-BEGIN
-    ALTER TABLE [deploy].[DeploymentRequest]
-    ADD [EnvironmentOwnerEmail] NVARCHAR(256) NULL
-END

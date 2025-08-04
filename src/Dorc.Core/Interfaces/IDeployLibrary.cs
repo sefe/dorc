@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using System.Security.Claims;
 
 namespace Dorc.Core.Interfaces
@@ -11,10 +11,8 @@ namespace Dorc.Core.Interfaces
 
         List<int> CopyEnvBuildWithComponentIds(string sourceEnv, string targetEnv, string strProjectName,
             int[] doDeploy, ClaimsPrincipal user);
+
         List<int> CopyEnvBuildAllComponents(string sourceEnv, string targetEnv, string projectName,
             ClaimsPrincipal user);
-
-        List<int> DeployCopyEnvBuildWithComponentNames(string sourceEnv, string targetEnv, string projectName,
-            string components, ClaimsPrincipal user);
     }
 }
