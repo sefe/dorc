@@ -23,5 +23,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool ProjectArtifactsUriFileValid(ProjectApiModel apiProject);
         bool ProjectArtifactsUriHttpValid(ProjectApiModel apiProject);
         Project GetSecurityObject(int projectId);
+        void DeleteProject(int projectId);
     }
 }
