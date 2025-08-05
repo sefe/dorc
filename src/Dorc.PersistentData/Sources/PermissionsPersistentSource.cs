@@ -34,10 +34,18 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var found = context.Permissions.First(u => u.Id == id);
-                found.DisplayName = perm.DisplayName;
-                found.Name = perm.PermissionName;
-                context.SaveChanges();
+                if (!context.Permissions.Any(u => u.DisplayName == perm.DisplayName))
+                {
+                    var found = context.Permissions.First(u => u.Id == id);
+                    found.DisplayName = perm.DisplayName;
+                    found.Name = perm.PermissionName;
+                    context.SaveChanges();
+                }
+                else
+                {
+                    throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" already exists");
+                }
+
                 return MapToPermssionDto(context.Permissions.First(u => u.Name == perm.PermissionName));
             }
         }
@@ -66,15 +74,14 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var found = context.Permissions.FirstOrDefault(u => u.Name == perm.PermissionName && u.DisplayName == perm.DisplayName);
-                if (found == null)
+                if (!context.Permissions.Any(u => u.DisplayName == perm.DisplayName))
                 {
                     context.Permissions.Add(MapToPermssion(perm));
                     context.SaveChanges();
                 }
                 else
                 {
-                    throw new ArgumentException($"Permission name \"{perm.PermissionName}\" already added with display name \"{found.DisplayName}\"");
+                    throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" already exists");
                 }
                 return MapToPermssionDto(context.Permissions.FirstOrDefault(u => u.Name == perm.PermissionName));
             }
