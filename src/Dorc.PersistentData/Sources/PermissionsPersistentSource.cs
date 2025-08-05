@@ -2,6 +2,7 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -34,29 +35,20 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                if (!context.Permissions.Any(u => u.DisplayName == perm.DisplayName && u.Id != id))
+                if (!context.Permissions.Any(u => u.Id != id 
+                    && EF.Functions.Collate(perm.DisplayName, DeploymentContext.CaseInsensitiveCollation)
+                    == EF.Functions.Collate(u.DisplayName, DeploymentContext.CaseInsensitiveCollation)))
                 {
                     var found = context.Permissions.First(u => u.Id == id);
                     found.DisplayName = perm.DisplayName;
                     found.Name = perm.PermissionName;
                     context.SaveChanges();
+                    return MapToPermssionDto(found);
                 }
                 else
                 {
                     throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" already exists");
                 }
-
-                return MapToPermssionDto(context.Permissions.First(u => u.Name == perm.PermissionName));
-            }
-        }
-
-        public void DeletePermission(PermissionDto perm)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var found = context.Permissions.First(u => u.Name == perm.PermissionName);
-                context.Permissions.Remove(found);
-                context.SaveChanges();
             }
         }
 
@@ -74,16 +66,17 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                if (!context.Permissions.Any(u => u.DisplayName == perm.DisplayName))
+                if (!context.Permissions.Any(u => EF.Functions.Collate(perm.DisplayName, DeploymentContext.CaseInsensitiveCollation)
+                                                == EF.Functions.Collate(u.DisplayName, DeploymentContext.CaseInsensitiveCollation)))
                 {
-                    context.Permissions.Add(MapToPermssion(perm));
+                    var added = context.Permissions.Add(MapToPermssion(perm));
                     context.SaveChanges();
+                    return MapToPermssionDto(added.Entity);
                 }
                 else
                 {
                     throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" already exists");
                 }
-                return MapToPermssionDto(context.Permissions.FirstOrDefault(u => u.Name == perm.PermissionName));
             }
         }
 
