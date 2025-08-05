@@ -159,7 +159,7 @@ namespace Dorc.Api.Controllers
         {
             if (!_rolePrivilegesChecker.IsAdmin(User) && !_rolePrivilegesChecker.IsPowerUser(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    "Projects can only be deleted by Admins!");
+                    "Projects can only be deleted by privileged users or Admins!");
 
             var projectApiModel = _projectsPersistentSource.GetProject(projectId);
             if (projectApiModel == null)
