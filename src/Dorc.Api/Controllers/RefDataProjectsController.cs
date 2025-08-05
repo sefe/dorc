@@ -157,7 +157,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK)]
         public IActionResult Delete(int projectId)
         {
-            if (!_rolePrivilegesChecker.IsAdmin(User))
+            if (!_rolePrivilegesChecker.IsAdmin(User) && !_rolePrivilegesChecker.IsPowerUser(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "Projects can only be deleted by Admins!");
 
@@ -165,8 +165,8 @@ namespace Dorc.Api.Controllers
             if (projectApiModel == null)
                 return StatusCode(StatusCodes.Status404NotFound, "Project not found!");
 
-            if (!_securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName) &&
-                !_rolePrivilegesChecker.IsAdmin(User))
+            if (!(_rolePrivilegesChecker.IsPowerUser(User) && _securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName)) 
+                && !_rolePrivilegesChecker.IsAdmin(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "Projects can only be deleted by privileged users or Admins!");
 
