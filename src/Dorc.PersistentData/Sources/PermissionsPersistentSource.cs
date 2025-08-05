@@ -34,7 +34,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                if (!context.Permissions.Any(u => u.DisplayName == perm.DisplayName))
+                if (!context.Permissions.Any(u => u.DisplayName == perm.DisplayName && u.Id != id))
                 {
                     var found = context.Permissions.First(u => u.Id == id);
                     found.DisplayName = perm.DisplayName;
