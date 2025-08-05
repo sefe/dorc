@@ -21,7 +21,6 @@ import { Notification } from '@vaadin/notification';
 import '../icons/notification-icons.js';
 import '../icons/hardware-icons.js';
 import { ErrorNotification } from './notifications/error-notification';
-import { BuildsApi } from '../apis/azure-devops-build';
 import type { DeploymentRequestApiModel } from '../apis/dorc-api';
 import {
   EnvironmentApiModel,
