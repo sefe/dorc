@@ -2,6 +2,7 @@ using Dorc.Api.Controllers;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -74,13 +75,38 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void DeleteProject_PowerUserDeletingExistingProject_Forbidden()
+        public void DeleteProject_PowerUserWithPermissionsDeletingExistingProject_Success()
         {
             // Arrange
             var projectId = 123;
-            
+            var project = new ProjectApiModel { ProjectId = projectId, ProjectName = "TestProject" };
+
             _rolePrivilegesChecker.IsPowerUser(_user).Returns(true);
             _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+            _securityPrivilegesChecker.CanModifyProject(_user, project.ProjectName).Returns(true);
+            _projectsPersistentSource.GetProject(projectId).Returns(project);
+
+            // Act
+            var result = _controller.Delete(projectId);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(200, objectResult.StatusCode);
+            _projectsPersistentSource.Received(1).DeleteProject(projectId);
+        }
+
+        [TestMethod]
+        public void DeleteProject_PowerUserWithoutPermissionsDeletingExistingProject_Forbidden()
+        {
+            // Arrange
+            var projectId = 123;
+            var project = new ProjectApiModel { ProjectId = projectId, ProjectName = "TestProject" };
+
+            _rolePrivilegesChecker.IsPowerUser(_user).Returns(true);
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+            _securityPrivilegesChecker.CanModifyProject(_user, project.ProjectName).Returns(false);
+            _projectsPersistentSource.GetProject(projectId).Returns(project);
 
             // Act
             var result = _controller.Delete(projectId);
@@ -89,7 +115,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(403, objectResult.StatusCode);
-            Assert.AreEqual("Projects can only be deleted by Admins!", objectResult.Value);
+            Assert.AreEqual("Projects can only be deleted by privileged users or Admins!", objectResult.Value);
             _projectsPersistentSource.DidNotReceive().DeleteProject(Arg.Any<int>());
         }
 
@@ -109,7 +135,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(403, objectResult.StatusCode);
-            Assert.AreEqual("Projects can only be deleted by Admins!", objectResult.Value);
+            Assert.AreEqual("Projects can only be deleted by privileged users or Admins!", objectResult.Value);
             _projectsPersistentSource.DidNotReceive().DeleteProject(Arg.Any<int>());
         }
 
