@@ -1,7 +1,6 @@
 let executed = false;
 let dorcApi = 'NotSet';
 let routePrefix = 'NotSet';
-let azureDevOpsAccessToken = 'NotSet';
 let dorcHelperPage = "NotSet";
 let _authenticationScheme: string = "NotSet";
 
@@ -10,7 +9,6 @@ export default class AppConfig {
   public appDescription = 'DOrc Web UI';
   public dorcApi = 'NotSet';
   public routePrefix = 'NotSet';
-  public azureDevOpsAccessToken = 'NotSet';
   public dorcHelperPage = "NotSet";
 
   constructor() {
@@ -30,14 +28,12 @@ export default class AppConfig {
         result = JSON.parse(xmlHttp.responseText);
         dorcApi = result.api;
         routePrefix = result.routePrefix;
-        azureDevOpsAccessToken = result.AzureDevOpsAccessToken;
         dorcHelperPage = result.dorcHelperPage;
         executed = true;
       }
     }
     this.routePrefix = routePrefix;
     this.dorcApi = dorcApi;
-    this.azureDevOpsAccessToken = azureDevOpsAccessToken;
     this.dorcHelperPage = dorcHelperPage;
   }
 
