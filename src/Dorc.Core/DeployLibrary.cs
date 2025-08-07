@@ -212,13 +212,6 @@ namespace Dorc.Core
 
                     var artifacts =
                         azureDevOpsServerWebClient.GetBuildArtifacts(project.ArtefactsUrl, adoProject, createRequest.BuildUrl);
-                    
-                    if (artifacts == null || artifacts.Count == 0)
-                    {
-                        throw new InvalidOperationException(
-                            "Can't find artifact, ensure that it was published correctly in Azure DevOps");
-                    }
-                    
                     if (artifacts.Count > 1)
                     {
                         var drop = artifacts.FirstOrDefault(v => v.Name.ToLower().Equals("drop"));
@@ -226,7 +219,9 @@ namespace Dorc.Core
                     }
                     else
                     {
-                        buildDetail.DropLocation = artifacts[0].Resource.DownloadUrl;
+                        buildDetail.DropLocation = artifacts.Count == 1
+                            ? artifacts[0].Resource.DownloadUrl
+                            : string.Empty;
                     }
 
                     buildDetail.BuildNumber = buildValue.BuildNumber;
