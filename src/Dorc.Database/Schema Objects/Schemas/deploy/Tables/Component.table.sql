@@ -8,7 +8,8 @@
     [ParentId]      INT                                                NULL,
     [IsEnabled]     BIT                                                NOT NULL DEFAULT 1,
     [StopOnFailure] BIT                                                NOT NULL,
-    [ScriptId]      INT                                                NULl
+    [ScriptId]      INT                                                NULl,
+    [ComponentType] INT                                                NOT NULL DEFAULT 0
     CONSTRAINT [PK_Component] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 
