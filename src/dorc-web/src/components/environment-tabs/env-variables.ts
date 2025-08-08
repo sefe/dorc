@@ -39,7 +39,8 @@ import { ErrorNotification } from '../notifications/error-notification';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
-const variableSecure = 'PropertyValueScope';
+const variableScope = 'PropertyValueScope';
+const variableIsShowDefaultProps = 'ShowDefaults';
 
 let _environment: EnvironmentApiModel | undefined;
 @customElement('env-variables')
@@ -66,9 +67,10 @@ export class EnvVariables extends PageEnvBase {
 
   private propertyName = '';
 
-  variableValue: string = '';
-  variableName: string = '';
-  variableSecure: boolean = false;
+  filterVariableValue: string = '';
+  filterVariableName: string = '';
+  filterVariableScope: string = '';
+  isShowDefaultProps: boolean = false;
 
   static get styles() {
     return css`
@@ -255,29 +257,39 @@ export class EnvVariables extends PageEnvBase {
                   callback: GridDataProviderCallback<FlatPropertyValueApiModel>
                 ) => {
                   if (
-                    this.variableValue !== '' &&
-                    this.variableValue !== undefined
+                    this.filterVariableValue !== '' &&
+                    this.filterVariableValue !== undefined
                   ) {
                     params.filters.push({
                       path: variableValue,
-                      value: this.variableValue
+                      value: this.filterVariableValue
                     });
                   }
 
                   if (
-                    this.variableName !== '' &&
-                    this.variableName !== undefined
+                    this.filterVariableName !== '' &&
+                    this.filterVariableName !== undefined
                   ) {
                     params.filters.push({
                       path: variableName,
-                      value: this.variableName
+                      value: this.filterVariableName
                     });
                   }
 
-                  if (this.variableSecure) {
+                  if (
+                    this.filterVariableScope !== '' &&
+                    this.filterVariableScope !== undefined
+                  ) {
                     params.filters.push({
-                      path: variableSecure,
-                      value: _environment?.EnvironmentName ?? ''
+                      path: variableScope,
+                      value: this.filterVariableScope
+                    });
+                  }
+
+                  if (this.isShowDefaultProps && _environment?.EnvironmentName) {
+                    params.filters.push({
+                      path: variableScope,
+                      value: _environment.EnvironmentName
                     });
                   }
 
@@ -289,7 +301,7 @@ export class EnvVariables extends PageEnvBase {
                           Filters: params.filters.map(
                             (f: GridFilterDefinition): PagedDataFilter => ({
                               Path: f.path,
-                              FilterValue: f.value
+                              FilterValue: String(f.value ?? '')
                             })
                           ),
                           SortOrders: params.sortOrders.map(
@@ -408,16 +420,19 @@ export class EnvVariables extends PageEnvBase {
   }
 
   private debouncedInputHandler = this.debounce(
-    (field: string, value: string) => {
+    (field: string, value: string | boolean) => {
       switch (field) {
         case variableValue:
-          this.variableValue = value;
+          this.filterVariableValue = value as string;
           break;
         case variableName:
-          this.variableName = value;
+          this.filterVariableName = value as string;
           break;
-        case variableSecure:
-          this.variableSecure = !this.variableSecure;
+        case variableScope:
+          this.filterVariableScope = value as string;
+          break;
+        case variableIsShowDefaultProps:
+          this.isShowDefaultProps = !(value as boolean);
           break;
         default:
           break;
@@ -740,30 +755,54 @@ export class EnvVariables extends PageEnvBase {
                 style="align-items: normal"
               ></vaadin-grid-sorter>
             </td>
-              <td>
-                  <vaadin-checkbox slot='filter' style="font-size: var(--lumo-font-size-s)"
-                                   theme="small"
-                                   ?checked="${!_environment?.EnvironmentSecure}"
-                                   @change="${(e: any) => {
-                                     this.dispatchEvent(
-                                       new CustomEvent(
-                                         'searching-env-variables-started',
-                                         {
-                                           detail: {
-                                             field: variableSecure,
-                                             value: e.target.checked
-                                           },
-                                           bubbles: true,
-                                           composed: true
-                                         }
-                                       )
-                                     );
-                                   }}"
-                  ><label slot="label" title='Show default property values also'
-                  >Show Defaults</vaadin-checkbox
-                  ></td>
-          </tr>
-        </table>
+            <td>
+              <vaadin-text-field
+                clear-button-visible
+                placeholder="Scope"
+                focus-target
+                style="width: 100px"
+                theme="small"
+                @input="${(e: InputEvent) => {
+                  const textField = e.target as TextField;
+
+                  this.dispatchEvent(
+                    new CustomEvent('searching-env-variables-started', {
+                      detail: {
+                        field: variableScope,
+                        value: textField?.value
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  );
+                }}"
+              ></vaadin-text-field>
+            </td>
+            <td>
+              <vaadin-checkbox 
+                style="font-size: var(--lumo-font-size-s)"
+                theme="small"
+                ?checked="${!_environment?.EnvironmentSecure}"
+                @change="${(e: any) => {
+                  this.dispatchEvent(
+                    new CustomEvent(
+                      'searching-env-variables-started',
+                      {
+                        detail: {
+                          field: variableIsShowDefaultProps,
+                          value: e.target.checked
+                        },
+                        bubbles: true,
+                        composed: true
+                      }
+                    )
+                  );
+                }}"
+              >
+                <label slot="label" title='Show default property values also'
+                >Show Defaults</label>
+              </vaadin-checkbox>
+            </td>
           </tr>
         </table>
       `,

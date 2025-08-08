@@ -13,17 +13,23 @@ namespace Dorc.Api.Services
         private readonly IPropertiesPersistentSource _propertiesPersistentSource;
         private readonly IPropertyValuesService _propertyValuesService;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
+        private readonly IPropertyEncryptor _propertyEncryptor;
 
         public PropertiesService(
             IPropertiesPersistentSource propertiesPersistentSource,
             IPropertyValuesService propertyValuesService,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            IPropertyEncryptor propertyEncryptor
             )
         {
             _propertyValuesService = propertyValuesService;
             _propertiesPersistentSource = propertiesPersistentSource;
             _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
             _claimsPrincipalReader = claimsPrincipalReader;
+            _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _propertyEncryptor = propertyEncryptor;
         }
 
         public PropertyApiModel GetProperty(string propertyName)
@@ -125,8 +131,31 @@ namespace Dorc.Api.Services
             {
                 try
                 {
+                    // Get the current property state before update
+                    var currentProperty = _propertiesPersistentSource.GetProperty(propertyUpdateEntry.Value.Name);
+                    if (currentProperty == null)
+                    {
+                        result.Add(new Response
+                        { Item = propertyUpdateEntry, Status = "error: variable does not exist - please use POST to create it" });
+                        continue;
+                    }
+
+                    // Check if property is being changed from non-secure to secure
+                    bool shouldEncryptExistingValues = !currentProperty.Secure && propertyUpdateEntry.Value.Secure;
+
                     if (_propertiesPersistentSource.UpdateProperty(propertyUpdateEntry.Value))
                     {
+                        // If property was changed to secure, encrypt all existing property values
+                        if (shouldEncryptExistingValues)
+                        {
+                            var encryptionResult = EncryptExistingPropertyValues(propertyUpdateEntry.Value.Name, User);
+                            if (encryptionResult != null)
+                            {
+                                result.Add(encryptionResult);
+                                continue;
+                            }
+                        }
+
                         result.Add(new Response { Item = propertyUpdateEntry, Status = "success" });
                         continue;
                     }
@@ -147,6 +176,44 @@ namespace Dorc.Api.Services
             }
 
             return result;
+        }
+
+        private Response? EncryptExistingPropertyValues(string propertyName, ClaimsPrincipal user)
+        {
+            try
+            {
+                // Get all property values for this property
+                var propertyValues = _propertyValuesPersistentSource.GetPropertyValuesByName(propertyName);
+                
+                if (propertyValues == null || !propertyValues.Any())
+                {
+                    // No property values exist, nothing to encrypt
+                    return null;
+                }
+
+                // Encrypt each property value
+                foreach (var propertyValue in propertyValues)
+                {
+                    if (!string.IsNullOrEmpty(propertyValue.Value))
+                    {
+                        var encryptedValue = _propertyEncryptor.EncryptValue(propertyValue.Value);
+                        _propertyValuesPersistentSource.UpdatePropertyValue(propertyValue.Id, encryptedValue);
+                        
+                        _log.Info($"Encrypted property value for property '{propertyName}' (ID: {propertyValue.Id})");
+                    }
+                }
+
+                return null; // Success, no error response
+            }
+            catch (Exception e)
+            {
+                _log.Error($"Failed to encrypt existing property values for property '{propertyName}': {e.Message}", e);
+                return new Response 
+                { 
+                    Item = propertyName, 
+                    Status = $"error: failed to encrypt existing property values - {e.Message}" 
+                };
+            }
         }
     }
 }
