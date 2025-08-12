@@ -173,6 +173,7 @@ namespace Dorc.PersistentData.Sources
                                            Project = req.Project,
                                            EnvironmentName = req.Environment,
                                            BuildNumber = req.BuildNumber,
+                                           BuildUri = req.BuildUri,
                                            UserName = req.UserName,
                                            RequestDetails = req.RequestDetails,
                                            UncLogPath = req.UncLogPath,

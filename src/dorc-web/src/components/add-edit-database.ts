@@ -40,6 +40,10 @@ export class AddEditDatabase extends LitElement {
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
 
+    // Clear any previous error messages when setting new database
+    this.ErrorMessage = '';
+    this.infoMessage = '';
+
     const adGroupCombo = this.shadowRoot?.getElementById('active-dir-groups') as ComboBox;
     if (adGroupCombo) {
       const group = this.groups.find(t => t.GroupName === this._database.AdGroup);
@@ -102,6 +106,12 @@ export class AddEditDatabase extends LitElement {
       (err: any) => console.error(err),
       () => console.log('done loading AD Groups')
     );
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Reset all validation state when component is connected/shown
+    this._reset();
   }
 
   static get styles() {
@@ -210,6 +220,12 @@ export class AddEditDatabase extends LitElement {
     this.DatabaseName = '';
     this.DatabaseType = '';
     this.DbServerName = '';
+    this.ArrayName = '';
+    this.AdGroup = '';
+    this.ErrorMessage = '';
+    this.infoMessage = '';
+    this.isNameValid = false;
+    this.canSubmit = false;
   }
 
   saveDatabase() {
@@ -423,18 +439,20 @@ export class AddEditDatabase extends LitElement {
       this.infoMessage = '';
     } else {
       this.isNameValid = false;
+      // Clear the "Database Name already exists" message if the database doesn't exist
+      if (!foundDatabase) {
+        this.infoMessage = '';
+      }
     }
     this.canSubmit = this.isNameValid;
 
     console.log(`isNameValid: ${this.isNameValid}`);
-
-    this.isNameValid = false;
   }
 
   checkDatabaseComplete(db: DatabaseApiModel){
     let nameValid = false;
     let instanceValid = false;
-    let adGroupValid = false;
+    let typeValid = false;
 
     if (
     db.Name &&
@@ -451,13 +469,13 @@ export class AddEditDatabase extends LitElement {
       instanceValid = true;
     }
     if (
-      db.AdGroup &&
-      db.AdGroup?.length > 0)
+      db.Type &&
+      db.Type?.length > 0)
     {
-      adGroupValid = true;
+      typeValid = true;
     }
 
-    return nameValid && instanceValid && adGroupValid;
+    return nameValid && instanceValid && typeValid;
   }
 
   getEmptyDatabase(): DatabaseApiModel {

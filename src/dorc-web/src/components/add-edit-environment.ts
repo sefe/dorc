@@ -396,8 +396,8 @@ export class AddEditEnvironment extends LitElement {
                 }
               },
               error: (err: any) => {
-                console.error(err?.response?.ExceptionMessage);
-                this.ErrorMessage = err?.response?.ExceptionMessage ?? err?.response;
+                console.error(err);
+                this.ErrorMessage = this.extractErrorMessage(err);
               },
             });
         } else {
@@ -680,8 +680,8 @@ export class AddEditEnvironment extends LitElement {
               this.savingMetadata = false;
             },
             error: (err: any) => {
-              console.error(err.response);
-              this.ErrorMessage = err.response;
+              console.error(err);
+              this.ErrorMessage = this.extractErrorMessage(err);
               this.savingMetadata = false;
             },
             complete: () => console.log('done adding environment')
@@ -706,8 +706,8 @@ export class AddEditEnvironment extends LitElement {
               }
             },
             error: (err: any) => {
-              console.error(err.response);
-              this.ErrorMessage = err.response;
+              console.error(err);
+              this.ErrorMessage = this.extractErrorMessage(err);
               this.savingMetadata = false;
             },
             complete: () => console.log('done updating environment')
@@ -770,5 +770,26 @@ export class AddEditEnvironment extends LitElement {
 
       this._checkName(this.environment.EnvironmentName);
     }
+  }
+
+  private extractErrorMessage(err: any): string {
+    // Try to extract a meaningful error message from the response
+    if (err?.response?.ExceptionMessage) {
+      return err.response.ExceptionMessage;
+    }
+    if (err?.response?.Message) {
+      return err.response.Message;
+    }
+    if (typeof err?.response === 'string') {
+      return err.response;
+    }
+    if (err?.message) {
+      return err.message;
+    }
+    if (typeof err === 'string') {
+      return err;
+    }
+    // Fallback to a generic error message instead of "[object Object]"
+    return 'An unexpected error occurred. Please try again or contact support.';
   }
 }

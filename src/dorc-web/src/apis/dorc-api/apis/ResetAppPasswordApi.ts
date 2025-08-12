@@ -54,22 +54,4 @@ export class ResetAppPasswordApi extends BaseAPI {
         }, opts?.responseOpts);
     };
 
-    /**
-     */
-    resetAppPasswordPut({ envFilter, envName }: ResetAppPasswordPutRequest): Observable<ApiBoolResult>
-    resetAppPasswordPut({ envFilter, envName }: ResetAppPasswordPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
-    resetAppPasswordPut({ envFilter, envName }: ResetAppPasswordPutRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
-
-        const query: HttpQuery = {};
-
-        if (envFilter != null) { query['envFilter'] = envFilter; }
-        if (envName != null) { query['envName'] = envName; }
-
-        return this.request<ApiBoolResult>({
-            url: '/ResetAppPassword',
-            method: 'PUT',
-            query,
-        }, opts?.responseOpts);
-    };
-
 }
