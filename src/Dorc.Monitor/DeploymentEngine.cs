@@ -58,11 +58,11 @@ namespace Dorc.Monitor
                     monitorCancellationToken.ThrowIfCancellationRequested();
 
                     // Process confirmed Terraform plans
-                    var terraformConfirmedPlanProcessor = serviceProvider.GetService(typeof(TerraformConfirmedPlanProcessor)) as TerraformConfirmedPlanProcessor;
-                    if (terraformConfirmedPlanProcessor != null)
-                    {
-                        await terraformConfirmedPlanProcessor.ProcessConfirmedPlansAsync(monitorCancellationToken);
-                    }
+                    //var terraformConfirmedPlanProcessor = serviceProvider.GetService(typeof(TerraformConfirmedPlanProcessor)) as TerraformConfirmedPlanProcessor;
+                    //if (terraformConfirmedPlanProcessor != null)
+                    //{
+                    //    await terraformConfirmedPlanProcessor.ProcessConfirmedPlansAsync(monitorCancellationToken);
+                    //}
                 }
                 catch (OperationCanceledException ex)
                 {

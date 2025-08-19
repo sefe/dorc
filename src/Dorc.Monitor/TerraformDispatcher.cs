@@ -65,6 +65,11 @@ namespace Dorc.Monitor
             }
             catch (Exception ex)
             {
+                // Update status to Failed
+                requestsPersistentSource.UpdateResultStatus(
+                    deploymentResult,
+                    DeploymentResultStatus.Failed);
+
                 logger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
                 resultLogBuilder.AppendLine($"Failed to create Terraform plan: {ex.Message}");
                 return false;

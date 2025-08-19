@@ -7,12 +7,12 @@ using System.Text;
 
 namespace Dorc.Terraformmunner
 {
-    public class TerraformDispatcher : ITerraformDispatcher
+    public class TerraformProcessor : ITerraformProcessor
     {
         private readonly IRunnerLogger logger;
         //private readonly IRequestsPersistentSource requestsPersistentSource;
 
-        public TerraformDispatcher(
+        public TerraformProcessor(
             IRunnerLogger logger)
             //IRequestsPersistentSource requestsPersistentSource)
         {
@@ -27,13 +27,15 @@ namespace Dorc.Terraformmunner
             int requestId,
             bool isProduction,
             string environmentName,
-            string terraformWorkingDir,
+            string scriptRoot,
             StringBuilder resultLogBuilder,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            logger.FileLogger.Information($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+            logger.FileLogger.Information($"TerraformProcessor.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+            
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(component, environmentName, scriptRootPath, cancellationToken);
 
             try
             {
@@ -62,6 +64,63 @@ namespace Dorc.Terraformmunner
                 resultLogBuilder.AppendLine($"Failed to create Terraform plan: {ex.Message}");
                 return false;
             }
+        }
+
+        private async Task<string> SetupTerraformWorkingDirectoryAsync(
+            ComponentApiModel component,
+            string environmentName,
+            string scriptRoot,
+            CancellationToken cancellationToken)
+        {
+            // Resolve the full script path by combining script root with component script path
+            var fullScriptPath = string.IsNullOrEmpty(scriptRoot)
+                ? component.ScriptPath
+                : Path.Combine(scriptRoot, component.ScriptPath);
+
+            logger.Info($"Resolving Terraform script path for component '{component.ComponentName}': ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}', FullPath='{fullScriptPath}'");
+
+            // Create a unique working directory for this deployment
+            var workingDir = Path.Combine(
+                Path.GetTempPath(),
+                "terraform-workdir",
+                $"{component.ComponentName}-{environmentName}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
+
+            Directory.CreateDirectory(workingDir);
+
+            // Copy Terraform files from component script path to working directory
+            if (!string.IsNullOrEmpty(fullScriptPath) && Directory.Exists(fullScriptPath))
+            {
+                logger.Info($"Copying Terraform files from '{fullScriptPath}' to working directory '{workingDir}'");
+                await CopyDirectoryAsync(fullScriptPath, workingDir, cancellationToken);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Terraform script path '{fullScriptPath}' does not exist for component '{component.ComponentName}'. ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}'");
+            }
+
+            return workingDir;
+        }
+
+        private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+        {
+            await Task.Run(() =>
+            {
+                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var relativePath = Path.GetRelativePath(sourceDir, file);
+                    var destFile = Path.Combine(destDir, relativePath);
+                    var destFileDir = Path.GetDirectoryName(destFile);
+
+                    if (!string.IsNullOrEmpty(destFileDir))
+                    {
+                        Directory.CreateDirectory(destFileDir);
+                    }
+
+                    File.Copy(file, destFile, true);
+                }
+            }, cancellationToken);
         }
 
         private async Task<string> CreateTerraformPlanAsync(

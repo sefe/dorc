@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Dorc.Terraformmunner
 {
-    internal interface ITerraformDispatcher
+    internal interface ITerraformProcessor
     {
         Task<bool> DispatchAsync(
             ComponentApiModel component,
@@ -13,7 +13,7 @@ namespace Dorc.Terraformmunner
             int requestId,
             bool isProduction,
             string environmentName,
-            string terraformWorkingDir,
+            string scriptRoot,
             StringBuilder resultLogBuilder,
             CancellationToken cancellationToken);
 
