@@ -2,7 +2,7 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using System.Text;
 
-namespace Dorc.Terraformmunner
+namespace Dorc.TerraformmRunner
 {
     internal interface ITerraformProcessor
     {

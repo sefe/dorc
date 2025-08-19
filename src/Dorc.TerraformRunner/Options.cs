@@ -1,6 +1,6 @@
 ﻿using CommandLine;
 
-namespace Dorc.Terraformmunner
+namespace Dorc.TerraformmRunner
 {
     public class Options
     {

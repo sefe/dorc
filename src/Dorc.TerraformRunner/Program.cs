@@ -8,7 +8,7 @@ using Dorc.Runner.Logger;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
-namespace Dorc.Terraformmunner
+namespace Dorc.TerraformmRunner
 {
     internal class Program
     {

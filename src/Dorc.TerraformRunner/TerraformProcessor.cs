@@ -5,7 +5,7 @@ using Dorc.Runner.Logger;
 using System.Diagnostics;
 using System.Text;
 
-namespace Dorc.Terraformmunner
+namespace Dorc.TerraformmRunner
 {
     public class TerraformProcessor : ITerraformProcessor
     {
@@ -35,7 +35,7 @@ namespace Dorc.Terraformmunner
 
             logger.FileLogger.Information($"TerraformProcessor.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
             
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(component, environmentName, scriptRootPath, cancellationToken);
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(component, environmentName, scriptRoot, cancellationToken);
 
             try
             {
@@ -77,7 +77,7 @@ namespace Dorc.Terraformmunner
                 ? component.ScriptPath
                 : Path.Combine(scriptRoot, component.ScriptPath);
 
-            logger.Info($"Resolving Terraform script path for component '{component.ComponentName}': ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}', FullPath='{fullScriptPath}'");
+            logger.FileLogger.Information($"Resolving Terraform script path for component '{component.ComponentName}': ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}', FullPath='{fullScriptPath}'");
 
             // Create a unique working directory for this deployment
             var workingDir = Path.Combine(
@@ -90,7 +90,7 @@ namespace Dorc.Terraformmunner
             // Copy Terraform files from component script path to working directory
             if (!string.IsNullOrEmpty(fullScriptPath) && Directory.Exists(fullScriptPath))
             {
-                logger.Info($"Copying Terraform files from '{fullScriptPath}' to working directory '{workingDir}'");
+                logger.FileLogger.Information($"Copying Terraform files from '{fullScriptPath}' to working directory '{workingDir}'");
                 await CopyDirectoryAsync(fullScriptPath, workingDir, cancellationToken);
             }
             else
