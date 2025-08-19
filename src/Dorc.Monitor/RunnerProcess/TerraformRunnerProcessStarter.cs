@@ -5,7 +5,7 @@ using static Dorc.Monitor.RunnerProcess.ProcessSecurityContextBuilder;
 
 namespace Dorc.Monitor.RunnerProcess
 {
-    internal class RunnerProcessStarter
+    internal partial class TerraformRunnerProcessStarter
     {
         private readonly ILog logger;
 
@@ -13,9 +13,9 @@ namespace Dorc.Monitor.RunnerProcess
         public string ScriptGroupPipeName { get; set; } = string.Empty;
         public string RunnerLogPath { get; set; } = string.Empty;
 
-        private RunnerProcessStarter() { }
+        private TerraformRunnerProcessStarter() { }
 
-        public RunnerProcessStarter(ILog logger)
+        public TerraformRunnerProcessStarter(ILog logger)
         {
             this.logger = logger;
         }
