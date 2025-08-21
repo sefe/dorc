@@ -11,7 +11,7 @@ trigger:
 - copilot/*
 
 pool:
-  name: TRADING-DOTNET-03
+  name: TRADING-DOTNET-04
   demands:
   - DotNetFramework
   - node.js
