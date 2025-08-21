@@ -69,6 +69,7 @@
       <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
+	<ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
     <ProjectReference Include="..\Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj" />
     <ProjectReference Include="..\Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj" />
     <ProjectReference Include="..\Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj" />
@@ -79,6 +80,7 @@
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Monitor\Dorc.Monitor.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
     <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj&quot; -p:Configuration=$(Configuration)" />
+	<Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.TerraformRunner\Dorc.TerraformRunner.csproj&quot; -p:Configuration=$(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj&quot; -c $(Configuration)" />
