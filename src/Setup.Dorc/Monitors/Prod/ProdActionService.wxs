@@ -15,6 +15,7 @@
 
 					<Json:JsonFile Id="SetCoreRunnerPathProd" ElementPath="$.AppSettings.DotNetCoreDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdDorcRunnerExe]" />
 					<Json:JsonFile Id="SetFrameworkRunnerPathProd" ElementPath="$.AppSettings.DotNetFrameworkDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdDeployRunnerExe]" />
+					<Json:JsonFile Id="SetTerraformRunnerPathProd" ElementPath="$.AppSettings.TerraformDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdTerraformRunnerExe]" />
 
 					<Json:JsonFile Id="SetIsProductionProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#ProdDeployMonitorExeConfig]" />
 
@@ -29,7 +30,7 @@
 					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#ProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
 					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#ProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
-					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#ProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
@@ -53,6 +54,18 @@
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsEnvironmentConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
+					</Component>
+				</Directory>
+
+				<Directory Id="INSTALLLOCATIONTERRAFORMRUNNERPROD" Name="TerraformRunner">
+					<Component Id="DeployMonitorServiceTerraformRunnerProd.exe" Guid="{81B77E98-85D9-4A9D-83EC-C6392D562951}">
+						<Json:JsonFile Id="TerraformRunnerProdExeConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsUriConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsUserNameConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsPasswordConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsEnvironmentConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
 					</Component>
 				</Directory>
 			</Directory>
