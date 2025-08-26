@@ -290,32 +290,22 @@ namespace Dorc.Core
                 throw new ArgumentException("User ID cannot be null or empty.");
             }
 
-            var result = new List<string>();
+            var result = new List<string> { userId };
             var graphClient = GetGraphClient();
 
             try
             {
-                result.Add(userId);
+                // Single API call to get ALL group IDs (including transitive)
+                var memberGroupsResult = graphClient.Users[userId].GetMemberGroups.PostAsGetMemberGroupsPostResponseAsync(
+                    new Microsoft.Graph.Users.Item.GetMemberGroups.GetMemberGroupsPostRequestBody
+                    {
+                        SecurityEnabledOnly = false,
+                    }).GetAwaiter().GetResult();
 
-                // Get all groups the user is a member of (including transitive memberships)
-                var memberOf = graphClient.Users[userId].MemberOf
-                    .GetAsync().Result;
-
-                var pageIterator = PageIterator<DirectoryObject, DirectoryObjectCollectionResponse>
-                    .CreatePageIterator(
-                        graphClient,
-                        memberOf,
-                        (directoryObject) =>
-                        {
-                            if (directoryObject is Microsoft.Graph.Models.Group group)
-                            {
-                                result.Add(group.Id);
-                            }
-                            return true;
-                        });
-
-                // Iterate through all pages
-                pageIterator.IterateAsync().Wait();
+                if (memberGroupsResult?.Value != null)
+                {
+                    result.AddRange(memberGroupsResult.Value);
+                }
             }
             catch (Exception ex)
             {
