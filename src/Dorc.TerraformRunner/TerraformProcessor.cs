@@ -4,6 +4,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Dorc.TerraformmRunner
 {
@@ -166,25 +167,30 @@ namespace Dorc.TerraformmRunner
             CancellationToken cancellationToken)
         {
             var variablesContent = new StringBuilder();
-            
+
             foreach (var property in properties)
             {
                 // Convert DOrc properties to Terraform variable format
                 var value = property.Value.Value?.ToString() ?? "";
-                
+
                 // Escape quotes and handle different types
                 if (property.Value.Type == typeof(string))
                 {
                     value = $"\"{value.Replace("\"", "\\\"")}\"";
+                    value = value.Replace("${", "$${");
+                    value = Regex.Replace(value, @"(?<!\\)\\(?!\\)", "\\\\");
                 }
                 else if (property.Value.Type == typeof(bool))
                 {
                     value = value.ToLowerInvariant();
                 }
-                
-                variablesContent.AppendLine($"{property.Key} = {value}");
+
+                // Only [a-zA-Z0-9_] symbols can be used in Terrafrom identifiers. Replace all others with '_'
+                var propertyName = Regex.Replace(property.Key, "[^a-zA-Z0-9_]", "_"); ;
+
+                variablesContent.AppendLine($"{propertyName} = {value}");
             }
-            
+
             var variablesFilePath = Path.Combine(workingDir, "terraform.tfvars");
             await File.WriteAllTextAsync(variablesFilePath, variablesContent.ToString(), cancellationToken);
         }
@@ -224,15 +230,22 @@ namespace Dorc.TerraformmRunner
 
             logger.FileLogger.Debug($"Running Terraform command: terraform {arguments} in {workingDir}");
 
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            // Wait for the process to complete or be cancelled
-            while (!process.HasExited)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                await Task.Delay(100, cancellationToken);
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // Wait for the process to complete or be cancelled
+                while (!process.HasExited)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await Task.Delay(100, cancellationToken);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error(e);
             }
 
             var output = outputBuilder.ToString();

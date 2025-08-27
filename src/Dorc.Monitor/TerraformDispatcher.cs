@@ -4,6 +4,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Dorc.Monitor
 {
@@ -189,13 +190,18 @@ namespace Dorc.Monitor
                 if (property.Value.Type == typeof(string))
                 {
                     value = $"\"{value.Replace("\"", "\\\"")}\"";
+                    value = value.Replace("${", "$${");
+                    value = Regex.Replace(value, @"(?<!\\)\\(?!\\)", "\\\\");
                 }
                 else if (property.Value.Type == typeof(bool))
                 {
                     value = value.ToLowerInvariant();
                 }
+
+                // Only [a-zA-Z0-9_] symbols can be used in Terrafrom identifiers. Replace all others with '_'
+                var propertyName = Regex.Replace(property.Key, "[^a-zA-Z0-9_]", "_"); ;
                 
-                variablesContent.AppendLine($"{property.Key} = {value}");
+                variablesContent.AppendLine($"{propertyName} = {value}");
             }
             
             var variablesFilePath = Path.Combine(workingDir, "terraform.tfvars");
@@ -236,16 +242,22 @@ namespace Dorc.Monitor
             };
 
             logger.Debug($"Running Terraform command: terraform {arguments} in {workingDir}");
-
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            // Wait for the process to complete or be cancelled
-            while (!process.HasExited)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                await Task.Delay(100, cancellationToken);
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // Wait for the process to complete or be cancelled
+                while (!process.HasExited)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await Task.Delay(100, cancellationToken);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error(e);
             }
 
             var output = outputBuilder.ToString();
