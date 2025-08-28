@@ -1,5 +1,6 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -12,12 +13,14 @@ namespace Dorc.Api.Controllers
     public class RefDataDatabaseUsersController : ControllerBase
     {
         private readonly IManageUsers _manageUsers;
+        private readonly IUserPermsPersistentSource _userPermsPersistentSource;
         private readonly IEnvironmentMapper _environmentMapper;
 
-        public RefDataDatabaseUsersController(IManageUsers manageUsers, IEnvironmentMapper environmentMapper)
+        public RefDataDatabaseUsersController(IManageUsers manageUsers, IEnvironmentMapper environmentMapper, IUserPermsPersistentSource userPermsPersistentSource)
         {
             _environmentMapper = environmentMapper;
             _manageUsers = manageUsers;
+            _userPermsPersistentSource = userPermsPersistentSource;
         }
 
         /// <summary>
@@ -38,6 +41,16 @@ namespace Dorc.Api.Controllers
             var users = _manageUsers.GetDatabaseUsers<UserApiModel>(id);
 
             return StatusCode(StatusCodes.Status200OK, users);
+        }
+
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<UserDbPermissionApiModel>))]
+        [HttpGet]
+        [Route("GetDbUsersPermissions")]
+        public IActionResult GetDbUsersPermissions(string serverName, string dbName, string? dbType = null)
+        {
+            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, dbName, dbType);
+
+            return StatusCode(StatusCodes.Status200OK, userPermissions);
         }
     }
 }
