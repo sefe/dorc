@@ -41,7 +41,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Databases.Include(d => d.Group).Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
+                return context.Databases
+                    .Include(d => d.Group)
+                    .Include(d => d.Environments)
+                    .Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
             }
         }
@@ -409,7 +412,8 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 Type = db.Type,
                 ServerName = db.ServerName,
-                ArrayName = db.ArrayName
+                ArrayName = db.ArrayName,
+                EnvironmentNames = db.Environments.Select(e => e.Name).ToList()
             };
         }
     }
