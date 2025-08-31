@@ -15,16 +15,19 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly ILog _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IScriptAuditPersistentSource _scriptAuditPersistentSource;
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
             ILog logger,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IScriptAuditPersistentSource scriptAuditPersistentSource
             )
         {
             _logger = logger;
             _contextFactory = contextFactory;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _scriptAuditPersistentSource = scriptAuditPersistentSource;
         }
 
         public GetScriptsListResponseDto GetScriptsByPage(int limit, int page, PagedDataOperators operators)
@@ -123,6 +126,9 @@ namespace Dorc.PersistentData.Sources
                 string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                 _logger.Warn(
                     $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
+
+                // Record audit entry before making changes
+                _scriptAuditPersistentSource.InsertScriptAudit(username, ActionType.Update, script);
 
                 foundScript.Name = script.Name;
                 foundScript.Path = script.Path;

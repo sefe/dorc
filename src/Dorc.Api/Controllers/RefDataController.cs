@@ -1,6 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -79,18 +80,8 @@ namespace Dorc.Api.Controllers
 
                 _projectsPersistentSource.UpdateProject(refData.Project);
 
-                var updateAndInsertComponents =
-                    _manageProjectsPersistentSource.UpdateComponent;
-                updateAndInsertComponents += _manageProjectsPersistentSource.CreateComponent;
-
-                _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                    refData.Project.ProjectId, updateAndInsertComponents);
-
-                var flattenedComponents = new List<ComponentApiModel>();
-                _manageProjectsPersistentSource.FlattenApiComponents(refData.Components, flattenedComponents);
-
-                _manageProjectsPersistentSource.DeleteComponents(flattenedComponents,
-                    refData.Project.ProjectId);
+                // Process components with audit tracking
+                _manageProjectsPersistentSource.ProcessComponentsWithAudit(refData.Components, refData.Project.ProjectId, username, HttpRequestType.Put);
 
                 refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
@@ -124,14 +115,15 @@ namespace Dorc.Api.Controllers
 
             _projectsPersistentSource.InsertProject(refData.Project);
 
-            _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                refData.Project.ProjectId, _manageProjectsPersistentSource.CreateComponent);
+            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+
+            // Create components and audit scripts in one operation
+            _manageProjectsPersistentSource.ProcessComponentCreationWithAudit(refData.Components, refData.Project.ProjectId, username);
 
             refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
             refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
 
-            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
             _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Post,
                 refData);
 
