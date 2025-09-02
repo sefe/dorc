@@ -8,5 +8,6 @@
         public string AdGroup { set; get; }
         public int Id { set; get; }
         public string ArrayName { set; get; }
+        public string Tag { set; get; }
     }
 }

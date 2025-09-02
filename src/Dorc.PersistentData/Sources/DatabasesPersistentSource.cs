@@ -367,6 +367,7 @@ namespace Dorc.PersistentData.Sources
                 existingDatabase.ServerName = database.ServerName;
                 existingDatabase.ArrayName = database.ArrayName;
                 existingDatabase.Type = database.Type;
+                existingDatabase.Tag = database.Tag;
 
                 var adGroup = context.AdGroups
                     .FirstOrDefault(g => g.Name == database.AdGroup);
@@ -393,7 +394,8 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 ServerName = db.ServerName,
                 Type = db.Type,
-                ArrayName = db.ArrayName
+                ArrayName = db.ArrayName,
+                Tag = db.Tag
             };
         }
 
@@ -409,7 +411,8 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 Type = db.Type,
                 ServerName = db.ServerName,
-                ArrayName = db.ArrayName
+                ArrayName = db.ArrayName,
+                Tag = db.Tag
             };
         }
     }

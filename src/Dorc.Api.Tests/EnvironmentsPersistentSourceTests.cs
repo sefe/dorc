@@ -25,6 +25,7 @@ namespace Dorc.Api.Tests
         private IAccessControlPersistentSource _accessControlPersistentSource;
         private EnvironmentsPersistentSource _environmentsPersistentSource;
         private IPrincipal _user;
+        private System.Security.Claims.ClaimsPrincipal _claimsUser;
         private IDeploymentContext _context;
 
         [TestInitialize]
@@ -38,6 +39,7 @@ namespace Dorc.Api.Tests
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             _accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
             _user = Substitute.For<IPrincipal>();
+            _claimsUser = Substitute.For<System.Security.Claims.ClaimsPrincipal>();
             _context = Substitute.For<IDeploymentContext>();
 
             _environmentsPersistentSource = new EnvironmentsPersistentSource(
@@ -52,6 +54,7 @@ namespace Dorc.Api.Tests
 
             _contextFactory.GetContext().Returns(_context);
             _claimsPrincipalReader.GetUserFullDomainName(_user).Returns("testuser@domain.com");
+            _claimsPrincipalReader.GetUserFullDomainName(_claimsUser).Returns("testuser@domain.com");
         }
 
         private class TestEnvironment
@@ -64,7 +67,7 @@ namespace Dorc.Api.Tests
             public DbSet<EnvironmentHistory> EnvironmentHistoriesDbSet { get; set; }
         }
 
-        private TestEnvironment SetupTestEnvironment(int envId, string oldOwnerSid, AccessLevel oldOwnerAccessLevel, string newOwnerSid = null, AccessLevel? newOwnerAccessLevel = null)
+        private TestEnvironment SetupTestEnvironment(int envId, string oldOwnerSid, AccessLevel oldOwnerAccessLevel, string? newOwnerSid = null, AccessLevel? newOwnerAccessLevel = null)
         {
             var environment = new Environment { Id = envId, ObjectId = Guid.NewGuid() };
             var accessControls = new List<AccessControl>();
@@ -210,6 +213,228 @@ namespace Dorc.Api.Tests
             // Assert
             Assert.IsTrue(result);
             AssertOwnerChange(testEnv, oldOwnerSid, newOwnerSid, null, AccessLevel.Owner | AccessLevel.Write);
+        }
+
+        [TestMethod]
+        public void AttachDatabaseToEnv_WithDuplicateTag_ThrowsArgumentException()
+        {
+            // Arrange
+            var envId = 1;
+            var databaseId1 = 1;
+            var databaseId2 = 2;
+            var duplicateTag = "tag1";
+
+            var environment = new Environment 
+            { 
+                Id = envId, 
+                ObjectId = Guid.NewGuid(),
+                Name = "TestEnv"
+            };
+
+            var existingDatabase = new Database 
+            { 
+                Id = databaseId1, 
+                Name = "db1", 
+                ServerName = "server1",
+                Tag = duplicateTag
+            };
+
+            var newDatabase = new Database 
+            { 
+                Id = databaseId2, 
+                Name = "db2", 
+                ServerName = "server2",
+                Tag = duplicateTag,
+                Environments = new List<Environment>()
+            };
+
+            // Set up the environment to already have the first database
+            environment.Databases.Add(existingDatabase);
+            existingDatabase.Environments = new List<Environment> { environment };
+
+            var environments = new List<Environment> { environment };
+            var databases = new List<Database> { existingDatabase, newDatabase };
+
+            var environmentsDbSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var databasesDbSet = DbContextMock.GetQueryableMockDbSet(databases);
+            var environmentHistoriesDbSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentHistory>());
+
+            _context.Environments.Returns(environmentsDbSet);
+            _context.Databases.Returns(databasesDbSet);
+            _context.EnvironmentHistories.Returns(environmentHistoriesDbSet);
+
+            // Act & Assert
+            var exception = Assert.ThrowsException<ArgumentException>(() =>
+                _environmentsPersistentSource.AttachDatabaseToEnv(envId, databaseId2, _claimsUser));
+
+            Assert.IsTrue(exception.Message.Contains($"Environment already contains a database with tag '{duplicateTag}'"));
+            Assert.IsTrue(exception.Message.Contains("server1\\db1"));
+            Assert.IsTrue(exception.Message.Contains("server2\\db2"));
+        }
+
+        [TestMethod]
+        public void AttachDatabaseToEnv_WithEmptyTag_DoesNotCheckForDuplicates()
+        {
+            // Arrange
+            var envId = 1;
+            var databaseId = 2;
+
+            var environment = new Environment 
+            { 
+                Id = envId, 
+                ObjectId = Guid.NewGuid(),
+                Name = "TestEnv"
+            };
+
+            var existingDatabase = new Database 
+            { 
+                Id = 1, 
+                Name = "db1", 
+                ServerName = "server1",
+                Tag = "" // Empty tag
+            };
+
+            var newDatabase = new Database 
+            { 
+                Id = databaseId, 
+                Name = "db2", 
+                ServerName = "server2",
+                Tag = "", // Also empty tag
+                Environments = new List<Environment>()
+            };
+
+            environment.Databases.Add(existingDatabase);
+            existingDatabase.Environments = new List<Environment> { environment };
+
+            var environments = new List<Environment> { environment };
+            var databases = new List<Database> { existingDatabase, newDatabase };
+
+            var environmentsDbSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var databasesDbSet = DbContextMock.GetQueryableMockDbSet(databases);
+            var environmentHistoriesDbSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentHistory>());
+
+            _context.Environments.Returns(environmentsDbSet);
+            _context.Databases.Returns(databasesDbSet);
+            _context.EnvironmentHistories.Returns(environmentHistoriesDbSet);
+
+            // Mock successful save
+            _context.SaveChanges().Returns(1);
+
+            // Act - should not throw exception
+            var result = _environmentsPersistentSource.AttachDatabaseToEnv(envId, databaseId, _claimsUser);
+
+            // Assert
+            Assert.IsNotNull(result);
+        }
+
+        [TestMethod]
+        public void AttachDatabaseToEnv_WithNullTag_DoesNotCheckForDuplicates()
+        {
+            // Arrange
+            var envId = 1;
+            var databaseId = 2;
+
+            var environment = new Environment 
+            { 
+                Id = envId, 
+                ObjectId = Guid.NewGuid(),
+                Name = "TestEnv"
+            };
+
+            var existingDatabase = new Database 
+            { 
+                Id = 1, 
+                Name = "db1", 
+                ServerName = "server1",
+                Tag = null // Null tag
+            };
+
+            var newDatabase = new Database 
+            { 
+                Id = databaseId, 
+                Name = "db2", 
+                ServerName = "server2",
+                Tag = null, // Also null tag
+                Environments = new List<Environment>()
+            };
+
+            environment.Databases.Add(existingDatabase);
+            existingDatabase.Environments = new List<Environment> { environment };
+
+            var environments = new List<Environment> { environment };
+            var databases = new List<Database> { existingDatabase, newDatabase };
+
+            var environmentsDbSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var databasesDbSet = DbContextMock.GetQueryableMockDbSet(databases);
+            var environmentHistoriesDbSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentHistory>());
+
+            _context.Environments.Returns(environmentsDbSet);
+            _context.Databases.Returns(databasesDbSet);
+            _context.EnvironmentHistories.Returns(environmentHistoriesDbSet);
+
+            // Mock successful save
+            _context.SaveChanges().Returns(1);
+
+            // Act - should not throw exception
+            var result = _environmentsPersistentSource.AttachDatabaseToEnv(envId, databaseId, _claimsUser);
+
+            // Assert
+            Assert.IsNotNull(result);
+        }
+
+        [TestMethod]
+        public void AttachDatabaseToEnv_WithUniqueTag_AttachesSuccessfully()
+        {
+            // Arrange
+            var envId = 1;
+            var databaseId = 2;
+
+            var environment = new Environment 
+            { 
+                Id = envId, 
+                ObjectId = Guid.NewGuid(),
+                Name = "TestEnv"
+            };
+
+            var existingDatabase = new Database 
+            { 
+                Id = 1, 
+                Name = "db1", 
+                ServerName = "server1",
+                Tag = "tag1"
+            };
+
+            var newDatabase = new Database 
+            { 
+                Id = databaseId, 
+                Name = "db2", 
+                ServerName = "server2",
+                Tag = "tag2", // Different tag
+                Environments = new List<Environment>()
+            };
+
+            environment.Databases.Add(existingDatabase);
+            existingDatabase.Environments = new List<Environment> { environment };
+
+            var environments = new List<Environment> { environment };
+            var databases = new List<Database> { existingDatabase, newDatabase };
+
+            var environmentsDbSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var databasesDbSet = DbContextMock.GetQueryableMockDbSet(databases);
+            var environmentHistoriesDbSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentHistory>());
+
+            _context.Environments.Returns(environmentsDbSet);
+            _context.Databases.Returns(databasesDbSet);
+            _context.EnvironmentHistories.Returns(environmentHistoriesDbSet);
+
+            // Mock successful save
+            _context.SaveChanges().Returns(1);
+
+            // Act - should not throw exception
+            var result = _environmentsPersistentSource.AttachDatabaseToEnv(envId, databaseId, _claimsUser);
+
+            // Assert
+            Assert.IsNotNull(result);
         }
     }
 } 

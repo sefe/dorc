@@ -250,6 +250,22 @@ namespace Dorc.PersistentData.Sources
                         "The specified database is already attached to the specified environment.");
                 }
 
+                // Check for duplicate tags in the same environment (only if tag is not null or empty)
+                if (!string.IsNullOrWhiteSpace(db.Tag))
+                {
+                    var existingDatabaseWithSameTag = envDetail.Databases
+                        .FirstOrDefault(d => !string.IsNullOrWhiteSpace(d.Tag) && 
+                                           string.Equals(d.Tag, db.Tag, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (existingDatabaseWithSameTag != null)
+                    {
+                        throw new ArgumentException(
+                            $"Environment already contains a database with tag '{db.Tag}'. " +
+                            $"Existing database: {existingDatabaseWithSameTag.ServerName}\\{existingDatabaseWithSameTag.Name}. " +
+                            $"Cannot add database: {db.ServerName}\\{db.Name}.");
+                    }
+                }
+
                 string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                 envDetail.Databases.Add(db);
                 EnvironmentHistoryPersistentSource.AddHistory(envDetail, string.Empty,
