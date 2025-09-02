@@ -43,12 +43,19 @@ namespace Dorc.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, users);
         }
 
+        /// <summary>
+        /// Returns the list of all users permissions for a given database on a specified server.
+        /// </summary>
+        /// <param name="serverName">The name of the database server.</param>
+        /// <param name="databaseName">The name of the database.</param>
+        /// <param name="dbType">The type of the database (optional).</param>
+        /// <returns>A list of users with permissions for the specified database.</returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<UserDbPermissionApiModel>))]
         [HttpGet]
         [Route("GetDbUsersPermissions")]
-        public IActionResult GetDbUsersPermissions(string serverName, string dbName, string? dbType = null)
+        public IActionResult GetDbUsersPermissions(string serverName, string databaseName, string? dbType = null)
         {
-            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, dbName, dbType);
+            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, databaseName, dbType);
 
             return StatusCode(StatusCodes.Status200OK, userPermissions);
         }

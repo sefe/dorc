@@ -28,6 +28,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool DeleteEnvironment(EnvironmentApiModel env, IPrincipal principal);
         EnvironmentApiModel UpdateEnvironment(EnvironmentApiModel env, IPrincipal user);
         IEnumerable<string> GetEnvironmentNames(IPrincipal principal);
+        IEnumerable<EnvironmentApiModel> GetEnvironmentsForDatabase(string databaseName, string serverName, IPrincipal user);
         EnvironmentApiModel GetEnvironment(string environmentName);
         IEnumerable<ProjectApiModel> GetMappedProjects(string envName);
         IEnumerable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,

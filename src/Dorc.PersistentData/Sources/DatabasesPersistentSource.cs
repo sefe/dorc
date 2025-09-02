@@ -413,7 +413,7 @@ namespace Dorc.PersistentData.Sources
                 Type = db.Type,
                 ServerName = db.ServerName,
                 ArrayName = db.ArrayName,
-                EnvironmentNames = db.Environments.Select(e => e.Name).ToList()
+                EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };
         }
     }

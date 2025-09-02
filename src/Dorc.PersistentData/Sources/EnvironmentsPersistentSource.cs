@@ -68,6 +68,33 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public IEnumerable<EnvironmentApiModel> GetEnvironmentsForDatabase(string databaseName, string serverName, IPrincipal user)
+        {
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            using (var context = contextFactory.GetContext())
+            {
+                var accessibleEnvironments = _rolePrivilegesChecker.IsAdmin(user)
+                    ? AccessibleEnvironmentsAdmin(context)
+                    : AccessibleEnvironmentsAccessLevel(context, userSids, username);
+
+                var accessibleEnvIds = accessibleEnvironments.Select(e => e.Environment.Id).ToHashSet();
+
+                var envsFilteredByDb = context.Databases
+                    .Include(e => e.Environments)
+                    .Where(d => d.Name == databaseName && d.ServerName == serverName)
+                    .SelectMany(d => d.Environments)
+                    .Distinct()
+                    .Select(e => e.Id)
+                    .ToHashSet();
+
+                return accessibleEnvironments
+                    .Where(e => envsFilteredByDb.Contains(e.Environment.Id))
+                    .ToList()
+                    .Select(e => MapToEnvironmentApiModel(e)).ToList();
+            }
+        }
+
         public IEnumerable<string> GetEnvironmentNames(IPrincipal principal)
         {
             return GetEnvironments(principal).Select(e => e.EnvironmentName);
