@@ -260,7 +260,7 @@ namespace Dorc.TerraformmRunner
             if (process.ExitCode != 0)
             {
                 var errorMessage = $"Terraform command failed with exit code {process.ExitCode}. Error: {error}";
-                logger.FileLogger.Error(errorMessage);
+                logger.Error(errorMessage);
                 throw new InvalidOperationException(errorMessage);
             }
 
