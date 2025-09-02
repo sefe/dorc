@@ -176,13 +176,19 @@ namespace Dorc.TerraformmRunner
                 // Escape quotes and handle different types
                 if (property.Value.Type == typeof(string))
                 {
-                    value = $"\"{value.Replace("\"", "\\\"")}\"";
                     value = value.Replace("${", "$${");
-                    value = Regex.Replace(value, @"(?<!\\)\\(?!\\)", "\\\\");
+                    value = Regex.Replace(value, @"(?<!\\)\\(?!\\|\"")", @"\\");
+                    value = $"\"{value.Replace("\"", "\\\"")}\"";
+                    value = Regex.Replace(value, @"^""\\{2}", @"""\\\\");
+                    value = value.Replace("\r\n", " ");
                 }
                 else if (property.Value.Type == typeof(bool))
                 {
                     value = value.ToLowerInvariant();
+                }
+                else
+                {
+                    value = Newtonsoft.Json.JsonConvert.SerializeObject(property.Value.Value);
                 }
 
                 // Only [a-zA-Z0-9_] symbols can be used in Terrafrom identifiers. Replace all others with '_'
