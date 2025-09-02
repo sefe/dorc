@@ -251,7 +251,7 @@ namespace Dorc.TerraformmRunner
             }
             catch (Exception e)
             {
-                logger.Error(e);
+                logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
             }
 
             var output = outputBuilder.ToString();
@@ -264,7 +264,7 @@ namespace Dorc.TerraformmRunner
                 throw new InvalidOperationException(errorMessage);
             }
 
-            logger.FileLogger.Debug($"Terraform command completed successfully. Output: {output}");
+            logger.Information($"Terraform command completed successfully. Output: {output}");
             return output;
         }
 
