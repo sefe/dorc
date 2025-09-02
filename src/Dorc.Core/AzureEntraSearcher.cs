@@ -69,12 +69,14 @@ namespace Dorc.Core
             return _graphClient;
         }
 
+        private static string EscapeODataString(string s) => s?.Replace("'", "''");
+
         public List<UserElementApiModel> Search(string objectName)
         {
             var output = new List<UserElementApiModel>();
 
             var graphClient = GetGraphClient();
-
+            objectName = EscapeODataString(objectName);
             try
             {
                 // Search for users
