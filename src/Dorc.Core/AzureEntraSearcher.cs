@@ -76,7 +76,9 @@ namespace Dorc.Core
             var output = new List<UserElementApiModel>();
 
             var graphClient = GetGraphClient();
+
             objectName = EscapeODataString(objectName);
+
             try
             {
                 // Search for users
@@ -243,6 +245,8 @@ namespace Dorc.Core
             }
 
             var graphClient = GetGraphClient();
+            
+            var safeUsername = EscapeODataString(username);
 
             try
             {
@@ -252,9 +256,9 @@ namespace Dorc.Core
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
                         requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
-                            $"startsWith(displayName,'{username}') or startsWith(mail,'{username}') or " +
-                            $"startsWith(onPremisesSamAccountName,'{username}') or " +
-                            $"startsWith(userPrincipalName,'{username}')";
+                            $"startsWith(displayName,'{safeUsername}') or startsWith(mail,'{safeUsername}') or " +
+                            $"startsWith(onPremisesSamAccountName,'{safeUsername}') or " +
+                            $"startsWith(userPrincipalName,'{safeUsername}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
