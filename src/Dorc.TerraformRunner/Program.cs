@@ -5,6 +5,7 @@ using System.Threading;
 using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.Runner.Logger;
+using Dorc.TerraformmRunner.Pipes;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
@@ -26,7 +27,7 @@ namespace Dorc.TerraformmRunner
                                 " UnhandledException in Runner: " + e.ExceptionObject + ". Sender: " + sender);
         }
 
-        private static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
             try
             {
@@ -85,15 +86,19 @@ namespace Dorc.TerraformmRunner
 
                 try
                 {
-                    //IScriptGroupPipeClient scriptGroupReader;
+                    IScriptGroupPipeClient scriptGroupReader;
 
-                    //if (options.UseFile)
-                    //{
-                    //    contextLogger.Debug("Using file instead of pipes");
-                    //    scriptGroupReader = new ScriptGroupFileReader(contextLogger);
-                    //}
-                    //else
-                    //    scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
+                    if (options.UseFile)
+                    {
+                        contextLogger.Debug("Using file instead of pipes");
+                        scriptGroupReader = new ScriptGroupFileReader(contextLogger);
+                    }
+                    else
+                        scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
+
+                    var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
+
+                    await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.ScriptPath, CancellationToken.None);
 
                     //IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                     //    runnerLogger,

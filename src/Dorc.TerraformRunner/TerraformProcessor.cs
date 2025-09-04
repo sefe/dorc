@@ -2,101 +2,91 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 //using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Runner.Logger;
-using System.Diagnostics;
+using Dorc.TerraformmRunner.Pipes;
+//using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Dorc.TerraformmRunner
 {
-    public class TerraformProcessor : ITerraformProcessor
+    internal class TerraformProcessor : ITerraformProcessor
     {
         private readonly IRunnerLogger logger;
+        private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
         //private readonly IRequestsPersistentSource requestsPersistentSource;
 
         public TerraformProcessor(
-            IRunnerLogger logger)
+            IRunnerLogger logger,
+            IScriptGroupPipeClient scriptGroupPipeClient)
             //IRequestsPersistentSource requestsPersistentSource)
         {
             this.logger = logger;
+            this._scriptGroupPipeClient = scriptGroupPipeClient;
             //this.requestsPersistentSource = requestsPersistentSource;
         }
 
-        public async Task<bool> DispatchAsync(
-            ComponentApiModel component,
-            DeploymentResultApiModel deploymentResult,
-            IDictionary<string, VariableValue> properties,
+        public async Task<bool> PreparePlanAsync(
+            string pipeName,
             int requestId,
-            bool isProduction,
-            string environmentName,
-            string scriptRoot,
-            StringBuilder resultLogBuilder,
+            string scriptPath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
+            var deployResultId = scriptGroupProperties.DeployResultId;
+            var properties = scriptGroupProperties.CommonProperties;
 
-            logger.FileLogger.Information($"TerraformProcessor.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+            logger.FileLogger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(component, environmentName, scriptRoot, cancellationToken);
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
 
             try
             {
-                logger.FileLogger.Information($"Updated deployment result {deploymentResult.Id} status to Running.");
+                logger.FileLogger.Information($"Updated deployment result {deployResultId} status to Running.");
 
                 // Create terraform plan (placeholder implementation)
-                var planContent = await CreateTerraformPlanAsync(component, properties, environmentName, terraformWorkingDir, cancellationToken);
+                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, requestId, cancellationToken);
                 
                 // Save plan to blob storage (placeholder implementation)
-                var blobUrl = await SavePlanToBlobStorageAsync(planContent, deploymentResult.Id, cancellationToken);
-
-                resultLogBuilder.AppendLine($"Terraform plan created successfully for component '{component.ComponentName}'");
-                resultLogBuilder.AppendLine($"Plan stored at: {blobUrl}");
+                var blobUrl = await SavePlanToBlobStorageAsync(planContent, deployResultId, cancellationToken);
 
                 // Update status to WaitingConfirmation
                 //requestsPersistentSource.UpdateResultStatus(
                 //    deploymentResult,
                 //    DeploymentResultStatus.WaitingConfirmation);
 
-                logger.FileLogger.Information($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                logger.FileLogger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
                 return true;
             }
             catch (Exception ex)
             {
-                logger.FileLogger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
-                resultLogBuilder.AppendLine($"Failed to create Terraform plan: {ex.Message}");
+                logger.FileLogger.Error($"Failed to create Terraform plan for request '{requestId}': {ex.Message}", ex);
                 return false;
             }
         }
 
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
-            ComponentApiModel component,
-            string environmentName,
-            string scriptRoot,
+            int requestId,
+            string scriptPath,
             CancellationToken cancellationToken)
         {
-            // Resolve the full script path by combining script root with component script path
-            var fullScriptPath = string.IsNullOrEmpty(scriptRoot)
-                ? component.ScriptPath
-                : Path.Combine(scriptRoot, component.ScriptPath);
-
-            logger.FileLogger.Information($"Resolving Terraform script path for component '{component.ComponentName}': ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}', FullPath='{fullScriptPath}'");
-
             // Create a unique working directory for this deployment
             var workingDir = Path.Combine(
                 Path.GetTempPath(),
                 "terraform-workdir",
-                $"{component.ComponentName}-{environmentName}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
+                $"{requestId}-terraform-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
 
             Directory.CreateDirectory(workingDir);
 
             // Copy Terraform files from component script path to working directory
-            if (!string.IsNullOrEmpty(fullScriptPath) && Directory.Exists(fullScriptPath))
+            if (!string.IsNullOrEmpty(scriptPath) && Directory.Exists(scriptPath))
             {
-                logger.FileLogger.Information($"Copying Terraform files from '{fullScriptPath}' to working directory '{workingDir}'");
-                await CopyDirectoryAsync(fullScriptPath, workingDir, cancellationToken);
+                logger.FileLogger.Information($"Copying Terraform files from '{scriptPath}' to working directory '{workingDir}'");
+                await CopyDirectoryAsync(scriptPath, workingDir, cancellationToken);
             }
             else
             {
-                throw new InvalidOperationException($"Terraform script path '{fullScriptPath}' does not exist for component '{component.ComponentName}'. ScriptRoot='{scriptRoot}', ComponentScriptPath='{component.ScriptPath}'");
+                throw new InvalidOperationException($"Terraform script path '{scriptPath}' does not exist.");
             }
 
             return workingDir;
@@ -125,10 +115,9 @@ namespace Dorc.TerraformmRunner
         }
 
         private async Task<string> CreateTerraformPlanAsync(
-            ComponentApiModel component,
             IDictionary<string, VariableValue> properties,
-            string environmentName,
             string terraformWorkingDir,
+            int requestId,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -151,12 +140,12 @@ namespace Dorc.TerraformmRunner
                 var showArgs = $"show -no-color {planFileName}";
                 var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
                 
-                logger.FileLogger.Information($"Terraform plan created successfully for component '{component.ComponentName}'");
+                logger.FileLogger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
             }
             catch (Exception ex)
             {
-                logger.FileLogger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
+                logger.FileLogger.Error($"Failed to create Terraform plan for request '{requestId}': {ex.Message}", ex);
                 throw;
             }
         }

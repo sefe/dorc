@@ -6,15 +6,10 @@ namespace Dorc.TerraformmRunner
 {
     internal interface ITerraformProcessor
     {
-        Task<bool> DispatchAsync(
-            ComponentApiModel component,
-            DeploymentResultApiModel deploymentResult,
-            IDictionary<string, VariableValue> properties,
+        Task<bool> PreparePlanAsync(
+            string pipeName,
             int requestId,
-            bool isProduction,
-            string environmentName,
-            string scriptRoot,
-            StringBuilder resultLogBuilder,
+            string scriptPath,
             CancellationToken cancellationToken);
 
         Task<bool> ExecuteConfirmedPlanAsync(

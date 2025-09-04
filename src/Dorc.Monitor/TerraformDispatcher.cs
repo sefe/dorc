@@ -1,8 +1,17 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.Configuration;
+using Dorc.Monitor.Pipes;
+using Dorc.Monitor.RunnerProcess;
+using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
+using Microsoft.Extensions.Configuration;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -10,19 +19,88 @@ namespace Dorc.Monitor
 {
     public class TerraformDispatcher : ITerraformDispatcher
     {
+        private const string ProdDeployUsernamePropertyName = "DORC_ProdDeployUsername";
+        private const string ProdDeployPasswordPropertyName = "DORC_ProdDeployPassword";
+        private const string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";
+        private const string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";
+
         private readonly ILog logger;
-        private readonly IRequestsPersistentSource requestsPersistentSource;
-        private readonly IConfigValuesPersistentSource configValuesPersistentSource;
+        private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
+        private readonly IConfigurationSettings _configurationSettingsEngine;
+        private readonly IDeploymentRequestProcessesPersistentSource _processesPersistentSource;
+        private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
+
+        private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
         public TerraformDispatcher(
             ILog logger,
             IRequestsPersistentSource requestsPersistentSource,
-            IConfigValuesPersistentSource configValuesPersistentSource)
+            IConfigValuesPersistentSource configValuesPersistentSource,
+            IConfigurationSettings configurationSettingsEngine,
+            IDeploymentRequestProcessesPersistentSource processesPersistentSource,
+            IScriptGroupPipeServer scriptGroupPipeServer)
         {
             this.logger = logger;
-            this.requestsPersistentSource = requestsPersistentSource;
-            this.configValuesPersistentSource = configValuesPersistentSource;
+            this._requestsPersistentSource = requestsPersistentSource;
+            this._configValuesPersistentSource = configValuesPersistentSource;
+            this._configurationSettingsEngine = configurationSettingsEngine;
+            _processesPersistentSource = processesPersistentSource;
+            _scriptGroupPipeServer = scriptGroupPipeServer;
         }
+
+        //public async Task<bool> DispatchAsync(
+        //    ComponentApiModel component,
+        //    DeploymentResultApiModel deploymentResult,
+        //    IDictionary<string, VariableValue> properties,
+        //    int requestId,
+        //    bool isProduction,
+        //    string environmentName,
+        //    StringBuilder resultLogBuilder,
+        //    CancellationToken cancellationToken)
+        //{
+        //    cancellationToken.ThrowIfCancellationRequested();
+
+        //    logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+
+        //    try
+        //    {
+        //        // Update status to Running
+        //        _requestsPersistentSource.UpdateResultStatus(
+        //            deploymentResult,
+        //            DeploymentResultStatus.Running);
+
+        //        logger.Info($"Updated deployment result {deploymentResult.Id} status to Running.");
+
+        //        // Create terraform plan (placeholder implementation)
+        //        var planContent = await CreateTerraformPlanAsync(component, properties, environmentName, cancellationToken);
+
+        //        // Save plan to blob storage (placeholder implementation)
+        //        var blobUrl = await SavePlanToBlobStorageAsync(planContent, deploymentResult.Id, cancellationToken);
+
+        //        resultLogBuilder.AppendLine($"Terraform plan created successfully for component '{component.ComponentName}'");
+        //        resultLogBuilder.AppendLine($"Plan stored at: {blobUrl}");
+
+        //        // Update status to WaitingConfirmation
+        //        _requestsPersistentSource.UpdateResultStatus(
+        //            deploymentResult,
+        //            DeploymentResultStatus.WaitingConfirmation);
+
+        //        logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+        //        return true;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Update status to Failed
+        //        _requestsPersistentSource.UpdateResultStatus(
+        //            deploymentResult,
+        //            DeploymentResultStatus.Failed);
+
+        //        logger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
+        //        resultLogBuilder.AppendLine($"Failed to create Terraform plan: {ex.Message}");
+        //        return false;
+        //    }
+        //}
 
         public async Task<bool> DispatchAsync(
             ComponentApiModel component,
@@ -38,43 +116,158 @@ namespace Dorc.Monitor
 
             logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
 
-            try
+            // Update status to Running
+            _requestsPersistentSource.UpdateResultStatus(
+                deploymentResult,
+                DeploymentResultStatus.Running);
+
+            logger.Info($"Updated deployment result {deploymentResult.Id} status to Running.");
+
+            isScriptExecutionSuccessful = true;
+
+            var processCredentials = GetProcessCredentials(isProduction, environmentName);
+            string processAccountName = processCredentials.Item1;
+            string processAccountPassword = processCredentials.Item2;
+            if (string.IsNullOrEmpty(processAccountName)
+                || string.IsNullOrEmpty(processAccountPassword))
             {
-                // Update status to Running
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    DeploymentResultStatus.Running);
+                logger.Error($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
 
-                logger.Info($"Updated deployment result {deploymentResult.Id} status to Running.");
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
 
-                // Create terraform plan (placeholder implementation)
-                var planContent = await CreateTerraformPlanAsync(component, properties, environmentName, cancellationToken);
-                
-                // Save plan to blob storage (placeholder implementation)
-                var blobUrl = await SavePlanToBlobStorageAsync(planContent, deploymentResult.Id, cancellationToken);
+            // Get the script root from configuration
+            var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
 
-                resultLogBuilder.AppendLine($"Terraform plan created successfully for component '{component.ComponentName}'");
-                resultLogBuilder.AppendLine($"Plan stored at: {blobUrl}");
+            // Resolve the full script path by combining script root with component script path
+            var fullScriptPath = string.IsNullOrEmpty(scriptRoot)
+                ? component.ScriptPath
+                : Path.Combine(scriptRoot, component.ScriptPath);
+
+            var scriptGroup = GetScriptGroup(
+                fullScriptPath,
+                properties,
+                deploymentResult.Id);
+
+            var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            var contextBuilder = new ProcessSecurityContextBuilder(logger)
+            {
+                UserName = processAccountName,
+                Domain = domainName,
+                Password = processAccountPassword
+            };
+
+            using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            using (var securityContext = contextBuilder.Build())
+            {
+                var startedScriptGroupPipeName = "DOrcMonitor-" + requestId;
+                Task scriptGroupPipeTask = _scriptGroupPipeServer.Start(
+                        startedScriptGroupPipeName,
+                        scriptGroup,
+                        pipeCancellationTokenSource.Token);
+                scriptGroupPipeTask.Wait();
+                logger.Info($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
+
+                var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                .GetSection("AppSettings")["RunnerLogPath"]!;
+                var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
+                var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
+
+                _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
+
+                var processStarter = new TerraformRunnerProcessStarter(logger)
+                {
+                    RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
+                    ScriptPath = fullScriptPath,
+                    ScriptGroupPipeName = startedScriptGroupPipeName,
+                    RunnerLogPath = runnerLogPath
+                };
+                try
+                {
+                    Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
+                    logger.Info("Starting Runner process.");
+
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var process = processStarter.Start(startupInfo, securityContext);
+                    try
+                    {
+                        if (Marshal.GetLastWin32Error() != 0)
+                        {
+                            logger.Error("The process creation was not successful.");
+                            throw new Win32Exception(Marshal.GetLastWin32Error());
+                        }
+
+                        _processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
+
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            logger.Debug("Trying to terminate the Runner process.");
+                            process.Kill();
+                            logger.Info("The Runner process is terminated.");
+                            throw new OperationCanceledException("The Runner process is terminated.");
+                        }
+
+                        logger.Debug("Waiting for process to exit.");
+                        var resultCode = process.WaitForExit();
+                        logger.Info($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+                        {
+                            logger.Info("The Runner process is terminated.");
+                            throw new OperationCanceledException("The Runner process is terminated.");
+                        }
+                        else if (resultCode != 0)
+                        {
+                            isScriptExecutionSuccessful = false;
+                            Exception? ex = new Win32Exception(Marshal.GetLastWin32Error());
+
+                            if (ex != null)
+                            {
+                                logger.Error("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
+                                                       + " Message:" + ex.Message
+                                                       + "; Source: " + ex.Source
+                                                       + "; Data: " + ex.Data
+                                                       + "; HelpLink: " + ex.HelpLink
+                                                       + "; InnerException: " + ex.InnerException
+                                                       + "; TargetSite: " + ex.TargetSite + ".");
+                            }
+                        }
+
+                        if (Marshal.GetLastWin32Error() != 0)
+                        {
+                            logger.Error("Waiting the process to exit was not successful.");
+                            throw new Win32Exception(Marshal.GetLastWin32Error());
+                        }
+                        logger.Info("Runner process has been created.");
+                    }
+                    finally
+                    {
+                        pipeCancellationTokenSource.Cancel();
+                        _processesPersistentSource.RemoveProcess((int)process.Id);
+                        process.Dispose();
+                    }
+                }
+                catch (Exception e)
+                {
+                    pipeCancellationTokenSource.Cancel();
+                    logger.Error($"Exception is thrown while operating with the Runner process. Exception: {e}");
+                    throw;
+                }
 
                 // Update status to WaitingConfirmation
-                requestsPersistentSource.UpdateResultStatus(
+                _requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
                     DeploymentResultStatus.WaitingConfirmation);
 
                 logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                // Update status to Failed
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    DeploymentResultStatus.Failed);
 
-                logger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
-                resultLogBuilder.AppendLine($"Failed to create Terraform plan: {ex.Message}");
-                return false;
             }
+
+            return true;
         }
 
         private async Task<string> CreateTerraformPlanAsync(
@@ -121,7 +314,7 @@ namespace Dorc.Monitor
             CancellationToken cancellationToken)
         {
             // Get the script root from configuration
-            var scriptRoot = configValuesPersistentSource.GetConfigValue("ScriptRoot");
+            var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
             
             // Resolve the full script path by combining script root with component script path
             var fullScriptPath = string.IsNullOrEmpty(scriptRoot) 
@@ -329,7 +522,7 @@ namespace Dorc.Monitor
             try
             {
                 // Get the deployment result to check its status
-                deploymentResult = requestsPersistentSource.GetDeploymentResults(deploymentResultId);
+                deploymentResult = _requestsPersistentSource.GetDeploymentResults(deploymentResultId);
                 if (deploymentResult == null)
                 {
                     throw new InvalidOperationException($"Deployment result with ID {deploymentResultId} not found");
@@ -341,7 +534,7 @@ namespace Dorc.Monitor
                 }
 
                 // Update status to Running
-                requestsPersistentSource.UpdateResultStatus(
+                _requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
                     DeploymentResultStatus.Running);
 
@@ -351,7 +544,7 @@ namespace Dorc.Monitor
                 if (executionResult.Success)
                 {
                     // Update status to Complete
-                    requestsPersistentSource.UpdateResultStatus(
+                    _requestsPersistentSource.UpdateResultStatus(
                         deploymentResult,
                         DeploymentResultStatus.Complete);
 
@@ -361,7 +554,7 @@ namespace Dorc.Monitor
                 else
                 {
                     // Update status to Failed
-                    requestsPersistentSource.UpdateResultStatus(
+                    _requestsPersistentSource.UpdateResultStatus(
                         deploymentResult,
                         DeploymentResultStatus.Failed);
 
@@ -376,7 +569,7 @@ namespace Dorc.Monitor
                 // Update status to Failed
                 if (deploymentResult != null)
                 {
-                    requestsPersistentSource.UpdateResultStatus(
+                    _requestsPersistentSource.UpdateResultStatus(
                         deploymentResult,
                         DeploymentResultStatus.Failed);
                 }
@@ -478,6 +671,40 @@ namespace Dorc.Monitor
                 logger.Error($"Failed to find stored plan info for deployment result ID {deploymentResultId}: {ex.Message}", ex);
                 return null;
             }
+        }
+
+        private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
+        {
+            if (isProduction)
+            {
+                return (GetConfigValue(ProdDeployUsernamePropertyName),
+                    GetConfigValue(ProdDeployPasswordPropertyName));
+            }
+
+            return (GetConfigValue(NonProdDeployUsernamePropertyName),
+                GetConfigValue(NonProdDeployPasswordPropertyName));
+        }
+
+        private string GetConfigValue(string configValue)
+        {
+            if (string.IsNullOrEmpty(configValue))
+                throw new ApplicationException($"Config value name is empty, should have a value");
+            return _configValuesPersistentSource.GetConfigValue(configValue);
+        }
+
+        private ScriptGroup GetScriptGroup(
+            string scriptsLocation,
+            IDictionary<string, VariableValue> properties,
+            int deploymentResultId)
+        {
+            return new ScriptGroup()
+            {
+                ID = Guid.NewGuid(),
+                DeployResultId = deploymentResultId,
+                ScriptsLocation = scriptsLocation,
+                CommonProperties = properties,
+                ScriptProperties = new List<ScriptProperties>()
+            };
         }
 
         private class TerraformExecutionResult
