@@ -91,7 +91,7 @@ namespace Dorc.Api.Security
                 return new List<string> { GetClientId(cUser) };
             }
 
-            var pids = _userGroupReader.GetSidsForUser(GetUserId(cUser));
+            var pids = new List<string>(_userGroupReader.GetSidsForUser(GetUserId(cUser)));
 
             // add samAccountName as one of pids for backward compatibility with AD
             var samAccountName = cUser?.FindFirst(SamAccountNameClaimType)?.Value;
