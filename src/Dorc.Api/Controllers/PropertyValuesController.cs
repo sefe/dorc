@@ -65,7 +65,7 @@ namespace Dorc.Api.Controllers
                 {
                     ValueFilterScope = propertyValueScope,
                     ValueOption = "$" + model.Key + "$",
-                    SampleResolvedValue = model.Value
+                    SampleResolvedValue = model.Value.Value
                 }).ToList();
 
             return Ok(output);
