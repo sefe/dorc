@@ -415,6 +415,16 @@ export class AddEditAccessControl extends LitElement {
     const user = cbSelectedUser.selectedItem
 
     if (user !== undefined) {
+      const existing = this.Privileges?.find(item => (item.Sid && item.Sid === user.Sid) || (item.Pid && item.Pid === user.Pid));
+      if (existing) {
+        Notification.show(`User is already in the list`, {
+          theme: 'warning',
+          position: 'bottom-start',
+          duration: 3000
+        });
+        return;
+      }
+
       const acam: AccessControlApiModel = {
         Name: user.DisplayName,
         Allow: 0,
