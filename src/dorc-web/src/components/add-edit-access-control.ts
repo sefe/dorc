@@ -437,14 +437,9 @@ export class AddEditAccessControl extends LitElement {
       return;
     }
 
-    const { DisplayName, Username, Pid, Sid } = model.item;
+    const { DisplayName, Username } = model.item;
     const displayName = DisplayName ?? '';
     const username = Username ?? '';
-    const pid = Pid ?? '';
-    const sid = Sid ?? '';
-    
-    const hasAdditionalId = pid && pid !== username;
-    const additionalId = hasAdditionalId ? pid : sid;
 
     render(
       html`
@@ -455,17 +450,30 @@ export class AddEditAccessControl extends LitElement {
           <div style="${this.acStyles.username}">
             ${username}
           </div>
-          ${additionalId 
-            ? html`
-                <div style="${this.acStyles.additionalId}">
-                  ${additionalId}
-                </div>
-              `
-            : html``}
+          ${this.renderUserId(model.item)}
         </vaadin-vertical-layout>
       `,
       root
     );
+  }
+
+  renderUserId(item: UserElementApiModel): unknown {
+    if (!item) {
+      return html``;
+    }
+    const pid = item.Pid ?? '';
+    const sid = item.Sid ?? '';
+
+    const hasAdditionalId = pid && pid !== item.Username;
+    const additionalId = hasAdditionalId ? pid : sid;
+
+    return additionalId
+      ? html`
+          <div style="${this.acStyles.additionalId}">
+            ${additionalId}
+          </div>
+        `
+      : html``;
   }
 
   updateSearchCriteria(data: any) {
@@ -539,12 +547,11 @@ export class AddEditAccessControl extends LitElement {
     model: GridItemModel<AccessControlApiModel>
   ) => {
     const name = model.item.Name ?? '';
-    const id = model.item.Pid ?? model.item.Sid ?? '';
 
     render(html`
       <div style="padding: 4px 0;">
         <div style="${this.acStyles.displayName}">${name}</div>
-        ${id ? html`<div style="${this.acStyles.additionalId}">${id}</div>` : ''}
+        ${this.renderUserId(model.item)}
       </div>
     `, root);
   };
