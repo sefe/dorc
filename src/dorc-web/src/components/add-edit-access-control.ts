@@ -51,8 +51,6 @@ export class AddEditAccessControl extends LitElement {
 
   @property({ type: Boolean }) searchingUsers = false;
 
-  @property({ type: String }) selectedUser!: string;
-
   @property({ type: Boolean }) savingAccessControls = false;
 
   private AccessControls!: AccessSecureApiModel;
@@ -191,7 +189,6 @@ export class AddEditAccessControl extends LitElement {
                     item-label-path="DisplayName"
                     .items="${this.searchResults}"
                     .renderer="${this.searchResultsRenderer}"
-                    @value-changed="${this.searchResultsValueChanged}"
                   ></vaadin-combo-box>
                 </td>
                 <td style="display: table-cell; vertical-align: bottom;">
@@ -390,14 +387,9 @@ export class AddEditAccessControl extends LitElement {
     return 0;
   }
 
-  searchResultsValueChanged(data: CustomEvent<any>) {
-    this.selectedUser = data.detail.value;
-  }
-
   addUser() {
-    const user = this.searchResults?.find(
-      p => p.DisplayName === this.selectedUser
-    );
+    const cbSelectedUser = this.shadowRoot?.getElementById('searchResults') as ComboBox;
+    const user = cbSelectedUser.selectedItem
 
     if (user !== undefined) {
       const acam: AccessControlApiModel = {
