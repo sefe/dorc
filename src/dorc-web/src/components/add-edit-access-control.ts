@@ -63,6 +63,10 @@ export class AddEditAccessControl extends LitElement {
 
   static get styles() {
     return css`
+      paper-dialog.size-position {
+        overflow: auto;
+        width: 650px;
+      }
       vaadin-text-field {
         display: flex;
         align-items: center;
@@ -115,6 +119,18 @@ export class AddEditAccessControl extends LitElement {
     `;
   }
 
+  private acStyles = {
+    displayName: `color: var(--lumo-body-text-color);`,
+    username: `
+      font-size: var(--lumo-font-size-s);
+      color: var(--lumo-secondary-text-color);`,
+    additionalId: `
+      font-size: var(--lumo-font-size-xs);
+      color: var(--lumo-tertiary-text-color);
+      font-style: italic;
+      opacity: 0.8;`
+  };
+
   render() {
     return html`
       <paper-dialog
@@ -152,7 +168,7 @@ export class AddEditAccessControl extends LitElement {
             </td>
           </tr>
         </table>
-        <div style="padding-left: 10px;padding-right: 10px; width:600px">
+        <div style="padding-left: 10px;padding-right: 10px;">
           <vaadin-details
             opened
             summary="Add New User"
@@ -205,10 +221,12 @@ export class AddEditAccessControl extends LitElement {
           <vaadin-grid
             .items="${this.Privileges}"
             theme="compact row-stripes no-row-borders no-border"
+            style="width: 100%;"
           >
             <vaadin-grid-sort-column
-              path="Name"
               header="Name"
+              .renderer="${this.acNameRenderer}"
+              flex="3"
               resizable
               auto-width
             ></vaadin-grid-sort-column>
@@ -216,6 +234,7 @@ export class AddEditAccessControl extends LitElement {
               header="Write"
               .renderer="${this.acCanWrite}"
               .altThis="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
@@ -223,6 +242,7 @@ export class AddEditAccessControl extends LitElement {
               header="Read Secrets"
               .renderer="${this.acCanReadSecrets}"
               .altThis="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
@@ -230,12 +250,15 @@ export class AddEditAccessControl extends LitElement {
               header="Owner"
               .renderer="${this.acCanOwner}"
               .altThis="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
+              header="Actions"
               .renderer="${this._boundACButtonsRenderer}"
               .ACControl="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
@@ -423,30 +446,18 @@ export class AddEditAccessControl extends LitElement {
     const hasAdditionalId = pid && pid !== username;
     const additionalId = hasAdditionalId ? pid : sid;
 
-    const styles = {
-      displayName: `color: var(--lumo-body-text-color);`,
-      username: `
-        font-size: var(--lumo-font-size-s);
-        color: var(--lumo-secondary-text-color);`,
-      additionalId: `
-        font-size: var(--lumo-font-size-xs);
-        color: var(--lumo-tertiary-text-color);
-        font-style: italic;
-        opacity: 0.8;`
-    };
-
     render(
       html`
         <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
-          <div style="${styles.displayName}">
+          <div style="${this.acStyles.displayName}">
             ${displayName}
           </div>
-          <div style="${styles.username}">
+          <div style="${this.acStyles.username}">
             ${username}
           </div>
           ${additionalId 
             ? html`
-                <div style="${styles.additionalId}">
+                <div style="${this.acStyles.additionalId}">
                   ${additionalId}
                 </div>
               `
@@ -521,6 +532,22 @@ export class AddEditAccessControl extends LitElement {
       console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
     });
   }
+
+  acNameRenderer = (
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<AccessControlApiModel>
+  ) => {
+    const name = model.item.Name ?? '';
+    const id = model.item.Pid ?? model.item.Sid ?? '';
+
+    render(html`
+      <div style="padding: 4px 0;">
+        <div style="${this.acStyles.displayName}">${name}</div>
+        ${id ? html`<div style="${this.acStyles.additionalId}">${id}</div>` : ''}
+      </div>
+    `, root);
+  };
 
   acCanWrite(
     root: HTMLElement,
