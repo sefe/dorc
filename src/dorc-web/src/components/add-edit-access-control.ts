@@ -404,22 +404,55 @@ export class AddEditAccessControl extends LitElement {
     }
   }
 
-  searchResultsRenderer(
+  searchResultsRenderer = (
     root: HTMLElement,
     _comboBox: ComboBox,
     model: ComboBoxItemModel<UserElementApiModel>
-  ) {
+  ) => {
+    if (!model.item) {
+      render(html``, root);
+      return;
+    }
+
+    const { DisplayName, Username, Pid, Sid } = model.item;
+    const displayName = DisplayName ?? '';
+    const username = Username ?? '';
+    const pid = Pid ?? '';
+    const sid = Sid ?? '';
+    
+    const hasAdditionalId = pid && pid !== username;
+    const additionalId = hasAdditionalId ? pid : sid;
+
+    const styles = {
+      displayName: `color: var(--lumo-body-text-color);`,
+      username: `
+        font-size: var(--lumo-font-size-s);
+        color: var(--lumo-secondary-text-color);`,
+      additionalId: `
+        font-size: var(--lumo-font-size-xs);
+        color: var(--lumo-tertiary-text-color);
+        font-style: italic;
+        opacity: 0.8;`
+    };
+
     render(
-      html`<vaadin-vertical-layout>
-        <div style="line-height: var(--lumo-line-height-m);">
-          ${model.item.DisplayName ?? ''}
-        </div>
-        <div
-          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-        >
-          ${model.item.Username ?? ''}
-        </div>
-      </vaadin-vertical-layout>`,
+      html`
+        <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
+          <div style="${styles.displayName}">
+            ${displayName}
+          </div>
+          <div style="${styles.username}">
+            ${username}
+          </div>
+          ${additionalId 
+            ? html`
+                <div style="${styles.additionalId}">
+                  ${additionalId}
+                </div>
+              `
+            : html``}
+        </vaadin-vertical-layout>
+      `,
       root
     );
   }
