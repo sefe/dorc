@@ -27,14 +27,14 @@ module "sql_database" {
 }
 
 # SQL Managed Instance module example
-module "sql_managed_instance" {
-  count  = var.enable_sql_mi ? 1 : 0
-  source = "./modules/sql-managed-instance"
-  
-  resource_group_name = var.resource_group_name
-  location           = var.location
-  instance_name      = var.sql_mi_name
-  environment        = var.environment
-  
-  tags = var.tags
-}
+#module "sql_managed_instance" {
+#  count  = var.enable_sql_mi ? 1 : 0
+#  source = "./modules/sql-managed-instance"
+#  
+#  resource_group_name = var.resource_group_name
+#  location           = var.location
+#  instance_name      = var.sql_mi_name
+#  environment        = var.environment
+#  
+#  tags = var.tags
+#}

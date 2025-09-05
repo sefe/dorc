@@ -1,6 +1,7 @@
 variable "resource_group_name" {
   description = "Name of the resource group"
   type        = string
+  default     = ""
 }
 
 variable "location" {
@@ -12,6 +13,7 @@ variable "location" {
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
+  default     = "dev"
 }
 
 variable "enable_sql_database" {
