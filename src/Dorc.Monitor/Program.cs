@@ -68,6 +68,8 @@ builder.Services.AddTransient<IVariableResolver, VariableResolver>();
 builder.Services.AddTransient<IPropertyEvaluator, PropertyEvaluator>();
 builder.Services.AddTransient<IComponentProcessor, ComponentProcessor>();
 builder.Services.AddTransient<IScriptDispatcher, ScriptDispatcher>();
+builder.Services.AddTransient<ITerraformDispatcher, TerraformDispatcher>();
+builder.Services.AddTransient<TerraformConfirmedPlanProcessor>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 

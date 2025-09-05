@@ -12,6 +12,7 @@ import './grid-button-groups/server-controls';
 import './log-dialog';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/server-tags';
+import './terraform-plan-dialog';
 import { DeploymentResultApiModel } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
@@ -27,6 +28,12 @@ export class ComponentDeploymentResults extends LitElement {
   @state()
   selectedLog: string | undefined;
 
+  @state()
+  terraformDialogOpened = false;
+
+  @state()
+  selectedTerraformDeploymentId: number = 0;
+
   constructor() {
     super();
 
@@ -35,6 +42,18 @@ export class ComponentDeploymentResults extends LitElement {
     this.addEventListener(
       'log-dialog-closed',
       this.logDialogClosed as EventListener
+    );
+
+    this.addEventListener('open-terraform-plan', this.viewTerraformPlan as EventListener);
+
+    this.addEventListener(
+      'terraform-plan-confirmed',
+      this.onTerraformPlanConfirmed as EventListener
+    );
+
+    this.addEventListener(
+      'terraform-plan-declined',
+      this.onTerraformPlanDeclined as EventListener
     );
   }
 
@@ -56,6 +75,36 @@ export class ComponentDeploymentResults extends LitElement {
         padding: 0px;
         margin: 0px;
       }
+
+      .status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .status-waiting-confirmation {
+        background-color: var(--lumo-warning-color-10pct);
+        color: var(--lumo-warning-text-color);
+      }
+
+      .status-confirmed {
+        background-color: var(--lumo-success-color-10pct);
+        color: var(--lumo-success-text-color);
+      }
+
+      .terraform-actions {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+
+      .terraform-button {
+        min-width: 32px;
+        padding: 4px;
+      }
     `;
   }
 
@@ -66,6 +115,13 @@ export class ComponentDeploymentResults extends LitElement {
         .selectedLog="${this.selectedLog}"
       >
       </log-dialog>
+
+      <terraform-plan-dialog
+        .deploymentResultId="${this.selectedTerraformDeploymentId}"
+        .opened="${this.terraformDialogOpened}"
+        @opened-changed="${this.onTerraformDialogOpenedChanged}"
+      >
+      </terraform-plan-dialog>
 
       <vaadin-grid
         id="grid"
@@ -88,8 +144,14 @@ export class ComponentDeploymentResults extends LitElement {
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
-          path="Status"
+          .renderer="${this.statusRenderer}"
           header="Status"
+          resizable
+          auto-width
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          .renderer="${this.actionsRenderer}"
+          header="Actions"
           resizable
           auto-width
         ></vaadin-grid-column>
@@ -228,4 +290,120 @@ export class ComponentDeploymentResults extends LitElement {
       root
     );
   };
+
+  statusRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    const result = model.item as DeploymentResultApiModel;
+    const status = result.Status || '';
+    
+    let statusClass = '';
+    if (status === 'WaitingConfirmation') {
+      statusClass = 'status-waiting-confirmation';
+    } else if (status === 'Confirmed') {
+      statusClass = 'status-confirmed';
+    }
+
+    render(
+      html`
+        <span class="status-badge ${statusClass}">
+          ${status}
+        </span>
+      `,
+      root
+    );
+  };
+
+  actionsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    const result = model.item as DeploymentResultApiModel;
+    const status = result.Status || '';
+    const isTerraformStatus = status === 'WaitingConfirmation' || status === 'Confirmed';
+
+    if (!isTerraformStatus) {
+      render(html`<span>-</span>`, root);
+      return;
+    }
+
+    render(
+      html`
+        <div class="terraform-actions">
+          <vaadin-button
+            class="terraform-button"
+            theme="small primary"
+            @click="${() => this.openTerraformPlan(result.Id!)}"
+            title="View Terraform Plan"
+          >
+            <vaadin-icon icon="vaadin:eye" style="color: var(--lumo-primary-color);"></vaadin-icon>
+          </vaadin-button>
+        </div>
+      `,
+      root
+    );
+  };
+
+  private viewTerraformPlan(e: CustomEvent) {
+    const deploymentResultId = e.detail.deploymentResultId as number;
+    this.openTerraformPlan(deploymentResultId);
+  }
+
+  private openTerraformPlan(deploymentResultId: number) {
+    this.selectedTerraformDeploymentId = deploymentResultId;
+    this.terraformDialogOpened = true;
+  }
+
+  private onTerraformDialogOpenedChanged(e: CustomEvent) {
+    this.terraformDialogOpened = e.detail.value;
+  }
+
+  private onTerraformPlanConfirmed(e: CustomEvent) {
+    const deploymentResultId = e.detail.deploymentResultId as number;
+    
+    // Update the status of the corresponding item in the grid
+    if (this.resultItems) {
+      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      if (item) {
+        item.Status = 'Confirmed';
+        this.requestUpdate(); // Force re-render of the grid
+      }
+    }
+
+    // Dispatch event to notify parent components
+    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
+      detail: { 
+        deploymentResultId,
+        newStatus: 'Confirmed'
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private onTerraformPlanDeclined(e: CustomEvent) {
+    const deploymentResultId = e.detail.deploymentResultId as number;
+    
+    // Update the status of the corresponding item in the grid
+    if (this.resultItems) {
+      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      if (item) {
+        item.Status = 'Cancelled';
+        this.requestUpdate(); // Force re-render of the grid
+      }
+    }
+
+    // Dispatch event to notify parent components
+    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
+      detail: { 
+        deploymentResultId,
+        newStatus: 'Cancelled'
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
 }

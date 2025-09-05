@@ -16,6 +16,7 @@
 
 					<Json:JsonFile Id="SetCoreRunnerPathNonProd" ElementPath="$.AppSettings.DotNetCoreDeploymentRunnerPath" Value="[#NonProdDorcRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="SetFrameworkRunnerPathNonProd" ElementPath="$.AppSettings.DotNetFrameworkDeploymentRunnerPath" Value="[#NonProdDeployRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetTerraformRunnerPathNonProd" ElementPath="$.AppSettings.TerraformDeploymentRunnerPath" Value="[#NonProdTerraformRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetIsProductionNonProd" ElementPath="$.AppSettings.IsProduction" Value="False" File="[#NonProdDeployMonitorExeConfig]" />
 
@@ -54,6 +55,18 @@
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsEnvironmentConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
+					</Component>
+				</Directory>
+
+				<Directory Id="INSTALLLOCATIONTERRAFORMRUNNERNONPROD" Name="TerraformRunner">
+					<Component Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" Guid="{3DD759A3-E0CB-45D3-8AB7-A8C2E229DA87}">
+						<Json:JsonFile Id="TerraformRunnerNonProdExeConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsEnvironmentConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
 					</Component>
 				</Directory>
 			</Directory>
