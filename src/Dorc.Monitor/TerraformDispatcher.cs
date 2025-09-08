@@ -166,7 +166,6 @@ namespace Dorc.Monitor
                         startedScriptGroupPipeName,
                         scriptGroup,
                         pipeCancellationTokenSource.Token);
-                scriptGroupPipeTask.Wait();
                 logger.Info($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
                 var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
