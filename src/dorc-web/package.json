@@ -33,6 +33,7 @@
     "@vaadin/button": "^24.7.6",
     "@vaadin/checkbox": "^24.7.6",
     "@vaadin/combo-box": "^24.7.6",
+    "@vaadin/confirm-dialog": "^24.7.6",
     "@vaadin/date-picker": "^24.7.6",
     "@vaadin/date-time-picker": "^24.7.6",
     "@vaadin/details": "^24.7.6",
