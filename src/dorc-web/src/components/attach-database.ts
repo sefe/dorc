@@ -127,7 +127,7 @@ export class AttachDatabase extends LitElement {
       this._submit();
     }
     else {
-      this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? A database '${existingTag?.Name}' with such tag is already attached`;
+      this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? The database '${existingTag?.Name}' with such tag is already attached`;
       this.confirmSameTagDialogOpened = true;
     }
   }
