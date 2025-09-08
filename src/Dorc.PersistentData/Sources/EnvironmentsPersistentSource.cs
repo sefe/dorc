@@ -387,6 +387,9 @@ namespace Dorc.PersistentData.Sources
 
         public EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user)
         {
+            if (string.IsNullOrEmpty(environmentName))
+                return null;
+
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
             var sidSet = userSids.ToHashSet();
