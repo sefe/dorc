@@ -42,8 +42,6 @@ namespace Dorc.TerraformmRunner
 
             try
             {
-                logger.FileLogger.Information($"Updated deployment result {deployResultId} status to Running.");
-
                 // Create terraform plan (placeholder implementation)
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, requestId, cancellationToken);
                 
