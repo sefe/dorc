@@ -98,6 +98,7 @@ export class EnvDatabases extends PageEnvBase {
             ? html` <div class="center-aligned">
                 <attach-database
                   .envId="${this.environmentId}"
+                  .existingDatabases="${this.databases}"
                   @database-attached="${this._dbAttached}"
                 ></attach-database>
               </div>`

@@ -689,6 +689,10 @@ export class PageVariables extends PageElement {
     if (data) {
       const combo = data.target as ComboBox;
       this.newVariableScope = combo.value;
+      if (!this.newVariableScope)
+      {
+        return;
+      }
       this.loadingScopeOptions = true;
 
       const api = new PropertyValuesApi();
