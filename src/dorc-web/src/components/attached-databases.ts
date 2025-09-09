@@ -139,7 +139,6 @@ export class AttachedDatabases extends LitElement {
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._boundDatabasesButtonsRenderer}"
-          .attachedDbsControl="${this}"
           resizable
         >
         </vaadin-grid-column>
@@ -218,40 +217,36 @@ export class AttachedDatabases extends LitElement {
     );
   };
 
-  _boundDatabasesButtonsRenderer(
+  _boundDatabasesButtonsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<DatabaseApiModel>
-  ) {
+  ) =>{
     const db = model.item as DatabaseApiModel;
 
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedDbsControl as AttachedDatabases;
     render(
       html` <database-env-controls
         .dbDetails="${db}"
-        .envId="${altThis.envId}"
-        .readonly="${altThis.readonly}"
+        .envId="${this.envId}"
+        .readonly="${this.readonly}"
         @database-detached="${() => {
-          altThis.refreshDatabases();
+          this.refreshDatabases();
         }}"
         @manage-database-perms="${() => {
-          const edit = altThis.shadowRoot?.getElementById(
+          const edit = this.shadowRoot?.getElementById(
             'edit'
           ) as EditDatabasePermissions;
           edit.reset();
           edit.setDbId(db.Id || 0);
-          altThis.openDialog('permissions');
+          this.openDialog('permissions');
         }}"
         @view-database-perms="${() => {
-          const view = altThis.shadowRoot?.getElementById(
+          const view = this.shadowRoot?.getElementById(
             'view'
           ) as ViewDatabasePermissions;
           view.setDbId(db.Id || 0);
           view.loadDatabaseUsers();
-          altThis.openDialog('viewPermissions');
+          this.openDialog('viewPermissions');
         }}"
       ></database-env-controls>`,
       root
