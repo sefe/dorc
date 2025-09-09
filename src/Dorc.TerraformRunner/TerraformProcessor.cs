@@ -146,6 +146,10 @@ namespace Dorc.TerraformmRunner
                 logger.FileLogger.Error($"Failed to create Terraform plan for request '{requestId}': {ex.Message}", ex);
                 throw;
             }
+            finally
+            {
+                logger.FlushLogMessages();
+            }
         }
 
         private async Task CreateTerraformVariablesFileAsync(
