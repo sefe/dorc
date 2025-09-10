@@ -14,8 +14,6 @@ import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
 import {
   DatabaseApiModel,
-  EnvironmentContentApiModel,
-  RefDataEnvironmentsDetailsApi
 } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
@@ -23,45 +21,13 @@ import { map } from 'lit/directives/map.js';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends LitElement {
-  @property({ type: Object })
-  envContent: EnvironmentContentApiModel | undefined;
-
-  @property({ type: Array })
-  private _parentDatabases: Array<DatabaseApiModel> | undefined = [];
-
   @property({ type: Number })
   envId = 0;
 
   @property({ type: Boolean }) private readonly = true;
 
-  private _refreshedDatabases: Array<DatabaseApiModel> | undefined = [];
-  private _hasRefreshedData = false;
-  private _lastEnvId = 0;
-
-  /**
-   * Smart database state management:
-   * - Uses refreshed API data when available (after detach/attach operations)
-   * - Falls back to parent data for initial load or environment changes
-   * - Prevents stale parent data from overriding fresh API data
-   */
-
-  // Use refreshed data if available, otherwise fall back to parent data
-  get databases(): Array<DatabaseApiModel> | undefined {
-    // Reset refreshed data if environment changed (and envId is valid)
-    if (this.envId > 0 && this.envId !== this._lastEnvId) {
-      this._hasRefreshedData = false;
-      this._lastEnvId = this.envId;
-    }
-    return this._hasRefreshedData ? this._refreshedDatabases : this._parentDatabases;
-  }
-
-  set databases(value: Array<DatabaseApiModel> | undefined) {
-    // Only update from parent if we don't have refreshed data
-    if (!this._hasRefreshedData) {
-      this._parentDatabases = value;
-      this.requestUpdate();
-    }
-  }
+  @property({ type: Array })
+  public databases: Array<DatabaseApiModel> | undefined = [];
 
   static get styles() {
     return css`
@@ -139,7 +105,6 @@ export class AttachedDatabases extends LitElement {
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._boundDatabasesButtonsRenderer}"
-          .attachedDbsControl="${this}"
           resizable
         >
         </vaadin-grid-column>
@@ -218,78 +183,42 @@ export class AttachedDatabases extends LitElement {
     );
   };
 
-  _boundDatabasesButtonsRenderer(
+  _boundDatabasesButtonsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<DatabaseApiModel>
-  ) {
+  ) => {
     const db = model.item as DatabaseApiModel;
 
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedDbsControl as AttachedDatabases;
     render(
       html` <database-env-controls
         .dbDetails="${db}"
-        .envId="${altThis.envId}"
-        .readonly="${altThis.readonly}"
-        @database-detached="${() => {
-          altThis.refreshDatabases();
-        }}"
+        .envId="${this.envId}"
+        .readonly="${this.readonly}"
+        @database-detached="${() =>
+          this.dispatchEvent(
+            new CustomEvent('database-detached', { detail: { db } })
+          )
+        }"
         @manage-database-perms="${() => {
-          const edit = altThis.shadowRoot?.getElementById(
+          const edit = this.shadowRoot?.getElementById(
             'edit'
           ) as EditDatabasePermissions;
           edit.reset();
           edit.setDbId(db.Id || 0);
-          altThis.openDialog('permissions');
+          this.openDialog('permissions');
         }}"
         @view-database-perms="${() => {
-          const view = altThis.shadowRoot?.getElementById(
+          const view = this.shadowRoot?.getElementById(
             'view'
           ) as ViewDatabasePermissions;
           view.setDbId(db.Id || 0);
           view.loadDatabaseUsers();
-          altThis.openDialog('viewPermissions');
+          this.openDialog('viewPermissions');
         }}"
       ></database-env-controls>`,
       root
     );
-  }
-
-  setEnvironmentDetails(envDetails: EnvironmentContentApiModel) {
-    this.envContent = envDetails;
-    this._refreshedDatabases = envDetails.DbServers?.sort(this.sortDbs);
-    this._hasRefreshedData = true;
-    this.requestUpdate();
-  }
-
-  sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
-    if (String(a.ServerName) > String(b.ServerName)) return 1;
-    if (a.ServerName === b.ServerName) {
-      if (String(a.Name) > String(b.Name)) return 1;
-      return -1;
-    }
-    return -1;
-  }
-
-  refreshDatabases() {
-    const api = new RefDataEnvironmentsDetailsApi();
-    api.refDataEnvironmentsDetailsIdGet({ id: this.envId }).subscribe(
-      (data: EnvironmentContentApiModel) => {
-        this.setEnvironmentDetails(data);
-      },
-      (err: any) => console.error(err),
-      () => console.log('done loading env details')
-    );
-  }
-
-  // Reset to use parent data (e.g., when environment changes)
-  resetToParentData() {
-    this._hasRefreshedData = false;
-    this._refreshedDatabases = [];
-    this.requestUpdate();
   }
 
   openDialog(name: string) {
