@@ -122,41 +122,33 @@ namespace Dorc.Runner.Logger
 
         public void FlushLogMessages()
         {
-            this.FileLogger.Information($"Amount of messages to log {_logMessages.Count}");
             if (_logMessages.IsEmpty) return;
-            this.FileLogger.Information($"1");
 
             var logList = new List<DeployOpenSearchLogModel>();
             while (_logMessages.TryDequeue(out var log))
             {
                 logList.Add(log);
             }
-            this.FileLogger.Information($"2");
 
             if (logList.Count > 0)
             {
                 try
                 {
-                    this.FileLogger.Information($"4 " + Environment.NewLine + Newtonsoft.Json.JsonConvert.SerializeObject(logList));
                     var res = this.OpenSearchClient.Bulk(b => b
                         .Index(_deploymentResultIndex)
                         .IndexMany(logList, (descriptor, document) => descriptor
                             .Document(document)));
-                    this.FileLogger.Information($"5");
                     if (!res.IsValid)
                     {
-                        this.FileLogger.Information($"6");
                         this.FileLogger.Warning($"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed." +
                             res.ServerError != null ? res.ServerError.ToString() : "");
                     }
                 }
                 catch (Exception e)
                 {
-                    this.FileLogger.Information($"7");
                     this.FileLogger.Error(e, $"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed.");
                 }
             }
-            this.FileLogger.Information($"8");
         }
 
         protected virtual void Dispose(bool disposing)

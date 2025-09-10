@@ -258,7 +258,7 @@ namespace Dorc.TerraformmRunner
                 throw new InvalidOperationException(errorMessage);
             }
 
-            logger.Information($"Terraform command completed successfully. Output: {output}");
+            logger.Information($"Terraform command completed successfully. Output:{Environment.NewLine}{output}");
             return output;
         }
 
