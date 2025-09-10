@@ -126,19 +126,19 @@ namespace Dorc.TerraformmRunner
             try
             {
                 // Initialize Terraform if needed
-                await RunTerraformCommandAsync(terraformWorkingDir, "init", cancellationToken);
+                await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
                 
                 // Create Terraform variables file
                 await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
                 
                 // Generate the plan
                 var planFileName = $"tfplan-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}";
-                var planArgs = $"plan -out={planFileName} -detailed-exitcode";
+                var planArgs = $"plan -out={planFileName} -detailed-exitcode -no-color";
                 
                 var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
                 
                 // Get human-readable plan output
-                var showArgs = $"show -no-color {planFileName}";
+                var showArgs = $"show {planFileName} -no-color";
                 var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
                 
                 logger.FileLogger.Information($"Terraform plan created successfully for request '{requestId}'");
@@ -248,7 +248,7 @@ namespace Dorc.TerraformmRunner
                 logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
             }
 
-            var output = outputBuilder.ToString();
+            var output = (outputBuilder.ToString();
             var error = errorBuilder.ToString();
 
             if (process.ExitCode != 0)
@@ -387,7 +387,7 @@ namespace Dorc.TerraformmRunner
                 }
 
                 // Execute terraform apply using the stored plan
-                var applyArgs = $"apply -auto-approve {planInfo.PlanFileName}";
+                var applyArgs = $"apply -auto-approve {planInfo.PlanFileName}  -no-color";
                 logger.FileLogger.Information($"Executing Terraform apply for deployment result ID: {deploymentResultId}");
                 
                 var applyOutput = await RunTerraformCommandAsync(planInfo.WorkingDirectory, applyArgs, cancellationToken);
