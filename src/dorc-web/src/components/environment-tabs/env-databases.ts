@@ -183,12 +183,9 @@ export class EnvDatabases extends PageEnvBase {
         : undefined;
   }
 
-  override notifyEnvironmentContentReady(loadedFromServer: boolean = false): void {
+  override notifyEnvironmentContentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
-    if (!loadedFromServer) this.refreshDatabases();
-    else {
-      this.setDatabases(this.envContent);
-    }
+    this.refreshDatabases();
   }
 
   sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
