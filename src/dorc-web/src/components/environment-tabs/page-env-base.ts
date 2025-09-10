@@ -46,7 +46,7 @@ export class PageEnvBase extends LitElement {
   protected set envContent(value: EnvironmentContentApiModel | undefined) {
     const oldValue = _envContent;
     _envContent = value;
-    this.notifyEnvironmentContentReady();
+    this.notifyEnvironmentContentReady(true);
     this.requestUpdate('envContent', oldValue);
   }
 
@@ -220,7 +220,8 @@ export class PageEnvBase extends LitElement {
     }
   }
 
-  notifyEnvironmentContentReady() {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  notifyEnvironmentContentReady(loadedFromServer: boolean = false): void {}
 
   notifyEnvironmentReady() {}
 }
