@@ -9,7 +9,6 @@ import '../add-edit-database.ts';
 import '../attach-database';
 import '../attached-databases';
 import { Notification } from '@vaadin/notification';
-import { AttachedDatabases } from '../attached-databases';
 import { PageEnvBase } from './page-env-base';
 import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 
