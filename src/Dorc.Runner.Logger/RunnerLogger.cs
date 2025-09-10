@@ -137,7 +137,7 @@ namespace Dorc.Runner.Logger
             {
                 try
                 {
-                    this.FileLogger.Information($"4");
+                    this.FileLogger.Information($"4 " + Environment.NewLine + Newtonsoft.Json.JsonConvert.SerializeObject(logList));
                     var res = this.OpenSearchClient.Bulk(b => b
                         .Index(_deploymentResultIndex)
                         .IndexMany(logList, (descriptor, document) => descriptor
