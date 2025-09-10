@@ -215,7 +215,7 @@ export class AddEditDatabase extends LitElement {
       'active-dir-groups'
     ) as ComboBox;
 
-    activeDirectoryGroups.clear();
+    if (activeDirectoryGroups) activeDirectoryGroups.clear();
 
     this.DatabaseName = '';
     this.DatabaseType = '';
