@@ -187,7 +187,7 @@ export class AttachedDatabases extends LitElement {
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<DatabaseApiModel>
-  ) =>{
+  ) => {
     const db = model.item as DatabaseApiModel;
 
     render(
