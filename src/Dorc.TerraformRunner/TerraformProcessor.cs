@@ -36,6 +36,9 @@ namespace Dorc.TerraformmRunner
             var deployResultId = scriptGroupProperties.DeployResultId;
             var properties = scriptGroupProperties.CommonProperties;
 
+            this.logger.SetRequestId(requestId);
+            this.logger.SetDeploymentResultId(deployResultId);
+
             logger.FileLogger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
             var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
