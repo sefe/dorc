@@ -248,7 +248,7 @@ namespace Dorc.TerraformmRunner
                 logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
             }
 
-            var output = (outputBuilder.ToString();
+            var output = outputBuilder.ToString();
             var error = errorBuilder.ToString();
 
             if (process.ExitCode != 0)
