@@ -1,41 +1,41 @@
 import type { Route } from '@vaadin/router';
-import {appConfig} from '../app-config';
+import { appConfig } from '../app-config';
 
-import '../components/dorc-app.ts'
-import '../components/environment-tabs/env-control-center.ts'
-import '../components/environment-tabs/env-daemons.ts'
-import '../components/environment-tabs/env-databases.ts'
-import '../components/environment-tabs/env-delegated-users.ts'
-import '../components/environment-tabs/env-deployments.ts'
-import '../components/environment-tabs/env-metadata.ts'
-import '../components/environment-tabs/env-projects.ts'
-import '../components/environment-tabs/env-servers.ts'
-import '../components/environment-tabs/env-users.ts'
-import '../components/environment-tabs/env-variables.ts'
-import '../components/environment-tabs/env-tenants.ts'
-import '../pages/page-about.ts'
-import '../pages/page-config-values-list.ts'
-import '../pages/page-daemons-list.ts'
-import '../pages/page-databases-list.ts'
-import '../pages/page-deploy.ts'
-import '../pages/page-env-history.ts'
-import '../pages/page-environment.ts'
-import '../pages/page-environments-list.ts'
-import '../pages/page-monitor-requests.ts'
-import '../pages/page-monitor-result.ts'
-import '../pages/page-not-found.ts'
-import '../pages/page-permissions-list.ts'
-import '../pages/page-project-envs.ts'
-import '../pages/page-project-bundles.ts'
-import '../pages/page-project-ref-data.ts'
-import '../pages/page-projects-list.ts'
-import '../pages/page-scripts-list.ts'
-import '../pages/page-servers-list.ts'
-import '../pages/page-sql-ports-list.ts'
-import '../pages/page-users-list.ts'
-import '../pages/page-variables-audit.ts'
-import '../pages/page-variables-value-lookup.ts'
-import '../pages/page-variables.ts'
+import '../components/dorc-app.ts';
+import '../components/environment-tabs/env-control-center.ts';
+import '../components/environment-tabs/env-daemons.ts';
+import '../components/environment-tabs/env-databases.ts';
+import '../components/environment-tabs/env-delegated-users.ts';
+import '../components/environment-tabs/env-deployments.ts';
+import '../components/environment-tabs/env-metadata.ts';
+import '../components/environment-tabs/env-projects.ts';
+import '../components/environment-tabs/env-servers.ts';
+import '../components/environment-tabs/env-users.ts';
+import '../components/environment-tabs/env-variables.ts';
+import '../components/environment-tabs/env-tenants.ts';
+import '../pages/page-about.ts';
+import '../pages/page-config-values-list.ts';
+import '../pages/page-daemons-list.ts';
+import '../pages/page-databases-list.ts';
+import '../pages/page-deploy.ts';
+import '../pages/page-env-history.ts';
+import '../pages/page-environment.ts';
+import '../pages/page-environments-list.ts';
+import '../pages/page-monitor-requests.ts';
+import '../pages/page-monitor-result.ts';
+import '../pages/page-not-found.ts';
+import '../pages/page-permissions-list.ts';
+import '../pages/page-project-envs.ts';
+import '../pages/page-project-bundles.ts';
+import '../pages/page-project-ref-data.ts';
+import '../pages/page-projects-list.ts';
+import '../pages/page-scripts-list.ts';
+import '../pages/page-servers-list.ts';
+import '../pages/page-sql-ports-list.ts';
+import '../pages/page-users-list.ts';
+import '../pages/page-variables-audit.ts';
+import '../pages/page-variables-value-lookup.ts';
+import '../pages/page-variables.ts';
 
 export type RouteMeta = Readonly<{
   metadata: {
@@ -69,7 +69,7 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Monitor Requests',
           description: 'List of all currently running requests'
-        },
+        }
       },
       {
         path: '/monitor-result/:id',
@@ -356,9 +356,9 @@ export const routes: Route<RouteMeta>[] = [
         component: 'page-not-found',
         metadata: {
           title: 'Error',
-          description: 'Page not found',
+          description: 'Page not found'
         }
       }
-    ],
+    ]
   }
 ];

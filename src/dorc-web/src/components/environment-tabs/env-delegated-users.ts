@@ -29,17 +29,15 @@ export class EnvDelegatedUsers extends PageEnvBase {
 
   render() {
     return html`
-
-        <attached-delegated-users
-          id="delegated-users"
-          .readonly="${!this.environment?.UserEditable}"
-          .envName="${this.envName}"
-          .users="${this.delegatedUsers}"
-          .delegatedUsersLoading="${!this.delegatedUsersLoaded}"
-          style="height: 100%"
-        >
-        </attached-delegated-users>
-      
+      <attached-delegated-users
+        id="delegated-users"
+        .readonly="${!this.environment?.UserEditable}"
+        .envName="${this.envName}"
+        .users="${this.delegatedUsers}"
+        .delegatedUsersLoading="${!this.delegatedUsersLoaded}"
+        style="height: 100%"
+      >
+      </attached-delegated-users>
     `;
   }
 

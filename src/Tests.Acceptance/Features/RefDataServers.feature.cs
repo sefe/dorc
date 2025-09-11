@@ -140,9 +140,9 @@ this.ScenarioInitialize(scenarioInfo);
             {
                 this.ScenarioStart();
 #line 16
- testRunner.Given("I have created POST request on RefDataServers with data below in body", "{\r\n  \"EnvironmentNames\": [\r\n\t\"Endur Sandbox Testing\"\r\n  ],\r\n  \"UserEditable\": tru" +
-                        "e,\r\n  \"Name\": \"autoServerName\",\r\n  \"OsName\": \"2008 R2 Standard\",\r\n  \"Application" +
-                        "Tags\": \"autoTag1;autoTag2\"\r\n}", ((TechTalk.SpecFlow.Table)(null)), "Given ");
+ testRunner.Given("I have created POST request on RefDataServers with data below in body", "{\n  \"EnvironmentNames\": [\n\t\"Endur Sandbox Testing\"\n  ],\n  \"UserEditable\": true,\n " +
+                        " \"Name\": \"autoServerName\",\n  \"OsName\": \"2008 R2 Standard\",\n  \"ApplicationTags\": " +
+                        "\"autoTag1;autoTag2\"\n}", ((TechTalk.SpecFlow.Table)(null)), "Given ");
 #line hidden
 #line 28
  testRunner.Then("The result should contain  ServerApiModel with ServerID greater than \'0\'", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Then ");

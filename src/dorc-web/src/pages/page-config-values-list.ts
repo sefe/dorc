@@ -10,7 +10,7 @@ import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
+import { ConfigValueApiModel, RefDataConfigApi } from '../apis/dorc-api';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import { Checkbox } from '@vaadin/checkbox';
@@ -20,8 +20,9 @@ import '../components/add-config-value';
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends PageElement {
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
-  
-  @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
+
+  @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> =
+    [];
 
   @property({ type: Array }) appConfig = [];
 

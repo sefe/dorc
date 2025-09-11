@@ -10,12 +10,27 @@ import {
   AnalyticsDeploymentsMonthApi
 } from '../apis/dorc-api';
 import { AnalyticsDeploymentsPerProjectApiModel } from '../apis/dorc-api';
-import type { EChartsOption, TitleComponentOption, TooltipComponentOption, SingleAxisComponentOption } from 'echarts';
+import type {
+  EChartsOption,
+  TitleComponentOption,
+  TooltipComponentOption,
+  SingleAxisComponentOption
+} from 'echarts';
 import type { PieSeriesOption, ThemeRiverSeriesOption } from 'echarts';
-import {CallbackDataParams, TopLevelFormatterParams} from "echarts/types/dist/shared";
-import {OptionDataValueDate, OptionDataValueNumeric} from "echarts/types/src/util/types";
+import {
+  CallbackDataParams,
+  TopLevelFormatterParams
+} from 'echarts/types/dist/shared';
+import {
+  OptionDataValueDate,
+  OptionDataValueNumeric
+} from 'echarts/types/src/util/types';
 
-declare type ThemerRiverDataItem = [OptionDataValueDate, OptionDataValueNumeric, string];
+declare type ThemerRiverDataItem = [
+  OptionDataValueDate,
+  OptionDataValueNumeric,
+  string
+];
 
 interface ProjectDeployments {
   project: string;
@@ -133,7 +148,7 @@ export class PageAbout extends PageElement {
         height: 120px;
         animation: spin 2s linear infinite;
       }
-        
+
       div#page_div {
         overflow: auto;
         width: calc(100% - 4px);
@@ -156,61 +171,61 @@ export class PageAbout extends PageElement {
       ${this.loading
         ? html` <div class="loader"></div> `
         : html`
-          <div id="page_div">
-            <div class="page-about__main-info main-info">
-              <div class="statistics-cards">
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalDeployments}</h3>
-                  <span class="card-element__text">Total # deployments</span>
+            <div id="page_div">
+              <div class="page-about__main-info main-info">
+                <div class="statistics-cards">
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalDeployments}</h3>
+                    <span class="card-element__text">Total # deployments</span>
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total # deployments this year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.AverageDeploymentsPerDay}</h3>
+                    <span class="card-element__text"
+                      >Average Deployments Per Day</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.MaxDeploymentsThisYear}</h3>
+                    <span class="card-element__text">Busiest Week Of Year</span>
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalFailedDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total Failures This Year</span
+                    >
+                  </div>
                 </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalDeploymentsThisYear}</h3>
-                  <span class="card-element__text"
-                    >Total # deployments this year</span
-                  >
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.AverageDeploymentsPerDay}</h3>
-                  <span class="card-element__text"
-                    >Average Deployments Per Day</span
-                  >
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.MaxDeploymentsThisYear}</h3>
-                  <span class="card-element__text">Busiest Week Of Year</span>
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalFailedDeploymentsThisYear}</h3>
-                  <span class="card-element__text"
-                    >Total Failures This Year</span
-                  >
+                <div class="top3-chart-block">
+                  <hegs-chart
+                    style="display: block; width: 600px; height: 400px;"
+                    .option="${this.top3PieChartOptions}"
+                  ></hegs-chart>
                 </div>
               </div>
-              <div class="top3-chart-block">
+              <div class="statistics-cards__item card-element">
                 <hegs-chart
-                  style="display: block; width: 600px; height: 400px;"
-                  .option="${this.top3PieChartOptions}"
+                  style="display: block; width: 100%; height: 1200px;"
+                  .option="${this.riverChartOptions}"
+                ></hegs-chart>
+                <vaadin-checkbox
+                  label="Include Deprecated"
+                  ?checked="${this.includeDeprecated}"
+                  @change="${this.updateDeprecated}"
+                ></vaadin-checkbox>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 1200px;"
+                  .option="${this.pieChartOptions}"
                 ></hegs-chart>
               </div>
             </div>
-            <div class="statistics-cards__item card-element">
-              <hegs-chart
-                style="display: block; width: 100%; height: 1200px;"
-                .option="${this.riverChartOptions}"
-              ></hegs-chart>
-              <vaadin-checkbox
-                label="Include Deprecated"
-                ?checked="${this.includeDeprecated}"
-                @change="${this.updateDeprecated}"
-              ></vaadin-checkbox>
-            </div>
-            <div class="statistics-cards__item card-element">
-              <hegs-chart
-                style="display: block; width: 100%; height: 1200px;"
-                .option="${this.pieChartOptions}"
-              ></hegs-chart>
-            </div>
-          </div>
           `}
     `;
   }
@@ -254,8 +269,7 @@ export class PageAbout extends PageElement {
           arr = arr.sort((a, b) => {
             const aa = a.data as string[];
             const bb = b.data as string[];
-            if (String(aa[2] as string) > String(bb[2] as string))
-              return 1;
+            if (String(aa[2] as string) > String(bb[2] as string)) return 1;
             return -1;
           });
           for (let i = 0; i < arr.length; i += 1) {
@@ -408,12 +422,9 @@ export class PageAbout extends PageElement {
     );
 
     this.top3ProjectsByDeployments.forEach(e => {
-      this.pieDataTable.push([
-        e.project,
-        e.numDeployments
-      ]);
+      this.pieDataTable.push([e.project, e.numDeployments]);
     });
-    
+
     const model: [][] = JSON.parse(JSON.stringify(this.pieDataTable));
     this.pieDataTable = model;
     this.constructTop3PieChart();
@@ -528,4 +539,3 @@ function min(arg0: number, arg1: number) {
   if (arg0 < arg1) return arg0;
   return arg1;
 }
-
