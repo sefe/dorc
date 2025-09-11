@@ -10,6 +10,7 @@ namespace Dorc.TerraformmRunner
             string pipeName,
             int requestId,
             string scriptPath,
+            string resultFilePath,
             CancellationToken cancellationToken);
 
         Task<bool> ExecuteConfirmedPlanAsync(

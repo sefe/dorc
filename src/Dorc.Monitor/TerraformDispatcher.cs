@@ -175,12 +175,19 @@ namespace Dorc.Monitor
 
                 _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
+                var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
+                if (!Directory.Exists(planStorageDir))
+                    Directory.CreateDirectory(planStorageDir);
+                var terraformResultFileName = $"plan-{deploymentResult.Id}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.txt";
+                var terraformResultFilePath = Path.Combine(planStorageDir, terraformResultFileName);
+
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
                     RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
                     ScriptPath = fullScriptPath,
                     ScriptGroupPipeName = startedScriptGroupPipeName,
-                    RunnerLogPath = runnerLogPath
+                    RunnerLogPath = runnerLogPath,
+                    ResultFilePath = terraformResultFilePath,
                 };
                 try
                 {

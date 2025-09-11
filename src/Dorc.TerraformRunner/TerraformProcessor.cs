@@ -29,6 +29,7 @@ namespace Dorc.TerraformmRunner
             string pipeName,
             int requestId,
             string scriptPath,
+            string resultFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -47,9 +48,8 @@ namespace Dorc.TerraformmRunner
             {
                 // Create terraform plan (placeholder implementation)
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, requestId, cancellationToken);
-                
-                // Save plan to blob storage (placeholder implementation)
-                var blobUrl = await SavePlanToBlobStorageAsync(planContent, deployResultId, cancellationToken);
+
+                await File.WriteAllTextAsync(resultFilePath, planContent, cancellationToken);
 
                 // Update status to WaitingConfirmation
                 //requestsPersistentSource.UpdateResultStatus(
@@ -260,43 +260,6 @@ namespace Dorc.TerraformmRunner
 
             logger.Information($"Terraform command completed successfully. Output:{Environment.NewLine}{output}");
             return output;
-        }
-
-        private async Task<string> SavePlanToBlobStorageAsync(
-            string planContent,
-            int deploymentResultId,
-            CancellationToken cancellationToken)
-        {
-            // For now, save to local file system - this should be replaced with Azure Blob Storage
-            var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
-            Directory.CreateDirectory(planStorageDir);
-            
-            var fileName = $"plan-{deploymentResultId}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.txt";
-            var filePath = Path.Combine(planStorageDir, fileName);
-            
-            await File.WriteAllTextAsync(filePath, planContent, cancellationToken);
-            
-            // Also save metadata about the plan for later execution
-            var metadataFileName = $"plan-{deploymentResultId}-metadata.json";
-            var metadataFilePath = Path.Combine(planStorageDir, metadataFileName);
-            
-            var metadata = new
-            {
-                DeploymentResultId = deploymentResultId,
-                PlanContentPath = filePath,
-                CreatedAt = DateTime.UtcNow,
-                Status = "WaitingConfirmation"
-            };
-            
-            var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(metadataFilePath, metadataJson, cancellationToken);
-            
-            logger.FileLogger.Information($"Terraform plan saved to: {filePath}");
-            
-            // Return a mock blob URL for now - replace with actual Azure Blob Storage URL
-            var blobUrl = $"file://{filePath}";
-            
-            return blobUrl;
         }
 
         public async Task<bool> ExecuteConfirmedPlanAsync(
