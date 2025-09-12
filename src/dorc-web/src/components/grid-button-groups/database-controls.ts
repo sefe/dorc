@@ -7,7 +7,11 @@ import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import '../../icons/iron-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import { ApiBoolResult, DatabaseApiModel, RefDataDatabasesApi } from '../../apis/dorc-api';
+import {
+  ApiBoolResult,
+  DatabaseApiModel,
+  RefDataDatabasesApi
+} from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 
@@ -94,8 +98,11 @@ export class DatabaseControls extends LitElement {
           error: (err: any) => {
             console.error(err);
             const notification = new ErrorNotification();
-            const errorMessage = retrieveErrorMessage(err, 'Failed to delete database');
-            
+            const errorMessage = retrieveErrorMessage(
+              err,
+              'Failed to delete database'
+            );
+
             notification.setAttribute('errorMessage', errorMessage);
             this.shadowRoot?.appendChild(notification);
             notification.open();

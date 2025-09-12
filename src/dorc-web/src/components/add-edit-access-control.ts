@@ -17,10 +17,7 @@ import { css, LitElement, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
-import {
-  AccessSecureApiModel,
-  UserElementApiModel
-} from '../apis/dorc-api';
+import { AccessSecureApiModel, UserElementApiModel } from '../apis/dorc-api';
 import { AccessControlApi } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
@@ -325,7 +322,8 @@ export class AddEditAccessControl extends LitElement {
     render(
       html`<access-control-controls
         .accessControl="${accessControl}"
-        .disabled="${!altThis.UserEditable || model.item.Allow === AC_ALLOW_OWNER}"
+        .disabled="${!altThis.UserEditable ||
+        model.item.Allow === AC_ALLOW_OWNER}"
         @access-control-removed="${() => {
           altThis.removeAccessControl(accessControl);
         }}"
@@ -343,10 +341,11 @@ export class AddEditAccessControl extends LitElement {
   }
 
   removeAccessControl(accessControl: AccessControlApiModel) {
-    const actual = this.Privileges?.find(value =>
-      value.Id === accessControl.Id &&
-      value.Pid === accessControl.Pid &&
-      value.Sid === accessControl.Sid
+    const actual = this.Privileges?.find(
+      value =>
+        value.Id === accessControl.Id &&
+        value.Pid === accessControl.Pid &&
+        value.Sid === accessControl.Sid
     );
 
     if (actual !== undefined) {
@@ -411,11 +410,17 @@ export class AddEditAccessControl extends LitElement {
   }
 
   addUser() {
-    const cbSelectedUser = this.shadowRoot?.getElementById('searchResults') as ComboBox;
-    const user = cbSelectedUser.selectedItem
+    const cbSelectedUser = this.shadowRoot?.getElementById(
+      'searchResults'
+    ) as ComboBox;
+    const user = cbSelectedUser.selectedItem;
 
     if (user !== undefined) {
-      const existing = this.Privileges?.find(item => (item.Sid && item.Sid === user.Sid) || (item.Pid && item.Pid === user.Pid));
+      const existing = this.Privileges?.find(
+        item =>
+          (item.Sid && item.Sid === user.Sid) ||
+          (item.Pid && item.Pid === user.Pid)
+      );
       if (existing) {
         Notification.show(`User is already in the list`, {
           theme: 'warning',
@@ -430,7 +435,7 @@ export class AddEditAccessControl extends LitElement {
         Allow: 0,
         Deny: 0,
         Pid: user.Pid,
-        Sid: user.Sid,
+        Sid: user.Sid
       };
       this.Privileges?.push(acam);
       this.Privileges = JSON.parse(JSON.stringify(this.Privileges));
@@ -454,18 +459,14 @@ export class AddEditAccessControl extends LitElement {
     render(
       html`
         <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
-          <div style="${this.acStyles.displayName}">
-            ${displayName}
-          </div>
-          <div style="${this.acStyles.username}">
-            ${username}
-          </div>
+          <div style="${this.acStyles.displayName}">${displayName}</div>
+          <div style="${this.acStyles.username}">${username}</div>
           ${this.renderUserId(model.item)}
         </vaadin-vertical-layout>
       `,
       root
     );
-  }
+  };
 
   renderUserId(item: UserElementApiModel): unknown {
     if (!item) {
@@ -478,11 +479,7 @@ export class AddEditAccessControl extends LitElement {
     const additionalId = hasAdditionalId ? pid : sid;
 
     return additionalId
-      ? html`
-          <div style="${this.acStyles.additionalId}">
-            ${additionalId}
-          </div>
-        `
+      ? html` <div style="${this.acStyles.additionalId}">${additionalId}</div> `
       : html``;
   }
 
@@ -558,12 +555,15 @@ export class AddEditAccessControl extends LitElement {
   ) => {
     const name = model.item.Name ?? '';
 
-    render(html`
-      <div style="padding: 4px 0;">
-        <div style="${this.acStyles.displayName}">${name}</div>
-        ${this.renderUserId(model.item)}
-      </div>
-    `, root);
+    render(
+      html`
+        <div style="padding: 4px 0;">
+          <div style="${this.acStyles.displayName}">${name}</div>
+          ${this.renderUserId(model.item)}
+        </div>
+      `,
+      root
+    );
   };
 
   acCanWrite(
@@ -623,7 +623,6 @@ export class AddEditAccessControl extends LitElement {
       root
     );
   }
-
 
   setTextField(id: string, value: string) {
     const textField = this.shadowRoot?.getElementById(id) as TextField;

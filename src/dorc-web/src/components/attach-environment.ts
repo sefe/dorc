@@ -223,9 +223,9 @@ export class AttachEnvironment extends LitElement {
         },
         error: (err: any) => {
           const notification = new ErrorNotification();
-          
+
           const errorMessage = retrieveErrorMessage(err);
-          
+
           notification.setAttribute('errorMessage', errorMessage);
           this.shadowRoot?.appendChild(notification);
           notification.open();

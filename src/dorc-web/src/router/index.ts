@@ -3,7 +3,11 @@ import { routes } from './routes.ts';
 import { router } from './router.ts';
 import { appConfig } from '../app-config';
 import { ApiConfigApi, ApiConfigModel } from '../apis/dorc-api';
-import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../services/Account/OAuthService';
+import {
+  OAUTH_SCHEME,
+  oauthServiceContainer,
+  OAuthServiceSettings
+} from '../services/Account/OAuthService';
 import { oauthSettings } from '../OAuthSettings.ts';
 
 new ApiConfigApi().apiConfigGet().subscribe({
@@ -18,14 +22,14 @@ new ApiConfigApi().apiConfigGet().subscribe({
       };
       oauthServiceContainer.setSettings(settings);
       oauthServiceContainer.service.getUser().subscribe({
-        next: (user) => {
+        next: user => {
           if (!user || !user.access_token) {
             oauthServiceContainer.service.signIn();
           } else {
             router.setRoutes(routes);
           }
         },
-        error: (err) => console.error('Error getting user:', err)
+        error: err => console.error('Error getting user:', err)
       });
     } else {
       router.setRoutes(routes);

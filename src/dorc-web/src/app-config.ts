@@ -1,15 +1,15 @@
 let executed = false;
 let dorcApi = 'NotSet';
 let routePrefix = 'NotSet';
-let dorcHelperPage = "NotSet";
-let _authenticationScheme: string = "NotSet";
+let dorcHelperPage = 'NotSet';
+let _authenticationScheme: string = 'NotSet';
 
 export default class AppConfig {
   public appName = 'DOrc';
   public appDescription = 'DOrc Web UI';
   public dorcApi = 'NotSet';
   public routePrefix = 'NotSet';
-  public dorcHelperPage = "NotSet";
+  public dorcHelperPage = 'NotSet';
 
   constructor() {
     if (!executed) {
@@ -38,7 +38,7 @@ export default class AppConfig {
   }
 
   get authenticationScheme() {
-    return _authenticationScheme ?? "NotSet";
+    return _authenticationScheme ?? 'NotSet';
   }
 
   set authenticationScheme(value: string) {

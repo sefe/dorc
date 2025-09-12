@@ -3,7 +3,7 @@ import { LitElement } from 'lit';
 import type { Route, RouterLocation } from '@vaadin/router';
 import { state } from 'lit/decorators.js';
 import { updateMetadata } from './html-meta-manager';
-import {RouteMeta} from "../router/routes.ts";
+import { RouteMeta } from '../router/routes.ts';
 
 export class PageElement extends LitElement {
   @state()
@@ -31,7 +31,7 @@ export class PageElement extends LitElement {
     if (metadata) {
       const defaultMetadata = {
         url: window.location.href,
-        description: metadata.description,
+        description: metadata.description
       };
 
       updateMetadata({

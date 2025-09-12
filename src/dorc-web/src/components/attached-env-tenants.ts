@@ -7,7 +7,11 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@polymer/paper-dialog';
 import { Notification } from '@vaadin/notification';
-import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
+import {
+  ApiBoolResult,
+  EnvironmentApiModel,
+  RefDataEnvironmentsDetailsApi
+} from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
 
@@ -47,7 +51,11 @@ export class AttachedEnvTenants extends LitElement {
     `;
   }
 
-  private environmentActionsRenderer = (root: HTMLElement, _: HTMLElement, model: { item: EnvironmentApiModel }) => {
+  private environmentActionsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: { item: EnvironmentApiModel }
+  ) => {
     const unlinkStyles = {
       color: this.readonly ? 'grey' : '#FF3131'
     };
@@ -85,26 +93,33 @@ export class AttachedEnvTenants extends LitElement {
     const answer = confirm('Detach tenant?');
     if (answer && envId) {
       const api = new RefDataEnvironmentsDetailsApi();
-      api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
-        childEnvId: envId,
-        parentEnvId: undefined
-      })
+      api
+        .refDataEnvironmentsDetailsSetParentForEnvironmentPut({
+          childEnvId: envId,
+          parentEnvId: undefined
+        })
         .subscribe({
           next: (data: ApiBoolResult) => {
             if (data.Result) {
-              this.dispatchEvent(new CustomEvent('request-environment-update', {
-                bubbles: true,
-                composed: true
-              }));
+              this.dispatchEvent(
+                new CustomEvent('request-environment-update', {
+                  bubbles: true,
+                  composed: true
+                })
+              );
 
-              Notification.show(`Tenant environment with ID ${envId} has beed detached.`, {
-                theme: 'success',
-                position: 'bottom-start',
-                duration: 3000
-              });
-            }
-            else {
-              this.onError(`Detach environment with ID ${envId} from parent has failed: ${data.Message}`);
+              Notification.show(
+                `Tenant environment with ID ${envId} has beed detached.`,
+                {
+                  theme: 'success',
+                  position: 'bottom-start',
+                  duration: 3000
+                }
+              );
+            } else {
+              this.onError(
+                `Detach environment with ID ${envId} from parent has failed: ${data.Message}`
+              );
             }
           },
           error: (err: string) => {

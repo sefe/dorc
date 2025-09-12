@@ -286,7 +286,10 @@ export class EnvVariables extends PageEnvBase {
                     });
                   }
 
-                  if (this.isShowDefaultProps && _environment?.EnvironmentName) {
+                  if (
+                    this.isShowDefaultProps &&
+                    _environment?.EnvironmentName
+                  ) {
                     params.filters.push({
                       path: variableScope,
                       value: _environment.EnvironmentName
@@ -779,28 +782,26 @@ export class EnvVariables extends PageEnvBase {
               ></vaadin-text-field>
             </td>
             <td>
-              <vaadin-checkbox 
+              <vaadin-checkbox
                 style="font-size: var(--lumo-font-size-s)"
                 theme="small"
                 ?checked="${!_environment?.EnvironmentSecure}"
                 @change="${(e: any) => {
                   this.dispatchEvent(
-                    new CustomEvent(
-                      'searching-env-variables-started',
-                      {
-                        detail: {
-                          field: variableIsShowDefaultProps,
-                          value: e.target.checked
-                        },
-                        bubbles: true,
-                        composed: true
-                      }
-                    )
+                    new CustomEvent('searching-env-variables-started', {
+                      detail: {
+                        field: variableIsShowDefaultProps,
+                        value: e.target.checked
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
                   );
                 }}"
               >
-                <label slot="label" title='Show default property values also'
-                >Show Defaults</label>
+                <label slot="label" title="Show default property values also"
+                  >Show Defaults</label
+                >
               </vaadin-checkbox>
             </td>
           </tr>

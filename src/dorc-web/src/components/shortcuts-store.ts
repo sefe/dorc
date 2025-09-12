@@ -64,7 +64,7 @@ export class ShortcutsStore extends LitElement {
   private openEnvDetail(e: CustomEvent) {
     const env = e.detail.Environment as EnvironmentApiModel;
     const tab = e.detail.Tab as EnvPageTabNames;
-    
+
     const existingEnvs = this.dorcNavbar?.openEnvTabs.find(
       value => value.EnvironmentName === env.EnvironmentName
     );
@@ -148,7 +148,10 @@ export class ShortcutsStore extends LitElement {
     return `/monitor-result/${String(result.Id)}`;
   }
 
-  private getEnvDetailPath(env: EnvironmentApiModel, tab: EnvPageTabNames = EnvPageTabNames.Metadata) {
+  private getEnvDetailPath(
+    env: EnvironmentApiModel,
+    tab: EnvPageTabNames = EnvPageTabNames.Metadata
+  ) {
     return `/environment/${String(env.EnvironmentName)}/${tab}`;
   }
 }

@@ -42,9 +42,9 @@ export class BundleEditorForm extends LitElement {
 
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {};
-  
-  @property({ type: Array})
-  projects: ProjectApiModel[] | null  = [];
+
+  @property({ type: Array })
+  projects: ProjectApiModel[] | null = [];
 
   @property({ type: Boolean })
   isEdit = false;
@@ -174,8 +174,7 @@ export class BundleEditorForm extends LitElement {
         'bundleType'
       ) as ComboBox;
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
-        if (typeComboBox.value)
-        {
+        if (typeComboBox.value) {
           const typeOption = this._typeOptions.find(
             option => option.value === this.bundleRequest.Type
           );
@@ -225,15 +224,15 @@ export class BundleEditorForm extends LitElement {
 
   private _handleSave() {
     this._synchronizeEditorWithBundleRequest();
-    
+
     console.log('Updated Request before save:', this.bundleRequest.Request);
-  
+
     if (!this._validateBundle()) {
       return;
     }
-  
+
     const api = new BundledRequestsApi();
-    
+
     console.log('Submitting bundle with Request:', this.bundleRequest.Request);
 
     const loadingChangeEvent = 'loading-changed';
@@ -260,7 +259,7 @@ export class BundleEditorForm extends LitElement {
             composed: true
           })
         );
-    
+
         this.dialog.closeDialog();
         console.log('Dispatching bundle-saved event from form');
         const savedEvent = new CustomEvent('bundle-saved', {
@@ -271,7 +270,7 @@ export class BundleEditorForm extends LitElement {
         this.dispatchEvent(savedEvent);
         console.log('Bundle-saved event dispatched');
       },
-      error: (error) => {
+      error: error => {
         console.error('Error saving bundle request:', error);
         this.dispatchEvent(
           new CustomEvent(loadingChangeEvent, {
@@ -341,15 +340,15 @@ export class BundleEditorForm extends LitElement {
         ...this.bundleRequest,
         Request: editorValue
       };
-      
+
       // Update the dialog's copy
       this.dialog.updateBundleRequest(this.bundleRequest);
     }
   }
-  
+
   private _validateBundle(): boolean {
     this._synchronizeEditorWithBundleRequest();
-    
+
     if (!this.bundleRequest.BundleName) {
       this._showError('Bundle Name is required');
       return false;

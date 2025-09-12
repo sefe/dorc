@@ -56,8 +56,8 @@ registerStyles(
 registerStyles(
   'vaadin-tab',
   css`
-      :host([orientation^='vertical']) {
-          min-height: var(--lumo-size-s);
-      }
+    :host([orientation^='vertical']) {
+      min-height: var(--lumo-size-s);
+    }
   `
 );

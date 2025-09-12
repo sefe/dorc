@@ -186,14 +186,18 @@ export class PagePermissionsList extends PageElement {
                       <vaadin-icon icon="icons:delete" style="color: #FF3131;"></vaadin-icon>
                     </vaadin-button>
                   `;
-                  
-                  const editBtn = root.querySelector('.edit-btn') as HTMLElement;
-                  const deleteBtn = root.querySelector('.delete-btn') as HTMLElement;
-                  
+
+                  const editBtn = root.querySelector(
+                    '.edit-btn'
+                  ) as HTMLElement;
+                  const deleteBtn = root.querySelector(
+                    '.delete-btn'
+                  ) as HTMLElement;
+
                   if (editBtn) {
                     editBtn.onclick = () => this.editPermission(permission);
                   }
-                  
+
                   if (deleteBtn) {
                     deleteBtn.onclick = () => this.deletePermission(permission);
                   }
@@ -226,7 +230,7 @@ export class PagePermissionsList extends PageElement {
       'permission-created',
       this.permissionCreated as EventListener
     );
-    
+
     this.addEventListener(
       'permission-updated',
       this.permissionUpdated as EventListener
@@ -252,11 +256,13 @@ export class PagePermissionsList extends PageElement {
   }
 
   editPermission(permission: PermissionDto) {
-    const editPermissionComponent = this.shadowRoot?.querySelector('edit-permission') as any;
+    const editPermissionComponent = this.shadowRoot?.querySelector(
+      'edit-permission'
+    ) as any;
     if (editPermissionComponent) {
       editPermissionComponent.setPermission(permission);
     }
-    
+
     const dialog = this.shadowRoot?.getElementById(
       'edit-permission-dialog'
     ) as PaperDialogElement;
@@ -267,17 +273,20 @@ export class PagePermissionsList extends PageElement {
     const confirmDelete = confirm(
       `Are you sure you want to delete the role "${permission.DisplayName}"?`
     );
-    
+
     if (confirmDelete && permission.Id) {
       const api = new RefDataPermissionApi();
       api.refDataPermissionDelete({ id: permission.Id }).subscribe({
         next: () => {
           this.getPermissionsList();
-          Notification.show(`Permission "${permission.DisplayName}" deleted successfully`, {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 3000
-          });
+          Notification.show(
+            `Permission "${permission.DisplayName}" deleted successfully`,
+            {
+              theme: 'success',
+              position: 'bottom-start',
+              duration: 3000
+            }
+          );
         },
         error: (err: any) => {
           const errMessage = retrieveErrorMessage(err);
