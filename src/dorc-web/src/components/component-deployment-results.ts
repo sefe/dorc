@@ -335,11 +335,12 @@ export class ComponentDeploymentResults extends LitElement {
         <div class="terraform-actions">
           <vaadin-button
             class="terraform-button"
-            theme="small primary"
             @click="${() => this.openTerraformPlan(result.Id!)}"
             title="View Terraform Plan"
           >
-            <vaadin-icon icon="vaadin:eye" style="color: var(--lumo-primary-color);"></vaadin-icon>
+            <vaadin-icon
+            icon="vaadin:file-text"
+            ></vaadin-icon>
           </vaadin-button>
         </div>
       `,
