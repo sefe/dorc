@@ -13,8 +13,9 @@ namespace Dorc.Monitor.IntegrationTests.Tests
         {
             var loggerMock = Substitute.For<ILog>();
             var drsp = Substitute.For<IDeploymentRequestStateProcessor>();
+            var serviceProviderMock = Substitute.For<IServiceProvider>();
             drsp.When(d => d.AbandonRequests(Arg.Any<bool>(), Arg.Any<ConcurrentDictionary<int, CancellationTokenSource>>(), Arg.Any<CancellationToken>())).Do(c => throw new ArgumentException());
-            var deploymentEngine = new DeploymentEngine(loggerMock, drsp);
+            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, serviceProviderMock);
             await deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), new CancellationToken(), 100);
 
             Assert.Fail("method should throw exception and never get here");
@@ -26,8 +27,9 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             var loggerMock = Substitute.For<ILog>();
             var iterationDelayMs = 50;
             var drsp = Substitute.For<IDeploymentRequestStateProcessor>();
+            var serviceProviderMock = Substitute.For<IServiceProvider>();
             CancellationTokenSource source = new CancellationTokenSource();
-            var deploymentEngine = new DeploymentEngine(loggerMock, drsp);
+            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, serviceProviderMock);
             var task = deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), source.Token, iterationDelayMs);
             await Task.Delay(iterationDelayMs * 2);
 
