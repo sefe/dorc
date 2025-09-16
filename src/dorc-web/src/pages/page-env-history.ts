@@ -101,19 +101,19 @@ export class PageEnvironmentHistory extends PageElement {
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
-          path="OldVersion"
+          path="FromValue"
           header="Old Version"
           width="170px"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
-          path="NewVersion"
+          path="ToValue"
           header="New Version"
           width="170px"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
-          path="TfsId"
+          path="Details"
           header="Tfs Id"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
