@@ -55,6 +55,11 @@ export class ComponentDeploymentResults extends LitElement {
       'terraform-plan-declined',
       this.onTerraformPlanDeclined as EventListener
     );
+
+    this.addEventListener(
+      'close-terraform-plan',
+      this.onCloseTerraformPlan as EventListener
+    );
   }
 
   static get styles() {
@@ -119,7 +124,6 @@ export class ComponentDeploymentResults extends LitElement {
       <terraform-plan-dialog
         .deploymentResultId="${this.selectedTerraformDeploymentId}"
         .opened="${this.terraformDialogOpened}"
-        @opened-changed="${this.onTerraformDialogOpenedChanged}"
       >
       </terraform-plan-dialog>
 
@@ -358,7 +362,7 @@ export class ComponentDeploymentResults extends LitElement {
     this.terraformDialogOpened = true;
   }
 
-  private onTerraformDialogOpenedChanged(e: CustomEvent) {
+  private onCloseTerraformPlan(e: CustomEvent) {
     this.terraformDialogOpened = e.detail.value;
   }
 

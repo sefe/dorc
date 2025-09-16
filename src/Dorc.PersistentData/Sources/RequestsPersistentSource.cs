@@ -133,7 +133,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var deploymentResult = context.DeploymentResults.FirstOrDefault(x => x.Id == resultId);
+                var deploymentResult = context.DeploymentResults
+                    .Include(results => results.Component)
+                    .Include(results => results.DeploymentRequest)
+                    .FirstOrDefault(x => x.Id == resultId);
                 if (deploymentResult != null)
                     return MapToDeploymentResultModel(deploymentResult);
             }
