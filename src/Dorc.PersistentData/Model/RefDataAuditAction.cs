@@ -10,11 +10,6 @@ namespace Dorc.PersistentData.Model
         public ActionType Action { get; set; }
 
         public virtual ICollection<RefDataAudit> RefDataAudits { get; set; }
-    }
-    public enum ActionType
-    {
-        Create,
-        Update,
-        Delete,
+        public virtual ICollection<ScriptAudit> ScriptAudits { get; set; }
     }
 }
