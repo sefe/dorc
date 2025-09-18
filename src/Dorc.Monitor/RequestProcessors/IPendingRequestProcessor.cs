@@ -2,6 +2,6 @@
 {
     public interface IPendingRequestProcessor
     {
-        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken);
+        public Task ExecuteAsync(RequestToProcessDto requestToExecute, CancellationToken cancellationToken);
     }
 }

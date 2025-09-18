@@ -302,6 +302,7 @@ namespace Dorc.PersistentData.Sources
                         ObjectId = Guid.NewGuid(),
                         Description = "Created via API",
                         IsEnabled = apiComponent.IsEnabled,
+                        ComponentType = apiComponent.ComponentType
                     };
 
                     if (apiComponent.ScriptPath != null)
@@ -340,6 +341,9 @@ namespace Dorc.PersistentData.Sources
                 if (component.Projects.Count == 0)
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
+
+                // Update ComponentType for all updates
+                component.ComponentType = apiComponent.ComponentType;
 
                 DuplicateComponent(apiComponent, component, context);
 
@@ -396,6 +400,7 @@ namespace Dorc.PersistentData.Sources
 
             component.Name = apiComponent.ComponentName;
             component.StopOnFailure = apiComponent.StopOnFailure;
+            component.ComponentType = apiComponent.ComponentType;
         }
 
         public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
@@ -500,7 +505,8 @@ namespace Dorc.PersistentData.Sources
                     NonProdOnly = script.NonProdOnly,
                     StopOnFailure = comp.StopOnFailure,
                     IsEnabled = comp.IsEnabled,
-                    ParentId = comp.Parent != null ? comp.Parent.Id : 0
+                    ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                    ComponentType = comp.ComponentType
                 };
 
             return new ComponentApiModel
@@ -511,7 +517,8 @@ namespace Dorc.PersistentData.Sources
                 NonProdOnly = true,
                 StopOnFailure = comp.StopOnFailure,
                 IsEnabled = comp.IsEnabled,
-                ParentId = comp.Parent != null ? comp.Parent.Id : 0
+                ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                ComponentType = comp.ComponentType
             };
         }
 
