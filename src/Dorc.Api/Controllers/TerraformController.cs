@@ -176,6 +176,11 @@ namespace Dorc.Api.Controllers
                     deploymentResult,
                     DeploymentResultStatus.Cancelled);
 
+                // Update deployment result status to Cancelled
+                _requestsPersistentSource.UpdateRequestStatus(
+                    deploymentResult.RequestId,
+                    DeploymentRequestStatus.Cancelled);
+
                 // Log the decline action for audit purposes
                 var userName = _claimsPrincipalReader.GetUserName(User);
                 _log.Info($"Terraform plan declined for deployment result ID: {deploymentResultId} by user: {userName}");
