@@ -156,9 +156,9 @@ namespace Dorc.Monitor
             }
             finally
             {
-                // Only update final status if it's not WaitingConfirmation (Terraform plans need manual confirmation)
-                if (deploymentResultStatus != DeploymentResultStatus.WaitingConfirmation)
-                {
+                //// Only update final status if it's not WaitingConfirmation (Terraform plans need manual confirmation)
+                //if (deploymentResultStatus != DeploymentResultStatus.WaitingConfirmation)
+                //{
                     deploymentResult.Log = componentResultLogBuilder.ToString();
                     requestsPersistentSource.UpdateResultStatus(
                         deploymentResult,
@@ -169,15 +169,15 @@ namespace Dorc.Monitor
                         component,
                         deploymentResultStatus.ToString(),
                         requestId);
-                }
-                else
-                {
-                    // For WaitingConfirmation, just update the log
-                    deploymentResult.Log = componentResultLogBuilder.ToString();
-                    requestsPersistentSource.UpdateResultLog(
-                        deploymentResult,
-                        componentResultLogBuilder.ToString());
-                }
+                //}
+                //else
+                //{
+                //    // For WaitingConfirmation, just update the log
+                //    deploymentResult.Log = componentResultLogBuilder.ToString();
+                //    requestsPersistentSource.UpdateResultLog(
+                //        deploymentResult,
+                //        componentResultLogBuilder.ToString());
+                //}
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;

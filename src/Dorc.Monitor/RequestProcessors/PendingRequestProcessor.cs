@@ -190,6 +190,10 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 deploymentRequestStatus = DeploymentRequestStatus.Failed;
                             }
+                            if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                            {
+                                deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
+                            }
                         }
                         catch (OperationCanceledException)
                         {
