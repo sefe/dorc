@@ -205,12 +205,10 @@ namespace Dorc.Monitor
             //            DeploymentRequestStatus.Running,
             //            isProduction)
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
-                .GetRequestsWithStatuses(
-                        new List<DeploymentRequestStatus> {
-                                DeploymentRequestStatus.Pending,
-                                DeploymentRequestStatus.Running,
-                                DeploymentRequestStatus.Confirmed
-                        },
+                .GetRequestsWithStatus(
+                        DeploymentRequestStatus.Pending,
+                        DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Confirmed,
                         isProduction)
                 .OrderBy(pendingOrRunningRequest => pendingOrRunningRequest.Id)
                 .GroupBy(
