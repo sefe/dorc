@@ -4,6 +4,7 @@ using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Graph.Models.Security;
 
 namespace Dorc.Monitor
 {
@@ -198,10 +199,18 @@ namespace Dorc.Monitor
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             // Select only Pending requests for each of environments that do not have any Running requests.
+            //var environmentRequestGroupsToExecute = this.requestsPersistentSource
+            //    .GetRequestsWithStatus(
+            //            DeploymentRequestStatus.Pending,
+            //            DeploymentRequestStatus.Running,
+            //            isProduction)
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
-                .GetRequestsWithStatus(
-                        DeploymentRequestStatus.Pending,
-                        DeploymentRequestStatus.Running,
+                .GetRequestsWithStatuses(
+                        new List<DeploymentRequestStatus> {
+                                DeploymentRequestStatus.Pending,
+                                DeploymentRequestStatus.Running,
+                                DeploymentRequestStatus.Confirmed
+                        },
                         isProduction)
                 .OrderBy(pendingOrRunningRequest => pendingOrRunningRequest.Id)
                 .GroupBy(

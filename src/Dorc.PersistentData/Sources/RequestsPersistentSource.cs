@@ -81,6 +81,19 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatuses(IEnumerable<DeploymentRequestStatus> statuses, bool isProd)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests.AsNoTracking()
+                    .Where(r => statuses.Any(s => s.ToString().Equals(r.Status, StringComparison.InvariantCultureIgnoreCase))
+                        && r.IsProd == isProd)
+                    .ToList().Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null) // Filter out failed mappings
+                    .ToList();
+            }
+        }
+
         public IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId)
         {
             using (var context = _contextFactory.GetContext())

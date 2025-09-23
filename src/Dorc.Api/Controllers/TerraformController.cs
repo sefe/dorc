@@ -118,6 +118,11 @@ namespace Dorc.Api.Controllers
                     deploymentResult,
                     DeploymentResultStatus.Confirmed);
 
+                // Update deployment request status to Confirmed
+                _requestsPersistentSource.UpdateRequestStatus(
+                    deploymentResult.RequestId,
+                    DeploymentRequestStatus.Confirmed);
+
                 // Log the confirmation action for audit purposes
                 var userName = _claimsPrincipalReader.GetUserName(User);
                 _log.Info($"Terraform plan confirmed for deployment result ID: {deploymentResultId} by user: {userName}");
