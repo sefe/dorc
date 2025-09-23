@@ -1,10 +1,9 @@
-using System.Text.Json.Serialization;
 using AspNetCoreRateLimit;
-using Dorc.Api.Interfaces;
+using Dorc.Api.Events;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
-using Dorc.Core;
 using Dorc.Core.Configuration;
+using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -19,6 +18,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
+using System.Text.Json.Serialization;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
@@ -211,6 +211,10 @@ AddSwaggerGen(builder.Services, authenticationScheme);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
+// Real-time updates
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
+
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
@@ -278,5 +282,8 @@ if (authenticationScheme is ConfigAuthScheme.OAuth)
     // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
 }
+
+// Map SignalR hub
+app.MapHub<DeploymentsHub>("/hubs/deployments");
 
 app.Run();

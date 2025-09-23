@@ -1,5 +1,6 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -22,11 +23,13 @@ namespace Dorc.Api.Controllers
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILog log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentEventsPublisher deploymentEventsPublisher
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -36,6 +39,7 @@ namespace Dorc.Api.Controllers
             _apiSecurityService = apiSecurityService;
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _deploymentEventsPublisher = deploymentEventsPublisher;
         }
 
         /// <summary>
@@ -214,6 +218,10 @@ namespace Dorc.Api.Controllers
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
+                // Broadcast restart -> Restarting
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentEventData(updated));
+
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
             }
@@ -263,6 +271,10 @@ namespace Dorc.Api.Controllers
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
+                // Broadcast cancel -> Cancelling/Cancelled
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentEventData(updated));
+
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
             }
@@ -305,6 +317,7 @@ namespace Dorc.Api.Controllers
                         return BadRequest(result.Status);
 
                     _log.Info($"Request {result.Id} created");
+
                     return Ok(result);
                 }
                 catch (Exception e)
