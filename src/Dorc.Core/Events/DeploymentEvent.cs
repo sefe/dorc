@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Tapper;
 
 namespace Dorc.Core.Events
 {
@@ -9,6 +10,7 @@ namespace Dorc.Core.Events
         NewRequest
     }
 
+    [TranspilationSource]
     public record DeploymentEventData(
         int RequestId,
         string? Status,

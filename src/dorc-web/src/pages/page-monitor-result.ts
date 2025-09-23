@@ -25,9 +25,16 @@ import '../components/request-status-card';
 
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { updateMetadata } from '../helpers/html-meta-manager';
+import { HubConnection } from '@microsoft/signalr';
+import {
+  ServerEvents,
+  getReceiverRegister,
+  IDeploymentsEventsClient,
+  DeploymentEventData
+ } from '../services/ServerEvents';
 
 @customElement('page-monitor-result')
-export class PageMonitorResult extends PageElement {
+export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Array })
@@ -43,6 +50,8 @@ export class PageMonitorResult extends PageElement {
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
+  
+  private hubConnection: HubConnection | undefined;
 
   static get styles() {
     return css`
@@ -137,7 +146,7 @@ export class PageMonitorResult extends PageElement {
     `;
   }
 
-  protected firstUpdated(_changedProperties: PropertyValues) {
+  protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
     const resultId = location.pathname.substring(
@@ -147,10 +156,20 @@ export class PageMonitorResult extends PageElement {
 
     this.refreshData();
 
+    // Initialize SignalR connection for real-time updates scoped to this request
+    await this.initializeSignalR();
+
     this.addEventListener(
       'refresh-monitor-result',
       this.refreshPage as EventListener
     );
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.hubConnection) {
+      this.hubConnection.stop().catch(() => {});
+    }
   }
 
   updated(_changedProperties: PropertyValues) {
@@ -214,6 +233,40 @@ export class PageMonitorResult extends PageElement {
       },
       complete: () => console.log('done loading request')
     });
+  }
+
+  private async initializeSignalR() {
+    this.hubConnection = ServerEvents.getDeploymentConnection();
+
+    getReceiverRegister('IDeploymentsEventsClient')
+      .register(this.hubConnection, this)
+
+    await this.hubConnection.start();
+
+    this.hubConnection.on('reconnected', () => {
+      this.refreshData();
+    });
+  }
+
+  onDeploymentRequestStatusChanged(data: DeploymentEventData): Promise<void> {
+    if (this.isEventForRequest(data, this.requestId)) {
+        this.refreshData();
+      }
+    return Promise.resolve();
+  }
+  onDeploymentRequestStarted(): Promise<void> {
+    return Promise.resolve();
+  }
+  onDeploymentResultStatusChanged(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  private isEventForRequest(event: DeploymentEventData, requestId: number): boolean {
+    if (!event || typeof event !== 'object') {
+      return false;
+    }
+    const eventRequestId = Number(event.requestId);
+    return eventRequestId === requestId;
   }
 
   render() {
