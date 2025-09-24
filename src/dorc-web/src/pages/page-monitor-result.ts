@@ -241,9 +241,12 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    await this.hubConnection.start()
-      .catch((err) => console.error('Error starting SignalR connection: ', err));
-
+    if (this.hubConnection.state === 'Disconnected') {
+      await this.hubConnection.start().catch((err) => {
+        console.error('Error starting SignalR connection:', err);
+      });
+    }
+    
     this.hubConnection.onreconnected(() => {
        this.refreshData();
      });

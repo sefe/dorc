@@ -52,7 +52,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   private hubConnection: HubConnection | undefined;
 
-  @property({ type: Boolean }) isLoading = true;
+  @property({ type: Boolean }) isLoading = false;
 
   @property({ type: Boolean }) isSearching = false;
 
@@ -364,10 +364,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-
-    await this.hubConnection.start().catch((err) => {
-      console.error('Error starting SignalR connection:', err);
-    });
+    if (this.hubConnection.state === 'Disconnected') {
+      await this.hubConnection.start().catch((err) => {
+        console.error('Error starting SignalR connection:', err);
+      });
+    }
   }
 
   private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
@@ -457,7 +458,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   }
 
   requestCancelled(e: CustomEvent) {
-    this.updateGrid();
     Notification.show(`Cancelled request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
@@ -466,7 +466,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   }
 
   requestRestarted(e: CustomEvent) {
-    this.updateGrid();
     Notification.show(`Restarted request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
