@@ -13,7 +13,7 @@ import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
 import { css, LitElement, PropertyValueMap, render } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
@@ -45,7 +45,6 @@ const id = 'Id';
 @customElement('page-monitor-requests')
 export class PageMonitorRequests extends LitElement implements IDeploymentsEventsClient {
   @query('#grid') grid: Grid | undefined;
-  @query('#loading') loadingDiv: HTMLDivElement | undefined;
 
   // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
   // we need to store the max count of items before refresh to keep grid's cache size
@@ -53,30 +52,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   private hubConnection: HubConnection | undefined;
 
-  set isLoading(val: boolean) {
-    this._isLoading = val;
-    if (this.loadingDiv) {
-      this.loadingDiv.hidden = !(val || this.isSearching);
-    }
-    if (this.grid) {
-      this.grid.hidden = val;
-    }
-  }
-  get isLoading() {
-    return this._isLoading;
-  }
-  private _isLoading = true;
+  @property({ type: Boolean }) isLoading = true;
 
-  set isSearching(val: boolean) {
-    this._isSearching = val;
-    if (this.loadingDiv) {
-      this.loadingDiv.hidden = !(val || this.isLoading);
-    }
-  }
-  get isSearching() {
-    return this._isSearching;
-  }
-  private _isSearching = true;
+  @property({ type: Boolean }) isSearching = false;
 
   @state() noResults = false;
 
@@ -154,14 +132,14 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   render() {
     return html`
-      <div id="loading" class="overlay" style="z-index: 2">
+      <div id="loading" class="overlay" style="z-index: 2" ?hidden="${!this.isLoading && !this.isSearching}">
         <div class="overlay__inner">
           <div class="overlay__content">
             <span class="spinner"></span>
           </div>
         </div>
       </div>
-
+      
       <vaadin-grid
         id="grid"
         column-reordering-allowed
