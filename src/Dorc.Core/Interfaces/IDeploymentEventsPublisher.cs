@@ -5,7 +5,7 @@ namespace Dorc.Core.Interfaces
 {
     public interface IDeploymentEventsPublisher
     {
-        Task PublishRequestStatusChangedAsync(DeploymentEventData eventData, CancellationToken ct = default);
-        Task PublishNewRequestAsync(DeploymentEventData eventData, CancellationToken ct = default);
+        Task PublishRequestStatusChangedAsync(DeploymentEventData eventData);
+        Task PublishNewRequestAsync(DeploymentEventData eventData);
     }
 }

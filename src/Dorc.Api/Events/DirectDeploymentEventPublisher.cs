@@ -10,10 +10,10 @@ namespace Dorc.Api.Events
 
         public DirectDeploymentEventPublisher(IHubContext<DeploymentsHub, IDeploymentsEventsClient> hub) => _hub = hub;
 
-        public async Task PublishNewRequestAsync(DeploymentEventData eventData, CancellationToken ct = default)
+        public async Task PublishNewRequestAsync(DeploymentEventData eventData)
             => await _hub.Clients.All.OnDeploymentRequestStarted(eventData);
 
-        public async Task PublishRequestStatusChangedAsync(DeploymentEventData eventData, CancellationToken ct = default)
+        public async Task PublishRequestStatusChangedAsync(DeploymentEventData eventData)
             => await _hub.Clients.All.OnDeploymentRequestStatusChanged(eventData);
     }
 }
