@@ -27,7 +27,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 import { updateMetadata } from '../helpers/html-meta-manager';
 import { HubConnection } from '@microsoft/signalr';
 import {
-  ServerEvents,
+  DeploymentHub,
   getReceiverRegister,
   IDeploymentsEventsClient,
   DeploymentEventData
@@ -236,22 +236,23 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   }
 
   private async initializeSignalR() {
-    this.hubConnection = ServerEvents.getDeploymentConnection();
+    this.hubConnection = DeploymentHub.getConnection();
 
     getReceiverRegister('IDeploymentsEventsClient')
-      .register(this.hubConnection, this)
+      .register(this.hubConnection, this);
 
-    await this.hubConnection.start();
+    await this.hubConnection.start()
+      .catch((err) => console.error('Error starting SignalR connection: ', err));
 
-    this.hubConnection.on('reconnected', () => {
-      this.refreshData();
-    });
+    this.hubConnection.onreconnected(() => {
+       this.refreshData();
+     });
   }
 
   onDeploymentRequestStatusChanged(data: DeploymentEventData): Promise<void> {
     if (this.isEventForRequest(data, this.requestId)) {
-        this.refreshData();
-      }
+      this.refreshData();
+    }
     return Promise.resolve();
   }
   onDeploymentRequestStarted(): Promise<void> {

@@ -30,7 +30,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 import { TextField } from '@vaadin/text-field';
 import { getShortLogonName } from '../helpers/user-extensions.js';
 import {
-  ServerEvents,
+  DeploymentHub,
   getReceiverRegister,
   IDeploymentsEventsClient,
 } from '../services/ServerEvents';
@@ -374,29 +374,36 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this.hubConnection) {
-      this.hubConnection.stop().catch(() => { });
+      this.hubConnection.stop().catch((err) => {
+        console.error('Error stopping SignalR connection:', err);
+      });
     }
   }
 
   private async initializeSignalR() {
-    this.hubConnection = ServerEvents.getDeploymentConnection();
+    this.hubConnection = DeploymentHub.getConnection();
 
     getReceiverRegister('IDeploymentsEventsClient')
-      .register(this.hubConnection, this)
+      .register(this.hubConnection, this);
 
-    await this.hubConnection.start();
+
+    await this.hubConnection.start().catch((err) => {
+      console.error('Error starting SignalR connection:', err);
+    });
   }
 
+  private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
+
   onDeploymentRequestStatusChanged(): Promise<void> {
-    this.refreshGrid();
+    this.debouncedRefreshGrid();
     return Promise.resolve();
   }
   onDeploymentRequestStarted(): Promise<void> {
-    this.refreshGrid();
+    this.debouncedRefreshGrid();
     return Promise.resolve();
   }
   onDeploymentResultStatusChanged(): Promise<void> {
-    this.refreshGrid();
+    // no need to react on result change as we're covered by request status change
     return Promise.resolve();
   }
 

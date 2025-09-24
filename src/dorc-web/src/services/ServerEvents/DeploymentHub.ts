@@ -1,10 +1,10 @@
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
 import AppConfig from "../../app-config";
 
-export class ServerEvents {
+export class DeploymentHub {
   private static hubConnection: HubConnection;
 
-  private static createDeploymentHubConnection(): HubConnection {
+  private static initializeConnection(): HubConnection {
     const baseUrl = new AppConfig().dorcApi;
     this.hubConnection = new HubConnectionBuilder()
       .withUrl(`${baseUrl}/hubs/deployments`)
@@ -14,10 +14,10 @@ export class ServerEvents {
     return this.hubConnection;
   }
 
-  static getDeploymentConnection(): HubConnection {
-    if (ServerEvents.hubConnection === undefined) {
-      ServerEvents.createDeploymentHubConnection();
+  static getConnection(): HubConnection {
+    if (DeploymentHub.hubConnection === undefined) {
+      DeploymentHub.initializeConnection();
     }
-    return ServerEvents.hubConnection;
+    return DeploymentHub.hubConnection;
   }
 }
