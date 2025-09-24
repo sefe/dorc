@@ -1,5 +1,6 @@
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core.Configuration;
@@ -84,6 +85,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
 {
     if (registerOwnReader)
     {
+        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupsReaderFactory>().GetOAuthUserGroupsReader());
         builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
     }
 
