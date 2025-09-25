@@ -26,53 +26,29 @@ namespace Dorc.Monitor.Services
             _logger = logger;
         }
 
-        public async Task PublishNewRequestAsync(DeploymentRequestEventData eventData)
-        {
-            if (!await EnsureConnectionAsync(CancellationToken.None))
-            {
-                return;
-            }
-            try
-            {
-                await _hubProxy!.PublishNewRequestAsync(eventData);
-            }
-            catch (Exception exc)
-            {
-                _logger.Error($"Failed to invoke PublishNewRequestAsync via SignalR hub at {_hubUrl}", exc);
-                throw;
-            }
-        }
+        public Task PublishNewRequestAsync(DeploymentRequestEventData eventData) =>
+            PublishAsync(nameof(PublishNewRequestAsync), hub => hub.PublishNewRequestAsync(eventData));
 
-        public async Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData)
-        {
-            if (!await EnsureConnectionAsync(CancellationToken.None))
-            {
-                return;
-            }
-            try
-            {
-                await _hubProxy!.PublishRequestStatusChangedAsync(eventData);
-            }
-            catch (Exception exc)
-            {
-                _logger.Error($"Failed to invoke PublishRequestStatusChangedAsync via SignalR hub at {_hubUrl}", exc);
-                throw;
-            }
-        }
+        public Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData) =>
+            PublishAsync(nameof(PublishRequestStatusChangedAsync), hub => hub.PublishRequestStatusChangedAsync(eventData));
 
-        public async Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData)
+        public Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData) =>
+            PublishAsync(nameof(PublishResultStatusChangedAsync), hub => hub.PublishResultStatusChangedAsync(eventData));
+
+        private async Task PublishAsync(string operationName, Func<IDeploymentEventsPublisher, Task> action)
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
                 return;
             }
+
             try
             {
-                await _hubProxy!.PublishResultStatusChangedAsync(eventData);
+                await action(_hubProxy!);
             }
             catch (Exception exc)
             {
-                _logger.Error($"Failed to invoke PublishResultStatusChangedAsync via SignalR hub at {_hubUrl}", exc);
+                _logger.Error($"Failed to invoke {operationName} via SignalR hub at {_hubUrl}", exc);
                 throw;
             }
         }

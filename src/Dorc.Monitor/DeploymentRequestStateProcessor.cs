@@ -351,7 +351,14 @@ namespace Dorc.Monitor
                 this.logger.ErrorFormat("Removal of CancellationTokenSource for the request '{0}' failed.", requestId);
             }
 
-            removedCancellationTokenSource?.Dispose();
+            if (removedCancellationTokenSource is not null)
+            {
+                try
+                {
+                    removedCancellationTokenSource?.Dispose();
+                }
+                catch { } // safe dispose as it may be already disposed
+            }
         }
 
         /// <summary>
