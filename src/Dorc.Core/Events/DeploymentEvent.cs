@@ -23,6 +23,21 @@ namespace Dorc.Core.Events
         DateTimeOffset Timestamp
     )
     {
+        // Parameterless constructor for serializers that require it
+        public DeploymentEventData() : this(
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            DateTimeOffset.UtcNow
+        )
+        {
+        }
+
         public DeploymentEventData(DeploymentRequestApiModel drModel)
             : this(
                 drModel.Id,
