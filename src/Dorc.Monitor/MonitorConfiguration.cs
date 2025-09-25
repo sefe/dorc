@@ -57,5 +57,18 @@ namespace Dorc.Monitor
                 return connectionString;
             }
         }
+
+        public string RefDataApiUrl
+        {
+            get
+            {
+                var url = configurationRoot.GetSection("AppSettings")["RefDataApiUrl"];
+                if (string.IsNullOrEmpty(url))
+                {
+                    throw new InvalidOperationException("RefData API URL is not specified in configuration file 'appsettings.json'.");
+                }
+                return url;
+            }
+        }
     }
 }

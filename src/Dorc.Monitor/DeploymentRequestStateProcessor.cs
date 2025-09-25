@@ -1,9 +1,11 @@
-using log4net;
-using System.Collections.Concurrent;
 using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Events;
+using Dorc.Core.Interfaces;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
+using log4net;
+using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
 {
@@ -13,6 +15,7 @@ namespace Dorc.Monitor
         private readonly IServiceProvider serviceProvider;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IDeploymentEventsPublisher eventPublisher;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -29,12 +32,14 @@ namespace Dorc.Monitor
             ILog logger,
             IServiceProvider serviceProvider,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IDeploymentEventsPublisher eventPublisher)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
             this.processesPersistentSource = processesPersistentSource;
             this.requestsPersistentSource = requestsPersistentSource;
+            this.eventPublisher = eventPublisher;
         }
 
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
@@ -114,6 +119,18 @@ namespace Dorc.Monitor
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
+                        // publish request status change
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentEventData(
+                            RequestId: id,
+                            Status: toStatus.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            ProjectName: null,
+                            EnvironmentName: null,
+                            BuildNumber: null,
+                            UserName: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
                     }
 
                     this.logger.Info($"Requests with ids [{idsString}] are {methodName}ed.");
@@ -186,6 +203,17 @@ namespace Dorc.Monitor
                     {
                         TerminateRequestExecution(id, requestCancellationSources);
                         TerminateRunnerProcesses(id);
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentEventData(
+                            RequestId: id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            ProjectName: null,
+                            EnvironmentName: null,
+                            BuildNumber: null,
+                            UserName: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
                     });
 
                     this.logger.Info($"Requests IDs [{idsString}] have been restarted.");
@@ -285,6 +313,19 @@ namespace Dorc.Monitor
                 if (pendingRequestProcessor == null)
                     throw new ArgumentNullException(nameof(pendingRequestProcessor));
                 pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken);
+
+                // publish started (requesting) event
+                _ = this.eventPublisher.PublishNewRequestAsync(new DeploymentEventData(
+                    RequestId: requestToExecute.Request.Id,
+                    Status: DeploymentRequestStatus.Requesting.ToString(),
+                    StartedTime: DateTimeOffset.Now,
+                    CompletedTime: null,
+                    ProjectName: requestToExecute.Request.Project,
+                    EnvironmentName: requestToExecute.Request.EnvironmentName,
+                    BuildNumber: requestToExecute.Request.BuildNumber,
+                    UserName: requestToExecute.Request.UserName,
+                    Timestamp: DateTimeOffset.UtcNow
+                ));
             }
             catch (Exception exception)
             {

@@ -4,5 +4,8 @@
     {
         bool IsProduction { get; }
         int RequestProcessingIterationDelayMs { get; }
+        string ServiceName { get; }
+        string DOrcConnectionString { get; }
+        string RefDataApiUrl { get; }
     }
 }
