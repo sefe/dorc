@@ -30,7 +30,8 @@ import {
   DeploymentHub,
   getReceiverRegister,
   IDeploymentsEventsClient,
-  DeploymentEventData
+  DeploymentRequestEventData,
+  DeploymentResultEventData
  } from '../services/ServerEvents';
 
 @customElement('page-monitor-result')
@@ -246,13 +247,13 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         console.error('Error starting SignalR connection:', err);
       });
     }
-    
+
     this.hubConnection.onreconnected(() => {
        this.refreshData();
      });
   }
 
-  onDeploymentRequestStatusChanged(data: DeploymentEventData): Promise<void> {
+  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
     if (this.isEventForRequest(data, this.requestId)) {
       this.refreshData();
     }
@@ -261,11 +262,14 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   onDeploymentRequestStarted(): Promise<void> {
     return Promise.resolve();
   }
-  onDeploymentResultStatusChanged(): Promise<void> {
+  onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void> {
+    if (this.isEventForRequest(data, this.requestId)) {
+      this.refreshData();
+    }
     return Promise.resolve();
   }
 
-  private isEventForRequest(event: DeploymentEventData, requestId: number): boolean {
+  private isEventForRequest(event: DeploymentRequestEventData, requestId: number): boolean {
     if (!event || typeof event !== 'object') {
       return false;
     }

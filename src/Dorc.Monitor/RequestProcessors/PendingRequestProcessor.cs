@@ -1,6 +1,8 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
+using Dorc.Core.Events;
+using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
@@ -19,6 +21,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IPropertyValuesPersistentSource propertyValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource environmentsPersistentSource;
         private readonly IManageProjectsPersistentSource manageProjectsPersistentSource;
+        private readonly IDeploymentEventsPublisher eventsPublisher;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
 
@@ -30,7 +33,9 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IConfigValuesPersistentSource configValuesPersistentSource, IPropertyEvaluator propertyEvaluator)
+            IConfigValuesPersistentSource configValuesPersistentSource, 
+            IPropertyEvaluator propertyEvaluator,
+            IDeploymentEventsPublisher eventPublisher)
         {
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -42,13 +47,12 @@ namespace Dorc.Monitor.RequestProcessors
             this.propertyValuesPersistentSource = propertyValuesPersistentSource;
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
+            this.eventsPublisher = eventPublisher;
         }
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
         {
             logger.Info($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
-
-            TriggerEvent(DeploymentEvent.Running, requestToExecute.Request);
 
             _variableResolver = new VariableResolver(propertyValuesPersistentSource, logger, _propertyEvaluator);
 
@@ -110,6 +114,12 @@ namespace Dorc.Monitor.RequestProcessors
                             deploymentRequestStatus,
                             DateTimeOffset.Now);
 
+                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                        {
+                            Status = deploymentRequestStatus.ToString(),
+                            CompletedTime = DateTimeOffset.Now,
+                        });
+
                         return;
                     }
 
@@ -152,6 +162,12 @@ namespace Dorc.Monitor.RequestProcessors
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
                             DateTimeOffset.Now);
+
+                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                        {
+                            Status = deploymentRequestStatus.ToString(),
+                            CompletedTime = DateTimeOffset.Now,
+                        });
 
                         return;
                     }
@@ -220,6 +236,12 @@ namespace Dorc.Monitor.RequestProcessors
                         requestToExecute.Request.Id,
                         deploymentRequestStatus,
                         DateTimeOffset.Now);
+
+                    eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                    {
+                        Status = deploymentRequestStatus.ToString(),
+                        CompletedTime = DateTimeOffset.Now,
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -243,6 +265,12 @@ namespace Dorc.Monitor.RequestProcessors
                         DeploymentRequestStatus.Errored,
                         DateTimeOffset.Now,
                         criticalLogBuilder.ToString());
+
+                    eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                    {
+                        Status = DeploymentRequestStatus.Errored.ToString(),
+                        CompletedTime = DateTimeOffset.Now,
+                    });
                 }
             }
             catch (Exception e)
@@ -258,10 +286,14 @@ namespace Dorc.Monitor.RequestProcessors
                     DateTimeOffset.Now,
                     criticalLogBuilder.ToString());
 
+                eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                {
+                    Status = DeploymentRequestStatus.Errored.ToString(),
+                    CompletedTime = DateTimeOffset.Now,
+                });
+
                 return;
             }
-
-            TriggerEvent(DeploymentEvent.Completed, requestToExecute.Request);
         }
 
         private void InitializeDeploymentRequest(DeploymentRequestApiModel request)
@@ -272,6 +304,12 @@ namespace Dorc.Monitor.RequestProcessors
                 request,
                 DeploymentRequestStatus.Running,
                 DateTimeOffset.Now);
+
+            eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(request)
+            {
+                Status = DeploymentRequestStatus.Running.ToString(),
+                StartedTime = DateTimeOffset.Now,
+            });
         }
 
         private IList<ComponentApiModel> GetOrderedNonSkippedComponents(
@@ -399,45 +437,6 @@ namespace Dorc.Monitor.RequestProcessors
             propertyValuesPersistentSource.AddEnvironmentFilter(environmentName);
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environmentName);
-        }
-
-        private void Continuation(Task task, RequestToProcessDto requestExecute)
-        {
-            if (task.Exception == null) return;
-            task.Exception.Handle(
-                ex =>
-                {
-                    logger.Error("Deployment runner", ex);
-                    if (requestExecute.Request.Status == DeploymentRequestStatus.Cancelling.ToString()
-                        || requestExecute.Request.Status == DeploymentRequestStatus.Cancelled.ToString())
-                    {
-                        requestsPersistentSource.UpdateRequestStatus(
-                            requestExecute.Request.Id,
-                            DeploymentRequestStatus.Cancelled, DateTimeOffset.Now);
-                        foreach (var dr in requestsPersistentSource.GetDeploymentResultsForRequest(requestExecute.Request.Id))
-                        {
-                            if (dr.Status == DeploymentResultStatus.Complete.ToString())
-                                continue;
-
-                            requestsPersistentSource.UpdateRequestStatus(
-                                requestExecute.Request.Id,
-                                DeploymentRequestStatus.Cancelled, DateTimeOffset.Now);
-                        }
-                    }
-                    else
-                    {
-                        requestsPersistentSource.UpdateRequestStatus(
-                            requestExecute.Request.Id,
-                            DeploymentRequestStatus.Errored, DateTimeOffset.Now);
-                    }
-
-                    return true;
-                });
-            TriggerEvent(DeploymentEvent.Completed, requestExecute.Request);
-        }
-
-        private void TriggerEvent(DeploymentEvent deploymentEvent, DeploymentRequestApiModel request)
-        {
-        }
+        }        
     }
 }

@@ -4,7 +4,7 @@
 // @ts-nocheck
 import type { HubConnection, IStreamResult, Subject } from '@microsoft/signalr';
 import type { IDeploymentsEventsClient } from './Dorc.Core.Interfaces';
-import type { DeploymentEventData } from '../Dorc.Core.Events';
+import type { DeploymentRequestEventData, DeploymentResultEventData } from '../Dorc.Core.Events';
 
 
 // components
@@ -72,9 +72,9 @@ class IDeploymentsEventsClient_Binder implements ReceiverRegister<IDeploymentsEv
 
     public readonly register = (connection: HubConnection, receiver: IDeploymentsEventsClient): Disposable => {
 
-        const __onDeploymentRequestStatusChanged = (...args: [DeploymentEventData]) => receiver.onDeploymentRequestStatusChanged(...args);
-        const __onDeploymentRequestStarted = (...args: [DeploymentEventData]) => receiver.onDeploymentRequestStarted(...args);
-        const __onDeploymentResultStatusChanged = (...args: [DeploymentEventData]) => receiver.onDeploymentResultStatusChanged(...args);
+        const __onDeploymentRequestStatusChanged = (...args: [DeploymentRequestEventData]) => receiver.onDeploymentRequestStatusChanged(...args);
+        const __onDeploymentRequestStarted = (...args: [DeploymentRequestEventData]) => receiver.onDeploymentRequestStarted(...args);
+        const __onDeploymentResultStatusChanged = (...args: [DeploymentResultEventData]) => receiver.onDeploymentResultStatusChanged(...args);
 
         connection.on("OnDeploymentRequestStatusChanged", __onDeploymentRequestStatusChanged);
         connection.on("OnDeploymentRequestStarted", __onDeploymentRequestStarted);

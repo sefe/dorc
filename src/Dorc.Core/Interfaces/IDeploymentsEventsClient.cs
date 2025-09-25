@@ -7,8 +7,8 @@ namespace Dorc.Core.Interfaces
     [Receiver]
     public interface IDeploymentsEventsClient
     {
-        Task OnDeploymentRequestStatusChanged(DeploymentEventData data);
-        Task OnDeploymentRequestStarted(DeploymentEventData data);
-        Task OnDeploymentResultStatusChanged(DeploymentEventData data);
+        Task OnDeploymentRequestStatusChanged(DeploymentRequestEventData data);
+        Task OnDeploymentRequestStarted(DeploymentRequestEventData data);
+        Task OnDeploymentResultStatusChanged(DeploymentResultEventData data);
     }
 }

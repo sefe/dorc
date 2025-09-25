@@ -120,7 +120,7 @@ namespace Dorc.Monitor
                     {
                         TerminateRunnerProcesses(id);
                         // publish request status change
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentEventData(
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
                             RequestId: id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
@@ -203,7 +203,7 @@ namespace Dorc.Monitor
                     {
                         TerminateRequestExecution(id, requestCancellationSources);
                         TerminateRunnerProcesses(id);
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentEventData(
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
                             RequestId: id,
                             Status: DeploymentRequestStatus.Pending.ToString(),
                             StartedTime: null,
@@ -306,6 +306,11 @@ namespace Dorc.Monitor
                 return;
             }
 
+            _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+            {
+                Status = DeploymentRequestStatus.Requesting.ToString(),
+            });
+
             try
             {
                 // we have to create every request new provider object because of common PropertyValuesPersistentSource and VariableResolver
@@ -313,19 +318,6 @@ namespace Dorc.Monitor
                 if (pendingRequestProcessor == null)
                     throw new ArgumentNullException(nameof(pendingRequestProcessor));
                 pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken);
-
-                // publish started (requesting) event
-                _ = this.eventPublisher.PublishNewRequestAsync(new DeploymentEventData(
-                    RequestId: requestToExecute.Request.Id,
-                    Status: DeploymentRequestStatus.Requesting.ToString(),
-                    StartedTime: DateTimeOffset.Now,
-                    CompletedTime: null,
-                    ProjectName: requestToExecute.Request.Project,
-                    EnvironmentName: requestToExecute.Request.EnvironmentName,
-                    BuildNumber: requestToExecute.Request.BuildNumber,
-                    UserName: requestToExecute.Request.UserName,
-                    Timestamp: DateTimeOffset.UtcNow
-                ));
             }
             catch (Exception exception)
             {

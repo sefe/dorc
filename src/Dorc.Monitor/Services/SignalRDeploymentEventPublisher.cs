@@ -26,7 +26,7 @@ namespace Dorc.Monitor.Services
             _logger = logger;
         }
 
-        public async Task PublishNewRequestAsync(DeploymentEventData eventData)
+        public async Task PublishNewRequestAsync(DeploymentRequestEventData eventData)
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
@@ -43,7 +43,7 @@ namespace Dorc.Monitor.Services
             }
         }
 
-        public async Task PublishRequestStatusChangedAsync(DeploymentEventData eventData)
+        public async Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData)
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
@@ -56,6 +56,23 @@ namespace Dorc.Monitor.Services
             catch (Exception exc)
             {
                 _logger.Error($"Failed to invoke PublishRequestStatusChangedAsync via SignalR hub at {_hubUrl}", exc);
+                throw;
+            }
+        }
+
+        public async Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData)
+        {
+            if (!await EnsureConnectionAsync(CancellationToken.None))
+            {
+                return;
+            }
+            try
+            {
+                await _hubProxy!.PublishResultStatusChangedAsync(eventData);
+            }
+            catch (Exception exc)
+            {
+                _logger.Error($"Failed to invoke PublishResultStatusChangedAsync via SignalR hub at {_hubUrl}", exc);
                 throw;
             }
         }
@@ -91,6 +108,8 @@ namespace Dorc.Monitor.Services
                         .ConfigureLogging(logging =>
                         {
                             logging.ClearProviders();
+                            //logging.SetMinimumLevel(LogLevel.Trace);
+                            //logging.AddConsole();
                             logging.AddProvider(new Log4NetLoggerProvider(_logger));
                         })
                         .WithAutomaticReconnect();

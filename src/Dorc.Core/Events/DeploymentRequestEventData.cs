@@ -3,15 +3,8 @@ using Tapper;
 
 namespace Dorc.Core.Events
 {
-    public enum DeploymentEvents
-    {
-        RequestStatusChanged,
-        ResultStatusChanged,
-        NewRequest
-    }
-
     [TranspilationSource]
-    public record DeploymentEventData(
+    public record DeploymentRequestEventData(
         int RequestId,
         string? Status,
         DateTimeOffset? StartedTime,
@@ -24,7 +17,7 @@ namespace Dorc.Core.Events
     )
     {
         // Parameterless constructor for serializers that require it
-        public DeploymentEventData() : this(
+        public DeploymentRequestEventData() : this(
             0,
             null,
             null,
@@ -38,7 +31,7 @@ namespace Dorc.Core.Events
         {
         }
 
-        public DeploymentEventData(DeploymentRequestApiModel drModel)
+        public DeploymentRequestEventData(DeploymentRequestApiModel drModel)
             : this(
                 drModel.Id,
                 drModel.Status,
@@ -48,21 +41,6 @@ namespace Dorc.Core.Events
                 drModel.EnvironmentName,
                 drModel.BuildNumber,
                 drModel.UserName,
-                DateTimeOffset.UtcNow
-            )
-        {
-        }
-
-        public DeploymentEventData(RequestStatusDto rModel)
-            : this(
-                rModel.Id,
-                rModel.Status,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
                 DateTimeOffset.UtcNow
             )
         {

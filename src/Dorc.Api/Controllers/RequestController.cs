@@ -220,7 +220,7 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast restart -> Restarting
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentEventData(updated));
+                    new DeploymentRequestEventData(updated));
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -273,7 +273,7 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast cancel -> Cancelling/Cancelled
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentEventData(updated));
+                    new DeploymentRequestEventData(updated));
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });

@@ -145,7 +145,7 @@ namespace Dorc.Core
 
             // Fire-and-forget event: new request created (Pending)
             _ = _deploymentEventsPublisher.PublishNewRequestAsync(
-                new DeploymentEventData(
+                new DeploymentRequestEventData(
                     RequestId: requestId,
                     Status: deploymentRequest.Status.ToString(),
                     StartedTime: deploymentRequest.RequestedTime,
