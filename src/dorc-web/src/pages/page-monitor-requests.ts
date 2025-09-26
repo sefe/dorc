@@ -27,7 +27,6 @@ import {
 import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
-import { TextField } from '@vaadin/text-field';
 import { getShortLogonName } from '../helpers/user-extensions.js';
 import {
   DeploymentHub,
@@ -35,6 +34,7 @@ import {
   IDeploymentsEventsClient,
 } from '../services/ServerEvents';
 import { HubConnection } from '@microsoft/signalr';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 
 const username = 'Username';
 const status = 'Status';
@@ -58,7 +58,15 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   @property({ type: Boolean }) autoRefresh = true;
 
+  @property({ type: String }) hubConnectionState = 'Disconnected';
+
   @state() noResults = false;
+
+  // Keep reference to header root so we can manually re-render when reactive
+  // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
+  // headerRenderer is only invoked when the cell is first created, so Lit's
+  // normal re-render cycle does not update the header automatically.
+  private _idHeaderRoot?: HTMLElement;
 
   userFilter: string = '';
   statusFilter: string = '';
@@ -146,12 +154,12 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         id="grid"
         column-reordering-allowed
         multi-sort
-        .size="200"
+        .size=${200}
         theme="compact row-stripes no-row-borders no-border"
-        .dataProvider="${(
-      params: GridDataProviderParams<DeploymentRequestApiModel>,
-      callback: GridDataProviderCallback<DeploymentRequestApiModel>
-    ) => {
+        .dataProvider=${(
+          params: GridDataProviderParams<DeploymentRequestApiModel>,
+          callback: GridDataProviderCallback<DeploymentRequestApiModel>
+        ) => {
         if (
           params.sortOrders !== undefined &&
           params.sortOrders.length !== 1
@@ -228,14 +236,15 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
             },
             error: (err: any) => {
+              const errMessage = retrieveErrorMessage(err);
               const notification = new ErrorNotification();
               notification.setAttribute(
                 'errorMessage',
-                err.response?.ExceptionMessage ?? err.response
+                errMessage
               );
               this.shadowRoot?.appendChild(notification);
               notification.open();
-              console.error(err);
+              console.error(errMessage, err);
               callback([], 0);
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
@@ -249,7 +258,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               this.monitorRequestsLoaded();
             }
           });
-      }}"
+  }}
         style="z-index: 1"
       >
         <vaadin-grid-column
@@ -341,6 +350,16 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
+  protected updated(changed: PropertyValueMap<any>) {
+    super.updated(changed);
+    if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
+      if (this._idHeaderRoot) {
+        // Re-render header to reflect state changes
+        this.idHeaderRenderer(this._idHeaderRoot);
+      }
+    }
+  }
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this.hubConnection) {
@@ -356,10 +375,21 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
+    this.hubConnection.onclose(async () => {
+      this.hubConnectionState = 'Disconnected';
+    });
+    this.hubConnection.onreconnecting(() => {
+      this.hubConnectionState = 'Reconnecting';
+    });
+    this.hubConnection.onreconnected(() => {
+      this.hubConnectionState = 'Connected';
+    });
+    
     if (this.hubConnection.state === 'Disconnected') {
       await this.hubConnection.start().catch((err) => {
         console.error('Error starting SignalR connection:', err);
       });
+      this.hubConnectionState = 'Connected';
     }
   }
 
@@ -605,19 +635,21 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   ) {
     render(
       html` <request-controls
-        .requestId="${item.Id ?? 0}"
-        .cancelable="${item.UserEditable &&
+        .requestId=${item.Id ?? 0}
+        .cancelable=${!!item.UserEditable &&
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting')}"
-        .canRestart="${item.UserEditable && item.Status !== 'Pending'}"
+          item.Status === 'Restarting')}
+        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root
     );
   }
 
   idHeaderRenderer = (root: HTMLElement) => {
+  // Store root for future manual re-renders
+  this._idHeaderRoot = root;
     render(
       html`
       <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
@@ -625,7 +657,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         theme="icon small tertiary-inline"
         style="padding:0;margin:0"
         .title="${this.autoRefresh
-          ? 'Auto refresh ON (click to switch to manual)'
+          ? `Auto refresh ON (click to switch to manual)\nState: ${this.hubConnectionState}`
           : 'Manual mode (click to enable auto refresh)'}"
         @click="${() => {
           this.autoRefresh = !this.autoRefresh;
@@ -639,7 +671,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         >
         <vaadin-icon
           icon="${this.autoRefresh ? 'vaadin:pause' : 'vaadin:play'}"
-          style="color: cornflowerblue"
+          style="color:${this.hubConnectionState !== 'Connected'
+          ? 'var(--lumo-error-color)'
+          : 'cornflowerblue'}"
         ></vaadin-icon>
         </vaadin-button>
 
@@ -679,7 +713,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           style="width: 100px"
           theme="small"
           @input="${(e: InputEvent) => {
-          const textField = e.target as TextField;
+          const textField = e.target as any;
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
               detail: {
@@ -708,7 +742,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           style="width: 110px"
           theme="small"
           @input="${(e: InputEvent) => {
-          const textField = e.target as TextField;
+          const textField = e.target as any;
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
               detail: {
@@ -736,7 +770,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           style="width: 100px"
           theme="small"
           @input="${(e: InputEvent) => {
-          const textField = e.target as TextField;
+          const textField = e.target as any;
 
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
@@ -765,7 +799,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           style="width: 100px"
           theme="small"
           @input="${(e: InputEvent) => {
-          const textField = e.target as TextField;
+          const textField = e.target as any;
 
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
@@ -794,7 +828,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           style="width: 110px"
           theme="small"
           @input="${(e: InputEvent) => {
-          const textField = e.target as TextField;
+          const textField = e.target as any;
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
               detail: {
