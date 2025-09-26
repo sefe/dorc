@@ -52,7 +52,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   private hubConnection: HubConnection | undefined;
 
-  @property({ type: Boolean }) isLoading = false;
+  @property({ type: Boolean }) isLoading = true;
 
   @property({ type: Boolean }) isSearching = false;
 
@@ -244,13 +244,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
             },
             complete: () => {
-              this.dispatchEvent(
-                new CustomEvent('monitor-requests-loaded', {
-                  detail: {},
-                  bubbles: true,
-                  composed: true
-                })
-              );
+              this.monitorRequestsLoaded();
             }
           });
       }}"
@@ -335,10 +329,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       this.requestRestarted as EventListener
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
-    this.addEventListener(
-      'monitor-requests-loaded',
-      this.monitorRequestsLoaded as EventListener
-    );
     this.addEventListener(
       'searching-requests-started',
       this.searchingRequestsStarted as EventListener
