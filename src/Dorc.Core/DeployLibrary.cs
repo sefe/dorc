@@ -150,10 +150,6 @@ namespace Dorc.Core
                     Status: deploymentRequest.Status.ToString(),
                     StartedTime: deploymentRequest.RequestedTime,
                     CompletedTime: null,
-                    ProjectName: requestDetail.BuildDetail.Project,
-                    EnvironmentName: requestDetail.EnvironmentName,
-                    BuildNumber: requestDetail.BuildDetail.BuildNumber,
-                    UserName: deploymentRequest.UserName,
                     Timestamp: DateTimeOffset.UtcNow
                 ));
 

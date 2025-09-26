@@ -17,6 +17,7 @@ namespace Dorc.Api.Events
             => await _hub.Clients.All.OnDeploymentRequestStatusChanged(eventData);
 
         public async Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData)
-            => await _hub.Clients.All.OnDeploymentResultStatusChanged(eventData);
+            => await _hub.Clients.Group(DeploymentsHub.GetGroupName(eventData.RequestId))
+                .OnDeploymentResultStatusChanged(eventData);
     }
 }

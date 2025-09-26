@@ -9,20 +9,12 @@ namespace Dorc.Core.Events
         string? Status,
         DateTimeOffset? StartedTime,
         DateTimeOffset? CompletedTime,
-        string? ProjectName,
-        string? EnvironmentName,
-        string? BuildNumber,
-        string? UserName,
         DateTimeOffset Timestamp
     )
     {
         // Parameterless constructor for serializers that require it
         public DeploymentRequestEventData() : this(
             0,
-            null,
-            null,
-            null,
-            null,
             null,
             null,
             null,
@@ -37,10 +29,6 @@ namespace Dorc.Core.Events
                 drModel.Status,
                 drModel.StartedTime,
                 drModel.CompletedTime,
-                drModel.Project,
-                drModel.EnvironmentName,
-                drModel.BuildNumber,
-                drModel.UserName,
                 DateTimeOffset.UtcNow
             )
         {

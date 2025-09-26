@@ -5,12 +5,10 @@ namespace Dorc.Core.Events
 {
     [TranspilationSource]
     public record DeploymentResultEventData(
-        int Id,
-        string ComponentName,
-        string Status,
-        string Log,
-        int ComponentId,
+        int ResultId,
         int RequestId,
+        int ComponentId,
+        string? Status,
         DateTimeOffset? StartedTime,
         DateTimeOffset? CompletedTime,
         DateTimeOffset Timestamp
@@ -20,11 +18,9 @@ namespace Dorc.Core.Events
         public DeploymentResultEventData() 
             : this(
                   0, 
-                  string.Empty, 
-                  string.Empty, 
-                  string.Empty, 
-                  0, 
-                  0, 
+                  0,
+                  0,
+                  null, 
                   null, 
                   null,
                   DateTimeOffset.UtcNow) { }
@@ -32,11 +28,9 @@ namespace Dorc.Core.Events
         public DeploymentResultEventData(DeploymentResultApiModel apiModel)
             : this(
                   apiModel.Id,
-                  apiModel.ComponentName,
-                  apiModel.Status,
-                  apiModel.Log,
-                  apiModel.ComponentId,
                   apiModel.RequestId,
+                  apiModel.ComponentId,
+                  apiModel.Status,
                   apiModel.StartedTime,
                   apiModel.CompletedTime,
                   DateTimeOffset.UtcNow)

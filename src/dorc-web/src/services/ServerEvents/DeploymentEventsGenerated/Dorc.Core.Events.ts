@@ -12,14 +12,6 @@ export type DeploymentRequestEventData = {
     startedTime?: (Date | string);
     /** Transpiled from System.DateTimeOffset */
     completedTime?: (Date | string);
-    /** Transpiled from string? */
-    projectName?: string;
-    /** Transpiled from string? */
-    environmentName?: string;
-    /** Transpiled from string? */
-    buildNumber?: string;
-    /** Transpiled from string? */
-    userName?: string;
     /** Transpiled from System.DateTimeOffset */
     timestamp: (Date | string);
 }
@@ -27,17 +19,13 @@ export type DeploymentRequestEventData = {
 /** Transpiled from Dorc.Core.Events.DeploymentResultEventData */
 export type DeploymentResultEventData = {
     /** Transpiled from int */
-    id: number;
-    /** Transpiled from string */
-    componentName: string;
-    /** Transpiled from string */
-    status: string;
-    /** Transpiled from string */
-    log: string;
-    /** Transpiled from int */
-    componentId: number;
+    resultId: number;
     /** Transpiled from int */
     requestId: number;
+    /** Transpiled from int */
+    componentId: number;
+    /** Transpiled from string? */
+    status?: string;
     /** Transpiled from System.DateTimeOffset */
     startedTime?: (Date | string);
     /** Transpiled from System.DateTimeOffset */

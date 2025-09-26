@@ -125,10 +125,6 @@ namespace Dorc.Monitor
                             Status: toStatus.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
-                            ProjectName: null,
-                            EnvironmentName: null,
-                            BuildNumber: null,
-                            UserName: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
                     }
@@ -208,10 +204,6 @@ namespace Dorc.Monitor
                             Status: DeploymentRequestStatus.Pending.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
-                            ProjectName: null,
-                            EnvironmentName: null,
-                            BuildNumber: null,
-                            UserName: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
                     });

@@ -14,7 +14,7 @@ namespace Dorc.Monitor.Services
         private readonly ILog _logger;
         private readonly string? _accessToken;
         private HubConnection? _connection;
-        private IDeploymentEventsPublisher? _hubProxy;
+        private IDeploymentEventsHub? _hubProxy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
         private bool _isConnectionBecomeLost;
 
@@ -27,15 +27,15 @@ namespace Dorc.Monitor.Services
         }
 
         public Task PublishNewRequestAsync(DeploymentRequestEventData eventData) =>
-            PublishAsync(nameof(PublishNewRequestAsync), hub => hub.PublishNewRequestAsync(eventData));
+            PublishAsync(nameof(PublishNewRequestAsync), hub => hub.BroadcastNewRequestAsync(eventData));
 
         public Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData) =>
-            PublishAsync(nameof(PublishRequestStatusChangedAsync), hub => hub.PublishRequestStatusChangedAsync(eventData));
+            PublishAsync(nameof(PublishRequestStatusChangedAsync), hub => hub.BroadcastRequestStatusChangedAsync(eventData));
 
         public Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData) =>
-            PublishAsync(nameof(PublishResultStatusChangedAsync), hub => hub.PublishResultStatusChangedAsync(eventData));
+            PublishAsync(nameof(PublishResultStatusChangedAsync), hub => hub.BroadcastResultStatusChangedAsync(eventData));
 
-        private async Task PublishAsync(string operationName, Func<IDeploymentEventsPublisher, Task> action)
+        private async Task PublishAsync(string operationName, Func<IDeploymentEventsHub, Task> action)
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
@@ -99,8 +99,11 @@ namespace Dorc.Monitor.Services
 
                 if (_hubProxy == null)
                 {
-                    _hubProxy = _connection.CreateHubProxy<IDeploymentEventsPublisher>(ct);
+                    _hubProxy = _connection.CreateHubProxy<IDeploymentEventsHub>(ct);
                 }
+
+                // we have to register also client for hub in order to eliminate signalR errors when event is broadcasted to all clients
+                _connection.Register<IDeploymentsEventsClient>(new NullDeploymentsEventsClient());
 
                 if (_connection.State == HubConnectionState.Connected)
                 {
@@ -132,6 +135,13 @@ namespace Dorc.Monitor.Services
                 await _connection.DisposeAsync();
             }
             _connectionLock.Dispose();
+        }
+
+        private sealed class NullDeploymentsEventsClient : IDeploymentsEventsClient
+        {
+            public Task OnDeploymentRequestStatusChanged(DeploymentRequestEventData data) => Task.CompletedTask;
+            public Task OnDeploymentRequestStarted(DeploymentRequestEventData data) => Task.CompletedTask;
+            public Task OnDeploymentResultStatusChanged(DeploymentResultEventData data) => Task.CompletedTask;
         }
     }
 }

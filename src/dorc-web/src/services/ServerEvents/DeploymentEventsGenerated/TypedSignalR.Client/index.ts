@@ -3,6 +3,7 @@
 /* tslint:disable */
 // @ts-nocheck
 import type { HubConnection, IStreamResult, Subject } from '@microsoft/signalr';
+import type { IDeploymentEventsHub } from './Dorc.Core.Events';
 import type { IDeploymentsEventsClient } from './Dorc.Core.Interfaces';
 import type { DeploymentRequestEventData, DeploymentResultEventData } from '../Dorc.Core.Events';
 
@@ -43,9 +44,13 @@ class ReceiverMethodSubscription implements Disposable {
 // API
 
 export type HubProxyFactoryProvider = {
+    (hubType: "IDeploymentEventsHub"): HubProxyFactory<IDeploymentEventsHub>;
 }
 
 export const getHubProxyFactory = ((hubType: string) => {
+    if(hubType === "IDeploymentEventsHub") {
+        return IDeploymentEventsHub_HubProxyFactory.Instance;
+    }
 }) as HubProxyFactoryProvider;
 
 export type ReceiverRegisterProvider = {
@@ -59,6 +64,43 @@ export const getReceiverRegister = ((receiverType: string) => {
 }) as ReceiverRegisterProvider;
 
 // HubProxy
+
+class IDeploymentEventsHub_HubProxyFactory implements HubProxyFactory<IDeploymentEventsHub> {
+    public static Instance = new IDeploymentEventsHub_HubProxyFactory();
+
+    private constructor() {
+    }
+
+    public readonly createHubProxy = (connection: HubConnection): IDeploymentEventsHub => {
+        return new IDeploymentEventsHub_HubProxy(connection);
+    }
+}
+
+class IDeploymentEventsHub_HubProxy implements IDeploymentEventsHub {
+
+    public constructor(private connection: HubConnection) {
+    }
+
+    public readonly broadcastNewRequestAsync = async (eventData: DeploymentRequestEventData): Promise<void> => {
+        return await this.connection.invoke("BroadcastNewRequestAsync", eventData);
+    }
+
+    public readonly broadcastRequestStatusChangedAsync = async (eventData: DeploymentRequestEventData): Promise<void> => {
+        return await this.connection.invoke("BroadcastRequestStatusChangedAsync", eventData);
+    }
+
+    public readonly broadcastResultStatusChangedAsync = async (eventData: DeploymentResultEventData): Promise<void> => {
+        return await this.connection.invoke("BroadcastResultStatusChangedAsync", eventData);
+    }
+
+    public readonly joinRequestGroup = async (requestId: number): Promise<void> => {
+        return await this.connection.invoke("JoinRequestGroup", requestId);
+    }
+
+    public readonly leaveRequestGroup = async (requestId: number): Promise<void> => {
+        return await this.connection.invoke("LeaveRequestGroup", requestId);
+    }
+}
 
 
 // Receiver
