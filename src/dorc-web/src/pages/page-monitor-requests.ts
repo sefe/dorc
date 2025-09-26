@@ -56,6 +56,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   @property({ type: Boolean }) isSearching = false;
 
+  @property({ type: Boolean }) autoRefresh = true;
+
   @state() noResults = false;
 
   userFilter: string = '';
@@ -364,11 +366,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
 
   onDeploymentRequestStatusChanged(): Promise<void> {
-    this.debouncedRefreshGrid();
+    if (this.autoRefresh) this.debouncedRefreshGrid();
     return Promise.resolve();
   }
   onDeploymentRequestStarted(): Promise<void> {
-    this.debouncedRefreshGrid();
+    if (this.autoRefresh) this.debouncedRefreshGrid();
     return Promise.resolve();
   }
   onDeploymentResultStatusChanged(): Promise<void> {
@@ -615,31 +617,61 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
-  idHeaderRenderer(root: HTMLElement) {
+  idHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
+      <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
         <vaadin-button
-          theme="icon small"
-          style="padding: 0px; margin: 0px"
-          @click="${() => {
-          const event = new CustomEvent('refresh-requests', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          });
-          this.dispatchEvent(event);
+        theme="icon small tertiary-inline"
+        style="padding:0;margin:0"
+        .title="${this.autoRefresh
+          ? 'Auto refresh ON (click to switch to manual)'
+          : 'Manual mode (click to enable auto refresh)'}"
+        @click="${() => {
+          this.autoRefresh = !this.autoRefresh;
+          // If turning auto back on, do an immediate refresh
+          if (this.autoRefresh) {
+            this.refreshGrid();
+          }
+          // Re-render header to reflect new state
+          this.idHeaderRenderer(root);
         }}"
         >
-          <vaadin-icon
+        <vaadin-icon
+          icon="${this.autoRefresh ? 'vaadin:pause' : 'vaadin:play'}"
+          style="color: cornflowerblue"
+        ></vaadin-icon>
+        </vaadin-button>
+
+        ${!this.autoRefresh
+          ? html`
+          <vaadin-button
+            theme="icon small"
+            style="padding:0;margin:0"
+            title="Manual refresh"
+            @click="${() => {
+              const event = new CustomEvent('refresh-requests', {
+                detail: {},
+                bubbles: true,
+                composed: true
+              });
+              this.dispatchEvent(event);
+            }}"
+          >
+            <vaadin-icon
             icon="icons:refresh"
             style="color: cornflowerblue"
-          ></vaadin-icon>
-        </vaadin-button>
+            ></vaadin-icon>
+          </vaadin-button>
+          `
+          : null}
+
         <vaadin-grid-sorter
           path="Id"
           direction="desc"
           style="align-items: normal"
         ></vaadin-grid-sorter>
+
         <vaadin-text-field
           placeholder="Id"
           clear-button-visible
@@ -660,12 +692,13 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           );
         }}"
         ></vaadin-text-field>
+      </vaadin-horizontal-layout>
       `,
       root
     );
   }
 
-  detailsHeaderRenderer(root: HTMLElement) {
+  detailsHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -693,7 +726,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
-  usersHeaderRenderer(root: HTMLElement) {
+  usersHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -722,7 +755,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
-  statusHeaderRenderer(root: HTMLElement) {
+  statusHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -751,7 +784,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
-  componentsHeaderRenderer(root: HTMLElement) {
+  componentsHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
