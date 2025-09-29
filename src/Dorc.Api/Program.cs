@@ -216,6 +216,8 @@ builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
 // Real-time updates
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
+// Track SignalR group membership
+builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
