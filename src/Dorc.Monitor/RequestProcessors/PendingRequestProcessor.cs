@@ -119,7 +119,8 @@ namespace Dorc.Monitor.RequestProcessors
                         return;
                     }
 
-                    var deploymentResults = new Dictionary<int, DeploymentResultApiModel>();
+                    //var deploymentResults = new Dictionary<int, DeploymentResultApiModel>();
+                    var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id).ToDictionary(r => r.ComponentId);
                     foreach (var nonSkippedComponent in orderedNonSkippedComponents)
                     {
                         try
@@ -134,7 +135,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                                 deploymentResults.Add(componentId, deploymentResult);
                             }
-                            else
+                            else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed))
                             {
                                 logger.Warn($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
                             }

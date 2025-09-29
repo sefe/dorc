@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
@@ -30,6 +31,7 @@ namespace Dorc.Monitor
         private readonly IConfigurationSettings _configurationSettingsEngine;
         private readonly IDeploymentRequestProcessesPersistentSource _processesPersistentSource;
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
+        private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -39,14 +41,16 @@ namespace Dorc.Monitor
             IConfigValuesPersistentSource configValuesPersistentSource,
             IConfigurationSettings configurationSettingsEngine,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
-            IScriptGroupPipeServer scriptGroupPipeServer)
+            IScriptGroupPipeServer scriptGroupPipeServer,
+            IAzureStorageAccountWorker azureStorageAccountWorker)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
             this._configurationSettingsEngine = configurationSettingsEngine;
-            _processesPersistentSource = processesPersistentSource;
-            _scriptGroupPipeServer = scriptGroupPipeServer;
+            this._processesPersistentSource = processesPersistentSource;
+            this._scriptGroupPipeServer = scriptGroupPipeServer;
+            this._azureStorageAccountWorker = azureStorageAccountWorker;
         }
 
         //public async Task<bool> DispatchAsync(
@@ -178,7 +182,7 @@ namespace Dorc.Monitor
                 var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
                 if (!Directory.Exists(planStorageDir))
                     Directory.CreateDirectory(planStorageDir);
-                var terraformResultFileName = $"plan-{deploymentResult.Id}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.txt";
+                var terraformResultFileName = $"plan-{deploymentResult.Id}.txt";
                 var terraformResultFilePath = Path.Combine(planStorageDir, terraformResultFileName);
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
@@ -263,6 +267,8 @@ namespace Dorc.Monitor
                     logger.Error($"Exception is thrown while operating with the Runner process. Exception: {e}");
                     throw;
                 }
+
+                await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformResultFilePath);
 
                 // Update status to WaitingConfirmation
                 _requestsPersistentSource.UpdateResultStatus(

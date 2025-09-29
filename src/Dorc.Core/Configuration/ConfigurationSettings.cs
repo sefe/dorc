@@ -128,5 +128,32 @@ namespace Dorc.Core.Configuration
             var isUseAdSidsForAccessControlConfig = _configuration.GetSection("AppSettings")["IsUseAdSidsForAccessControl"];
             return bool.TryParse(isUseAdSidsForAccessControlConfig, out bool isUseAdSidsForAccessControl) && isUseAdSidsForAccessControl;
         }
+
+        #region Azure Storage Account
+        public string GetAzureStorageAccountTenantId()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["TenantId"];
+        }
+
+        public string GetAzureStorageAccountClientId()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["ClientId"];
+        }
+
+        public string GetAzureStorageAccountClientSecret()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["ClientSecret"];
+        }
+
+        public string GetAzureStorageAccounUri()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["StorageAccountUri"];
+        }
+
+        public string GetAzureStorageAccountBlobsContainerName()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["BlobsContainerName"];
+        }
+        #endregion
     }
 }

@@ -364,6 +364,14 @@ export class ComponentDeploymentResults extends LitElement {
 
   private onCloseTerraformPlan(e: CustomEvent) {
     this.terraformDialogOpened = e.detail.value;
+
+    this.dispatchEvent(
+      new CustomEvent('refresh-monitor-result', {
+        detail: {},
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   private onTerraformPlanConfirmed(e: CustomEvent) {

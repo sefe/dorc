@@ -25,5 +25,11 @@
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();
         string GetAzureEntraClientSecret();
+
+        string GetAzureStorageAccountTenantId();
+        string GetAzureStorageAccountClientId();
+        string GetAzureStorageAccountClientSecret();
+        string GetAzureStorageAccounUri();
+        string GetAzureStorageAccountBlobsContainerName();
     }
 }

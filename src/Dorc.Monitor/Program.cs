@@ -1,4 +1,5 @@
 using Dorc.Core;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
@@ -69,6 +70,7 @@ builder.Services.AddTransient<IPropertyEvaluator, PropertyEvaluator>();
 builder.Services.AddTransient<IComponentProcessor, ComponentProcessor>();
 builder.Services.AddTransient<IScriptDispatcher, ScriptDispatcher>();
 builder.Services.AddTransient<ITerraformDispatcher, TerraformDispatcher>();
+builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 builder.Services.AddTransient<TerraformConfirmedPlanProcessor>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
