@@ -31,6 +31,12 @@
 					<Json:JsonFile Id="ScriptRootNonProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 					<Json:JsonFile Id="RunnerLogPathNonProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 
+					<Json:JsonFile Id="AzureStorageAccountTenantIdNonProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
+					<Json:JsonFile Id="AzureStorageAccountClientIdNonProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
+					<Json:JsonFile Id="AzureStorageAccountClientSecretNonProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
+					<Json:JsonFile Id="AzureStorageAccountUriNonProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
+					<Json:JsonFile Id="AzureStorageAccountBlobsContainerNameNonProd" ElementPath="$.AzureStorageAccount.BlobsContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.BLOBSCONTAINERNAME]" />
+
 					<util:XmlFile Id="NonProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#NonProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorNonProd.log" />
 				</Component>
 

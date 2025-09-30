@@ -31,6 +31,12 @@
 					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#ProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#ProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+
+					<Json:JsonFile Id="AzureStorageAccountTenantIdProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
+					<Json:JsonFile Id="AzureStorageAccountClientIdProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
+					<Json:JsonFile Id="AzureStorageAccountClientSecretProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
+					<Json:JsonFile Id="AzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
+					<Json:JsonFile Id="AzureStorageAccountBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.BlobsContainerName" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.BLOBSCONTAINERNAME]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
