@@ -182,7 +182,7 @@ namespace Dorc.Monitor
                 var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
                 if (!Directory.Exists(planStorageDir))
                     Directory.CreateDirectory(planStorageDir);
-                var terraformResultFileName = $"plan-{deploymentResult.Id}.txt";
+                var terraformResultFileName = deploymentResult.Id.CreateTerraformBlobName();
                 var terraformResultFilePath = Path.Combine(planStorageDir, terraformResultFileName);
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)

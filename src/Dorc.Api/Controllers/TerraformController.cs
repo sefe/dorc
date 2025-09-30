@@ -1,7 +1,9 @@
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using Microsoft.AspNetCore.Authorization;
@@ -19,17 +21,20 @@ namespace Dorc.Api.Controllers
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
 
         public TerraformController(
             ILog log,
             IRequestsPersistentSource requestsPersistentSource,
             ISecurityPrivilegesChecker apiSecurityService,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IAzureStorageAccountWorker azureStorageAccountWorker)
         {
             _log = log;
             _requestsPersistentSource = requestsPersistentSource;
             _apiSecurityService = apiSecurityService;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _azureStorageAccountWorker = azureStorageAccountWorker;
         }
 
         /// <summary>
@@ -40,7 +45,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformPlanApiModel))]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet("plan/{deploymentResultId}")]
-        public IActionResult GetTerraformPlan(int deploymentResultId)
+        public async Task<IActionResult> GetTerraformPlan(int deploymentResultId)
         {
             try
             {
@@ -60,7 +65,7 @@ namespace Dorc.Api.Controllers
                 }
 
                 // Load plan content from storage
-                var planContent = LoadPlanContentFromStorage(deploymentResultId);
+                var planContent = await LoadPlanContentFromStorageAsync(deploymentResultId);
                 
                 var plan = new TerraformPlanApiModel
                 {
@@ -228,22 +233,14 @@ namespace Dorc.Api.Controllers
             return HasConfirmPermission(deploymentResult);
         }
 
-        private string LoadPlanContentFromStorage(int deploymentResultId)
+        private async Task<string> LoadPlanContentFromStorageAsync(int deploymentResultId)
         {
             try
             {
-                // For now, load from local file system - this should be replaced with Azure Blob Storage
-                var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
-                var planFiles = Directory.GetFiles(planStorageDir, $"plan-{deploymentResultId}-*.txt");
-                
-                if (planFiles.Length > 0)
-                {
-                    // Get the most recent plan file
-                    var latestPlanFile = planFiles.OrderByDescending(f => System.IO.File.GetCreationTime(f)).First();
-                    return System.IO.File.ReadAllText(latestPlanFile);
-                }
-                
-                return "Plan content not found - may have been cleaned up or stored in different location.";
+                var terraformPlanBlobName = deploymentResultId.CreateTerraformBlobName();
+                var blobContent = await _azureStorageAccountWorker.LoadFileFromBlobsAsync(terraformPlanBlobName);
+
+                return blobContent;
             }
             catch (Exception ex)
             {
