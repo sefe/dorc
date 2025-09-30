@@ -19,7 +19,7 @@ namespace Dorc.Core.AzureStorageAccount
                     new Uri(configurationSettings.GetAzureStorageAccounUri()),
                     clientSecretCredential);
 
-            _blobContainerName = configurationSettings.GetAzureStorageAccountBlobsContainerName();
+            _blobContainerName = configurationSettings.GetAzureStorageAccountTerraformBlobsContainerName();
         }
 
         public async Task SaveFileToBlobsAsync(string fileName)

@@ -30,6 +30,6 @@
         string GetAzureStorageAccountClientId();
         string GetAzureStorageAccountClientSecret();
         string GetAzureStorageAccounUri();
-        string GetAzureStorageAccountBlobsContainerName();
+        string GetAzureStorageAccountTerraformBlobsContainerName();
     }
 }

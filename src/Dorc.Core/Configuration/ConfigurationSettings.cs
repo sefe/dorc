@@ -150,9 +150,9 @@ namespace Dorc.Core.Configuration
             return _configuration.GetSection("AzureStorageAccount")["StorageAccountUri"];
         }
 
-        public string GetAzureStorageAccountBlobsContainerName()
+        public string GetAzureStorageAccountTerraformBlobsContainerName()
         {
-            return _configuration.GetSection("AzureStorageAccount")["BlobsContainerName"];
+            return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"];
         }
         #endregion
     }

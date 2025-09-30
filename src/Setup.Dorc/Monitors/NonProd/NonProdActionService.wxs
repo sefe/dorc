@@ -35,7 +35,7 @@
 					<Json:JsonFile Id="AzureStorageAccountClientIdNonProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
 					<Json:JsonFile Id="AzureStorageAccountClientSecretNonProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
 					<Json:JsonFile Id="AzureStorageAccountUriNonProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
-					<Json:JsonFile Id="AzureStorageAccountBlobsContainerNameNonProd" ElementPath="$.AzureStorageAccount.BlobsContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.BLOBSCONTAINERNAME]" />
+					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameNonProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 
 					<util:XmlFile Id="NonProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#NonProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorNonProd.log" />
 				</Component>
