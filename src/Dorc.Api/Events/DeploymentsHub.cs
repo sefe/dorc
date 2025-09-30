@@ -52,10 +52,22 @@ namespace Dorc.Api.Events
         }
 
         public async Task BroadcastNewRequestAsync(DeploymentRequestEventData eventData)
-            => await Clients.Others.OnDeploymentRequestStarted(eventData);
+        {
+            if (!Context.User.IsInRole("Admin"))
+            {
+                throw new HubException("Not authorized");
+            }
+
+            await Clients.Others.OnDeploymentRequestStarted(eventData);
+        }
 
         public async Task BroadcastRequestStatusChangedAsync(DeploymentRequestEventData eventData)
         {
+            if (!this.Context.User.IsInRole("Admin"))
+            {
+                throw new HubException("Not authorized");
+            }
+
             var groupName = _tracker.GetGroupName(eventData.RequestId);
             var callerId = Context.ConnectionId;
 
@@ -75,7 +87,14 @@ namespace Dorc.Api.Events
         }
 
         public async Task BroadcastResultStatusChangedAsync(DeploymentResultEventData eventData)
-            => await Clients.OthersInGroup(_tracker.GetGroupName(eventData.RequestId)).OnDeploymentResultStatusChanged(eventData);
+        {
+            if (!this.Context.User.IsInRole("Admin"))
+            {
+                throw new HubException("Not authorized");
+            }
+
+            await Clients.OthersInGroup(_tracker.GetGroupName(eventData.RequestId)).OnDeploymentResultStatusChanged(eventData);
+        }
     }
 }
 
