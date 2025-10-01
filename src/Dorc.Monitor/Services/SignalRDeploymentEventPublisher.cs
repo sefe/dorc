@@ -1,10 +1,11 @@
+using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Monitor.Logging;
 using log4net;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using TypedSignalR.Client;
-using Dorc.Monitor.Logging;
 
 namespace Dorc.Monitor.Services
 {
@@ -12,7 +13,7 @@ namespace Dorc.Monitor.Services
     {
         private readonly string _hubUrl;
         private readonly ILog _logger;
-        private readonly string? _accessToken;
+        private readonly DorcApiTokenProvider _tokenProvider;
         private HubConnection? _connection;
         private IDeploymentEventsHub? _hubProxy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
@@ -22,8 +23,9 @@ namespace Dorc.Monitor.Services
         {
             var baseUri = new Uri(configuration.RefDataApiUrl, UriKind.Absolute);
             _hubUrl = new Uri(baseUri, "hubs/deployments").ToString();
-            //_accessToken = configuration["Internal:SignalR:AccessToken"];
             _logger = logger;
+
+            _tokenProvider = new DorcApiTokenProvider(OAuthClientConfiguration.FromMonitorConfiguration(configuration), logger);
         }
 
         public Task PublishNewRequestAsync(DeploymentRequestEventData eventData) =>
@@ -74,18 +76,21 @@ namespace Dorc.Monitor.Services
                     var builder = new HubConnectionBuilder()
                         .WithUrl(_hubUrl, options =>
                         {
-                            options.UseDefaultCredentials = true;
-
-                            if (!string.IsNullOrWhiteSpace(_accessToken))
+                            options.AccessTokenProvider = async () =>
                             {
-                                options.AccessTokenProvider = () => Task.FromResult(_accessToken)!;
-                            }
+                                try
+                                {
+                                    return await _tokenProvider.GetTokenAsync();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Error("Failed to acquire OAuth access token for SignalR connection.", ex);
+                                    throw;
+                                }
+                            };
                         })
                         .ConfigureLogging(logging =>
                         {
-                            logging.ClearProviders();
-                            //logging.SetMinimumLevel(LogLevel.Trace);
-                            //logging.AddConsole();
                             logging.AddProvider(new Log4NetLoggerProvider(_logger));
                         })
                         .WithAutomaticReconnect();
@@ -135,6 +140,7 @@ namespace Dorc.Monitor.Services
                 await _connection.DisposeAsync();
             }
             _connectionLock.Dispose();
+            await _tokenProvider.DisposeAsync();
         }
 
         private sealed class NullDeploymentsEventsClient : IDeploymentsEventsClient

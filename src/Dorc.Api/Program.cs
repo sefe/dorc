@@ -113,6 +113,22 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             };
             options.MapInboundClaims = false;
             options.ForwardDefaultSelector = ReferenceTokenSelector.ForwardReferenceToken();
+
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    // Support SignalR WebSocket / SSE where token is passed as query string
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) &&
+                        path.StartsWithSegments("/hubs"))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
         })
         // Enabling Reference tokens
         .AddOAuth2Introspection("introspection", options =>
