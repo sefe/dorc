@@ -26,6 +26,7 @@ import {
 } from '../apis/dorc-api';
 import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
+import '../icons/custom-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { getShortLogonName } from '../helpers/user-extensions.js';
 import {
@@ -670,7 +671,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         }}"
         >
         <vaadin-icon
-          icon="${this.autoRefresh ? 'vaadin:pause' : 'vaadin:play'}"
+          icon="${this.autoRefresh ? 'custom:refresh-auto' : 'custom:refresh-auto-off'}"
           style="color:${this.hubConnectionState !== 'Connected'
           ? 'var(--lumo-error-color)'
           : 'cornflowerblue'}"
