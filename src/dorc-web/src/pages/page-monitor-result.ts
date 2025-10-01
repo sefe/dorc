@@ -53,7 +53,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
-  @property({ type: Boolean }) autoRefresh = true;
   
   private hubConnection: HubConnection | undefined;
 
@@ -270,8 +269,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   }
 
   onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
-    if (!this.autoRefresh) return Promise.resolve();
-
     if (data?.requestId === this.requestId) {
       const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
       const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
@@ -291,8 +288,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   }
 
   onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void> {
-    if (!this.autoRefresh) return Promise.resolve();
-
     if (this.isEventForRequest(data, this.requestId)) {
       this.refreshResultItems();
     }
