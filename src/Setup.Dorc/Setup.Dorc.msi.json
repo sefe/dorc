@@ -175,6 +175,18 @@
     {
       "MSIParameter": "ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID",
       "DeployProperty": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTID",
+      "DeployProperty": "DORC_API_CLIENTID"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTSECRET",
+      "DeployProperty": "DORC_API_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "DORC.API.SCOPE",
+      "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
     }
   ]
 }
