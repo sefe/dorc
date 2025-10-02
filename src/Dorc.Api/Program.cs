@@ -229,10 +229,13 @@ AddSwaggerGen(builder.Services, authenticationScheme);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
-// Real-time updates
-builder.Services.AddSignalR();
+// SignalR configuration
+var signalRService = builder.Services.AddSignalR();
+if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
+{
+    signalRService.AddAzureSignalR();
+}
 builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
-// Track SignalR group membership
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
 builder.Services.AddMemoryCache();

@@ -17,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="13.1.0" />
+    <PackageReference Include="Microsoft.Azure.SignalR" Version="1.32.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Log4Net.AspNetCore" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.7.3" />
