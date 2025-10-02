@@ -13,7 +13,8 @@ namespace Dorc.Monitor.RunnerProcess
         public string ScriptGroupPipeName { get; set; } = string.Empty;
         public string RunnerLogPath { get; set; } = string.Empty;
         public string ScriptPath { get; set; } = string.Empty;
-        public string ResultFilePath { get; set; } = string.Empty;
+        public string PlanFilePath { get; set; } = string.Empty;
+        public string PlanContentFilePath { get; set; } = string.Empty;
 
         private TerraformRunnerProcessStarter() { }
 
@@ -60,7 +61,8 @@ namespace Dorc.Monitor.RunnerProcess
                 +" -p " + this.ScriptGroupPipeName
                 +" -l " + this.RunnerLogPath
                 +" -s " + this.ScriptPath
-                +" -r " + this.ResultFilePath;
+                +" -t " + this.PlanFilePath
+                +" -c " + this.PlanContentFilePath;
 #if DEBUG
             commandLine += " --useFile=true";
 #endif

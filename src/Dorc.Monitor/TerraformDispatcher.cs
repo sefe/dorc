@@ -182,8 +182,10 @@ namespace Dorc.Monitor
                 var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
                 if (!Directory.Exists(planStorageDir))
                     Directory.CreateDirectory(planStorageDir);
-                var terraformResultFileName = deploymentResult.Id.CreateTerraformBlobName();
-                var terraformResultFilePath = Path.Combine(planStorageDir, terraformResultFileName);
+                var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
+                var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
+                var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContantBlobName();
+                var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
@@ -191,7 +193,8 @@ namespace Dorc.Monitor
                     ScriptPath = fullScriptPath,
                     ScriptGroupPipeName = startedScriptGroupPipeName,
                     RunnerLogPath = runnerLogPath,
-                    ResultFilePath = terraformResultFilePath,
+                    PlanFilePath = terraformPlanFilePath,
+                    PlanContentFilePath = terraformPlanContentFilePath,
                 };
                 try
                 {
@@ -267,8 +270,11 @@ namespace Dorc.Monitor
                     logger.Error($"Exception is thrown while operating with the Runner process. Exception: {e}");
                     throw;
                 }
-
-                await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformResultFilePath);
+                
+                //save Terraform binary plan file to Azure Storage Account
+                await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanFilePath);
+                //save Terraform human-readable plan file to Azure Storage Account
+                await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanContentFilePath);
 
                 // Update status to WaitingConfirmation
                 _requestsPersistentSource.UpdateResultStatus(

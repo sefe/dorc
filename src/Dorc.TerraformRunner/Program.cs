@@ -98,7 +98,7 @@ namespace Dorc.TerraformmRunner
 
                     var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
 
-                    await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.ScriptPath, options.ResultFilePath, CancellationToken.None);
+                    await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, CancellationToken.None);
 
                     //IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                     //    runnerLogger,

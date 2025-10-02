@@ -13,8 +13,11 @@ namespace Dorc.TerraformmRunner
         [Option('s', "scriptPath", Required = false, HelpText = "Path to the scripts folder.")]
         public string ScriptPath { get; set; }
 
-        [Option('r', "resultFilePath", Required = true, HelpText = "Terraform result file path")]
-        public string ResultFilePath { get; set; }
+        [Option('t', "planFilePath", Required = true, HelpText = "Terraform plan file path")]
+        public string PlanFilePath { get; set; }
+
+        [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan contant file path")]
+        public string PlanContentFilePath { get; set; }
 
         [Option('f', "useFile", Required = false, HelpText = "File be used instead of named pipe to get all script properties.")]
         public bool UseFile { get; set; }

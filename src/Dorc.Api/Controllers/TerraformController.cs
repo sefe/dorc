@@ -237,7 +237,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var terraformPlanBlobName = deploymentResultId.CreateTerraformBlobName();
+                var terraformPlanBlobName = deploymentResultId.CreateTerraformPlanContantBlobName();
                 var blobContent = await _azureStorageAccountWorker.LoadFileFromBlobsAsync(terraformPlanBlobName);
 
                 return blobContent;

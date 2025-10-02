@@ -47,7 +47,7 @@ namespace Dorc.TerraformmRunner
             try
             {
                 // Create terraform plan (placeholder implementation)
-                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, requestId, cancellationToken);
+                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, requestId, cancellationToken);
 
                 await File.WriteAllTextAsync(resultFilePath, planContent, cancellationToken);
 
@@ -118,6 +118,7 @@ namespace Dorc.TerraformmRunner
         private async Task<string> CreateTerraformPlanAsync(
             IDictionary<string, VariableValue> properties,
             string terraformWorkingDir,
+            string resultFilePath,
             int requestId,
             CancellationToken cancellationToken)
         {
@@ -132,13 +133,12 @@ namespace Dorc.TerraformmRunner
                 await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
                 
                 // Generate the plan
-                var planFileName = $"tfplan-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}";
-                var planArgs = $"plan -out={planFileName} -detailed-exitcode -no-color";
+                var planArgs = $"plan -out={resultFilePath} -detailed-exitcode -no-color";
                 
                 var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
                 
                 // Get human-readable plan output
-                var showArgs = $"show {planFileName} -no-color";
+                var showArgs = $"show {resultFilePath} -no-color";
                 var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
                 
                 logger.FileLogger.Information($"Terraform plan created successfully for request '{requestId}'");
@@ -251,7 +251,7 @@ namespace Dorc.TerraformmRunner
             var output = outputBuilder.ToString();
             var error = errorBuilder.ToString();
 
-            if (process.ExitCode != 0)
+            if (process.ExitCode == 1)
             {
                 var errorMessage = $"Terraform command failed with exit code {process.ExitCode}. Error: {error}";
                 logger.Error(errorMessage);

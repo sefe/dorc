@@ -2,11 +2,11 @@
 {
     public static class AzureStorageAccountExtensions
     {
-        public static string CreateTerraformBlobName(this string deploymentResultId)
+        public static string CreateTerraformPlanBlobName(this int deploymentResultId)
         {
-            return $"plan-{deploymentResultId}.txt";
+            return $"plan-{deploymentResultId}.tfplan";
         }
-        public static string CreateTerraformBlobName(this int deploymentResultId)
+        public static string CreateTerraformPlanContantBlobName(this int deploymentResultId)
         {
             return $"plan-{deploymentResultId}.txt";
         }
