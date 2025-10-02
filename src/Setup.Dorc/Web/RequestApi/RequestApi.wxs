@@ -63,7 +63,7 @@
 		<Json:JsonFile Id="IdentityServerClientId" ElementPath="$.AppSettings.IdentityServerClientId" File="[#DeployApiWebConfig]" Value="[IDENTITYSERVER.CLIENTID]" />
 		<Json:JsonFile Id="IdentityServerApiSecretItemId" ElementPath="$.AppSettings.OnePassword.IdentityServerApiSecretItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID]" />
 
-		<Json:JsonFile Id="AzureSignalRUse" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value=[AZURE.SIGNALR.USE] />
+		<Json:JsonFile Id="AzureSignalRUse" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
 		<Json:JsonFile Id="AzureSignalRConnectionString" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
       </Component>
 
@@ -124,7 +124,7 @@
       <Json:JsonFile Id="IdentityServerClientIdProd" ElementPath="$.AppSettings.IdentityServerClientId" File="[#DeployApiWebConfig]" Value="[IDENTITYSERVER.CLIENTID]" />
       <Json:JsonFile Id="IdentityServerApiSecretItemIdProd" ElementPath="$.AppSettings.OnePassword.IdentityServerApiSecretItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID]" />
 
-			<Json:JsonFile Id="AzureSignalRUseProd" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value=[AZURE.SIGNALR.USE] />
+			<Json:JsonFile Id="AzureSignalRUseProd" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
 			<Json:JsonFile Id="AzureSignalRConnectionStringProd" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
 	  </Component>
   </Fragment>
