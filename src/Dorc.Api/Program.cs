@@ -233,7 +233,10 @@ builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
 var signalRService = builder.Services.AddSignalR();
 if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
 {
-    signalRService.AddAzureSignalR();
+    signalRService.AddAzureSignalR(conf =>
+    {
+        conf.ApplicationName = configurationSettings.GetEnvironment(true);
+    });
 }
 builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
