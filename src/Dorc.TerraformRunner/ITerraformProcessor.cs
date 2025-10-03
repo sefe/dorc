@@ -1,7 +1,3 @@
-using Dorc.ApiModel;
-using Dorc.ApiModel.MonitorRunnerApi;
-using System.Text;
-
 namespace Dorc.TerraformmRunner
 {
     internal interface ITerraformProcessor
@@ -14,7 +10,10 @@ namespace Dorc.TerraformmRunner
             CancellationToken cancellationToken);
 
         Task<bool> ExecuteConfirmedPlanAsync(
-            int deploymentResultId,
+            string pipeName,
+            int requestId,
+            string scriptPath,
+            string planFile,
             CancellationToken cancellationToken);
     }
 }

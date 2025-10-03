@@ -15,6 +15,7 @@ namespace Dorc.Monitor.RunnerProcess
         public string ScriptPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
+        public TerrafromRunnerOperations TerrafromRunnerOperation { get; set; } = TerrafromRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
 
@@ -62,7 +63,8 @@ namespace Dorc.Monitor.RunnerProcess
                 +" -l " + this.RunnerLogPath
                 +" -s " + this.ScriptPath
                 +" -t " + this.PlanFilePath
-                +" -c " + this.PlanContentFilePath;
+                +" -c " + this.PlanContentFilePath
+                +" -o " + this.TerrafromRunnerOperation;
 #if DEBUG
             commandLine += " --useFile=true";
 #endif

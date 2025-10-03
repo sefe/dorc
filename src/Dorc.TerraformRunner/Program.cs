@@ -6,6 +6,7 @@ using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.Runner.Logger;
 using Dorc.TerraformmRunner.Pipes;
+using Dorc.TerraformRunner;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
@@ -98,7 +99,15 @@ namespace Dorc.TerraformmRunner
 
                     var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
 
-                    await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, CancellationToken.None);
+                    switch (options.TerrafromRunnerOperation)
+                    {
+                        case TerrafromRunnerOperations.CreatePlan:
+                            await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, CancellationToken.None);
+                            break;
+                        case TerrafromRunnerOperations.ApplyPlan:
+                            await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, CancellationToken.None);
+                            break;
+                    }
 
                     //IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                     //    runnerLogger,

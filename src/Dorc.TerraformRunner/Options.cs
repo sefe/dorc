@@ -1,4 +1,5 @@
 ﻿using CommandLine;
+using Dorc.TerraformRunner;
 
 namespace Dorc.TerraformmRunner
 {
@@ -19,7 +20,12 @@ namespace Dorc.TerraformmRunner
         [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan contant file path")]
         public string PlanContentFilePath { get; set; }
 
+        [Option('o', "operation", Required = false, HelpText = "Selected operation")]
+        public int Operation { get; set; }
+
         [Option('f', "useFile", Required = false, HelpText = "File be used instead of named pipe to get all script properties.")]
         public bool UseFile { get; set; }
+
+        public TerrafromRunnerOperations TerrafromRunnerOperation => (TerrafromRunnerOperations)Operation;
     }
 }

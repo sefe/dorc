@@ -141,7 +141,7 @@ namespace Dorc.Runner.Logger
                     if (!res.IsValid)
                     {
                         this.FileLogger.Warning($"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed." +
-                            res.ServerError != null ? res.ServerError.ToString() : "");
+                            (res.ServerError != null ? res.ServerError.ToString() : ""));
                     }
                 }
                 catch (Exception e)

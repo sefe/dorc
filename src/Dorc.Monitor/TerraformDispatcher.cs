@@ -195,6 +195,7 @@ namespace Dorc.Monitor
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
                     PlanContentFilePath = terraformPlanContentFilePath,
+                    TerrafromRunnerOperation = TerrafromRunnerOperations.CreatePlan
                 };
                 try
                 {
@@ -271,9 +272,9 @@ namespace Dorc.Monitor
                     throw;
                 }
                 
-                //save Terraform binary plan file to Azure Storage Account
+                // save Terraform binary plan file to Azure Storage Account
                 await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanFilePath);
-                //save Terraform human-readable plan file to Azure Storage Account
+                // save Terraform human-readable plan file to Azure Storage Account
                 await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanContentFilePath);
 
                 // Update status to WaitingConfirmation
