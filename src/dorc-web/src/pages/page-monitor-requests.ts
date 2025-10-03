@@ -387,10 +387,12 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     });
     
     if (this.hubConnection.state === 'Disconnected') {
-      await this.hubConnection.start().catch((err) => {
+      await this.hubConnection.start().then(() => {
+        this.hubConnectionState = 'Connected';
+      }).catch((err) => {
         console.error('Error starting SignalR connection:', err);
+        this.hubConnectionState = err.toString();
       });
-      this.hubConnectionState = 'Connected';
     }
   }
 
@@ -672,7 +674,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         >
         <vaadin-icon
           icon="${this.autoRefresh ? 'custom:refresh-auto' : 'custom:refresh-auto-off'}"
-          style="color:${this.hubConnectionState !== 'Connected'
+          style="color:${this.hubConnectionState !== 'Connected' && this.autoRefresh
           ? 'var(--lumo-error-color)'
           : 'cornflowerblue'}"
         ></vaadin-icon>
