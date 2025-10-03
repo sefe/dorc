@@ -26,7 +26,7 @@ import '../components/request-status-card';
 
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { updateMetadata } from '../helpers/html-meta-manager';
-import { HubConnection } from '@microsoft/signalr';
+import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import {
   DeploymentHub,
   getReceiverRegister,
@@ -53,6 +53,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
   
   private hubConnection: HubConnection | undefined;
 
@@ -170,7 +171,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.hubConnection && this.hubConnection.state !== 'Disconnected') {
+    if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
       this.hubConnection.stop().catch(() => {});
     }
   }
@@ -260,11 +261,22 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     this.hubConnection.onreconnected(async () => {
        await hubProxy.joinRequestGroup(this.requestId);
        this.refreshData();
+       this.hubConnectionState = this.hubConnection!.state;
      });
 
-    if (this.hubConnection.state === 'Disconnected') {
-      await this.hubConnection.start();
-      await hubProxy.joinRequestGroup(this.requestId);
+    if (this.hubConnection.state === HubConnectionState.Disconnected) {
+      try
+      {
+        await this.hubConnection.start();
+        await hubProxy.joinRequestGroup(this.requestId);
+        this.hubConnectionState = this.hubConnection.state;
+      }
+      catch (err)
+      {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.hubConnectionState = errorMessage;
+        console.error(err);
+      }
     }
   }
 
@@ -318,6 +330,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
             <request-status-card
               .deployRequest="${this.deployRequest}"
               .selectedProject="${this.selectedProject}"
+              .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
             ${this.resultsLoading
               ? html` <div class="small-loader"></div>`

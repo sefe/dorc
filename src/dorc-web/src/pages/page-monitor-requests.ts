@@ -29,12 +29,13 @@ import '../icons/iron-icons.js';
 import '../icons/custom-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { getShortLogonName } from '../helpers/user-extensions.js';
+import '../components/connection-status-indicator';
 import {
   DeploymentHub,
   getReceiverRegister,
   IDeploymentsEventsClient,
 } from '../services/ServerEvents';
-import { HubConnection } from '@microsoft/signalr';
+import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 
 const username = 'Username';
@@ -59,7 +60,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   @property({ type: Boolean }) autoRefresh = true;
 
-  @property({ type: String }) hubConnectionState = 'Disconnected';
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state() noResults = false;
 
@@ -377,18 +378,18 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       .register(this.hubConnection, this);
 
     this.hubConnection.onclose(async () => {
-      this.hubConnectionState = 'Disconnected';
+      this.hubConnectionState = this.hubConnection?.state;
     });
     this.hubConnection.onreconnecting(() => {
-      this.hubConnectionState = 'Reconnecting';
+      this.hubConnectionState = this.hubConnection?.state;
     });
     this.hubConnection.onreconnected(() => {
-      this.hubConnectionState = 'Connected';
+      this.hubConnectionState = this.hubConnection?.state;
     });
     
-    if (this.hubConnection.state === 'Disconnected') {
+    if (this.hubConnection.state === HubConnectionState.Disconnected) {
       await this.hubConnection.start().then(() => {
-        this.hubConnectionState = 'Connected';
+        this.hubConnectionState = this.hubConnection?.state;
       }).catch((err) => {
         console.error('Error starting SignalR connection:', err);
         this.hubConnectionState = err.toString();
@@ -656,29 +657,18 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     render(
       html`
       <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
-        <vaadin-button
-        theme="icon small tertiary-inline"
-        style="padding:0;margin:0"
-        .title="${this.autoRefresh
-          ? `Auto refresh ON (click to switch to manual)\nState: ${this.hubConnectionState}`
-          : 'Manual mode (click to enable auto refresh)'}"
-        @click="${() => {
-          this.autoRefresh = !this.autoRefresh;
-          // If turning auto back on, do an immediate refresh
-          if (this.autoRefresh) {
-            this.refreshGrid();
-          }
-          // Re-render header to reflect new state
-          this.idHeaderRenderer(root);
-        }}"
-        >
-        <vaadin-icon
-          icon="${this.autoRefresh ? 'custom:refresh-auto' : 'custom:refresh-auto-off'}"
-          style="color:${this.hubConnectionState !== 'Connected' && this.autoRefresh
-          ? 'var(--lumo-error-color)'
-          : 'cornflowerblue'}"
-        ></vaadin-icon>
-        </vaadin-button>
+        <connection-status-indicator
+          mode="toggle"
+          .state="${this.hubConnectionState}"
+          .autoRefresh="${this.autoRefresh}"
+          @toggle-auto-refresh="${() => {
+            this.autoRefresh = !this.autoRefresh;
+            if (this.autoRefresh) {
+              this.refreshGrid();
+            }
+            this.idHeaderRenderer(root);
+          }}"
+        ></connection-status-indicator>
 
         ${!this.autoRefresh
           ? html`
