@@ -11,7 +11,7 @@ namespace Dorc.Monitor.Events
 {
     public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IAsyncDisposable
     {
-        private readonly string _hubUrl;
+        private readonly string? _hubUrl;
         private readonly ILog _logger;
         private readonly DorcApiTokenProvider _tokenProvider;
         private HubConnection? _connection;
@@ -22,10 +22,10 @@ namespace Dorc.Monitor.Events
         public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILog logger)
         {
             var baseUri = new Uri(configuration.RefDataApiUrl, UriKind.Absolute);
-            _hubUrl = new Uri(baseUri, "hubs/deployments").ToString();
+            _hubUrl = configuration.DisableSignalR ? null : new Uri(baseUri, "hubs/deployments").ToString();
             _logger = logger;
 
-            _tokenProvider = new DorcApiTokenProvider(OAuthClientConfiguration.FromMonitorConfiguration(configuration), logger);
+            _tokenProvider = new DorcApiTokenProvider(OAuthClientConfiguration.FromMonitorConfiguration(configuration));
         }
 
         public Task PublishNewRequestAsync(DeploymentRequestEventData eventData) =>
@@ -64,7 +64,6 @@ namespace Dorc.Monitor.Events
 
             if (_connection is { State: HubConnectionState.Connected })
             {
-                _isConnectionBecomeLost = false;
                 return true;
             }
 
@@ -84,8 +83,9 @@ namespace Dorc.Monitor.Events
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger.Error("Failed to acquire OAuth access token for SignalR connection.", ex);
-                                    throw;
+                                    if (!_isConnectionBecomeLost)
+                                        _logger.Error("Failed to acquire OAuth access token for SignalR connection.", ex);
+                                    return string.Empty;
                                 }
                             };
                         })

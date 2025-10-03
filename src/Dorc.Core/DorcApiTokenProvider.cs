@@ -1,5 +1,4 @@
 using Dorc.Core.Configuration;
-using log4net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -9,7 +8,6 @@ namespace Dorc.Core
     public sealed class DorcApiTokenProvider : IAsyncDisposable
     {
         private readonly IOAuthClientConfiguration _config;
-        private readonly ILog _log;
         private readonly HttpClient _http;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
@@ -17,10 +15,9 @@ namespace Dorc.Core
         private string? _accessToken;
         private DateTime _expiresAtUtc;
 
-        public DorcApiTokenProvider(IOAuthClientConfiguration config, ILog log)
+        public DorcApiTokenProvider(IOAuthClientConfiguration config)
         {
             _config = config;
-            _log = log;
             _http = new HttpClient();
         }
 
@@ -62,15 +59,13 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Network error calling token endpoint '{tokenEndpoint}'", ex);
-                    throw;
+                    throw new ApplicationException($"Network error calling token endpoint '{tokenEndpoint}'", ex);
                 }
 
                 if (!response.IsSuccessStatusCode)
                 {
                     var body = await response.Content.ReadAsStringAsync();
-                    _log.Error($"Token request failed ({(int)response.StatusCode}) body='{body}'");
-                    response.EnsureSuccessStatusCode(); // will throw
+                    throw new ApplicationException($"Token request failed ({(int)response.StatusCode}) body='{body}'");
                 }
 
                 var json = await response.Content.ReadAsStringAsync();
@@ -81,7 +76,7 @@ namespace Dorc.Core
                 }
                 catch (Exception ex)
                 {
-                    _log.Error("Failed to deserialize token response JSON.", ex);
+                    throw new ApplicationException("Failed to deserialize token response JSON.", ex);
                     throw;
                 }
 
@@ -123,8 +118,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to resolve OAuthAuthority from '{refDataUrl}'", ex);
-                throw;
+                throw new ApplicationException($"Failed to resolve OAuthAuthority from '{refDataUrl}'", ex);
             }
         }
 
