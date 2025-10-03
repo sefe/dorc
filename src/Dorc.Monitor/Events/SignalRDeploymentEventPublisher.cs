@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using TypedSignalR.Client;
 
-namespace Dorc.Monitor.Services
+namespace Dorc.Monitor.Events
 {
     public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IAsyncDisposable
     {
