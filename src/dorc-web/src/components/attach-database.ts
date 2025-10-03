@@ -124,7 +124,7 @@ export class AttachDatabase extends LitElement {
     const existingTag = this.existingDatabases?.find(db => db.Type === this.selectedDatabase?.Type);
 
     if (!existingTag) {
-      this._submit();
+    this._submit();
     }
     else {
       this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? The database '${existingTag?.Name}' with such tag is already attached`;
