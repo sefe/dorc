@@ -37,7 +37,7 @@ export class ConnectionStatusIndicator extends LitElement {
 
   private get iconColor() {
     if (this.mode === 'toggle') {
-      if (this.state !== HubConnectionState.Connected && this.autoRefresh) return 'var(--lumo-error-color)';
+      if (this.state !== HubConnectionState.Connected) return 'var(--lumo-error-color)';
       return 'cornflowerblue';
     }
     if (this.state !== HubConnectionState.Connected) return 'var(--lumo-error-color)';
@@ -48,7 +48,7 @@ export class ConnectionStatusIndicator extends LitElement {
     if (this.mode === 'toggle') {
       return this.autoRefresh
         ? `Auto refresh ON (click to switch to manual)\nState: ${this.state}`
-        : 'Manual mode (click to enable auto refresh)';
+        : `Manual mode (click to enable auto refresh)\nState: ${this.state}`;
     }
     return this.state;
   }
