@@ -77,7 +77,6 @@ namespace Dorc.Core
                 catch (Exception ex)
                 {
                     throw new ApplicationException("Failed to deserialize token response JSON.", ex);
-                    throw;
                 }
 
                 if (token == null || string.IsNullOrWhiteSpace(token.AccessToken))

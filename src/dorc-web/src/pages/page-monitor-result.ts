@@ -306,7 +306,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     return Promise.resolve();
   }
 
-  isEventForRequest(event: DeploymentRequestEventData, requestId: number): boolean {
+  isEventForRequest(event: DeploymentResultEventData, requestId: number): boolean {
     if (!event || typeof event !== 'object') {
       return false;
     }
