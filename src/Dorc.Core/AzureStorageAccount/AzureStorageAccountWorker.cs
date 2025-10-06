@@ -50,5 +50,22 @@ namespace Dorc.Core.AzureStorageAccount
                 return await sr.ReadToEndAsync();
             }
         }
+
+        public async Task DownloadFileFromBlobsAsync(string blobName, string filePath)
+        {
+            var containerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerName);
+            var blobClient = containerClient.GetBlobClient(Path.GetFileName(blobName));
+            var blobExists = await blobClient.ExistsAsync();
+            if (!blobExists)
+            {
+                throw new FileNotFoundException($"Blob {blobName} does not exist in container {this._blobContainerName}");
+            }
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+
+            await blobClient.DownloadToAsync(filePath);
+        }
     }
 }

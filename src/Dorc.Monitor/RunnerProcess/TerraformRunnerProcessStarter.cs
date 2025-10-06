@@ -64,7 +64,7 @@ namespace Dorc.Monitor.RunnerProcess
                 +" -s " + this.ScriptPath
                 +" -t " + this.PlanFilePath
                 +" -c " + this.PlanContentFilePath
-                +" -o " + this.TerrafromRunnerOperation;
+                +" -o " + (int)this.TerrafromRunnerOperation;
 #if DEBUG
             commandLine += " --useFile=true";
 #endif

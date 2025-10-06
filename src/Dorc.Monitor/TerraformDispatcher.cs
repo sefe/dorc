@@ -120,6 +120,12 @@ namespace Dorc.Monitor
 
             logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
 
+            TerrafromRunnerOperations terreformOperation = TerrafromRunnerOperations.None;
+            if (deploymentResult.Status.Equals(DeploymentResultStatus.Pending))
+                terreformOperation = TerrafromRunnerOperations.CreatePlan;
+            else if (deploymentResult.Status.Equals(DeploymentResultStatus.Confirmed))
+                terreformOperation = TerrafromRunnerOperations.ApplyPlan;
+
             // Update status to Running
             _requestsPersistentSource.UpdateResultStatus(
                 deploymentResult,
@@ -186,6 +192,10 @@ namespace Dorc.Monitor
                 var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
                 var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContantBlobName();
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
+                if (terreformOperation == TerrafromRunnerOperations.ApplyPlan)
+                {
+                    await _azureStorageAccountWorker.DownloadFileFromBlobsAsync(terraformPlanFileName, terraformPlanFilePath);
+                }
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
@@ -195,7 +205,7 @@ namespace Dorc.Monitor
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
                     PlanContentFilePath = terraformPlanContentFilePath,
-                    TerrafromRunnerOperation = TerrafromRunnerOperations.CreatePlan
+                    TerrafromRunnerOperation = terreformOperation
                 };
                 try
                 {
@@ -272,17 +282,31 @@ namespace Dorc.Monitor
                     throw;
                 }
                 
-                // save Terraform binary plan file to Azure Storage Account
-                await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanFilePath);
-                // save Terraform human-readable plan file to Azure Storage Account
-                await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanContentFilePath);
+                switch (terreformOperation)
+                {
+                    case TerrafromRunnerOperations.CreatePlan:
+                        // save Terraform binary plan file to Azure Storage Account
+                        await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanFilePath);
+                        // save Terraform human-readable plan file to Azure Storage Account
+                        await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanContentFilePath);
 
-                // Update status to WaitingConfirmation
-                _requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    DeploymentResultStatus.WaitingConfirmation);
+                        // Update status to WaitingConfirmation
+                        _requestsPersistentSource.UpdateResultStatus(
+                            deploymentResult,
+                            DeploymentResultStatus.WaitingConfirmation);
 
-                logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                        logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                        break;
+
+                    case TerrafromRunnerOperations.ApplyPlan:
+                        // Update status to WaitingConfirmation
+                        _requestsPersistentSource.UpdateResultStatus(
+                            deploymentResult,
+                            DeploymentResultStatus.Complete);
+
+                        logger.Info($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
+                        break;
+                }
 
             }
 
