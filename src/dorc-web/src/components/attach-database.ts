@@ -1,5 +1,6 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/combo-box';
+import '@vaadin/confirm-dialog';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import '@polymer/paper-dialog';
@@ -15,6 +16,9 @@ import {
 
 @customElement('attach-database')
 export class AttachDatabase extends LitElement {
+  @property({ type: Array })
+  public existingDatabases: Array<DatabaseApiModel> | undefined = [];
+
   @property({ type: Object })
   private selectedDatabase: DatabaseApiModel | undefined;
 
@@ -29,6 +33,12 @@ export class AttachDatabase extends LitElement {
 
   @property({ type: Object })
   private databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
+  
+  @property({ type: Boolean })
+  private confirmSameTagDialogOpened: boolean = false;
+
+  @property({ type: String })
+  private confirmSameTagDialogText: string = '';
 
   constructor() {
     super();
@@ -49,6 +59,19 @@ export class AttachDatabase extends LitElement {
 
   render() {
     return html`
+      <vaadin-confirm-dialog
+          id="sameTagExistsConfirmDialog"
+          header="Existing database tag"
+          cancel-button-visible
+          .opened="${this.confirmSameTagDialogOpened}"
+          .message="${this.confirmSameTagDialogText}"
+          confirm-text="Yes, attach"
+          cancel-text="Cancel"
+          @confirm="${this._submit}"
+          @cancel="${() => {
+            this.confirmSameTagDialogOpened = false;
+          }}"
+        ></vaadin-confirm-dialog>
       <div style="padding: 10px;">
         <div class="inline">
           <vaadin-combo-box
@@ -90,11 +113,23 @@ export class AttachDatabase extends LitElement {
           </h3>
         </div>
 
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this._submit}"
+        <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
       </div>
     `;
+  }
+
+  onAttachClick() {
+    const existingTag = this.existingDatabases?.find(db => db.Type === this.selectedDatabase?.Type);
+
+    if (!existingTag) {
+      this._submit();
+    }
+    else {
+      this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? The database '${existingTag?.Name}' with such tag is already attached`;
+      this.confirmSameTagDialogOpened = true;
+    }
   }
 
   setSelectedDatabase(data: any) {

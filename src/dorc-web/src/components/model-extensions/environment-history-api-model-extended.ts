@@ -37,19 +37,19 @@ export class EnvironmentHistoryApiModelExtended
    * @type {string}
    * @memberof EnvironmentHistoryApiModel
    */
-  OldVersion?: string;
+  FromValue?: string;
 
   /**
    * @type {string}
    * @memberof EnvironmentHistoryApiModel
    */
-  NewVersion?: string;
+  ToValue?: string;
 
   /**
    * @type {string}
    * @memberof EnvironmentHistoryApiModel
    */
-  TfsId?: string;
+  Details?: string;
 
   /**
    * @type {string}

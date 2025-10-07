@@ -133,20 +133,20 @@ export class EnvDeployments extends PageEnvBase {
                 .headerRenderer="${this.idHeaderRenderer}"
               >
               </vaadin-grid-column>
-              <vaadin-grid-sort-column
-                header="Component Name"
+              <vaadin-grid-column
                 path="ComponentName"
                 resizable
                 auto-width
+                .headerRenderer="${this.componentNameHeaderRenderer.bind(this)}"
               >
-              </vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                header="Request Build Number"
+              </vaadin-grid-column>
+              <vaadin-grid-column
                 path="RequestBuildNum"
                 resizable
                 auto-width
+                .headerRenderer="${this.requestNumberHeaderRenderer.bind(this)}"
               >
-              </vaadin-grid-sort-column>
+              </vaadin-grid-column>
               <vaadin-grid-column
                 header="Requested"
                 .renderer="${this._dateRenderer}"
@@ -226,6 +226,38 @@ export class EnvDeployments extends PageEnvBase {
       html`
         <vaadin-grid-sorter path="UpdatedDate">Updated Date</vaadin-grid-sorter>
       `,
+      root
+    );
+  }
+
+  componentNameHeaderRenderer(root: HTMLElement) {
+    render(
+      html`<vaadin-grid-sorter path="ComponentName">Component Name</vaadin-grid-sorter>
+        <vaadin-grid-filter path="ComponentName">
+          <vaadin-text-field
+            clear-button-visible
+            slot="filter"
+            focus-target
+            style="width: 100%"
+            theme="small"
+          ></vaadin-text-field>
+        </vaadin-grid-filter>`,
+      root
+    );
+  }
+
+  requestNumberHeaderRenderer(root: HTMLElement) {
+    render(
+      html`<vaadin-grid-sorter path="RequestBuildNum">Request Build Number</vaadin-grid-sorter>
+        <vaadin-grid-filter path="RequestBuildNum">
+          <vaadin-text-field
+            clear-button-visible
+            slot="filter"
+            focus-target
+            style="width: 100%"
+            theme="small"
+          ></vaadin-text-field>
+        </vaadin-grid-filter>`,
       root
     );
   }

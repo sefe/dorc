@@ -21,7 +21,6 @@ import { Notification } from '@vaadin/notification';
 import '../icons/notification-icons.js';
 import '../icons/hardware-icons.js';
 import { ErrorNotification } from './notifications/error-notification';
-import { BuildsApi } from '../apis/azure-devops-build';
 import type { DeploymentRequestApiModel } from '../apis/dorc-api';
 import {
   EnvironmentApiModel,
@@ -370,35 +369,12 @@ export class RequestStatusCard extends LitElement {
         next: (project: ProjectApiModel) => {
           const org = project.ArtefactsUrl?.split('/')[3] ?? '';
           const adProject = project.ArtefactsSubPaths?.split(';')[0] ?? '';
-
-          const buildsApi = new BuildsApi();
-          buildsApi
-            .buildsList({
-              organization: org,
-              apiVersion: '6.0',
-              project: adProject,
-              buildNumber:
-                this.deployRequest?.BuildNumber !== null
-                  ? this.deployRequest?.BuildNumber
-                  : undefined
-            })
-            .subscribe({
-              next: (foundBuilds: any) => {
-                if (foundBuilds.count > 0) {
-                  this.buildNumberHref = `https://dev.azure.com/${
-                    org + '/' + adProject
-                  }/_build/results?buildId=${
-                    foundBuilds.value[0].id
-                  }&view=results`;
-                }
-              },
-              error: err => {
-                console.log(err);
-              },
-              complete: () => {
-                console.log('Completed attempting Build ID from Azure DevOps');
-              }
-            });
+          const buildId = this.deployRequest?.BuildUri?.split('/').pop() ?? '';
+          this.buildNumberHref = `https://dev.azure.com/${
+            org + '/' + adProject
+          }/_build/results?buildId=${
+            buildId
+          }&view=results`;
         }
       });
   }

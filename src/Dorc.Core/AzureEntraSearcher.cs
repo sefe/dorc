@@ -69,11 +69,15 @@ namespace Dorc.Core
             return _graphClient;
         }
 
+        private static string EscapeODataString(string s) => s?.Replace("'", "''");
+
         public List<UserElementApiModel> Search(string objectName)
         {
             var output = new List<UserElementApiModel>();
 
             var graphClient = GetGraphClient();
+
+            objectName = EscapeODataString(objectName);
 
             try
             {
@@ -241,6 +245,8 @@ namespace Dorc.Core
             }
 
             var graphClient = GetGraphClient();
+            
+            var safeUsername = EscapeODataString(username);
 
             try
             {
@@ -250,9 +256,9 @@ namespace Dorc.Core
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
                         requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
-                            $"startsWith(displayName,'{username}') or startsWith(mail,'{username}') or " +
-                            $"startsWith(onPremisesSamAccountName,'{username}') or " +
-                            $"startsWith(userPrincipalName,'{username}')";
+                            $"startsWith(displayName,'{safeUsername}') or startsWith(mail,'{safeUsername}') or " +
+                            $"startsWith(onPremisesSamAccountName,'{safeUsername}') or " +
+                            $"startsWith(userPrincipalName,'{safeUsername}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
@@ -290,32 +296,22 @@ namespace Dorc.Core
                 throw new ArgumentException("User ID cannot be null or empty.");
             }
 
-            var result = new List<string>();
+            var result = new List<string> { userId };
             var graphClient = GetGraphClient();
 
             try
             {
-                result.Add(userId);
+                // Single API call to get ALL group IDs (including transitive)
+                var memberGroupsResult = graphClient.Users[userId].GetMemberGroups.PostAsGetMemberGroupsPostResponseAsync(
+                    new Microsoft.Graph.Users.Item.GetMemberGroups.GetMemberGroupsPostRequestBody
+                    {
+                        SecurityEnabledOnly = false,
+                    }).GetAwaiter().GetResult();
 
-                // Get all groups the user is a member of (including transitive memberships)
-                var memberOf = graphClient.Users[userId].MemberOf
-                    .GetAsync().Result;
-
-                var pageIterator = PageIterator<DirectoryObject, DirectoryObjectCollectionResponse>
-                    .CreatePageIterator(
-                        graphClient,
-                        memberOf,
-                        (directoryObject) =>
-                        {
-                            if (directoryObject is Microsoft.Graph.Models.Group group)
-                            {
-                                result.Add(group.Id);
-                            }
-                            return true;
-                        });
-
-                // Iterate through all pages
-                pageIterator.IterateAsync().Wait();
+                if (memberGroupsResult?.Value != null)
+                {
+                    result.AddRange(memberGroupsResult.Value);
+                }
             }
             catch (Exception ex)
             {

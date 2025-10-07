@@ -28,3 +28,12 @@ Scenario: Create Database entry
 	{"DatabaseName":"autoDatabase","DatabaseType":"autoDatabaseType","DbServerName":"autoServerName","DbCluster":"autoCluster","AdGroup":"OTHER"}
 	"""
 	Then The result should be database with id greater than '0' and Name 'autoDatabase'
+
+#TestCaseReference(2994)
+Scenario: Attempt to create duplicate Database entry
+	Given There is a database named 'duplicateDB' on the server named 'duplicateServer'
+	And I have created POST request to RefDataDatabases with body below
+	"""
+	{"DatabaseName":"duplicateDB","DatabaseType":"autoDatabaseType","DbServerName":"duplicateServer","DbCluster":"autoCluster","AdGroup":"OTHER"}
+	"""
+	Then The result should be error 'Database already exists duplicateServer:duplicateDB'
