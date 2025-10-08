@@ -1,0 +1,123 @@
+name: Build DOrc $(date +'%Y.%m.%d')-${{ github.run_number }}
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/*'
+      - 'feature/*'
+      - 'fix/*'
+      - 'hotfix/*'
+      - 'migration/*'
+      - 'copilot/*'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  BUILD_PLATFORM: "Any CPU"
+  BUILD_CONFIGURATION: "Release"
+  DROPFOLDER: ${{ secrets.DROPFOLDER_PATH }}
+  SOLUTION: src/Dorc.sln
+  TEST_PROJECTS: src/**/*[Tt]ests.csproj
+  VERSION: ${{ github.run_id }}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+
+      - name: Install web dependencies
+        run: npm install
+        working-directory: src/dorc-web
+
+      - name: Build Web Site
+        run: npm run build
+        working-directory: src/dorc-web
+
+      - name: Version AssemblyInfo Files
+        run: pwsh ./pipelines/ApplyVersionToAssemblies.ps1
+
+      - name: Version Cmdlet
+        run: pwsh ./src/Tools.DOrc.Cmdlet/UpdateVersion.ps1
+
+      - name: NuGet restore
+        run: nuget restore pipelines/NuGet.config
+
+      - name: .NET Restore Packages
+        run: dotnet restore ${{ env.SOLUTION }} --configfile pipelines/NuGet.config --no-cache
+
+      - name: SonarQube scan start
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          projectBaseDir: src/dorc-web
+        # Add configuration as needed, including secrets and conditions
+
+      - name: Transform settings for tests
+        run: |
+          # Manual transformation logic or an action that handles your config file changes
+          echo No XML transform required
+
+      - name: Build solution
+        run: |
+          msbuild ${{ env.SOLUTION }} /p:RunWixToolsOutOfProc=true /p:Version=${{ env.VERSION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:Configuration="${{ env.BUILD_CONFIGURATION }}" /t:Clean,Build
+
+      - name: Run Tests
+        run: |
+          dotnet test --configuration ${{ env.BUILD_CONFIGURATION }} --collect:"Code Coverage" --filter FullyQualifiedName~tests
+
+      - name: SonarQube scan finish
+        # uses: SonarSource/sonarqube-scan-action@v2 as above, with end/complete step if needed
+
+      # File copy operations using actions/upload-artifact or custom scripts
+      - name: Copy Install Scripts
+        run: |
+          mkdir -p artifact-scripts
+          cp src/install-scripts/*.ps1 artifact-scripts/
+          cp src/install-scripts/*.json artifact-scripts/
+
+      - name: Copy Database Files
+        run: |
+          mkdir -p artifact-database
+          cp src/Dorc.Database/sql/${{ env.BUILD_CONFIGURATION }}/*.dacpac artifact-database/
+          cp src/Dorc.Database/sql/${{ env.BUILD_CONFIGURATION }}/*.sql artifact-database/
+
+      - name: Copy DOrc MSI Installer
+        run: |
+          mkdir -p artifact-server
+          cp src/Setup.Dorc/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.msi artifact-server/
+          cp src/Setup.Dorc/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.json artifact-server/
+
+      - name: Copy Test Acceptance MSI Installer
+        run: |
+          mkdir -p artifact-server
+          cp src/Setup.Acceptance/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.msi artifact-server/
+          cp src/Setup.Acceptance/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.json artifact-server/
+
+      - name: Copy PowerShell Cmdlet
+        run: |
+          mkdir -p artifact-cmdlet
+          cp src/Tools.DOrc.Cmdlet/*.ps1 artifact-cmdlet/
+          cp src/Tools.DOrc.Cmdlet/*.psm1 artifact-cmdlet/
+          cp src/Tools.DOrc.Cmdlet/*.psd1 artifact-cmdlet/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: drop
+          path: |
+            artifact-scripts
+            artifact-database
+            artifact-server
+            artifact-cmdlet
+
+      # Optionally publish artifacts to network location with a custom script if needed
+
