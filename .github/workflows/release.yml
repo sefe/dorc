@@ -131,10 +131,18 @@ jobs:
         
         if ($testAssemblies.Count -gt 0) {
           Write-Host "Found $($testAssemblies.Count) test assemblies"
-          vstest.console.exe $testAssemblies.FullName /Parallel /Logger:trx
+          vstest.console.exe $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:"${{ github.workspace }}\TestResults"
         } else {
           Write-Host "No test assemblies found"
         }
+      continue-on-error: true
+      
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      if: always()
+      with:
+        files: |
+          TestResults/**/*.trx
       continue-on-error: true
       
     - name: Copy install scripts
