@@ -44,7 +44,7 @@ namespace Dorc.Monitor.RequestProcessors
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
         }
 
-        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
         {
             logger.Info($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
 
@@ -101,6 +101,12 @@ namespace Dorc.Monitor.RequestProcessors
                     var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
                         requestDetail);
 
+                    logger.Info($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
+                    foreach (var comp in orderedNonSkippedComponents)
+                    {
+                        logger.Info($"  - Component: '{comp.ComponentName}', Type: {comp.ComponentType} (Enum Value: {(int)comp.ComponentType}), ID: {comp.ComponentId}");
+                    }
+
                     if (!orderedNonSkippedComponents.Any())
                     {
                         logger.Warn($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
@@ -113,7 +119,8 @@ namespace Dorc.Monitor.RequestProcessors
                         return;
                     }
 
-                    var deploymentResults = new Dictionary<int, DeploymentResultApiModel>();
+                    //var deploymentResults = new Dictionary<int, DeploymentResultApiModel>();
+                    var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id).ToDictionary(r => r.ComponentId);
                     foreach (var nonSkippedComponent in orderedNonSkippedComponents)
                     {
                         try
@@ -128,7 +135,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                                 deploymentResults.Add(componentId, deploymentResult);
                             }
-                            else
+                            else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed))
                             {
                                 logger.Warn($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
                             }
@@ -168,7 +175,7 @@ namespace Dorc.Monitor.RequestProcessors
                             var componentId = enabledNonSkippedComponent.ComponentId!.Value;
                             var deploymentResult = deploymentResults[componentId];
 
-                            bool isSuccessful = componentProcessor.DeployComponent(
+                            bool isSuccessful = await componentProcessor.DeployComponentAsync(
                                 enabledNonSkippedComponent,
                                 deploymentResult,
                                 requestToExecute.Request.Id,
@@ -183,6 +190,10 @@ namespace Dorc.Monitor.RequestProcessors
                             if (!isSuccessful)
                             {
                                 deploymentRequestStatus = DeploymentRequestStatus.Failed;
+                            }
+                            if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                            {
+                                deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
                             }
                         }
                         catch (OperationCanceledException)
