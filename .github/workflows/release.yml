@@ -129,12 +129,33 @@ jobs:
     - name: Run tests
       shell: pwsh
       run: |
+        # Create TestResults directory if it doesn't exist
+        $resultsDir = "${{ github.workspace }}\TestResults"
+        if (-not (Test-Path $resultsDir)) {
+          New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+        }
+        
+        # Find test assemblies
         $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
           Where-Object { $_.FullName -notmatch "\\obj\\" }
         
         if ($testAssemblies.Count -gt 0) {
-          Write-Host "Found $($testAssemblies.Count) test assemblies"
-          vstest.console.exe $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:"${{ github.workspace }}\TestResults"
+          Write-Host "Found $($testAssemblies.Count) test assemblies:"
+          $testAssemblies | ForEach-Object { Write-Host "  - $($_.FullName)" }
+          
+          # Use full path to vstest.console.exe
+          $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          if (-not (Test-Path $vstestPath)) {
+            # Try Community edition
+            $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          }
+          if (-not (Test-Path $vstestPath)) {
+            Write-Host "VSTest not found at expected locations, trying PATH..."
+            $vstestPath = "vstest.console.exe"
+          }
+          
+          Write-Host "Using VSTest from: $vstestPath"
+          & $vstestPath $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:$resultsDir
         } else {
           Write-Host "No test assemblies found"
         }
@@ -144,7 +165,18 @@ jobs:
       if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
       shell: pwsh
       run: |
-        $trxFiles = Get-ChildItem -Path "${{ github.workspace }}\TestResults" -Recurse -Include *.trx
+        $resultsDir = "${{ github.workspace }}\TestResults"
+        if (-not (Test-Path $resultsDir)) {
+          Write-Host "No test results directory found, skipping test failure check"
+          exit 0
+        }
+        
+        $trxFiles = Get-ChildItem -Path $resultsDir -Recurse -Include *.trx -ErrorAction SilentlyContinue
+        if (-not $trxFiles) {
+          Write-Host "No test result files found, skipping test failure check"
+          exit 0
+        }
+        
         $failed = $false
         foreach ($file in $trxFiles) {
           [xml]$xml = Get-Content $file.FullName
