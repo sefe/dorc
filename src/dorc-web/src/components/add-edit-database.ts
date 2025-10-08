@@ -12,8 +12,7 @@ import { html } from 'lit/html.js';
 import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi,
-  RefDataGroupsApi,
-  type ServerApiModel
+  RefDataGroupsApi, type ServerApiModel
 } from '../apis/dorc-api';
 import {
   ApiBoolResult,
@@ -45,20 +44,14 @@ export class AddEditDatabase extends LitElement {
     this.ErrorMessage = '';
     this.infoMessage = '';
 
-    const adGroupCombo = this.shadowRoot?.getElementById(
-      'active-dir-groups'
-    ) as ComboBox;
+    const adGroupCombo = this.shadowRoot?.getElementById('active-dir-groups') as ComboBox;
     if (adGroupCombo) {
-      const group = this.groups.find(
-        t => t.GroupName === this._database.AdGroup
-      );
+      const group = this.groups.find(t => t.GroupName === this._database.AdGroup);
       if (group !== undefined) adGroupCombo.selectedItem = group;
       else adGroupCombo.selectedItem = undefined;
     }
 
-    console.log(
-      `Database instance: ${this.DbServerName} name: ${this.DatabaseName}`
-    );
+    console.log(`Database instance: ${this.DbServerName} name: ${this.DatabaseName}`);
     this.requestUpdate('srv', oldVal);
   }
 
@@ -238,29 +231,29 @@ export class AddEditDatabase extends LitElement {
   saveDatabase() {
     if (this._database.Id !== undefined && this._database.Id > 0) {
       const api = new RefDataDatabasesApi();
-      api
-        .refDataDatabasesPut({
-          id: this._database.Id ?? 0,
-          databaseApiModel: {
-            Id: this._database.Id,
-            ServerName: this.DbServerName,
-            Name: this.DatabaseName,
-            Type: this.DatabaseType,
-            AdGroup: this.AdGroup,
-            ArrayName: this.ArrayName
-          }
-        })
-        .subscribe({
-          next: (data: ServerApiModel) => {
-            this.fireDatabaseChangedEvent(data);
-          },
-          error: (err: any) => {
-            console.error(err.response);
-            this.ErrorMessage = err.response;
-          },
-          complete: () => console.log('done updating server')
-        });
-    } else {
+      api.refDataDatabasesPut({
+        id: this._database.Id ?? 0,
+        databaseApiModel: {
+          Id: this._database.Id,
+          ServerName: this.DbServerName,
+          Name: this.DatabaseName,
+          Type: this.DatabaseType,
+          AdGroup: this.AdGroup,
+          ArrayName: this.ArrayName
+        }
+    })
+  .subscribe({
+      next: (data: ServerApiModel) => {
+        this.fireDatabaseChangedEvent(data);
+      },
+      error: (err: any) => {
+        console.error(err.response);
+        this.ErrorMessage = err.response;
+      },
+      complete: () => console.log('done updating server')
+    });
+    }
+    else {
       const api = new RefDataDatabasesApi();
       api
         .refDataDatabasesPost({
@@ -425,17 +418,13 @@ export class AddEditDatabase extends LitElement {
     return /\s/g.test(s);
   }
 
+
   private checkDbValid(dbs: DatabaseApiModel[]) {
     const foundDatabase = dbs?.[0];
     if (
       foundDatabase &&
       /* editing */ foundDatabase.Id === this._database.Id &&
-      this.checkDatabaseComplete({
-        ServerName: this.DbServerName,
-        Name: this.DatabaseName,
-        Type: this.DatabaseType,
-        AdGroup: this.AdGroup
-      })
+      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
@@ -444,12 +433,7 @@ export class AddEditDatabase extends LitElement {
       this.infoMessage = 'Database Name already exists';
     } else if (
       !foundDatabase &&
-      this.checkDatabaseComplete({
-        ServerName: this.DbServerName,
-        Name: this.DatabaseName,
-        Type: this.DatabaseType,
-        AdGroup: this.AdGroup
-      })
+      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
@@ -465,22 +449,29 @@ export class AddEditDatabase extends LitElement {
     console.log(`isNameValid: ${this.isNameValid}`);
   }
 
-  checkDatabaseComplete(db: DatabaseApiModel) {
+  checkDatabaseComplete(db: DatabaseApiModel){
     let nameValid = false;
     let instanceValid = false;
     let typeValid = false;
 
-    if (db.Name && db.Name?.length > 0 && !this.hasWhiteSpace(db.Name ?? '')) {
+    if (
+    db.Name &&
+    db.Name?.length > 0 &&
+    !this.hasWhiteSpace(db.Name ?? ''))
+    {
       nameValid = true;
     }
     if (
       db.ServerName &&
       db.ServerName?.length > 0 &&
-      !this.hasWhiteSpace(db.ServerName ?? '')
-    ) {
+      !this.hasWhiteSpace(db.ServerName ?? ''))
+    {
       instanceValid = true;
     }
-    if (db.Type && db.Type?.length > 0) {
+    if (
+      db.Type &&
+      db.Type?.length > 0)
+    {
       typeValid = true;
     }
 
@@ -494,7 +485,7 @@ export class AddEditDatabase extends LitElement {
       AdGroup: '',
       Type: '',
       EnvironmentNames: [],
-      Id: 0,
+      Id : 0,
       UserEditable: false
     };
   }

@@ -1,7 +1,7 @@
-import type { Params } from '@vaadin/router';
+import type {Params} from '@vaadin/router';
 import { Router } from '@vaadin/router';
 import './style-registrations';
-import { RouteMeta } from './routes.ts';
+import {RouteMeta} from "./routes.ts";
 
 export const router = new Router<RouteMeta>(document.querySelector('#outlet'));
 

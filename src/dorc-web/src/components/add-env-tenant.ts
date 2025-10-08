@@ -4,20 +4,12 @@ import { css, LitElement, PropertyValueMap } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
-import {
-  ApiBoolResult,
-  EnvironmentApiModel,
-  RefDataEnvironmentsDetailsApi
-} from '../apis/dorc-api';
+import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 
 @customElement('add-env-tenant')
 export class AddEnvTenant extends LitElement {
-  @property({ type: Object }) parentEnvironment:
-    | EnvironmentApiModel
-    | undefined;
-  @property({ type: Array }) possibleTenants:
-    | Array<EnvironmentApiModel>
-    | undefined;
+  @property({ type: Object }) parentEnvironment: EnvironmentApiModel | undefined;
+  @property({ type: Array }) possibleTenants: Array<EnvironmentApiModel> | undefined;
   @state() selectedEnvironmentId: number | undefined;
   @state() envsLoading: boolean = false;
 
@@ -71,11 +63,7 @@ export class AddEnvTenant extends LitElement {
             clear-button-visible
           ></vaadin-combo-box>
           <div class="small-loader" ?hidden="${!this.envsLoading}"></div>
-          <vaadin-button
-            @click="${this._addTenantEnvironment}"
-            ?disabled="${!this.selectedEnvironmentId}"
-            >Attach As Tenant</vaadin-button
-          >
+          <vaadin-button @click="${this._addTenantEnvironment}" ?disabled="${!this.selectedEnvironmentId}">Attach As Tenant</vaadin-button>
         </div>
       </div>
     `;
@@ -83,46 +71,36 @@ export class AddEnvTenant extends LitElement {
 
   private _addTenantEnvironment() {
     if (!this.selectedEnvironmentId) {
-      Notification.show('Please select an environment from the list.', {
-        position: 'bottom-start',
-        duration: 3000
-      });
+      Notification.show('Please select an environment from the list.', { position: 'bottom-start', duration: 3000 });
       return;
     }
     const envId = this.selectedEnvironmentId;
     const api = new RefDataEnvironmentsDetailsApi();
-    api
-      .refDataEnvironmentsDetailsSetParentForEnvironmentPut({
-        childEnvId: this.selectedEnvironmentId,
-        parentEnvId: this.parentEnvironment?.EnvironmentId
-      })
+    api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
+      childEnvId: this.selectedEnvironmentId,
+      parentEnvId: this.parentEnvironment?.EnvironmentId
+    })
       .subscribe({
         next: (data: ApiBoolResult) => {
           if (data.Result) {
-            this.dispatchEvent(
-              new CustomEvent('request-environment-update', {
-                bubbles: true,
-                composed: true
-              })
-            );
+            this.dispatchEvent(new CustomEvent('request-environment-update', {
+              bubbles: true,
+              composed: true
+            }));
 
-            Notification.show(
-              `Tenant environment with ID ${envId} added successfully.`,
-              {
-                theme: 'success',
-                position: 'bottom-start',
-                duration: 3000
-              }
-            );
-          } else {
-            this.onError(
-              `Set parent for environment with ID ${envId} has failed: ${data.Message}`
-            );
+            Notification.show(`Tenant environment with ID ${envId} added successfully.`, {
+              theme: 'success',
+              position: 'bottom-start',
+              duration: 3000
+            });
+          }
+          else {
+            this.onError(`Set parent for environment with ID ${envId} has failed: ${data.Message}`);
           }
         },
         error: (err: string) => {
           this.onError(`Unable to set parent for environment: ${err}`);
-          this.envsLoading = false;
+          this.envsLoading = false
         }
       });
 
@@ -145,18 +123,15 @@ export class AddEnvTenant extends LitElement {
   private _fetchPossibleTenants() {
     this.envsLoading = true;
     const api = new RefDataEnvironmentsDetailsApi();
-    api
-      .refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({
-        id: this.parentEnvironment?.EnvironmentId
-      })
+    api.refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id: this.parentEnvironment?.EnvironmentId })
       .subscribe({
         next: (data: Array<EnvironmentApiModel>) => {
           this.possibleTenants = data;
-          this.envsLoading = false;
+          this.envsLoading = false
         },
         error: (err: string) => {
           this.onError(`Unable to fetch possible tenants: ${err}`);
-          this.envsLoading = false;
+          this.envsLoading = false
         }
       });
   }

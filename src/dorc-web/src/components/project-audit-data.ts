@@ -1,4 +1,4 @@
-import { css, PropertyValues, LitElement, render } from 'lit';
+import { css, PropertyValues, LitElement, render} from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/dialog';
@@ -47,15 +47,17 @@ export class ProjectAuditData extends LitElement {
     if (value === undefined) return;
     _project = JSON.parse(JSON.stringify(value));
     const grid = this?.shadowRoot?.getElementById('grid') as Grid;
-    if (grid != undefined) grid.clearCache();
+    if (grid != undefined)
+      grid.clearCache();
 
     this.requestUpdate('project', value);
   }
 
+
   @property({ type: Boolean }) loading = true;
-
+  
   @query('#dialog') dialog!: HegsDialog;
-
+  
   static get styles() {
     return css`
       vaadin-grid#grid {
@@ -119,7 +121,7 @@ export class ProjectAuditData extends LitElement {
       <hegs-dialog
         id="dialog"
         title="Project Audit"
-        style="width: 100wh; height: 100vh; z-index: 1"
+          style="width: 100wh; height: 100vh; z-index: 1"
       >
         <vaadin-grid
           id="grid"
@@ -157,10 +159,10 @@ export class ProjectAuditData extends LitElement {
       </hegs-dialog>
     `;
   }
-
-  protected firstUpdated(_changedProperties: PropertyValues) {
+  
+    protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
+  
     this.addEventListener(
       'project-audit-values-loaded',
       this.auditLoaded as EventListener
@@ -181,6 +183,7 @@ export class ProjectAuditData extends LitElement {
       ArtefactsUrl: ''
     };
   }
+  
 
   private cellClassNameGenerator(
     _: GridColumn,
@@ -288,22 +291,21 @@ export class ProjectAuditData extends LitElement {
     _column: GridColumn,
     model: GridItemModel<RefDataAuditApiModel>
   ) {
-    root.innerHTML = `<hegs-json-viewer style="font-size: small ">${JSON.stringify(
-      JSON.parse(model.item.Json ?? ''),
-      null,
-      2
-    )}</hegs-json-viewer>`;
-    const viewer = root.querySelector(
-      'hegs-json-viewer'
-    ) as unknown as HegsJsonViewer;
-    viewer.expand('*');
+          root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
+            JSON.stringify(JSON.parse(model.item.Json ?? ''), null, 2)
+          }</hegs-json-viewer>`;
+          const viewer = root.querySelector(
+            'hegs-json-viewer'
+          ) as unknown as HegsJsonViewer;
+          viewer.expand('*');
   }
 
   getProjectValuesAudit(
     params: GridDataProviderParams<RefDataAuditApiModel>,
     callback: GridDataProviderCallback<RefDataAuditApiModel>
   ) {
-    if (!_project || _project == null || _project?.ProjectId == null) return;
+    if (!_project || _project == null || _project?.ProjectId == null)
+      return;
 
     const pathNames = ['PropertyName', 'EnvironmentName', 'UpdatedBy'];
     pathNames.forEach(x => {
@@ -366,9 +368,9 @@ export class ProjectAuditData extends LitElement {
           );
         }
       });
-  }
+    }
 
-  public open() {
-    this.dialog.open = true;
-  }
+    public open() {
+      this.dialog.open = true;
+    }
 }

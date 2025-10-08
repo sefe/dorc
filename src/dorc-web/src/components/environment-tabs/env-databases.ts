@@ -10,11 +10,7 @@ import '../attach-database';
 import '../attached-databases';
 import { Notification } from '@vaadin/notification';
 import { PageEnvBase } from './page-env-base';
-import {
-  DatabaseApiModel,
-  EnvironmentContentApiModel,
-  RefDataEnvironmentsDetailsApi
-} from '../../apis/dorc-api';
+import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
@@ -185,7 +181,7 @@ export class EnvDatabases extends PageEnvBase {
       data?.DbServers !== null
         ? data?.DbServers?.sort(this.sortDbs)
         : undefined;
-  };
+  }
 
   override notifyEnvironmentContentReady() {
     this.envReadOnly = !this.environment?.UserEditable;

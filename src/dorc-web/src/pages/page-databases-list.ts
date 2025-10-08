@@ -41,6 +41,7 @@ import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 
+
 const name = 'Name';
 const type = 'Type';
 const serverName = 'ServerName';
@@ -274,20 +275,11 @@ export class PageDatabasesList extends PageElement {
       }
 
       if (this.serverNameFilter !== '' && this.serverNameFilter !== undefined) {
-        params.filters.push({
-          path: 'ServerName',
-          value: this.serverNameFilter
-        });
+        params.filters.push({ path: 'ServerName', value: this.serverNameFilter });
       }
 
-      if (
-        this.environmentNamesFilter !== '' &&
-        this.environmentNamesFilter !== undefined
-      ) {
-        params.filters.push({
-          path: 'EnvironmentNames',
-          value: this.environmentNamesFilter
-        });
+      if (this.environmentNamesFilter !== '' && this.environmentNamesFilter !== undefined) {
+        params.filters.push({ path: 'EnvironmentNames', value: this.environmentNamesFilter });
       }
 
       const api = new RefDataDatabasesApi();
@@ -491,29 +483,29 @@ export class PageDatabasesList extends PageElement {
   dbNameHeaderRenderer(root: HTMLElement) {
     render(
       html`<vaadin-grid-sorter
-          path="Name"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Database"
-          clear-button-visible
-          focus-target
-          style="width: 120px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-databases-started', {
-                detail: {
-                  field: name,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field> `,
+              path="Name"
+              style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+              placeholder="Database"
+              clear-button-visible
+              focus-target
+              style="width: 120px"
+              theme="small"
+              @input="${(e: InputEvent) => {
+                  const textField = e.target as TextField;
+                  this.dispatchEvent(
+                          new CustomEvent('searching-databases-started', {
+                              detail: {
+                                  field: name,
+                                  value: textField?.value
+                              },
+                              bubbles: true,
+                              composed: true
+                          })
+                  );
+              }}"
+      ></vaadin-text-field> `,
       root
     );
   }
@@ -521,29 +513,29 @@ export class PageDatabasesList extends PageElement {
   appTagsHeaderRenderer(root: HTMLElement) {
     render(
       html`<vaadin-grid-sorter
-          path="Type"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Application Tag"
-          clear-button-visible
-          focus-target
-          style="width: 120px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-databases-started', {
-                detail: {
-                  field: type,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field> `,
+              path="Type"
+              style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+              placeholder="Application Tag"
+              clear-button-visible
+              focus-target
+              style="width: 120px"
+              theme="small"
+              @input="${(e: InputEvent) => {
+                  const textField = e.target as TextField;
+                  this.dispatchEvent(
+                          new CustomEvent('searching-databases-started', {
+                              detail: {
+                                  field: type,
+                                  value: textField?.value
+                              },
+                              bubbles: true,
+                              composed: true
+                          })
+                  );
+              }}"
+      ></vaadin-text-field> `,
       root
     );
   }
@@ -568,15 +560,16 @@ export class PageDatabasesList extends PageElement {
                 html` <button
                   class="env"
                   @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                          this.dispatchEvent(
+                                  new CustomEvent('open-environment-details', {
+                                      detail: {
+                                          envName: i
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )
+              }"
                   style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
                 >
                   ${i}

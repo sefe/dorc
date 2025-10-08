@@ -40,10 +40,10 @@ const id = 'Id';
 export class PageMonitorRequests extends LitElement {
   @query('#grid') grid: Grid | undefined;
   @query('#loading') loadingDiv: HTMLDivElement | undefined;
-
+  
   // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
   // we need to store the max count of items before refresh to keep grid's cache size
-  maxCountBeforeRefresh: number | undefined;
+  maxCountBeforeRefresh: number | undefined; 
 
   set isLoading(val: boolean) {
     this._isLoading = val;
@@ -229,14 +229,8 @@ export class PageMonitorRequests extends LitElement {
                 data.Items?.map(
                   item => (item.UserName = getShortLogonName(item.UserName))
                 );
-                callback(
-                  data.Items ?? [],
-                  Math.max(
-                    this.maxCountBeforeRefresh ?? 0,
-                    data.TotalItems ?? 0
-                  )
-                );
-
+                callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
+                
                 this.dispatchEvent(
                   new CustomEvent('searching-requests-finished', {
                     detail: data,
@@ -449,45 +443,30 @@ export class PageMonitorRequests extends LitElement {
     });
   }
 
-  private componentsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) {
+  private componentsRenderer(    root: HTMLElement,
+                                 _: HTMLElement,
+                                 model: GridItemModel<DeploymentRequestApiModel>){
+
     const request = model.item as DeploymentRequestApiModel;
     const elements = request.Components?.split('|');
 
-    render(
-      html`
-        <vaadin-vertical-layout>
-          ${elements?.map(
-            element =>
-              html`<div
-                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-              >
-                ${element}
-              </div>`
-          )}
-        </vaadin-vertical-layout>
-      `,
-      root
-    );
+    render(html`
+      <vaadin-vertical-layout>
+        ${elements?.map(
+          element => html`<div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${element}</div>`
+        )}
+      </vaadin-vertical-layout>
+    `, root);
+
   }
 
-  private usernameRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) {
+  private usernameRenderer(root: HTMLElement,
+                           _: HTMLElement,
+                           model: GridItemModel<DeploymentRequestApiModel>){
     const request = model.item as DeploymentRequestApiModel;
-    render(
-      html` <div
-        style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-      >
-        ${request.UserName}
-      </div>`,
-      root
-    );
+    render(html`
+      <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${request.UserName}</div>`, root);
+
   }
 
   private detailsRenderer = (
@@ -552,16 +531,8 @@ export class PageMonitorRequests extends LitElement {
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
           >
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${sDate} ${sTime}`}
-            </div>
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${cDate} ${cTime}`}
-            </div>
+            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${sDate} ${sTime}`}</div>
+            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${cDate} ${cTime}`}</div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
       `,
@@ -578,11 +549,7 @@ export class PageMonitorRequests extends LitElement {
     render(
       html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${request.Id}
-          </span>
+          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
           <vaadin-button
             title="View Detailed Results"
             theme="icon small"

@@ -65,7 +65,11 @@ export class ProjectControls extends LitElement {
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
-      <vaadin-button title="Audit" theme="icon" @click="${this.openAuditData}">
+      <vaadin-button
+        title="Audit"
+        theme="icon"
+        @click="${this.openAuditData}"
+      >
         <vaadin-icon
           icon="vaadin:list"
           style="color: cornflowerblue"
@@ -77,7 +81,10 @@ export class ProjectControls extends LitElement {
         @click="${this.deleteProject}"
         ?hidden="${this.deleteHidden}"
       >
-        <vaadin-icon icon="icons:delete" style="color: red"></vaadin-icon>
+        <vaadin-icon
+          icon="icons:delete"
+          style="color: red"
+        ></vaadin-icon>
       </vaadin-button>
     `;
   }

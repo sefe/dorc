@@ -119,10 +119,7 @@ export class DorcNavbar extends LitElement {
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
-            <vaadin-icon
-              icon="vaadin:expand-square"
-              theme="small"
-            ></vaadin-icon>
+            <vaadin-icon icon="vaadin:expand-square" theme="small"></vaadin-icon>
             Deploy
           </a>
         </vaadin-tab>
@@ -186,19 +183,13 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('scripts')}">
-            <vaadin-icon
-              icon="inline:powershell-icon"
-              theme="small"
-            ></vaadin-icon>
+            <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
             Scripts
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('variables')}">
-            <vaadin-icon
-              icon="inline:variables-icon"
-              theme="small"
-            ></vaadin-icon>
+            <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
             Variables
           </a>
         </vaadin-tab>
@@ -206,10 +197,7 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab>
           <a href="${urlForName('variables-audit')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon
-                icon="vaadin:calendar-user"
-                theme="small"
-              ></vaadin-icon>
+              <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
               Audit
             </div>
           </a>
@@ -218,10 +206,7 @@ export class DorcNavbar extends LitElement {
           ? html`
               <vaadin-tab>
                 <a href="${urlForName('configuration')}">
-                  <vaadin-icon
-                    icon="vaadin:options"
-                    theme="small"
-                  ></vaadin-icon>
+                  <vaadin-icon icon="vaadin:options" theme="small"></vaadin-icon>
                   Configuration
                 </a>
               </vaadin-tab>

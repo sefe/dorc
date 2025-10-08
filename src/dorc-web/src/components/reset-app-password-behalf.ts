@@ -97,10 +97,9 @@ export class ResetAppPasswordBehalf extends LitElement {
           ></vaadin-combo-box>
 
           <div style="margin-right: 30px">
-            <vaadin-button
-              @click="${this.resetAppPassword}"
-              ?disabled="${this.serverName === undefined &&
-              this.databaseName === undefined}"
+            <vaadin-button 
+              @click="${this.resetAppPassword}" 
+              ?disabled="${this.serverName === undefined && this.databaseName === undefined}"
               >Reset Password</vaadin-button
             >
             ${this.resettingAppPassword
@@ -110,10 +109,9 @@ export class ResetAppPasswordBehalf extends LitElement {
 
           <div class="info-section">
             <div class="action-description">
-              This will reset the selected user's SQL account password for the
-              next server and database:
+              This will reset the selected user's SQL account password for the next server and database:
             </div>
-            <br />
+            <br/>
             <div class="info-row">
               <span class="info-label">Server:</span>
               <span class="info-value">${this.serverName}</span>
@@ -175,10 +173,7 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   errorAlert(result: any) {
     const event = new CustomEvent('error-alert', {
-      detail: {
-        description: 'Failed to reset the SQL account password',
-        result
-      },
+      detail: { description: 'Failed to reset the SQL account password', result },
       bubbles: true,
       composed: true
     });

@@ -38,7 +38,7 @@ export class OAuthService {
    */
   public signIn(): void {
     console.log('signin redirect');
-    localStorage.setItem('lastUrl', window.location.href);
+    localStorage.setItem("lastUrl", window.location.href);
     this.saveConfigurableSettings();
     this._mgr.signinRedirect().catch(err => console.error(err));
   }
@@ -49,10 +49,7 @@ export class OAuthService {
       client_id: this._mgr.settings.client_id,
       scope: this._mgr.settings.scope
     };
-    localStorage.setItem(
-      'idsrv.oauthsettings',
-      JSON.stringify(configurableSettings)
-    );
+    localStorage.setItem("idsrv.oauthsettings", JSON.stringify(configurableSettings));
   }
 
   /**
@@ -67,9 +64,9 @@ export class OAuthService {
           this._signedInUser = user;
         }
         console.log('signin response success');
-        localStorage.removeItem('idsrv.oauthsettings');
-        const lastUrl = localStorage.getItem('lastUrl') ?? '/';
-        localStorage.removeItem('lastUrl');
+        localStorage.removeItem("idsrv.oauthsettings");
+        const lastUrl = localStorage.getItem("lastUrl") ?? '/';
+        localStorage.removeItem("lastUrl");
         const exceptions = ['signin.html'];
         if (exceptions.some(exception => lastUrl.endsWith(exception))) {
           location.assign('/');
@@ -126,7 +123,7 @@ export class OAuthService {
       .signoutCallback()
       .then(() => {
         console.log('signout callback response success');
-        localStorage.removeItem('idsrv.oauthsettings');
+        localStorage.removeItem("idsrv.oauthsettings");
         location.assign('/');
       })
       .catch(err => console.error(err));

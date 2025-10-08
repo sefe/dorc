@@ -32,7 +32,7 @@ export class ConfirmDialog extends LitElement {
         justify-content: flex-end;
         margin-top: 20px;
       }
-
+      
       .message {
         margin: 20px 0;
         font-size: 16px;
@@ -53,7 +53,10 @@ export class ConfirmDialog extends LitElement {
           <vaadin-button @click="${this.cancel}">
             ${this.cancelText}
           </vaadin-button>
-          <vaadin-button theme="primary error" @click="${this.confirm}">
+          <vaadin-button
+            theme="primary error"
+            @click="${this.confirm}"
+          >
             ${this.confirmText}
           </vaadin-button>
         </div>

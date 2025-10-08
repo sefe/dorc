@@ -29,9 +29,9 @@ export class EnvUsers extends PageEnvBase {
       >
       </vaadin-details>
       <attached-app-users
-        id="application-users"
-        .users="${this.envContent?.EndurUsers ?? []}"
-        style="width: 100%; height: 100%;"
+              id="application-users"
+              .users="${this.envContent?.EndurUsers ?? []}"
+              style="width: 100%; height: 100%;"
       >
       </attached-app-users>
     `;

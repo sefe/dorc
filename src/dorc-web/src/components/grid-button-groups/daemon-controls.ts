@@ -97,8 +97,8 @@ export class DaemonControls extends LitElement {
   requestChange(requestedChange: string) {
     if (this.daemonDetails !== undefined) {
       const api = new DaemonStatusApi();
-
-      this.daemonDetails.ServiceStatus = requestedChange;
+      
+      this.daemonDetails.ServiceStatus = requestedChange; 
       this.updateParentWith(this.daemonDetails);
       api
         .daemonStatusPut({ serviceStatusApiModel: this.daemonDetails })
