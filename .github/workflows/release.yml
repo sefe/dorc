@@ -144,12 +144,16 @@ jobs:
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
         
-        # Find test assemblies
+        # Find test assemblies, excluding integration tests that require external dependencies
         $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
-          Where-Object { $_.FullName -notmatch "\\obj\\" }
+          Where-Object { 
+            $_.FullName -notmatch "\\obj\\" -and 
+            $_.FullName -notmatch "IntegrationTests" -and
+            $_.FullName -notmatch "Acceptance"
+          }
         
         if ($testAssemblies.Count -gt 0) {
-          Write-Host "Found $($testAssemblies.Count) test assemblies:"
+          Write-Host "Found $($testAssemblies.Count) test assemblies (excluding integration/acceptance tests):"
           $testAssemblies | ForEach-Object { Write-Host "  - $($_.FullName)" }
           
           # Use full path to vstest.console.exe
