@@ -51,19 +51,22 @@ namespace Dorc.Monitor
 
                 await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
             }
-            catch (OperationCanceledException operationCanceledException)
+            catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
             {
-                logger.Warn("Monitor process is cancelled. Exception: " + operationCanceledException);
-                Environment.Exit(1);
+                logger.Warn("Monitor process is cancelled. " + operationCanceledException.Message);
             }
             catch (Exception exception)
             {
                 logger.Error("Monitor process is failed. Exception: " + exception);
-                Environment.Exit(1);
+                throw;
+            }
+            finally
+            {
+                logger.Info("Deployment Monitor service is stopping.");
             }
         }
 
-        protected new void Dispose()
+        public override void Dispose()
         {
             if (!disposedValue)
             {
