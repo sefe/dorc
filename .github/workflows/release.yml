@@ -40,6 +40,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/dorc-web/package-lock.json
         
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
@@ -61,7 +63,7 @@ jobs:
         
     - name: Install web dependencies
       working-directory: src/dorc-web
-      run: npm install --loglevel=error
+      run: npm ci --loglevel=error
       
     - name: Build web site
       working-directory: src/dorc-web
@@ -117,14 +119,19 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    - name: Restore NuGet packages
-      run: nuget restore ${{ env.SOLUTION_PATH }} -ConfigFile pipelines/NuGet.config
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
       
-    - name: Restore .NET packages
+    - name: Restore packages
       run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
       
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /m
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /m:4 /clp:ErrorsOnly /nologo
       
     - name: Run tests
       shell: pwsh
@@ -194,74 +201,60 @@ jobs:
         }
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always()
+      if: always() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || github.event_name == 'pull_request')
       with:
         files: |
           TestResults/**/*.trx
       continue-on-error: true
       
-    - name: Copy install scripts
+    - name: Collect build artifacts
       shell: pwsh
       run: |
-        $sourceFolder = "${{ github.workspace }}\src\install-scripts"
-        $targetFolder = "${{ github.workspace }}\artifacts"
-        New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
-        Copy-Item -Path "$sourceFolder\*.ps1" -Destination $targetFolder -Force
-        Copy-Item -Path "$sourceFolder\*.json" -Destination $targetFolder -Force
-        Write-Host "Copied install scripts to $targetFolder"
+        $artifactsRoot = "${{ github.workspace }}\artifacts"
         
-    - name: Copy database files
-      shell: pwsh
-      run: |
-        $sourceFolder = "${{ github.workspace }}\src\Dorc.Database\sql\${{ env.BUILD_CONFIGURATION }}"
-        $targetFolder = "${{ github.workspace }}\artifacts\Database"
-        if (Test-Path $sourceFolder) {
-          New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
-          Copy-Item -Path "$sourceFolder\*.dacpac" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path "$sourceFolder\*.sql" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-          Write-Host "Copied database files to $targetFolder"
-        } else {
-          Write-Host "Database folder not found: $sourceFolder"
+        # Install scripts
+        $target = "$artifactsRoot"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item -Path "${{ github.workspace }}\src\install-scripts\*.ps1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "${{ github.workspace }}\src\install-scripts\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+        Write-Host "Copied install scripts"
+        
+        # Database files
+        $source = "${{ github.workspace }}\src\Dorc.Database\sql\${{ env.BUILD_CONFIGURATION }}"
+        $target = "$artifactsRoot\Database"
+        if (Test-Path $source) {
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          Copy-Item -Path "$source\*.dacpac" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.sql" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied database files"
         }
         
-    - name: Copy DOrc MSI installer
-      shell: pwsh
-      run: |
-        $sourceFolder = "${{ github.workspace }}\src\Setup.Dorc\bin\x64\${{ env.BUILD_CONFIGURATION }}"
-        $targetFolder = "${{ github.workspace }}\artifacts\Server"
-        if (Test-Path $sourceFolder) {
-          New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
-          Copy-Item -Path "$sourceFolder\*.msi" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path "$sourceFolder\*.json" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-          Write-Host "Copied DOrc MSI installer to $targetFolder"
-        } else {
-          Write-Host "Setup.Dorc folder not found: $sourceFolder"
+        # MSI installers
+        $target = "$artifactsRoot\Server"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        
+        $source = "${{ github.workspace }}\src\Setup.Dorc\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc MSI installer"
         }
         
-    - name: Copy Test Acceptance MSI installer
-      shell: pwsh
-      run: |
-        $sourceFolder = "${{ github.workspace }}\src\Setup.Acceptance\bin\x64\${{ env.BUILD_CONFIGURATION }}"
-        $targetFolder = "${{ github.workspace }}\artifacts\Server"
-        if (Test-Path $sourceFolder) {
-          New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
-          Copy-Item -Path "$sourceFolder\*.msi" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path "$sourceFolder\*.json" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-          Write-Host "Copied Test Acceptance MSI installer to $targetFolder"
-        } else {
-          Write-Host "Setup.Acceptance folder not found: $sourceFolder"
+        $source = "${{ github.workspace }}\src\Setup.Acceptance\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied Test Acceptance MSI installer"
         }
         
-    - name: Copy PowerShell Cmdlet
-      shell: pwsh
-      run: |
-        $sourceFolder = "${{ github.workspace }}\src\Tools.DOrc.Cmdlet"
-        $targetFolder = "${{ github.workspace }}\artifacts\DOrc.Cmdlet"
-        New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
-        Copy-Item -Path "$sourceFolder\*.ps1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-        Copy-Item -Path "$sourceFolder\*.psm1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-        Copy-Item -Path "$sourceFolder\*.psd1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
-        Write-Host "Copied PowerShell Cmdlet to $targetFolder"
+        # PowerShell Cmdlet
+        $source = "${{ github.workspace }}\src\Tools.DOrc.Cmdlet"
+        $target = "$artifactsRoot\DOrc.Cmdlet"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item -Path "$source\*.ps1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$source\*.psm1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$source\*.psd1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Write-Host "Copied PowerShell Cmdlet"
         
     - name: Set artifact retention period
       id: set_retention
