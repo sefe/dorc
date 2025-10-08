@@ -114,17 +114,12 @@ namespace Dorc.Monitor
             bool isProduction,
             string environmentName,
             StringBuilder resultLogBuilder,
+            TerrafromRunnerOperations terreformOperation,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
-
-            TerrafromRunnerOperations terreformOperation = TerrafromRunnerOperations.None;
-            if (deploymentResult.Status.Equals(DeploymentResultStatus.Pending))
-                terreformOperation = TerrafromRunnerOperations.CreatePlan;
-            else if (deploymentResult.Status.Equals(DeploymentResultStatus.Confirmed))
-                terreformOperation = TerrafromRunnerOperations.ApplyPlan;
 
             // Update status to Running
             _requestsPersistentSource.UpdateResultStatus(

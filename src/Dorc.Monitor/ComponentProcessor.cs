@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Monitor.RunnerProcess;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
@@ -53,9 +54,6 @@ namespace Dorc.Monitor
 
             try
             {
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult!,
-                    DeploymentResultStatus.Running);
 
                 bool isSuccessful;
 
@@ -65,6 +63,16 @@ namespace Dorc.Monitor
                     case ComponentType.Terraform:
                         _logger.Info($"Processing Terraform component '{component.ComponentName}' - routing to TerraformDispatcher.");
 
+                        TerrafromRunnerOperations terreformOperation = TerrafromRunnerOperations.None;
+                        if (deploymentResult.Status.Equals(DeploymentResultStatus.Pending.Value))
+                            terreformOperation = TerrafromRunnerOperations.CreatePlan;
+                        else if (deploymentResult.Status.Equals(DeploymentResultStatus.Confirmed.Value))
+                            terreformOperation = TerrafromRunnerOperations.ApplyPlan;
+
+                        requestsPersistentSource.UpdateResultStatus(
+                            deploymentResult!,
+                            DeploymentResultStatus.Running);
+
                         isSuccessful = await terraformDispatcher.DispatchAsync(
                             component,
                             deploymentResult,
@@ -73,6 +81,7 @@ namespace Dorc.Monitor
                             isProductionRequest,
                             environmentName,
                             componentResultLogBuilder,
+                            terreformOperation,
                             cancellationToken);
 
                         // For Terraform components, if successful, the status should be WaitingConfirmation
@@ -88,6 +97,10 @@ namespace Dorc.Monitor
                         }
                         break;
                     case ComponentType.PowerShell:
+                        requestsPersistentSource.UpdateResultStatus(
+                            deploymentResult!,
+                            DeploymentResultStatus.Running);
+
                         // Handle PowerShell components
                         var script = GetScripts(component.ComponentId);
 

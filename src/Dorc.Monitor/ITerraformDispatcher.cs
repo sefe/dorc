@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Monitor.RunnerProcess;
 using System.Text;
 
 namespace Dorc.Monitor
@@ -14,6 +15,7 @@ namespace Dorc.Monitor
             bool isProduction,
             string environmentName,
             StringBuilder resultLogBuilder,
+            TerrafromRunnerOperations terreformOperation,
             CancellationToken cancellationToken);
 
         Task<bool> ExecuteConfirmedPlanAsync(
