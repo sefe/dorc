@@ -208,9 +208,18 @@ jobs:
         Copy-Item -Path "$sourceFolder\*.psd1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
         Write-Host "Copied PowerShell Cmdlet to $targetFolder"
         
+    - name: Set artifact retention period
+      id: set_retention
+      run: |
+        if [[ "${GITHUB_REF##*/}" == "main" || "${GITHUB_REF##*/}" == "release"* ]]; then
+          echo "RETENTION_DAYS=90" >> $GITHUB_ENV
+        else
+          echo "RETENTION_DAYS=14" >> $GITHUB_ENV
+        fi
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: dorc-release-${{ steps.version.outputs.VERSION }}
         path: artifacts/
-        retention-days: 90
+        retention-days: ${{ env.RETENTION_DAYS }}
