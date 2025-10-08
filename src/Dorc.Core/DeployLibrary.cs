@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
+using Dorc.Core.Events;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -22,6 +23,7 @@ namespace Dorc.Core
         private readonly ILog _logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -29,7 +31,8 @@ namespace Dorc.Core
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ILog logger,
             IRequestsPersistentSource requestsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentEventsPublisher deploymentEventsPublisher
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
@@ -39,6 +42,7 @@ namespace Dorc.Core
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _deploymentEventsPublisher = deploymentEventsPublisher;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -138,6 +142,16 @@ namespace Dorc.Core
                 };
 
             var requestId = _requestsPersistentSource.SubmitRequest(deploymentRequest);
+
+            // Fire-and-forget event: new request created (Pending)
+            _ = _deploymentEventsPublisher.PublishNewRequestAsync(
+                new DeploymentRequestEventData(
+                    RequestId: requestId,
+                    Status: deploymentRequest.Status.ToString(),
+                    StartedTime: deploymentRequest.RequestedTime,
+                    CompletedTime: null,
+                    Timestamp: DateTimeOffset.UtcNow
+                ));
 
             return requestId;
         }

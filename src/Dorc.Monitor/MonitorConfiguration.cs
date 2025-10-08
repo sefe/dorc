@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Dorc.Core.Configuration;
+using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Monitor
 {
@@ -56,6 +57,88 @@ namespace Dorc.Monitor
 
                 return connectionString;
             }
+        }
+
+        public string RefDataApiUrl
+        {
+            get
+            {
+                var url = configurationRoot.GetSection("AppSettings")["RefDataApiUrl"];
+                if (string.IsNullOrEmpty(url))
+                {
+                    throw new InvalidOperationException("RefData API URL is not specified in configuration file 'appsettings.json'.");
+                }
+                return url;
+            }
+        }
+
+        public string DorcApiClientId
+        {
+            get
+            {
+                var id = configurationRoot.GetSection(appSettings)["DorcApi:ClientId"];
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    throw new InvalidOperationException("OAuth ClientId is not configured (AppSettings:DorcApi:ClientId).");
+                }
+                return id;
+            }
+        }
+
+        public string DorcApiClientSecret
+        {
+            get
+            {
+                var secret = configurationRoot.GetSection(appSettings)["DorcApi:ClientSecret"];
+                if (string.IsNullOrWhiteSpace(secret))
+                {
+                    throw new InvalidOperationException("OAuth ClientSecret is not configured (AppSettings:DorcApi:ClientSecret).");
+                }
+                return secret;
+            }
+        }
+
+        public string DorcApiScope
+        {
+            get
+            {
+                var scope = configurationRoot.GetSection(appSettings)["DorcApi:Scope"];
+                if (string.IsNullOrWhiteSpace(scope))
+                {
+                    throw new InvalidOperationException("OAuth Scope is not configured (AppSettings:DorcApi:Scope).");
+                }
+                return scope;
+            }
+        }
+
+        public bool DisableSignalR
+        {
+            get
+            {
+                return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
+            }
+        }
+    }
+
+    internal class OAuthClientConfiguration : IOAuthClientConfiguration
+    {
+        public string BaseUrl { get; set; }
+
+        public string ClientId { get; set; }
+
+        public string ClientSecret { get; set; }
+
+        public string Scope { get; set; }
+
+        public static IOAuthClientConfiguration FromMonitorConfiguration(IMonitorConfiguration config)
+        {
+            return new OAuthClientConfiguration
+            {
+                BaseUrl = config.RefDataApiUrl,
+                ClientId = config.DorcApiClientId,
+                ClientSecret = config.DorcApiClientSecret,
+                Scope = config.DorcApiScope
+            };
         }
     }
 }
