@@ -106,6 +106,9 @@ jobs:
         
     - name: Version Cmdlet
       shell: pwsh
+      env:
+        BUILD_SOURCESDIRECTORY: ${{ github.workspace }}
+        BUILD_BUILDNUMBER: ${{ steps.version.outputs.VERSION }}
       working-directory: src/Tools.DOrc.Cmdlet
       run: |
         if (Test-Path "UpdateVersion.ps1") {
