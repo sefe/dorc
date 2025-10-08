@@ -1,4 +1,4 @@
-name: Build DOrc $(date +'%Y.%m.%d')-${{ github.run_number }}
+name: Build DOrc #${{ github.run_number }}
 
 on:
   push:
