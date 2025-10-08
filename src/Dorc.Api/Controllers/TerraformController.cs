@@ -71,7 +71,6 @@ namespace Dorc.Api.Controllers
                 {
                     DeploymentResultId = deploymentResultId,
                     PlanContent = planContent,
-                    BlobUrl = GetPlanBlobUrl(deploymentResultId),
                     CreatedAt = deploymentResult.StartedTime?.DateTime ?? DateTime.UtcNow,
                     Status = deploymentResult.Status ?? "Unknown"
                 };
@@ -247,21 +246,6 @@ namespace Dorc.Api.Controllers
                 _log.Error($"Failed to load plan content for deployment result ID {deploymentResultId}: {ex.Message}", ex);
                 return "Failed to load plan content.";
             }
-        }
-
-        private string GetPlanBlobUrl(int deploymentResultId)
-        {
-            // TODO: Implement actual blob URL retrieval
-            var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
-            var planFiles = Directory.GetFiles(planStorageDir, $"plan-{deploymentResultId}-*.txt");
-            
-            if (planFiles.Length > 0)
-            {
-                var latestPlanFile = planFiles.OrderByDescending(f => System.IO.File.GetCreationTime(f)).First();
-                return $"file://{latestPlanFile}";
-            }
-            
-            return $"file://{planStorageDir}/plan-{deploymentResultId}-not-found.txt";
         }
     }
 }
