@@ -126,7 +126,7 @@ jobs:
     - name: Run tests
       shell: pwsh
       run: |
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*tests.dll" | 
+        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
           Where-Object { $_.FullName -notmatch "\\obj\\" }
         
         if ($testAssemblies.Count -gt 0) {
