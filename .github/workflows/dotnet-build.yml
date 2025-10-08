@@ -80,34 +80,34 @@ jobs:
       # File copy operations using actions/upload-artifact or custom scripts
       - name: Copy Install Scripts
         run: |
-          mkdir -p artifact-scripts
-          cp src/install-scripts/*.ps1 artifact-scripts/
-          cp src/install-scripts/*.json artifact-scripts/
+          New-Item -ItemType Directory -Path artifact-scripts -Force
+          Copy-Item src/install-scripts\*.ps1 artifact-scripts\
+          Copy-Item src/install-scripts\*.json artifact-scripts\
 
       - name: Copy Database Files
         run: |
-          mkdir -p artifact-database
-          cp src/Dorc.Database/sql/${{ env.BUILD_CONFIGURATION }}/*.dacpac artifact-database/
-          cp src/Dorc.Database/sql/${{ env.BUILD_CONFIGURATION }}/*.sql artifact-database/
+          New-Item -ItemType Directory -Path artifact-database -Force
+          Copy-Item src/Dorc.Database/sql/${{ env.BUILD_CONFIGURATION }}\*.dacpac artifact-database\
+          Copy-Item src/Dorc.Database/sql/${{ env.BUILD_CONFIGURATION }}\*.sql artifact-database\
 
       - name: Copy DOrc MSI Installer
         run: |
-          mkdir -p artifact-server
-          cp src/Setup.Dorc/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.msi artifact-server/
-          cp src/Setup.Dorc/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.json artifact-server/
+          New-Item -ItemType Directory -Path artifact-server -Force
+          Copy-Item src/Setup.Dorc/bin/x64/${{ env.BUILD_CONFIGURATION }}\*.msi artifact-server\
+          Copy-Item src/Setup.Dorc/bin/x64/${{ env.BUILD_CONFIGURATION }}\*.json artifact-server\
 
       - name: Copy Test Acceptance MSI Installer
         run: |
-          mkdir -p artifact-server
-          cp src/Setup.Acceptance/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.msi artifact-server/
-          cp src/Setup.Acceptance/bin/x64/${{ env.BUILD_CONFIGURATION }}/*.json artifact-server/
+          New-Item -ItemType Directory -Path artifact-server -Force
+          Copy-Item src/Setup.Acceptance/bin/x64/${{ env.BUILD_CONFIGURATION }}\*.msi artifact-server\
+          Copy-Item src/Setup.Acceptance/bin/x64/${{ env.BUILD_CONFIGURATION }}\*.json artifact-server\
 
       - name: Copy PowerShell Cmdlet
         run: |
-          mkdir -p artifact-cmdlet
-          cp src/Tools.DOrc.Cmdlet/*.ps1 artifact-cmdlet/
-          cp src/Tools.DOrc.Cmdlet/*.psm1 artifact-cmdlet/
-          cp src/Tools.DOrc.Cmdlet/*.psd1 artifact-cmdlet/
+          New-Item -ItemType Directory -Path artifact-cmdlet -Force
+          Copy-Item src/Tools.DOrc.Cmdlet\*.ps1 artifact-cmdlet\
+          Copy-Item src/Tools.DOrc.Cmdlet\*.psm1 artifact-cmdlet\
+          Copy-Item src/Tools.DOrc.Cmdlet\*.psd1 artifact-cmdlet\
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
