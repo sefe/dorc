@@ -1,0 +1,208 @@
+name: DOrc Release Build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+      - 'migration/**'
+      - 'copilot/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  BUILD_PLATFORM: 'Any CPU'
+  BUILD_CONFIGURATION: 'Release'
+  SOLUTION_PATH: 'src/Dorc.sln'
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '18.x'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Install WiX Toolset
+      run: |
+        dotnet tool install --global wix --version 6.0.1
+        wix --version
+        
+    - name: Generate version number
+      id: version
+      shell: pwsh
+      run: |
+        $date = Get-Date -Format "yy.MM.dd"
+        $patch = "${{ github.run_number }}"
+        $version = "$date.$patch"
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Build version: $version"
+        
+    - name: Install web dependencies
+      working-directory: src/dorc-web
+      run: npm install
+      
+    - name: Build web site
+      working-directory: src/dorc-web
+      run: npm run build
+      
+    - name: Version AssemblyInfo files
+      shell: pwsh
+      env:
+        BUILD_SOURCESDIRECTORY: ${{ github.workspace }}
+        BUILD_BUILDNUMBER: ${{ steps.version.outputs.VERSION }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $BuildNumber = "${{ steps.version.outputs.VERSION }}"
+        $SourcesPath = "${{ github.workspace }}"
+        $VersionRegex = "\d+\.\d+\.\d+\.\d+"
+        
+        Write-Host "BUILD_SOURCESDIRECTORY: $SourcesPath"
+        Write-Host "BUILD_BUILDNUMBER: $BuildNumber"
+        Write-Host "Version: $BuildNumber"
+        
+        $files = Get-ChildItem $SourcesPath -Recurse -Include "*Properties*","*Includes*" |
+            Where-Object { $_.PSIsContainer } |
+            ForEach-Object { Get-ChildItem -Path $_.FullName -Recurse -Include *AssemblyInfo.* }
+        
+        if ($files) {
+            Write-Host "Will check $($files.count) files."
+            foreach ($file in $files) {
+                Write-Host "  $($file.FullName)" -NoNewline
+                $filecontent = Get-Content($file)
+                $versionInstances = Select-String $VersionRegex -InputObject $filecontent -AllMatches
+                if ($versionInstances.Count -gt 0) {
+                    attrib $file -r
+                    $filecontent -replace $VersionRegex, $BuildNumber | Out-File $file
+                    Write-Host " **version $BuildNumber applied**"
+                } else {
+                    Write-Host " No matches"
+                }
+            }
+        } else {
+            Write-Warning "Found no files."
+        }
+        
+    - name: Version Cmdlet
+      shell: pwsh
+      working-directory: src/Tools.DOrc.Cmdlet
+      run: |
+        if (Test-Path "UpdateVersion.ps1") {
+          .\UpdateVersion.ps1
+        } else {
+          Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
+        }
+      
+    - name: Restore NuGet packages
+      run: nuget restore ${{ env.SOLUTION_PATH }} -ConfigFile pipelines/NuGet.config
+      
+    - name: Restore .NET packages
+      run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+      
+    - name: Build solution
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m
+      
+    - name: Run tests
+      shell: pwsh
+      run: |
+        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*tests.dll" | 
+          Where-Object { $_.FullName -notmatch "\\obj\\" }
+        
+        if ($testAssemblies.Count -gt 0) {
+          Write-Host "Found $($testAssemblies.Count) test assemblies"
+          vstest.console.exe $testAssemblies.FullName /Parallel /Logger:trx
+        } else {
+          Write-Host "No test assemblies found"
+        }
+      continue-on-error: true
+      
+    - name: Copy install scripts
+      shell: pwsh
+      run: |
+        $sourceFolder = "${{ github.workspace }}\src\install-scripts"
+        $targetFolder = "${{ github.workspace }}\artifacts"
+        New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
+        Copy-Item -Path "$sourceFolder\*.ps1" -Destination $targetFolder -Force
+        Copy-Item -Path "$sourceFolder\*.json" -Destination $targetFolder -Force
+        Write-Host "Copied install scripts to $targetFolder"
+        
+    - name: Copy database files
+      shell: pwsh
+      run: |
+        $sourceFolder = "${{ github.workspace }}\src\Dorc.Database\sql\${{ env.BUILD_CONFIGURATION }}"
+        $targetFolder = "${{ github.workspace }}\artifacts\Database"
+        if (Test-Path $sourceFolder) {
+          New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
+          Copy-Item -Path "$sourceFolder\*.dacpac" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$sourceFolder\*.sql" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied database files to $targetFolder"
+        } else {
+          Write-Host "Database folder not found: $sourceFolder"
+        }
+        
+    - name: Copy DOrc MSI installer
+      shell: pwsh
+      run: |
+        $sourceFolder = "${{ github.workspace }}\src\Setup.Dorc\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        $targetFolder = "${{ github.workspace }}\artifacts\Server"
+        if (Test-Path $sourceFolder) {
+          New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
+          Copy-Item -Path "$sourceFolder\*.msi" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$sourceFolder\*.json" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc MSI installer to $targetFolder"
+        } else {
+          Write-Host "Setup.Dorc folder not found: $sourceFolder"
+        }
+        
+    - name: Copy Test Acceptance MSI installer
+      shell: pwsh
+      run: |
+        $sourceFolder = "${{ github.workspace }}\src\Setup.Acceptance\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        $targetFolder = "${{ github.workspace }}\artifacts\Server"
+        if (Test-Path $sourceFolder) {
+          New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
+          Copy-Item -Path "$sourceFolder\*.msi" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$sourceFolder\*.json" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied Test Acceptance MSI installer to $targetFolder"
+        } else {
+          Write-Host "Setup.Acceptance folder not found: $sourceFolder"
+        }
+        
+    - name: Copy PowerShell Cmdlet
+      shell: pwsh
+      run: |
+        $sourceFolder = "${{ github.workspace }}\src\Tools.DOrc.Cmdlet"
+        $targetFolder = "${{ github.workspace }}\artifacts\DOrc.Cmdlet"
+        New-Item -ItemType Directory -Force -Path $targetFolder | Out-Null
+        Copy-Item -Path "$sourceFolder\*.ps1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$sourceFolder\*.psm1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$sourceFolder\*.psd1" -Destination $targetFolder -Force -ErrorAction SilentlyContinue
+        Write-Host "Copied PowerShell Cmdlet to $targetFolder"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dorc-release-${{ steps.version.outputs.VERSION }}
+        path: artifacts/
+        retention-days: 90
