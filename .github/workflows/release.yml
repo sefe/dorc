@@ -133,7 +133,7 @@ jobs:
         dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
       
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /m:4 /clp:ErrorsOnly /nologo
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /clp:ErrorsOnly /nologo
       
     - name: Run tests
       shell: pwsh
