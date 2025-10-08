@@ -137,6 +137,26 @@ jobs:
         }
       continue-on-error: true
       
+    - name: Fail workflow if tests failed (main/release branches)
+      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+      shell: pwsh
+      run: |
+        $trxFiles = Get-ChildItem -Path "${{ github.workspace }}\TestResults" -Recurse -Include *.trx
+        $failed = $false
+        foreach ($file in $trxFiles) {
+          [xml]$xml = Get-Content $file.FullName
+          $failCount = ($xml.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq "Failed" }).Count
+          if ($failCount -gt 0) {
+            Write-Host "$($file.FullName): $failCount test(s) failed"
+            $failed = $true
+          }
+        }
+        if ($failed) {
+          Write-Error "Test failures detected. Failing workflow."
+          exit 1
+        } else {
+          Write-Host "No test failures detected."
+        }
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action/windows@v2
       if: always()
