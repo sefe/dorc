@@ -207,7 +207,7 @@ jobs:
         }
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || github.event_name == 'pull_request')
+      if: always()
       with:
         files: |
           TestResults/**/*.trx
