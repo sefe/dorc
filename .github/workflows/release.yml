@@ -61,7 +61,7 @@ jobs:
         
     - name: Install web dependencies
       working-directory: src/dorc-web
-      run: npm install
+      run: npm install --loglevel=error
       
     - name: Build web site
       working-directory: src/dorc-web
