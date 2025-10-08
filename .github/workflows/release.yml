@@ -233,12 +233,14 @@ jobs:
         
     - name: Set artifact retention period
       id: set_retention
+      shell: pwsh
       run: |
-        if [[ "${GITHUB_REF##*/}" == "main" || "${GITHUB_REF##*/}" == "release"* ]]; then
-          echo "RETENTION_DAYS=90" >> $GITHUB_ENV
-        else
-          echo "RETENTION_DAYS=14" >> $GITHUB_ENV
-        fi
+        $ref = "${{ github.ref }}"
+        if ($ref -eq "refs/heads/main" -or $ref -like "refs/heads/release/*") {
+          echo "RETENTION_DAYS=90" >> $env:GITHUB_ENV
+        } else {
+          echo "RETENTION_DAYS=14" >> $env:GITHUB_ENV
+        }
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
