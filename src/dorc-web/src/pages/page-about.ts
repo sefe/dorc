@@ -10,12 +10,35 @@ import {
   AnalyticsDeploymentsMonthApi
 } from '../apis/dorc-api';
 import { AnalyticsDeploymentsPerProjectApiModel } from '../apis/dorc-api';
-import type { EChartsOption, TitleComponentOption, TooltipComponentOption, SingleAxisComponentOption } from 'echarts';
-import type { PieSeriesOption, ThemeRiverSeriesOption } from 'echarts';
-import {CallbackDataParams, TopLevelFormatterParams} from "echarts/types/dist/shared";
-import {OptionDataValueDate, OptionDataValueNumeric} from "echarts/types/src/util/types";
+import type {
+  EChartsOption,
+  TitleComponentOption,
+  TooltipComponentOption,
+  SingleAxisComponentOption,
+  GridComponentOption,
+  XAXisComponentOption,
+  YAXisComponentOption
+} from 'echarts';
+import type {
+  PieSeriesOption,
+  ThemeRiverSeriesOption,
+  LineSeriesOption,
+  BarSeriesOption
+} from 'echarts';
+import {
+  CallbackDataParams,
+  TopLevelFormatterParams
+} from 'echarts/types/dist/shared';
+import {
+  OptionDataValueDate,
+  OptionDataValueNumeric
+} from 'echarts/types/src/util/types';
 
-declare type ThemerRiverDataItem = [OptionDataValueDate, OptionDataValueNumeric, string];
+declare type ThemerRiverDataItem = [
+  OptionDataValueDate,
+  OptionDataValueNumeric,
+  string
+];
 
 interface ProjectDeployments {
   project: string;
@@ -37,6 +60,14 @@ export class PageAbout extends PageElement {
   @property({ type: Object }) pieChartOptions: EChartsOption | undefined;
 
   @property({ type: Object }) riverChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) successRateTrendChartOptions:
+    | EChartsOption
+    | undefined;
+
+  @property({ type: Object }) projectSuccessRateChartOptions:
+    | EChartsOption
+    | undefined;
 
   @property({ type: Array }) pieDataTable: (string | number)[][] = [
     ['Project', 'Deployments']
@@ -62,6 +93,12 @@ export class PageAbout extends PageElement {
   @property({ type: Number }) PercentTotalFailedDeploymentsThisYear = 0;
 
   @property({ type: Number }) PercentTop3ProjectsByDeploymentsThisYear = 0;
+
+  @property({ type: Number }) SuccessRateThisMonth = 0;
+
+  @property({ type: Number }) SuccessRateLastMonth = 0;
+
+  @property({ type: Number }) TotalSuccessfulDeploymentsThisYear = 0;
 
   private loading = true;
 
@@ -133,7 +170,7 @@ export class PageAbout extends PageElement {
         height: 120px;
         animation: spin 2s linear infinite;
       }
-        
+
       div#page_div {
         overflow: auto;
         width: calc(100% - 4px);
@@ -156,61 +193,91 @@ export class PageAbout extends PageElement {
       ${this.loading
         ? html` <div class="loader"></div> `
         : html`
-          <div id="page_div">
-            <div class="page-about__main-info main-info">
-              <div class="statistics-cards">
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalDeployments}</h3>
-                  <span class="card-element__text">Total # deployments</span>
+            <div id="page_div">
+              <div class="page-about__main-info main-info">
+                <div class="statistics-cards">
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalDeployments}</h3>
+                    <span class="card-element__text">Total # deployments</span>
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total # deployments this year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.AverageDeploymentsPerDay}</h3>
+                    <span class="card-element__text"
+                      >Average Deployments Per Day</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.MaxDeploymentsThisYear}</h3>
+                    <span class="card-element__text">Busiest Week Of Year</span>
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalFailedDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total Failures This Year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalSuccessfulDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total Successful This Year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.SuccessRateThisMonth}%</h3>
+                    <span class="card-element__text"
+                      >Success Rate This Month</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.SuccessRateLastMonth}%</h3>
+                    <span class="card-element__text"
+                      >Success Rate Last Month</span
+                    >
+                  </div>
                 </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalDeploymentsThisYear}</h3>
-                  <span class="card-element__text"
-                    >Total # deployments this year</span
-                  >
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.AverageDeploymentsPerDay}</h3>
-                  <span class="card-element__text"
-                    >Average Deployments Per Day</span
-                  >
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.MaxDeploymentsThisYear}</h3>
-                  <span class="card-element__text">Busiest Week Of Year</span>
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalFailedDeploymentsThisYear}</h3>
-                  <span class="card-element__text"
-                    >Total Failures This Year</span
-                  >
+                <div class="top3-chart-block">
+                  <hegs-chart
+                    style="display: block; width: 600px; height: 400px;"
+                    .option="${this.top3PieChartOptions}"
+                  ></hegs-chart>
                 </div>
               </div>
-              <div class="top3-chart-block">
+              <div class="statistics-cards__item card-element">
                 <hegs-chart
-                  style="display: block; width: 600px; height: 400px;"
-                  .option="${this.top3PieChartOptions}"
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.successRateTrendChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 800px;"
+                  .option="${this.projectSuccessRateChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 1200px;"
+                  .option="${this.riverChartOptions}"
+                ></hegs-chart>
+                <vaadin-checkbox
+                  label="Include Deprecated"
+                  ?checked="${this.includeDeprecated}"
+                  @change="${this.updateDeprecated}"
+                ></vaadin-checkbox>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 1200px;"
+                  .option="${this.pieChartOptions}"
                 ></hegs-chart>
               </div>
             </div>
-            <div class="statistics-cards__item card-element">
-              <hegs-chart
-                style="display: block; width: 100%; height: 1200px;"
-                .option="${this.riverChartOptions}"
-              ></hegs-chart>
-              <vaadin-checkbox
-                label="Include Deprecated"
-                ?checked="${this.includeDeprecated}"
-                @change="${this.updateDeprecated}"
-              ></vaadin-checkbox>
-            </div>
-            <div class="statistics-cards__item card-element">
-              <hegs-chart
-                style="display: block; width: 100%; height: 1200px;"
-                .option="${this.pieChartOptions}"
-              ></hegs-chart>
-            </div>
-          </div>
           `}
     `;
   }
@@ -228,6 +295,9 @@ export class PageAbout extends PageElement {
         this.AnalyticsDeploymentsMonthResponse = res;
         this.constructRiverChart(!this.includeDeprecated);
         this.constructPieChart();
+        this.constructSuccessRateTrendChart();
+        this.constructProjectSuccessRateChart();
+        this.calculateMonthlySuccessRates();
       });
   }
 
@@ -254,8 +324,7 @@ export class PageAbout extends PageElement {
           arr = arr.sort((a, b) => {
             const aa = a.data as string[];
             const bb = b.data as string[];
-            if (String(aa[2] as string) > String(bb[2] as string))
-              return 1;
+            if (String(aa[2] as string) > String(bb[2] as string)) return 1;
             return -1;
           });
           for (let i = 0; i < arr.length; i += 1) {
@@ -363,6 +432,8 @@ export class PageAbout extends PageElement {
           if (todaysYear === Year) {
             this.TotalDeploymentsThisYear += CountOfDeployments;
             this.TotalFailedDeploymentsThisYear += Failed;
+            this.TotalSuccessfulDeploymentsThisYear +=
+              CountOfDeployments - Failed;
 
             if (CountOfDeployments > this.MaxDeploymentsThisYear) {
               this.MaxDeploymentsThisYear = CountOfDeployments;
@@ -408,12 +479,9 @@ export class PageAbout extends PageElement {
     );
 
     this.top3ProjectsByDeployments.forEach(e => {
-      this.pieDataTable.push([
-        e.project,
-        e.numDeployments
-      ]);
+      this.pieDataTable.push([e.project, e.numDeployments]);
     });
-    
+
     const model: [][] = JSON.parse(JSON.stringify(this.pieDataTable));
     this.pieDataTable = model;
     this.constructTop3PieChart();
@@ -509,6 +577,244 @@ export class PageAbout extends PageElement {
     };
   }
 
+  private constructSuccessRateTrendChart() {
+    const currentYear = new Date().getFullYear();
+    const thisYearData = this.AnalyticsDeploymentsMonthResponse.filter(
+      d => d.Year === currentYear
+    );
+
+    // Aggregate by month
+    const monthlyData = new Map<number, { total: number; failed: number }>();
+    thisYearData.forEach(d => {
+      const month = d.Month ?? 0;
+      const existing = monthlyData.get(month) || { total: 0, failed: 0 };
+      existing.total += d.CountOfDeployments ?? 0;
+      existing.failed += d.Failed ?? 0;
+      monthlyData.set(month, existing);
+    });
+
+    // Sort by month and calculate success rates
+    const months: string[] = [];
+    const successRates: number[] = [];
+    const sortedMonths = Array.from(monthlyData.keys()).sort((a, b) => a - b);
+
+    sortedMonths.forEach(month => {
+      const data = monthlyData.get(month)!;
+      const successRate =
+        data.total > 0
+          ? Math.round(((data.total - data.failed) / data.total) * 100)
+          : 0;
+      months.push(
+        new Date(currentYear, month - 1).toLocaleString('default', {
+          month: 'short'
+        })
+      );
+      successRates.push(successRate);
+    });
+
+    const title: TitleComponentOption = {
+      text: 'Success Rate Trend This Year',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      formatter: '{b}: {c}%'
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'category',
+      data: months,
+      boundaryGap: false
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: {
+        formatter: '{value}%'
+      }
+    };
+
+    const series: LineSeriesOption[] = [
+      {
+        type: 'line',
+        data: successRates,
+        smooth: true,
+        lineStyle: {
+          width: 3
+        },
+        areaStyle: {
+          opacity: 0.3
+        }
+      }
+    ];
+
+    this.successRateTrendChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
+  }
+
+  private constructProjectSuccessRateChart() {
+    const currentYear = new Date().getFullYear();
+    const thisYearData = this.AnalyticsDeploymentsMonthResponse.filter(
+      d => d.Year === currentYear
+    );
+
+    // Aggregate by project
+    const projectData = new Map<string, { total: number; failed: number }>();
+    thisYearData.forEach(d => {
+      const project = d.ProjectName ?? '';
+      if (!project || project.toLowerCase().includes('deprecated')) return;
+
+      const existing = projectData.get(project) || { total: 0, failed: 0 };
+      existing.total += d.CountOfDeployments ?? 0;
+      existing.failed += d.Failed ?? 0;
+      projectData.set(project, existing);
+    });
+
+    // Sort by total deployments and get top 10
+    const sortedProjects = Array.from(projectData.entries())
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 10);
+
+    const projects: string[] = [];
+    const successRates: number[] = [];
+
+    sortedProjects.forEach(([project, data]) => {
+      const successRate =
+        data.total > 0
+          ? Math.round(((data.total - data.failed) / data.total) * 100)
+          : 0;
+      projects.push(project);
+      successRates.push(successRate);
+    });
+
+    const title: TitleComponentOption = {
+      text: 'Success Rate by Project (Top 10 This Year)',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      },
+      formatter: (params: any) => {
+        const param = Array.isArray(params) ? params[0] : params;
+        return `${param.name}<br/>Success Rate: ${param.value}%`;
+      }
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'category',
+      data: projects,
+      axisLabel: {
+        interval: 0,
+        rotate: 45
+      }
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: {
+        formatter: '{value}%'
+      }
+    };
+
+    const series: BarSeriesOption[] = [
+      {
+        type: 'bar',
+        data: successRates,
+        itemStyle: {
+          color: (params: any) => {
+            const value = params.value as number;
+            if (value >= 90) return '#52c41a';
+            if (value >= 70) return '#faad14';
+            return '#ff4d4f';
+          }
+        }
+      }
+    ];
+
+    this.projectSuccessRateChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
+  }
+
+  private calculateMonthlySuccessRates() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+    // Calculate this month's success rate
+    const thisMonthData = this.AnalyticsDeploymentsMonthResponse.filter(
+      d => d.Year === currentYear && d.Month === currentMonth
+    );
+
+    let thisMonthTotal = 0;
+    let thisMonthFailed = 0;
+    thisMonthData.forEach(d => {
+      thisMonthTotal += d.CountOfDeployments ?? 0;
+      thisMonthFailed += d.Failed ?? 0;
+    });
+
+    this.SuccessRateThisMonth =
+      thisMonthTotal > 0
+        ? Math.round(
+            ((thisMonthTotal - thisMonthFailed) / thisMonthTotal) * 100
+          )
+        : 0;
+
+    // Calculate last month's success rate
+    const lastMonthData = this.AnalyticsDeploymentsMonthResponse.filter(
+      d => d.Year === lastMonthYear && d.Month === lastMonth
+    );
+
+    let lastMonthTotal = 0;
+    let lastMonthFailed = 0;
+    lastMonthData.forEach(d => {
+      lastMonthTotal += d.CountOfDeployments ?? 0;
+      lastMonthFailed += d.Failed ?? 0;
+    });
+
+    this.SuccessRateLastMonth =
+      lastMonthTotal > 0
+        ? Math.round(
+            ((lastMonthTotal - lastMonthFailed) / lastMonthTotal) * 100
+          )
+        : 0;
+  }
+
   days_between(date1: Date, date2: Date) {
     // The number of milliseconds in one day
     const ONE_DAY = 1000 * 60 * 60 * 24;
@@ -528,4 +834,3 @@ function min(arg0: number, arg1: number) {
   if (arg0 < arg1) return arg0;
   return arg1;
 }
-

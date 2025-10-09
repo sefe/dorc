@@ -202,9 +202,7 @@ export class PageDeploy extends PageElement {
       value => value.EnvironmentId === envId
     );
     this.selectedEnvironmentName = this.environment?.EnvironmentName ?? '';
-    const deployEnv = this.shadowRoot?.getElementById(
-      'deployEnv'
-    ) as DeployEnv;
+    const deployEnv = this.shadowRoot?.getElementById('deployEnv') as DeployEnv;
     deployEnv.EnvironmentChange(this.selectedEnvironmentName);
   }
 

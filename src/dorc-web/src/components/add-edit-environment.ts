@@ -57,7 +57,7 @@ export class AddEditEnvironment extends LitElement {
       :host {
         display: inline;
       }
-        
+
       div#div {
         overflow: auto;
         width: calc(100% - 4px);
@@ -398,7 +398,7 @@ export class AddEditEnvironment extends LitElement {
               error: (err: any) => {
                 console.error(err);
                 this.ErrorMessage = this.extractErrorMessage(err);
-              },
+              }
             });
         } else {
           this.setFoundOwnerLocally();
@@ -498,12 +498,27 @@ export class AddEditEnvironment extends LitElement {
           })
           .subscribe({
             next: (data: Array<UserElementApiModel>) => {
-                const user = data.length === 1 
-                ? data[0] 
-                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId) ?? 
-                  data.find(u => u.Sid === this.environment.Details?.EnvironmentOwnerId) ??
-                  data.find(u => u.Username === this.environment.Details?.EnvironmentOwner) ??
-                  data.find(u => u.DisplayName === this.environment.Details?.EnvironmentOwner);
+              const user =
+                data.length === 1
+                  ? data[0]
+                  : (data.find(
+                      u =>
+                        u.Pid === this.environment.Details?.EnvironmentOwnerId
+                    ) ??
+                    data.find(
+                      u =>
+                        u.Sid === this.environment.Details?.EnvironmentOwnerId
+                    ) ??
+                    data.find(
+                      u =>
+                        u.Username ===
+                        this.environment.Details?.EnvironmentOwner
+                    ) ??
+                    data.find(
+                      u =>
+                        u.DisplayName ===
+                        this.environment.Details?.EnvironmentOwner
+                    ));
 
               if (user)
                 this.EnvOwnerDisplayName =

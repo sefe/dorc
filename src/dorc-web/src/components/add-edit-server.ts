@@ -324,9 +324,9 @@ export class AddEditServer extends LitElement {
 
   private showError(err: any) {
     const notification = new ErrorNotification();
-    
+
     const errorMessage = retrieveErrorMessage(err, 'Failed to save server');
-    
+
     notification.setAttribute('errorMessage', errorMessage);
     this.shadowRoot?.appendChild(notification);
     notification.open();

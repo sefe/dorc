@@ -14,33 +14,47 @@ import { HubConnectionState } from '@microsoft/signalr';
  */
 @customElement('connection-status-indicator')
 export class ConnectionStatusIndicator extends LitElement {
-  @property({ type: String }) state: string | undefined = HubConnectionState.Disconnected;
+  @property({ type: String }) state: string | undefined =
+    HubConnectionState.Disconnected;
   @property({ type: Boolean }) autoRefresh: boolean = false;
   @property({ type: String }) mode: 'toggle' | 'icon' = 'icon';
   /** When mode=icon, show icon even if Connected */
   @property({ type: Boolean }) showWhenConnected: boolean = false;
 
   static styles = css`
-    :host { display: inline-flex; }
-    vaadin-button { padding:0; margin:0; }
-    vaadin-icon { width: var(--lumo-icon-size-m); height: var(--lumo-icon-size-m); }
+    :host {
+      display: inline-flex;
+    }
+    vaadin-button {
+      padding: 0;
+      margin: 0;
+    }
+    vaadin-icon {
+      width: var(--lumo-icon-size-m);
+      height: var(--lumo-icon-size-m);
+    }
   `;
 
   private get iconName() {
     if (this.mode === 'toggle') {
-      return this.autoRefresh ? 'custom:refresh-auto' : 'custom:refresh-auto-off';
+      return this.autoRefresh
+        ? 'custom:refresh-auto'
+        : 'custom:refresh-auto-off';
     }
     // passive mode: only one icon variant - reuse off icon when not connected
-    if (this.state !== HubConnectionState.Connected) return 'custom:refresh-auto-off';
+    if (this.state !== HubConnectionState.Connected)
+      return 'custom:refresh-auto-off';
     return 'custom:refresh-auto';
   }
 
   private get iconColor() {
     if (this.mode === 'toggle') {
-      if (this.state !== HubConnectionState.Connected) return 'var(--lumo-error-color)';
+      if (this.state !== HubConnectionState.Connected)
+        return 'var(--lumo-error-color)';
       return 'cornflowerblue';
     }
-    if (this.state !== HubConnectionState.Connected) return 'var(--lumo-error-color)';
+    if (this.state !== HubConnectionState.Connected)
+      return 'var(--lumo-error-color)';
     return 'cornflowerblue';
   }
 
@@ -54,7 +68,9 @@ export class ConnectionStatusIndicator extends LitElement {
   }
 
   private toggle() {
-    this.dispatchEvent(new CustomEvent('toggle-auto-refresh', { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent('toggle-auto-refresh', { bubbles: true, composed: true })
+    );
   }
 
   render() {
@@ -66,11 +82,15 @@ export class ConnectionStatusIndicator extends LitElement {
           .title="${this.titleText}"
           @click="${this.toggle}"
         >
-          <vaadin-icon icon="${this.iconName}" style="color:${this.iconColor}"></vaadin-icon>
+          <vaadin-icon
+            icon="${this.iconName}"
+            style="color:${this.iconColor}"
+          ></vaadin-icon>
         </vaadin-button>
       `;
     }
-    if (!this.showWhenConnected && this.state === HubConnectionState.Connected) return html``;
+    if (!this.showWhenConnected && this.state === HubConnectionState.Connected)
+      return html``;
     return html`
       <vaadin-icon
         icon="${this.iconName}"
@@ -82,4 +102,8 @@ export class ConnectionStatusIndicator extends LitElement {
   }
 }
 
-declare global { interface HTMLElementTagNameMap { 'connection-status-indicator': ConnectionStatusIndicator; } }
+declare global {
+  interface HTMLElementTagNameMap {
+    'connection-status-indicator': ConnectionStatusIndicator;
+  }
+}

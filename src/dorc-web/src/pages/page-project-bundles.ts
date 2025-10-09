@@ -55,8 +55,6 @@ export class PageProjectBundles extends PageElement {
         padding: 20px 20px 0 20px;
       }
 
-
-
       h2 {
         margin: 0;
         color: #333;
@@ -129,8 +127,8 @@ export class PageProjectBundles extends PageElement {
     if (!this.bundleNameFilter) {
       this.filteredBundledRequests = [...this.bundledRequests];
     } else {
-      this.filteredBundledRequests = this.bundledRequests.filter(bundle => 
-        bundle.BundleName === this.bundleNameFilter
+      this.filteredBundledRequests = this.bundledRequests.filter(
+        bundle => bundle.BundleName === this.bundleNameFilter
       );
     }
   }
@@ -145,10 +143,11 @@ export class PageProjectBundles extends PageElement {
     render(
       html`
         <vaadin-grid-sorter
-          path="BundleName" 
+          path="BundleName"
           direction="asc"
           style="align-items: normal"
-        >Bundle Name</vaadin-grid-sorter>
+          >Bundle Name</vaadin-grid-sorter
+        >
         <vaadin-combo-box
           clear-button-visible
           focus-target
@@ -260,7 +259,8 @@ export class PageProjectBundles extends PageElement {
     );
 
     // Bind the filter change handler to this component's context
-    this.handleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
+    this.handleBundleNameFilterChange =
+      this.handleBundleNameFilterChange.bind(this);
 
     // Get project name from URL
     const projectName = location.pathname.split('/')[2];
@@ -268,8 +268,6 @@ export class PageProjectBundles extends PageElement {
 
     this.loadProjectData();
   }
-
-
 
   private loadProjectData() {
     const api = new RefDataProjectEnvironmentMappingsApi();
@@ -293,12 +291,17 @@ export class PageProjectBundles extends PageElement {
   }
 
   private _openAddBundleDialog() {
-    const projects = this.projectData?.Project ? [this.projectData.Project] : [];
+    const projects = this.projectData?.Project
+      ? [this.projectData.Project]
+      : [];
     this.bundleEditorDialog.openNew(projects);
   }
 
   private _handleBundleSaved(e: CustomEvent) {
-    console.log('Bundle saved event received in page-project-bundles', e.detail);
+    console.log(
+      'Bundle saved event received in page-project-bundles',
+      e.detail
+    );
     this.fetchBundledRequests();
   }
 
@@ -308,9 +311,7 @@ export class PageProjectBundles extends PageElement {
     model: GridItemModel<BundledRequestsApiModel>
   ) {
     render(
-      html` <bundle-request-controls .value="${model.item}"
-      .disabled="${true}"
-      >
+      html` <bundle-request-controls .value="${model.item}" .disabled="${true}">
       </bundle-request-controls>`,
       root
     );
@@ -327,7 +328,8 @@ export class PageProjectBundles extends PageElement {
       const confirmDelete = confirm(
         'Are you sure you want to delete this bundle request: ' +
           bundle.BundleName +
-          '-' + bundle.RequestName +
+          '-' +
+          bundle.RequestName +
           '?'
       );
 
@@ -337,7 +339,7 @@ export class PageProjectBundles extends PageElement {
           next: () => {
             this.fetchBundledRequests();
           },
-          error: (error) => {
+          error: error => {
             console.error('Error deleting bundle request:', error);
             new ErrorNotification().open();
           }
@@ -385,7 +387,7 @@ export class PageProjectBundles extends PageElement {
   private fetchBundledRequests() {
     const api = new BundledRequestsApi();
     const projectNames = this.project ? [this.project] : [];
-    
+
     api.bundledRequestsGet({ projectNames }).subscribe({
       next: data => {
         this.bundledRequests = data.sort((a, b) => {

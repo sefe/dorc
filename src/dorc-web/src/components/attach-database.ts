@@ -33,7 +33,7 @@ export class AttachDatabase extends LitElement {
 
   @property({ type: Object })
   private databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
-  
+
   @property({ type: Boolean })
   private confirmSameTagDialogOpened: boolean = false;
 
@@ -60,18 +60,18 @@ export class AttachDatabase extends LitElement {
   render() {
     return html`
       <vaadin-confirm-dialog
-          id="sameTagExistsConfirmDialog"
-          header="Existing database tag"
-          cancel-button-visible
-          .opened="${this.confirmSameTagDialogOpened}"
-          .message="${this.confirmSameTagDialogText}"
-          confirm-text="Yes, attach"
-          cancel-text="Cancel"
-          @confirm="${this._submit}"
-          @cancel="${() => {
-            this.confirmSameTagDialogOpened = false;
-          }}"
-        ></vaadin-confirm-dialog>
+        id="sameTagExistsConfirmDialog"
+        header="Existing database tag"
+        cancel-button-visible
+        .opened="${this.confirmSameTagDialogOpened}"
+        .message="${this.confirmSameTagDialogText}"
+        confirm-text="Yes, attach"
+        cancel-text="Cancel"
+        @confirm="${this._submit}"
+        @cancel="${() => {
+          this.confirmSameTagDialogOpened = false;
+        }}"
+      ></vaadin-confirm-dialog>
       <div style="padding: 10px;">
         <div class="inline">
           <vaadin-combo-box
@@ -91,15 +91,11 @@ export class AttachDatabase extends LitElement {
         <div>
           <h3>
             Database:
-            <span style="color: blue"
-              >${this.selectedDatabase?.Name}</span
-            >
+            <span style="color: blue">${this.selectedDatabase?.Name}</span>
           </h3>
           <h3>
             Application Tag:
-            <span style="color: blue"
-              >${this.selectedDatabase?.Type}</span
-            >
+            <span style="color: blue">${this.selectedDatabase?.Type}</span>
           </h3>
           <h3>
             Instance:
@@ -113,7 +109,9 @@ export class AttachDatabase extends LitElement {
           </h3>
         </div>
 
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
+        <vaadin-button
+          .disabled="${!this.canSubmit}"
+          @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
       </div>
@@ -121,12 +119,13 @@ export class AttachDatabase extends LitElement {
   }
 
   onAttachClick() {
-    const existingTag = this.existingDatabases?.find(db => db.Type === this.selectedDatabase?.Type);
+    const existingTag = this.existingDatabases?.find(
+      db => db.Type === this.selectedDatabase?.Type
+    );
 
     if (!existingTag) {
       this._submit();
-    }
-    else {
+    } else {
       this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? The database '${existingTag?.Name}' with such tag is already attached`;
       this.confirmSameTagDialogOpened = true;
     }
@@ -218,9 +217,7 @@ export class AttachDatabase extends LitElement {
 
   private setDatabases(data: DatabaseApiModel[]) {
     this.databases = data;
-    this.databaseMap = new Map(
-      this.databases.map(obj => [obj.Id, obj])
-    );
+    this.databaseMap = new Map(this.databases.map(obj => [obj.Id, obj]));
   }
 
   private processAttachDbSuccess() {
