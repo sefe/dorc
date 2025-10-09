@@ -21,7 +21,7 @@ env:
   BUILD_CONFIGURATION: 'Release'
   SOLUTION_PATH: 'src/Dorc.sln'
   DOTNET_VERSION: '8.0.x'
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '20.x'
 
 jobs:
   build:
@@ -268,7 +268,7 @@ jobs:
       run: |
         $ref = "${{ github.ref }}"
         if ($ref -eq "refs/heads/main" -or $ref -like "refs/heads/release/*") {
-          echo "RETENTION_DAYS=90" >> $env:GITHUB_ENV
+          echo "RETENTION_DAYS=400" >> $env:GITHUB_ENV
         } else {
           echo "RETENTION_DAYS=14" >> $env:GITHUB_ENV
         }
