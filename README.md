@@ -6,12 +6,90 @@ DOrc is a DevOps deployment orchestration engine designed for managing and execu
 
 ## Architecture Overview
 
-DOrc consists of three main components:
+DOrc consists of four main components working together to orchestrate deployments:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           DOrc Architecture                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────┐
+│   Users/Teams    │
+│  (Developers,    │
+│   DevOps, Ops)   │
+└────────┬─────────┘
+         │ HTTPS/OAuth
+         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         DOrc Web UI                                      │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │  • Lit 3 Web Components                                         │    │
+│  │  • Vaadin UI Components                                         │    │
+│  │  • Real-time updates via SignalR                                │    │
+│  │  • OAuth/OIDC Authentication                                    │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ REST API + SignalR
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          DOrc API                                        │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │  • ASP.NET Core 8 REST API                                      │    │
+│  │  • Deployment orchestration & scheduling                        │    │
+│  │  • Environment & configuration management                       │    │
+│  │  • User authentication & authorization                          │    │
+│  │  • SignalR Hub for real-time events                             │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└───┬────────────────────────────┬────────────────────────────────────┬───┘
+    │                            │                                    │
+    │ SQL                        │ SignalR Events                     │ REST API
+    ▼                            ▼                                    ▼
+┌─────────────┐    ┌──────────────────────────────┐    ┌──────────────────────┐
+│  SQL Server │    │      DOrc Monitor            │    │    DOrc Runner(s)    │
+│  Database   │    │  ┌────────────────────────┐  │    │  ┌────────────────┐  │
+│             │    │  │ • Event aggregation    │  │    │  │ • PowerShell   │  │
+│  • Projects │    │  │ • Log aggregation      │  │    │  │   execution    │  │
+│  • Envs     │    │  │ • OpenSearch/ELK       │  │    │  │ • Script       │  │
+│  • Config   │    │  │   integration          │  │    │  │   processing   │  │
+│  • Deploys  │    │  │ • Real-time monitoring │  │    │  │ • Named pipe   │  │
+│  • Audit    │    │  └────────────────────────┘  │    │  │   communication│  │
+│  • Users    │    └──────────────────────────────┘    │  └────────────────┘  │
+└─────────────┘                                         └──────────┬───────────┘
+                                                                   │ Execute
+                                                                   ▼
+                                                        ┌───────────────────────┐
+                                                        │   Target Servers      │
+                                                        │  ┌──────────────────┐ │
+                                                        │  │ • Application    │ │
+                                                        │  │   deployments    │ │
+                                                        │  │ • Configuration  │ │
+                                                        │  │   updates        │ │
+                                                        │  │ • Service mgmt   │ │
+                                                        │  └──────────────────┘ │
+                                                        └───────────────────────┘
+
+  External Integrations:
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  • Azure DevOps (Build artifacts)                                   │
+  │  • Active Directory / Azure Entra (Authentication)                  │
+  │  • OpenSearch / ELK (Logging and monitoring)                        │
+  └─────────────────────────────────────────────────────────────────────┘
+```
+
+### Component Details
 
 - **DOrc API** - ASP.NET Core 8 REST API that manages deployments, environments, and configuration
 - **DOrc Web UI** - Modern web interface built with Lit 3 and Vaadin components
 - **DOrc Runner** - Agent service that executes PowerShell deployment scripts on target servers
 - **DOrc Monitor** - Service for monitoring and logging deployment activities
+
+### Data Flow
+
+1. **User Interaction**: Users interact with the Web UI to initiate deployments, manage environments, and configure projects
+2. **API Processing**: The API receives requests, validates permissions, and orchestrates deployment workflows
+3. **Job Execution**: The API communicates with Runner agents on target servers to execute PowerShell scripts
+4. **Real-time Updates**: SignalR pushes deployment status updates to the Web UI and Monitor service
+5. **Monitoring & Logging**: The Monitor service aggregates events and logs for observability
 
 ## Getting Started
 
