@@ -8,72 +8,55 @@ DOrc is a DevOps deployment orchestration engine designed for managing and execu
 
 DOrc consists of four main components working together to orchestrate deployments:
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           DOrc Architecture                              │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌──────────────────┐
-│   Users/Teams    │
-│  (Developers,    │
-│   DevOps, Ops)   │
-└────────┬─────────┘
-         │ HTTPS/OAuth
-         ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         DOrc Web UI                                      │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │  • Lit 3 Web Components                                         │    │
-│  │  • Vaadin UI Components                                         │    │
-│  │  • Real-time updates via SignalR                                │    │
-│  │  • OAuth/OIDC Authentication                                    │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │ REST API + SignalR
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          DOrc API                                        │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │  • ASP.NET Core 8 REST API                                      │    │
-│  │  • Deployment orchestration & scheduling                        │    │
-│  │  • Environment & configuration management                       │    │
-│  │  • User authentication & authorization                          │    │
-│  │  • SignalR Hub for real-time events                             │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-└───┬────────────────────────────┬────────────────────────────────────┬───┘
-    │                            │                                    │
-    │ SQL                        │ SignalR Events                     │ REST API
-    ▼                            ▼                                    ▼
-┌─────────────┐    ┌──────────────────────────────┐    ┌──────────────────────┐
-│  SQL Server │    │      DOrc Monitor            │    │    DOrc Runner(s)    │
-│  Database   │    │  ┌────────────────────────┐  │    │  ┌────────────────┐  │
-│             │    │  │ • Event aggregation    │  │    │  │ • PowerShell   │  │
-│  • Projects │    │  │ • Log aggregation      │  │    │  │   execution    │  │
-│  • Envs     │    │  │ • OpenSearch/ELK       │  │    │  │ • Script       │  │
-│  • Config   │    │  │   integration          │  │    │  │   processing   │  │
-│  • Deploys  │    │  │ • Real-time monitoring │  │    │  │ • Named pipe   │  │
-│  • Audit    │    │  └────────────────────────┘  │    │  │   communication│  │
-│  • Users    │    └──────────────────────────────┘    │  └────────────────┘  │
-└─────────────┘                                         └──────────┬───────────┘
-                                                                   │ Execute
-                                                                   ▼
-                                                        ┌───────────────────────┐
-                                                        │   Target Servers      │
-                                                        │  ┌──────────────────┐ │
-                                                        │  │ • Application    │ │
-                                                        │  │   deployments    │ │
-                                                        │  │ • Configuration  │ │
-                                                        │  │   updates        │ │
-                                                        │  │ • Service mgmt   │ │
-                                                        │  └──────────────────┘ │
-                                                        └───────────────────────┘
-
-  External Integrations:
-  ┌─────────────────────────────────────────────────────────────────────┐
-  │  • Azure DevOps (Build artifacts)                                   │
-  │  • Active Directory / Azure Entra (Authentication)                  │
-  │  • OpenSearch / ELK (Logging and monitoring)                        │
-  └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    %% Users and External Systems
+    Users[Users/Teams<br/>Developers, DevOps, Ops]
+    AzureDevOps[Azure DevOps<br/>Build Artifacts]
+    AzureEntra[Azure Entra/AD<br/>Authentication]
+    OpenSearch[OpenSearch/ELK<br/>Logging Platform]
+    
+    %% Core Components
+    WebUI[DOrc Web UI<br/>Lit 3, Vaadin Components<br/>TypeScript, Vite]
+    API[DOrc API<br/>ASP.NET Core 8<br/>REST API + SignalR Hub]
+    Database[(SQL Server Database<br/>Projects, Environments<br/>Config, Deployments<br/>Audit, Users)]
+    Monitor[DOrc Monitor<br/>Event Aggregation<br/>Log Processing]
+    Runner[DOrc Runner<br/>PowerShell Execution<br/>Script Processing]
+    TargetServers[Target Servers<br/>Application Deployments<br/>Configuration Updates]
+    
+    %% User Interactions
+    Users -->|HTTPS/OAuth| WebUI
+    
+    %% Web UI to API
+    WebUI -->|REST API Calls| API
+    WebUI -.->|SignalR Subscribe<br/>Real-time Updates| API
+    
+    %% API Connections
+    API -->|Read/Write| Database
+    API -->|Fetch Artifacts| AzureDevOps
+    API -->|Authenticate Users| AzureEntra
+    API -.->|SignalR Publish<br/>Deployment Events| Monitor
+    API -.->|SignalR Publish<br/>Status Updates| WebUI
+    API -->|REST API<br/>Job Instructions| Runner
+    
+    %% Monitor Connections
+    Monitor -.->|SignalR Subscribe<br/>Events| API
+    Monitor -->|Push Logs| OpenSearch
+    
+    %% Runner Connections
+    Runner -->|REST API<br/>Status Updates| API
+    Runner -->|Execute Scripts| TargetServers
+    
+    %% Styling
+    classDef coreComponent fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#fff
+    classDef database fill:#50C878,stroke:#2E7D4E,stroke-width:2px,color:#fff
+    classDef external fill:#FFA500,stroke:#CC8400,stroke-width:2px,color:#fff
+    classDef user fill:#9B59B6,stroke:#6C3483,stroke-width:2px,color:#fff
+    
+    class WebUI,API,Monitor,Runner coreComponent
+    class Database database
+    class AzureDevOps,AzureEntra,OpenSearch external
+    class Users,TargetServers user
 ```
 
 ### Component Details
