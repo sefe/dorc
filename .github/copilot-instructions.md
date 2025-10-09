@@ -18,7 +18,7 @@ Bootstrap the entire solution:
 - Navigate to repository root: `cd /path/to/dorc`
 - **Web UI dependencies**: `cd src/dorc-web && npm install` -- takes 30 seconds. NEVER CANCEL.
 - **Web UI build**: `npm run build` -- takes 20 seconds. NEVER CANCEL. 
-- **.NET packages restore**: `cd ../src && dotnet restore Dorc.sln` -- takes 60 seconds. NEVER CANCEL. Set timeout to 120+ seconds.
+- **.NET packages restore**: `cd ../src && nuget restore Dorc.sln` -- takes 60 seconds. NEVER CANCEL. Set timeout to 120+ seconds. Use `nuget restore` instead of `dotnet restore` due to .NET Framework dependencies.
 - **Core .NET projects build**: Individual projects build in 1-3 seconds each.
 
 ### Building Components
@@ -33,7 +33,7 @@ Bootstrap the entire solution:
 
 **.NET 8 Projects (Core functionality)**:
 - Location: `src/`
-- Restore: `dotnet restore Dorc.sln` (60 seconds)
+- Restore: `nuget restore Dorc.sln` (60 seconds) - Use `nuget restore` instead of `dotnet restore` due to .NET Framework dependencies
 - **Working .NET 8 projects** (build individually in 1-3 seconds):
   - API: `dotnet build Dorc.Api/Dorc.Api.csproj --configuration Release`
   - Monitor: `dotnet build Dorc.Monitor/Dorc.Monitor.csproj --configuration Release`
