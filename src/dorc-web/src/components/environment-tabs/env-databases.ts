@@ -1,4 +1,4 @@
-import '@polymer/paper-toggle-button';
+import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -14,8 +14,6 @@ import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetail
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
-  @property({ type: Boolean }) addDatabase = false;
-
   @property({ type: Boolean }) attachDatabase = false;
 
   @property({ type: Array })
@@ -64,35 +62,14 @@ export class EnvDatabases extends PageEnvBase {
         <div>
           <div class="inline">
             <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="addDatabase"
-                .checked="${this.addDatabase}"
-                @click="${this._addDatabase}"
-                .disabled="${this.envReadOnly}"
-                >ADD
-              </paper-toggle-button>
-            </div>
-            <div class="inline">
-              <paper-toggle-button
-                class="buttons"
+              <vaadin-button
                 id="attachDatabase"
-                .checked="${this.attachDatabase}"
                 @click="${this._attachDatabase}"
                 .disabled="${this.envReadOnly}"
-                >ATTACH
-              </paper-toggle-button>
+                >ATTACH DATABASE
+              </vaadin-button>
             </div>
           </div>
-          ${this.addDatabase
-            ? html` <div class="center-aligned">
-                <add-edit-database
-                  .envId="${this.environmentId}"
-                  attach="true"
-                  @database-attached="${this._dbAdded}"
-                ></add-edit-database>
-              </div>`
-            : html``}
           ${this.attachDatabase
             ? html` <div class="center-aligned">
                 <attach-database
@@ -122,18 +99,8 @@ export class EnvDatabases extends PageEnvBase {
     super.loadEnvironmentInfo();
   }
 
-  _addDatabase() {
-    this.addDatabase = !this.addDatabase;
-    if (this.addDatabase) {
-      this.attachDatabase = !this.addDatabase;
-    }
-  }
-
   _attachDatabase() {
     this.attachDatabase = !this.attachDatabase;
-    if (this.attachDatabase) {
-      this.addDatabase = !this.attachDatabase;
-    }
   }
 
   _dbAttached() {
@@ -146,10 +113,7 @@ export class EnvDatabases extends PageEnvBase {
     this.attachDatabase = false;
   }
 
-  _dbAdded() {
-    this.dbAttachSuccess('Database created & attached successfully');
-    this.addDatabase = false;
-  }
+
 
   private dbAttachSuccess(text: string) {
     this.refreshDatabases();
