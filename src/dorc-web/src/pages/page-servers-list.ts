@@ -605,15 +605,16 @@ export class PageServersList extends PageElement {
                 html` <button
                   class="env"
                   @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                          this.dispatchEvent(
+                                  new CustomEvent('open-environment-details', {
+                                      detail: {
+                                          envName: i
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )
+              }"
                   style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
                 >
                   ${i}

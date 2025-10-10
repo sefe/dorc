@@ -3,29 +3,23 @@
 /* tslint:disable */
 // @ts-nocheck
 import type { IStreamResult, Subject } from '@microsoft/signalr';
-import type {
-  DeploymentRequestEventData,
-  DeploymentResultEventData
-} from '../Dorc.Core.Events';
+import type { DeploymentRequestEventData, DeploymentResultEventData } from '../Dorc.Core.Events';
 
 export type IDeploymentsEventsClient = {
-  /**
-   * @param data Transpiled from Dorc.Core.Events.DeploymentRequestEventData
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  onDeploymentRequestStatusChanged(
-    data: DeploymentRequestEventData
-  ): Promise<void>;
-  /**
-   * @param data Transpiled from Dorc.Core.Events.DeploymentRequestEventData
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  onDeploymentRequestStarted(data: DeploymentRequestEventData): Promise<void>;
-  /**
-   * @param data Transpiled from Dorc.Core.Events.DeploymentResultEventData
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  onDeploymentResultStatusChanged(
-    data: DeploymentResultEventData
-  ): Promise<void>;
-};
+    /**
+    * @param data Transpiled from Dorc.Core.Events.DeploymentRequestEventData
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void>;
+    /**
+    * @param data Transpiled from Dorc.Core.Events.DeploymentRequestEventData
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    onDeploymentRequestStarted(data: DeploymentRequestEventData): Promise<void>;
+    /**
+    * @param data Transpiled from Dorc.Core.Events.DeploymentResultEventData
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void>;
+}
+

@@ -11,7 +11,7 @@ export function splitTags(tagsString: string | undefined | null): string[] {
   if (!tagsString || tagsString.length === 0) {
     return [];
   }
-
+  
   return tagsString
     .split(';')
     .filter(tag => tag.trim().length > 0)
@@ -27,6 +27,6 @@ export function joinTags(tags: string[] | undefined): string {
   if (!tags || tags.length === 0) {
     return '';
   }
-
+  
   return tags.join(';');
-}
+} 

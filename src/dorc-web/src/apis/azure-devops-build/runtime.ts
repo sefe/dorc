@@ -30,7 +30,8 @@ export interface ConfigurationParameters {
 }
 
 export class Configuration {
-  constructor(private configuration: ConfigurationParameters) {}
+  constructor(
+    private configuration: ConfigurationParameters) {}
 
   get basePath(): string {
     return this.configuration.basePath ?? BASE_PATH;
@@ -84,10 +85,10 @@ export class BaseAPI {
   };
 
   withPreMiddleware = (preMiddlewares: Array<Middleware['pre']>) =>
-    this.withMiddleware(preMiddlewares.map(pre => ({ pre })));
+    this.withMiddleware(preMiddlewares.map((pre) => ({ pre })));
 
   withPostMiddleware = (postMiddlewares: Array<Middleware['post']>) =>
-    this.withMiddleware(postMiddlewares.map(post => ({ post })));
+    this.withMiddleware(postMiddlewares.map((post) => ({ post })));
 
   protected request<T>(requestOpts: RequestOpts): Observable<T>;
   protected request<T>(
@@ -99,7 +100,7 @@ export class BaseAPI {
     responseOpts?: ResponseOpts
   ): Observable<T | AjaxResponse<T>> {
     return this.rxjsRequest<T>(this.createRequestArgs(requestOpts)).pipe(
-      map(res => {
+      map((res) => {
         const { status, response } = res;
         if (status >= 200 && status < 300) {
           return responseOpts?.response === 'raw' ? res : response;
@@ -135,18 +136,18 @@ export class BaseAPI {
 
   private rxjsRequest = <T>(params: AjaxConfig): Observable<AjaxResponse<T>> =>
     of(params).pipe(
-      map(request => {
+      map((request) => {
         this.middleware
-          .filter(item => item.pre)
-          .forEach(mw => (request = mw.pre!(request)));
+          .filter((item) => item.pre)
+          .forEach((mw) => (request = mw.pre!(request)));
         return request;
       }),
-      concatMap(args =>
+      concatMap((args) =>
         ajax<T>(args).pipe(
-          map(response => {
+          map((response) => {
             this.middleware
-              .filter(item => item.post)
-              .forEach(mw => (response = mw.post!(response)));
+              .filter((item) => item.post)
+              .forEach((mw) => (response = mw.post!(response)));
             return response;
           })
         )
@@ -219,7 +220,7 @@ const queryString = (params: HttpQuery): string =>
   Object.entries(params)
     .map(([key, value]) =>
       value instanceof Array
-        ? value.map(val => `${encodeURI(key)}=${encodeURI(val)}`).join('&')
+        ? value.map((val) => `${encodeURI(key)}=${encodeURI(val)}`).join('&')
         : `${encodeURI(key)}=${encodeURI(value)}`
     )
     .join('&');

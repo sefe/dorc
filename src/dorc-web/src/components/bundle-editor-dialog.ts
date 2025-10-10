@@ -1,11 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '@vaadin/dialog';
-import {
-  BundledRequestsApiModel,
-  BundledRequestType,
-  ProjectApiModel
-} from '../apis/dorc-api';
+import { BundledRequestsApiModel, BundledRequestType, ProjectApiModel } from '../apis/dorc-api';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import './bundle-editor-form';
@@ -18,8 +14,8 @@ export class BundleEditorDialog extends LitElement {
     }
   `;
 
-  @property({ type: Array })
-  projects: ProjectApiModel[] | null = [];
+  @property({ type: Array})
+  projects: ProjectApiModel[] | null  = [];
 
   @property({ type: Boolean })
   open = false;
@@ -54,6 +50,7 @@ export class BundleEditorDialog extends LitElement {
           );
           console.log('Bundle saved event forwarded');
         }}"
+            
       ></bundle-editor-form>
     `;
 

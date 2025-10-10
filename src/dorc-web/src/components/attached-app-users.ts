@@ -10,7 +10,9 @@ export class AttachedUsers extends LitElement {
   @property({ type: Array }) users: UserApiModel[] = [];
 
   static get styles() {
-    return css``;
+    return css`
+
+    `;
   }
 
   render() {

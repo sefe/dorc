@@ -1,9 +1,6 @@
-import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
-import AppConfig, { appConfig } from '../../app-config';
-import {
-  OAUTH_SCHEME,
-  oauthServiceContainer
-} from '../../services/Account/OAuthService';
+import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
+import AppConfig, { appConfig } from "../../app-config";
+import { OAUTH_SCHEME, oauthServiceContainer } from "../../services/Account/OAuthService";
 
 export class DeploymentHub {
   private static hubConnection: HubConnection;
@@ -22,7 +19,7 @@ export class DeploymentHub {
             // Fallback: attempt to load user asynchronously
             return new Promise<string>(resolve => {
               oauthServiceContainer.service.getUser().subscribe(u => {
-                resolve(u?.access_token ?? '');
+                resolve(u?.access_token ?? "");
               });
             });
           }
@@ -35,7 +32,7 @@ export class DeploymentHub {
         .withAutomaticReconnect()
         .build();
     }
-
+    
     return this.hubConnection;
   }
 

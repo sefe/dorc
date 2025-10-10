@@ -1,4 +1,4 @@
-import { ECharts, EChartsOption } from 'echarts';
+import {ECharts, EChartsOption} from 'echarts';
 import * as echarts from 'echarts';
 import { css, LitElement, PropertyValues } from 'lit';
 import { customElement } from 'lit/decorators.js';

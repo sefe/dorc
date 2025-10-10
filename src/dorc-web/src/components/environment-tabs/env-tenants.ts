@@ -38,10 +38,7 @@ export class EnvTenants extends PageEnvBase {
 
   constructor() {
     super();
-    this.addEventListener(
-      'request-environment-update',
-      this.forceLoadEnvironmentInfo
-    );
+    this.addEventListener('request-environment-update', this.forceLoadEnvironmentInfo);
   }
 
   _addTenant() {
@@ -50,25 +47,21 @@ export class EnvTenants extends PageEnvBase {
 
   render() {
     return html`
-      ${this.environment?.ParentEnvironment
-        ? html`
-            <h4 class="card-element__text">
-              Parent Environment:
-              ${this.environment?.ParentEnvironment?.EnvironmentName}
-              <vaadin-button
-                title="Open Environment Details for ${this.environment
-                  ?.ParentEnvironment?.EnvironmentName}"
-                theme="icon"
-                @click="${this.openEnvironmentDetails}"
-              >
-                <vaadin-icon
-                  icon="hardware:developer-board"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
-              </vaadin-button>
-            </h4>
-          `
-        : html``}
+      ${this.environment?.ParentEnvironment ? html`
+        <h4 class="card-element__text">
+          Parent Environment: ${this.environment?.ParentEnvironment?.EnvironmentName}
+          <vaadin-button
+              title="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
+              theme="icon"
+              @click="${this.openEnvironmentDetails}"
+            >
+              <vaadin-icon
+                icon="hardware:developer-board"
+                style="color: cornflowerblue"
+              ></vaadin-icon>
+            </vaadin-button>
+          </h4>
+      `: html``}
       <vaadin-details
         opened
         summary="Environment tenants"
@@ -80,19 +73,14 @@ export class EnvTenants extends PageEnvBase {
             id="addTenant"
             .checked="${this.addTenant}"
             @click="${this._addTenant}"
-            .disabled="${this.envReadOnly ||
-            !!this.environment?.ParentEnvironment}"
+            .disabled="${this.envReadOnly || !!this.environment?.ParentEnvironment}"
             >ATTACH
           </paper-toggle-button>
         </div>
-        ${this.addTenant && !this.environment?.ParentEnvironment
-          ? html`
-              <add-env-tenant
-                .parentEnvironment="${this.environment}"
-              ></add-env-tenant>
-            `
-          : html``}
-        <attached-env-tenants
+        ${this.addTenant && !this.environment?.ParentEnvironment ? html`
+          <add-env-tenant .parentEnvironment="${this.environment}"></add-env-tenant>
+        `: html``}
+        <attached-env-tenants 
           .childEnvironments="${this.environment?.ChildEnvironments}"
           .readonly="${this.envReadOnly}"
         ></attached-env-tenants>
@@ -102,7 +90,7 @@ export class EnvTenants extends PageEnvBase {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
+    
     this.loadEnvironmentInfo();
   }
 

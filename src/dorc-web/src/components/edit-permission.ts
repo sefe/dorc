@@ -120,29 +120,25 @@ export class EditPermission extends LitElement {
     this.permission.DisplayName = this.displayName.trim();
     this.permission.PermissionName = this.permissionName.trim();
 
-    api
-      .refDataPermissionPut({
-        id: this.permission.Id,
-        permissionDto: this.permission
-      })
-      .subscribe({
-        next: () => {
-          this._updatePermission(this.permission);
-        },
-        error: (err: any) => {
-          this.overlayMessage = 'Error updating permission!';
-          if (err?.response) this.errorMessage = err.response;
-          console.error(err);
-        },
-        complete: () => {
-          console.log('done updating permission');
-          Notification.show(`Permission updated successfully`, {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 3000
-          });
-        }
-      });
+    api.refDataPermissionPut({ id: this.permission.Id, permissionDto: this.permission }).subscribe({
+      next: () => {
+        this._updatePermission(this.permission);
+      },
+      error: (err: any) => {
+        this.overlayMessage = 'Error updating permission!';
+        if (err?.response)
+          this.errorMessage = err.response;
+        console.error(err);
+      },
+      complete: () => {
+        console.log('done updating permission');
+        Notification.show(`Permission updated successfully`, {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 3000
+        });
+      }
+    });
   }
 
   _updatePermission(data: PermissionDto) {

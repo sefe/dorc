@@ -7,11 +7,7 @@
 import AppConfig from '../../app-config';
 
 export class ServerConfiguration<T extends { [key: string]: string }> {
-  public constructor(
-    private url: string,
-    private variableConfiguration: T,
-    private description: string
-  ) {}
+    public constructor(private url: string, private variableConfiguration: T, private description: string) {}
 
   /**
    * Sets the value of the variables of this server.
@@ -30,26 +26,22 @@ export class ServerConfiguration<T extends { [key: string]: string }> {
     return this.description;
   }
 
-  /**
-   * Constructions the URL this server using the url with variables
-   * replaced with their respective values
-   */
-  public getUrl(): string {
-    let replacedUrl = this.url;
-    for (const key in this.variableConfiguration) {
-      if (this.variableConfiguration.hasOwnProperty(key)) {
-        const re = new RegExp('{' + key + '}', 'g');
-        replacedUrl = replacedUrl.replace(re, this.variableConfiguration[key]);
-      }
+    /**
+     * Constructions the URL this server using the url with variables
+     * replaced with their respective values
+     */
+    public getUrl(): string {
+        let replacedUrl = this.url;
+        for (const key in this.variableConfiguration) {
+            if (this.variableConfiguration.hasOwnProperty(key)) {
+                 const re = new RegExp("{" + key + "}","g");
+                 replacedUrl = replacedUrl.replace(re, this.variableConfiguration[key]);
+            }
+        }
+        return replacedUrl;
     }
-    return replacedUrl;
-  }
 }
 
-const server1 = new ServerConfiguration<NonNullable<unknown>>(
-  new AppConfig().dorcApi,
-  {},
-  ''
-);
+const server1 = new ServerConfiguration<NonNullable<unknown>>(new AppConfig().dorcApi, {}, '');
 
 export const servers = [server1];

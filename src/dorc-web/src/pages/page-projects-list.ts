@@ -17,7 +17,7 @@ import { PageElement } from '../helpers/page-element';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
-import '../components/project-audit-data';
+import '../components/project-audit-data'
 import { ProjectAuditData } from '../components/project-audit-data';
 import '../components/confirm-dialog';
 import { ConfirmDialog } from '../components/confirm-dialog';
@@ -79,8 +79,7 @@ export class PageProjectsList extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser =
-      this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -209,8 +208,7 @@ export class PageProjectsList extends PageElement {
 
       <project-audit-data
         id="open-project-audit-control"
-        .project="${this.selectedProject}"
-      >
+        .project="${this.selectedProject}">
       </project-audit-data>
 
       <confirm-dialog
@@ -218,8 +216,7 @@ export class PageProjectsList extends PageElement {
         title="Delete Project"
         message="Are you sure you want to delete this project? This action cannot be undone."
         confirmText="Delete"
-        cancelText="Cancel"
-      >
+        cancelText="Cancel">
       </confirm-dialog>
 
       ${this.loading
@@ -303,10 +300,7 @@ export class PageProjectsList extends PageElement {
     // @ts-ignore
     const altThis = _column.attachedPPLControl as PageProjectsList;
     render(
-      html` <project-controls
-        .project="${project}"
-        .deleteHidden="${!altThis.isAdmin}"
-      ></project-controls>`,
+      html` <project-controls .project="${project}" .deleteHidden="${!altThis.isAdmin}"></project-controls>`,
       root
     );
   }
@@ -331,12 +325,7 @@ export class PageProjectsList extends PageElement {
       .map(filter => new RegExp(filter, 'i'));
 
     this.filteredProjects = this.projects.filter(
-      ({
-        ProjectName,
-        ProjectDescription,
-        ArtefactsBuildRegex,
-        ArtefactsSubPaths
-      }) =>
+      ({ ProjectName, ProjectDescription, ArtefactsBuildRegex, ArtefactsSubPaths }) =>
         filters.some(
           filter =>
             filter.test(ProjectName || '') ||
@@ -421,8 +410,7 @@ export class PageProjectsList extends PageElement {
       },
       error: (error: any) => {
         console.error('Error deleting project:', error);
-        const errorMessage =
-          error.response?.text || error.message || 'Failed to delete project';
+        const errorMessage = error.response?.text || error.message || 'Failed to delete project';
         Notification.show(`Error deleting project: ${errorMessage}`, {
           theme: 'error',
           position: 'bottom-start',
