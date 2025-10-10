@@ -87,8 +87,6 @@ export class AddConfigValue extends LitElement {
           <vaadin-checkbox
             id="secure"
             label="Is Secure"
-            required
-            error-message="This field is required"
             @change="${(e: Event) => {
               this.isSecure = (e.target as HTMLInputElement).checked;
             }}"
@@ -97,7 +95,6 @@ export class AddConfigValue extends LitElement {
           <vaadin-checkbox
             id="for-prod"
             label="Is For Prod"
-            required
             @change="${(e: Event) => {
               this.isForProd = (e.target as HTMLInputElement).checked;
             }}"
