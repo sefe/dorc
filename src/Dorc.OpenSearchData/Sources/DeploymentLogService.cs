@@ -74,30 +74,35 @@ namespace Dorc.OpenSearchData.Sources
             }
 
             var scrollId = searchResponse.ScrollId;
-            while (!string.IsNullOrEmpty(scrollId))
+            try
             {
-                var scrollResponse = _openSearchClient.Scroll<DeployOpenSearchLogModel>(scrollTimeout, scrollId);
+                while (!string.IsNullOrEmpty(scrollId))
+                {
+                    var scrollResponse = _openSearchClient.Scroll<DeployOpenSearchLogModel>(scrollTimeout, scrollId);
 
-                if (!scrollResponse.IsValid)
-                {
-                    _logger.Error($"OpenSearch scroll query exception: {scrollResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {scrollResponse.DebugInformation}");
-                    break;
-                }
+                    if (!scrollResponse.IsValid)
+                    {
+                        _logger.Error($"OpenSearch scroll query exception: {scrollResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {scrollResponse.DebugInformation}");
+                        break;
+                    }
 
-                if (scrollResponse.Documents != null && scrollResponse.Documents.Any())
-                {
-                    logs.AddRange(scrollResponse.Documents);
-                    scrollId = scrollResponse.ScrollId;
-                }
-                else
-                {
-                    break;
+                    if (scrollResponse.Documents != null && scrollResponse.Documents.Any())
+                    {
+                        logs.AddRange(scrollResponse.Documents);
+                        scrollId = scrollResponse.ScrollId;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
-
-            if (!string.IsNullOrEmpty(scrollId))
+            finally
             {
-                _openSearchClient.ClearScroll(c => c.ScrollId(scrollId));
+                if (!string.IsNullOrEmpty(scrollId))
+                {
+                    _openSearchClient.ClearScroll(c => c.ScrollId(scrollId));
+                }
             }
 
             return logs;
