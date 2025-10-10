@@ -10,6 +10,7 @@ import {
   DaemonApiModel,
   RefDataConfigApi
 } from '../apis/dorc-api';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('add-config-value')
 export class AddConfigValue extends LitElement {
@@ -21,7 +22,9 @@ export class AddConfigValue extends LitElement {
 
   @state() private valueValid = false;
 
-  @property() private isSecure = this.getEmptyConfigValue().Secure;
+  @property({type: Boolean}) private isSecure = false;
+
+  @property({type: Boolean }) private isForProd: boolean = false;
 
   @property({ type: Boolean }) private valid = false;
 
@@ -91,7 +94,15 @@ export class AddConfigValue extends LitElement {
             }}"
             tabindex="3"
           ></vaadin-checkbox>
-
+          <vaadin-checkbox
+            id="for-prod"
+            label="Is For Prod"
+            required
+            @change="${(e: Event) => {
+              this.isForProd = (e.target as HTMLInputElement).checked;
+            }}"
+            tabindex="3"
+          ></vaadin-checkbox>
           </vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
@@ -128,6 +139,7 @@ export class AddConfigValue extends LitElement {
     const api = new RefDataConfigApi();
 
     this.configValue.Secure = this.isSecure;
+    this.configValue.IsForProd = this.isForProd;
     this.configValue.Key = this.key;
     this.configValue.Value = this.value;
 
@@ -136,7 +148,8 @@ export class AddConfigValue extends LitElement {
         this._addConfigValue(data);
       },
       error: (err: any) => {
-        this.overlayMessage = 'Error creating configValue!';
+        const errMessage = retrieveErrorMessage(err);
+        this.overlayMessage = errMessage;
         console.error(err);
       },
       complete: () => {
@@ -184,7 +197,8 @@ export class AddConfigValue extends LitElement {
     return {
       Key: '',
       Value: '',
-      Secure: false
+      Secure: false,
+      IsForProd: undefined
     };
   }
 }
