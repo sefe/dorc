@@ -68,7 +68,10 @@ namespace Dorc.OpenSearchData.Sources
                 return logs;
             }
 
-            logs.AddRange(searchResponse.Documents);
+            if (searchResponse.Documents != null && searchResponse.Documents.Any())
+            {
+                logs.AddRange(searchResponse.Documents);
+            }
 
             var scrollId = searchResponse.ScrollId;
             while (!string.IsNullOrEmpty(scrollId))
