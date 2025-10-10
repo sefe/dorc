@@ -30,6 +30,7 @@ namespace Dorc.TerraformmRunner
             int requestId,
             string scriptPath,
             string resultFilePath,
+            string planContentFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -47,7 +48,7 @@ namespace Dorc.TerraformmRunner
             try
             {
                 // Create terraform plan (placeholder implementation)
-                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, requestId, cancellationToken);
+                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
                 await File.WriteAllTextAsync(resultFilePath, planContent, cancellationToken);
 
@@ -118,6 +119,7 @@ namespace Dorc.TerraformmRunner
             IDictionary<string, VariableValue> properties,
             string terraformWorkingDir,
             string resultFilePath,
+            string planContentFilePath,
             int requestId,
             CancellationToken cancellationToken)
         {
@@ -139,6 +141,10 @@ namespace Dorc.TerraformmRunner
                 // Get human-readable plan output
                 var showArgs = $"show {resultFilePath} -no-color";
                 var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
+                if (!String.IsNullOrEmpty(planContent))
+                {
+                    File.WriteAllText(planContentFilePath, planContent);
+                }
                 
                 logger.FileLogger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
