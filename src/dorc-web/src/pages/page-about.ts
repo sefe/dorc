@@ -34,7 +34,6 @@ import type {
 import type {
   PieSeriesOption,
   ThemeRiverSeriesOption,
-  LineSeriesOption,
   BarSeriesOption
 } from 'echarts';
 import {
