@@ -7,9 +7,21 @@ import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { PageElement } from '../helpers/page-element';
 import {
   AnalyticsDeploymentsDateApi,
-  AnalyticsDeploymentsMonthApi
+  AnalyticsDeploymentsMonthApi,
+  AnalyticsEnvironmentUsageApi,
+  AnalyticsUserActivityApi,
+  AnalyticsTimePatternApi,
+  AnalyticsComponentUsageApi,
+  AnalyticsDurationApi
 } from '../apis/dorc-api';
-import { AnalyticsDeploymentsPerProjectApiModel } from '../apis/dorc-api';
+import {
+  AnalyticsDeploymentsPerProjectApiModel,
+  AnalyticsEnvironmentUsageApiModel,
+  AnalyticsUserActivityApiModel,
+  AnalyticsTimePatternApiModel,
+  AnalyticsComponentUsageApiModel,
+  AnalyticsDurationApiModel
+} from '../apis/dorc-api';
 import type {
   EChartsOption,
   TitleComponentOption,
@@ -61,13 +73,13 @@ export class PageAbout extends PageElement {
 
   @property({ type: Object }) riverChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) successRateTrendChartOptions:
-    | EChartsOption
-    | undefined;
+  @property({ type: Object }) environmentUsageChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) projectSuccessRateChartOptions:
-    | EChartsOption
-    | undefined;
+  @property({ type: Object }) userActivityChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) timePatternChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) componentUsageChartOptions: EChartsOption | undefined;
 
   @property({ type: Array }) pieDataTable: (string | number)[][] = [
     ['Project', 'Deployments']
@@ -94,11 +106,7 @@ export class PageAbout extends PageElement {
 
   @property({ type: Number }) PercentTop3ProjectsByDeploymentsThisYear = 0;
 
-  @property({ type: Number }) SuccessRateThisMonth = 0;
-
-  @property({ type: Number }) SuccessRateLastMonth = 0;
-
-  @property({ type: Number }) TotalSuccessfulDeploymentsThisYear = 0;
+  @property({ type: Object }) durationStats: AnalyticsDurationApiModel | undefined;
 
   private loading = true;
 
@@ -109,6 +117,7 @@ export class PageAbout extends PageElement {
 
     this.loadMonthData();
     this.loadDayData();
+    this.loadNewAnalytics();
   }
 
   static get styles() {
@@ -223,21 +232,21 @@ export class PageAbout extends PageElement {
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.TotalSuccessfulDeploymentsThisYear}</h3>
+                    <h3>${this.durationStats?.AverageDurationMinutes?.toFixed(1) ?? 0} min</h3>
                     <span class="card-element__text"
-                      >Total Successful This Year</span
+                      >Average Deployment Duration</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.SuccessRateThisMonth}%</h3>
+                    <h3>${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0} min</h3>
                     <span class="card-element__text"
-                      >Success Rate This Month</span
+                      >Longest Deployment</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.SuccessRateLastMonth}%</h3>
+                    <h3>${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0} min</h3>
                     <span class="card-element__text"
-                      >Success Rate Last Month</span
+                      >Shortest Deployment</span
                     >
                   </div>
                 </div>
@@ -251,13 +260,25 @@ export class PageAbout extends PageElement {
               <div class="statistics-cards__item card-element">
                 <hegs-chart
                   style="display: block; width: 100%; height: 600px;"
-                  .option="${this.successRateTrendChartOptions}"
+                  .option="${this.environmentUsageChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.userActivityChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.timePatternChartOptions}"
                 ></hegs-chart>
               </div>
               <div class="statistics-cards__item card-element">
                 <hegs-chart
                   style="display: block; width: 100%; height: 800px;"
-                  .option="${this.projectSuccessRateChartOptions}"
+                  .option="${this.componentUsageChartOptions}"
                 ></hegs-chart>
               </div>
               <div class="statistics-cards__item card-element">
@@ -295,10 +316,39 @@ export class PageAbout extends PageElement {
         this.AnalyticsDeploymentsMonthResponse = res;
         this.constructRiverChart(!this.includeDeprecated);
         this.constructPieChart();
-        this.constructSuccessRateTrendChart();
-        this.constructProjectSuccessRateChart();
-        this.calculateMonthlySuccessRates();
       });
+  }
+
+  loadNewAnalytics() {
+    // Load Environment Usage
+    const envApi = new AnalyticsEnvironmentUsageApi();
+    envApi.analyticsEnvironmentUsageGet().subscribe((res: AnalyticsEnvironmentUsageApiModel[]) => {
+      this.constructEnvironmentUsageChart(res);
+    });
+
+    // Load User Activity
+    const userApi = new AnalyticsUserActivityApi();
+    userApi.analyticsUserActivityGet().subscribe((res: AnalyticsUserActivityApiModel[]) => {
+      this.constructUserActivityChart(res);
+    });
+
+    // Load Time Patterns
+    const timeApi = new AnalyticsTimePatternApi();
+    timeApi.analyticsTimePatternGet().subscribe((res: AnalyticsTimePatternApiModel[]) => {
+      this.constructTimePatternChart(res);
+    });
+
+    // Load Component Usage
+    const compApi = new AnalyticsComponentUsageApi();
+    compApi.analyticsComponentUsageGet().subscribe((res: AnalyticsComponentUsageApiModel[]) => {
+      this.constructComponentUsageChart(res);
+    });
+
+    // Load Duration Stats
+    const durApi = new AnalyticsDurationApi();
+    durApi.analyticsDurationGet().subscribe((res: AnalyticsDurationApiModel) => {
+      this.durationStats = res;
+    });
   }
 
   private constructRiverChart(excludeDeprecated: boolean) {
@@ -432,8 +482,6 @@ export class PageAbout extends PageElement {
           if (todaysYear === Year) {
             this.TotalDeploymentsThisYear += CountOfDeployments;
             this.TotalFailedDeploymentsThisYear += Failed;
-            this.TotalSuccessfulDeploymentsThisYear +=
-              CountOfDeployments - Failed;
 
             if (CountOfDeployments > this.MaxDeploymentsThisYear) {
               this.MaxDeploymentsThisYear = CountOfDeployments;
@@ -577,49 +625,18 @@ export class PageAbout extends PageElement {
     };
   }
 
-  private constructSuccessRateTrendChart() {
-    const currentYear = new Date().getFullYear();
-    const thisYearData = this.AnalyticsDeploymentsMonthResponse.filter(
-      d => d.Year === currentYear
-    );
-
-    // Aggregate by month
-    const monthlyData = new Map<number, { total: number; failed: number }>();
-    thisYearData.forEach(d => {
-      const month = d.Month ?? 0;
-      const existing = monthlyData.get(month) || { total: 0, failed: 0 };
-      existing.total += d.CountOfDeployments ?? 0;
-      existing.failed += d.Failed ?? 0;
-      monthlyData.set(month, existing);
-    });
-
-    // Sort by month and calculate success rates
-    const months: string[] = [];
-    const successRates: number[] = [];
-    const sortedMonths = Array.from(monthlyData.keys()).sort((a, b) => a - b);
-
-    sortedMonths.forEach(month => {
-      const data = monthlyData.get(month)!;
-      const successRate =
-        data.total > 0
-          ? Math.round(((data.total - data.failed) / data.total) * 100)
-          : 0;
-      months.push(
-        new Date(currentYear, month - 1).toLocaleString('default', {
-          month: 'short'
-        })
-      );
-      successRates.push(successRate);
-    });
+  private constructEnvironmentUsageChart(data: AnalyticsEnvironmentUsageApiModel[]) {
+    const environments = data.slice(0, 10).map(d => d.EnvironmentName ?? '');
+    const counts = data.slice(0, 10).map(d => d.CountOfDeployments ?? 0);
 
     const title: TitleComponentOption = {
-      text: 'Success Rate Trend This Year',
+      text: 'Top 10 Environments by Deployment Count',
       left: 'center'
     };
 
     const tooltip: TooltipComponentOption = {
       trigger: 'axis',
-      formatter: '{b}: {c}%'
+      axisPointer: { type: 'shadow' }
     };
 
     const grid: GridComponentOption = {
@@ -631,104 +648,7 @@ export class PageAbout extends PageElement {
 
     const xAxis: XAXisComponentOption = {
       type: 'category',
-      data: months,
-      boundaryGap: false
-    };
-
-    const yAxis: YAXisComponentOption = {
-      type: 'value',
-      min: 0,
-      max: 100,
-      axisLabel: {
-        formatter: '{value}%'
-      }
-    };
-
-    const series: LineSeriesOption[] = [
-      {
-        type: 'line',
-        data: successRates,
-        smooth: true,
-        lineStyle: {
-          width: 3
-        },
-        areaStyle: {
-          opacity: 0.3
-        }
-      }
-    ];
-
-    this.successRateTrendChartOptions = {
-      title,
-      tooltip,
-      grid,
-      xAxis,
-      yAxis,
-      series
-    };
-  }
-
-  private constructProjectSuccessRateChart() {
-    const currentYear = new Date().getFullYear();
-    const thisYearData = this.AnalyticsDeploymentsMonthResponse.filter(
-      d => d.Year === currentYear
-    );
-
-    // Aggregate by project
-    const projectData = new Map<string, { total: number; failed: number }>();
-    thisYearData.forEach(d => {
-      const project = d.ProjectName ?? '';
-      if (!project || project.toLowerCase().includes('deprecated')) return;
-
-      const existing = projectData.get(project) || { total: 0, failed: 0 };
-      existing.total += d.CountOfDeployments ?? 0;
-      existing.failed += d.Failed ?? 0;
-      projectData.set(project, existing);
-    });
-
-    // Sort by total deployments and get top 10
-    const sortedProjects = Array.from(projectData.entries())
-      .sort((a, b) => b[1].total - a[1].total)
-      .slice(0, 10);
-
-    const projects: string[] = [];
-    const successRates: number[] = [];
-
-    sortedProjects.forEach(([project, data]) => {
-      const successRate =
-        data.total > 0
-          ? Math.round(((data.total - data.failed) / data.total) * 100)
-          : 0;
-      projects.push(project);
-      successRates.push(successRate);
-    });
-
-    const title: TitleComponentOption = {
-      text: 'Success Rate by Project (Top 10 This Year)',
-      left: 'center'
-    };
-
-    const tooltip: TooltipComponentOption = {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow'
-      },
-      formatter: (params: any) => {
-        const param = Array.isArray(params) ? params[0] : params;
-        return `${param.name}<br/>Success Rate: ${param.value}%`;
-      }
-    };
-
-    const grid: GridComponentOption = {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    };
-
-    const xAxis: XAXisComponentOption = {
-      type: 'category',
-      data: projects,
+      data: environments,
       axisLabel: {
         interval: 0,
         rotate: 45
@@ -736,30 +656,20 @@ export class PageAbout extends PageElement {
     };
 
     const yAxis: YAXisComponentOption = {
-      type: 'value',
-      min: 0,
-      max: 100,
-      axisLabel: {
-        formatter: '{value}%'
-      }
+      type: 'value'
     };
 
     const series: BarSeriesOption[] = [
       {
         type: 'bar',
-        data: successRates,
+        data: counts,
         itemStyle: {
-          color: (params: any) => {
-            const value = params.value as number;
-            if (value >= 90) return '#52c41a';
-            if (value >= 70) return '#faad14';
-            return '#ff4d4f';
-          }
+          color: '#1890ff'
         }
       }
     ];
 
-    this.projectSuccessRateChartOptions = {
+    this.environmentUsageChartOptions = {
       title,
       tooltip,
       grid,
@@ -769,50 +679,187 @@ export class PageAbout extends PageElement {
     };
   }
 
-  private calculateMonthlySuccessRates() {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+  private constructUserActivityChart(data: AnalyticsUserActivityApiModel[]) {
+    const users = data.slice(0, 10).map(d => d.UserName ?? '');
+    const counts = data.slice(0, 10).map(d => d.CountOfDeployments ?? 0);
 
-    // Calculate this month's success rate
-    const thisMonthData = this.AnalyticsDeploymentsMonthResponse.filter(
-      d => d.Year === currentYear && d.Month === currentMonth
-    );
+    const title: TitleComponentOption = {
+      text: 'Top 10 Users by Deployment Count',
+      left: 'center'
+    };
 
-    let thisMonthTotal = 0;
-    let thisMonthFailed = 0;
-    thisMonthData.forEach(d => {
-      thisMonthTotal += d.CountOfDeployments ?? 0;
-      thisMonthFailed += d.Failed ?? 0;
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'category',
+      data: users
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'value'
+    };
+
+    const series: BarSeriesOption[] = [
+      {
+        type: 'bar',
+        data: counts,
+        itemStyle: {
+          color: '#52c41a'
+        }
+      }
+    ];
+
+    this.userActivityChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
+  }
+
+  private constructTimePatternChart(data: AnalyticsTimePatternApiModel[]) {
+    // Group by day of week and hour for heatmap
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+    
+    const heatmapData: [number, number, number][] = [];
+    data.forEach(d => {
+      if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined) {
+        heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
+      }
     });
 
-    this.SuccessRateThisMonth =
-      thisMonthTotal > 0
-        ? Math.round(
-            ((thisMonthTotal - thisMonthFailed) / thisMonthTotal) * 100
-          )
-        : 0;
+    const title: TitleComponentOption = {
+      text: 'Deployment Time Patterns (Hour vs Day of Week)',
+      left: 'center'
+    };
 
-    // Calculate last month's success rate
-    const lastMonthData = this.AnalyticsDeploymentsMonthResponse.filter(
-      d => d.Year === lastMonthYear && d.Month === lastMonth
-    );
+    const tooltip: TooltipComponentOption = {
+      position: 'top',
+      formatter: (params: any) => {
+        const hour = params.data[0];
+        const day = params.data[1];
+        const count = params.data[2];
+        return `${dayNames[day]}, ${hour}:00<br/>Deployments: ${count}`;
+      }
+    };
 
-    let lastMonthTotal = 0;
-    let lastMonthFailed = 0;
-    lastMonthData.forEach(d => {
-      lastMonthTotal += d.CountOfDeployments ?? 0;
-      lastMonthFailed += d.Failed ?? 0;
-    });
+    const grid: GridComponentOption = {
+      left: '10%',
+      right: '10%',
+      bottom: '10%',
+      containLabel: true
+    };
 
-    this.SuccessRateLastMonth =
-      lastMonthTotal > 0
-        ? Math.round(
-            ((lastMonthTotal - lastMonthFailed) / lastMonthTotal) * 100
-          )
-        : 0;
+    const xAxis: XAXisComponentOption = {
+      type: 'category',
+      data: hours,
+      name: 'Hour of Day',
+      nameLocation: 'middle',
+      nameGap: 30
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'category',
+      data: dayNames,
+      name: 'Day of Week'
+    };
+
+    this.timePatternChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      visualMap: {
+        min: 0,
+        max: Math.max(...heatmapData.map(d => d[2]), 1),
+        calculable: true,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: '0%'
+      },
+      series: [
+        {
+          type: 'heatmap',
+          data: heatmapData,
+          label: {
+            show: false
+          },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }
+      ]
+    };
+  }
+
+  private constructComponentUsageChart(data: AnalyticsComponentUsageApiModel[]) {
+    const components = data.slice(0, 15).map(d => d.ComponentName ?? '');
+    const counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
+
+    const title: TitleComponentOption = {
+      text: 'Top 15 Components by Deployment Count',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'category',
+      data: components,
+      axisLabel: {
+        interval: 0
+      }
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'value'
+    };
+
+    const series: BarSeriesOption[] = [
+      {
+        type: 'bar',
+        data: counts,
+        itemStyle: {
+          color: '#faad14'
+        }
+      }
+    ];
+
+    this.componentUsageChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
   }
 
   days_between(date1: Date, date2: Date) {
