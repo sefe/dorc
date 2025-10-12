@@ -268,22 +268,18 @@ export class PageAbout extends PageElement {
                   .option="${this.userActivityChartOptions}"
                 ></hegs-chart>
               </div>
-              ${this.timePatternChartOptions ? html`
-                <div class="statistics-cards__item card-element">
-                  <hegs-chart
-                    style="display: block; width: 100%; height: 600px;"
-                    .option="${this.timePatternChartOptions}"
-                  ></hegs-chart>
-                </div>
-              ` : ''}
-              ${this.componentUsageChartOptions ? html`
-                <div class="statistics-cards__item card-element">
-                  <hegs-chart
-                    style="display: block; width: 100%; height: 800px;"
-                    .option="${this.componentUsageChartOptions}"
-                  ></hegs-chart>
-                </div>
-              ` : ''}
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.timePatternChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 800px;"
+                  .option="${this.componentUsageChartOptions}"
+                ></hegs-chart>
+              </div>
               <div class="statistics-cards__item card-element">
                 <hegs-chart
                   style="display: block; width: 100%; height: 1200px;"
@@ -325,32 +321,59 @@ export class PageAbout extends PageElement {
   loadNewAnalytics() {
     // Load Environment Usage
     const envApi = new AnalyticsEnvironmentUsageApi();
-    envApi.analyticsEnvironmentUsageGet().subscribe((res: AnalyticsEnvironmentUsageApiModel[]) => {
-      this.constructEnvironmentUsageChart(res);
+    envApi.analyticsEnvironmentUsageGet().subscribe({
+      next: (res: AnalyticsEnvironmentUsageApiModel[]) => {
+        this.constructEnvironmentUsageChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load environment usage data:', err);
+      }
     });
 
     // Load User Activity
     const userApi = new AnalyticsUserActivityApi();
-    userApi.analyticsUserActivityGet().subscribe((res: AnalyticsUserActivityApiModel[]) => {
-      this.constructUserActivityChart(res);
+    userApi.analyticsUserActivityGet().subscribe({
+      next: (res: AnalyticsUserActivityApiModel[]) => {
+        this.constructUserActivityChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load user activity data:', err);
+      }
     });
 
     // Load Time Patterns
     const timeApi = new AnalyticsTimePatternApi();
-    timeApi.analyticsTimePatternGet().subscribe((res: AnalyticsTimePatternApiModel[]) => {
-      this.constructTimePatternChart(res);
+    timeApi.analyticsTimePatternGet().subscribe({
+      next: (res: AnalyticsTimePatternApiModel[]) => {
+        console.log('Time pattern data received:', res);
+        this.constructTimePatternChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load time pattern data:', err);
+      }
     });
 
     // Load Component Usage
     const compApi = new AnalyticsComponentUsageApi();
-    compApi.analyticsComponentUsageGet().subscribe((res: AnalyticsComponentUsageApiModel[]) => {
-      this.constructComponentUsageChart(res);
+    compApi.analyticsComponentUsageGet().subscribe({
+      next: (res: AnalyticsComponentUsageApiModel[]) => {
+        console.log('Component usage data received:', res);
+        this.constructComponentUsageChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load component usage data:', err);
+      }
     });
 
     // Load Duration Stats
     const durApi = new AnalyticsDurationApi();
-    durApi.analyticsDurationGet().subscribe((res: AnalyticsDurationApiModel) => {
-      this.durationStats = res;
+    durApi.analyticsDurationGet().subscribe({
+      next: (res: AnalyticsDurationApiModel) => {
+        this.durationStats = res;
+      },
+      error: (err) => {
+        console.error('Failed to load duration stats:', err);
+      }
     });
   }
 
@@ -733,25 +756,26 @@ export class PageAbout extends PageElement {
   }
 
   private constructTimePatternChart(data: AnalyticsTimePatternApiModel[]) {
-    if (!data || data.length === 0) {
-      console.warn('No time pattern data available');
-      return;
-    }
-
+    console.log('constructTimePatternChart called with data:', data);
+    
     // Group by day of week and hour for heatmap
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
     
     const heatmapData: [number, number, number][] = [];
-    data.forEach(d => {
-      if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined && d.HourOfDay !== null && d.DayOfWeek !== null) {
-        heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
-      }
-    });
-
+    
+    if (data && data.length > 0) {
+      data.forEach(d => {
+        if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined && d.HourOfDay !== null && d.DayOfWeek !== null) {
+          heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
+        }
+      });
+    }
+    
+    // If no data, create at least one data point so chart renders
     if (heatmapData.length === 0) {
-      console.warn('No valid heatmap data after filtering');
-      return;
+      console.warn('No valid heatmap data, creating empty chart');
+      heatmapData.push([0, 0, 0]);
     }
 
     const title: TitleComponentOption = {
@@ -825,17 +849,21 @@ export class PageAbout extends PageElement {
   }
 
   private constructComponentUsageChart(data: AnalyticsComponentUsageApiModel[]) {
-    if (!data || data.length === 0) {
-      console.warn('No component usage data available');
-      return;
+    console.log('constructComponentUsageChart called with data:', data);
+    
+    let components: string[] = [];
+    let counts: number[] = [];
+    
+    if (data && data.length > 0) {
+      components = data.slice(0, 15).map(d => d.ComponentName ?? '').filter(c => c !== '');
+      counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
     }
-
-    const components = data.slice(0, 15).map(d => d.ComponentName ?? '').filter(c => c !== '');
-    const counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
-
+    
+    // If no data, create placeholder
     if (components.length === 0) {
-      console.warn('No valid component data after filtering');
-      return;
+      console.warn('No valid component data, creating empty chart');
+      components = ['No Data'];
+      counts = [0];
     }
 
     const title: TitleComponentOption = {
