@@ -268,18 +268,22 @@ export class PageAbout extends PageElement {
                   .option="${this.userActivityChartOptions}"
                 ></hegs-chart>
               </div>
-              <div class="statistics-cards__item card-element">
-                <hegs-chart
-                  style="display: block; width: 100%; height: 600px;"
-                  .option="${this.timePatternChartOptions}"
-                ></hegs-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <hegs-chart
-                  style="display: block; width: 100%; height: 800px;"
-                  .option="${this.componentUsageChartOptions}"
-                ></hegs-chart>
-              </div>
+              ${this.timePatternChartOptions ? html`
+                <div class="statistics-cards__item card-element">
+                  <hegs-chart
+                    style="display: block; width: 100%; height: 600px;"
+                    .option="${this.timePatternChartOptions}"
+                  ></hegs-chart>
+                </div>
+              ` : ''}
+              ${this.componentUsageChartOptions ? html`
+                <div class="statistics-cards__item card-element">
+                  <hegs-chart
+                    style="display: block; width: 100%; height: 800px;"
+                    .option="${this.componentUsageChartOptions}"
+                  ></hegs-chart>
+                </div>
+              ` : ''}
               <div class="statistics-cards__item card-element">
                 <hegs-chart
                   style="display: block; width: 100%; height: 1200px;"
@@ -729,16 +733,26 @@ export class PageAbout extends PageElement {
   }
 
   private constructTimePatternChart(data: AnalyticsTimePatternApiModel[]) {
+    if (!data || data.length === 0) {
+      console.warn('No time pattern data available');
+      return;
+    }
+
     // Group by day of week and hour for heatmap
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
     
     const heatmapData: [number, number, number][] = [];
     data.forEach(d => {
-      if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined) {
+      if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined && d.HourOfDay !== null && d.DayOfWeek !== null) {
         heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
       }
     });
+
+    if (heatmapData.length === 0) {
+      console.warn('No valid heatmap data after filtering');
+      return;
+    }
 
     const title: TitleComponentOption = {
       text: 'Deployment Time Patterns (Hour vs Day of Week)',
@@ -776,6 +790,8 @@ export class PageAbout extends PageElement {
       name: 'Day of Week'
     };
 
+    const maxValue = Math.max(...heatmapData.map(d => d[2]), 1);
+
     this.timePatternChartOptions = {
       title,
       tooltip,
@@ -784,7 +800,7 @@ export class PageAbout extends PageElement {
       yAxis,
       visualMap: {
         min: 0,
-        max: Math.max(...heatmapData.map(d => d[2]), 1),
+        max: maxValue,
         calculable: true,
         orient: 'horizontal',
         left: 'center',
@@ -809,8 +825,18 @@ export class PageAbout extends PageElement {
   }
 
   private constructComponentUsageChart(data: AnalyticsComponentUsageApiModel[]) {
-    const components = data.slice(0, 15).map(d => d.ComponentName ?? '');
+    if (!data || data.length === 0) {
+      console.warn('No component usage data available');
+      return;
+    }
+
+    const components = data.slice(0, 15).map(d => d.ComponentName ?? '').filter(c => c !== '');
     const counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
+
+    if (components.length === 0) {
+      console.warn('No valid component data after filtering');
+      return;
+    }
 
     const title: TitleComponentOption = {
       text: 'Top 15 Components by Deployment Count',
