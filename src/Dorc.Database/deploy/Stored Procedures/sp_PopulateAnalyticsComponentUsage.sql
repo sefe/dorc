@@ -27,5 +27,5 @@ BEGIN
     ) AS ComponentData
     WHERE [Component] IS NOT NULL AND [Component] != ''
     GROUP BY LTRIM(RTRIM([Component]))
-    ORDER BY [DeploymentCount] DESC;
+    ORDER BY COUNT(*) DESC;
 END

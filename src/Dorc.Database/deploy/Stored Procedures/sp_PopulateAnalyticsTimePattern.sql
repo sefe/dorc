@@ -23,6 +23,5 @@ BEGIN
         FROM [archive].[DeploymentRequest]
         WHERE [RequestedTime] IS NOT NULL
     ) AS CombinedData
-    GROUP BY DATEPART(HOUR, [RequestedTime]), DATEPART(WEEKDAY, [RequestedTime])
-    ORDER BY [HourOfDay], [DayOfWeek];
+    GROUP BY DATEPART(HOUR, [RequestedTime]), DATEPART(WEEKDAY, [RequestedTime]);
 END

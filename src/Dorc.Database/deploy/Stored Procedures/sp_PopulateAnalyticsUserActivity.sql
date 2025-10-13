@@ -24,6 +24,5 @@ BEGIN
         FROM [archive].[DeploymentRequest]
         WHERE [Owner] IS NOT NULL
     ) AS CombinedData
-    GROUP BY [Owner]
-    ORDER BY [TotalDeployments] DESC;
+    GROUP BY [Owner];
 END

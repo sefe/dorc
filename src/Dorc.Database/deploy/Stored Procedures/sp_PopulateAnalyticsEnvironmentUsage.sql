@@ -24,6 +24,5 @@ BEGIN
         FROM [archive].[DeploymentRequest]
         WHERE [EnvironmentName] IS NOT NULL
     ) AS CombinedData
-    GROUP BY [EnvironmentName]
-    ORDER BY [TotalDeployments] DESC;
+    GROUP BY [EnvironmentName];
 END
