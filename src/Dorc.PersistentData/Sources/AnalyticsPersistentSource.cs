@@ -1,6 +1,8 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -11,6 +13,38 @@ namespace Dorc.PersistentData.Sources
         public AnalyticsPersistentSource(IDeploymentContextFactory contextFactory)
         {
             _contextFactory = contextFactory;
+        }
+
+        private List<T> ExecuteRawSql<T>(IDeploymentContext context, string sql, Func<SqlDataReader, T> mapper)
+        {
+            var results = new List<T>();
+            var connection = context.Database.GetDbConnection();
+            var connectionWasOpen = connection.State == System.Data.ConnectionState.Open;
+            
+            try
+            {
+                if (!connectionWasOpen)
+                    connection.Open();
+                
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = sql;
+                    using (var reader = (SqlDataReader)command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(mapper(reader));
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (!connectionWasOpen)
+                    connection.Close();
+            }
+
+            return results;
         }
 
         public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectMonth()
@@ -62,19 +96,26 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var deployments = context.DeploymentRequests
-                    .Where(dr => !string.IsNullOrEmpty(dr.Environment))
-                    .GroupBy(dr => dr.Environment)
-                    .Select(g => new AnalyticsEnvironmentUsageApiModel
-                    {
-                        EnvironmentName = g.Key,
-                        CountOfDeployments = g.Count(),
-                        Failed = g.Count(dr => dr.Status == "Failed" || dr.Status == "Failure")
-                    })
-                    .OrderByDescending(e => e.CountOfDeployments)
-                    .ToList();
+                // Use raw SQL to efficiently query both main and archive tables
+                var sql = @"
+                    SELECT 
+                        Environment AS EnvironmentName,
+                        COUNT(*) AS CountOfDeployments,
+                        SUM(CASE WHEN Status IN ('Failed', 'Failure') THEN 1 ELSE 0 END) AS Failed
+                    FROM (
+                        SELECT Environment, Status FROM dbo.DeploymentRequest WHERE Environment IS NOT NULL AND Environment != ''
+                        UNION ALL
+                        SELECT Environment, Status FROM archive.DeploymentRequest WHERE Environment IS NOT NULL AND Environment != ''
+                    ) AS AllDeployments
+                    GROUP BY Environment
+                    ORDER BY CountOfDeployments DESC";
 
-                return deployments;
+                return ExecuteRawSql(context, sql, reader => new AnalyticsEnvironmentUsageApiModel
+                {
+                    EnvironmentName = reader.GetString(0),
+                    CountOfDeployments = reader.GetInt32(1),
+                    Failed = reader.GetInt32(2)
+                });
             }
         }
 
@@ -82,19 +123,26 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var users = context.DeploymentRequests
-                    .Where(dr => !string.IsNullOrEmpty(dr.UserName))
-                    .GroupBy(dr => dr.UserName)
-                    .Select(g => new AnalyticsUserActivityApiModel
-                    {
-                        UserName = g.Key,
-                        CountOfDeployments = g.Count(),
-                        Failed = g.Count(dr => dr.Status == "Failed" || dr.Status == "Failure")
-                    })
-                    .OrderByDescending(u => u.CountOfDeployments)
-                    .ToList();
+                // Use raw SQL to efficiently query both main and archive tables
+                var sql = @"
+                    SELECT 
+                        UserName,
+                        COUNT(*) AS CountOfDeployments,
+                        SUM(CASE WHEN Status IN ('Failed', 'Failure') THEN 1 ELSE 0 END) AS Failed
+                    FROM (
+                        SELECT UserName, Status FROM dbo.DeploymentRequest WHERE UserName IS NOT NULL AND UserName != ''
+                        UNION ALL
+                        SELECT UserName, Status FROM archive.DeploymentRequest WHERE UserName IS NOT NULL AND UserName != ''
+                    ) AS AllDeployments
+                    GROUP BY UserName
+                    ORDER BY CountOfDeployments DESC";
 
-                return users;
+                return ExecuteRawSql(context, sql, reader => new AnalyticsUserActivityApiModel
+                {
+                    UserName = reader.GetString(0),
+                    CountOfDeployments = reader.GetInt32(1),
+                    Failed = reader.GetInt32(2)
+                });
             }
         }
 
@@ -102,24 +150,28 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var patterns = context.DeploymentRequests
-                    .Where(dr => dr.RequestedTime != null)
-                    .AsEnumerable()
-                    .GroupBy(dr => new { 
-                        HourOfDay = dr.RequestedTime.Value.Hour,
-                        DayOfWeek = (int)dr.RequestedTime.Value.DayOfWeek
-                    })
-                    .Select(g => new AnalyticsTimePatternApiModel
-                    {
-                        HourOfDay = g.Key.HourOfDay,
-                        DayOfWeek = g.Key.DayOfWeek,
-                        DayOfWeekName = ((DayOfWeek)g.Key.DayOfWeek).ToString(),
-                        CountOfDeployments = g.Count()
-                    })
-                    .OrderByDescending(p => p.CountOfDeployments)
-                    .ToList();
+                // Use raw SQL with aggregation for performance
+                var sql = @"
+                    SELECT 
+                        DATEPART(HOUR, RequestedTime) AS HourOfDay,
+                        DATEPART(WEEKDAY, RequestedTime) - 1 AS DayOfWeek,
+                        DATENAME(WEEKDAY, RequestedTime) AS DayOfWeekName,
+                        COUNT(*) AS CountOfDeployments
+                    FROM (
+                        SELECT RequestedTime FROM dbo.DeploymentRequest WHERE RequestedTime IS NOT NULL
+                        UNION ALL
+                        SELECT RequestedTime FROM archive.DeploymentRequest WHERE RequestedTime IS NOT NULL
+                    ) AS AllDeployments
+                    GROUP BY DATEPART(HOUR, RequestedTime), DATEPART(WEEKDAY, RequestedTime), DATENAME(WEEKDAY, RequestedTime)
+                    ORDER BY CountOfDeployments DESC";
 
-                return patterns;
+                return ExecuteRawSql(context, sql, reader => new AnalyticsTimePatternApiModel
+                {
+                    HourOfDay = reader.GetInt32(0),
+                    DayOfWeek = reader.GetInt32(1),
+                    DayOfWeekName = reader.GetString(2),
+                    CountOfDeployments = reader.GetInt32(3)
+                });
             }
         }
 
@@ -127,23 +179,26 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var components = context.DeploymentRequests
-                    .Where(dr => !string.IsNullOrEmpty(dr.Components))
-                    .AsEnumerable()
-                    .SelectMany(dr => dr.Components.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(c => c.Trim()))
-                    .Where(c => !string.IsNullOrEmpty(c))
-                    .GroupBy(c => c)
-                    .Select(g => new AnalyticsComponentUsageApiModel
-                    {
-                        ComponentName = g.Key,
-                        CountOfDeployments = g.Count()
-                    })
-                    .OrderByDescending(c => c.CountOfDeployments)
-                    .Take(50)
-                    .ToList();
+                // Use raw SQL with STRING_SPLIT for performance (SQL Server 2016+)
+                var sql = @"
+                    SELECT TOP 50
+                        LTRIM(RTRIM(value)) AS ComponentName,
+                        COUNT(*) AS CountOfDeployments
+                    FROM (
+                        SELECT Components FROM dbo.DeploymentRequest WHERE Components IS NOT NULL AND Components != ''
+                        UNION ALL
+                        SELECT Components FROM archive.DeploymentRequest WHERE Components IS NOT NULL AND Components != ''
+                    ) AS AllDeployments
+                    CROSS APPLY STRING_SPLIT(Components, ',')
+                    WHERE LTRIM(RTRIM(value)) != ''
+                    GROUP BY LTRIM(RTRIM(value))
+                    ORDER BY CountOfDeployments DESC";
 
-                return components;
+                return ExecuteRawSql(context, sql, reader => new AnalyticsComponentUsageApiModel
+                {
+                    ComponentName = reader.GetString(0),
+                    CountOfDeployments = reader.GetInt32(1)
+                });
             }
         }
 
@@ -151,30 +206,38 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var completedDeployments = context.DeploymentRequests
-                    .Where(dr => dr.StartedTime != null && dr.CompletedTime != null)
-                    .AsEnumerable()
-                    .Select(dr => (dr.CompletedTime.Value - dr.StartedTime.Value).TotalMinutes)
-                    .Where(duration => duration > 0 && duration < 1440) // Filter outliers (0-24 hours)
-                    .ToList();
+                // Use raw SQL for efficient aggregation
+                var sql = @"
+                    SELECT 
+                        ISNULL(ROUND(AVG(CAST(DurationMinutes AS FLOAT)), 2), 0) AS AverageDurationMinutes,
+                        ISNULL(ROUND(MAX(CAST(DurationMinutes AS FLOAT)), 2), 0) AS MaxDurationMinutes,
+                        ISNULL(ROUND(MIN(CAST(DurationMinutes AS FLOAT)), 2), 0) AS MinDurationMinutes,
+                        COUNT(*) AS TotalDeployments
+                    FROM (
+                        SELECT DATEDIFF(MINUTE, StartedTime, CompletedTime) AS DurationMinutes
+                        FROM dbo.DeploymentRequest 
+                        WHERE StartedTime IS NOT NULL AND CompletedTime IS NOT NULL
+                        UNION ALL
+                        SELECT DATEDIFF(MINUTE, StartedTime, CompletedTime) AS DurationMinutes
+                        FROM archive.DeploymentRequest 
+                        WHERE StartedTime IS NOT NULL AND CompletedTime IS NOT NULL
+                    ) AS AllDurations
+                    WHERE DurationMinutes > 0 AND DurationMinutes < 1440";
 
-                if (!completedDeployments.Any())
+                var result = ExecuteRawSql(context, sql, reader => new AnalyticsDurationApiModel
                 {
-                    return new AnalyticsDurationApiModel
-                    {
-                        AverageDurationMinutes = 0,
-                        MaxDurationMinutes = 0,
-                        MinDurationMinutes = 0,
-                        TotalDeployments = 0
-                    };
-                }
+                    AverageDurationMinutes = reader.GetDouble(0),
+                    MaxDurationMinutes = reader.GetDouble(1),
+                    MinDurationMinutes = reader.GetDouble(2),
+                    TotalDeployments = reader.GetInt32(3)
+                }).FirstOrDefault();
 
-                return new AnalyticsDurationApiModel
+                return result ?? new AnalyticsDurationApiModel
                 {
-                    AverageDurationMinutes = Math.Round(completedDeployments.Average(), 2),
-                    MaxDurationMinutes = Math.Round(completedDeployments.Max(), 2),
-                    MinDurationMinutes = Math.Round(completedDeployments.Min(), 2),
-                    TotalDeployments = completedDeployments.Count
+                    AverageDurationMinutes = 0,
+                    MaxDurationMinutes = 0,
+                    MinDurationMinutes = 0,
+                    TotalDeployments = 0
                 };
             }
         }
