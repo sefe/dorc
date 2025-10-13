@@ -9,20 +9,20 @@ BEGIN
     -- Populate with fresh data from both main and archive tables
     INSERT INTO [deploy].[AnalyticsEnvironmentUsage] ([EnvironmentName], [TotalDeployments], [SuccessCount], [FailCount])
     SELECT 
-        ISNULL([EnvironmentName], 'Unknown') AS [EnvironmentName],
+        ISNULL([Environment], 'Unknown') AS [EnvironmentName],
         COUNT(*) AS [TotalDeployments],
         SUM(CASE WHEN [Status] = 'Completed' OR [Status] = 'Success' THEN 1 ELSE 0 END) AS [SuccessCount],
         SUM(CASE WHEN [Status] = 'Failed' OR [Status] = 'Error' THEN 1 ELSE 0 END) AS [FailCount]
     FROM (
-        SELECT [EnvironmentName], [Status]
+        SELECT [Environment], [Status]
         FROM [deploy].[DeploymentRequest]
-        WHERE [EnvironmentName] IS NOT NULL
+        WHERE [Environment] IS NOT NULL
         
         UNION ALL
         
-        SELECT [EnvironmentName], [Status]
+        SELECT [Environment], [Status]
         FROM [archive].[DeploymentRequest]
-        WHERE [EnvironmentName] IS NOT NULL
+        WHERE [Environment] IS NOT NULL
     ) AS CombinedData
-    GROUP BY [EnvironmentName];
+    GROUP BY [Environment];
 END
