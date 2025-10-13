@@ -366,6 +366,7 @@
     <Build Include="Schema Objects\Database Level Objects\Security\Schemas\archive.schema.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValueFilter_PropertyValueId.index.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValue_PropertyId.index.sql" />
+    <None Include="Scripts\Post-Deployment\Props-to-Configuration.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Pre-Deployment\Script.PreDeployment.sql" />

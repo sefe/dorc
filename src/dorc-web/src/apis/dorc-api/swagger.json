@@ -7098,15 +7098,15 @@
             "type": "string",
             "nullable": true
           },
-          "OldVersion": {
+          "FromValue": {
             "type": "string",
             "nullable": true
           },
-          "NewVersion": {
+          "ToValue": {
             "type": "string",
             "nullable": true
           },
-          "TfsId": {
+          "Details": {
             "type": "string",
             "nullable": true
           },
