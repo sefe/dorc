@@ -13,6 +13,7 @@ import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi
 } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
 
 @customElement('attach-database')
 export class AttachDatabase extends LitElement {
@@ -116,6 +117,9 @@ export class AttachDatabase extends LitElement {
         <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
+        <vaadin-button .disabled="${!this.canSubmit}" @click="${this._reset}"
+          >Clear</vaadin-button
+        >
       </div>
     `;
   }
@@ -124,7 +128,7 @@ export class AttachDatabase extends LitElement {
     const existingTag = this.existingDatabases?.find(db => db.Type === this.selectedDatabase?.Type);
 
     if (!existingTag) {
-    this._submit();
+      this._submit();
     }
     else {
       this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? The database '${existingTag?.Name}' with such tag is already attached`;
@@ -214,6 +218,8 @@ export class AttachDatabase extends LitElement {
       this.selectedDatabase.ServerName = '';
       this.selectedDatabase.AdGroup = '';
     }
+
+    this.canSubmit = false;
   }
 
   private setDatabases(data: DatabaseApiModel[]) {
@@ -235,6 +241,13 @@ export class AttachDatabase extends LitElement {
   }
 
   private processDbAttachFailure(result: any) {
+    let errorMessage = 'Unable to attach database' + (result?.Message ? `: ${result.Message}` : '');
+    Notification.show(errorMessage, {
+      theme: 'error',
+      position: 'bottom-start',
+      duration: 3000
+    });
+    
     const event = new CustomEvent('error-alert', {
       detail: {
         description: 'Unable to attach database',

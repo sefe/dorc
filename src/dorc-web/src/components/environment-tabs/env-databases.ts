@@ -3,13 +3,16 @@ import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../add-edit-database.ts';
 import '../attach-database';
 import '../attached-databases';
 import { Notification } from '@vaadin/notification';
 import { PageEnvBase } from './page-env-base';
+import '@vaadin/dialog';
+import { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 
 @customElement('env-databases')
@@ -21,6 +24,9 @@ export class EnvDatabases extends PageEnvBase {
 
   @property({ type: Boolean }) private envReadOnly = false;
 
+  @state()
+  private attachDatabaseDialogOpened = false;
+  
   static get styles() {
     return css`
       :host {
@@ -62,12 +68,26 @@ export class EnvDatabases extends PageEnvBase {
         <div>
           <div class="inline">
             <div class="inline">
-              <vaadin-button
-                id="attachDatabase"
-                @click="${this._attachDatabase}"
-                .disabled="${this.envReadOnly}"
-                >ATTACH DATABASE
-              </vaadin-button>
+              ${!this.envReadOnly
+                ? html`
+                  <vaadin-button
+                    title="Attach Database"
+                    theme="small"
+                    @click="${this.openAttachDatabaseDialog}"
+                  >Attach Database</vaadin-button>
+                `
+                : html``}
+              <vaadin-dialog
+                id='attach-database-dialog'
+                header-title='Attach Database'
+                .opened='${this.attachDatabaseDialogOpened}'
+                draggable
+                @opened-changed='${(event: DialogOpenedChangedEvent) => {
+                  this.attachDatabaseDialogOpened = event.detail.value;
+                }}'
+                ${dialogRenderer(this.renderAttachDatabaseDialog, [])}
+                ${dialogFooterRenderer(this.renderAttachDatabaseFooter, [])}
+              ></vaadin-dialog>
             </div>
           </div>
           ${this.attachDatabase
@@ -148,7 +168,8 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   override notifyEnvironmentContentReady() {
-    this.envReadOnly = !this.environment?.UserEditable;
+    // this.envReadOnly = !this.environment?.UserEditable;
+    this.envReadOnly = false;
     this.refreshDatabases();
   }
 
@@ -160,4 +181,28 @@ export class EnvDatabases extends PageEnvBase {
     }
     return -1;
   }
+    private renderAttachDatabaseDialog = () => html`
+    <attach-database
+      id="attach-database"
+      .envId="${this.environmentId}"
+      .existingDatabases="${this.databases}"
+      @database-attached="${this._dbAttached}"
+    ></attach-database>
+  `;
+
+  private renderAttachDatabaseFooter = () => html`
+    <vaadin-button @click="${this.closeAttachDatabaseDialog}"
+      >Close</vaadin-button
+    >
+  `;
+
+  private openAttachDatabaseDialog() {
+    this.attachDatabaseDialogOpened = true;
+  }
+
+  private closeAttachDatabaseDialog() {
+    this.attachDatabaseDialogOpened = false;
+  }
+
 }
+
