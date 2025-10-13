@@ -87,7 +87,12 @@ namespace Dorc.Monitor
                         // For Terraform components, if successful, the status should be WaitingConfirmation
                         if (isSuccessful)
                         {
-                            deploymentResultStatus = DeploymentResultStatus.WaitingConfirmation;
+                            deploymentResultStatus = terreformOperation switch
+                            {
+                                TerrafromRunnerOperations.CreatePlan => DeploymentResultStatus.WaitingConfirmation,
+                                TerrafromRunnerOperations.ApplyPlan => DeploymentResultStatus.Complete,
+                                TerrafromRunnerOperations.None => throw new NotImplementedException()
+                            };
                             _logger.Info($"Terraform component '{component.ComponentName}' plan created, waiting for confirmation.");
                         }
                         else
