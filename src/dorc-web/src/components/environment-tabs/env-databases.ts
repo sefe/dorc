@@ -168,8 +168,7 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   override notifyEnvironmentContentReady() {
-    // this.envReadOnly = !this.environment?.UserEditable;
-    this.envReadOnly = false;
+    this.envReadOnly = !this.environment?.UserEditable;
     this.refreshDatabases();
   }
 
