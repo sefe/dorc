@@ -10,3 +10,4 @@ Example:      :setvar TableName MyTable
 --------------------------------------------------------------------------------------
 */
 :r .\Environment_AccessControl_Populate.sql
+:r .\CleanupOrphanedScripts.sql
