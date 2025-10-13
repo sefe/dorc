@@ -31,6 +31,7 @@ import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
 import { TextField } from '@vaadin/text-field';
+import { ComboBox } from '@vaadin/combo-box';
 
 const variableName = 'Name';
 const variablePath = 'Path';
@@ -234,6 +235,12 @@ export class PageScriptsList extends PageElement {
               .renderer="${this._jsonRenderer}"
               .headerRenderer="${this.pathHeaderRenderer}"
             ></vaadin-grid-column>
+            <vaadin-grid-column
+              path="PowerShellVersionNumber"
+              header="PS Version"
+              resizable
+              .renderer="${this.psVersionRenderer.bind(this)}"
+            ></vaadin-grid-column>
           </vaadin-grid>`}
     `;
   }
@@ -286,6 +293,31 @@ export class PageScriptsList extends PageElement {
     this.searching = false;
   }
 
+  private psVersionRenderer(root: HTMLElement, _: any, rowData: any) {
+    const script = rowData.item as ScriptApiModel;
+    const select = new ComboBox();
+    select.items = ['v5.1', 'v7'];
+    select.value = script.PowerShellVersionNumber ?? "";
+
+    select.disabled = !this.isAdmin && !this.isPowerUser;
+
+    select.addEventListener('value-changed', (event: any) => {
+      if (script.PowerShellVersionNumber != event.detail.value && !!event.detail.value){
+        script.PowerShellVersionNumber = event.detail.value;
+        const api = new RefDataScriptsApi();
+        api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
+          next: (data: boolean) =>
+            console.log(
+              `script with id ${script.Id} PowerShellVersionNumber set to ${
+                event.detail.value
+              } result ${data}`
+            )
+        });
+      }
+    });
+    render(select, root);
+  }
+  
   nonProdRenderer(
     root: HTMLElement,
     _column: GridColumn,
