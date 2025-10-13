@@ -108,12 +108,6 @@ namespace Dorc.TerraformmRunner
                             await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, CancellationToken.None);
                             break;
                     }
-
-                    //IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
-                    //    runnerLogger,
-                    //    scriptGroupReader);
-
-                    //scriptGroupProcessor.Process(arguments.Value.PipeName, requestId);
                 }
                 catch (Exception ex)
                 {

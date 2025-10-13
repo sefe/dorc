@@ -305,8 +305,7 @@ namespace Dorc.TerraformmRunner
             catch (Exception ex)
             {
                 logger.FileLogger.Error($"Failed to execute Terraform plan for deployment result ID {deployResultId}: {ex.Message}", ex);
-                
-                return false;
+                throw;
             }
         }
 
