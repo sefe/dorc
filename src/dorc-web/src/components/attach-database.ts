@@ -241,7 +241,7 @@ export class AttachDatabase extends LitElement {
   }
 
   private processDbAttachFailure(result: any) {
-    let errorMessage = 'Unable to attach database' + (result?.Message ? `: ${result.Message}` : '');
+    const errorMessage = 'Unable to attach database' + (result?.Message ? `: ${result.Message}` : '');
     Notification.show(errorMessage, {
       theme: 'error',
       position: 'bottom-start',
