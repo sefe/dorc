@@ -17,7 +17,8 @@ INSERT INTO @Properties(Name) VALUES
     ('DeploymentServiceAccount'),
     ('DeploymentServiceAccountPassword'),
     ('EnvMgtDBServer'),
-    ('EnvMgtDBName');
+    ('EnvMgtDBName'),
+	('ApplyPermissionsExePath');
 
 DECLARE property_cursor CURSOR LOCAL FAST_FORWARD FOR SELECT Name FROM @Properties;
 OPEN property_cursor;
@@ -31,8 +32,8 @@ BEGIN
            @ProdValue = NULL;
 
     -- Existing config rows
-    DECLARE @HasNonProd INT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND IsForProd <> 1) THEN 1 ELSE 0 END;
-    DECLARE @HasProd    INT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND IsForProd = 1) THEN 1 ELSE 0 END;
+    DECLARE @HasNonProd BIT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND IsForProd = NULL OR IsForProd = 0) THEN 1 ELSE 0 END;
+    DECLARE @HasProd    BIT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND IsForProd = 1) THEN 1 ELSE 0 END;
 
     -- Secure flag from Property definition
     SELECT TOP 1 @Secure = p.Secure FROM deploy.[Property] p WHERE p.[Name] = @PropertyName;
@@ -112,7 +113,7 @@ BEGIN
         WHERE pvf.Id IS NULL;
     END
 
-    -- Delete matching non-secure prod env duplicates of Prod value
+    -- Delete matching prod env duplicates of Prod value
     IF @ProdValue IS NOT NULL
     BEGIN
         DELETE pv
