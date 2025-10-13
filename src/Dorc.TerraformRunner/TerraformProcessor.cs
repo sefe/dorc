@@ -50,8 +50,6 @@ namespace Dorc.TerraformmRunner
                 // Create terraform plan (placeholder implementation)
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
-                await File.WriteAllTextAsync(resultFilePath, planContent, cancellationToken);
-
                 logger.FileLogger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
                 return true;
             }
