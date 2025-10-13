@@ -59,7 +59,7 @@ BEGIN
     -- Choose base Global(no filter) or NonProd value as the most frequent overall value
     SELECT TOP 1 @NonProdValue = tpv.Value
     FROM #tempAllPropValues tpv
-    WHERE tpv.IsProd = NULL OR tpv.IsProd = 0
+    WHERE tpv.IsProd IS NULL OR tpv.IsProd = 0
     ORDER BY tpv.cnt DESC;
 
     -- Choose Prod value as the most frequent overall value
