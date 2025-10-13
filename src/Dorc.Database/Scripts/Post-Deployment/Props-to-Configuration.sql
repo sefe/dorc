@@ -32,7 +32,7 @@ BEGIN
            @ProdValue = NULL;
 
     -- Existing config rows
-    DECLARE @HasNonProd BIT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND (IsForProd = NULL OR IsForProd = 0)) THEN 1 ELSE 0 END;
+    DECLARE @HasNonProd BIT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND (IsForProd IS NULL OR IsForProd = 0)) THEN 1 ELSE 0 END;
     DECLARE @HasProd    BIT = CASE WHEN EXISTS (SELECT 1 FROM deploy.ConfigValue WHERE [Key]=@PropertyName AND IsForProd = 1) THEN 1 ELSE 0 END;
 
     -- Secure flag from Property definition
