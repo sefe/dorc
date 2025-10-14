@@ -1025,6 +1025,36 @@
         }
       }
     },
+    "/PowerShellVersions": {
+      "get": {
+        "tags": [
+          "PowerShellVersions"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PowerShellVersionDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PowerShellVersionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/Properties": {
       "get": {
         "tags": [
@@ -2994,6 +3024,59 @@
         }
       }
     },
+    "/RefDataDatabaseUsers/GetDbUsersPermissions": {
+      "get": {
+        "tags": [
+          "RefDataDatabaseUsers"
+        ],
+        "parameters": [
+          {
+            "name": "serverName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "databaseName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dbType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDbPermissionApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDbPermissionApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataEnvironments": {
       "get": {
         "tags": [
@@ -3296,6 +3379,52 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EnvironmentContentApiModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/GetEnvironmentsForDatabase": {
+      "get": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "serverName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "databaseName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
                 }
               }
             }
@@ -4372,6 +4501,29 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/RefDataProjects/{projectId}": {
+      "delete": {
+        "tags": [
+          "RefDataProjects"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -6180,46 +6332,6 @@
         }
       }
     },
-    "/ResetAppPassword": {
-      "put": {
-        "tags": [
-          "ResetAppPassword"
-        ],
-        "parameters": [
-          {
-            "name": "envFilter",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/ResetAppPassword/ForUser": {
       "put": {
         "tags": [
@@ -7098,15 +7210,15 @@
             "type": "string",
             "nullable": true
           },
-          "OldVersion": {
+          "FromValue": {
             "type": "string",
             "nullable": true
           },
-          "NewVersion": {
+          "ToValue": {
             "type": "string",
             "nullable": true
           },
-          "TfsId": {
+          "Details": {
             "type": "string",
             "nullable": true
           },
@@ -7461,6 +7573,20 @@
             "format": "int32"
           },
           "PermissionName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DisplayName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PowerShellVersionDto": {
+        "type": "object",
+        "properties": {
+          "Value": {
             "type": "string",
             "nullable": true
           },
@@ -8040,12 +8166,55 @@
         },
         "additionalProperties": false
       },
+      "UserDbPermissionApiModel": {
+        "type": "object",
+        "properties": {
+          "UserId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "UserLoginId": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserLoginType": {
+            "type": "string",
+            "nullable": true
+          },
+          "PermissionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PermissionName": {
+            "type": "string",
+            "nullable": true
+          },
+          "PermissionDisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DbType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UserElementApiModel": {
         "type": "object",
         "properties": {
           "DisplayName": {
             "type": "string",
             "nullable": true
+          },
+          "Sid": {
+            "type": "string",
+            "nullable": true,
+            "deprecated": true
           },
           "Pid": {
             "type": "string",

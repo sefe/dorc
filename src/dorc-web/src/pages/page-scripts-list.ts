@@ -23,6 +23,8 @@ import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
 import {
   PagedDataSorting,
+  PowerShellVersionDto,
+  PowerShellVersionsApi,
   RefDataScriptsApi,
   ScriptApiModel
 } from '../apis/dorc-api';
@@ -55,6 +57,8 @@ export class PageScriptsList extends PageElement {
   @property({ type: Boolean }) searching = false;
 
   @property({ type: Boolean }) private rolesLoading = true;
+
+  @property({ type: Array }) private powerShellVersions: string[] = [];
 
   @query('#grid') grid: Grid | undefined;
 
@@ -266,6 +270,7 @@ export class PageScriptsList extends PageElement {
 
   constructor() {
     super();
+    this.loadPowerShellVersions();
     this.getUserRoles();
     this.rolesLoading = false;
   }
@@ -296,7 +301,7 @@ export class PageScriptsList extends PageElement {
   private psVersionRenderer(root: HTMLElement, _: any, rowData: any) {
     const script = rowData.item as ScriptApiModel;
     const select = new ComboBox();
-    select.items = ['v5.1', 'v7'];
+    select.items = this.powerShellVersions;
     select.value = script.PowerShellVersionNumber ?? "";
 
     select.disabled = !this.isAdmin && !this.isPowerUser;
@@ -511,4 +516,21 @@ export class PageScriptsList extends PageElement {
   private scriptsLoaded() {
     this.loading = false;
   }
+
+
+  private loadPowerShellVersions() {
+    const api = new PowerShellVersionsApi();
+    api.powerShellVersionsGet().subscribe({
+      next: (versions: PowerShellVersionDto[]) => {
+        this.powerShellVersions = versions.map(v => v.Value || '').filter(v => v !== '');
+      },
+      error: (error) => {
+        console.error('Failed to load PowerShell versions:', error);
+        // Fallback to hardcoded values
+        this.powerShellVersions = ['v5.1', 'v7'];
+      }
+    });
+  }
 }
+
+
