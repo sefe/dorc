@@ -67,3 +67,8 @@ export * from './UserApiModel';
 export * from './UserElementApiModel';
 export * from './UserPermDto';
 export * from './UserSearchResult';
+export * from './AnalyticsEnvironmentUsageApiModel';
+export * from './AnalyticsUserActivityApiModel';
+export * from './AnalyticsTimePatternApiModel';
+export * from './AnalyticsComponentUsageApiModel';
+export * from './AnalyticsDurationApiModel';
