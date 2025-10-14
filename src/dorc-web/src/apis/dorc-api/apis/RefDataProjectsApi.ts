@@ -27,16 +27,16 @@ export interface RefDataProjectsPostRequest {
     projectApiModel?: ProjectApiModel;
 }
 
+export interface RefDataProjectsProjectIdDeleteRequest {
+    projectId: number;
+}
+
 export interface RefDataProjectsProjectNameGetRequest {
     projectName: string;
 }
 
 export interface RefDataProjectsPutRequest {
     projectApiModel?: ProjectApiModel;
-}
-
-export interface RefDataProjectsDeleteRequest {
-    projectId: number;
 }
 
 /**
@@ -88,6 +88,19 @@ export class RefDataProjectsApi extends BaseAPI {
 
     /**
      */
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest): Observable<void>
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+        throwIfNullOrUndefined(projectId, 'projectId', 'refDataProjectsProjectIdDelete');
+
+        return this.request<void>({
+            url: '/RefDataProjects/{projectId}'.replace('{projectId}', encodeURI(projectId)),
+            method: 'DELETE',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataProjectsProjectNameGet({ projectName }: RefDataProjectsProjectNameGetRequest): Observable<ProjectApiModel>
     refDataProjectsProjectNameGet({ projectName }: RefDataProjectsProjectNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<ProjectApiModel>>
     refDataProjectsProjectNameGet({ projectName }: RefDataProjectsProjectNameGetRequest, opts?: OperationOpts): Observable<ProjectApiModel | AjaxResponse<ProjectApiModel>> {
@@ -114,19 +127,6 @@ export class RefDataProjectsApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: projectApiModel,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    refDataProjectsDelete({ projectId }: RefDataProjectsDeleteRequest): Observable<string>
-    refDataProjectsDelete({ projectId }: RefDataProjectsDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
-    refDataProjectsDelete({ projectId }: RefDataProjectsDeleteRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
-        throwIfNullOrUndefined(projectId, 'projectId', 'refDataProjectsDelete');
-
-        return this.request<string>({
-            url: '/RefDataProjects/{projectId}'.replace('{projectId}', encodeURI(projectId)),
-            method: 'DELETE',
         }, opts?.responseOpts);
     };
 

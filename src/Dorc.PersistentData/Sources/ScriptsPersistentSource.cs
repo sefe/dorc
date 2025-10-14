@@ -32,7 +32,7 @@ namespace Dorc.PersistentData.Sources
             PagedModel<Script> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var scriptsQuery = context.Scripts.Include(s => s.Components).AsQueryable();
+                var scriptsQuery = context.Scripts.Include(s => s.Components).ThenInclude(x => x.Projects).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
@@ -161,7 +161,8 @@ namespace Dorc.PersistentData.Sources
                 NonProdOnly = script.NonProdOnly,
                 IsPathJSON = script.IsPathJSON,
                 IsEnabled = isEnabled,
-                PowerShellVersionNumber = script.PowerShellVersionNumber
+                PowerShellVersionNumber = script.PowerShellVersionNumber,
+                ProjectNames = script.Components?.SelectMany(s => s.Projects).Select(p => p.Name).ToList()
             };
         }
 

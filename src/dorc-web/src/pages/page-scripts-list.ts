@@ -28,6 +28,7 @@ import {
   RefDataScriptsApi,
   ScriptApiModel
 } from '../apis/dorc-api';
+import { map } from 'lit/directives/map.js';
 import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
@@ -106,6 +107,21 @@ export class PageScriptsList extends PageElement {
         border-radius: 100%;
         border-style: solid;
       }
+      .project-tag {
+        font-weight: bold;
+        display: inline-block;
+        padding: 3px;
+        border-radius: 3px;
+        box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
+        margin: 5px;
+        background-color: white;
+        color: gray;
+      }
+
+      .project-tag:hover {
+        box-shadow: 1px 2px 3px cornflowerblue;
+      }
+
       @keyframes spin {
         100% {
           transform: rotate(360deg);
@@ -224,6 +240,15 @@ export class PageScriptsList extends PageElement {
               flex-grow="0"
             >
             </vaadin-grid-column>
+            <vaadin-grid-column
+              path="ProjectNames"
+              header="Projects"
+              resizable
+              width="200px"
+              flex-grow="0"
+              .renderer="${this.projectNamesRenderer.bind(this)}"
+            >
+            </vaadin-grid-column>
             <vaadin-grid-sort-column
               path="NonProdOnly"
               header="Non Prod Only"
@@ -323,6 +348,30 @@ export class PageScriptsList extends PageElement {
     render(select, root);
   }
   
+  private projectNamesRenderer = (
+      root: HTMLElement,
+      _: HTMLElement,
+      model: GridItemModel<ScriptApiModel>
+    ) => {
+      const script = model.item;
+      const projectNames = script.ProjectNames ?? [];
+
+      render(
+        html`
+          ${map(
+            projectNames,
+            value =>
+              html` <div
+                class="project-tag"
+              >
+                ${value}
+              </div>`
+          )}
+        `,
+        root
+      );
+    };
+
   nonProdRenderer(
     root: HTMLElement,
     _column: GridColumn,
