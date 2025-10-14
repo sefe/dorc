@@ -33,7 +33,6 @@ import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
-import { TextField } from '@vaadin/text-field';
 import { ComboBox } from '@vaadin/combo-box';
 
 const variableName = 'Name';
@@ -523,7 +522,7 @@ export class PageScriptsList extends PageElement {
           theme="small"
           value="${this.variableName}"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
+            const textField = e.target as HTMLInputElement;
 
             this.dispatchEvent(
               new CustomEvent('searching-scripts-started', {
@@ -557,7 +556,7 @@ export class PageScriptsList extends PageElement {
           theme="small"
           value="${this.variablePath}"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
+            const textField = e.target as HTMLInputElement;
 
             this.dispatchEvent(
               new CustomEvent('searching-scripts-started', {
@@ -589,7 +588,7 @@ export class PageScriptsList extends PageElement {
             theme="small"
             value="${this.variableProjectNames}"
             @input="${(e: InputEvent) => {
-              const textField = e.target as TextField;
+              const textField = e.target as HTMLInputElement;
 
               this.dispatchEvent(
                 new CustomEvent('searching-scripts-started', {
