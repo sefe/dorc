@@ -13,32 +13,27 @@
 
 /**
  * @export
- * @interface ConfigValueApiModel
+ * @interface AnalyticsTimePatternApiModel
  */
-export interface ConfigValueApiModel {
+export interface AnalyticsTimePatternApiModel {
     /**
      * @type {number}
-     * @memberof ConfigValueApiModel
+     * @memberof AnalyticsTimePatternApiModel
      */
-    Id?: number;
+    HourOfDay?: number;
+    /**
+     * @type {number}
+     * @memberof AnalyticsTimePatternApiModel
+     */
+    DayOfWeek?: number;
     /**
      * @type {string}
-     * @memberof ConfigValueApiModel
+     * @memberof AnalyticsTimePatternApiModel
      */
-    Key?: string | null;
+    DayOfWeekName?: string | null;
     /**
-     * @type {string}
-     * @memberof ConfigValueApiModel
+     * @type {number}
+     * @memberof AnalyticsTimePatternApiModel
      */
-    Value?: string | null;
-    /**
-     * @type {boolean}
-     * @memberof ConfigValueApiModel
-     */
-    Secure?: boolean;
-    /**
-     * @type {boolean | undefined}
-     * @memberof ConfigValueApiModel
-     */
-    IsForProd?: boolean;
+    CountOfDeployments?: number;
 }

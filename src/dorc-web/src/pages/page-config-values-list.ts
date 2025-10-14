@@ -48,9 +48,10 @@ export class PageConfigValuesList extends PageElement {
   static get styles() {
     return css`
       vaadin-grid#grid {
-        overflow: hidden;
         height: calc(100vh - 110px);
         --divider-color: rgb(223, 232, 239);
+        width: 100%;
+        min-width: 100%;
       }
 
       vaadin-text-field {
@@ -175,18 +176,30 @@ export class PageConfigValuesList extends PageElement {
                 path="Key"
                 header="Config Name"
                 resizable
+                width="300px"
+                flex-grow="0"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
-                path="AccountName"
+                path="Secure"
                 header="Is Secure"
                 resizable
+                width="100px"
+                flex-grow="0"
                 .renderer="${this.isSecuredRenderer}"
+              ></vaadin-grid-sort-column>
+              <vaadin-grid-sort-column
+                path="IsForProd"
+                header="Is For Prod"
+                resizable
+                width="100px"
+                flex-grow="0"
+                .renderer="${this.isForProdRenderer}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Config Value"
                 .renderer="${this.variableValueControlsRenderer}"
                 resizable
-                auto-width
+                flex-grow="1"
               ></vaadin-grid-column>
             </vaadin-grid>
           `}
@@ -238,6 +251,21 @@ export class PageConfigValuesList extends PageElement {
     const checkbox = new Checkbox();
 
     checkbox.checked = configValueApiModel.Secure as boolean;
+    checkbox.disabled = true;
+
+    render(checkbox, root);
+  }
+
+  isForProdRenderer(
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<ConfigValueApiModel>
+  ) {
+    const configValueApiModel = model.item as ConfigValueApiModel;
+
+    const checkbox = new Checkbox();
+
+    checkbox.checked = configValueApiModel.IsForProd as boolean;
     checkbox.disabled = true;
 
     render(checkbox, root);
