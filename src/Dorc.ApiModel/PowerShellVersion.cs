@@ -23,6 +23,13 @@ namespace Dorc.ApiModel
             }
         }
 
+        public static string ToSafePsVersionString(this string psVersion)
+        {
+            var psver = FromVersionString(psVersion) ?? PowerShellVersion.V7;
+
+            return psver.ToVersionString();
+        }
+
         public static PowerShellVersion? FromVersionString(string versionString)
         {
             if (string.IsNullOrEmpty(versionString))

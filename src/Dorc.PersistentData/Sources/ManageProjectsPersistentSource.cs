@@ -312,7 +312,7 @@ namespace Dorc.PersistentData.Sources
                             Path = apiComponent.ScriptPath,
                             NonProdOnly = apiComponent.NonProdOnly,
                             IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                            PowerShellVersionNumber = string.IsNullOrEmpty(apiComponent.PSVersion) ? PowerShellVersion.V7.ToVersionString() : apiComponent.PSVersion
+                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                         };
 
                         component.Script = script;
@@ -359,7 +359,7 @@ namespace Dorc.PersistentData.Sources
                     script.Path = apiComponent.ScriptPath;
                     script.NonProdOnly = apiComponent.NonProdOnly;
                     script.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
-                    script.PowerShellVersionNumber = string.IsNullOrEmpty(apiComponent.PSVersion) ? PowerShellVersion.V7.ToVersionString() : apiComponent.PSVersion;
+                    script.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
                 }
                 else if (apiComponent.ScriptPath == null)
                 {
@@ -373,7 +373,7 @@ namespace Dorc.PersistentData.Sources
                         Path = apiComponent.ScriptPath,
                         NonProdOnly = apiComponent.NonProdOnly,
                         IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                        PowerShellVersionNumber = string.IsNullOrEmpty(apiComponent.PSVersion) ? PowerShellVersion.V7.ToVersionString() : apiComponent.PSVersion
+                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                     };
                     component.Script = script;
                 }

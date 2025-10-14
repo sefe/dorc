@@ -1,12 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
+using log4net;
+using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Security.Principal;
-using log4net;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData.Contexts;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -141,7 +141,7 @@ namespace Dorc.PersistentData.Sources
                 foundScript.Path = script.Path;
                 foundScript.NonProdOnly = script.NonProdOnly;
                 foundScript.IsPathJSON = script.IsPathJSON;
-                foundScript.PowerShellVersionNumber = string.IsNullOrEmpty(script.PowerShellVersionNumber) ? PowerShellVersion.V7.ToVersionString() : script.PowerShellVersionNumber;
+                foundScript.PowerShellVersionNumber = script.PowerShellVersionNumber.ToSafePsVersionString();
                 foreach (var scriptComponent in foundScript.Components)
                 {
                     scriptComponent.IsEnabled = script.IsEnabled;
