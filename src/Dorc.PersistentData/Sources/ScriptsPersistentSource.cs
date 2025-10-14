@@ -36,17 +36,30 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
+                    var filterLambdas = new List<Expression<Func<Script, bool>>>();
+                    
                     foreach (var pagedDataFilter in operators.Filters)
                     {
                         if (pagedDataFilter == null)
                             continue;
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                         {
-                            scriptsQuery =
-                                scriptsQuery.Where(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
+                            // Special handling for ProjectNames filter
+                            if (pagedDataFilter.Path == "ProjectNames")
+                            {
+                                filterLambdas.Add(s => 
+                                    s.Components.Any(c => 
+                                        c.Projects.Any(p => p.Name.Contains(pagedDataFilter.FilterValue))));
+                            }
+                            else
+                            {
+                                filterLambdas.Add(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
                                     pagedDataFilter.FilterValue));
+                            }
                         }
                     }
+                    
+                    scriptsQuery = WhereAll(scriptsQuery, filterLambdas.ToArray());
                 }
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
@@ -198,6 +211,25 @@ namespace Dorc.PersistentData.Sources
         private static Expression<Func<Script, R>> GetExpressionForOrdering<R>(MemberExpression prop, ParameterExpression param)
         {
             return Expression.Lambda<Func<Script, R>>(prop, param);
+        }
+
+        private IQueryable<T> WhereAll<T>(
+            IQueryable<T> source,
+            params Expression<Func<T, bool>>[] predicates)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (predicates == null) throw new ArgumentNullException(nameof(predicates));
+            if (predicates.Length == 0) return source; // no filters, return unfiltered
+            if (predicates.Length == 1) return source.Where(predicates[0]); // simple
+
+            Expression<Func<T, bool>> pred = null;
+            for (var i = 0; i < predicates.Length; i++)
+            {
+                pred = pred == null
+                    ? predicates[i]
+                    : pred.And(predicates[i]);
+            }
+            return source.Where(pred);
         }
     }
 }

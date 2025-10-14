@@ -38,6 +38,7 @@ import { ComboBox } from '@vaadin/combo-box';
 
 const variableName = 'Name';
 const variablePath = 'Path';
+const variableProjectNames = 'ProjectNames';
 
 @customElement('page-scripts-list')
 export class PageScriptsList extends PageElement {
@@ -67,6 +68,8 @@ export class PageScriptsList extends PageElement {
     new URLSearchParams(location.search).get('search-name') ?? '';
   variablePath: string =
     new URLSearchParams(location.search).get('search-path') ?? '';
+  variableProjectNames: string =
+    new URLSearchParams(location.search).get('search-project') ?? '';
 
   static get styles() {
     return css`
@@ -175,6 +178,13 @@ export class PageScriptsList extends PageElement {
                 });
               }
 
+              if (this.variableProjectNames !== '' && this.variableProjectNames !== undefined) {
+                params.filters.push({
+                  path: variableProjectNames,
+                  value: this.variableProjectNames
+                });
+              }
+
               const api = new RefDataScriptsApi();
               api
                 .refDataScriptsPut({
@@ -247,6 +257,7 @@ export class PageScriptsList extends PageElement {
               width="200px"
               flex-grow="0"
               .renderer="${this.projectNamesRenderer.bind(this)}"
+              .headerRenderer="${this.projectNamesHeaderRenderer.bind(this)}"
             >
             </vaadin-grid-column>
             <vaadin-grid-sort-column
@@ -485,6 +496,9 @@ export class PageScriptsList extends PageElement {
         case variablePath:
           this.variablePath = value;
           break;
+        case variableProjectNames:
+          this.variableProjectNames = value;
+          break;
         default:
           break;
       }
@@ -557,6 +571,39 @@ export class PageScriptsList extends PageElement {
             );
           }}"
         ></vaadin-text-field>
+      `,
+      root
+    );
+  }
+
+  projectNamesHeaderRenderer(root: HTMLElement) {
+    render(
+      html`
+        <div style="display: flex; flex-direction: column;">
+          <span>Projects</span>
+          <vaadin-text-field
+            placeholder="Project"
+            clear-button-visible
+            focus-target
+            style="width: 180px"
+            theme="small"
+            value="${this.variableProjectNames}"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as TextField;
+
+              this.dispatchEvent(
+                new CustomEvent('searching-scripts-started', {
+                  detail: {
+                    field: variableProjectNames,
+                    value: textField?.value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            }}"
+          ></vaadin-text-field>
+        </div>
       `,
       root
     );
