@@ -579,7 +579,6 @@ export class PageScriptsList extends PageElement {
     render(
       html`
         <div style="display: flex; flex-direction: column;">
-          <span>Projects</span>
           <vaadin-text-field
             placeholder="Project"
             clear-button-visible
@@ -612,7 +611,6 @@ export class PageScriptsList extends PageElement {
     this.loading = false;
   }
 
-
   private loadPowerShellVersions() {
     const api = new PowerShellVersionsApi();
     api.powerShellVersionsGet().subscribe({
@@ -627,5 +625,3 @@ export class PageScriptsList extends PageElement {
     });
   }
 }
-
-
