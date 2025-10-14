@@ -220,6 +220,150 @@
         }
       }
     },
+    "/Analytics/EnvironmentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/UserActivity": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/TimePattern": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/ComponentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/Duration": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/AnalyticsDeploymentsDate": {
       "get": {
         "tags": [
@@ -6498,6 +6642,20 @@
         "type": "integer",
         "format": "int32"
       },
+      "AnalyticsComponentUsageApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AnalyticsDeploymentsPerProjectApiModel": {
         "type": "object",
         "properties": {
@@ -6514,6 +6672,86 @@
             "format": "int32"
           },
           "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Failed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsDurationApiModel": {
+        "type": "object",
+        "properties": {
+          "AverageDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "MaxDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "MinDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "TotalDeployments": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsEnvironmentUsageApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Failed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsTimePatternApiModel": {
+        "type": "object",
+        "properties": {
+          "HourOfDay": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DayOfWeek": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DayOfWeekName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsUserActivityApiModel": {
+        "type": "object",
+        "properties": {
+          "UserName": {
             "type": "string",
             "nullable": true
           },
@@ -6660,6 +6898,10 @@
           "IsEnabled": {
             "type": "boolean",
             "nullable": true
+          },
+          "PSVersion": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6697,6 +6939,10 @@
           },
           "Secure": {
             "type": "boolean"
+          },
+          "IsForProd": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false
