@@ -311,7 +311,8 @@ namespace Dorc.PersistentData.Sources
                             Name = apiComponent.ComponentName,
                             Path = apiComponent.ScriptPath,
                             NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                            PowerShellVersionNumber = PowerShellVersion.V7.ToVersionString()
                         };
 
                         component.Script = script;
@@ -370,7 +371,8 @@ namespace Dorc.PersistentData.Sources
                         Name = apiComponent.ComponentName,
                         Path = apiComponent.ScriptPath,
                         NonProdOnly = apiComponent.NonProdOnly,
-                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                        PowerShellVersionNumber = PowerShellVersion.V7.ToVersionString()
                     };
                     component.Script = script;
                 }

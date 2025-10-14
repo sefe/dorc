@@ -23,20 +23,7 @@ namespace Dorc.ApiModel
             }
         }
 
-        public static PowerShellVersion FromVersionString(string versionString)
-        {
-            switch (versionString)
-            {
-                case "v5.1":
-                    return PowerShellVersion.V5_1;
-                case "v7":
-                    return PowerShellVersion.V7;
-                default:
-                    throw new ArgumentException($"Unknown PowerShell version: {versionString}", nameof(versionString));
-            }
-        }
-
-        public static PowerShellVersion? TryFromVersionString(string versionString)
+        public static PowerShellVersion? FromVersionString(string versionString)
         {
             if (string.IsNullOrEmpty(versionString))
                 return null;

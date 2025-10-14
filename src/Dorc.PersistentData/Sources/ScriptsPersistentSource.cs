@@ -141,7 +141,7 @@ namespace Dorc.PersistentData.Sources
                 foundScript.Path = script.Path;
                 foundScript.NonProdOnly = script.NonProdOnly;
                 foundScript.IsPathJSON = script.IsPathJSON;
-                foundScript.PowerShellVersionNumber = script.PowerShellVersionNumber;
+                foundScript.PowerShellVersionNumber = string.IsNullOrEmpty(script.PowerShellVersionNumber) ? PowerShellVersion.V7.ToVersionString() : script.PowerShellVersionNumber;
                 foreach (var scriptComponent in foundScript.Components)
                 {
                     scriptComponent.IsEnabled = script.IsEnabled;
