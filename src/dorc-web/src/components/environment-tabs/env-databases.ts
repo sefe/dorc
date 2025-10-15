@@ -17,8 +17,6 @@ import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetail
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
-  @property({ type: Boolean }) attachDatabase = false;
-
   @property({ type: Array })
   databases: Array<DatabaseApiModel> | undefined = [];
 
@@ -26,7 +24,7 @@ export class EnvDatabases extends PageEnvBase {
 
   @state()
   private attachDatabaseDialogOpened = false;
-  
+
   static get styles() {
     return css`
       :host {
@@ -90,15 +88,6 @@ export class EnvDatabases extends PageEnvBase {
               ></vaadin-dialog>
             </div>
           </div>
-          ${this.attachDatabase
-            ? html` <div class="center-aligned">
-                <attach-database
-                  .envId="${this.environmentId}"
-                  .existingDatabases="${this.databases}"
-                  @database-attached="${this._dbAttached}"
-                ></attach-database>
-              </div>`
-            : html``}
           <div>
             <attached-databases
               id="attached-databases"
@@ -119,21 +108,14 @@ export class EnvDatabases extends PageEnvBase {
     super.loadEnvironmentInfo();
   }
 
-  _attachDatabase() {
-    this.attachDatabase = !this.attachDatabase;
-  }
-
   _dbAttached() {
     this.dbAttachSuccess('Database attached successfully');
-    this.attachDatabase = false;
+    this.closeAttachDatabaseDialog();
   }
 
   _dbDetached() {
     this.dbAttachSuccess('Database detached successfully');
-    this.attachDatabase = false;
   }
-
-
 
   private dbAttachSuccess(text: string) {
     this.refreshDatabases();
@@ -168,7 +150,8 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   override notifyEnvironmentContentReady() {
-    this.envReadOnly = !this.environment?.UserEditable;
+    // this.envReadOnly = !this.environment?.UserEditable;
+    this.envReadOnly = false; // Temporarily allow edits until permissions are sorted out
     this.refreshDatabases();
   }
 

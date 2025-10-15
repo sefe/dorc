@@ -117,7 +117,7 @@ export class AttachDatabase extends LitElement {
         <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this._reset}"
+        <vaadin-button @click="${this._reset}"
           >Clear</vaadin-button
         >
       </div>
@@ -247,16 +247,6 @@ export class AttachDatabase extends LitElement {
       position: 'bottom-start',
       duration: 3000
     });
-    
-    const event = new CustomEvent('error-alert', {
-      detail: {
-        description: 'Unable to attach database',
-        result
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
     console.log(result);
   }
 }
