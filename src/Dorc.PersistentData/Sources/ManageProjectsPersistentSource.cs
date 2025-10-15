@@ -363,9 +363,10 @@ namespace Dorc.PersistentData.Sources
                     if (oldScript != null)
                     {
                         // Check if script content is changing
-                        var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath 
+                        var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
                             || oldScript.NonProdOnly != apiComponent.NonProdOnly
-                            || oldScript.Name != apiComponent.ComponentName;
+                            || oldScript.Name != apiComponent.ComponentName
+                            || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
 
                         if (isScriptContentChanged)
                         {
@@ -447,6 +448,10 @@ namespace Dorc.PersistentData.Sources
                         component.ScriptId = null;
                         context.Scripts.Remove(oldScript);
                     }
+                }
+                else if (component.Script != null)
+                {
+                    component.Script.PowerShellVersionNumber = null; // it is just a container for other components, no sense to have PS version for it
                 }
 
                 context.SaveChanges();
