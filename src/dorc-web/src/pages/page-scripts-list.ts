@@ -110,18 +110,15 @@ export class PageScriptsList extends PageElement {
         border-style: solid;
       }
       .project-tag {
-        font-weight: bold;
+        font-size: 14px;
+        font-family: monospace;
+        background-color: cornflowerblue;
+        color: white;
         display: inline-block;
         padding: 3px;
+        margin: 3px;
+        text-decoration: none;
         border-radius: 3px;
-        box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        margin: 5px;
-        background-color: white;
-        color: gray;
-      }
-
-      .project-tag:hover {
-        box-shadow: 1px 2px 3px cornflowerblue;
       }
 
       @keyframes spin {
