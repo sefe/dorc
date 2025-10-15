@@ -51,4 +51,9 @@ export interface ComponentApiModel {
      * @memberof ComponentApiModel
      */
     IsEnabled?: boolean | null;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    PSVersion?: string | null;
 }

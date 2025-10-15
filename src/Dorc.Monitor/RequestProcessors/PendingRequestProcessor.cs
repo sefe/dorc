@@ -91,7 +91,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                     SetUpRefDataApiUrlAsProperty();
 
-                    SetUpConfigValuesAsProperties();
+                    SetUpConfigValuesAsProperties(environment);
 
                     SetUpEnvironmentAsProperty(environment);
 
@@ -370,14 +370,19 @@ namespace Dorc.Monitor.RequestProcessors
             _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
         }
 
-        private void SetUpConfigValuesAsProperties()
+        private void SetUpConfigValuesAsProperties(EnvironmentApiModel environment)
         {
             // attempt to add any other properties that don't need defaults
             foreach (var configValue in _configValuesPersistentSource.GetAllConfigValues(true))
             {
                 if (_variableResolver.GetPropertyValue(configValue.Key) == null)
                 {
-                    _variableResolver.SetPropertyValue(configValue.Key, configValue.Value);
+                    var needToSetConfigForEnv = !configValue.IsForProd.HasValue
+                        || (environment.EnvironmentIsProd && configValue.IsForProd.HasValue && configValue.IsForProd.Value)
+                        || (!environment.EnvironmentIsProd && configValue.IsForProd.HasValue && !configValue.IsForProd.Value);
+
+                    if (needToSetConfigForEnv)
+                        _variableResolver.SetPropertyValue(configValue.Key, configValue.Value);
                 }
             }
         }

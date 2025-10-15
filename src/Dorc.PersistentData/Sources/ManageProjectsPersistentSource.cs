@@ -311,7 +311,8 @@ namespace Dorc.PersistentData.Sources
                             Name = apiComponent.ComponentName,
                             Path = apiComponent.ScriptPath,
                             NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                         };
 
                         component.Script = script;
@@ -376,7 +377,8 @@ namespace Dorc.PersistentData.Sources
                                     Name = apiComponent.ComponentName,
                                     Path = apiComponent.ScriptPath,
                                     NonProdOnly = apiComponent.NonProdOnly,
-                                    IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                                    IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                    PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                                 };
                                 component.Script = newScript;
                             }
@@ -387,6 +389,7 @@ namespace Dorc.PersistentData.Sources
                                 oldScript.Path = apiComponent.ScriptPath;
                                 oldScript.NonProdOnly = apiComponent.NonProdOnly;
                                 oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
+                                oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
                             }
                         }
                         else
@@ -402,7 +405,8 @@ namespace Dorc.PersistentData.Sources
                                         Name = apiComponent.ComponentName,
                                         Path = apiComponent.ScriptPath,
                                         NonProdOnly = apiComponent.NonProdOnly,
-                                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                                     };
                                     component.Script = newScript;
                                 }
@@ -421,7 +425,8 @@ namespace Dorc.PersistentData.Sources
                             Name = apiComponent.ComponentName,
                             Path = apiComponent.ScriptPath,
                             NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                         };
                         component.Script = script;
                     }
@@ -569,7 +574,8 @@ namespace Dorc.PersistentData.Sources
                     NonProdOnly = script.NonProdOnly,
                     StopOnFailure = comp.StopOnFailure,
                     IsEnabled = comp.IsEnabled,
-                    ParentId = comp.Parent != null ? comp.Parent.Id : 0
+                    ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                    PSVersion = script.PowerShellVersionNumber
                 };
 
             return new ComponentApiModel

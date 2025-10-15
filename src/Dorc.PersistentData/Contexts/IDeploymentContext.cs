@@ -44,6 +44,11 @@ namespace Dorc.PersistentData.Contexts
         DbSet<RequestStatuses> RequestStatuses { get; set; }
         DbSet<DeploymentsByProjectDate> AnalyticsDeploymentsByProjectDate { get; set; }
         DbSet<DeploymentsByProjectMonth> AnalyticsDeploymentsByProjectMonth { get; set; }
+        DbSet<AnalyticsEnvironmentUsage> AnalyticsEnvironmentUsage { get; set; }
+        DbSet<AnalyticsUserActivity> AnalyticsUserActivity { get; set; }
+        DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
+        DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
+        DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
         DbSet<BundledRequests> BundledRequests { get; set; }
 
         int SaveChanges();

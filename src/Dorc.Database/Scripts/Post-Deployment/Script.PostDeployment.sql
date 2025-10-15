@@ -9,5 +9,5 @@ Example:      :setvar TableName MyTable
               SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
-:r .\Environment_AccessControl_Populate.sql
+:r .\Props-to-Configuration.sql
 :r .\CleanupOrphanedScripts.sql

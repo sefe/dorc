@@ -45,6 +45,11 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<DeploymentResult> DeploymentResults { get; set; }
         public DbSet<DeploymentsByProjectDate> AnalyticsDeploymentsByProjectDate { get; set; }
         public DbSet<DeploymentsByProjectMonth> AnalyticsDeploymentsByProjectMonth { get; set; }
+        public DbSet<AnalyticsEnvironmentUsage> AnalyticsEnvironmentUsage { get; set; }
+        public DbSet<AnalyticsUserActivity> AnalyticsUserActivity { get; set; }
+        public DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
+        public DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
+        public DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
         public DbSet<Environment> Environments { get; set; }
         public DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         public DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
@@ -103,6 +108,26 @@ namespace Dorc.PersistentData.Contexts
 
             modelBuilder.Entity<DeploymentsByProjectDate>()
                 .ToTable("DeploymentsByProjectDate", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsEnvironmentUsage>()
+                .ToTable("AnalyticsEnvironmentUsage", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsUserActivity>()
+                .ToTable("AnalyticsUserActivity", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsTimePattern>()
+                .ToTable("AnalyticsTimePattern", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsComponentUsage>()
+                .ToTable("AnalyticsComponentUsage", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsDuration>()
+                .ToTable("AnalyticsDuration", "deploy")
                 .HasKey(x => x.Id);
 
             new AdGroupEntityTypeConfiguration().Configure(modelBuilder.Entity<AdGroup>());

@@ -399,7 +399,7 @@ export class PageProjectsList extends PageElement {
     const projectId = this.selectedProject.ProjectId;
     const projectName = this.selectedProject.ProjectName;
 
-    api.refDataProjectsDelete({ projectId }).subscribe({
+    api.refDataProjectsProjectIdDelete({ projectId }).subscribe({
       next: () => {
         this.getProjects();
         Notification.show(`Project ${projectName} deleted successfully`, {
