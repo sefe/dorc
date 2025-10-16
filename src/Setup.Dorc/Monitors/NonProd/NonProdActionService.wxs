@@ -30,6 +30,10 @@
 					<Json:JsonFile Id="SMTPHostNonProd" ElementPath="$.AppSettings.SMTPHost" File="[#NonProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootNonProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 					<Json:JsonFile Id="RunnerLogPathNonProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+					<Json:JsonFile Id="DorcApiClientId" ElementPath="$.AppSettings.DorcApi.ClientId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTID]" />
+					<Json:JsonFile Id="DorcApiClientSecret" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
+					<Json:JsonFile Id="DorcApiScope" ElementPath="$.AppSettings.DorcApi.Scope" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />
+					
 
 					<Json:JsonFile Id="AzureStorageAccountTenantIdNonProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
 					<Json:JsonFile Id="AzureStorageAccountClientIdNonProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />

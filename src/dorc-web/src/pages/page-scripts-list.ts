@@ -23,17 +23,21 @@ import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
 import {
   PagedDataSorting,
+  PowerShellVersionDto,
+  PowerShellVersionsApi,
   RefDataScriptsApi,
   ScriptApiModel
 } from '../apis/dorc-api';
+import { map } from 'lit/directives/map.js';
 import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
-import { TextField } from '@vaadin/text-field';
+import { ComboBox } from '@vaadin/combo-box';
 
 const variableName = 'Name';
 const variablePath = 'Path';
+const variableProjectNames = 'ProjectNames';
 
 @customElement('page-scripts-list')
 export class PageScriptsList extends PageElement {
@@ -55,12 +59,16 @@ export class PageScriptsList extends PageElement {
 
   @property({ type: Boolean }) private rolesLoading = true;
 
+  @property({ type: Array }) private powerShellVersions: string[] = [];
+
   @query('#grid') grid: Grid | undefined;
 
   variableName: string =
     new URLSearchParams(location.search).get('search-name') ?? '';
   variablePath: string =
     new URLSearchParams(location.search).get('search-path') ?? '';
+  variableProjectNames: string =
+    new URLSearchParams(location.search).get('search-project') ?? '';
 
   static get styles() {
     return css`
@@ -101,6 +109,31 @@ export class PageScriptsList extends PageElement {
         border-radius: 100%;
         border-style: solid;
       }
+      .project-tag {
+        font-size: 14px;
+        border: 0;
+        font-family: monospace;
+        background-color: var(
+          --_lumo-button-background-color,
+          var(--lumo-contrast-5pct)
+        );
+        color: var(--lumo-secondary-text-color);
+        display: inline-block;
+        padding: 3px;
+        margin: 3px;
+        text-decoration: none;
+        border-radius: 3px;
+      }
+
+      .project-tag:hover {
+        background-color: var(
+          --_lumo-button-background-color,
+          var(--lumo-contrast-10pct)
+        );
+        cursor: pointer;
+        text-decoration: none;
+      }
+
       @keyframes spin {
         100% {
           transform: rotate(360deg);
@@ -151,6 +184,13 @@ export class PageScriptsList extends PageElement {
                 params.filters.push({
                   path: variablePath,
                   value: this.variablePath
+                });
+              }
+
+              if (this.variableProjectNames !== '' && this.variableProjectNames !== undefined) {
+                params.filters.push({
+                  path: variableProjectNames,
+                  value: this.variableProjectNames
                 });
               }
 
@@ -219,6 +259,16 @@ export class PageScriptsList extends PageElement {
               flex-grow="0"
             >
             </vaadin-grid-column>
+            <vaadin-grid-column
+              path="ProjectNames"
+              header="Projects"
+              resizable
+              width="200px"
+              flex-grow="0"
+              .renderer="${this.projectNamesRenderer.bind(this)}"
+              .headerRenderer="${this.projectNamesHeaderRenderer.bind(this)}"
+            >
+            </vaadin-grid-column>
             <vaadin-grid-sort-column
               path="NonProdOnly"
               header="Non Prod Only"
@@ -233,6 +283,12 @@ export class PageScriptsList extends PageElement {
               resizable
               .renderer="${this._jsonRenderer}"
               .headerRenderer="${this.pathHeaderRenderer}"
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              path="PowerShellVersionNumber"
+              header="PS Version"
+              resizable
+              .renderer="${this.psVersionRenderer.bind(this)}"
             ></vaadin-grid-column>
           </vaadin-grid>`}
     `;
@@ -259,6 +315,7 @@ export class PageScriptsList extends PageElement {
 
   constructor() {
     super();
+    this.loadPowerShellVersions();
     this.getUserRoles();
     this.rolesLoading = false;
   }
@@ -285,6 +342,67 @@ export class PageScriptsList extends PageElement {
   private searchingScriptsFinished() {
     this.searching = false;
   }
+
+  private psVersionRenderer(root: HTMLElement, _: any, rowData: any) {
+    const script = rowData.item as ScriptApiModel;
+    const select = new ComboBox();
+    select.items = this.powerShellVersions;
+    select.value = script.PowerShellVersionNumber ?? "";
+
+    select.disabled = !this.isAdmin && !this.isPowerUser;
+
+    select.addEventListener('value-changed', (event: any) => {
+      if (script.PowerShellVersionNumber != event.detail.value && !!event.detail.value){
+        script.PowerShellVersionNumber = event.detail.value;
+        const api = new RefDataScriptsApi();
+        api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
+          next: (data: boolean) =>
+            console.log(
+              `script with id ${script.Id} PowerShellVersionNumber set to ${
+                event.detail.value
+              } result ${data}`
+            )
+        });
+      }
+    });
+    render(select, root);
+  }
+  
+  private projectNamesRenderer = (
+      root: HTMLElement,
+      _: HTMLElement,
+      model: GridItemModel<ScriptApiModel>
+    ) => {
+      const script = model.item;
+      const projectNames = script.ProjectNames ?? [];
+
+      render(
+        html`
+          ${map(
+            projectNames,
+            value =>
+              html` <button
+                class="project-tag"
+                @click="${() =>
+                          this.dispatchEvent(
+                                  new CustomEvent('open-project-envs', {
+                                      detail: {
+                                          Project: {
+                                            ProjectName: value
+                                          }
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )}"
+              >
+                ${value}
+              </button>`
+          )}
+        `,
+        root
+      );
+    };
 
   nonProdRenderer(
     root: HTMLElement,
@@ -399,6 +517,9 @@ export class PageScriptsList extends PageElement {
         case variablePath:
           this.variablePath = value;
           break;
+        case variableProjectNames:
+          this.variableProjectNames = value;
+          break;
         default:
           break;
       }
@@ -423,7 +544,7 @@ export class PageScriptsList extends PageElement {
           theme="small"
           value="${this.variableName}"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
+            const textField = e.target as HTMLInputElement;
 
             this.dispatchEvent(
               new CustomEvent('searching-scripts-started', {
@@ -457,7 +578,7 @@ export class PageScriptsList extends PageElement {
           theme="small"
           value="${this.variablePath}"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
+            const textField = e.target as HTMLInputElement;
 
             this.dispatchEvent(
               new CustomEvent('searching-scripts-started', {
@@ -476,7 +597,53 @@ export class PageScriptsList extends PageElement {
     );
   }
 
+  projectNamesHeaderRenderer(root: HTMLElement) {
+    render(
+      html`
+        <div style="display: flex; flex-direction: column;">
+          <vaadin-text-field
+            placeholder="Project"
+            clear-button-visible
+            focus-target
+            style="width: 180px"
+            theme="small"
+            value="${this.variableProjectNames}"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+
+              this.dispatchEvent(
+                new CustomEvent('searching-scripts-started', {
+                  detail: {
+                    field: variableProjectNames,
+                    value: textField?.value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            }}"
+          ></vaadin-text-field>
+        </div>
+      `,
+      root
+    );
+  }
+
   private scriptsLoaded() {
     this.loading = false;
+  }
+
+  private loadPowerShellVersions() {
+    const api = new PowerShellVersionsApi();
+    api.powerShellVersionsGet().subscribe({
+      next: (versions: PowerShellVersionDto[]) => {
+        this.powerShellVersions = versions.map(v => v.Value || '').filter(v => v !== '');
+      },
+      error: (error) => {
+        console.error('Failed to load PowerShell versions:', error);
+        // Fallback to hardcoded values
+        this.powerShellVersions = ['v5.1', 'v7'];
+      }
+    });
   }
 }

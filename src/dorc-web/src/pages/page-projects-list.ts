@@ -19,6 +19,8 @@ import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/project-audit-data'
 import { ProjectAuditData } from '../components/project-audit-data';
+import '../components/confirm-dialog';
+import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
 
 @customElement('page-projects-list')
@@ -42,6 +44,8 @@ export class PageProjectsList extends PageElement {
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
   @query('#open-project-audit-control') projectAuditData!: ProjectAuditData;
+
+  @query('#confirm-delete-dialog') confirmDeleteDialog!: ConfirmDialog;
 
   @property({ type: String }) secureName = '';
 
@@ -97,6 +101,14 @@ export class PageProjectsList extends PageElement {
     this.addEventListener(
       'project-updated',
       this.projectUpdated as EventListener
+    );
+    this.addEventListener(
+      'delete-project',
+      this.deleteProject as EventListener
+    );
+    this.addEventListener(
+      'confirm-dialog-confirm',
+      this.confirmDeleteProject as EventListener
     );
   }
 
@@ -199,6 +211,14 @@ export class PageProjectsList extends PageElement {
         .project="${this.selectedProject}">
       </project-audit-data>
 
+      <confirm-dialog
+        id="confirm-delete-dialog"
+        title="Delete Project"
+        message="Are you sure you want to delete this project? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel">
+      </confirm-dialog>
+
       ${this.loading
         ? html`
             <div class="overlay" style="z-index: 2">
@@ -243,6 +263,7 @@ export class PageProjectsList extends PageElement {
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
+                .attachedPPLControl="${this}"
                 .renderer="${this._projectEnvsButtonsRenderer}"
               ></vaadin-grid-column>
             </vaadin-grid>
@@ -274,8 +295,12 @@ export class PageProjectsList extends PageElement {
     { item }: GridItemModel<ProjectApiModel>
   ) {
     const project = item as ProjectApiModel;
+    // The below line has a horrible hack
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const altThis = _column.attachedPPLControl as PageProjectsList;
     render(
-      html` <project-controls .project="${project}"></project-controls>`,
+      html` <project-controls .project="${project}" .deleteHidden="${!altThis.isAdmin}"></project-controls>`,
       root
     );
   }
@@ -357,5 +382,46 @@ export class PageProjectsList extends PageElement {
     });
     this.selectedProject = this.getEmptyProj();
     this.addEditProject.close();
+  }
+
+  private deleteProject(e: CustomEvent) {
+    const project = e.detail.Project as ProjectApiModel;
+    this.selectedProject = project;
+    this.confirmDeleteDialog.open();
+  }
+
+  private confirmDeleteProject() {
+    if (!this.selectedProject || !this.selectedProject.ProjectId) {
+      return;
+    }
+
+    const api = new RefDataProjectsApi();
+    const projectId = this.selectedProject.ProjectId;
+    const projectName = this.selectedProject.ProjectName;
+
+    api.refDataProjectsProjectIdDelete({ projectId }).subscribe({
+      next: () => {
+        this.getProjects();
+        Notification.show(`Project ${projectName} deleted successfully`, {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+      },
+      error: (error: any) => {
+        console.error('Error deleting project:', error);
+        const errorMessage = error.response?.text || error.message || 'Failed to delete project';
+        Notification.show(`Error deleting project: ${errorMessage}`, {
+          theme: 'error',
+          position: 'bottom-start',
+          duration: 10000
+        });
+      },
+      complete: () => {
+        console.log('Delete operation completed');
+      }
+    });
+
+    this.selectedProject = this.getEmptyProj();
   }
 }

@@ -428,5 +428,27 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
+        public void DeleteProject(int projectId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var project = context.Projects
+                    .Include(p => p.Components)
+                    .Include(p => p.Environments)
+                    .FirstOrDefault(p => p.Id == projectId);
+
+                if (project == null)
+                    throw new ArgumentException($"Project with ID {projectId} not found.");
+
+                // Remove relationships before deleting the project
+                project.Components.Clear();
+                project.Environments.Clear();
+
+                // Remove the project itself
+                context.Projects.Remove(project);
+                context.SaveChanges();
+            }
+        }
+
     }
 }

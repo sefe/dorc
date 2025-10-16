@@ -1,5 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.Events;
+using Dorc.Core.Interfaces;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -15,6 +17,7 @@ namespace Dorc.Monitor
 
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IComponentsPersistentSource componentsPersistentSource;
+        private readonly IDeploymentEventsPublisher eventsPublisher;
         private readonly IConfigValuesPersistentSource configValuesPersistentSource;
         private ILog _logger;
 
@@ -23,6 +26,7 @@ namespace Dorc.Monitor
             ITerraformDispatcher terraformDispatcher,
             IRequestsPersistentSource requestsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
+            IDeploymentEventsPublisher eventsPublisher,
             IConfigValuesPersistentSource configValuesPersistentSource,
             ILog Logger)
         {
@@ -31,6 +35,7 @@ namespace Dorc.Monitor
             this.terraformDispatcher = terraformDispatcher;
             this.requestsPersistentSource = requestsPersistentSource;
             this.componentsPersistentSource = componentsPersistentSource;
+            this.eventsPublisher = eventsPublisher;
             this.configValuesPersistentSource = configValuesPersistentSource;
         }
 
@@ -73,6 +78,11 @@ namespace Dorc.Monitor
                             deploymentResult!,
                             DeploymentResultStatus.Running);
 
+                        eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                        {
+                            Status = DeploymentResultStatus.Running.ToString()
+                        });
+                        deploymentResultStatus = DeploymentResultStatus.Warning;
                         isSuccessful = await terraformDispatcher.DispatchAsync(
                             component,
                             deploymentResult,
@@ -109,28 +119,36 @@ namespace Dorc.Monitor
                         // Handle PowerShell components
                         var script = GetScripts(component.ComponentId);
 
-                        if (isProductionEnvironment && script.NonProdOnly)
+                        if (isProductionEnvironment)
                         {
-                            deploymentResultStatus = DeploymentResultStatus.Warning;
+                            if (script.NonProdOnly)
+                            {
+                                deploymentResultStatus = DeploymentResultStatus.Warning;
 
-                            var warningMessage = $"SCRIPT '{script.Path}' IS SET TO RUN FOR NON PROD ENVIRONMENTS ONLY! SKIPPED THIS SCRIPT EXECUTION!";
-                            _logger.Warn(warningMessage);
-                            componentResultLogBuilder.AppendLine(warningMessage);
+                                var warningMessage = $"SCRIPT '{script.Path}' IS SET TO RUN FOR NON PROD ENVIRONMENTS ONLY! SKIPPED THIS SCRIPT EXECUTION!";
+                                _logger.Warn(warningMessage);
+                                componentResultLogBuilder.AppendLine(warningMessage);
 
-                            requestsPersistentSource.UpdateResultLog(
-                                deploymentResult,
-                                componentResultLogBuilder.ToString());
-                            requestsPersistentSource.UpdateResultStatus(
-                                deploymentResult,
-                                deploymentResultStatus);
+                                requestsPersistentSource.UpdateResultLog(
+                                    deploymentResult,
+                                    componentResultLogBuilder.ToString());
+                                requestsPersistentSource.UpdateResultStatus(
+                                    deploymentResult,
+                                    deploymentResultStatus);
 
-                            componentsPersistentSource.SaveEnvComponentStatus(
-                                environmentId,
-                                component,
-                                deploymentResultStatus.ToString(),
-                                requestId);
+                                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                                {
+                                    Status = deploymentResultStatus.ToString()
+                                });
 
-                            return true;
+                                componentsPersistentSource.SaveEnvComponentStatus(
+                                    environmentId,
+                                    component,
+                                    deploymentResultStatus.ToString(),
+                                    requestId);
+
+                                return true;
+                            }
                         }
 
                         isSuccessful = scriptDispatcher.Dispatch(
@@ -182,6 +200,16 @@ namespace Dorc.Monitor
                         deploymentResult,
                         deploymentResultStatus);
 
+                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                {
+                    Status = deploymentResultStatus.ToString()
+                });
+
+                componentsPersistentSource.SaveEnvComponentStatus(
+                    environmentId,
+                    component,
+                    deploymentResultStatus.ToString(),
+                    requestId);
                     componentsPersistentSource.SaveEnvComponentStatus(
                         environmentId,
                         component,

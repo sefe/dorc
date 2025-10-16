@@ -27,6 +27,7 @@
     <PackageReference Include="System.DirectoryServices.AccountManagement" Version="8.0.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
     <PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <PackageReference Include="TypedSignalR.Client.TypeScript.Attributes" Version="1.15.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />

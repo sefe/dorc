@@ -44,6 +44,36 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public IList<UserDbPermissionApiModel> GetUserDbPermissions(string serverName, string dbName, string? dbType = null)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var result = (from usr in context.Users
+                              join dbusermap in context.EnvironmentUsers on usr.Id equals dbusermap.UserId
+                              join db in context.Databases on dbusermap.DbId equals db.Id
+                              join perm in context.Permissions on dbusermap.PermissionId equals perm.Id
+                              where db.ServerName == serverName && db.Name == dbName
+                              select new UserDbPermissionApiModel
+                              {
+                                  UserId = usr.Id,
+                                  UserLoginId = usr.LoginId,
+                                  UserLoginType = usr.LoginType,
+                                  PermissionId = perm.Id,
+                                  PermissionName = perm.Name ?? string.Empty,
+                                  PermissionDisplayName = perm.DisplayName ?? string.Empty,
+                                  DbId = db.Id,
+                                  DbType = db.Type ?? string.Empty,
+                              });
+
+                if (!string.IsNullOrEmpty(dbType))
+                {
+                    result = result.Where(r => r.DbType == dbType);
+                }
+
+                return result.ToList();
+            }
+        }
+
         public bool AddUserPermission(int userId, int permissionId, int databaseId)
         {
             const int DuplicateKeyErrorNumber = 2627;      

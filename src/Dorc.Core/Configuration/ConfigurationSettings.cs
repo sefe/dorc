@@ -129,6 +129,17 @@ namespace Dorc.Core.Configuration
             return bool.TryParse(isUseAdSidsForAccessControlConfig, out bool isUseAdSidsForAccessControl) && isUseAdSidsForAccessControl;
         }
 
+        public string GetEnvironment(bool removeSpaces = false)
+        {
+            var env = _configuration.GetSection("AppSettings")["environment"] ?? "Local";
+            if (removeSpaces)
+            {
+                env = env.Replace(" ", "_");
+            }
+
+            return env;
+        }
+
         #region Azure Storage Account
         public string GetAzureStorageAccountTenantId()
         {

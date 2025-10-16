@@ -7,15 +7,49 @@ import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { PageElement } from '../helpers/page-element';
 import {
   AnalyticsDeploymentsDateApi,
-  AnalyticsDeploymentsMonthApi
+  AnalyticsDeploymentsMonthApi,
+  AnalyticsEnvironmentUsageApi,
+  AnalyticsUserActivityApi,
+  AnalyticsTimePatternApi,
+  AnalyticsComponentUsageApi,
+  AnalyticsDurationApi
 } from '../apis/dorc-api';
-import { AnalyticsDeploymentsPerProjectApiModel } from '../apis/dorc-api';
-import type { EChartsOption, TitleComponentOption, TooltipComponentOption, SingleAxisComponentOption } from 'echarts';
-import type { PieSeriesOption, ThemeRiverSeriesOption } from 'echarts';
-import {CallbackDataParams, TopLevelFormatterParams} from "echarts/types/dist/shared";
-import {OptionDataValueDate, OptionDataValueNumeric} from "echarts/types/src/util/types";
+import {
+  AnalyticsDeploymentsPerProjectApiModel,
+  AnalyticsEnvironmentUsageApiModel,
+  AnalyticsUserActivityApiModel,
+  AnalyticsTimePatternApiModel,
+  AnalyticsComponentUsageApiModel,
+  AnalyticsDurationApiModel
+} from '../apis/dorc-api';
+import type {
+  EChartsOption,
+  TitleComponentOption,
+  TooltipComponentOption,
+  SingleAxisComponentOption,
+  GridComponentOption,
+  XAXisComponentOption,
+  YAXisComponentOption
+} from 'echarts';
+import type {
+  PieSeriesOption,
+  ThemeRiverSeriesOption,
+  BarSeriesOption
+} from 'echarts';
+import {
+  CallbackDataParams,
+  TopLevelFormatterParams
+} from 'echarts/types/dist/shared';
+import {
+  OptionDataValueDate,
+  OptionDataValueNumeric
+} from 'echarts/types/src/util/types';
 
-declare type ThemerRiverDataItem = [OptionDataValueDate, OptionDataValueNumeric, string];
+declare type ThemerRiverDataItem = [
+  OptionDataValueDate,
+  OptionDataValueNumeric,
+  string
+];
 
 interface ProjectDeployments {
   project: string;
@@ -37,6 +71,14 @@ export class PageAbout extends PageElement {
   @property({ type: Object }) pieChartOptions: EChartsOption | undefined;
 
   @property({ type: Object }) riverChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) environmentUsageChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) userActivityChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) timePatternChartOptions: EChartsOption | undefined;
+
+  @property({ type: Object }) componentUsageChartOptions: EChartsOption | undefined;
 
   @property({ type: Array }) pieDataTable: (string | number)[][] = [
     ['Project', 'Deployments']
@@ -63,6 +105,8 @@ export class PageAbout extends PageElement {
 
   @property({ type: Number }) PercentTop3ProjectsByDeploymentsThisYear = 0;
 
+  @property({ type: Object }) durationStats: AnalyticsDurationApiModel | undefined;
+
   private loading = true;
 
   @property({ type: Boolean }) private includeDeprecated = true;
@@ -72,6 +116,7 @@ export class PageAbout extends PageElement {
 
     this.loadMonthData();
     this.loadDayData();
+    this.loadNewAnalytics();
   }
 
   static get styles() {
@@ -133,7 +178,7 @@ export class PageAbout extends PageElement {
         height: 120px;
         animation: spin 2s linear infinite;
       }
-        
+
       div#page_div {
         overflow: auto;
         width: calc(100% - 4px);
@@ -156,61 +201,103 @@ export class PageAbout extends PageElement {
       ${this.loading
         ? html` <div class="loader"></div> `
         : html`
-          <div id="page_div">
-            <div class="page-about__main-info main-info">
-              <div class="statistics-cards">
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalDeployments}</h3>
-                  <span class="card-element__text">Total # deployments</span>
+            <div id="page_div">
+              <div class="page-about__main-info main-info">
+                <div class="statistics-cards">
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalDeployments}</h3>
+                    <span class="card-element__text">Total # deployments</span>
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total # deployments this year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.AverageDeploymentsPerDay}</h3>
+                    <span class="card-element__text"
+                      >Average Deployments Per Day</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.MaxDeploymentsThisYear}</h3>
+                    <span class="card-element__text">Busiest Week Of Year</span>
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.TotalFailedDeploymentsThisYear}</h3>
+                    <span class="card-element__text"
+                      >Total Failures This Year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.durationStats?.AverageDurationMinutes?.toFixed(1) ?? 0} min</h3>
+                    <span class="card-element__text"
+                      >Average Deployment Duration</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0} min</h3>
+                    <span class="card-element__text"
+                      >Longest Deployment</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
+                    <h3>${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0} min</h3>
+                    <span class="card-element__text"
+                      >Shortest Deployment</span
+                    >
+                  </div>
                 </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalDeploymentsThisYear}</h3>
-                  <span class="card-element__text"
-                    >Total # deployments this year</span
-                  >
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.AverageDeploymentsPerDay}</h3>
-                  <span class="card-element__text"
-                    >Average Deployments Per Day</span
-                  >
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.MaxDeploymentsThisYear}</h3>
-                  <span class="card-element__text">Busiest Week Of Year</span>
-                </div>
-                <div class="statistics-cards__item card-element">
-                  <h3>${this.TotalFailedDeploymentsThisYear}</h3>
-                  <span class="card-element__text"
-                    >Total Failures This Year</span
-                  >
+                <div class="top3-chart-block">
+                  <hegs-chart
+                    style="display: block; width: 600px; height: 400px;"
+                    .option="${this.top3PieChartOptions}"
+                  ></hegs-chart>
                 </div>
               </div>
-              <div class="top3-chart-block">
+              <div class="statistics-cards__item card-element">
                 <hegs-chart
-                  style="display: block; width: 600px; height: 400px;"
-                  .option="${this.top3PieChartOptions}"
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.environmentUsageChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.userActivityChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 600px;"
+                  .option="${this.timePatternChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 800px;"
+                  .option="${this.componentUsageChartOptions}"
+                ></hegs-chart>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 1200px;"
+                  .option="${this.riverChartOptions}"
+                ></hegs-chart>
+                <vaadin-checkbox
+                  label="Include Deprecated"
+                  ?checked="${this.includeDeprecated}"
+                  @change="${this.updateDeprecated}"
+                ></vaadin-checkbox>
+              </div>
+              <div class="statistics-cards__item card-element">
+                <hegs-chart
+                  style="display: block; width: 100%; height: 1200px;"
+                  .option="${this.pieChartOptions}"
                 ></hegs-chart>
               </div>
             </div>
-            <div class="statistics-cards__item card-element">
-              <hegs-chart
-                style="display: block; width: 100%; height: 1200px;"
-                .option="${this.riverChartOptions}"
-              ></hegs-chart>
-              <vaadin-checkbox
-                label="Include Deprecated"
-                ?checked="${this.includeDeprecated}"
-                @change="${this.updateDeprecated}"
-              ></vaadin-checkbox>
-            </div>
-            <div class="statistics-cards__item card-element">
-              <hegs-chart
-                style="display: block; width: 100%; height: 1200px;"
-                .option="${this.pieChartOptions}"
-              ></hegs-chart>
-            </div>
-          </div>
           `}
     `;
   }
@@ -229,6 +316,65 @@ export class PageAbout extends PageElement {
         this.constructRiverChart(!this.includeDeprecated);
         this.constructPieChart();
       });
+  }
+
+  loadNewAnalytics() {
+    // Load Environment Usage
+    const envApi = new AnalyticsEnvironmentUsageApi();
+    envApi.analyticsEnvironmentUsageGet().subscribe({
+      next: (res: AnalyticsEnvironmentUsageApiModel[]) => {
+        this.constructEnvironmentUsageChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load environment usage data:', err);
+      }
+    });
+
+    // Load User Activity
+    const userApi = new AnalyticsUserActivityApi();
+    userApi.analyticsUserActivityGet().subscribe({
+      next: (res: AnalyticsUserActivityApiModel[]) => {
+        this.constructUserActivityChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load user activity data:', err);
+      }
+    });
+
+    // Load Time Patterns
+    const timeApi = new AnalyticsTimePatternApi();
+    timeApi.analyticsTimePatternGet().subscribe({
+      next: (res: AnalyticsTimePatternApiModel[]) => {
+        console.log('Time pattern data received:', res);
+        this.constructTimePatternChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load time pattern data:', err);
+      }
+    });
+
+    // Load Component Usage
+    const compApi = new AnalyticsComponentUsageApi();
+    compApi.analyticsComponentUsageGet().subscribe({
+      next: (res: AnalyticsComponentUsageApiModel[]) => {
+        console.log('Component usage data received:', res);
+        this.constructComponentUsageChart(res);
+      },
+      error: (err) => {
+        console.error('Failed to load component usage data:', err);
+      }
+    });
+
+    // Load Duration Stats
+    const durApi = new AnalyticsDurationApi();
+    durApi.analyticsDurationGet().subscribe({
+      next: (res: AnalyticsDurationApiModel) => {
+        this.durationStats = res;
+      },
+      error: (err) => {
+        console.error('Failed to load duration stats:', err);
+      }
+    });
   }
 
   private constructRiverChart(excludeDeprecated: boolean) {
@@ -254,8 +400,7 @@ export class PageAbout extends PageElement {
           arr = arr.sort((a, b) => {
             const aa = a.data as string[];
             const bb = b.data as string[];
-            if (String(aa[2] as string) > String(bb[2] as string))
-              return 1;
+            if (String(aa[2] as string) > String(bb[2] as string)) return 1;
             return -1;
           });
           for (let i = 0; i < arr.length; i += 1) {
@@ -408,12 +553,9 @@ export class PageAbout extends PageElement {
     );
 
     this.top3ProjectsByDeployments.forEach(e => {
-      this.pieDataTable.push([
-        e.project,
-        e.numDeployments
-      ]);
+      this.pieDataTable.push([e.project, e.numDeployments]);
     });
-    
+
     const model: [][] = JSON.parse(JSON.stringify(this.pieDataTable));
     this.pieDataTable = model;
     this.constructTop3PieChart();
@@ -509,6 +651,270 @@ export class PageAbout extends PageElement {
     };
   }
 
+  private constructEnvironmentUsageChart(data: AnalyticsEnvironmentUsageApiModel[]) {
+    const environments = data.slice(0, 10).map(d => d.EnvironmentName ?? '');
+    const counts = data.slice(0, 10).map(d => d.CountOfDeployments ?? 0);
+
+    const title: TitleComponentOption = {
+      text: 'Top 10 Environments by Deployment Count',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'category',
+      data: environments,
+      axisLabel: {
+        interval: 0,
+        rotate: 45
+      }
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'value'
+    };
+
+    const series: BarSeriesOption[] = [
+      {
+        type: 'bar',
+        data: counts,
+        itemStyle: {
+          color: '#1890ff'
+        }
+      }
+    ];
+
+    this.environmentUsageChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
+  }
+
+  private constructUserActivityChart(data: AnalyticsUserActivityApiModel[]) {
+    const users = data.slice(0, 10).map(d => d.UserName ?? '');
+    const counts = data.slice(0, 10).map(d => d.CountOfDeployments ?? 0);
+
+    const title: TitleComponentOption = {
+      text: 'Top 10 Users by Deployment Count',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'category',
+      data: users
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'value'
+    };
+
+    const series: BarSeriesOption[] = [
+      {
+        type: 'bar',
+        data: counts,
+        itemStyle: {
+          color: '#52c41a'
+        }
+      }
+    ];
+
+    this.userActivityChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
+  }
+
+  private constructTimePatternChart(data: AnalyticsTimePatternApiModel[]) {
+    console.log('constructTimePatternChart called with data:', data);
+    
+    // Group by day of week and hour for heatmap
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+    
+    const heatmapData: [number, number, number][] = [];
+    
+    if (data && data.length > 0) {
+      data.forEach(d => {
+        if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined && d.HourOfDay !== null && d.DayOfWeek !== null) {
+          heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
+        }
+      });
+    }
+    
+    // If no data, create at least one data point so chart renders
+    if (heatmapData.length === 0) {
+      console.warn('No valid heatmap data, creating empty chart');
+      heatmapData.push([0, 0, 0]);
+    }
+
+    const title: TitleComponentOption = {
+      text: 'Deployment Time Patterns (Hour vs Day of Week)',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      position: 'top',
+      formatter: (params: any) => {
+        const hour = params.data[0];
+        const day = params.data[1];
+        const count = params.data[2];
+        return `${dayNames[day]}, ${hour}:00<br/>Deployments: ${count}`;
+      }
+    };
+
+    const grid: GridComponentOption = {
+      left: '10%',
+      right: '10%',
+      bottom: '10%',
+      containLabel: true
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'category',
+      data: hours,
+      name: 'Hour of Day',
+      nameLocation: 'middle',
+      nameGap: 30
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'category',
+      data: dayNames,
+      name: 'Day of Week'
+    };
+
+    const maxValue = Math.max(...heatmapData.map(d => d[2]), 1);
+
+    this.timePatternChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      visualMap: {
+        min: 0,
+        max: maxValue,
+        calculable: true,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: '0%'
+      },
+      series: [
+        {
+          type: 'heatmap',
+          data: heatmapData,
+          label: {
+            show: false
+          },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }
+      ]
+    };
+  }
+
+  private constructComponentUsageChart(data: AnalyticsComponentUsageApiModel[]) {
+    console.log('constructComponentUsageChart called with data:', data);
+    
+    let components: string[] = [];
+    let counts: number[] = [];
+    
+    if (data && data.length > 0) {
+      components = data.slice(0, 15).map(d => d.ComponentName ?? '').filter(c => c !== '');
+      counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
+    }
+    
+    // If no data, create placeholder
+    if (components.length === 0) {
+      console.warn('No valid component data, creating empty chart');
+      components = ['No Data'];
+      counts = [0];
+    }
+
+    const title: TitleComponentOption = {
+      text: 'Top 15 Components by Deployment Count',
+      left: 'center'
+    };
+
+    const tooltip: TooltipComponentOption = {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    };
+
+    const grid: GridComponentOption = {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    };
+
+    const yAxis: YAXisComponentOption = {
+      type: 'category',
+      data: components,
+      axisLabel: {
+        interval: 0
+      }
+    };
+
+    const xAxis: XAXisComponentOption = {
+      type: 'value'
+    };
+
+    const series: BarSeriesOption[] = [
+      {
+        type: 'bar',
+        data: counts,
+        itemStyle: {
+          color: '#faad14'
+        }
+      }
+    ];
+
+    this.componentUsageChartOptions = {
+      title,
+      tooltip,
+      grid,
+      xAxis,
+      yAxis,
+      series
+    };
+  }
+
   days_between(date1: Date, date2: Date) {
     // The number of milliseconds in one day
     const ONE_DAY = 1000 * 60 * 60 * 24;
@@ -528,4 +934,3 @@ function min(arg0: number, arg1: number) {
   if (arg0 < arg1) return arg0;
   return arg1;
 }
-

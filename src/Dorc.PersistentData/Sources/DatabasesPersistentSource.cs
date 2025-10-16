@@ -41,7 +41,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Databases.Include(d => d.Group).Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
+                return context.Databases
+                    .Include(d => d.Group)
+                    .Include(d => d.Environments)
+                    .Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
             }
         }
@@ -352,6 +355,17 @@ namespace Dorc.PersistentData.Sources
                 if (existingDatabase == null)
                     return null;
 
+                // Check if another database already exists with the same name and server (excluding current database)
+                var duplicateExists = context.Databases.Any(d => 
+                    d.Name.Equals(database.Name) && 
+                    d.ServerName.Equals(database.ServerName) && 
+                    d.Id != database.Id);
+
+                if (duplicateExists)
+                {
+                    throw new ArgumentException($"Database already exists {database.ServerName}:{database.Name}");
+                }
+
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
                 existingDatabase.ArrayName = database.ArrayName;
@@ -398,7 +412,8 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 Type = db.Type,
                 ServerName = db.ServerName,
-                ArrayName = db.ArrayName
+                ArrayName = db.ArrayName,
+                EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };
         }
     }

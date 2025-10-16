@@ -27,6 +27,10 @@ export interface RefDataProjectsPostRequest {
     projectApiModel?: ProjectApiModel;
 }
 
+export interface RefDataProjectsProjectIdDeleteRequest {
+    projectId: number;
+}
+
 export interface RefDataProjectsProjectNameGetRequest {
     projectName: string;
 }
@@ -79,6 +83,19 @@ export class RefDataProjectsApi extends BaseAPI {
             method: 'POST',
             headers,
             body: projectApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest): Observable<void>
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+        throwIfNullOrUndefined(projectId, 'projectId', 'refDataProjectsProjectIdDelete');
+
+        return this.request<void>({
+            url: '/RefDataProjects/{projectId}'.replace('{projectId}', encodeURI(projectId)),
+            method: 'DELETE',
         }, opts?.responseOpts);
     };
 

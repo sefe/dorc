@@ -1,10 +1,12 @@
 using AspNetCoreRateLimit;
+using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
+using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -85,6 +87,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
 {
     if (registerOwnReader)
     {
+        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupsReaderFactory>().GetOAuthUserGroupsReader());
         builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
     }
 
@@ -112,6 +115,22 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             };
             options.MapInboundClaims = false;
             options.ForwardDefaultSelector = ReferenceTokenSelector.ForwardReferenceToken();
+
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    // Support SignalR WebSocket / SSE where token is passed as query string
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) &&
+                        path.StartsWithSegments("/hubs"))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
         })
         // Enabling Reference tokens
         .AddOAuth2Introspection("introspection", options =>
@@ -213,6 +232,18 @@ AddSwaggerGen(builder.Services, authenticationScheme);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
+// SignalR configuration
+var signalRService = builder.Services.AddSignalR();
+if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
+{
+    signalRService.AddAzureSignalR(conf =>
+    {
+        conf.ApplicationName = configurationSettings.GetEnvironment(true);
+    });
+}
+builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
+builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
+
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
@@ -281,5 +312,8 @@ if (authenticationScheme is ConfigAuthScheme.OAuth)
     // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
 }
+
+// Map SignalR hub
+app.MapHub<DeploymentsHub>("/hubs/deployments");
 
 app.Run();

@@ -250,37 +250,7 @@ namespace Dorc.PersistentData.Sources
                 return true;
             }
         }
-
-
-        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                context.DeploymentRequests
-                    .Where(r => r.Id == requestId)
-                    .ExecuteUpdate(setters => setters
-                        .SetProperty(b => b.Status, status.ToString())
-                        .SetProperty(b => b.RequestedTime, requestedTime));
-            }
-        }
-        public int ChangeRequestStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status, DateTimeOffset requestedTime)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                int rowsAffected = context.DeploymentRequests
-                    .Where(r => r.Id == deploymentRequest.Id
-                        && r.Status == deploymentRequest.Status.ToString())
-                    .ExecuteUpdate(setters => setters
-                        .SetProperty(b => b.Status, status.ToString())
-                        .SetProperty(b => b.RequestedTime, requestedTime));
-
-                deploymentRequest.Status = status.ToString();
-                deploymentRequest.RequestedTime = requestedTime;
-
-                return rowsAffected;
-            }
-        }
-
+        
         public int UpdateNonProcessedRequest(
             DeploymentRequestApiModel deploymentRequest,
             DeploymentRequestStatus status,
@@ -313,22 +283,6 @@ namespace Dorc.PersistentData.Sources
                     .Where(r => r.Id == requestId)
                     .ExecuteUpdate(setters => setters
                         .SetProperty(b => b.Status, status.ToString()));
-            }
-        }
-
-        public int ChangeRequestStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                int rowsAffected = context.DeploymentRequests
-                    .Where(r => r.Id == deploymentRequest.Id
-                        && r.Status == deploymentRequest.Status.ToString())
-                    .ExecuteUpdate(setters => setters
-                        .SetProperty(b => b.Status, status.ToString()));
-
-                deploymentRequest.Status = status.ToString();
-
-                return rowsAffected;
             }
         }
 

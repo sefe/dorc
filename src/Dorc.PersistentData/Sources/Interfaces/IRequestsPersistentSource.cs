@@ -23,14 +23,11 @@ namespace Dorc.PersistentData.Sources.Interfaces
             string? requestLogs = null);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime, string log);
-        void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user);
         int UpdateNonProcessedRequest(
             DeploymentRequestApiModel deploymentRequest,
             DeploymentRequestStatus newStatus,
             DateTimeOffset requestedTime);
-        int ChangeRequestStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status);
-        int ChangeRequestStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status, DateTimeOffset requestedTime);
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus);
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime);
         int SwitchDeploymentResultsStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentResultStatus fromStatus, DeploymentResultStatus toStatus);

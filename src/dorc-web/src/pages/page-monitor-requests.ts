@@ -13,7 +13,7 @@ import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
 import { css, LitElement, PropertyValueMap, render } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
@@ -26,9 +26,17 @@ import {
 } from '../apis/dorc-api';
 import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
+import '../icons/custom-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
-import { TextField } from '@vaadin/text-field';
 import { getShortLogonName } from '../helpers/user-extensions.js';
+import '../components/connection-status-indicator';
+import {
+  DeploymentHub,
+  getReceiverRegister,
+  IDeploymentsEventsClient,
+} from '../services/ServerEvents';
+import { HubConnection, HubConnectionState } from '@microsoft/signalr';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 
 const username = 'Username';
 const status = 'Status';
@@ -37,40 +45,30 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('page-monitor-requests')
-export class PageMonitorRequests extends LitElement {
+export class PageMonitorRequests extends LitElement implements IDeploymentsEventsClient {
   @query('#grid') grid: Grid | undefined;
-  @query('#loading') loadingDiv: HTMLDivElement | undefined;
-  
+
   // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
   // we need to store the max count of items before refresh to keep grid's cache size
-  maxCountBeforeRefresh: number | undefined; 
+  maxCountBeforeRefresh: number | undefined;
 
-  set isLoading(val: boolean) {
-    this._isLoading = val;
-    if (this.loadingDiv) {
-      this.loadingDiv.hidden = !(val || this.isSearching);
-    }
-    if (this.grid) {
-      this.grid.hidden = val;
-    }
-  }
-  get isLoading() {
-    return this._isLoading;
-  }
-  private _isLoading = true;
+  private hubConnection: HubConnection | undefined;
 
-  set isSearching(val: boolean) {
-    this._isSearching = val;
-    if (this.loadingDiv) {
-      this.loadingDiv.hidden = !(val || this.isLoading);
-    }
-  }
-  get isSearching() {
-    return this._isSearching;
-  }
-  private _isSearching = true;
+  @property({ type: Boolean }) isLoading = true;
+
+  @property({ type: Boolean }) isSearching = false;
+
+  @property({ type: Boolean }) autoRefresh = true;
+
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state() noResults = false;
+
+  // Keep reference to header root so we can manually re-render when reactive
+  // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
+  // headerRenderer is only invoked when the cell is first created, so Lit's
+  // normal re-render cycle does not update the header automatically.
+  private _idHeaderRoot?: HTMLElement;
 
   userFilter: string = '';
   statusFilter: string = '';
@@ -146,128 +144,123 @@ export class PageMonitorRequests extends LitElement {
 
   render() {
     return html`
-      <div id="loading" class="overlay" style="z-index: 2">
+      <div id="loading" class="overlay" style="z-index: 2" ?hidden="${!this.isLoading && !this.isSearching}">
         <div class="overlay__inner">
           <div class="overlay__content">
             <span class="spinner"></span>
           </div>
         </div>
       </div>
-
+      
       <vaadin-grid
         id="grid"
         column-reordering-allowed
         multi-sort
-        .size="200"
+        .size=${200}
         theme="compact row-stripes no-row-borders no-border"
-        .dataProvider="${(
+        .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
         ) => {
-          if (
-            params.sortOrders !== undefined &&
-            params.sortOrders.length !== 1
-          ) {
-            return;
-          }
+        if (
+          params.sortOrders !== undefined &&
+          params.sortOrders.length !== 1
+        ) {
+          return;
+        }
 
-          if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
-            params.filters.push({ path: 'Project', value: this.detailsFilter });
-            params.filters.push({
-              path: 'EnvironmentName',
-              value: this.detailsFilter
-            });
-            params.filters.push({
-              path: 'BuildNumber',
-              value: this.detailsFilter
-            });
-          }
+        if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
+          params.filters.push({ path: 'Project', value: this.detailsFilter });
+          params.filters.push({
+            path: 'EnvironmentName',
+            value: this.detailsFilter
+          });
+          params.filters.push({
+            path: 'BuildNumber',
+            value: this.detailsFilter
+          });
+        }
 
-          if (this.idFilter !== '' && this.idFilter !== undefined) {
-            params.filters.push({ path: 'Id', value: this.idFilter });
-          }
+        if (this.idFilter !== '' && this.idFilter !== undefined) {
+          params.filters.push({ path: 'Id', value: this.idFilter });
+        }
 
-          if (this.userFilter !== '' && this.userFilter !== undefined) {
-            params.filters.push({ path: 'UserName', value: this.userFilter });
-          }
+        if (this.userFilter !== '' && this.userFilter !== undefined) {
+          params.filters.push({ path: 'UserName', value: this.userFilter });
+        }
 
-          if (this.statusFilter !== '' && this.statusFilter !== undefined) {
-            params.filters.push({ path: 'Status', value: this.statusFilter });
-          }
+        if (this.statusFilter !== '' && this.statusFilter !== undefined) {
+          params.filters.push({ path: 'Status', value: this.statusFilter });
+        }
 
-          if (
-            this.componentsFilter !== '' &&
-            this.componentsFilter !== undefined
-          ) {
-            params.filters.push({
-              path: 'Components',
-              value: this.componentsFilter
-            });
-          }
-          const api = new RequestStatusesApi();
-          api
-            .requestStatusesPut({
-              pagedDataOperators: {
-                Filters: params.filters.map(
-                  (f: GridFilterDefinition): PagedDataFilter => ({
-                    Path: f.path,
-                    FilterValue: f.value
-                  })
-                ),
-                SortOrders: params.sortOrders.map(
-                  (s: GridSorterDefinition): PagedDataSorting => ({
-                    Path: s.path,
-                    Direction: s.direction?.toString()
-                  })
-                )
-              },
-              limit: params.pageSize,
-              page: params.page + 1
-            })
-            .subscribe({
-              next: (data: GetRequestStatusesListResponseDto) => {
-                data.Items?.map(
-                  item => (item.UserName = getShortLogonName(item.UserName))
-                );
-                callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
-                
-                this.dispatchEvent(
-                  new CustomEvent('searching-requests-finished', {
-                    detail: data,
-                    bubbles: true,
-                    composed: true
-                  })
-                );
-              },
-              error: (err: any) => {
-                const notification = new ErrorNotification();
-                notification.setAttribute(
-                  'errorMessage',
-                  err.response?.ExceptionMessage ?? err.response
-                );
-                this.shadowRoot?.appendChild(notification);
-                notification.open();
-                console.error(err);
-                callback([], 0);
-                this.dispatchEvent(
-                  new CustomEvent('searching-requests-finished', {
-                    detail: { TotalItems: 0 },
-                    bubbles: true,
-                    composed: true
-                  })
-                );
-              },
-              complete: () => {
-                this.dispatchEvent(
-                  new CustomEvent('monitor-requests-loaded', {
-                    detail: {},
-                    bubbles: true,
-                    composed: true
-                  })
-                );
-              }
-            });
-        }}"
+        if (
+          this.componentsFilter !== '' &&
+          this.componentsFilter !== undefined
+        ) {
+          params.filters.push({
+            path: 'Components',
+            value: this.componentsFilter
+          });
+        }
+        const api = new RequestStatusesApi();
+        api
+          .requestStatusesPut({
+            pagedDataOperators: {
+              Filters: params.filters.map(
+                (f: GridFilterDefinition): PagedDataFilter => ({
+                  Path: f.path,
+                  FilterValue: f.value
+                })
+              ),
+              SortOrders: params.sortOrders.map(
+                (s: GridSorterDefinition): PagedDataSorting => ({
+                  Path: s.path,
+                  Direction: s.direction?.toString()
+                })
+              )
+            },
+            limit: params.pageSize,
+            page: params.page + 1
+          })
+          .subscribe({
+            next: (data: GetRequestStatusesListResponseDto) => {
+              data.Items?.map(
+                item => (item.UserName = getShortLogonName(item.UserName))
+              );
+              callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
+
+              this.dispatchEvent(
+                new CustomEvent('searching-requests-finished', {
+                  detail: data,
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            },
+            error: (err: any) => {
+              const errMessage = retrieveErrorMessage(err);
+              const notification = new ErrorNotification();
+              notification.setAttribute(
+                'errorMessage',
+                errMessage
+              );
+              this.shadowRoot?.appendChild(notification);
+              notification.open();
+              console.error(errMessage, err);
+              callback([], 0);
+              this.dispatchEvent(
+                new CustomEvent('searching-requests-finished', {
+                  detail: { TotalItems: 0 },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            },
+            complete: () => {
+              this.monitorRequestsLoaded();
+            }
+          });
+  }}
         style="z-index: 1"
       >
         <vaadin-grid-column
@@ -332,10 +325,13 @@ export class PageMonitorRequests extends LitElement {
     `;
   }
 
-  protected firstUpdated(
+  protected async firstUpdated(
     _changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
-  ): void {
+  ): Promise<void> {
     super.firstUpdated(_changedProperties);
+
+    // Initialize SignalR connection for real-time updates
+    await this.initializeSignalR();
 
     this.addEventListener(
       'request-cancelled',
@@ -347,10 +343,6 @@ export class PageMonitorRequests extends LitElement {
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
     this.addEventListener(
-      'monitor-requests-loaded',
-      this.monitorRequestsLoaded as EventListener
-    );
-    this.addEventListener(
       'searching-requests-started',
       this.searchingRequestsStarted as EventListener
     );
@@ -358,6 +350,72 @@ export class PageMonitorRequests extends LitElement {
       'searching-requests-finished',
       this.searchingRequestsFinished as EventListener
     );
+  }
+
+  protected updated(changed: PropertyValueMap<any>) {
+    super.updated(changed);
+    if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
+      if (this._idHeaderRoot) {
+        // Re-render header to reflect state changes
+        this.idHeaderRenderer(this._idHeaderRoot);
+      }
+    }
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.hubConnection) {
+      this.hubConnection.stop().catch((err) => {
+        console.error('Error stopping SignalR connection:', err);
+      });
+    }
+  }
+
+  private async initializeSignalR() {
+    this.hubConnection = DeploymentHub.getConnection();
+
+    getReceiverRegister('IDeploymentsEventsClient')
+      .register(this.hubConnection, this);
+
+    this.hubConnection.onclose(async () => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
+    this.hubConnection.onreconnecting(() => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
+    this.hubConnection.onreconnected(() => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
+    
+    if (this.hubConnection.state === HubConnectionState.Disconnected) {
+      await this.hubConnection.start().then(() => {
+        this.hubConnectionState = this.hubConnection?.state;
+      }).catch((err) => {
+        console.error('Error starting SignalR connection:', err);
+        this.hubConnectionState = err.toString();
+      });
+    }
+  }
+
+  private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
+
+  onDeploymentRequestStatusChanged(): Promise<void> {
+    if (this.autoRefresh) this.debouncedRefreshGrid();
+    return Promise.resolve();
+  }
+  onDeploymentRequestStarted(): Promise<void> {
+    if (this.autoRefresh) this.debouncedRefreshGrid();
+    return Promise.resolve();
+  }
+  onDeploymentResultStatusChanged(): Promise<void> {
+    // no need to react on result change as we're covered by request status change
+    return Promise.resolve();
+  }
+
+  private refreshGrid() {
+    // Avoid toggling loading overlays; simply invalidate cache
+    this.maxCountBeforeRefresh = 0;
+    this.grid?.clearCache();
   }
 
   private searchingRequestsStarted(event: CustomEvent) {
@@ -426,7 +484,6 @@ export class PageMonitorRequests extends LitElement {
   }
 
   requestCancelled(e: CustomEvent) {
-    this.updateGrid();
     Notification.show(`Cancelled request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
@@ -435,7 +492,6 @@ export class PageMonitorRequests extends LitElement {
   }
 
   requestRestarted(e: CustomEvent) {
-    this.updateGrid();
     Notification.show(`Restarted request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
@@ -443,9 +499,9 @@ export class PageMonitorRequests extends LitElement {
     });
   }
 
-  private componentsRenderer(    root: HTMLElement,
-                                 _: HTMLElement,
-                                 model: GridItemModel<DeploymentRequestApiModel>){
+  private componentsRenderer(root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>) {
 
     const request = model.item as DeploymentRequestApiModel;
     const elements = request.Components?.split('|');
@@ -453,16 +509,16 @@ export class PageMonitorRequests extends LitElement {
     render(html`
       <vaadin-vertical-layout>
         ${elements?.map(
-          element => html`<div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${element}</div>`
-        )}
+      element => html`<div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${element}</div>`
+    )}
       </vaadin-vertical-layout>
     `, root);
 
   }
 
   private usernameRenderer(root: HTMLElement,
-                           _: HTMLElement,
-                           model: GridItemModel<DeploymentRequestApiModel>){
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>) {
     const request = model.item as DeploymentRequestApiModel;
     render(html`
       <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${request.UserName}</div>`, root);
@@ -554,16 +610,16 @@ export class PageMonitorRequests extends LitElement {
             title="View Detailed Results"
             theme="icon small"
             @click="${() => {
-              const event = new CustomEvent('open-monitor-result', {
-                detail: {
-                  request,
-                  message: 'Show results for Request'
-                },
-                bubbles: true,
-                composed: true
-              });
-              this.dispatchEvent(event);
-            }}"
+          const event = new CustomEvent('open-monitor-result', {
+            detail: {
+              request,
+              message: 'Show results for Request'
+            },
+            bubbles: true,
+            composed: true
+          });
+          this.dispatchEvent(event);
+        }}"
           >
             <vaadin-icon
               icon="vaadin:ellipsis-dots-h"
@@ -583,43 +639,66 @@ export class PageMonitorRequests extends LitElement {
   ) {
     render(
       html` <request-controls
-        .requestId="${item.Id ?? 0}"
-        .cancelable="${item.UserEditable &&
+        .requestId=${item.Id ?? 0}
+        .cancelable=${!!item.UserEditable &&
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting')}"
-        .canRestart="${item.UserEditable && item.Status !== 'Pending'}"
+          item.Status === 'Restarting')}
+        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root
     );
   }
 
-  idHeaderRenderer(root: HTMLElement) {
+  idHeaderRenderer = (root: HTMLElement) => {
+  // Store root for future manual re-renders
+  this._idHeaderRoot = root;
     render(
       html`
-        <vaadin-button
-          theme="icon small"
-          style="padding: 0px; margin: 0px"
-          @click="${() => {
-            const event = new CustomEvent('refresh-requests', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            });
-            this.dispatchEvent(event);
+      <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
+        <connection-status-indicator
+          mode="toggle"
+          .state="${this.hubConnectionState}"
+          .autoRefresh="${this.autoRefresh}"
+          @toggle-auto-refresh="${() => {
+            this.autoRefresh = !this.autoRefresh;
+            if (this.autoRefresh) {
+              this.refreshGrid();
+            }
+            this.idHeaderRenderer(root);
           }}"
-        >
-          <vaadin-icon
+        ></connection-status-indicator>
+
+        ${!this.autoRefresh
+          ? html`
+          <vaadin-button
+            theme="icon small"
+            style="padding:0;margin:0"
+            title="Manual refresh"
+            @click="${() => {
+              const event = new CustomEvent('refresh-requests', {
+                detail: {},
+                bubbles: true,
+                composed: true
+              });
+              this.dispatchEvent(event);
+            }}"
+          >
+            <vaadin-icon
             icon="icons:refresh"
             style="color: cornflowerblue"
-          ></vaadin-icon>
-        </vaadin-button>
+            ></vaadin-icon>
+          </vaadin-button>
+          `
+          : null}
+
         <vaadin-grid-sorter
           path="Id"
           direction="desc"
           style="align-items: normal"
         ></vaadin-grid-sorter>
+
         <vaadin-text-field
           placeholder="Id"
           clear-button-visible
@@ -627,25 +706,26 @@ export class PageMonitorRequests extends LitElement {
           style="width: 100px"
           theme="small"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: id,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          const textField = e.target as any;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: id,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
         ></vaadin-text-field>
+      </vaadin-horizontal-layout>
       `,
       root
     );
   }
 
-  detailsHeaderRenderer(root: HTMLElement) {
+  detailsHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -655,25 +735,25 @@ export class PageMonitorRequests extends LitElement {
           style="width: 110px"
           theme="small"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: details,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          const textField = e.target as any;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: details,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
         ></vaadin-text-field>
       `,
       root
     );
   }
 
-  usersHeaderRenderer(root: HTMLElement) {
+  usersHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -683,26 +763,26 @@ export class PageMonitorRequests extends LitElement {
           style="width: 100px"
           theme="small"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
+          const textField = e.target as any;
 
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: username,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: username,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
         ></vaadin-text-field>
       `,
       root
     );
   }
 
-  statusHeaderRenderer(root: HTMLElement) {
+  statusHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -712,26 +792,26 @@ export class PageMonitorRequests extends LitElement {
           style="width: 100px"
           theme="small"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
+          const textField = e.target as any;
 
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: status,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: status,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
         ></vaadin-text-field>
       `,
       root
     );
   }
 
-  componentsHeaderRenderer(root: HTMLElement) {
+  componentsHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
         <vaadin-text-field
@@ -741,18 +821,18 @@ export class PageMonitorRequests extends LitElement {
           style="width: 110px"
           theme="small"
           @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: components,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          const textField = e.target as any;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: components,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
         ></vaadin-text-field>
       `,
       root

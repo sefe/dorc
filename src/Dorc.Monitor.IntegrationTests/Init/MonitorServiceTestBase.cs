@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Pipes;
@@ -15,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using NSubstitute;
 
 namespace Dorc.Monitor.Tests.Init
 {
@@ -60,6 +62,7 @@ namespace Dorc.Monitor.Tests.Init
 
             collection.AddTransient<IDeploymentContextFactory>(provider => new DeploymentContextFactory(monitorConfiguration.DOrcConnectionString));
 
+            collection.AddSingleton<IDeploymentEventsPublisher>(ctx => Substitute.For<IDeploymentEventsPublisher>());
             collection.AddScoped<IVariableResolver, VariableResolver>();
             collection.AddScoped<IComponentProcessor, ComponentProcessor>();
             collection.AddScoped<IScriptDispatcher, ScriptDispatcher>();

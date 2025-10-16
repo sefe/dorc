@@ -50,6 +50,14 @@ namespace Dorc.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, environmentsDetails);
         }
 
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<EnvironmentApiModel>))]
+        [HttpGet("GetEnvironmentsForDatabase")]
+        public IActionResult GetEnvironmentsForDatabase(string serverName, string databaseName)
+        {
+            var environmentsDetails = environmentsPersistentSource.GetEnvironmentsForDatabase(databaseName, serverName, User);
+            return StatusCode(StatusCodes.Status200OK, environmentsDetails);
+        }
+
         /// <summary>
         ///     Return detailed information about component statues for the environment
         /// </summary>

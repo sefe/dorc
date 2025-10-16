@@ -113,10 +113,6 @@
       "DeployProperty": "ENVIRONMENTISPRODUCTION"
     },
     {
-      "MSIParameter": "DORCAZUREDEVOPSLINK",
-      "DeployProperty": "DORCAZUREDEVOPSLINK"
-    },
-    {
       "MSIParameter": "DORC.AUTHENTICATION.SCHEME",
       "DeployProperty": "DORC_AUTHENTICATION_SCHEME"
     },
@@ -179,6 +175,26 @@
     {
       "MSIParameter": "ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID",
       "DeployProperty": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTID",
+      "DeployProperty": "DORC_API_CLIENTID"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTSECRET",
+      "DeployProperty": "DORC_API_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "DORC.API.SCOPE",
+      "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
+    },
+    {
+      "MSIParameter": "AZURE.SIGNALR.USE",
+      "DeployProperty": "AZURE_SIGNALR_USE"
+    },
+    {
+      "MSIParameter": "AZURE.SIGNALR.CONNECTIONSTRING",
+      "DeployProperty": "AZURE_SIGNALR_CONNECTIONSTRING"
     },
     {
       "MSIParameter": "AZURESTORAGEACCOUNT.TENANTID",

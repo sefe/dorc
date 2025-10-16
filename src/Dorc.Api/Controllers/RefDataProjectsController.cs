@@ -147,5 +147,43 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest, "Project doesn't contain a valid URI!");
             }
         }
+
+        /// <summary>
+        /// Delete Project
+        /// </summary>
+        /// <param name="projectId"></param>
+        /// <returns></returns>
+        [HttpDelete("{projectId}")]
+        [SwaggerResponse(StatusCodes.Status200OK)]
+        public IActionResult Delete(int projectId)
+        {
+            if (!_rolePrivilegesChecker.IsAdmin(User) && !_rolePrivilegesChecker.IsPowerUser(User))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "Projects can only be deleted by privileged users or Admins!");
+
+            var projectApiModel = _projectsPersistentSource.GetProject(projectId);
+            if (projectApiModel == null)
+                return StatusCode(StatusCodes.Status404NotFound, "Project not found!");
+
+            if (!(_rolePrivilegesChecker.IsPowerUser(User) && _securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName)) 
+                && !_rolePrivilegesChecker.IsAdmin(User))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "Projects can only be deleted by privileged users or Admins!");
+
+            try
+            {
+                _projectsPersistentSource.DeleteProject(projectId);
+                return StatusCode(StatusCodes.Status200OK, "Project deleted successfully");
+            }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status404NotFound, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    $"Error deleting project: {ex.Message}");
+            }
+        }
     }
 }
