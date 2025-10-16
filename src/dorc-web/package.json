@@ -23,6 +23,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@microsoft/signalr": "^9.0.6",
     "@polymer/paper-dialog": "^3.0.1",
     "@polymer/paper-toggle-button": "^3.0.1",
     "@rollup/plugin-json": "^6.1.0",

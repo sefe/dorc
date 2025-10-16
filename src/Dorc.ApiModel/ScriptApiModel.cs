@@ -1,4 +1,6 @@
-﻿namespace Dorc.ApiModel
+﻿using System.Collections.Generic;
+
+namespace Dorc.ApiModel
 {
     public class ScriptApiModel
     {
@@ -10,5 +12,6 @@
         public string InstallScriptName { get; set; }
         public bool IsEnabled { set; get; }
         public string PowerShellVersionNumber { set; get; }
+        public IList<string> ProjectNames { get; set; }
     }
 }

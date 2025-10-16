@@ -28,6 +28,8 @@ import {
   RefDataEnvironmentsApi,
   RefDataProjectsApi
 } from '../apis/dorc-api';
+import './connection-status-indicator';
+import { HubConnectionState } from '@microsoft/signalr';
 
 @customElement('request-status-card')
 export class RequestStatusCard extends LitElement {
@@ -36,6 +38,8 @@ export class RequestStatusCard extends LitElement {
 
   @property({ type: String })
   selectedProject = '';
+
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state()
   buildNumberHref = '';
@@ -136,6 +140,12 @@ export class RequestStatusCard extends LitElement {
                   style="color: cornflowerblue"
                 ></vaadin-icon>
               </vaadin-button>
+            </td>
+            <td style="vertical-align: middle">
+              <connection-status-indicator
+                mode="icon"
+                .state="${this.hubConnectionState}"
+              ></connection-status-indicator>
             </td>
             ${this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
               ? html` <td style="vertical-align: middle">
@@ -265,13 +275,13 @@ export class RequestStatusCard extends LitElement {
         </table>
         <request-controls
           style="position: absolute; right: 15px; top: 65px;"
-          .requestId="${this.deployRequest.Id}"
-          .cancelable="${this.deployRequest.UserEditable &&
+          .requestId="${this.deployRequest.Id ?? 0}"
+          .cancelable="${!!this.deployRequest.UserEditable &&
           (this.deployRequest.Status === 'Running' ||
             this.deployRequest.Status === 'Requesting' ||
             this.deployRequest.Status === 'Pending' ||
             this.deployRequest.Status === 'Restarting')}"
-          .canRestart="${this.deployRequest.UserEditable &&
+          .canRestart="${!!this.deployRequest.UserEditable &&
           this.deployRequest.Status !== 'Pending'}"
         ></request-controls>
       </div>

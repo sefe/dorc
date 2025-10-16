@@ -29,7 +29,11 @@
 					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#ProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
 					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#ProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
-					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#ProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+
+					<Json:JsonFile Id="DorcApiClientIdProd" ElementPath="$.AppSettings.DorcApi.ClientId" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTID]" />
+					<Json:JsonFile Id="DorcApiClientSecretProd" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
+					<Json:JsonFile Id="DorcApiScopeProd" ElementPath="$.AppSettings.DorcApi.Scope" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">

@@ -62,6 +62,9 @@
 		<Json:JsonFile Id="OpenSearchSettingsDeploymentResultIndexConfig" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 		<Json:JsonFile Id="IdentityServerClientId" ElementPath="$.AppSettings.IdentityServerClientId" File="[#DeployApiWebConfig]" Value="[IDENTITYSERVER.CLIENTID]" />
 		<Json:JsonFile Id="IdentityServerApiSecretItemId" ElementPath="$.AppSettings.OnePassword.IdentityServerApiSecretItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID]" />
+
+		<Json:JsonFile Id="AzureSignalRUse" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
+		<Json:JsonFile Id="AzureSignalRConnectionString" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -120,6 +123,9 @@
 		  <Json:JsonFile Id="OpenSearchSettingsDeploymentResultIndexConfigProd" File="[#DeployApiWebConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
       <Json:JsonFile Id="IdentityServerClientIdProd" ElementPath="$.AppSettings.IdentityServerClientId" File="[#DeployApiWebConfig]" Value="[IDENTITYSERVER.CLIENTID]" />
       <Json:JsonFile Id="IdentityServerApiSecretItemIdProd" ElementPath="$.AppSettings.OnePassword.IdentityServerApiSecretItemId" File="[#DeployApiWebConfig]" Value="[ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID]" />
+
+			<Json:JsonFile Id="AzureSignalRUseProd" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
+			<Json:JsonFile Id="AzureSignalRConnectionStringProd" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
 	  </Component>
   </Fragment>
 </Wix>

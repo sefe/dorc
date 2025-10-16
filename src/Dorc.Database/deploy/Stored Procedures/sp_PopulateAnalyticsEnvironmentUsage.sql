@@ -1,0 +1,28 @@
+CREATE PROCEDURE [deploy].[sp_PopulateAnalyticsEnvironmentUsage]
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Clear existing data
+    TRUNCATE TABLE [deploy].[AnalyticsEnvironmentUsage];
+
+    -- Populate with fresh data from both main and archive tables
+    INSERT INTO [deploy].[AnalyticsEnvironmentUsage] ([EnvironmentName], [TotalDeployments], [SuccessCount], [FailCount])
+    SELECT 
+        ISNULL([Environment], 'Unknown') AS [EnvironmentName],
+        COUNT(*) AS [TotalDeployments],
+        SUM(CASE WHEN [Status] = 'Completed' OR [Status] = 'Success' THEN 1 ELSE 0 END) AS [SuccessCount],
+        SUM(CASE WHEN [Status] = 'Failed' OR [Status] = 'Error' THEN 1 ELSE 0 END) AS [FailCount]
+    FROM (
+        SELECT [Environment], [Status]
+        FROM [deploy].[DeploymentRequest]
+        WHERE [Environment] IS NOT NULL
+        
+        UNION ALL
+        
+        SELECT [Environment], [Status]
+        FROM [archive].[DeploymentRequest]
+        WHERE [Environment] IS NOT NULL
+    ) AS CombinedData
+    GROUP BY [Environment];
+END

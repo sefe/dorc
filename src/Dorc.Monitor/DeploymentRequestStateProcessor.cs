@@ -1,9 +1,11 @@
-using log4net;
-using System.Collections.Concurrent;
 using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Events;
+using Dorc.Core.Interfaces;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
+using log4net;
+using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
 {
@@ -13,6 +15,7 @@ namespace Dorc.Monitor
         private readonly IServiceProvider serviceProvider;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IDeploymentEventsPublisher eventPublisher;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -29,12 +32,14 @@ namespace Dorc.Monitor
             ILog logger,
             IServiceProvider serviceProvider,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IDeploymentEventsPublisher eventPublisher)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
             this.processesPersistentSource = processesPersistentSource;
             this.requestsPersistentSource = requestsPersistentSource;
+            this.eventPublisher = eventPublisher;
         }
 
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
@@ -114,6 +119,14 @@ namespace Dorc.Monitor
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
+                        // publish request status change
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: toStatus.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
                     }
 
                     this.logger.Info($"Requests with ids [{idsString}] are {methodName}ed.");
@@ -186,6 +199,13 @@ namespace Dorc.Monitor
                     {
                         TerminateRequestExecution(id, requestCancellationSources);
                         TerminateRunnerProcesses(id);
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
                     });
 
                     this.logger.Info($"Requests IDs [{idsString}] have been restarted.");
@@ -278,6 +298,11 @@ namespace Dorc.Monitor
                 return;
             }
 
+            _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+            {
+                Status = DeploymentRequestStatus.Requesting.ToString(),
+            });
+
             try
             {
                 // we have to create every request new provider object because of common PropertyValuesPersistentSource and VariableResolver
@@ -318,7 +343,14 @@ namespace Dorc.Monitor
                 this.logger.ErrorFormat("Removal of CancellationTokenSource for the request '{0}' failed.", requestId);
             }
 
-            removedCancellationTokenSource?.Dispose();
+            if (removedCancellationTokenSource is not null)
+            {
+                try
+                {
+                    removedCancellationTokenSource?.Dispose();
+                }
+                catch { } // safe dispose as it may be already disposed
+            }
         }
 
         /// <summary>

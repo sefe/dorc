@@ -311,7 +311,8 @@ namespace Dorc.PersistentData.Sources
                             Name = apiComponent.ComponentName,
                             Path = apiComponent.ScriptPath,
                             NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                         };
 
                         component.Script = script;
@@ -358,6 +359,7 @@ namespace Dorc.PersistentData.Sources
                     script.Path = apiComponent.ScriptPath;
                     script.NonProdOnly = apiComponent.NonProdOnly;
                     script.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
+                    script.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
                 }
                 else if (apiComponent.ScriptPath == null)
                 {
@@ -370,7 +372,8 @@ namespace Dorc.PersistentData.Sources
                         Name = apiComponent.ComponentName,
                         Path = apiComponent.ScriptPath,
                         NonProdOnly = apiComponent.NonProdOnly,
-                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                     };
                     component.Script = script;
                 }
@@ -500,7 +503,8 @@ namespace Dorc.PersistentData.Sources
                     NonProdOnly = script.NonProdOnly,
                     StopOnFailure = comp.StopOnFailure,
                     IsEnabled = comp.IsEnabled,
-                    ParentId = comp.Parent != null ? comp.Parent.Id : 0
+                    ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                    PSVersion = script.PowerShellVersionNumber
                 };
 
             return new ComponentApiModel

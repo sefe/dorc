@@ -220,6 +220,150 @@
         }
       }
     },
+    "/Analytics/EnvironmentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/UserActivity": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/TimePattern": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/ComponentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Analytics/Duration": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/AnalyticsDeploymentsDate": {
       "get": {
         "tags": [
@@ -1018,6 +1162,36 @@
               "text/json": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/PowerShellVersions": {
+      "get": {
+        "tags": [
+          "PowerShellVersions"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PowerShellVersionDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PowerShellVersionDto"
+                  }
                 }
               }
             }
@@ -2994,6 +3168,59 @@
         }
       }
     },
+    "/RefDataDatabaseUsers/GetDbUsersPermissions": {
+      "get": {
+        "tags": [
+          "RefDataDatabaseUsers"
+        ],
+        "parameters": [
+          {
+            "name": "serverName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "databaseName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dbType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDbPermissionApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserDbPermissionApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataEnvironments": {
       "get": {
         "tags": [
@@ -3296,6 +3523,52 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EnvironmentContentApiModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataEnvironmentsDetails/GetEnvironmentsForDatabase": {
+      "get": {
+        "tags": [
+          "RefDataEnvironmentsDetails"
+        ],
+        "parameters": [
+          {
+            "name": "serverName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "databaseName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnvironmentApiModel"
+                  }
                 }
               }
             }
@@ -4372,6 +4645,29 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/RefDataProjects/{projectId}": {
+      "delete": {
+        "tags": [
+          "RefDataProjects"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -6180,46 +6476,6 @@
         }
       }
     },
-    "/ResetAppPassword": {
-      "put": {
-        "tags": [
-          "ResetAppPassword"
-        ],
-        "parameters": [
-          {
-            "name": "envFilter",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/ResetAppPassword/ForUser": {
       "put": {
         "tags": [
@@ -6386,6 +6642,20 @@
         "type": "integer",
         "format": "int32"
       },
+      "AnalyticsComponentUsageApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AnalyticsDeploymentsPerProjectApiModel": {
         "type": "object",
         "properties": {
@@ -6402,6 +6672,86 @@
             "format": "int32"
           },
           "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Failed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsDurationApiModel": {
+        "type": "object",
+        "properties": {
+          "AverageDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "MaxDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "MinDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "TotalDeployments": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsEnvironmentUsageApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Failed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsTimePatternApiModel": {
+        "type": "object",
+        "properties": {
+          "HourOfDay": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DayOfWeek": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DayOfWeekName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsUserActivityApiModel": {
+        "type": "object",
+        "properties": {
+          "UserName": {
             "type": "string",
             "nullable": true
           },
@@ -6548,6 +6898,10 @@
           "IsEnabled": {
             "type": "boolean",
             "nullable": true
+          },
+          "PSVersion": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6585,6 +6939,10 @@
           },
           "Secure": {
             "type": "boolean"
+          },
+          "IsForProd": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7098,15 +7456,15 @@
             "type": "string",
             "nullable": true
           },
-          "OldVersion": {
+          "FromValue": {
             "type": "string",
             "nullable": true
           },
-          "NewVersion": {
+          "ToValue": {
             "type": "string",
             "nullable": true
           },
-          "TfsId": {
+          "Details": {
             "type": "string",
             "nullable": true
           },
@@ -7461,6 +7819,20 @@
             "format": "int32"
           },
           "PermissionName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DisplayName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PowerShellVersionDto": {
+        "type": "object",
+        "properties": {
+          "Value": {
             "type": "string",
             "nullable": true
           },
@@ -7910,6 +8282,13 @@
           "PowerShellVersionNumber": {
             "type": "string",
             "nullable": true
+          },
+          "ProjectNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8040,12 +8419,55 @@
         },
         "additionalProperties": false
       },
+      "UserDbPermissionApiModel": {
+        "type": "object",
+        "properties": {
+          "UserId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "UserLoginId": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserLoginType": {
+            "type": "string",
+            "nullable": true
+          },
+          "PermissionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PermissionName": {
+            "type": "string",
+            "nullable": true
+          },
+          "PermissionDisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DbType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UserElementApiModel": {
         "type": "object",
         "properties": {
           "DisplayName": {
             "type": "string",
             "nullable": true
+          },
+          "Sid": {
+            "type": "string",
+            "nullable": true,
+            "deprecated": true
           },
           "Pid": {
             "type": "string",

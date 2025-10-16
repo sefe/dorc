@@ -1,8 +1,10 @@
-﻿using System.Text;
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.Events;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
+using System.Text;
 
 namespace Dorc.Monitor
 {
@@ -12,18 +14,21 @@ namespace Dorc.Monitor
 
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IComponentsPersistentSource componentsPersistentSource;
+        private readonly IDeploymentEventsPublisher eventsPublisher;
         private ILog _logger;
 
         public ComponentProcessor(
             IScriptDispatcher scriptDispatcher,
             IRequestsPersistentSource requestsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
-            ILog Logger)
+            ILog Logger,
+            IDeploymentEventsPublisher eventsPublisher)
         {
             _logger = Logger;
             this.scriptDispatcher = scriptDispatcher;
             this.requestsPersistentSource = requestsPersistentSource;
             this.componentsPersistentSource = componentsPersistentSource;
+            this.eventsPublisher = eventsPublisher;
         }
 
         public bool DeployComponent(ComponentApiModel component,
@@ -55,6 +60,11 @@ namespace Dorc.Monitor
                     deploymentResult!,
                     DeploymentResultStatus.Running);
 
+                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                {
+                    Status = DeploymentResultStatus.Running.ToString()
+                });
+
                 if (isProductionEnvironment)
                 {
                     if (script.NonProdOnly)
@@ -71,6 +81,11 @@ namespace Dorc.Monitor
                         requestsPersistentSource.UpdateResultStatus(
                             deploymentResult,
                             deploymentResultStatus);
+
+                        eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                        {
+                            Status = deploymentResultStatus.ToString()
+                        });
 
                         componentsPersistentSource.SaveEnvComponentStatus(
                             environmentId,
@@ -127,6 +142,11 @@ namespace Dorc.Monitor
                 requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
                     deploymentResultStatus);
+
+                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                {
+                    Status = deploymentResultStatus.ToString()
+                });
 
                 componentsPersistentSource.SaveEnvComponentStatus(
                     environmentId,
