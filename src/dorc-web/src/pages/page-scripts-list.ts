@@ -111,14 +111,27 @@ export class PageScriptsList extends PageElement {
       }
       .project-tag {
         font-size: 14px;
+        border: 0;
         font-family: monospace;
-        background-color: cornflowerblue;
-        color: white;
+        background-color: var(
+          --_lumo-button-background-color,
+          var(--lumo-contrast-5pct)
+        );
+        color: var(--lumo-secondary-text-color);
         display: inline-block;
         padding: 3px;
         margin: 3px;
         text-decoration: none;
         border-radius: 3px;
+      }
+
+      .project-tag:hover {
+        background-color: var(
+          --_lumo-button-background-color,
+          var(--lumo-contrast-10pct)
+        );
+        cursor: pointer;
+        text-decoration: none;
       }
 
       @keyframes spin {
@@ -368,11 +381,23 @@ export class PageScriptsList extends PageElement {
           ${map(
             projectNames,
             value =>
-              html` <div
+              html` <button
                 class="project-tag"
+                @click="${() =>
+                          this.dispatchEvent(
+                                  new CustomEvent('open-project-envs', {
+                                      detail: {
+                                          Project: {
+                                            ProjectName: value
+                                          }
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )}"
               >
                 ${value}
-              </div>`
+              </button>`
           )}
         `,
         root
