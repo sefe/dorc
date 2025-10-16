@@ -177,7 +177,7 @@ export class PageSqlPortsList extends PageElement {
     const filters = value
       .trim()
       .split('|')
-      .map(filter => new RegExp(filter, 'i'));
+      .map(filter => new RegExp(filter.replace("\\","\\\\"), 'i'));
 
     this.filteredSqlPorts = this.sqlPorts.filter(({ InstanceName, SqlPort }) =>
       filters.some(
