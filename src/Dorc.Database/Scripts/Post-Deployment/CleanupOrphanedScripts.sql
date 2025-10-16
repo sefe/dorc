@@ -7,10 +7,10 @@ new scripts without properly managing the old ones.
 
 -- Delete orphaned scripts (scripts that have no components referencing them)
 DELETE FROM [deploy].[Script]
-WHERE [Id] NOT IN (
-    SELECT DISTINCT [ScriptId]
+WHERE NOT EXISTS (
+    SELECT 1
     FROM [deploy].[Component]
-    WHERE [ScriptId] IS NOT NULL
+    WHERE [deploy].[Component].[ScriptId] = [deploy].[Script].[Id]
 );
 
 -- Log the cleanup operation
