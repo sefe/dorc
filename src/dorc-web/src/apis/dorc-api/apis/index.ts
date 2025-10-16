@@ -11,6 +11,7 @@ export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';
 export * from './MakeLikeProdApi';
 export * from './MetadataApi';
+export * from './PowerShellVersionsApi';
 export * from './PropertiesApi';
 export * from './PropertyValuesApi';
 export * from './PropertyValuesAuditApi';

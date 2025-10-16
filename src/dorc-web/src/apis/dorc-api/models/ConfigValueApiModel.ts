@@ -37,8 +37,8 @@ export interface ConfigValueApiModel {
      */
     Secure?: boolean;
     /**
-     * @type {boolean | undefined}
+     * @type {boolean}
      * @memberof ConfigValueApiModel
      */
-    IsForProd?: boolean;
+    IsForProd?: boolean | null;
 }
