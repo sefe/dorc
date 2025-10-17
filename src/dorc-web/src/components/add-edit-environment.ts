@@ -182,10 +182,10 @@ export class AddEditEnvironment extends LitElement {
                 style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
               ></vaadin-icon>
               ${this.isEmptyOrSpaces(this.EnvOwnerDisplayName)
-                ? html`<div style="font-style: italic; color: red">
+        ? html`<div style="font-style: italic; color: red">
                     Press 'Set Owner' to fill
                   </div> `
-                : html` <div style="font-weight: bold;">
+        : html` <div style="font-weight: bold;">
                     ${this.EnvOwnerDisplayName}
                   </div>`}
             </vaadin-horizontal-layout>
@@ -200,8 +200,8 @@ export class AddEditEnvironment extends LitElement {
               >Search
             </vaadin-button>
             ${this.searchingUsers
-              ? html` <div class="small-loader"></div> `
-              : html``}
+        ? html` <div class="small-loader"></div> `
+        : html``}
           </vaadin-horizontal-layout>
           <vaadin-horizontal-layout>
             <vaadin-combo-box
@@ -225,108 +225,109 @@ export class AddEditEnvironment extends LitElement {
           summary="Environment Required Settings"
           style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
         >
-          <vaadin-text-field
-            id="env-name"
-            label="Name"
-            required
-            auto-validate
-            value="${this.environment?.EnvironmentName ?? ''}"
-            @value-changed="${this._envNameValueChanged}"
-            ?readonly="${this.readonly}"
-          ></vaadin-text-field>
-          <table>
-            <tr>
-              <td>
-                <vaadin-checkbox
-                  id="env-secure"
-                  style="padding-top: 10px; padding-left: 20px"
-                  ?checked="${this.environment?.EnvironmentSecure}"
-                  @change="${this.updateSecure}"
-                  class="tooltip"
-                  ?disabled="${this.readonly}"
-                  ><label slot="label"
-                    >Is Secure<span class="tooltiptext"
-                      >Only use explicitly set environment properties, no
-                      defaults</span
-                    ></label
-                  >
-                </vaadin-checkbox>
-                <vaadin-checkbox
-                  id="env-prod"
-                  style="padding-left: 20px"
-                  ?checked="${this.environment?.EnvironmentIsProd}"
-                  @change="${this.updateIsProd}"
-                  class="tooltip"
-                  ?disabled="${this.readonly}"
-                  ><label slot="label"
-                    >Is Production<span class="tooltiptext"
-                      >Is Environment considered Production, uses the production
-                      deployment runner and account</span
-                    ></label
-                  ></vaadin-checkbox
-                >
-              </td>
-            </tr>
-          </table>
-          <vaadin-text-field
-            id="env-desc"
-            class="block"
-            label="Description"
-            required
-            auto-validate
-            value="${this.environment?.Details?.Description ?? ''}"
-            @value-changed="${this._descriptionValueChanged}"
-            ?readonly="${this.readonly}"
-          ></vaadin-text-field>
+          
+      <vaadin-text-field
+        id="env-name"
+        label="Name"
+        required
+        auto-validate
+        .value=${this.environment?.EnvironmentName ?? ''}
+        @value-changed=${(e: CustomEvent<{ value: string }>) => { this._envNameValueChanged?.(e); this.canSubmit = true; }}
+        ?readonly=${this.readonly}>
+      </vaadin-text-field>
+
+      <vaadin-checkbox
+        id="env-secure"
+        style="padding-top:10px; padding-left:20px"
+        .checked=${this.environment?.EnvironmentSecure ?? false}
+        @checked-changed=${(e: CustomEvent<{ value: boolean }>) => { this.updateSecure?.(e); this.canSubmit = true; }}
+        class="tooltip"
+        ?disabled=${this.readonly}>
+        <label slot="label">Is Secure
+          <span class="tooltiptext">Only use explicitly set environment properties, no defaults</span>
+        </label>
+      </vaadin-checkbox>
+
+      <vaadin-checkbox
+        id="env-prod"
+        style="padding-left:20px"
+        .checked=${this.environment?.EnvironmentIsProd ?? false}
+        @checked-changed=${(e: CustomEvent<{ value: boolean }>) => { this.updateIsProd?.(e); this.canSubmit = true; }}
+        class="tooltip"
+        ?disabled=${this.readonly}>
+        <label slot="label">Is Production
+          <span class="tooltiptext">Is Environment considered Production, uses the production deployment runner and account</span>
+        </label>
+      </vaadin-checkbox>
+
+      <vaadin-text-field
+        id="env-desc"
+        class="block"
+        label="Description"
+        required
+        auto-validate
+        .value=${this.environment?.Details?.Description ?? ''}
+        @value-changed=${(e: CustomEvent<{ value: string }>) => { this._descriptionValueChanged?.(e); this.canSubmit = true; }}
+        ?readonly=${this.readonly}>
+      </vaadin-text-field>
+
         </vaadin-details>
         <vaadin-details
           closed
           summary="Environment Optional Settings"
           style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
         >
-          <vaadin-text-field
-            id="opt-backup"
-            label="Backup Created From"
-            auto-validate
-            value="${this.environment?.Details?.RestoredFromSourceDb ?? ''}"
-            @value-changed="${this._backupValueChanged}"
-            ?readonly="${this.readonly}"
-          ></vaadin-text-field>
-          <vaadin-text-field
-            id="opt-file-share"
-            label="File Share"
-            auto-validate
-            value="${this.environment?.Details?.FileShare ?? ''}"
-            @value-changed="${this._fileShareValueChanged}"
-            ?readonly="${this.readonly}"
-          ></vaadin-text-field>
-          <vaadin-text-field
-            id="opt-thin-client"
-            label="Thin Client Server"
-            auto-validate
-            value="${this.environment?.Details?.ThinClient ?? ''}"
-            @value-changed="${this._thinClientValueChanged}"
-            ?readonly="${this.readonly}"
-          ></vaadin-text-field>
-          <vaadin-text-field
-            id="opt-notes"
-            label="Notes"
-            auto-validate
-            value="${this.environment?.Details?.Notes ?? ''}"
-            @value-changed="${this._notesValueChanged}"
-            ?readonly="${this.readonly}"
-          ></vaadin-text-field>
+
+      <vaadin-text-field
+        id="opt-backup"
+        label="Backup Created From"
+        auto-validate
+        .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
+        @value-changed=${(e: CustomEvent) => { this._backupValueChanged?.(e); this.canSubmit = true; }}
+        ?readonly=${this.readonly}
+      ></vaadin-text-field>
+
+      <vaadin-text-field
+        id="opt-file-share"
+        label="File Share"
+        auto-validate
+        .value=${this.environment?.Details?.FileShare ?? ''}
+        @value-changed=${(e: CustomEvent) => { this._fileShareValueChanged?.(e); this.canSubmit = true; }}
+        ?readonly=${this.readonly}
+      ></vaadin-text-field>
+
+      <vaadin-text-field
+        id="opt-thin-client"
+        label="Thin Client Server"
+        auto-validate
+        .value=${this.environment?.Details?.ThinClient ?? ''}
+        @value-changed=${(e: CustomEvent) => { this._thinClientValueChanged?.(e); this.canSubmit = true; }}
+        ?readonly=${this.readonly}
+      ></vaadin-text-field>
+
+      <vaadin-text-field
+        id="opt-notes"
+        label="Notes"
+        auto-validate
+        .value=${this.environment?.Details?.Notes ?? ''}
+        @value-changed=${(e: CustomEvent) => { this._notesValueChanged?.(e); this.canSubmit = true; }}
+        ?readonly=${this.readonly}
+      ></vaadin-text-field>
+    </vaadin-details>
+
         </vaadin-details>
 
         <div style="padding-left: 4px; margin-right: 30px">
-          <vaadin-button
-            .disabled="${!this.canSubmit || this.readonly}"
-            @click="${this.saveMetadata}"
-            >Save
-          </vaadin-button>
+       
+<vaadin-button
+  .disabled=${!this.canSubmit || this.readonly}
+  @click=${this.saveMetadata}>
+  Save
+</vaadin-button>
+
           ${this.savingMetadata
-            ? html` <div class="small-loader"></div> `
-            : html``}
+        ? html` <div class="small-loader"></div> `
+        : html``}
         </div>
         <div style="color: #FF3131">${this.ErrorMessage}</div>
       </div>
@@ -359,10 +360,12 @@ export class AddEditEnvironment extends LitElement {
     this.clearTextField('opt-notes');
   }
 
+
   clearTextField(id: string) {
-    const textField = this.shadowRoot?.getElementById(id) as TextField;
-    if (textField) textField.value = '';
+    const el = this.shadowRoot?.getElementById(id) as (HTMLElement & { value: string }) | null;
+    if (el) el.value = '';
   }
+
 
   setNewOwner() {
     const found = this.searchResults.find(
@@ -498,12 +501,12 @@ export class AddEditEnvironment extends LitElement {
           })
           .subscribe({
             next: (data: Array<UserElementApiModel>) => {
-                const user = data.length === 1 
-                ? data[0] 
-                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId) ?? 
-                  data.find(u => u.Sid === this.environment.Details?.EnvironmentOwnerId) ??
-                  data.find(u => u.Username === this.environment.Details?.EnvironmentOwner) ??
-                  data.find(u => u.DisplayName === this.environment.Details?.EnvironmentOwner);
+              const user = data.length === 1
+                ? data[0]
+                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId) ??
+                data.find(u => u.Sid === this.environment.Details?.EnvironmentOwnerId) ??
+                data.find(u => u.Username === this.environment.Details?.EnvironmentOwner) ??
+                data.find(u => u.DisplayName === this.environment.Details?.EnvironmentOwner);
 
               if (user)
                 this.EnvOwnerDisplayName =
