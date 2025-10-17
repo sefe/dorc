@@ -2,6 +2,8 @@
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Monitor.RunnerProcess;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using System.Text;
@@ -11,27 +13,33 @@ namespace Dorc.Monitor
     internal class ComponentProcessor : IComponentProcessor
     {
         private readonly IScriptDispatcher scriptDispatcher;
+        private readonly ITerraformDispatcher terraformDispatcher;
 
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IComponentsPersistentSource componentsPersistentSource;
         private readonly IDeploymentEventsPublisher eventsPublisher;
+        private readonly IConfigValuesPersistentSource configValuesPersistentSource;
         private ILog _logger;
 
         public ComponentProcessor(
             IScriptDispatcher scriptDispatcher,
+            ITerraformDispatcher terraformDispatcher,
             IRequestsPersistentSource requestsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
-            ILog Logger,
-            IDeploymentEventsPublisher eventsPublisher)
+            IDeploymentEventsPublisher eventsPublisher,
+            IConfigValuesPersistentSource configValuesPersistentSource,
+            ILog Logger)
         {
             _logger = Logger;
             this.scriptDispatcher = scriptDispatcher;
+            this.terraformDispatcher = terraformDispatcher;
             this.requestsPersistentSource = requestsPersistentSource;
             this.componentsPersistentSource = componentsPersistentSource;
             this.eventsPublisher = eventsPublisher;
+            this.configValuesPersistentSource = configValuesPersistentSource;
         }
 
-        public bool DeployComponent(ComponentApiModel component,
+        public async Task<bool> DeployComponentAsync(ComponentApiModel component,
             DeploymentResultApiModel deploymentResult,
             int requestId,
             bool isProductionRequest,
@@ -44,104 +52,153 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            _logger.Info($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}'.");
-
-            var script = GetScripts(
-                component.ComponentId);
-
+            _logger.Info($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}' of type '{component.ComponentType}' (Enum Value: {(int)component.ComponentType}).");
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
-
             StringBuilder componentResultLogBuilder = new StringBuilder();
 
             try
             {
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult!,
-                    DeploymentResultStatus.Running);
 
-                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                bool isSuccessful;
+
+                // Route to appropriate dispatcher based on component type
+                switch (component.ComponentType)
                 {
-                    Status = DeploymentResultStatus.Running.ToString()
-                });
+                    case ComponentType.Terraform:
+                        _logger.Info($"Processing Terraform component '{component.ComponentName}' - routing to TerraformDispatcher.");
 
-                if (isProductionEnvironment)
-                {
-                    if (script.NonProdOnly)
-                    {
-                        deploymentResultStatus = DeploymentResultStatus.Warning;
+                        TerrafromRunnerOperations terreformOperation = TerrafromRunnerOperations.None;
+                        if (deploymentResult.Status.Equals(DeploymentResultStatus.Pending.Value))
+                            terreformOperation = TerrafromRunnerOperations.CreatePlan;
+                        else if (deploymentResult.Status.Equals(DeploymentResultStatus.Confirmed.Value))
+                            terreformOperation = TerrafromRunnerOperations.ApplyPlan;
 
-                        var warningMessage = $"SCRIPT '{script.Path}' IS SET TO RUN FOR NON PROD ENVIRONMENTS ONLY! SKIPPED THIS SCRIPT EXECUTION!";
-                        _logger.Warn(warningMessage);
-                        componentResultLogBuilder.AppendLine(warningMessage);
-
-                        requestsPersistentSource.UpdateResultLog(
-                            deploymentResult,
-                            componentResultLogBuilder.ToString());
                         requestsPersistentSource.UpdateResultStatus(
-                            deploymentResult,
-                            deploymentResultStatus);
+                            deploymentResult!,
+                            DeploymentResultStatus.Running);
 
                         eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                         {
-                            Status = deploymentResultStatus.ToString()
+                            Status = DeploymentResultStatus.Running.ToString()
                         });
-
-                        componentsPersistentSource.SaveEnvComponentStatus(
-                            environmentId,
+                        deploymentResultStatus = DeploymentResultStatus.Warning;
+                        isSuccessful = await terraformDispatcher.DispatchAsync(
                             component,
-                            deploymentResultStatus.ToString(),
-                            requestId);
+                            deploymentResult,
+                            commonProperties,
+                            requestId,
+                            isProductionRequest,
+                            environmentName,
+                            componentResultLogBuilder,
+                            terreformOperation,
+                            cancellationToken);
 
-                        return true;
-                    }
-                }
+                        // For Terraform components, if successful, the status should be WaitingConfirmation
+                        if (isSuccessful)
+                        {
+                            deploymentResultStatus = terreformOperation switch
+                            {
+                                TerrafromRunnerOperations.CreatePlan => DeploymentResultStatus.WaitingConfirmation,
+                                TerrafromRunnerOperations.ApplyPlan => DeploymentResultStatus.Complete,
+                                TerrafromRunnerOperations.None => throw new NotImplementedException()
+                            };
+                            _logger.Info($"Terraform component '{component.ComponentName}' plan created, waiting for confirmation.");
+                        }
+                        else
+                        {
+                            deploymentResultStatus = DeploymentResultStatus.Failed;
+                            _logger.Error($"Terraform component '{component.ComponentName}' plan creation failed.");
+                        }
+                        break;
+                    case ComponentType.PowerShell:
+                        requestsPersistentSource.UpdateResultStatus(
+                            deploymentResult!,
+                            DeploymentResultStatus.Running);
 
-                bool isSuccessful = scriptDispatcher.Dispatch(
-                             scriptRoot,
-                             script,
-                             commonProperties,
-                             requestId,
-                             deploymentResult.Id,
-                             isProductionRequest,
-                             environmentName,
-                             componentResultLogBuilder,
-                             cancellationToken);
+                        // Handle PowerShell components
+                        var script = GetScripts(component.ComponentId);
 
-                if (isSuccessful
-                    && deploymentResultStatus != DeploymentResultStatus.Warning)
-                {
-                    _logger.Info($"Processing of the component '{component.ComponentName}' completed.");
+                        if (isProductionEnvironment)
+                        {
+                            if (script.NonProdOnly)
+                            {
+                                deploymentResultStatus = DeploymentResultStatus.Warning;
 
-                    deploymentResultStatus = DeploymentResultStatus.Complete;
-                }
-                else
-                {
-                    _logger.Info($"Processing of the component '{component.ComponentName}' failed.");
+                                var warningMessage = $"SCRIPT '{script.Path}' IS SET TO RUN FOR NON PROD ENVIRONMENTS ONLY! SKIPPED THIS SCRIPT EXECUTION!";
+                                _logger.Warn(warningMessage);
+                                componentResultLogBuilder.AppendLine(warningMessage);
 
-                    deploymentResultStatus = DeploymentResultStatus.Failed;
+                                requestsPersistentSource.UpdateResultLog(
+                                    deploymentResult,
+                                    componentResultLogBuilder.ToString());
+                                requestsPersistentSource.UpdateResultStatus(
+                                    deploymentResult,
+                                    deploymentResultStatus);
+
+                                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                                {
+                                    Status = deploymentResultStatus.ToString()
+                                });
+
+                                componentsPersistentSource.SaveEnvComponentStatus(
+                                    environmentId,
+                                    component,
+                                    deploymentResultStatus.ToString(),
+                                    requestId);
+
+                                return true;
+                            }
+                        }
+
+                        isSuccessful = scriptDispatcher.Dispatch(
+                                     scriptRoot,
+                                     script,
+                                     commonProperties,
+                                     requestId,
+                                     deploymentResult.Id,
+                                     isProductionRequest,
+                                     environmentName,
+                                     componentResultLogBuilder,
+                                     cancellationToken);
+
+                        if (isSuccessful && deploymentResultStatus != DeploymentResultStatus.Warning)
+                        {
+                            _logger.Info($"Processing of the PowerShell component '{component.ComponentName}' completed.");
+                            deploymentResultStatus = DeploymentResultStatus.Complete;
+                        }
+                        else
+                        {
+                            _logger.Info($"Processing of the PowerShell component '{component.ComponentName}' failed.");
+                            deploymentResultStatus = DeploymentResultStatus.Failed;
+                        }
+                        break;
+                    default:
+                        break;
                 }
             }
+
             catch (OperationCanceledException)
             {
                 deploymentResultStatus = DeploymentResultStatus.Cancelled;
-
                 _logger.Info($"Processing of the component '{component.ComponentName}' is cancelled.");
                 throw;
             }
             catch (Exception)
             {
                 deploymentResultStatus = DeploymentResultStatus.Failed;
-
                 _logger.Error($"Processing of the component '{component.ComponentName}' failed.");
                 throw;
             }
             finally
             {
-                deploymentResult.Log = componentResultLogBuilder.ToString();
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    deploymentResultStatus);
+                //// Only update final status if it's not WaitingConfirmation (Terraform plans need manual confirmation)
+                //if (deploymentResultStatus != DeploymentResultStatus.WaitingConfirmation)
+                //{
+                    deploymentResult.Log = componentResultLogBuilder.ToString();
+                    requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        deploymentResultStatus);
 
                 eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                 {
@@ -153,6 +210,20 @@ namespace Dorc.Monitor
                     component,
                     deploymentResultStatus.ToString(),
                     requestId);
+                    componentsPersistentSource.SaveEnvComponentStatus(
+                        environmentId,
+                        component,
+                        deploymentResultStatus.ToString(),
+                        requestId);
+                //}
+                //else
+                //{
+                //    // For WaitingConfirmation, just update the log
+                //    deploymentResult.Log = componentResultLogBuilder.ToString();
+                //    requestsPersistentSource.UpdateResultLog(
+                //        deploymentResult,
+                //        componentResultLogBuilder.ToString());
+                //}
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;
