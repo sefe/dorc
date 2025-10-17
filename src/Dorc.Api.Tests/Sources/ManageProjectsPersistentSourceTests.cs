@@ -1,5 +1,7 @@
+using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using NSubstitute;
@@ -19,12 +21,27 @@ namespace Dorc.Api.Tests.Sources
         private IDeploymentContextFactory _contextFactory;
         private IRequestsPersistentSource _requestsPersistentSource;
         private ManageProjectsPersistentSource _source;
+        private IDeploymentContext _context;
 
         [TestInitialize]
         public void Setup()
         {
             _contextFactory = Substitute.For<IDeploymentContextFactory>();
             _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            _context = Substitute.For<IDeploymentContext>();
+            
+            // Setup the context factory to return our mocked context
+            _contextFactory.GetContext().Returns(_context);
+            
+            // Setup empty DbSets for common entities used in validation
+            var emptyComponents = new List<Component>();
+            var componentsDbSet = DbContextMock.GetQueryableMockDbSet(emptyComponents);
+            _context.Components.Returns(componentsDbSet);
+            
+            var emptyProjects = new List<Project>();
+            var projectsDbSet = DbContextMock.GetQueryableMockDbSet(emptyProjects);
+            _context.Projects.Returns(projectsDbSet);
+            
             _source = new ManageProjectsPersistentSource(_contextFactory, _requestsPersistentSource);
         }
 
@@ -106,7 +123,7 @@ namespace Dorc.Api.Tests.Sources
             {
                 new ComponentApiModel
                 {
-                    ComponentId = 1,
+                    ComponentId = 0, // Use 0 so it doesn't try to validate against database
                     ComponentName = longName,
                     ScriptPath = "test.ps1"
                 }
