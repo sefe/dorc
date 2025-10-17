@@ -184,6 +184,4 @@ export class EnvDatabases extends PageEnvBase {
   private closeAttachDatabaseDialog() {
     this.attachDatabaseDialogOpened = false;
   }
-
 }
-

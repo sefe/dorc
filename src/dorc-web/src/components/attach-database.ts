@@ -6,7 +6,6 @@ import { GridItemModel } from '@vaadin/grid';
 import '@polymer/paper-dialog';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/button';
-import '@vaadin/checkbox';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ApiBoolResult, DatabaseApiModel } from '../apis/dorc-api';
@@ -39,9 +38,6 @@ export class AttachDatabase extends LitElement {
   @property({ type: Boolean })
   private showSameTagWarning: boolean = false;
 
-  @property({ type: Boolean })
-  private sameTagConfirmed: boolean = false;
-
   @property({ type: Object })
   private existingDatabaseWithSameTag: DatabaseApiModel | undefined;
 
@@ -60,7 +56,7 @@ export class AttachDatabase extends LitElement {
 
   static get styles() {
     return css`
-    .warning-box {
+      .warning-box {
         background-color: #fff3cd;
         border: 1px solid #ffeaa7;
         border-radius: 4px;
@@ -72,14 +68,6 @@ export class AttachDatabase extends LitElement {
         font-weight: bold;
         margin-bottom: 8px;
       }
-      .warning-checkbox {
-        margin-top: 8px;
-      }
-      .checkbox-label {
-        cursor: pointer;
-        user-select: none;
-      }
-
     `;
   }
 
@@ -126,22 +114,12 @@ export class AttachDatabase extends LitElement {
           </h3>
         </div>
 
-          ${this.showSameTagWarning ? html`
+        ${this.showSameTagWarning ? html`
           <div class="warning-box">
-            <div class="warning-title">Warning - Duplicate Application Tag </div>
+            <div class="warning-title">⚠️ Warning - Duplicate Application Tag</div>
             <div>
               A database with the tag '<strong>${this.selectedDatabase?.Type}</strong>' is already attached to this environment:
               <br><strong>${this.existingDatabaseWithSameTag?.Name}</strong> on ${this.existingDatabaseWithSameTag?.ServerName}
-            </div>
-            <div class="warning-checkbox">
-              <vaadin-checkbox
-                @change="${this.onSameTagConfirmationChange}"
-                .checked="${this.sameTagConfirmed}"
-              >
-              </vaadin-checkbox>
-              <label for="same-tag-checkbox" class="checkbox-label">
-                I understand and want to attach another database with the same tag
-              </label>
             </div>
           </div>
         ` : ''}
@@ -157,14 +135,13 @@ export class AttachDatabase extends LitElement {
   }
 
   onAttachClick() {
-      this._submit();
+    this._submit();
   }
 
   setSelectedDatabase(data: any) {
     const dbId = data.currentTarget.value as number;
     if (!dbId) {
       this.showSameTagWarning = false;
-      this.sameTagConfirmed = false;
       this.existingDatabaseWithSameTag = undefined;
       this.selectedDatabase = undefined;
       this.updateCanSubmit();
@@ -177,35 +154,17 @@ export class AttachDatabase extends LitElement {
     }
   }
 
-  onSameTagConfirmationChange(event: any) {
-    this.sameTagConfirmed = event.target.checked;
-    this.updateCanSubmit();
-  }
-
   private checkForSameTagWarning() {
     if (this.selectedDatabase?.Type) {
       this.existingDatabaseWithSameTag = this.existingDatabases?.find(
         db => db.Type === this.selectedDatabase?.Type
       );
       this.showSameTagWarning = !!this.existingDatabaseWithSameTag;
-      
-      if (!this.showSameTagWarning) {
-        this.sameTagConfirmed = false;
-      }
     }
   }
 
   private updateCanSubmit() {
-    if (!this.selectedDatabase?.Id) {
-      this.canSubmit = false;
-      return;
-    }
-
-    if (this.showSameTagWarning) {
-      this.canSubmit = this.sameTagConfirmed;
-    } else {
-      this.canSubmit = true;
-    }
+    this.canSubmit = !!this.selectedDatabase?.Id;
   }
 
   _displayDb() {
@@ -237,7 +196,6 @@ export class AttachDatabase extends LitElement {
     _column: GridColumn,
     model: GridItemModel<DatabaseApiModel>
   ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
     const groupApiModel = model.item as DatabaseApiModel;
     root.innerHTML = `<paper-item><span>${groupApiModel.Name} - ${
       groupApiModel.ServerName
@@ -280,7 +238,6 @@ export class AttachDatabase extends LitElement {
       this.selectedDatabase.AdGroup = '';
     }
     this.showSameTagWarning = false;
-    this.sameTagConfirmed = false;
     this.existingDatabaseWithSameTag = undefined;
     this.canSubmit = false;
   }
