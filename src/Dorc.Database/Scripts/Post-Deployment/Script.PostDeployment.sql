@@ -10,4 +10,5 @@ Example:      :setvar TableName MyTable
 --------------------------------------------------------------------------------------
 */
 :r .\Props-to-Configuration.sql
+GO
 :r .\CleanupOrphanedScripts.sql
