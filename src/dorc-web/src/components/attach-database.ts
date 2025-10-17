@@ -6,6 +6,7 @@ import { GridItemModel } from '@vaadin/grid';
 import '@polymer/paper-dialog';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/button';
+import '@vaadin/checkbox';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ApiBoolResult, DatabaseApiModel } from '../apis/dorc-api';
@@ -36,10 +37,13 @@ export class AttachDatabase extends LitElement {
   private databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
   
   @property({ type: Boolean })
-  private confirmSameTagDialogOpened: boolean = false;
+  private showSameTagWarning: boolean = false;
 
-  @property({ type: String })
-  private confirmSameTagDialogText: string = '';
+  @property({ type: Boolean })
+  private sameTagConfirmed: boolean = false;
+
+  @property({ type: Object })
+  private existingDatabaseWithSameTag: DatabaseApiModel | undefined;
 
   constructor() {
     super();
@@ -55,24 +59,32 @@ export class AttachDatabase extends LitElement {
   }
 
   static get styles() {
-    return css``;
+    return css`
+    .warning-box {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 12px;
+        margin: 10px 0;
+        color: #856404;
+      }
+      .warning-title {
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+      .warning-checkbox {
+        margin-top: 8px;
+      }
+      .checkbox-label {
+        cursor: pointer;
+        user-select: none;
+      }
+
+    `;
   }
 
   render() {
     return html`
-      <vaadin-confirm-dialog
-          id="sameTagExistsConfirmDialog"
-          header="Existing database tag"
-          cancel-button-visible
-          .opened="${this.confirmSameTagDialogOpened}"
-          .message="${this.confirmSameTagDialogText}"
-          confirm-text="Yes, attach"
-          cancel-text="Cancel"
-          @confirm="${this._submit}"
-          @cancel="${() => {
-            this.confirmSameTagDialogOpened = false;
-          }}"
-        ></vaadin-confirm-dialog>
       <div style="padding: 10px;">
         <div class="inline">
           <vaadin-combo-box
@@ -114,6 +126,26 @@ export class AttachDatabase extends LitElement {
           </h3>
         </div>
 
+          ${this.showSameTagWarning ? html`
+          <div class="warning-box">
+            <div class="warning-title">Warning - Duplicate Application Tag </div>
+            <div>
+              A database with the tag '<strong>${this.selectedDatabase?.Type}</strong>' is already attached to this environment:
+              <br><strong>${this.existingDatabaseWithSameTag?.Name}</strong> on ${this.existingDatabaseWithSameTag?.ServerName}
+            </div>
+            <div class="warning-checkbox">
+              <vaadin-checkbox
+                @change="${this.onSameTagConfirmationChange}"
+                .checked="${this.sameTagConfirmed}"
+              >
+              </vaadin-checkbox>
+              <label for="same-tag-checkbox" class="checkbox-label">
+                I understand and want to attach another database with the same tag
+              </label>
+            </div>
+          </div>
+        ` : ''}
+
         <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
@@ -125,22 +157,54 @@ export class AttachDatabase extends LitElement {
   }
 
   onAttachClick() {
-    const existingTag = this.existingDatabases?.find(db => db.Type === this.selectedDatabase?.Type);
-
-    if (!existingTag) {
       this._submit();
-    }
-    else {
-      this.confirmSameTagDialogText = `Do you really want to attach another database with tag '${this.selectedDatabase?.Type}'? The database '${existingTag?.Name}' with such tag is already attached`;
-      this.confirmSameTagDialogOpened = true;
-    }
   }
 
   setSelectedDatabase(data: any) {
     const dbId = data.currentTarget.value as number;
+    if (!dbId) {
+      this.showSameTagWarning = false;
+      this.sameTagConfirmed = false;
+      this.existingDatabaseWithSameTag = undefined;
+      this.selectedDatabase = undefined;
+      this.updateCanSubmit();
+      return;
+    }
+
     this.selectedDatabase = this.databaseMap?.get(dbId);
     if (this.selectedDatabase) {
       this._displayDb();
+    }
+  }
+
+  onSameTagConfirmationChange(event: any) {
+    this.sameTagConfirmed = event.target.checked;
+    this.updateCanSubmit();
+  }
+
+  private checkForSameTagWarning() {
+    if (this.selectedDatabase?.Type) {
+      this.existingDatabaseWithSameTag = this.existingDatabases?.find(
+        db => db.Type === this.selectedDatabase?.Type
+      );
+      this.showSameTagWarning = !!this.existingDatabaseWithSameTag;
+      
+      if (!this.showSameTagWarning) {
+        this.sameTagConfirmed = false;
+      }
+    }
+  }
+
+  private updateCanSubmit() {
+    if (!this.selectedDatabase?.Id) {
+      this.canSubmit = false;
+      return;
+    }
+
+    if (this.showSameTagWarning) {
+      this.canSubmit = this.sameTagConfirmed;
+    } else {
+      this.canSubmit = true;
     }
   }
 
@@ -160,11 +224,8 @@ export class AttachDatabase extends LitElement {
             this.selectedDatabase = data[0];
           }
 
-          if (this.selectedDatabase.Id) {
-            this.canSubmit = true;
-          } else {
-            this.canSubmit = false;
-          }
+          this.checkForSameTagWarning();
+          this.updateCanSubmit();
         },
         error: (err: any) => console.error(err),
         complete: () => console.log('done loading database')
@@ -218,7 +279,9 @@ export class AttachDatabase extends LitElement {
       this.selectedDatabase.ServerName = '';
       this.selectedDatabase.AdGroup = '';
     }
-
+    this.showSameTagWarning = false;
+    this.sameTagConfirmed = false;
+    this.existingDatabaseWithSameTag = undefined;
     this.canSubmit = false;
   }
 
