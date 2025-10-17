@@ -11,6 +11,7 @@ namespace Dorc.ApiModel
         Cancelled,
         Restarting,
         Completed,
+        CompletedWithDisabledSteps,
         Errored,
         Failed,
         Abandoned,
