@@ -1,27 +1,29 @@
-import '@polymer/paper-toggle-button';
+import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../add-edit-database.ts';
 import '../attach-database';
 import '../attached-databases';
 import { Notification } from '@vaadin/notification';
 import { PageEnvBase } from './page-env-base';
+import '@vaadin/dialog';
+import { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
-  @property({ type: Boolean }) addDatabase = false;
-
-  @property({ type: Boolean }) attachDatabase = false;
-
   @property({ type: Array })
   databases: Array<DatabaseApiModel> | undefined = [];
 
   @property({ type: Boolean }) private envReadOnly = false;
+
+  @state()
+  private attachDatabaseDialogOpened = false;
 
   static get styles() {
     return css`
@@ -64,44 +66,28 @@ export class EnvDatabases extends PageEnvBase {
         <div>
           <div class="inline">
             <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="addDatabase"
-                .checked="${this.addDatabase}"
-                @click="${this._addDatabase}"
-                .disabled="${this.envReadOnly}"
-                >ADD
-              </paper-toggle-button>
-            </div>
-            <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="attachDatabase"
-                .checked="${this.attachDatabase}"
-                @click="${this._attachDatabase}"
-                .disabled="${this.envReadOnly}"
-                >ATTACH
-              </paper-toggle-button>
+              ${!this.envReadOnly
+                ? html`
+                  <vaadin-button
+                    title="Attach Database"
+                    theme="small"
+                    @click="${this.openAttachDatabaseDialog}"
+                  >Attach Database</vaadin-button>
+                `
+                : html``}
+              <vaadin-dialog
+                id='attach-database-dialog'
+                header-title='Attach Database'
+                .opened='${this.attachDatabaseDialogOpened}'
+                draggable
+                @opened-changed='${(event: DialogOpenedChangedEvent) => {
+                  this.attachDatabaseDialogOpened = event.detail.value;
+                }}'
+                ${dialogRenderer(this.renderAttachDatabaseDialog, [])}
+                ${dialogFooterRenderer(this.renderAttachDatabaseFooter, [])}
+              ></vaadin-dialog>
             </div>
           </div>
-          ${this.addDatabase
-            ? html` <div class="center-aligned">
-                <add-edit-database
-                  .envId="${this.environmentId}"
-                  attach="true"
-                  @database-attached="${this._dbAdded}"
-                ></add-edit-database>
-              </div>`
-            : html``}
-          ${this.attachDatabase
-            ? html` <div class="center-aligned">
-                <attach-database
-                  .envId="${this.environmentId}"
-                  .existingDatabases="${this.databases}"
-                  @database-attached="${this._dbAttached}"
-                ></attach-database>
-              </div>`
-            : html``}
           <div>
             <attached-databases
               id="attached-databases"
@@ -122,33 +108,13 @@ export class EnvDatabases extends PageEnvBase {
     super.loadEnvironmentInfo();
   }
 
-  _addDatabase() {
-    this.addDatabase = !this.addDatabase;
-    if (this.addDatabase) {
-      this.attachDatabase = !this.addDatabase;
-    }
-  }
-
-  _attachDatabase() {
-    this.attachDatabase = !this.attachDatabase;
-    if (this.attachDatabase) {
-      this.addDatabase = !this.attachDatabase;
-    }
-  }
-
   _dbAttached() {
     this.dbAttachSuccess('Database attached successfully');
-    this.attachDatabase = false;
+    this.closeAttachDatabaseDialog();
   }
 
   _dbDetached() {
     this.dbAttachSuccess('Database detached successfully');
-    this.attachDatabase = false;
-  }
-
-  _dbAdded() {
-    this.dbAttachSuccess('Database created & attached successfully');
-    this.addDatabase = false;
   }
 
   private dbAttachSuccess(text: string) {
@@ -195,5 +161,27 @@ export class EnvDatabases extends PageEnvBase {
       return -1;
     }
     return -1;
+  }
+    private renderAttachDatabaseDialog = () => html`
+    <attach-database
+      id="attach-database"
+      .envId="${this.environmentId}"
+      .existingDatabases="${this.databases}"
+      @database-attached="${this._dbAttached}"
+    ></attach-database>
+  `;
+
+  private renderAttachDatabaseFooter = () => html`
+    <vaadin-button @click="${this.closeAttachDatabaseDialog}"
+      >Close</vaadin-button
+    >
+  `;
+
+  private openAttachDatabaseDialog() {
+    this.attachDatabaseDialogOpened = true;
+  }
+
+  private closeAttachDatabaseDialog() {
+    this.attachDatabaseDialogOpened = false;
   }
 }
