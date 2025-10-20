@@ -53,59 +53,6 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
         }
 
-        //public async Task<bool> DispatchAsync(
-        //    ComponentApiModel component,
-        //    DeploymentResultApiModel deploymentResult,
-        //    IDictionary<string, VariableValue> properties,
-        //    int requestId,
-        //    bool isProduction,
-        //    string environmentName,
-        //    StringBuilder resultLogBuilder,
-        //    CancellationToken cancellationToken)
-        //{
-        //    cancellationToken.ThrowIfCancellationRequested();
-
-        //    logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
-
-        //    try
-        //    {
-        //        // Update status to Running
-        //        _requestsPersistentSource.UpdateResultStatus(
-        //            deploymentResult,
-        //            DeploymentResultStatus.Running);
-
-        //        logger.Info($"Updated deployment result {deploymentResult.Id} status to Running.");
-
-        //        // Create terraform plan (placeholder implementation)
-        //        var planContent = await CreateTerraformPlanAsync(component, properties, environmentName, cancellationToken);
-
-        //        // Save plan to blob storage (placeholder implementation)
-        //        var blobUrl = await SavePlanToBlobStorageAsync(planContent, deploymentResult.Id, cancellationToken);
-
-        //        resultLogBuilder.AppendLine($"Terraform plan created successfully for component '{component.ComponentName}'");
-        //        resultLogBuilder.AppendLine($"Plan stored at: {blobUrl}");
-
-        //        // Update status to WaitingConfirmation
-        //        _requestsPersistentSource.UpdateResultStatus(
-        //            deploymentResult,
-        //            DeploymentResultStatus.WaitingConfirmation);
-
-        //        logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
-        //        return true;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // Update status to Failed
-        //        _requestsPersistentSource.UpdateResultStatus(
-        //            deploymentResult,
-        //            DeploymentResultStatus.Failed);
-
-        //        logger.Error($"Failed to create Terraform plan for component '{component.ComponentName}': {ex.Message}", ex);
-        //        resultLogBuilder.AppendLine($"Failed to create Terraform plan: {ex.Message}");
-        //        return false;
-        //    }
-        //}
-
         public async Task<bool> DispatchAsync(
             ComponentApiModel component,
             DeploymentResultApiModel deploymentResult,
