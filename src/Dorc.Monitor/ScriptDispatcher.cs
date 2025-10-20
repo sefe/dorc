@@ -155,7 +155,7 @@ namespace Dorc.Monitor
 
                                 cancellationToken.ThrowIfCancellationRequested();
 
-                                if (resultCode == RunnerProcessStarter.RunnerProcess.ProcessTerminatedExitCode)
+                                if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
                                 {
                                     logger.Info("The Runner process is terminated.");
                                     throw new OperationCanceledException("The Runner process is terminated.");

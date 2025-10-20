@@ -152,8 +152,8 @@ namespace Dorc.Monitor.IntegrationTests.Tests
         private IPendingRequestProcessor SetupPendingRequestProcessorMock(IList<string> envsToCheck, ConcurrentQueue<string> queue, ConcurrentDictionary<string, string> dict, Stopwatch stopWatch)
         {
             var prProcessorMock = Substitute.For<IPendingRequestProcessor>();
-            prProcessorMock.When(s => s.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
-                .Do(c =>
+            prProcessorMock.When(s => s.ExecuteAsync(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .Do(async c =>
                 {
                     var a = c.Arg<RequestToProcessDto>();
                     var b = c.Arg<CancellationToken>();
@@ -165,7 +165,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
                         queue.Enqueue(a.Request.UserName);
                         dict.AddOrUpdate(a.Request.EnvironmentName, a.Request.UserName, (key, oldValue) => oldValue += a.Request.UserName);
 
-                        Thread.Sleep(sleepTime);
+                        await Task.Delay(sleepTime);
                         Console.WriteLine($"{stopWatch.Elapsed}   stop {a.Request.UserName} {a.Request.EnvironmentName}");
                     }
                     else
