@@ -95,10 +95,10 @@ export class AddSqlPort extends LitElement {
           ></vaadin-number-field>
         </vaadin-vertical-layout>
         <div style="padding-left: 10px">
-          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
           <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
             >Save</vaadin-button
           >
+            <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
       </div>
       <div>

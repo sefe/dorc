@@ -77,10 +77,10 @@ export class AddPermission extends LitElement {
           ></vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
-          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
           <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
             >Save</vaadin-button
           >
+            <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
       </div>
       <div>
