@@ -106,14 +106,14 @@ export class AddDaemon extends LitElement {
           </vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
-      <vaadin-button
-        .disabled="${!this.valid || this.isBusy}"
-        @click="${this._submit}"
-      >
-        Save
-      </vaadin-button>
-      <vaadin-button @click="${this.reset}">Clear</vaadin-button>
-      </div>
+          <vaadin-button
+            .disabled="${!this.valid || this.isBusy}"
+            @click="${this._submit}"
+          >
+            Save
+          </vaadin-button>
+          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
+        </div>
         <span style="color: darkred">${this.overlayMessage}</span>
       </div>
     `;
@@ -202,12 +202,12 @@ export class AddDaemon extends LitElement {
     }
   }
 
-clearTextField(name: string) {
-  const element = this.shadowRoot?.getElementById(name) as TextField | null;
-  if (element) {
-    element.value = '';
+  clearTextField(name: string) {
+    const element = this.shadowRoot?.getElementById(name) as TextField | null;
+    if (element) {
+      element.value = '';
+    }
   }
-}
 
   reset() {
     this.clearTextField('daemon-name');

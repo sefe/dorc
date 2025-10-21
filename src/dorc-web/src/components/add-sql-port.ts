@@ -15,7 +15,7 @@ import { RefDataDatabasesApi, RefDataSqlPortsApi } from '../apis/dorc-api';
 export class AddSqlPort extends LitElement {
   @property({ type: Array }) databases: string[] = [];
 
-  @property() private database: string = "";
+  @property() private database: string = '';
 
   @property() private portNumber = '';
 
@@ -24,7 +24,6 @@ export class AddSqlPort extends LitElement {
   @property({ type: Boolean }) private databaseValid = false;
 
   @property({ type: Boolean }) private valid = false;
-
 
   @property() private overlayMessage: any;
   @property() private errorMessage: any;
@@ -48,23 +47,23 @@ export class AddSqlPort extends LitElement {
         }
       }
     `;
-  }  
-  
-  constructor() {
-      super();
-  
-      const api = new RefDataDatabasesApi();
-
-      api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
-        (data: string[]) => {
-          this.setDatabases(data);
-        },
-  
-        (err: any) => console.error(err),
-        () => console.log('done loading projects')
-      );
   }
-  
+
+  constructor() {
+    super();
+
+    const api = new RefDataDatabasesApi();
+
+    api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
+      (data: string[]) => {
+        this.setDatabases(data);
+      },
+
+      (err: any) => console.error(err),
+      () => console.log('done loading projects')
+    );
+  }
+
   setDatabases(databases: string[]) {
     this.databases = databases;
   }
@@ -73,16 +72,16 @@ export class AddSqlPort extends LitElement {
     return html`
       <div style="width:50%;">
         <vaadin-vertical-layout>
-              <vaadin-combo-box
-                id="databases-combobox"
-                @value-changed="${this._databaseValueChanged}"
-                .items="${this.databases}"
-                .renderer="${this._databasesRenderer}"
-                placeholder="Select Database"
-                label="Database"
-                style="width: 600px; display: flex; padding-left: 10px"
-                clear-button-visible
-              ></vaadin-combo-box>
+          <vaadin-combo-box
+            id="databases-combobox"
+            @value-changed="${this._databaseValueChanged}"
+            .items="${this.databases}"
+            .renderer="${this._databasesRenderer}"
+            placeholder="Select Database"
+            label="Database"
+            style="width: 600px; display: flex; padding-left: 10px"
+            clear-button-visible
+          ></vaadin-combo-box>
           <vaadin-number-field
             class="block"
             style="width: 600px; display: flex; padding-left: 10px"
@@ -98,7 +97,7 @@ export class AddSqlPort extends LitElement {
           <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
             >Save</vaadin-button
           >
-            <vaadin-button @click="${this.reset}">Clear</vaadin-button>
+          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
       </div>
       <div>
@@ -108,7 +107,7 @@ export class AddSqlPort extends LitElement {
         <span style="color: darkred">${this.errorMessage}</span>
       </div>
     `;
-  } 
+  }
 
   _databasesRenderer(
     root: HTMLElement,
@@ -120,42 +119,38 @@ export class AddSqlPort extends LitElement {
   }
 
   _databaseValueChanged(data: any) {
-      const ServerName = data.target.value as string;
-      const db = this.databases?.find(value => value === ServerName);
-      if (db) {
-        this.database = db;
-        this.databaseValid = true;
-      }
-      else
-      {
-        this.database = "";
-        this.databaseValid = false;
-      }
-  
-      if (this.database !== undefined) {   
-        
+    const ServerName = data.target.value as string;
+    const db = this.databases?.find(value => value === ServerName);
+    if (db) {
+      this.database = db;
+      this.databaseValid = true;
+    } else {
+      this.database = '';
+      this.databaseValid = false;
+    }
+
+    if (this.database !== undefined) {
       const api = new RefDataDatabasesApi();
       //const params = new GridDataProviderParams<DatabaseApiModel>
-      api.refDataDatabasesGetDatabasServerNameslistGet()
-      .subscribe(
+      api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
         (data: string[]) => {
           this.setDatabases(data);
         },
-  
+
         (err: any) => console.error(err),
         () => console.log('done loading projects')
       );
-      }
     }
+  }
 
   _portNumberValueChanged(data: any) {
     this.portNumber = data.currentTarget.value;
-    this.portNumberValid =  Number(this.portNumber) > 0;
+    this.portNumberValid = Number(this.portNumber) > 0;
     this.validate();
   }
 
   validate() {
-    if (this.database !== undefined && this.database != "") {
+    if (this.database !== undefined && this.database != '') {
       if (this.portNumberValid && this.databaseValid) {
         this.valid = true;
       } else {
@@ -166,26 +161,28 @@ export class AddSqlPort extends LitElement {
 
   _submit() {
     const api = new RefDataSqlPortsApi();
-    const sqlPortModel: SqlPortApiModel = {InstanceName: this.database, SqlPort: this.portNumber};
+    const sqlPortModel: SqlPortApiModel = {
+      InstanceName: this.database,
+      SqlPort: this.portNumber
+    };
 
-    api.refDataSqlPortsPost({ sqlPortApiModel : sqlPortModel }).subscribe({
+    api.refDataSqlPortsPost({ sqlPortApiModel: sqlPortModel }).subscribe({
       next: () => {
         this._addSqlPort(sqlPortModel);
       },
       error: (err: any) => {
         this.overlayMessage = 'Error creating SQL port!';
-        if (err?.response)
-          this.errorMessage =  err.response;
+        if (err?.response) this.errorMessage = err.response;
         console.error(err);
       },
       complete: () => {
         console.log('done adding permission');
         this.reset();
         Notification.show(`SQL port added successfully`, {
-                      theme: 'success',
-                      position: 'bottom-start',
-                      duration: 3000
-                    });
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 3000
+        });
       }
     });
   }
@@ -211,17 +208,17 @@ export class AddSqlPort extends LitElement {
       field.value = '0';
     }
   }
-  
-    private clearComboboxSelectedItem(comboName: string) {
-      const combo = this.shadowRoot?.getElementById(comboName) as ComboBox;
-      if (combo) combo.selectedItem = undefined;
-    }
+
+  private clearComboboxSelectedItem(comboName: string) {
+    const combo = this.shadowRoot?.getElementById(comboName) as ComboBox;
+    if (combo) combo.selectedItem = undefined;
+  }
 
   reset() {
     this.clearNumberField('port-number');
     this.clearComboboxSelectedItem('databases-combobox');
 
-    this.database ="";
+    this.database = '';
     this.databaseValid = false;
     this.portNumberValid = false;
 
