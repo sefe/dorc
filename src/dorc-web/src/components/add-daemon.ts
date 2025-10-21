@@ -203,9 +203,9 @@ export class AddDaemon extends LitElement {
   }
 
   clearTextField(name: string) {
-    const element = this.shadowRoot?.getElementById(name) as TextField | null;
-    if (element) {
-      element.value = '';
+    const TextFieldValue = this.shadowRoot?.getElementById(name) as TextField;
+    if (TextFieldValue) {
+      TextFieldValue.value = '';
     }
   }
 
