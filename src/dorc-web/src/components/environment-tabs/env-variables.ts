@@ -36,7 +36,6 @@ import {
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
 import { ErrorNotification } from '../notifications/error-notification';
-import { SuccessNotification } from '../notifications/success-notification';
 import { Notification } from '@vaadin/notification';
 
 const variableValue = 'PropertyValue';
