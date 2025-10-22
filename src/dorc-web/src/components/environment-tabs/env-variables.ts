@@ -36,6 +36,7 @@ import {
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
 import { ErrorNotification } from '../notifications/error-notification';
+import { Notification } from '@vaadin/notification';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -558,6 +559,7 @@ export class EnvVariables extends PageEnvBase {
               this.grid?.clearCache();
               this.getAllVariableNames();
               this.addingVariableValue = false;
+              this.showSuccessMessage('Variable value added successfully!');
             } else {
               this.errorAlert(value);
               this.addingVariableValue = false;
@@ -567,7 +569,9 @@ export class EnvVariables extends PageEnvBase {
             this.errorAlert(err);
             this.addingVariableValue = false;
           },
-          complete: () => console.log('done adding variable value')
+          complete: () => {
+            console.log('done adding variable value');
+          }
         });
     }
   }
@@ -808,5 +812,13 @@ export class EnvVariables extends PageEnvBase {
       `,
       root
     );
+  }
+
+  private showSuccessMessage(text: string) {
+    Notification.show(text, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
   }
 }
