@@ -79,7 +79,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred");
+                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", username, envName, envFilter);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
