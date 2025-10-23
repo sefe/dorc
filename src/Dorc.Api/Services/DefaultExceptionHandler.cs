@@ -5,11 +5,11 @@ namespace Dorc.Api.Services
 {
     public sealed class DefaultExceptionHandler : IExceptionHandler
     {
-        private readonly ILogger _log;
+        private readonly ILogger<DefaultExceptionHandler> _log;
 
-        public DefaultExceptionHandler(ILogger log)
+        public DefaultExceptionHandler(ILogger<DefaultExceptionHandler> log)
         {
-            _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod()?.DeclaringType ?? typeof(DefaultExceptionHandler));
+            _log = log;
         }
 
         public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ namespace Dorc.Api.Services
                 logMessage += Environment.NewLine + $"{GetRequestInfo(request)}";
             }
 
-            _log.LogError(logMessage, exception);
+            _log.LogError(exception, logMessage);
 
             await httpContext.Response.WriteAsJsonAsync(result, cancellationToken: cancellationToken);
             return true;

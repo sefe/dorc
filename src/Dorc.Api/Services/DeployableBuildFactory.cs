@@ -11,19 +11,19 @@ namespace Dorc.Api.Services
     public class DeployableBuildFactory : IDeployableBuildFactory
     {
         private readonly IFileSystemHelper _fileSystemHelper;
-        private readonly ILogger _log;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
 
-        public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILogger log,
+        public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _deployLibrary = deployLibrary;
             _projectsPersistentSource = projectsPersistentSource;
-            _log = log;
+            _loggerFactory = loggerFactory;
             _fileSystemHelper = fileSystemHelper;
         }
         public IDeployableBuild CreateInstance(RequestDto request)
@@ -38,7 +38,9 @@ namespace Dorc.Api.Services
                     {
                         var project = _projectsPersistentSource.GetProject(request.Project);
                         var tfsUrl = project.ArtefactsUrl;
-                        return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(tfsUrl, _log), _log, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
+                        var webClientLogger = _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>();
+                        var buildLogger = _loggerFactory.CreateLogger<AzureDevOpsDeployableBuild>();
+                        return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(tfsUrl, webClientLogger), buildLogger, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
                     }
                 case BuildType.UnknownBuildType:
                     {

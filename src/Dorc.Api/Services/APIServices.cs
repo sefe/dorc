@@ -52,7 +52,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.LogError("GetComponentsByProject", e);
+                _log.LogError(e, "GetComponentsByProject");
                 throw;
             }
         }

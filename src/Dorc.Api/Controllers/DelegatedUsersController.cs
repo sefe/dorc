@@ -39,7 +39,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e);
+                _logger.LogError(e, "An error occurred");
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -64,7 +64,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e);
+                _logger.LogError(e, "An error occurred");
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -88,7 +88,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e);
+                _logger.LogError(e, "An error occurred");
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }

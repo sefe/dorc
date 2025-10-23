@@ -64,7 +64,15 @@ builder.Logging.AddOpenTelemetry(logging =>
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
-var secretsReader = new OnePasswordSecretsReader(configurationSettings);
+
+// Create logger factory early for secrets reader
+using var loggerFactory = LoggerFactory.Create(logging =>
+{
+    logging.AddConsole();
+    logging.SetMinimumLevel(LogLevel.Information);
+});
+var secretsReaderLogger = loggerFactory.CreateLogger<OnePasswordSecretsReader>();
+var secretsReader = new OnePasswordSecretsReader(configurationSettings, secretsReaderLogger);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
 

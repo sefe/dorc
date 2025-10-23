@@ -21,12 +21,13 @@ namespace Dorc.Api.Services
             IPropertyValuesService propertyValuesService,
             IClaimsPrincipalReader claimsPrincipalReader,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            IPropertyEncryptor propertyEncryptor
+            IPropertyEncryptor propertyEncryptor,
+            ILogger<PropertiesService> logger
             )
         {
             _propertyValuesService = propertyValuesService;
             _propertiesPersistentSource = propertiesPersistentSource;
-            _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+            _log = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyEncryptor = propertyEncryptor;
@@ -40,7 +41,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyName} failed: {e.Message}", e);
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyName} failed: {e.Message}");
                 return null;
             }
         }
@@ -53,7 +54,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}", e);
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
                 return new List<PropertyApiModel>();
             }
         }
@@ -79,7 +80,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
                     result.Add(UnrollException(e, property));
                 }
             }
@@ -114,7 +115,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
                     result.Add(UnrollException(e, property));
                 }
             }
@@ -170,7 +171,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
                     result.Add(UnrollException(e, propertyUpdateEntry));
                 }
             }
@@ -207,7 +208,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.LogError($"Failed to encrypt existing property values for property '{propertyName}': {e.Message}", e);
+                _log.LogError(e, $"Failed to encrypt existing property values for property '{propertyName}': {e.Message}");
                 return new Response 
                 { 
                     Item = propertyName, 

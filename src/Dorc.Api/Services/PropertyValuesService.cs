@@ -159,7 +159,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -232,7 +232,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -310,7 +310,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 

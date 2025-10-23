@@ -35,7 +35,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.LogError("AnalyticsDeploymentsPerProjectApiModel.Get", e);
+                _log.LogError(e, "AnalyticsDeploymentsPerProjectApiModel.Get");
                 throw;
             }
         }

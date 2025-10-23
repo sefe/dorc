@@ -35,7 +35,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.LogError("AnalyticsDeploymentsDateController.Get", e);
+                _log.LogError(e, "AnalyticsDeploymentsDateController.Get");
                 throw;
             }
         }

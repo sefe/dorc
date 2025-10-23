@@ -18,7 +18,6 @@ namespace Dorc.Api.Services
         {
             try
             {
-                var logger = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod()?.DeclaringType);
                 var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
                 var configSettings = new ConfigurationSettings(configuration);
                 var domain = configSettings.GetConfigurationDomainNameIntra();
@@ -27,7 +26,7 @@ namespace Dorc.Api.Services
                 For<IPropertyValuesService>().Use<PropertyValuesService>();
                 
                 For<IRequestService>().Use<RequestService>();
-                For<ILog>().Use(logger);
+                // ILogger is registered by ASP.NET Core DI automatically
                 For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
                 For<DirectorySearcher>().Use(serviceContext =>
                 {
@@ -57,9 +56,8 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                var log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod()?.DeclaringType);
-
-                log.LogError(e);
+                // Log to console as fallback during service registration
+                Console.Error.WriteLine($"[ApiRegistry] Error during service registration: {e}");
                 throw;
             }
         }

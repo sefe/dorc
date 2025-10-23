@@ -9,14 +9,14 @@ namespace Dorc.Api.Services
     /// </summary>
     public class OnePasswordSecretsReader : IConfigurationSecretsReader
     {
-        private readonly ILogger _log;
+        private readonly ILogger<OnePasswordSecretsReader> _log;
         private readonly IConfigurationSettings _config;
         private readonly OnePasswordClient? _onePasswordClient;
         private readonly string? _vaultId;
 
-        public OnePasswordSecretsReader(IConfigurationSettings config)
+        public OnePasswordSecretsReader(IConfigurationSettings config, ILogger<OnePasswordSecretsReader> logger)
         {
-            _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod()?.DeclaringType ?? typeof(DefaultExceptionHandler));
+            _log = logger;
             _config = config;
             _vaultId = config.GetOnePasswordVaultId();
             var baseUrl = config.GetOnePasswordBaseUrl();
@@ -59,7 +59,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception ex)
             {
-                _log.LogError($"Failed to get secret {humanizedName} from 1Password by ItemId {itemId}: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to get secret {humanizedName} from 1Password by ItemId {itemId}: {ex.Message}");
                 return string.Empty;
             }
         }

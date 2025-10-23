@@ -37,7 +37,7 @@ namespace Dorc.Api.Services
             if (build.IsValid(new BuildDetails(request)))
                 return build.Process(request, user);
 
-            _log.LogError(new { Error = $"Build validation failed. {build.ValidationResult}" });
+            _log.LogError("Build validation failed. {ValidationResult}", build.ValidationResult);
             throw new WrongBuildTypeException($"Build validation failed. {build.ValidationResult}");
         }
 
@@ -49,7 +49,7 @@ namespace Dorc.Api.Services
             if (project == null)
             {
                 var msg = $"Unable to locate a project with the name '{projectName}'";
-                _log.LogError(msg);
+                _log.LogError(msg, "An error occurred");
                 throw new Exception(msg);
             }
             request.BuildUrl = project.ArtefactsUrl.Split(';')[0];
