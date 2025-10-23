@@ -1,15 +1,15 @@
 ﻿using System.IO.Pipes;
 using System.Text.Json;
 using Dorc.ApiModel;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Runner.Pipes
 {
     internal class ScriptGroupPipeClient : IScriptGroupPipeClient
     {
-        private readonly ILogger logger;
+        private readonly ILogger<Program> logger;
 
-        internal ScriptGroupPipeClient(ILogger logger)
+        internal ScriptGroupPipeClient(ILogger<Program> logger)
         {
             this.logger = logger;
         }

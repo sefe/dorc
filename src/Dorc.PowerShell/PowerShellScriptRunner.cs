@@ -78,27 +78,27 @@ namespace Dorc.PowerShell
                             throw new RemoteException(exceptionMessage, exception);
                         }
 
-                        logger.FileLogger.Debug("Checking runspace State");
+                        logger.FileLogger.LogDebug("Checking runspace State");
 
                         if (runspace.RunspaceStateInfo is { State: RunspaceState.Broken })
                         {
                             throw new Exception(
                                 $"The runspace has been disconnected abnormally. Reason: {runspace.RunspaceStateInfo.Reason}");
                         }
-                        logger.FileLogger.Debug("Checking runspace State...Done");
-                        logger.FileLogger.Debug("Checking InvocationStateInfo");
+                        logger.FileLogger.LogDebug("Checking runspace State...Done");
+                        logger.FileLogger.LogDebug("Checking InvocationStateInfo");
                         if (powerShell.InvocationStateInfo != null
                             && powerShell.InvocationStateInfo.State == PSInvocationState.Failed)
                         {
                             throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
                         }
-                        logger.FileLogger.Debug("Checking InvocationStateInfo...Done");
+                        logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
                     }
                 }
             }
             catch (Exception e)
             {
-                logger.FileLogger.Error(e, "Exception occured in the powershell execution of script {0}", scriptName);
+                logger.FileLogger.LogError(e, "Exception occured in the powershell execution of script {0}", scriptName);
                 return -1;
             }
             finally
@@ -128,10 +128,10 @@ namespace Dorc.PowerShell
                         logger.Warning(psMessage);
                         break;
                     case MessageType.Error:
-                        logger.Error(psMessage);
+                        logger.LogError(psMessage);
                         break;
                     case MessageType.Debug:
-                        logger.Debug(psMessage);
+                        logger.LogDebug(psMessage);
                         break;
                     default:
                         break;
@@ -139,7 +139,7 @@ namespace Dorc.PowerShell
             }
             catch (Exception exception)
             {
-                logger.FileLogger.Error(exception, "Exception Occured logging Information Message from powershell execution");
+                logger.FileLogger.LogError(exception, "Exception Occured logging Information Message from powershell execution");
             }
         }
 
@@ -212,7 +212,7 @@ namespace Dorc.PowerShell
                 catch (Exception ex)
                 {
                     var val = JsonConvert.SerializeObject(property.Value);
-                    logger.FileLogger.Error($"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}'",
+                    logger.FileLogger.LogError($"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}'",
                         ex);
                     Console.WriteLine(
                         $"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}': {ex}");

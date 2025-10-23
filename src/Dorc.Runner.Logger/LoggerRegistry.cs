@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using OpenSearch.Client;
-using Serilog;
-using Serilog.Events;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Events;
 using System;
 
 namespace Dorc.Runner.Logger

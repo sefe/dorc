@@ -33,13 +33,13 @@ namespace Dorc.Api.Client
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        contextlogger.Error($"Request failed with status code: {response.StatusCode}");
+                        contextlogger.LogError($"Request failed with status code: {response.StatusCode}");
                     }
                 }
             }
             catch (Exception e)
             {
-                contextlogger.Error($"Post to {fullUrl} failed with Exception {e.Message}");
+                contextlogger.LogError($"Post to {fullUrl} failed with Exception {e.Message}");
             }
         }
 
@@ -66,12 +66,12 @@ namespace Dorc.Api.Client
                     response.EnsureSuccessStatusCode();
                     if (!response.IsSuccessStatusCode)
                     {
-                        contextlogger.Error($"Request to {fullUrl} failed with status code: {response.StatusCode}");
+                        contextlogger.LogError($"Request to {fullUrl} failed with status code: {response.StatusCode}");
                     }
                 }
                 catch (HttpRequestException ex)
                 {
-                    contextlogger.Error($"Post to {fullUrl} failed with Exception {ex.Message}");
+                    contextlogger.LogError($"Post to {fullUrl} failed with Exception {ex.Message}");
                 }
             }
         }

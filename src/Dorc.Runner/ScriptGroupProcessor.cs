@@ -2,7 +2,7 @@
 using Dorc.PowerShell;
 using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
-using Serilog.Context;
+using Microsoft.Extensions.Logging.Context;
 
 namespace Dorc.Runner
 {

@@ -5,7 +5,7 @@ using Dorc.Core.Lamar;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Tools.PostRestoreEndurCLI
 {
@@ -78,7 +78,7 @@ namespace Tools.PostRestoreEndurCLI
         {
             var log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
             Console.WriteLine(DateTime.Now + " - " + strText);
-            log.Info(strText);
+            log.LogInformation(strText);
         }
     }
 }

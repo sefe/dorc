@@ -1,16 +1,16 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Dorc.Runner.Pipes
 {
     internal class ScriptGroupFileReader : IScriptGroupPipeClient
     {
-        private ILogger logger;
+        private ILogger<Program> logger;
 
-        internal ScriptGroupFileReader(ILogger logger)
+        internal ScriptGroupFileReader(ILogger<Program> logger)
         {
             this.logger = logger;
         }

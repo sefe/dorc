@@ -31,7 +31,7 @@
     <PackageReference Include="BaselineTypeDiscovery" Version="2.0.0" />
     <PackageReference Include="Lamar" Version="13.1.0" />
     <PackageReference Include="LamarCodeGeneration" Version="6.3.0" />
-    <PackageReference Include="log4net" Version="2.0.17" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" >
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
     <PackageReference Include="System.ComponentModel.Composition" Version="8.0.0" />

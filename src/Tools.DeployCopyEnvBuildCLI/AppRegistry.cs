@@ -2,7 +2,7 @@
 using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Tools.DeployCopyEnvBuildCLI
 {

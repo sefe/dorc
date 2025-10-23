@@ -7,7 +7,7 @@ using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
 using Microsoft.Extensions.Configuration;
 using OpenSearch.Client;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Runner
 {

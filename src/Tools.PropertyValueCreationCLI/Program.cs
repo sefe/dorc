@@ -5,7 +5,7 @@ using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
-using log4net;
+using Microsoft.Extensions.Logging;
 using log4net.Config;
 
 namespace Tools.PropertyValueCreationCLI
@@ -40,13 +40,13 @@ namespace Tools.PropertyValueCreationCLI
 
         public class Application
         {
-            private readonly ILog _log;
+            private readonly ILogger _log;
             private readonly IPropertyCreation _propertyCreation;
             private readonly IPropertyValueFilterCreation _propertyValueFilterCreation;
             private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
             public Application(IPropertyCreation propertyCreation,
-                IPropertyValueFilterCreation propertyValueFilterCreation, ILog log, IEnvironmentsPersistentSource environmentsPersistentSource
+                IPropertyValueFilterCreation propertyValueFilterCreation, ILogger log, IEnvironmentsPersistentSource environmentsPersistentSource
                 )
             {
                 _environmentsPersistentSource = environmentsPersistentSource;
@@ -83,7 +83,7 @@ namespace Tools.PropertyValueCreationCLI
                 var configs = new DeployCsvFileReader().GetValues(File.ReadAllLines(filepath));
                 foreach (var row in configs)
                 {
-                    _log.Info("===== PropertyName:" + row.PropertyName + "  Secure:" + row.IsSecure + "  Value:" +
+                    _log.LogInformation("===== PropertyName:" + row.PropertyName + "  Secure:" + row.IsSecure + "  Value:" +
                               row.Value + "  Environment:" + row.Environment + " ====");
                     _propertyCreation.InsertProperty(row.PropertyName, row.IsSecure, Environment.UserName);
                     _propertyValueFilterCreation.InsertPropertyValueFilter(row.PropertyName, row.Value,

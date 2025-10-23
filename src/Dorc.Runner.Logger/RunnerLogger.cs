@@ -1,6 +1,6 @@
 ﻿using Dorc.Runner.Logger.Model;
 using OpenSearch.Client;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
