@@ -1,4 +1,4 @@
-﻿using Serilog;
+﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Globalization;
 using System.Net.Http;
@@ -17,11 +17,11 @@ namespace Dorc.Api.Client
             _baseUrl = baseUrl;
         }
 
-        public async void PostToDorc(ILogger contextlogger, string endPoint, string urlParams)
+        public async void PostToDorc(ILogger<DeployApiClient> contextlogger, string endPoint, string urlParams)
         {
             HttpClientHandler handler = new HttpClientHandler { UseDefaultCredentials = true };
             string fullUrl = $"{_baseUrl}/{endPoint}?{urlParams}";
-            contextlogger.Verbose($"full url {fullUrl}");
+            contextlogger.LogDebug($"full url {fullUrl}");
 
             try
             {
@@ -43,10 +43,10 @@ namespace Dorc.Api.Client
             }
         }
 
-        public async void PatchToDorc(ILogger contextlogger, string endPoint, string patchContent)
+        public async void PatchToDorc(ILogger<DeployApiClient> contextlogger, string endPoint, string patchContent)
         {
             string fullUrl = $"{_baseUrl}/{endPoint}?{urlParams}";
-            contextlogger.Verbose($"full url {fullUrl}");
+            contextlogger.LogDebug($"full url {fullUrl}");
             HttpClientHandler handler = new HttpClientHandler { UseDefaultCredentials = true };
             using (HttpClient client = new HttpClient(handler))
             {

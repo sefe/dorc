@@ -1,7 +1,7 @@
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Newtonsoft.Json;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 
