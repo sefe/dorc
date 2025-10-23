@@ -36,7 +36,7 @@ import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
 import GlobalCache from '../global-cache';
 import '@vaadin/icons';
-import {Router} from "@vaadin/router";
+import { Router } from '@vaadin/router';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
@@ -221,7 +221,10 @@ export class PageVariables extends PageElement {
                     <vaadin-checkbox
                       id="is-variable-secure"
                       label="Secure"
-                      ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
+                      ?disabled="${!(
+                        (this.isPowerUser || this.isAdmin) &&
+                        this.existingPropertySelected
+                      )}"
                       @click="${this.updatePropertySecure}"
                     ></vaadin-checkbox>
                   </td>
@@ -401,7 +404,8 @@ export class PageVariables extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser =
+      this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   cellClassNameGenerator(
@@ -689,8 +693,7 @@ export class PageVariables extends PageElement {
     if (data) {
       const combo = data.target as ComboBox;
       this.newVariableScope = combo.value;
-      if (!this.newVariableScope)
-      {
+      if (!this.newVariableScope) {
         return;
       }
       this.loadingScopeOptions = true;
@@ -751,15 +754,15 @@ export class PageVariables extends PageElement {
     if (existingProperty && this.propertyName) {
       // Store the original state for proper reverting
       const originallySecured = existingProperty.Secure ?? false;
-      
+
       let confirmMessage = '';
-      
+
       if (!originallySecured) {
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
       } else if (originallySecured) {
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
       }
-      
+
       const revertCheckboxState = () => {
         event.preventDefault();
         checkbox.checked = originallySecured;
@@ -777,25 +780,25 @@ export class PageVariables extends PageElement {
 
       const api = new PropertiesApi();
       const requestBody = { [this.propertyName]: updatedProperty };
-      
+
       api.propertiesPut({ requestBody }).subscribe({
         next: (data: Response[]) => {
           if (data[0].Status === 'success') {
             // Update the local property object
             existingProperty.Secure = !originallySecured;
-            
+
             let message = '';
             if (!originallySecured) {
               message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
               message = `Property "${this.propertyName}" unsecured successfully.`;
             }
-            
-            Notification.show(message, { 
-              position: 'bottom-start', 
+
+            Notification.show(message, {
+              position: 'bottom-start',
               theme: 'success'
             });
-            
+
             // Reload page data to reflect changes
             this.loadVariableValues();
           } else {

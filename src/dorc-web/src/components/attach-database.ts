@@ -34,7 +34,7 @@ export class AttachDatabase extends LitElement {
 
   @property({ type: Object })
   private databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
-  
+
   @property({ type: Boolean })
   private showSameTagWarning: boolean = false;
 
@@ -92,15 +92,11 @@ export class AttachDatabase extends LitElement {
         <div>
           <h3>
             Database:
-            <span style="color: blue"
-              >${this.selectedDatabase?.Name}</span
-            >
+            <span style="color: blue">${this.selectedDatabase?.Name}</span>
           </h3>
           <h3>
             Application Tag:
-            <span style="color: blue"
-              >${this.selectedDatabase?.Type}</span
-            >
+            <span style="color: blue">${this.selectedDatabase?.Type}</span>
           </h3>
           <h3>
             Instance:
@@ -114,22 +110,31 @@ export class AttachDatabase extends LitElement {
           </h3>
         </div>
 
-        ${this.showSameTagWarning ? html`
-          <div class="warning-box">
-            <div class="warning-title">⚠️ Warning - Duplicate Application Tag</div>
-            <div>
-              A database with the tag '<strong>${this.selectedDatabase?.Type}</strong>' is already attached to this environment:
-              <br><strong>${this.existingDatabaseWithSameTag?.Name}</strong> on ${this.existingDatabaseWithSameTag?.ServerName}
-            </div>
-          </div>
-        ` : ''}
+        ${this.showSameTagWarning
+          ? html`
+              <div class="warning-box">
+                <div class="warning-title">
+                  ⚠️ Warning - Duplicate Application Tag
+                </div>
+                <div>
+                  A database with the tag
+                  '<strong>${this.selectedDatabase?.Type}</strong>' is already
+                  attached to this environment:
+                  <br /><strong
+                    >${this.existingDatabaseWithSameTag?.Name}</strong
+                  >
+                  on ${this.existingDatabaseWithSameTag?.ServerName}
+                </div>
+              </div>
+            `
+          : ''}
 
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
+        <vaadin-button
+          .disabled="${!this.canSubmit}"
+          @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
-        <vaadin-button @click="${this._reset}"
-          >Clear</vaadin-button
-        >
+        <vaadin-button @click="${this._reset}">Clear</vaadin-button>
       </div>
     `;
   }
@@ -244,9 +249,7 @@ export class AttachDatabase extends LitElement {
 
   private setDatabases(data: DatabaseApiModel[]) {
     this.databases = data;
-    this.databaseMap = new Map(
-      this.databases.map(obj => [obj.Id, obj])
-    );
+    this.databaseMap = new Map(this.databases.map(obj => [obj.Id, obj]));
   }
 
   private processAttachDbSuccess() {
@@ -261,7 +264,9 @@ export class AttachDatabase extends LitElement {
   }
 
   private processDbAttachFailure(result: any) {
-    const errorMessage = 'Unable to attach database' + (result?.Message ? `: ${result.Message}` : '');
+    const errorMessage =
+      'Unable to attach database' +
+      (result?.Message ? `: ${result.Message}` : '');
     Notification.show(errorMessage, {
       theme: 'error',
       position: 'bottom-start',

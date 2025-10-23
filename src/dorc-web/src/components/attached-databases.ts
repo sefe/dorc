@@ -12,9 +12,7 @@ import { html } from 'lit/html.js';
 import '../components/edit-database-permissions';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
-import {
-  DatabaseApiModel,
-} from '../apis/dorc-api';
+import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
@@ -198,8 +196,7 @@ export class AttachedDatabases extends LitElement {
         @database-detached="${() =>
           this.dispatchEvent(
             new CustomEvent('database-detached', { detail: { db } })
-          )
-        }"
+          )}"
         @manage-database-perms="${() => {
           const edit = this.shadowRoot?.getElementById(
             'edit'
@@ -219,7 +216,7 @@ export class AttachedDatabases extends LitElement {
       ></database-env-controls>`,
       root
     );
-  }
+  };
 
   openDialog(name: string) {
     const dialog = this.shadowRoot?.getElementById(name) as PaperDialogElement;

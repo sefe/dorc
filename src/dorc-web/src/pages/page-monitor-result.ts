@@ -34,10 +34,13 @@ import {
   DeploymentRequestEventData,
   DeploymentResultEventData,
   getHubProxyFactory
- } from '../services/ServerEvents';
+} from '../services/ServerEvents';
 
 @customElement('page-monitor-result')
-export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
+export class PageMonitorResult
+  extends PageElement
+  implements IDeploymentsEventsClient
+{
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Array })
@@ -53,8 +56,9 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
-  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
-  
+  @property({ type: String }) hubConnectionState: string | undefined =
+    HubConnectionState.Disconnected;
+
   private hubConnection: HubConnection | undefined;
 
   static get styles() {
@@ -171,7 +175,10 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
+    if (
+      this.hubConnection &&
+      this.hubConnection.state !== HubConnectionState.Disconnected
+    ) {
       this.hubConnection.stop().catch(() => {});
     }
   }
@@ -218,7 +225,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         notification.setAttribute('errorMessage', err.response);
         this.shadowRoot?.appendChild(notification);
         notification.open();
-        console.error(err);        
+        console.error(err);
       },
       complete: () => {
         console.log('done loading request');
@@ -246,34 +253,33 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.loading = false;
         this.resultsLoading = false;
       }
-    });    
-  }
+    });
+  };
 
   private async initializeSignalR() {
-    if (!this.hubConnection)
-      this.hubConnection = DeploymentHub.getConnection();
+    if (!this.hubConnection) this.hubConnection = DeploymentHub.getConnection();
 
-    getReceiverRegister('IDeploymentsEventsClient')
-      .register(this.hubConnection, this);
+    getReceiverRegister('IDeploymentsEventsClient').register(
+      this.hubConnection,
+      this
+    );
 
-    const hubProxy = getHubProxyFactory('IDeploymentEventsHub')
-        .createHubProxy(this.hubConnection);
+    const hubProxy = getHubProxyFactory('IDeploymentEventsHub').createHubProxy(
+      this.hubConnection
+    );
 
     this.hubConnection.onreconnected(async () => {
-       await hubProxy.joinRequestGroup(this.requestId);
-       this.refreshData();
-       this.hubConnectionState = this.hubConnection!.state;
-     });
+      await hubProxy.joinRequestGroup(this.requestId);
+      this.refreshData();
+      this.hubConnectionState = this.hubConnection!.state;
+    });
 
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      try
-      {
+      try {
         await this.hubConnection.start();
         await hubProxy.joinRequestGroup(this.requestId);
         this.hubConnectionState = this.hubConnection.state;
-      }
-      catch (err)
-      {
+      } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         this.hubConnectionState = errorMessage;
         console.error(err);
@@ -281,10 +287,18 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     }
   }
 
-  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
+  onDeploymentRequestStatusChanged(
+    data: DeploymentRequestEventData
+  ): Promise<void> {
     if (data?.requestId === this.requestId) {
-      const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
-      const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
+      const startedTime =
+        data.startedTime instanceof Date
+          ? data.startedTime.toISOString()
+          : data.startedTime;
+      const completedTime =
+        data.completedTime instanceof Date
+          ? data.completedTime.toISOString()
+          : data.completedTime;
 
       this.deployRequest = {
         ...this.deployRequest,
@@ -295,19 +309,24 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     }
     return Promise.resolve();
   }
-  
+
   onDeploymentRequestStarted(): Promise<void> {
     return Promise.resolve();
   }
 
-  onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void> {
+  onDeploymentResultStatusChanged(
+    data: DeploymentResultEventData
+  ): Promise<void> {
     if (this.isEventForRequest(data, this.requestId)) {
       this.refreshResultItems();
     }
     return Promise.resolve();
   }
 
-  isEventForRequest(event: DeploymentResultEventData, requestId: number): boolean {
+  isEventForRequest(
+    event: DeploymentResultEventData,
+    requestId: number
+  ): boolean {
     if (!event || typeof event !== 'object') {
       return false;
     }

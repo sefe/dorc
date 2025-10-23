@@ -4,33 +4,32 @@
 
 /** Transpiled from Dorc.Core.Events.DeploymentRequestEventData */
 export type DeploymentRequestEventData = {
-    /** Transpiled from int */
-    requestId: number;
-    /** Transpiled from string? */
-    status?: string;
-    /** Transpiled from System.DateTimeOffset */
-    startedTime?: (Date | string);
-    /** Transpiled from System.DateTimeOffset */
-    completedTime?: (Date | string);
-    /** Transpiled from System.DateTimeOffset */
-    timestamp: (Date | string);
-}
+  /** Transpiled from int */
+  requestId: number;
+  /** Transpiled from string? */
+  status?: string;
+  /** Transpiled from System.DateTimeOffset */
+  startedTime?: Date | string;
+  /** Transpiled from System.DateTimeOffset */
+  completedTime?: Date | string;
+  /** Transpiled from System.DateTimeOffset */
+  timestamp: Date | string;
+};
 
 /** Transpiled from Dorc.Core.Events.DeploymentResultEventData */
 export type DeploymentResultEventData = {
-    /** Transpiled from int */
-    resultId: number;
-    /** Transpiled from int */
-    requestId: number;
-    /** Transpiled from int */
-    componentId: number;
-    /** Transpiled from string? */
-    status?: string;
-    /** Transpiled from System.DateTimeOffset */
-    startedTime?: (Date | string);
-    /** Transpiled from System.DateTimeOffset */
-    completedTime?: (Date | string);
-    /** Transpiled from System.DateTimeOffset */
-    timestamp: (Date | string);
-}
-
+  /** Transpiled from int */
+  resultId: number;
+  /** Transpiled from int */
+  requestId: number;
+  /** Transpiled from int */
+  componentId: number;
+  /** Transpiled from string? */
+  status?: string;
+  /** Transpiled from System.DateTimeOffset */
+  startedTime?: Date | string;
+  /** Transpiled from System.DateTimeOffset */
+  completedTime?: Date | string;
+  /** Transpiled from System.DateTimeOffset */
+  timestamp: Date | string;
+};

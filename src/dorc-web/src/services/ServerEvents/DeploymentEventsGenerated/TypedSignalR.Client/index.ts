@@ -5,130 +5,171 @@
 import type { HubConnection, IStreamResult, Subject } from '@microsoft/signalr';
 import type { IDeploymentEventsHub } from './Dorc.Core.Events';
 import type { IDeploymentsEventsClient } from './Dorc.Core.Interfaces';
-import type { DeploymentRequestEventData, DeploymentResultEventData } from '../Dorc.Core.Events';
-
+import type {
+  DeploymentRequestEventData,
+  DeploymentResultEventData
+} from '../Dorc.Core.Events';
 
 // components
 
 export type Disposable = {
-    dispose(): void;
-}
+  dispose(): void;
+};
 
 export type HubProxyFactory<T> = {
-    createHubProxy(connection: HubConnection): T;
-}
+  createHubProxy(connection: HubConnection): T;
+};
 
 export type ReceiverRegister<T> = {
-    register(connection: HubConnection, receiver: T): Disposable;
-}
+  register(connection: HubConnection, receiver: T): Disposable;
+};
 
 type ReceiverMethod = {
-    methodName: string,
-    method: (...args: any[]) => void
-}
+  methodName: string;
+  method: (...args: any[]) => void;
+};
 
 class ReceiverMethodSubscription implements Disposable {
+  public constructor(
+    private connection: HubConnection,
+    private receiverMethod: ReceiverMethod[]
+  ) {}
 
-    public constructor(
-        private connection: HubConnection,
-        private receiverMethod: ReceiverMethod[]) {
+  public readonly dispose = () => {
+    for (const it of this.receiverMethod) {
+      this.connection.off(it.methodName, it.method);
     }
-
-    public readonly dispose = () => {
-        for (const it of this.receiverMethod) {
-            this.connection.off(it.methodName, it.method);
-        }
-    }
+  };
 }
 
 // API
 
 export type HubProxyFactoryProvider = {
-    (hubType: "IDeploymentEventsHub"): HubProxyFactory<IDeploymentEventsHub>;
-}
+  (hubType: 'IDeploymentEventsHub'): HubProxyFactory<IDeploymentEventsHub>;
+};
 
 export const getHubProxyFactory = ((hubType: string) => {
-    if(hubType === "IDeploymentEventsHub") {
-        return IDeploymentEventsHub_HubProxyFactory.Instance;
-    }
+  if (hubType === 'IDeploymentEventsHub') {
+    return IDeploymentEventsHub_HubProxyFactory.Instance;
+  }
 }) as HubProxyFactoryProvider;
 
 export type ReceiverRegisterProvider = {
-    (receiverType: "IDeploymentsEventsClient"): ReceiverRegister<IDeploymentsEventsClient>;
-}
+  (
+    receiverType: 'IDeploymentsEventsClient'
+  ): ReceiverRegister<IDeploymentsEventsClient>;
+};
 
 export const getReceiverRegister = ((receiverType: string) => {
-    if(receiverType === "IDeploymentsEventsClient") {
-        return IDeploymentsEventsClient_Binder.Instance;
-    }
+  if (receiverType === 'IDeploymentsEventsClient') {
+    return IDeploymentsEventsClient_Binder.Instance;
+  }
 }) as ReceiverRegisterProvider;
 
 // HubProxy
 
-class IDeploymentEventsHub_HubProxyFactory implements HubProxyFactory<IDeploymentEventsHub> {
-    public static Instance = new IDeploymentEventsHub_HubProxyFactory();
+class IDeploymentEventsHub_HubProxyFactory
+  implements HubProxyFactory<IDeploymentEventsHub>
+{
+  public static Instance = new IDeploymentEventsHub_HubProxyFactory();
 
-    private constructor() {
-    }
+  private constructor() {}
 
-    public readonly createHubProxy = (connection: HubConnection): IDeploymentEventsHub => {
-        return new IDeploymentEventsHub_HubProxy(connection);
-    }
+  public readonly createHubProxy = (
+    connection: HubConnection
+  ): IDeploymentEventsHub => {
+    return new IDeploymentEventsHub_HubProxy(connection);
+  };
 }
 
 class IDeploymentEventsHub_HubProxy implements IDeploymentEventsHub {
+  public constructor(private connection: HubConnection) {}
 
-    public constructor(private connection: HubConnection) {
-    }
+  public readonly broadcastNewRequestAsync = async (
+    eventData: DeploymentRequestEventData
+  ): Promise<void> => {
+    return await this.connection.invoke('BroadcastNewRequestAsync', eventData);
+  };
 
-    public readonly broadcastNewRequestAsync = async (eventData: DeploymentRequestEventData): Promise<void> => {
-        return await this.connection.invoke("BroadcastNewRequestAsync", eventData);
-    }
+  public readonly broadcastRequestStatusChangedAsync = async (
+    eventData: DeploymentRequestEventData
+  ): Promise<void> => {
+    return await this.connection.invoke(
+      'BroadcastRequestStatusChangedAsync',
+      eventData
+    );
+  };
 
-    public readonly broadcastRequestStatusChangedAsync = async (eventData: DeploymentRequestEventData): Promise<void> => {
-        return await this.connection.invoke("BroadcastRequestStatusChangedAsync", eventData);
-    }
+  public readonly broadcastResultStatusChangedAsync = async (
+    eventData: DeploymentResultEventData
+  ): Promise<void> => {
+    return await this.connection.invoke(
+      'BroadcastResultStatusChangedAsync',
+      eventData
+    );
+  };
 
-    public readonly broadcastResultStatusChangedAsync = async (eventData: DeploymentResultEventData): Promise<void> => {
-        return await this.connection.invoke("BroadcastResultStatusChangedAsync", eventData);
-    }
+  public readonly joinRequestGroup = async (
+    requestId: number
+  ): Promise<void> => {
+    return await this.connection.invoke('JoinRequestGroup', requestId);
+  };
 
-    public readonly joinRequestGroup = async (requestId: number): Promise<void> => {
-        return await this.connection.invoke("JoinRequestGroup", requestId);
-    }
-
-    public readonly leaveRequestGroup = async (requestId: number): Promise<void> => {
-        return await this.connection.invoke("LeaveRequestGroup", requestId);
-    }
+  public readonly leaveRequestGroup = async (
+    requestId: number
+  ): Promise<void> => {
+    return await this.connection.invoke('LeaveRequestGroup', requestId);
+  };
 }
-
 
 // Receiver
 
-class IDeploymentsEventsClient_Binder implements ReceiverRegister<IDeploymentsEventsClient> {
+class IDeploymentsEventsClient_Binder
+  implements ReceiverRegister<IDeploymentsEventsClient>
+{
+  public static Instance = new IDeploymentsEventsClient_Binder();
 
-    public static Instance = new IDeploymentsEventsClient_Binder();
+  private constructor() {}
 
-    private constructor() {
-    }
+  public readonly register = (
+    connection: HubConnection,
+    receiver: IDeploymentsEventsClient
+  ): Disposable => {
+    const __onDeploymentRequestStatusChanged = (
+      ...args: [DeploymentRequestEventData]
+    ) => receiver.onDeploymentRequestStatusChanged(...args);
+    const __onDeploymentRequestStarted = (
+      ...args: [DeploymentRequestEventData]
+    ) => receiver.onDeploymentRequestStarted(...args);
+    const __onDeploymentResultStatusChanged = (
+      ...args: [DeploymentResultEventData]
+    ) => receiver.onDeploymentResultStatusChanged(...args);
 
-    public readonly register = (connection: HubConnection, receiver: IDeploymentsEventsClient): Disposable => {
+    connection.on(
+      'OnDeploymentRequestStatusChanged',
+      __onDeploymentRequestStatusChanged
+    );
+    connection.on('OnDeploymentRequestStarted', __onDeploymentRequestStarted);
+    connection.on(
+      'OnDeploymentResultStatusChanged',
+      __onDeploymentResultStatusChanged
+    );
 
-        const __onDeploymentRequestStatusChanged = (...args: [DeploymentRequestEventData]) => receiver.onDeploymentRequestStatusChanged(...args);
-        const __onDeploymentRequestStarted = (...args: [DeploymentRequestEventData]) => receiver.onDeploymentRequestStarted(...args);
-        const __onDeploymentResultStatusChanged = (...args: [DeploymentResultEventData]) => receiver.onDeploymentResultStatusChanged(...args);
+    const methodList: ReceiverMethod[] = [
+      {
+        methodName: 'OnDeploymentRequestStatusChanged',
+        method: __onDeploymentRequestStatusChanged
+      },
+      {
+        methodName: 'OnDeploymentRequestStarted',
+        method: __onDeploymentRequestStarted
+      },
+      {
+        methodName: 'OnDeploymentResultStatusChanged',
+        method: __onDeploymentResultStatusChanged
+      }
+    ];
 
-        connection.on("OnDeploymentRequestStatusChanged", __onDeploymentRequestStatusChanged);
-        connection.on("OnDeploymentRequestStarted", __onDeploymentRequestStarted);
-        connection.on("OnDeploymentResultStatusChanged", __onDeploymentResultStatusChanged);
-
-        const methodList: ReceiverMethod[] = [
-            { methodName: "OnDeploymentRequestStatusChanged", method: __onDeploymentRequestStatusChanged },
-            { methodName: "OnDeploymentRequestStarted", method: __onDeploymentRequestStarted },
-            { methodName: "OnDeploymentResultStatusChanged", method: __onDeploymentResultStatusChanged }
-        ]
-
-        return new ReceiverMethodSubscription(connection, methodList);
-    }
+    return new ReceiverMethodSubscription(connection, methodList);
+  };
 }
-
