@@ -5,7 +5,7 @@ using Dorc.Core.Account;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Lamar;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.DirectoryServices;
 using System.Runtime.Versioning;
 
@@ -59,7 +59,7 @@ namespace Dorc.Api.Services
             {
                 var log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod()?.DeclaringType);
 
-                log.Error(e);
+                log.LogError(e);
                 throw;
             }
         }

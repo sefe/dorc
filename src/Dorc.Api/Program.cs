@@ -12,13 +12,17 @@ using Dorc.Core.VariableResolution;
 using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using Dorc.Api.Logging;
 using Lamar.Microsoft.DependencyInjection;
-using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
+using System.Reflection;
 using System.Text.Json.Serialization;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
@@ -27,7 +31,37 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
-builder.Logging.AddLog4Net();
+// Configure OpenTelemetry logging
+string logFilePath = Path.Combine("c:\\Log\\DOrc\\Deploy\\Web\\Api", "Dorc.Api.log");
+Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddFile(logFilePath, options =>
+{
+    options.Append = true;
+    options.FileSizeLimitBytes = 10 * 1024 * 1024; // 10MB
+    options.MaxRollingFiles = 100;
+});
+
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+        .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+    
+    var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+    if (!string.IsNullOrEmpty(otlpEndpoint))
+    {
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    }
+    
+    logging.AddConsoleExporter();
+});
+
+builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
 var secretsReader = new OnePasswordSecretsReader(configurationSettings);
@@ -258,8 +292,6 @@ builder.Host.UseLamar((context, registry) =>
 
     registry.AddControllers();
 });
-
-XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
 var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));

@@ -2,7 +2,7 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -19,7 +19,7 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource databasesPersistentSource;
         private readonly IEnvironmentsPersistentSource environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker securityService;
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         public RefDataEnvironmentsDetailsController(
             IApiServices apiServices,
@@ -27,7 +27,7 @@ namespace Dorc.Api.Controllers
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityService,
-            ILog logger)
+            ILogger logger)
         {
             this.securityService = securityService;
             this.environmentsPersistentSource = environmentsPersistentSource;

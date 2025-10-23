@@ -1,6 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -13,9 +13,9 @@ namespace Dorc.Api.Controllers
     public class AnalyticsDeploymentsMonthController : ControllerBase
     {
         private readonly IAnalyticsPersistentSource _analyticsPersistentSource;
-        private readonly ILog _log;
+        private readonly ILogger _log;
 
-        public AnalyticsDeploymentsMonthController(IAnalyticsPersistentSource analyticsPersistentSource, ILog log)
+        public AnalyticsDeploymentsMonthController(IAnalyticsPersistentSource analyticsPersistentSource, ILogger log)
         {
             _analyticsPersistentSource = analyticsPersistentSource;
             _log = log;
@@ -35,7 +35,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsDeploymentsPerProjectApiModel.Get", e);
+                _log.LogError("AnalyticsDeploymentsPerProjectApiModel.Get", e);
                 throw;
             }
         }

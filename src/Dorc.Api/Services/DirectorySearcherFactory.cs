@@ -2,7 +2,7 @@
 using Dorc.Core.Configuration;
 using Dorc.Core.IdentityServer;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -15,7 +15,7 @@ namespace Dorc.Api.Services
         public DirectorySearcherFactory(IConfigurationSettings config,
             IMemoryCache cache,
             IConfigurationSecretsReader secretsReader,
-            ILog log)
+            ILogger log)
         {
             _adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
             var azEntraSearcher = new AzureEntraSearcher(config, log);

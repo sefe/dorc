@@ -8,7 +8,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -21,7 +21,7 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class MakeLikeProdController : ControllerBase
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
@@ -32,7 +32,7 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public MakeLikeProdController(ILog logger,
+        public MakeLikeProdController(ILogger logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
@@ -83,7 +83,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e);
                 return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
@@ -104,7 +104,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e);
                 return Results.Problem(e.Message, statusCode: StatusCodes.Status500InternalServerError);
             }
         }
@@ -194,7 +194,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }

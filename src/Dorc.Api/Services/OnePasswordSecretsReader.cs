@@ -1,5 +1,5 @@
 using Dorc.Core.Configuration;
-using log4net;
+using Microsoft.Extensions.Logging;
 using OnePassword.Connect.Client;
 
 namespace Dorc.Api.Services
@@ -9,7 +9,7 @@ namespace Dorc.Api.Services
     /// </summary>
     public class OnePasswordSecretsReader : IConfigurationSecretsReader
     {
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IConfigurationSettings _config;
         private readonly OnePasswordClient? _onePasswordClient;
         private readonly string? _vaultId;
@@ -29,7 +29,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception ex)
                 {
-                    _log.Warn($"Failed to initialize OnePasswordClient: {ex.Message}");
+                    _log.LogWarning($"Failed to initialize OnePasswordClient: {ex.Message}");
                 }
             }
         }
@@ -59,7 +59,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to get secret {humanizedName} from 1Password by ItemId {itemId}: {ex.Message}", ex);
+                _log.LogError($"Failed to get secret {humanizedName} from 1Password by ItemId {itemId}: {ex.Message}", ex);
                 return string.Empty;
             }
         }

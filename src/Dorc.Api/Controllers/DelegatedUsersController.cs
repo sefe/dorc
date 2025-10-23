@@ -1,7 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,9 +14,9 @@ namespace Dorc.Api.Controllers
     {
         private readonly IUsersPersistentSource _usersPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityService;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
-        public DelegatedUsersController(IUsersPersistentSource usersPersistentSource, ISecurityPrivilegesChecker securityService, ILog logger)
+        public DelegatedUsersController(IUsersPersistentSource usersPersistentSource, ISecurityPrivilegesChecker securityService, ILogger logger)
         {
             _logger = logger;
             _securityService = securityService;
@@ -39,7 +39,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -64,7 +64,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -88,7 +88,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }

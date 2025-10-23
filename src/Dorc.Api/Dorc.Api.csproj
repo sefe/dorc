@@ -18,7 +18,9 @@
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="13.1.0" />
     <PackageReference Include="Microsoft.Azure.SignalR" Version="1.32.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Log4Net.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.11.2" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.7.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.8" />
@@ -32,11 +34,7 @@
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.OpenSearchData\Dorc.OpenSearchData.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Content Update="log4net.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
+
   <ItemGroup>
     <None Update="deploymentportal.pfx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

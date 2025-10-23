@@ -4,19 +4,19 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Services
 {
     public class DeployableBuildFactory : IDeployableBuildFactory
     {
         private readonly IFileSystemHelper _fileSystemHelper;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
 
-        public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILog log,
+        public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILogger log,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource)
         {
