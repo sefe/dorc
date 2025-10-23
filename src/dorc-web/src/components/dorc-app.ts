@@ -102,7 +102,7 @@ export class DorcApp extends ShortcutsStore {
           style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px;  color: black" title="Deployment Orchestrator">
+        <h2 style="padding: 5px;  color: black" title="DevOps Orchestrator">
           DOrc
         </h2>
 
