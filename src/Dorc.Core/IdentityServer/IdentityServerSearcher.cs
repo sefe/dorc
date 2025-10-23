@@ -1,23 +1,23 @@
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core.IdentityServer
 {
     public class IdentityServerSearcher : IActiveDirectorySearcher
     {
         private readonly IdentityServerClient _client;
-        private readonly ILog _log;
+        private readonly ILogger<IdentityServerSearcher> _log;
 
-        public IdentityServerSearcher(IConfigurationSettings config, IConfigurationSecretsReader secretsReader, ILog log)
+        public IdentityServerSearcher(IConfigurationSettings config, IConfigurationSecretsReader secretsReader, ILogger<IdentityServerSearcher> log, ILoggerFactory loggerFactory)
         {
             _log = log;
             var authority = config.GetOAuthAuthority();
             var clientId = config.GetIdentityServerClientId();
             var clientSecret = secretsReader.GetIdentityServerApiSecret();
 
-            _client = new IdentityServerClient(authority, clientId, clientSecret, log);
+            _client = new IdentityServerClient(authority, clientId, clientSecret, loggerFactory.CreateLogger<IdentityServerClient>());
         }
 
         public List<UserElementApiModel> Search(string objectName)
@@ -29,7 +29,7 @@ namespace Dorc.Core.IdentityServer
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to search clients in IdentityServer: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to search clients in IdentityServer: {ex.Message}");
                 throw;
             }
         }
@@ -48,7 +48,7 @@ namespace Dorc.Core.IdentityServer
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to get client data from IdentityServer: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to get client data from IdentityServer: {ex.Message}");
                 throw;
             }
         }
@@ -67,7 +67,7 @@ namespace Dorc.Core.IdentityServer
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to get client data by ID from IdentityServer: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to get client data by ID from IdentityServer: {ex.Message}");
                 throw;
             }
         }

@@ -3,7 +3,7 @@ using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Models;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Model;
 using System.Text.Json;
 
@@ -11,12 +11,14 @@ namespace Dorc.Core
 {
     public class RequestsManager : IRequestsManager
     {
-        private readonly ILog _logger;
+        private readonly ILogger<RequestsManager> _logger;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
-        public RequestsManager(ILog logger,
+        public RequestsManager(ILogger<RequestsManager> logger,
+            ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource)
         {
@@ -24,6 +26,7 @@ namespace Dorc.Core
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _logger = logger;
+            _loggerFactory = loggerFactory;
         }
 
         public IEnumerable<DeployableComponent> GetComponents(int? projectId, int? parentId)
@@ -49,7 +52,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetComponents", ex);
+                _logger.LogError(ex, "An error occurred in GetComponents");
 
                 throw;
             }
@@ -76,7 +79,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetComponents", ex);
+                _logger.LogError(ex, "An error occurred in GetComponents");
 
                 throw;
             }
@@ -93,7 +96,7 @@ namespace Dorc.Core
                     return
                         new List<DeployableArtefact> { new() { Id = project.ArtefactsUrl, Name = "Not an Azure DevOps Server Project" } };
 
-                var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+                var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
 
                 var output = tfsRestClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
                         project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
@@ -105,7 +108,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetBuildDefinitions", ex);
+                _logger.LogError(ex, "An error occurred in GetBuildDefinitions");
 
                 throw;
             }
@@ -130,7 +133,7 @@ namespace Dorc.Core
                     var azureDevOpsProjectName = azureDevOpsBuildDefinitionAndBuildName[0].Trim();
                     var azureDevOpsBuildDefinitionName = azureDevOpsBuildDefinitionAndBuildName[1].Trim();
 
-                    var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+                    var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
 
                     var buildDefsForProject = tfsRestClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
                             project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
@@ -162,7 +165,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetBuildsAsync", ex);
+                _logger.LogError(ex, "An error occurred in GetBuildsAsync");
 
                 throw;
             }
@@ -188,7 +191,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.Error("An error occurred in GetFolderBuilds", ex);
+                _logger.LogError(ex, "An error occurred in GetFolderBuilds");
 
                 throw;
             }
@@ -204,7 +207,7 @@ namespace Dorc.Core
         public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
-            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
             var result = new List<DeploymentRequestDetail>();
             var bundleJson = new StreamReader(createRequest.BuildUrl).ReadToEnd();
             var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson);
@@ -315,7 +318,7 @@ namespace Dorc.Core
         {
             var buildDetail = new BuildDetail();
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
-            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
 
             var tfsProjects = project.ArtefactsSubPaths.Split(';');
 
