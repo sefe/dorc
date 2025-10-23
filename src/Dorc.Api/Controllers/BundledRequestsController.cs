@@ -46,7 +46,7 @@ namespace Dorc.Api.Controllers
             {
                 string error = "Error while locating Bundled Requests for project(s) " +
                                string.Join('|', projectNames);
-                _logger.LogError(error, ex);
+                _logger.LogError(ex, error);
                 return BadRequest(error);
             }
         }
