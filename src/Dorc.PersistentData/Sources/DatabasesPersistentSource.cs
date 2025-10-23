@@ -413,8 +413,32 @@ namespace Dorc.PersistentData.Sources
                 Type = db.Type,
                 ServerName = db.ServerName,
                 ArrayName = db.ArrayName,
-                EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
+                EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>(),
+                LastChecked = db.LastChecked,
+                IsReachable = db.IsReachable
             };
+        }
+
+        public void UpdateDatabaseConnectivityStatus(int databaseId, bool isReachable, DateTime lastChecked)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var database = context.Databases.FirstOrDefault(d => d.Id == databaseId);
+                if (database != null)
+                {
+                    database.IsReachable = isReachable;
+                    database.LastChecked = lastChecked;
+                    context.SaveChanges();
+                }
+            }
+        }
+
+        public IEnumerable<Database> GetAllDatabasesForConnectivityCheck()
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.Databases.ToList();
+            }
         }
     }
 }

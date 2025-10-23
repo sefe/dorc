@@ -370,7 +370,9 @@ namespace Dorc.PersistentData.Sources
                 ApplicationTags = server.ApplicationTags,
                 OsName = server.OsName,
                 ServerId = server.Id,
-                EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList()
+                EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList(),
+                LastChecked = server.LastChecked,
+                IsReachable = server.IsReachable
             };
         }
 
@@ -385,8 +387,32 @@ namespace Dorc.PersistentData.Sources
                 OsName = serverData.Server.OsName,
                 ServerId = serverData.Server.Id,
                 EnvironmentNames = serverData.Server.Environments.Select(ed => ed.Name).ToList(),
-                UserEditable = serverData.UserEditable
+                UserEditable = serverData.UserEditable,
+                LastChecked = serverData.Server.LastChecked,
+                IsReachable = serverData.Server.IsReachable
             };
+        }
+
+        public void UpdateServerConnectivityStatus(int serverId, bool isReachable, DateTime lastChecked)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var server = context.Servers.FirstOrDefault(s => s.Id == serverId);
+                if (server != null)
+                {
+                    server.IsReachable = isReachable;
+                    server.LastChecked = lastChecked;
+                    context.SaveChanges();
+                }
+            }
+        }
+
+        public IEnumerable<Server> GetAllServersForConnectivityCheck()
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.Servers.ToList();
+            }
         }
     }
 }

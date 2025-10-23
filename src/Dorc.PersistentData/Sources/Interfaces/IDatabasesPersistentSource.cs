@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using System.Security.Principal;
+using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Sources.Interfaces
 {
@@ -20,5 +21,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         List<String?> GetDatabasServerNameslist();
         public IEnumerable<string> GetEnvironmentNamesForDatabaseId(int serverId);
         DatabaseApiModel? UpdateDatabase(int id, DatabaseApiModel database, IPrincipal user);
+        
+        void UpdateDatabaseConnectivityStatus(int databaseId, bool isReachable, DateTime lastChecked);
+        IEnumerable<Database> GetAllDatabasesForConnectivityCheck();
     }
 }

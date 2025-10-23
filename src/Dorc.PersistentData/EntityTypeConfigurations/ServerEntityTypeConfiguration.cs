@@ -32,6 +32,14 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(250);
 
             builder
+                .Property(e => e.LastChecked)
+                .HasColumnName("LastChecked");
+
+            builder
+                .Property(e => e.IsReachable)
+                .HasColumnName("IsReachable");
+
+            builder
                 .HasMany(s => s.Services)
                 .WithMany(d => d.Server)
                 .UsingEntity("SERVER_SERVICE_MAP",
