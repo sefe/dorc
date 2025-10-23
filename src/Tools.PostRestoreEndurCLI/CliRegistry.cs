@@ -14,16 +14,15 @@ namespace Tools.PostRestoreEndurCLI
         {
             try
             {
-                For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
+                // TODO: Configure ILogger from DI container
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
             }
             catch (Exception e)
             {
-                var log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
-                log.LogError(e);
+                // TODO: Add proper logging using ILogger from DI container
+                Console.Error.WriteLine($"Error in CliRegistry: {e}");
                 throw;
             }
         }

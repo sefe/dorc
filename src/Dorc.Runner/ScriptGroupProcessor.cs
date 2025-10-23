@@ -2,7 +2,7 @@
 using Dorc.PowerShell;
 using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
-using Microsoft.Extensions.Logging.Context;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Runner
 {
@@ -34,8 +34,9 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
-            using (LogContext.PushProperty("RequestId", requestId))
-            using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
+            // TODO: Replace Serilog LogContext with ILogger scopes
+            // using (LogContext.PushProperty("RequestId", requestId))
+            // using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
             {
                 var scriptRunner = new PowerShellScriptRunner(this.logger);
                 int sumResult = 0;

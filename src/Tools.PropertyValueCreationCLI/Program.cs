@@ -6,7 +6,6 @@ using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
 using Microsoft.Extensions.Logging;
-using log4net.Config;
 
 namespace Tools.PropertyValueCreationCLI
 {
@@ -14,7 +13,7 @@ namespace Tools.PropertyValueCreationCLI
     {
         private static void Main(string[] args)
         {
-            XmlConfigurator.Configure(new FileInfo("log4net.config"));
+            // TODO: Configure logging via Microsoft.Extensions.Logging
             var container = Container.For<ConsoleRegistry>();
             var app = container.GetInstance<Application>();
             app.CheckFile(args[0]);
@@ -34,7 +33,7 @@ namespace Tools.PropertyValueCreationCLI
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
-                For<ILog>().Use(LogManager.GetLogger("Log")).Singleton();
+                // TODO: Configure ILogger from DI container
             }
         }
 

@@ -10,7 +10,7 @@ namespace Tools.DeployCopyEnvBuildCLI
     {
         public AppRegistry()
         {
-            For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
+            // TODO: Configure ILogger from DI container
             For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
         }
     }

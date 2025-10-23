@@ -21,7 +21,7 @@ namespace Dorc.PowerShell
             IDictionary<string, VariableValue> scriptProperties,
             IDictionary<string, VariableValue> commonProperties)
         {
-            logger.FileLogger.Information("Starting execution of script '{0}'", scriptName);
+            logger.Information("Starting execution of script '{0}'", scriptName);
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
 
@@ -62,9 +62,9 @@ namespace Dorc.PowerShell
 
                         try
                         {
-                            logger.FileLogger.Information("Execution of the powershell Script {0} is beginning", scriptName);
+                            logger.Information("Execution of the powershell Script {0} is beginning", scriptName);
                             powerShell.Invoke(null, outputCollection);
-                            logger.FileLogger.Information("Execution of the powershell Script {0} has completed", scriptName);
+                            logger.Information("Execution of the powershell Script {0} has completed", scriptName);
                         }
                         catch (Exception exception)
                         {
@@ -74,7 +74,7 @@ namespace Dorc.PowerShell
                             {
                                 throw;
                             }
-                            logger.FileLogger.Information("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
+                            logger.Information("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
                             throw new RemoteException(exceptionMessage, exception);
                         }
 
@@ -105,7 +105,7 @@ namespace Dorc.PowerShell
             {
                 logger.FlushLogMessages();
             }
-            logger.FileLogger.Information("Execution of the powershell Script {0} was successful", scriptName);
+            logger.Information("Execution of the powershell Script {0} was successful", scriptName);
             return 0;
         }
 
@@ -122,16 +122,16 @@ namespace Dorc.PowerShell
                         logger.Information(psMessage);
                         break;
                     case MessageType.Verbose:
-                        logger.Verbose(psMessage);
+                        logger.Debug(psMessage);
                         break;
                     case MessageType.Warning:
                         logger.Warning(psMessage);
                         break;
                     case MessageType.Error:
-                        logger.LogError(psMessage);
+                        logger.Error(psMessage);
                         break;
                     case MessageType.Debug:
-                        logger.LogDebug(psMessage);
+                        logger.Debug(psMessage);
                         break;
                     default:
                         break;

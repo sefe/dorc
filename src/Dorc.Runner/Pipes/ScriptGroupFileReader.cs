@@ -20,7 +20,7 @@ namespace Dorc.Runner.Pipes
             string filename = $"{RunnerConstants.ScriptGroupFilesPath}{pipeName}.json";
             try
             {
-                logger.Information("Deserializing received ScriptGroup.");
+                logger.LogInformation("Deserializing received ScriptGroup.");
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = true,
@@ -39,21 +39,21 @@ namespace Dorc.Runner.Pipes
                 var list = scriptGroup.ScriptProperties.ToList();
                 var env = scriptGroup.CommonProperties["EnvironmentName"];
 
-                logger.Information($"Received from file: {guid}");
+                logger.LogInformation($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
                     var props = JsonSerializer.Serialize(scriptGroupScriptProperty.Properties);
 
-                    logger.Information($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
                 }
 
-                logger.Information("Deserialization of ScriptGroup is completed.");
+                logger.LogInformation("Deserialization of ScriptGroup is completed.");
 
                 return scriptGroup;
             }
             catch (Exception exc)
             {
-                logger.Error(exc.Message);
+                logger.LogError(exc.Message);
                 throw;
             }
         }

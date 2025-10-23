@@ -4,7 +4,6 @@ using Dorc.Core.Interfaces;
 using Dorc.Monitor.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.Logging;
 using TypedSignalR.Client;
 
 namespace Dorc.Monitor.Events

@@ -49,11 +49,12 @@ namespace Tools.PostRestoreEndurCLI
 
             if (bolParamsCorrect)
             {
-                var log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+                // TODO: Get ILogger from DI container
                 var sqlPortsPersistentSource = _container.GetInstance<ISqlPortsPersistentSource>();
                 var databasePersistentSource = _container.GetInstance<IDatabasesPersistentSource>();
                 var serversPersistentSource = _container.GetInstance<IServersPersistentSource>();
-                var libRefreshEndur = new RefreshEndur(log, sqlPortsPersistentSource, databasePersistentSource, serversPersistentSource);
+                // TODO: Update RefreshEndur to accept ILogger instead of ILog
+                var libRefreshEndur = new RefreshEndur(null, sqlPortsPersistentSource, databasePersistentSource, serversPersistentSource);
                 var envHistoryPds = _container.GetInstance<IEnvironmentHistoryPersistentSource>();
 
                 Output("Updating User tables to Dummy Values for: " + strEnvironment);
@@ -76,9 +77,8 @@ namespace Tools.PostRestoreEndurCLI
 
         private static void Output(string strText)
         {
-            var log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
             Console.WriteLine(DateTime.Now + " - " + strText);
-            log.LogInformation(strText);
+            // TODO: Add proper logging using ILogger from DI container
         }
     }
 }
