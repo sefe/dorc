@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
@@ -14,11 +14,11 @@ namespace Dorc.Monitor
 
     public class DeploymentEngine : IDeploymentEngine
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
         private readonly IDeploymentRequestStateProcessor deploymentRequestStateProcessor;
 
         public DeploymentEngine(
-            ILog logger,
+            ILogger<DeploymentEngine> logger,
             IDeploymentRequestStateProcessor deploymentRequestStateProcessor
             )
         {

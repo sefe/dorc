@@ -1,5 +1,5 @@
 ﻿using Dorc.ApiModel;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
@@ -10,11 +10,11 @@ namespace Dorc.Monitor.Pipes
 {
     internal class ScriptGroupPipeServer : IScriptGroupPipeServer
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         private ScriptGroupPipeServer() { }
 
-        public ScriptGroupPipeServer(ILog logger)
+        public ScriptGroupPipeServer(ILogger logger)
         {
             this.logger = logger;
         }
@@ -45,7 +45,7 @@ namespace Dorc.Monitor.Pipes
                         PipeTransmissionMode.Byte,
                         PipeOptions.Asynchronous))
                     {
-                        logger.Info($"Waiting for pipe client to connect. Pipe name: '{namedPipeName}'.");
+                        logger.LogInformation($"Waiting for pipe client to connect. Pipe name: '{namedPipeName}'.");
 
                         try
                         {
@@ -53,11 +53,11 @@ namespace Dorc.Monitor.Pipes
                         }
                         catch (Exception e)
                         {
-                            logger.Error($"Exception is thrown while waiting for named pipe client connection. Pipe name: '{namedPipeName}'. Exception: {e}");
+                            logger.LogError($"Exception is thrown while waiting for named pipe client connection. Pipe name: '{namedPipeName}'. Exception: {e}");
                             throw;
                         }
 
-                        logger.Info($"Pipe client has connected. Pipe name: '{namedPipeName}'.");
+                        logger.LogInformation($"Pipe client has connected. Pipe name: '{namedPipeName}'.");
 
                         try
                         {
@@ -75,24 +75,24 @@ namespace Dorc.Monitor.Pipes
 
                             pipeServer.WaitForPipeDrain();
 
-                            logger.Info($"Pipe client has received serialized ScriptGroup. Pipe name: '{namedPipeName}'.");
+                            logger.LogInformation($"Pipe client has received serialized ScriptGroup. Pipe name: '{namedPipeName}'.");
                         }
                         catch (Exception e)
                         {
-                            logger.Error($"Exception is thrown while sending serialized ScriptGroup. Pipe name: '{namedPipeName}'. Exception: {e}");
+                            logger.LogError($"Exception is thrown while sending serialized ScriptGroup. Pipe name: '{namedPipeName}'. Exception: {e}");
                             throw;
                         }
                     }
 
                     if (Marshal.GetLastWin32Error() != 0)
                     {
-                        logger.Error("ScriptGroupPipeServer has failed.");
+                        logger.LogError("ScriptGroupPipeServer has failed.");
                         throw new Win32Exception(Marshal.GetLastWin32Error());
                     }
                 }
                 catch (Exception e)
                 {
-                    logger.Error($"Named pipe has failed. Pipe name: '{namedPipeName}'. Exception: {e}");
+                    logger.LogError($"Named pipe has failed. Pipe name: '{namedPipeName}'. Exception: {e}");
                     throw;
                 }
             },

@@ -4,14 +4,14 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
 {
     internal class DeploymentRequestStateProcessor : IDeploymentRequestStateProcessor
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
         private readonly IServiceProvider serviceProvider;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IRequestsPersistentSource requestsPersistentSource;
@@ -29,7 +29,7 @@ namespace Dorc.Monitor
         }
 
         public DeploymentRequestStateProcessor(
-            ILog logger,
+            ILogger<DeploymentRequestStateProcessor> logger,
             IServiceProvider serviceProvider,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
@@ -294,7 +294,7 @@ namespace Dorc.Monitor
 
             if (upratedRequestCount == 0)
             {
-                this.logger.InfoFormat("The request with ID {0} can NOT be processed.", requestToExecute.Request.Id);
+                this.logger.LogInformation("The request with ID {RequestId} can NOT be processed.", requestToExecute.Request.Id);
                 return;
             }
 
@@ -340,7 +340,7 @@ namespace Dorc.Monitor
         {
             if (requestCancellationSources!.TryRemove(requestId, out CancellationTokenSource? removedCancellationTokenSource))
             {
-                this.logger.ErrorFormat("Removal of CancellationTokenSource for the request '{0}' failed.", requestId);
+                this.logger.LogError("Removal of CancellationTokenSource for the request '{RequestId}' failed.", requestId);
             }
 
             if (removedCancellationTokenSource is not null)
@@ -381,7 +381,7 @@ namespace Dorc.Monitor
                     }
                     catch (Exception exception)
                     {
-                        this.logger.ErrorFormat($"Termination of the process with id '{processId}' failed. Exception: {exception}");
+                        this.logger.LogError(exception, "Termination of the process with id '{ProcessId}' failed.", processId);
                     }
                 }
                 this.processesPersistentSource.RemoveProcess(processId);

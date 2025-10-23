@@ -3,7 +3,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.Text;
 
 namespace Dorc.Monitor
@@ -15,13 +15,13 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IComponentsPersistentSource componentsPersistentSource;
         private readonly IDeploymentEventsPublisher eventsPublisher;
-        private ILog _logger;
+        private ILogger _logger;
 
         public ComponentProcessor(
             IScriptDispatcher scriptDispatcher,
             IRequestsPersistentSource requestsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
-            ILog Logger,
+            ILogger<ComponentProcessor> Logger,
             IDeploymentEventsPublisher eventsPublisher)
         {
             _logger = Logger;
@@ -133,15 +133,14 @@ namespace Dorc.Monitor
             {
                 deploymentResultStatus = DeploymentResultStatus.Failed;
 
-                _logger.Error($"Processing of the component '{component.ComponentName}' failed.");
+                _logger.LogError(deploymentResultStatus, $"Processing of the component '{component.ComponentName}' failed.");
                 throw;
             }
             finally
             {
                 deploymentResult.Log = componentResultLogBuilder.ToString();
                 requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    deploymentResultStatus);
+                    deploymentResult);
 
                 componentsPersistentSource.SaveEnvComponentStatus(
                     environmentId,
