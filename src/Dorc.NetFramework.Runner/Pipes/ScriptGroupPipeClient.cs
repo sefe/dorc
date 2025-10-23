@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.NetFramework.Runner.Pipes
 {

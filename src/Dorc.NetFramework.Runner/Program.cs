@@ -7,7 +7,7 @@ using Dorc.ApiModel.Constants;
 using Dorc.NetFramework.Runner.Pipes;
 using Dorc.Runner.Logger;
 using Microsoft.Extensions.Configuration;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.NetFramework.Runner
 {
