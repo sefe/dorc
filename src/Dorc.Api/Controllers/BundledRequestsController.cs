@@ -69,7 +69,7 @@ namespace Dorc.Api.Controllers
             catch (Exception ex)
             {
                 string error = $"Error while locating requests for bundle {bundleName}";
-                _logger.LogError(error, ex);
+                _logger.LogError(ex, error);
                 return BadRequest(error + " - " + ex);
             }
         }
@@ -96,7 +96,7 @@ namespace Dorc.Api.Controllers
             catch (Exception ex)
             {
                 string error = "Error while creating bundled request.";
-                _logger.LogError(error, ex);
+                _logger.LogError(ex, error);
                 return BadRequest(error + " - " + ex);
             }
         }
@@ -123,7 +123,7 @@ namespace Dorc.Api.Controllers
             catch (Exception ex)
             {
                 string error = "Error while updating bundled request.";
-                _logger.LogError(error, ex);
+                _logger.LogError(ex, error);
                 return BadRequest(error + " - " + ex);
             }
         }
@@ -146,7 +146,7 @@ namespace Dorc.Api.Controllers
             catch (Exception ex)
             {
                 string error = $"Error while deleting bundled request with ID {id}";
-                _logger.LogError(error, ex);
+                _logger.LogError(ex, error);
                 return BadRequest(error + " - " + ex);
             }
         }

@@ -666,7 +666,7 @@ namespace Tools.PostRestoreEndurCLI
         private void Output(string strText)
         {
             Console.WriteLine(DateTime.Now + " - " + strText);
-            _logger.LogInformation(strText);
+            _logger?.LogInformation(strText);
         }
     }
 }

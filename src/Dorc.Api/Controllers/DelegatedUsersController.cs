@@ -39,7 +39,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred");
+                _logger.LogError(e, "Failed to get unallocated users for environment {EnvName}", envName);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -64,7 +64,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred");
+                _logger.LogError(e, "Failed to delete delegated user {UserId} from environment {EnvName}", userId, envName);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -88,7 +88,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred");
+                _logger.LogError(e, "Failed to add delegated user {UserId} to environment {EnvName}", userId, envName);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
