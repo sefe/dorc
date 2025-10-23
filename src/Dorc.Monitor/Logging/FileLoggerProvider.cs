@@ -38,7 +38,7 @@ namespace Dorc.Monitor.Logging
         private readonly string _categoryName;
         private readonly string _filePath;
         private readonly FileLoggerOptions _options;
-        private static readonly object _lock = new object();
+        private readonly object _lock = new object();
 
         public FileLogger(string categoryName, string filePath, FileLoggerOptions options)
         {
@@ -81,9 +81,17 @@ namespace Dorc.Monitor.Logging
 
                     File.AppendAllText(_filePath, logMessage);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Silently fail if unable to write to log file
+                    // Log to fallback mechanism if file logging fails
+                    try
+                    {
+                        Console.Error.WriteLine($"[FileLogger] Failed to write to log file '{_filePath}': {ex.Message}");
+                    }
+                    catch
+                    {
+                        // Suppress fallback logging errors to prevent cascading failures
+                    }
                 }
             }
         }
@@ -112,13 +120,32 @@ namespace Dorc.Monitor.Logging
                 }
                 else
                 {
-                    // If we've exceeded max rolling files, just delete the oldest
-                    File.Delete(_filePath);
+                    // If we've exceeded max rolling files, delete the oldest rotated file
+                    var rotatedFiles = Directory.GetFiles(directory!, $"{fileName}.*{extension}")
+                        .Where(f => !f.Equals(_filePath, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(f => File.GetCreationTime(f))
+                        .ToArray();
+                    
+                    if (rotatedFiles.Length > 0)
+                    {
+                        File.Delete(rotatedFiles[0]);
+                    }
+                    
+                    // Now move the current file
+                    File.Move(_filePath, newFilePath);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently fail if unable to rotate
+                // Log rotation failure to fallback mechanism
+                try
+                {
+                    Console.Error.WriteLine($"[FileLogger] Failed to rotate log file '{_filePath}': {ex.Message}");
+                }
+                catch
+                {
+                    // Suppress fallback logging errors to prevent cascading failures
+                }
             }
         }
     }

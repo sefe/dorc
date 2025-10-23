@@ -54,12 +54,12 @@ namespace Dorc.Monitor
                 }
                 catch (OperationCanceledException ex)
                 {
-                    logger.Error("Deployment Requests processing is cancelled. Exception: ", ex);
+                    logger.LogError(ex, "Deployment Requests processing is cancelled.");
                     break;
                 }
                 catch (Exception ex)
                 {
-                    logger.Error("Deployment Requests processing is failed. Exception: ", ex);
+                    logger.LogError(ex, "Deployment Requests processing is failed.");
                     throw;
                 }
 
