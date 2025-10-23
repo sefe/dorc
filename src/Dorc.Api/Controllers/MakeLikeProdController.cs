@@ -83,7 +83,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred");
+                _logger.LogError(e, "An error occurred while retrieving data backups for project {ProjectId}", projectId);
                 return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
