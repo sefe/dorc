@@ -13,11 +13,7 @@ import { PageEnvBase } from './page-env-base';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import {
-  DatabaseApiModel,
-  EnvironmentContentApiModel,
-  RefDataEnvironmentsDetailsApi
-} from '../../apis/dorc-api';
+import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
@@ -72,22 +68,21 @@ export class EnvDatabases extends PageEnvBase {
             <div class="inline">
               ${!this.envReadOnly
                 ? html`
-                    <vaadin-button
-                      title="Attach Database"
-                      theme="small"
-                      @click="${this.openAttachDatabaseDialog}"
-                      >Attach Database</vaadin-button
-                    >
-                  `
+                  <vaadin-button
+                    title="Attach Database"
+                    theme="small"
+                    @click="${this.openAttachDatabaseDialog}"
+                  >Attach Database</vaadin-button>
+                `
                 : html``}
               <vaadin-dialog
-                id="attach-database-dialog"
-                header-title="Attach Database"
-                .opened="${this.attachDatabaseDialogOpened}"
+                id='attach-database-dialog'
+                header-title='Attach Database'
+                .opened='${this.attachDatabaseDialogOpened}'
                 draggable
-                @opened-changed="${(event: DialogOpenedChangedEvent) => {
+                @opened-changed='${(event: DialogOpenedChangedEvent) => {
                   this.attachDatabaseDialogOpened = event.detail.value;
-                }}"
+                }}'
                 ${dialogRenderer(this.renderAttachDatabaseDialog, [])}
                 ${dialogFooterRenderer(this.renderAttachDatabaseFooter, [])}
               ></vaadin-dialog>
@@ -152,7 +147,7 @@ export class EnvDatabases extends PageEnvBase {
       data?.DbServers !== null
         ? data?.DbServers?.sort(this.sortDbs)
         : undefined;
-  };
+  }
 
   override notifyEnvironmentContentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
@@ -167,7 +162,7 @@ export class EnvDatabases extends PageEnvBase {
     }
     return -1;
   }
-  private renderAttachDatabaseDialog = () => html`
+    private renderAttachDatabaseDialog = () => html`
     <attach-database
       id="attach-database"
       .envId="${this.environmentId}"

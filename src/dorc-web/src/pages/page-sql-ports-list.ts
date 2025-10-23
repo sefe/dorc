@@ -30,7 +30,7 @@ export class PageSqlPortsList extends PageElement {
     super();
     this.getSqlPortsList();
   }
-
+  
   private getSqlPortsList() {
     const api = new RefDataSqlPortsApi();
     api.refDataSqlPortsGet().subscribe(
@@ -152,20 +152,20 @@ export class PageSqlPortsList extends PageElement {
               ></vaadin-grid-sort-column>
             </vaadin-grid>
           `} `;
-  }
+  }  
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
+  
     this.addEventListener(
       'sqlport-created',
       this.sqlPortCreated as EventListener
     );
   }
-
+  
   sqlPortCreated() {
     this.getSqlPortsList();
-
+  
     const dialog = this.shadowRoot?.getElementById(
       'add-sqlport-dialog'
     ) as PaperDialogElement;
@@ -177,7 +177,7 @@ export class PageSqlPortsList extends PageElement {
     const filters = value
       .trim()
       .split('|')
-      .map(filter => new RegExp(filter.replace('\\', '\\\\'), 'i'));
+      .map(filter => new RegExp(filter.replace("\\","\\\\"), 'i'));
 
     this.filteredSqlPorts = this.sqlPorts.filter(({ InstanceName, SqlPort }) =>
       filters.some(
@@ -193,9 +193,7 @@ export class PageSqlPortsList extends PageElement {
   }
 
   addSqlPort() {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-sqlport-dialog'
-    ) as PaperDialogElement;
+    const dialog = this.shadowRoot?.getElementById('add-sqlport-dialog') as PaperDialogElement;
     dialog.open();
   }
 }

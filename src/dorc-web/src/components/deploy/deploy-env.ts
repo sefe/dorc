@@ -432,7 +432,8 @@ export class DeployEnv extends LitElement {
           console.error(err);
 
           const notification = new ErrorNotification();
-          const message = err.response.Message ?? err.response.ExceptionMessage;
+          const message =
+            err.response.Message ?? err.response.ExceptionMessage;
           if (message) {
             notification.setAttribute('errorMessage', message);
           } else {

@@ -187,10 +187,7 @@ export class PageScriptsList extends PageElement {
                 });
               }
 
-              if (
-                this.variableProjectNames !== '' &&
-                this.variableProjectNames !== undefined
-              ) {
+              if (this.variableProjectNames !== '' && this.variableProjectNames !== undefined) {
                 params.filters.push({
                   path: variableProjectNames,
                   value: this.variableProjectNames
@@ -339,8 +336,7 @@ export class PageScriptsList extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser =
-      this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   private searchingScriptsFinished() {
@@ -351,15 +347,12 @@ export class PageScriptsList extends PageElement {
     const script = rowData.item as ScriptApiModel;
     const select = new ComboBox();
     select.items = this.powerShellVersions;
-    select.value = script.PowerShellVersionNumber ?? '';
+    select.value = script.PowerShellVersionNumber ?? "";
 
     select.disabled = !this.isAdmin && !this.isPowerUser;
 
     select.addEventListener('value-changed', (event: any) => {
-      if (
-        script.PowerShellVersionNumber != event.detail.value &&
-        !!event.detail.value
-      ) {
+      if (script.PowerShellVersionNumber != event.detail.value && !!event.detail.value){
         script.PowerShellVersionNumber = event.detail.value;
         const api = new RefDataScriptsApi();
         api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
@@ -374,42 +367,42 @@ export class PageScriptsList extends PageElement {
     });
     render(select, root);
   }
-
+  
   private projectNamesRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ScriptApiModel>
-  ) => {
-    const script = model.item;
-    const projectNames = script.ProjectNames ?? [];
+      root: HTMLElement,
+      _: HTMLElement,
+      model: GridItemModel<ScriptApiModel>
+    ) => {
+      const script = model.item;
+      const projectNames = script.ProjectNames ?? [];
 
-    render(
-      html`
-        ${map(
-          projectNames,
-          value =>
-            html` <button
-              class="project-tag"
-              @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('open-project-envs', {
-                    detail: {
-                      Project: {
-                        ProjectName: value
-                      }
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
-            >
-              ${value}
-            </button>`
-        )}
-      `,
-      root
-    );
-  };
+      render(
+        html`
+          ${map(
+            projectNames,
+            value =>
+              html` <button
+                class="project-tag"
+                @click="${() =>
+                          this.dispatchEvent(
+                                  new CustomEvent('open-project-envs', {
+                                      detail: {
+                                          Project: {
+                                            ProjectName: value
+                                          }
+                                      },
+                                      bubbles: true,
+                                      composed: true
+                                  })
+                          )}"
+              >
+                ${value}
+              </button>`
+          )}
+        `,
+        root
+      );
+    };
 
   nonProdRenderer(
     root: HTMLElement,
@@ -644,11 +637,9 @@ export class PageScriptsList extends PageElement {
     const api = new PowerShellVersionsApi();
     api.powerShellVersionsGet().subscribe({
       next: (versions: PowerShellVersionDto[]) => {
-        this.powerShellVersions = versions
-          .map(v => v.Value || '')
-          .filter(v => v !== '');
+        this.powerShellVersions = versions.map(v => v.Value || '').filter(v => v !== '');
       },
-      error: error => {
+      error: (error) => {
         console.error('Failed to load PowerShell versions:', error);
         // Fallback to hardcoded values
         this.powerShellVersions = ['v5.1', 'v7'];

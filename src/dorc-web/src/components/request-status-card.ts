@@ -39,8 +39,7 @@ export class RequestStatusCard extends LitElement {
   @property({ type: String })
   selectedProject = '';
 
-  @property({ type: String }) hubConnectionState: string | undefined =
-    HubConnectionState.Disconnected;
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state()
   buildNumberHref = '';
@@ -375,9 +374,7 @@ export class RequestStatusCard extends LitElement {
 
     const projectsApi = new RefDataProjectsApi();
     projectsApi
-      .refDataProjectsProjectNameGet({
-        projectName: this.deployRequest.Project ?? ''
-      })
+      .refDataProjectsProjectNameGet({ projectName: this.deployRequest.Project ?? '' })
       .subscribe({
         next: (project: ProjectApiModel) => {
           const org = project.ArtefactsUrl?.split('/')[3] ?? '';
@@ -385,7 +382,9 @@ export class RequestStatusCard extends LitElement {
           const buildId = this.deployRequest?.BuildUri?.split('/').pop() ?? '';
           this.buildNumberHref = `https://dev.azure.com/${
             org + '/' + adProject
-          }/_build/results?buildId=${buildId}&view=results`;
+          }/_build/results?buildId=${
+            buildId
+          }&view=results`;
         }
       });
   }

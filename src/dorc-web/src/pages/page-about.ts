@@ -72,21 +72,13 @@ export class PageAbout extends PageElement {
 
   @property({ type: Object }) riverChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) environmentUsageChartOptions:
-    | EChartsOption
-    | undefined;
+  @property({ type: Object }) environmentUsageChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) userActivityChartOptions:
-    | EChartsOption
-    | undefined;
+  @property({ type: Object }) userActivityChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) timePatternChartOptions:
-    | EChartsOption
-    | undefined;
+  @property({ type: Object }) timePatternChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) componentUsageChartOptions:
-    | EChartsOption
-    | undefined;
+  @property({ type: Object }) componentUsageChartOptions: EChartsOption | undefined;
 
   @property({ type: Array }) pieDataTable: (string | number)[][] = [
     ['Project', 'Deployments']
@@ -113,9 +105,7 @@ export class PageAbout extends PageElement {
 
   @property({ type: Number }) PercentTop3ProjectsByDeploymentsThisYear = 0;
 
-  @property({ type: Object }) durationStats:
-    | AnalyticsDurationApiModel
-    | undefined;
+  @property({ type: Object }) durationStats: AnalyticsDurationApiModel | undefined;
 
   private loading = true;
 
@@ -241,29 +231,22 @@ export class PageAbout extends PageElement {
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>
-                      ${this.durationStats?.AverageDurationMinutes?.toFixed(
-                        1
-                      ) ?? 0}
-                      min
-                    </h3>
+                    <h3>${this.durationStats?.AverageDurationMinutes?.toFixed(1) ?? 0} min</h3>
                     <span class="card-element__text"
                       >Average Deployment Duration</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>
-                      ${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0}
-                      min
-                    </h3>
-                    <span class="card-element__text">Longest Deployment</span>
+                    <h3>${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0} min</h3>
+                    <span class="card-element__text"
+                      >Longest Deployment</span
+                    >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>
-                      ${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0}
-                      min
-                    </h3>
-                    <span class="card-element__text">Shortest Deployment</span>
+                    <h3>${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0} min</h3>
+                    <span class="card-element__text"
+                      >Shortest Deployment</span
+                    >
                   </div>
                 </div>
                 <div class="top3-chart-block">
@@ -342,7 +325,7 @@ export class PageAbout extends PageElement {
       next: (res: AnalyticsEnvironmentUsageApiModel[]) => {
         this.constructEnvironmentUsageChart(res);
       },
-      error: err => {
+      error: (err) => {
         console.error('Failed to load environment usage data:', err);
       }
     });
@@ -353,7 +336,7 @@ export class PageAbout extends PageElement {
       next: (res: AnalyticsUserActivityApiModel[]) => {
         this.constructUserActivityChart(res);
       },
-      error: err => {
+      error: (err) => {
         console.error('Failed to load user activity data:', err);
       }
     });
@@ -365,7 +348,7 @@ export class PageAbout extends PageElement {
         console.log('Time pattern data received:', res);
         this.constructTimePatternChart(res);
       },
-      error: err => {
+      error: (err) => {
         console.error('Failed to load time pattern data:', err);
       }
     });
@@ -377,7 +360,7 @@ export class PageAbout extends PageElement {
         console.log('Component usage data received:', res);
         this.constructComponentUsageChart(res);
       },
-      error: err => {
+      error: (err) => {
         console.error('Failed to load component usage data:', err);
       }
     });
@@ -388,7 +371,7 @@ export class PageAbout extends PageElement {
       next: (res: AnalyticsDurationApiModel) => {
         this.durationStats = res;
       },
-      error: err => {
+      error: (err) => {
         console.error('Failed to load duration stats:', err);
       }
     });
@@ -668,9 +651,7 @@ export class PageAbout extends PageElement {
     };
   }
 
-  private constructEnvironmentUsageChart(
-    data: AnalyticsEnvironmentUsageApiModel[]
-  ) {
+  private constructEnvironmentUsageChart(data: AnalyticsEnvironmentUsageApiModel[]) {
     const environments = data.slice(0, 10).map(d => d.EnvironmentName ?? '');
     const counts = data.slice(0, 10).map(d => d.CountOfDeployments ?? 0);
 
@@ -776,38 +757,21 @@ export class PageAbout extends PageElement {
 
   private constructTimePatternChart(data: AnalyticsTimePatternApiModel[]) {
     console.log('constructTimePatternChart called with data:', data);
-
+    
     // Group by day of week and hour for heatmap
-    const dayNames = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday'
-    ];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-
+    
     const heatmapData: [number, number, number][] = [];
-
+    
     if (data && data.length > 0) {
       data.forEach(d => {
-        if (
-          d.HourOfDay !== undefined &&
-          d.DayOfWeek !== undefined &&
-          d.HourOfDay !== null &&
-          d.DayOfWeek !== null
-        ) {
-          heatmapData.push([
-            d.HourOfDay,
-            d.DayOfWeek,
-            d.CountOfDeployments ?? 0
-          ]);
+        if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined && d.HourOfDay !== null && d.DayOfWeek !== null) {
+          heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
         }
       });
     }
-
+    
     // If no data, create at least one data point so chart renders
     if (heatmapData.length === 0) {
       console.warn('No valid heatmap data, creating empty chart');
@@ -884,22 +848,17 @@ export class PageAbout extends PageElement {
     };
   }
 
-  private constructComponentUsageChart(
-    data: AnalyticsComponentUsageApiModel[]
-  ) {
+  private constructComponentUsageChart(data: AnalyticsComponentUsageApiModel[]) {
     console.log('constructComponentUsageChart called with data:', data);
-
+    
     let components: string[] = [];
     let counts: number[] = [];
-
+    
     if (data && data.length > 0) {
-      components = data
-        .slice(0, 15)
-        .map(d => d.ComponentName ?? '')
-        .filter(c => c !== '');
+      components = data.slice(0, 15).map(d => d.ComponentName ?? '').filter(c => c !== '');
       counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
     }
-
+    
     // If no data, create placeholder
     if (components.length === 0) {
       console.warn('No valid component data, creating empty chart');

@@ -232,9 +232,7 @@ export class EnvDeployments extends PageEnvBase {
 
   componentNameHeaderRenderer(root: HTMLElement) {
     render(
-      html`<vaadin-grid-sorter path="ComponentName"
-          >Component Name</vaadin-grid-sorter
-        >
+      html`<vaadin-grid-sorter path="ComponentName">Component Name</vaadin-grid-sorter>
         <vaadin-grid-filter path="ComponentName">
           <vaadin-text-field
             clear-button-visible
@@ -250,9 +248,7 @@ export class EnvDeployments extends PageEnvBase {
 
   requestNumberHeaderRenderer(root: HTMLElement) {
     render(
-      html`<vaadin-grid-sorter path="RequestBuildNum"
-          >Request Build Number</vaadin-grid-sorter
-        >
+      html`<vaadin-grid-sorter path="RequestBuildNum">Request Build Number</vaadin-grid-sorter>
         <vaadin-grid-filter path="RequestBuildNum">
           <vaadin-text-field
             clear-button-visible

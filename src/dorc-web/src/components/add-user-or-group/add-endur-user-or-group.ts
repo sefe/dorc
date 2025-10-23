@@ -310,17 +310,11 @@ export class AddEndurUserOrGroup extends AddUserOrGroupBase {
         this.lanIdType
       );
 
-    const lanId = getTextFieldValue(
-      this.shadowRoot,
-      'system-account-id'
-    )?.trim();
+    const lanId = getTextFieldValue(this.shadowRoot, 'system-account-id')?.trim();
     userOrGroupToSave.LanId = lanId;
     userOrGroupToSave.LoginId = lanId;
 
-    const dispalyName = getTextFieldValue(
-      this.shadowRoot,
-      'displayName'
-    )?.trim();
+    const dispalyName = getTextFieldValue(this.shadowRoot, 'displayName')?.trim();
     userOrGroupToSave.DisplayName =
       dispalyName + ' ' + this.displayNameEndurPostfix;
 

@@ -29,13 +29,13 @@ export class ApplicationDaemons extends LitElement {
 
   static get styles() {
     return css`
-      :host {
-        height: 100%;
-        display: flex;
-      }
+        :host {
+            height: 100%;
+            display: flex;
+        }
       vaadin-grid#grid {
         overflow: hidden;
-        height: 100%;
+        height: 100%
       }
       vaadin-button {
         padding: 0px;
@@ -100,7 +100,10 @@ export class ApplicationDaemons extends LitElement {
     } else {
       root.style.color = 'red';
     }
-    render(html`<span>${daemon?.ServiceStatus}</span>`, root);
+    render(
+      html`<span>${daemon?.ServiceStatus}</span>`,
+      root
+    );
   }
 
   _boundDaemonsButtonsRenderer(
@@ -122,8 +125,8 @@ export class ApplicationDaemons extends LitElement {
         this.setServiceStatuses(data);
       },
       error: (err: any) => console.error(err),
-      complete: () => console.log('done loading daemon statuses')
-    });
+      complete: () => console.log('done loading daemon statuses')}
+    );
   }
 
   protected firstUpdated(_changedProperties: PropertyValues): void {
@@ -134,12 +137,11 @@ export class ApplicationDaemons extends LitElement {
     );
   }
 
-  daemonStatusUpdated(event: CustomEvent<ServiceStatusApiModel>) {
+  daemonStatusUpdated(event: CustomEvent<ServiceStatusApiModel>)
+  {
     const daemonData = event.detail as ServiceStatusApiModel;
     const index = this.daemonsAndStatuses?.findIndex(
-      daemon =>
-        daemon.ServiceName === daemonData.ServiceName &&
-        daemon.ServerName === daemonData.ServerName
+      (daemon) => daemon.ServiceName === daemonData.ServiceName && daemon.ServerName === daemonData.ServerName
     );
     if (index !== undefined && index > -1) {
       const updatedDaemons = [...this.daemonsAndStatuses!];

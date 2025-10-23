@@ -22,9 +22,9 @@ export class AddConfigValue extends LitElement {
 
   @state() private valueValid = false;
 
-  @property({ type: Boolean }) private isSecure = false;
+  @property({type: Boolean}) private isSecure = false;
 
-  @property({ type: Boolean }) private isForProd: boolean = false;
+  @property({type: Boolean }) private isForProd: boolean = false;
 
   @property({ type: Boolean }) private valid = false;
 

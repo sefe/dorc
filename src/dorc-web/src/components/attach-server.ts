@@ -9,13 +9,18 @@ import {
   RefDataEnvironmentsDetailsApi,
   RefDataServersApi
 } from '../apis/dorc-api/apis';
-import { ApiBoolResult, ServerApiModel } from '../apis/dorc-api';
+import {
+  ApiBoolResult,
+  ServerApiModel
+} from '../apis/dorc-api';
 
 @customElement('attach-server')
 export class AttachServer extends LitElement {
   @property({ type: Array }) envDetails = [];
 
-  @property({ type: Array }) private servers: Array<ServerApiModel> | undefined;
+  @property({ type: Array }) private servers:
+    | Array<ServerApiModel>
+    | undefined;
 
   @property({ type: Boolean }) private canSubmit = false;
 

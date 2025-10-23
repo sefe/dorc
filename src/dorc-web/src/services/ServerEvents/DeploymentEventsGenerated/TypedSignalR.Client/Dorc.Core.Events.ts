@@ -3,41 +3,33 @@
 /* tslint:disable */
 // @ts-nocheck
 import type { IStreamResult, Subject } from '@microsoft/signalr';
-import type {
-  DeploymentRequestEventData,
-  DeploymentResultEventData
-} from '../Dorc.Core.Events';
+import type { DeploymentRequestEventData, DeploymentResultEventData } from '../Dorc.Core.Events';
 
 export type IDeploymentEventsHub = {
-  /**
-   * @param eventData Transpiled from Dorc.Core.Events.DeploymentRequestEventData
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  broadcastNewRequestAsync(
-    eventData: DeploymentRequestEventData
-  ): Promise<void>;
-  /**
-   * @param eventData Transpiled from Dorc.Core.Events.DeploymentRequestEventData
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  broadcastRequestStatusChangedAsync(
-    eventData: DeploymentRequestEventData
-  ): Promise<void>;
-  /**
-   * @param eventData Transpiled from Dorc.Core.Events.DeploymentResultEventData
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  broadcastResultStatusChangedAsync(
-    eventData: DeploymentResultEventData
-  ): Promise<void>;
-  /**
-   * @param requestId Transpiled from int
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  joinRequestGroup(requestId: number): Promise<void>;
-  /**
-   * @param requestId Transpiled from int
-   * @returns Transpiled from System.Threading.Tasks.Task
-   */
-  leaveRequestGroup(requestId: number): Promise<void>;
-};
+    /**
+    * @param eventData Transpiled from Dorc.Core.Events.DeploymentRequestEventData
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    broadcastNewRequestAsync(eventData: DeploymentRequestEventData): Promise<void>;
+    /**
+    * @param eventData Transpiled from Dorc.Core.Events.DeploymentRequestEventData
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    broadcastRequestStatusChangedAsync(eventData: DeploymentRequestEventData): Promise<void>;
+    /**
+    * @param eventData Transpiled from Dorc.Core.Events.DeploymentResultEventData
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    broadcastResultStatusChangedAsync(eventData: DeploymentResultEventData): Promise<void>;
+    /**
+    * @param requestId Transpiled from int
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    joinRequestGroup(requestId: number): Promise<void>;
+    /**
+    * @param requestId Transpiled from int
+    * @returns Transpiled from System.Threading.Tasks.Task
+    */
+    leaveRequestGroup(requestId: number): Promise<void>;
+}
+
