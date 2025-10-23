@@ -109,9 +109,7 @@ export class AddDaemon extends LitElement {
           <vaadin-button
             .disabled="${!this.valid || this.isBusy}"
             @click="${this._submit}"
-          >
-            Save
-          </vaadin-button>
+          >Save</vaadin-button>
           <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
         <span style="color: darkred">${this.overlayMessage}</span>
