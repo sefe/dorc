@@ -6,7 +6,7 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/checkbox';
-import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
+//import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
