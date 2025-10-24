@@ -41,6 +41,9 @@ export class AddEditEnvironment extends LitElement {
   private hasUserChanges = false;
   private allEnvNames: string[] | undefined;
 
+  // track original name to allow keeping the same value during edits
+  private originalEnvName: string | undefined;
+
   @property({ type: Boolean }) private addMode = false;
   @property({ type: Boolean }) private readonly = true;
   @property({ type: Boolean }) private savingMetadata = false;
@@ -125,9 +128,13 @@ export class AddEditEnvironment extends LitElement {
     const oldVal = this._environment;
     if (value === undefined) return;
     this._environment = JSON.parse(JSON.stringify(value));
-
     this.hasUserChanges = false;
     this._canSubmit();
+
+    if (this._environment) {
+      // capture the original name as loaded from backend or created locally
+      this.originalEnvName = this._environment.EnvironmentName ?? '';
+    }
 
     if (
       this._environment &&
@@ -135,9 +142,8 @@ export class AddEditEnvironment extends LitElement {
     ) {
       this.EnvOwnerDisplayName = undefined;
       this.findDisplayNameForOwner();
-      this.checkEnvironmentNameValid(this.environment?.EnvironmentName);
+      // no duplicate validation path; _envNameValueChanged handles validation
     }
-
     console.log(`setting environment ${value?.EnvironmentName}`);
     this.requestUpdate('environment', oldVal);
   }
@@ -149,9 +155,9 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  // -----------------------------
+  // ----------------------------
   // Reusable wrapper
-  // -----------------------------
+  // ----------------------------
   private handleFieldChange<T extends Event>(
     handler: (e: T) => void,
     e: T,
@@ -190,7 +196,6 @@ export class AddEditEnvironment extends LitElement {
                   </div>`}
             </vaadin-horizontal-layout>
           </vaadin-details-summary>
-
           <vaadin-horizontal-layout>
             <vaadin-text-field
               id="search-criteria"
@@ -204,7 +209,6 @@ export class AddEditEnvironment extends LitElement {
               ? html` <div class="small-loader"></div> `
               : html``}
           </vaadin-horizontal-layout>
-
           <vaadin-horizontal-layout>
             <vaadin-combo-box
               id="searchResults"
@@ -284,7 +288,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.Description ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._descriptionValueChanged, e)}
+              this.handleFieldChange(this._descriptionValueChanged, e as any)}
             ?readonly=${this.readonly}
           >
           </vaadin-text-field>
@@ -338,16 +342,16 @@ export class AddEditEnvironment extends LitElement {
 
         <div style="padding-left: 4px; margin-right: 30px">
           <vaadin-button
-            .disabled=${!this.canSubmit || this.readonly}
+            .disabled=${!this.canSubmit || this.readonly || this.savingMetadata}
             @click=${this.saveMetadata}
           >
             Save
           </vaadin-button>
-
           ${this.savingMetadata
             ? html` <div class="small-loader"></div> `
             : html``}
         </div>
+
         <div style="color: #FF3131">${this.ErrorMessage}</div>
       </div>
     `;
@@ -365,9 +369,9 @@ export class AddEditEnvironment extends LitElement {
     ) as ComboBox;
     if (searchResult) searchResult.selectedItem = undefined;
 
+    // direct DOM resets are fine here; model updates happen via handlers elsewhere
     const secure = this.shadowRoot?.getElementById('env-secure') as Checkbox;
     if (secure) secure.checked = false;
-
     const prod = this.shadowRoot?.getElementById('env-prod') as Checkbox;
     if (prod) prod.checked = false;
 
@@ -397,7 +401,6 @@ export class AddEditEnvironment extends LitElement {
       ) {
         this.environment.Details.EnvironmentOwner = found.DisplayName;
         this.environment.Details.EnvironmentOwnerId = found.Pid ?? found.Sid;
-
         if (!this.addMode) {
           const api = new RefDataEnvironmentsUsersApi();
           api
@@ -465,12 +468,10 @@ export class AddEditEnvironment extends LitElement {
       'search-criteria'
     ) as TextField;
     field.addEventListener('keydown', this.isCriteriaReady as EventListener);
-
     this.addEventListener(
       'env-owner-search-criteria-ready',
       this.searchAD as EventListener
     );
-
     const api = new RefDataEnvironmentsApi();
     api.refDataEnvironmentsGetAllEnvironmentNamesGet().subscribe({
       next: (data: string[]) => {
@@ -556,21 +557,20 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  // -----------------------------
+  // ----------------------------
   // Field handlers (model updates only)
-  // -----------------------------
-  updateSecure(e: CustomEvent) {
-    const cbx = e.target as Checkbox;
+  // ----------------------------
+
+  updateSecure(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
       // model update only; wrapper will set hasUserChanges + validate
-      this.environment.EnvironmentSecure = cbx.checked;
+      this.environment.EnvironmentSecure = e.detail.value;
     }
   }
 
-  updateIsProd(e: CustomEvent) {
-    const cbx = e.target as Checkbox;
+  updateIsProd(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      this.environment.EnvironmentIsProd = cbx.checked;
+      this.environment.EnvironmentIsProd = e.detail.value;
     }
   }
 
@@ -593,11 +593,11 @@ export class AddEditEnvironment extends LitElement {
     };
   }
 
-  _envNameValueChanged(data: any) {
-    if (this.environment && data?.target) {
-      const name = (data.target.value as string) ?? '';
+  _envNameValueChanged(e: CustomEvent<{ value: string }>) {
+    if (this.environment) {
+      const name = e.detail.value ?? '';
       this.environment.EnvironmentName = name.trim();
-      // field-specific validation (kept here)
+      // field-specific validation
       this._checkName(this.environment.EnvironmentName); // calls _canSubmit()
       // NOTE: _inputValueChanged() will be called by the wrapper
     }
@@ -664,16 +664,17 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  // -----------------------------
+  // ----------------------------
   // Validation & submit gating
-  // -----------------------------
+  // ----------------------------
+
   _checkName(data: string) {
-    const found = this.allEnvNames?.find(name => name === data);
-    if (found === undefined && data.trim().length > 0) {
-      this.isNameValid = true;
-    } else {
-      this.isNameValid = found !== undefined && data === found;
-    }
+    const trimmed = (data ?? '').trim();
+    const found = this.allEnvNames?.includes(trimmed) ?? false;
+    // allow keeping the original name on edit; require uniqueness on create/rename
+    const isSameAsOriginal =
+      trimmed.length > 0 && trimmed === (this.originalEnvName ?? '');
+    this.isNameValid = trimmed.length > 0 && (!found || isSameAsOriginal);
     this._canSubmit();
   }
 
@@ -699,12 +700,9 @@ export class AddEditEnvironment extends LitElement {
   }
 
   _canSubmit() {
-    this.canSubmit =
-      this.envValid &&
-      this.isNameValid &&
-      this.hasUserChanges &&
-      !this.readonly &&
-      !this.savingMetadata;
+    // Keep this pure validation + user-change tracking.
+    // UI concerns (readonly/saving) are handled in the template binding.
+    this.canSubmit = this.envValid && this.isNameValid && this.hasUserChanges;
   }
 
   saveMetadata() {
@@ -712,7 +710,6 @@ export class AddEditEnvironment extends LitElement {
       this.hasUserChanges = false;
       this.canSubmit = false;
       this.savingMetadata = true;
-
       if (this.environment?.EnvironmentId === 0) {
         const api = new RefDataEnvironmentsApi();
         api
@@ -803,14 +800,6 @@ export class AddEditEnvironment extends LitElement {
         composed: true
       });
       this.dispatchEvent(event);
-    }
-  }
-
-  private checkEnvironmentNameValid(data: any) {
-    if (this.environment !== undefined && data?.target !== undefined) {
-      const environmentName = data.target.value as string;
-      this.environment.EnvironmentName = environmentName.trim();
-      this._checkName(this.environment.EnvironmentName);
     }
   }
 
