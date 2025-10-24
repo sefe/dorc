@@ -1,11 +1,22 @@
-﻿using log4net;
-using log4net.Core;
+﻿using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Tests
 {
-    public class MockedLog : ILog
+    public class MockedLog : ILogger
     {
-        public ILogger Logger { get; }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            Console.WriteLine(formatter(state, exception));
+        }
+    }
+
+    // Legacy mock for compatibility - remove all old log4net methods
+    public class OldMockedLog
+    {
         public void Debug(object format)
         {
             Console.WriteLine(format);
@@ -180,11 +191,5 @@ namespace Dorc.Api.Tests
         {
             Console.WriteLine(format);
         }
-
-        public bool IsDebugEnabled { get; }
-        public bool IsInfoEnabled { get; }
-        public bool IsWarnEnabled { get; }
-        public bool IsErrorEnabled { get; }
-        public bool IsFatalEnabled { get; }
     }
 }

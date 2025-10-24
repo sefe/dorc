@@ -162,10 +162,11 @@ namespace Dorc.Api.Tests
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
             var mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
-            ILog mockedLog = new MockedLog();
+            var mockedLogger = Substitute.For<ILogger<RequestService>>();
+            var mockedLoggerFactory = Substitute.For<ILoggerFactory>();
             var mockDeployLibrary = Substitute.For<IDeployLibrary>();
-            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLog, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource);
-            var test4Service = new RequestService(mockedLog, factory, mockedProjectsPds);
+            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource);
+            var test4Service = new RequestService(mockedLogger, factory, mockedProjectsPds);
             Exception expectedException1 = null;
             try
             {

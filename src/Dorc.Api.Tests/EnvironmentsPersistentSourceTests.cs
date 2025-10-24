@@ -34,7 +34,7 @@ namespace Dorc.Api.Tests
             _objectFilter = Substitute.For<ISecurityObjectFilter>();
             _rolePrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             _propertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
-            _logger = Substitute.For<ILog>();
+            _logger = Substitute.For<ILogger<EnvironmentsPersistentSource>>();
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             _accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
             _user = Substitute.For<IPrincipal>();

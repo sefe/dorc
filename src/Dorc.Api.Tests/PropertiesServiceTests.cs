@@ -6,6 +6,8 @@ using System.Security.Claims;
 using Dorc.Api.Services;
 using Dorc.PersistentData;
 using Dorc.Api.Tests.Mocks;
+using Microsoft.Extensions.Logging;
+
 namespace Dorc.Api.Tests
 {
     [TestClass]
@@ -25,11 +27,12 @@ namespace Dorc.Api.Tests
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockLogger = Substitute.For<ILogger<PropertiesService>>();
 
             mockPropertiesPersistentSource
                 .CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>())
                 .Returns(x => x.ArgAt<PropertyApiModel>(0));
-            var happyService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader, mockPropertyValuesPersistentSource, mockPropertyEncryptor);
+            var happyService = new PropertiesService(mockPropertiesPersistentSource, mockPvs, mockClaimsPrincipalReader, mockPropertyValuesPersistentSource, mockPropertyEncryptor, mockLogger);
             var correctInput = new List<PropertyApiModel>
                 {new PropertyApiModel {Name = "valid property name", Secure = true}};
             try

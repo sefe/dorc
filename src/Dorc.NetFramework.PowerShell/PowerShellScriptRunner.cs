@@ -8,7 +8,6 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Core;
 
 namespace Dorc.NetFramework.PowerShell
 {
