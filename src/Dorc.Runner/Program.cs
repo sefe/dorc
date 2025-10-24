@@ -14,6 +14,7 @@ namespace Dorc.Runner
     internal class Program
     {
         private static Options options;
+        private static IRunnerLogger? _runnerLogger;
 
         static Program()
         {
@@ -22,7 +23,7 @@ namespace Dorc.Runner
         }
         static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            Log.Logger?.Error(e.ExceptionObject as Exception, "UnhandledException in Runner");
+            _runnerLogger?.Error(e.ExceptionObject as Exception, "UnhandledException in Runner");
 
             throw new Exception((e.IsTerminating ? "Terminating" : "Non-terminating") +
                                 " UnhandledException in Runner: " + e.ExceptionObject + ". Sender: " + sender);
@@ -55,30 +56,38 @@ namespace Dorc.Runner
                     .Build();
 
                 var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
-                Log.Logger = runnerLogger.FileLogger;
+                _runnerLogger = runnerLogger;
+
+                // Create a logger factory to get typed loggers
+                var loggerFactory = LoggerFactory.Create(builder =>
+                {
+                    builder.AddConsole();
+                    builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Debug);
+                });
+                var typedLogger = loggerFactory.CreateLogger<Program>();
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                Log.Logger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
+                runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    Log.Logger.Information("Runner process is started on behalf of the user: {0}", owner);
+                    runnerLogger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
 
-                Log.Logger.Information("Arguments: {args}", string.Join(", ", args));
+                runnerLogger.Information("Arguments: {args}", string.Join(", ", args));
   
                 try
                 {
                     IScriptGroupPipeClient scriptGroupReader;
                     if (options.UseFile)
                     {
-                        Log.Logger.Debug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(Log.Logger);
+                        runnerLogger.Debug("Using file instead of pipes");
+                        scriptGroupReader = new ScriptGroupFileReader(typedLogger);
                     }
                     else
-                        scriptGroupReader = new ScriptGroupPipeClient(Log.Logger);
+                        scriptGroupReader = new ScriptGroupPipeClient(typedLogger);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         runnerLogger,
@@ -89,7 +98,7 @@ namespace Dorc.Runner
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error(ex, "Deployment error");
+                    runnerLogger.Error(ex, "Deployment error");
 
                     Exit(-1);
                     throw;
@@ -107,7 +116,7 @@ namespace Dorc.Runner
         {
             Thread.Sleep(10000);
 
-            Log.Logger.Information(RunnerConstants.StandardStreamEndString);
+            _runnerLogger?.Information(RunnerConstants.StandardStreamEndString);
         }
 
         static void Exit(int exitCode)
