@@ -27,9 +27,7 @@ import type { EnvironmentApiModel } from '../apis/dorc-api';
 export class AddEditEnvironment extends LitElement {
   @property({ type: Boolean })
   canSubmit = false;
-
   @property() ErrorMessage = '';
-
   @property({ type: Array }) searchResults!: UserElementApiModel[];
   @property({ type: Boolean }) searchingUsers = false;
   @property({ type: String }) selectedUser!: string;
@@ -41,14 +39,14 @@ export class AddEditEnvironment extends LitElement {
   private hasUserChanges = false;
   private allEnvNames: string[] | undefined;
 
-  // track original name to allow keeping the same value during edits
-  private originalEnvName: string | undefined;
-
   @property({ type: Boolean }) private addMode = false;
   @property({ type: Boolean }) private readonly = true;
   @property({ type: Boolean }) private savingMetadata = false;
 
   private searchADValue = '';
+
+  // track original name to allow keeping the same value during edits
+  private originalEnvName: string | undefined;
 
   static get styles() {
     return css`
@@ -127,22 +125,21 @@ export class AddEditEnvironment extends LitElement {
   set environment(value: EnvironmentApiModel) {
     const oldVal = this._environment;
     if (value === undefined) return;
+    // deep copy to avoid external mutation side effects
     this._environment = JSON.parse(JSON.stringify(value));
     this.hasUserChanges = false;
     this._canSubmit();
 
     if (this._environment) {
-      // capture the original name as loaded from backend or created locally
       this.originalEnvName = this._environment.EnvironmentName ?? '';
     }
-
     if (
       this._environment &&
       this._environment?.EnvironmentName !== oldVal?.EnvironmentName
     ) {
       this.EnvOwnerDisplayName = undefined;
       this.findDisplayNameForOwner();
-      // no duplicate validation path; _envNameValueChanged handles validation
+      // validation flows via field handlers; no duplicate path here
     }
     console.log(`setting environment ${value?.EnvironmentName}`);
     this.requestUpdate('environment', oldVal);
@@ -155,9 +152,9 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  // ----------------------------
+  // ------------------------------------------------------------
   // Reusable wrapper
-  // ----------------------------
+  // ------------------------------------------------------------
   private handleFieldChange<T extends Event>(
     handler: (e: T) => void,
     e: T,
@@ -190,7 +187,7 @@ export class AddEditEnvironment extends LitElement {
               ${this.isEmptyOrSpaces(this.EnvOwnerDisplayName)
                 ? html`<div style="font-style: italic; color: red">
                     Press 'Set Owner' to fill
-                  </div> `
+                  </div>`
                 : html` <div style="font-weight: bold;">
                     ${this.EnvOwnerDisplayName}
                   </div>`}
@@ -288,7 +285,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.Description ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._descriptionValueChanged, e as any)}
+              this.handleFieldChange(this._descriptionValueChanged, e)}
             ?readonly=${this.readonly}
           >
           </vaadin-text-field>
@@ -304,7 +301,7 @@ export class AddEditEnvironment extends LitElement {
             label="Backup Created From"
             auto-validate
             .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
-            @value-changed=${(e: CustomEvent) =>
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this.handleFieldChange(this._backupValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
@@ -314,7 +311,7 @@ export class AddEditEnvironment extends LitElement {
             label="File Share"
             auto-validate
             .value=${this.environment?.Details?.FileShare ?? ''}
-            @value-changed=${(e: CustomEvent) =>
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this.handleFieldChange(this._fileShareValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
@@ -324,7 +321,7 @@ export class AddEditEnvironment extends LitElement {
             label="Thin Client Server"
             auto-validate
             .value=${this.environment?.Details?.ThinClient ?? ''}
-            @value-changed=${(e: CustomEvent) =>
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this.handleFieldChange(this._thinClientValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
@@ -334,7 +331,7 @@ export class AddEditEnvironment extends LitElement {
             label="Notes"
             auto-validate
             .value=${this.environment?.Details?.Notes ?? ''}
-            @value-changed=${(e: CustomEvent) =>
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this.handleFieldChange(this._notesValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
@@ -351,36 +348,24 @@ export class AddEditEnvironment extends LitElement {
             ? html` <div class="small-loader"></div> `
             : html``}
         </div>
-
         <div style="color: #FF3131">${this.ErrorMessage}</div>
       </div>
     `;
   }
 
-  isEmptyOrSpaces(str: any) {
-    return str === undefined || str === null || str.match(/^ *$/) !== null;
+  isEmptyOrSpaces(str: unknown) {
+    if (typeof str !== 'string') return true;
+    return str.trim().length === 0;
   }
 
   public clearAllFields() {
+    // Prefer updating the model and let bindings reflect the UI.
+    this.environment = this.getEmptyEnv();
     this.EnvOwnerDisplayName = '';
-    this.clearTextField('search-criteria');
-    const searchResult = this.shadowRoot?.getElementById(
-      'searchResults'
-    ) as ComboBox;
-    if (searchResult) searchResult.selectedItem = undefined;
-
-    // direct DOM resets are fine here; model updates happen via handlers elsewhere
-    const secure = this.shadowRoot?.getElementById('env-secure') as Checkbox;
-    if (secure) secure.checked = false;
-    const prod = this.shadowRoot?.getElementById('env-prod') as Checkbox;
-    if (prod) prod.checked = false;
-
-    this.clearTextField('env-name');
-    this.clearTextField('env-desc');
-    this.clearTextField('opt-backup');
-    this.clearTextField('opt-file-share');
-    this.clearTextField('opt-thin-client');
-    this.clearTextField('opt-notes');
+    this.selectedUser = '';
+    this.searchADValue = '';
+    this.hasUserChanges = false;
+    this._inputValueChanged();
   }
 
   clearTextField(id: string) {
@@ -454,8 +439,8 @@ export class AddEditEnvironment extends LitElement {
     );
   }
 
-  searchResultsValueChanged(data: CustomEvent<any>) {
-    this.selectedUser = data.detail.value;
+  searchResultsValueChanged(e: CustomEvent<{ value: string }>) {
+    this.selectedUser = e.detail.value;
   }
 
   updateSearchCriteria(data: any) {
@@ -557,17 +542,15 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  // ----------------------------
+  // ------------------------------------------------------------
   // Field handlers (model updates only)
-  // ----------------------------
-
+  // ------------------------------------------------------------
   updateSecure(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
       // model update only; wrapper will set hasUserChanges + validate
       this.environment.EnvironmentSecure = e.detail.value;
     }
   }
-
   updateIsProd(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
       this.environment.EnvironmentIsProd = e.detail.value;
@@ -603,71 +586,40 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  _descriptionValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.Description = data.target.value;
-      }
-      this.environment = model;
-      // wrapper will call _inputValueChanged()
-    }
+  _descriptionValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.Description = e.detail.value ?? '';
+    // wrapper handles validation; just request an update
+    this.requestUpdate('environment');
   }
 
-  _backupValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.RestoredFromSourceDb = data.target.value;
-      }
-      this.environment = model;
-    }
+  _backupValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.RestoredFromSourceDb = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  _fileShareValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.FileShare = data.target.value;
-      }
-      this.environment = model;
-    }
+  _fileShareValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.FileShare = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  _thinClientValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.ThinClient = data.target.value;
-      }
-      this.environment = model;
-    }
+  _thinClientValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.ThinClient = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  _notesValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.Notes = data.target.value;
-      }
-      this.environment = model;
-    }
+  _notesValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.Notes = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  // ----------------------------
+  // ------------------------------------------------------------
   // Validation & submit gating
-  // ----------------------------
-
+  // ------------------------------------------------------------
   _checkName(data: string) {
     const trimmed = (data ?? '').trim();
     const found = this.allEnvNames?.includes(trimmed) ?? false;
@@ -700,22 +652,23 @@ export class AddEditEnvironment extends LitElement {
   }
 
   _canSubmit() {
-    // Keep this pure validation + user-change tracking.
-    // UI concerns (readonly/saving) are handled in the template binding.
     this.canSubmit = this.envValid && this.isNameValid && this.hasUserChanges;
   }
 
   saveMetadata() {
     if (this.environment) {
-      this.hasUserChanges = false;
+      // keep hasUserChanges true until success; disable via saving flag
       this.canSubmit = false;
       this.savingMetadata = true;
+
       if (this.environment?.EnvironmentId === 0) {
         const api = new RefDataEnvironmentsApi();
         api
           .refDataEnvironmentsPost({ environmentApiModel: this.environment })
           .subscribe({
             next: (data: EnvironmentApiModel) => {
+              // success -> clear user changes
+              this.hasUserChanges = false;
               this.envAdded();
               Notification.show(`Created Environment ${data.EnvironmentName}`, {
                 theme: 'success',
@@ -738,6 +691,8 @@ export class AddEditEnvironment extends LitElement {
           .subscribe({
             next: (data: EnvironmentApiModel) => {
               if (data !== null) {
+                // success -> clear user changes
+                this.hasUserChanges = false;
                 this.envUpdated(data);
                 Notification.show(
                   `Updated Environment ${data.EnvironmentName}`,
@@ -822,4 +777,3 @@ export class AddEditEnvironment extends LitElement {
     return 'An unexpected error occurred. Please try again or contact support.';
   }
 }
-// ----------------------------
