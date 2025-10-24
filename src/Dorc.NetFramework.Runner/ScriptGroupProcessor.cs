@@ -4,7 +4,6 @@ using Dorc.ApiModel;
 using Dorc.NetFramework.PowerShell;
 using Dorc.NetFramework.Runner.Pipes;
 using Dorc.Runner.Logger;
-using Microsoft.Extensions.Logging.Context;
 
 namespace Dorc.NetFramework.Runner
 {
