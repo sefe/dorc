@@ -33,6 +33,14 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(50)
             .HasColumnName("Server_Name");
 
+            builder
+                .Property(e => e.LastChecked)
+                .HasColumnName("LastChecked");
+
+            builder
+                .Property(e => e.IsReachable)
+                .HasColumnName("IsReachable");
+
             builder.HasOne(d => d.Group).WithMany(p => p.Databases).HasForeignKey(d => d.GroupId);
 
             builder.HasMany(d => d.Environments).WithMany(p => p.Databases)
