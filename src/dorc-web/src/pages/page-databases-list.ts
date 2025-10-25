@@ -690,8 +690,7 @@ export class PageDatabasesList extends PageElement {
     const database = model.item;
     const isReachable = database.IsReachable;
     const lastChecked = database.LastChecked ? new Date(database.LastChecked) : null;
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     let statusHtml;
     let title = '';

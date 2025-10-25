@@ -23,6 +23,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<Server> GetAppServerDetails(string envName);
         
         void UpdateServerConnectivityStatus(int serverId, bool isReachable, DateTime lastChecked);
-        IEnumerable<Server> GetAllServersForConnectivityCheck();
+        List<Server> GetAllServersForConnectivityCheck();
     }
 }

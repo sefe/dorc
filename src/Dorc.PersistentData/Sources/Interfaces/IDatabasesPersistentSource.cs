@@ -23,6 +23,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DatabaseApiModel? UpdateDatabase(int id, DatabaseApiModel database, IPrincipal user);
         
         void UpdateDatabaseConnectivityStatus(int databaseId, bool isReachable, DateTime lastChecked);
-        IEnumerable<Database> GetAllDatabasesForConnectivityCheck();
+        List<Database> GetAllDatabasesForConnectivityCheck();
     }
 }

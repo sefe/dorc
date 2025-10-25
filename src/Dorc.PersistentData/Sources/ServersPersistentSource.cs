@@ -407,7 +407,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<Server> GetAllServersForConnectivityCheck()
+        public List<Server> GetAllServersForConnectivityCheck()
         {
             using (var context = _contextFactory.GetContext())
             {

@@ -433,7 +433,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<Database> GetAllDatabasesForConnectivityCheck()
+        public List<Database> GetAllDatabasesForConnectivityCheck()
         {
             using (var context = _contextFactory.GetContext())
             {

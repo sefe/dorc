@@ -730,8 +730,7 @@ export class PageServersList extends PageElement {
     const server = model.item;
     const isReachable = server.IsReachable;
     const lastChecked = server.LastChecked ? new Date(server.LastChecked) : null;
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     let statusHtml;
     let title = '';
