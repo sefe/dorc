@@ -59,7 +59,7 @@ namespace Dorc.Api.Tests
         {
             var mockEnvPs = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
-            ILogger<RequestService> mockedLog = new MockedLog() as ILogger<RequestService> ?? throw new InvalidOperationException();
+            ILogger<RequestService> mockedLog = Substitute.For<ILogger<RequestService>>();
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
             // build valid, request created
             RequestDto request = new RequestDto
