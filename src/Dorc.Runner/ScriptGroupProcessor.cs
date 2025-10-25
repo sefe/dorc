@@ -34,23 +34,20 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
-            // TODO: Replace Serilog LogContext with ILogger scopes
-            // using (LogContext.PushProperty("RequestId", requestId))
-            // using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
+            // Logging context is set via logger.SetRequestId and logger.SetDeploymentResultId above
+            // IRunnerLogger handles the scoped logging internally via FileLogger
+            var scriptRunner = new PowerShellScriptRunner(this.logger);
+            int sumResult = 0;
+            foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
             {
-                var scriptRunner = new PowerShellScriptRunner(this.logger);
-                int sumResult = 0;
-                foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
-                {
-                    sumResult += scriptRunner.Run(
-                        scriptGroupProperties.ScriptsLocation,
-                        scriptProps.ScriptPath,
-                        scriptProps.Properties,
-                        scriptGroupProperties.CommonProperties);
-                }
+                sumResult += scriptRunner.Run(
+                    scriptGroupProperties.ScriptsLocation,
+                    scriptProps.ScriptPath,
+                    scriptProps.Properties,
+                    scriptGroupProperties.CommonProperties);
+            }
 
-                return sumResult;
-            }            
+            return sumResult;            
         }
     }
 }

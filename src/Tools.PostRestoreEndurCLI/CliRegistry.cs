@@ -14,15 +14,28 @@ namespace Tools.PostRestoreEndurCLI
         {
             try
             {
-                // TODO: Configure ILogger from DI container
+                // Configure ILogger from DI container
+                For<ILoggerFactory>().Use<LoggerFactory>();
+                For(typeof(ILogger<>)).Use(typeof(Logger<>));
+                For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PostRestoreEndurCLI"));
+                
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
             }
             catch (Exception e)
             {
-                // TODO: Add proper logging using ILogger from DI container
-                Console.Error.WriteLine($"Error in CliRegistry: {e}");
+                // Log error using configured logger or fallback to console
+                var loggerFactory = TryGetService<ILoggerFactory>();
+                if (loggerFactory != null)
+                {
+                    var logger = loggerFactory.CreateLogger("CliRegistry");
+                    logger.LogError(e, "Error in CliRegistry initialization");
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Error in CliRegistry: {e}");
+                }
                 throw;
             }
         }

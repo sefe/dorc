@@ -10,7 +10,11 @@ namespace Tools.DeployCopyEnvBuildCLI
     {
         public AppRegistry()
         {
-            // TODO: Configure ILogger from DI container
+            // Configure ILogger from DI container
+            For<ILoggerFactory>().Use<LoggerFactory>();
+            For(typeof(ILogger<>)).Use(typeof(Logger<>));
+            For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("DeployCopyEnvBuildCLI"));
+            
             For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
         }
     }
