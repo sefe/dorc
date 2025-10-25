@@ -2,8 +2,8 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
-using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Management.Automation;
 
 namespace Dorc.PowerShell
 {

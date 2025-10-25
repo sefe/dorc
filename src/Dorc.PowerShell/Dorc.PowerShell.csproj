@@ -200,14 +200,10 @@
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.10" />
+    <PackageReference Include="System.Management.Automation" Version="7.4.13" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="System.Management.Automation">
-      <HintPath>..\..\..\..\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.Management.Automation\v4.0_3.0.0.0__31bf3856ad364e35\System.Management.Automation.dll</HintPath>
-    </Reference>
   </ItemGroup>
 </Project>
