@@ -33,7 +33,6 @@
 					<Json:JsonFile Id="DorcApiClientSecret" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
 					<Json:JsonFile Id="DorcApiScope" ElementPath="$.AppSettings.DorcApi.Scope" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />
 					
-					<util:XmlFile Id="NonProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#NonProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorNonProd.log" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">

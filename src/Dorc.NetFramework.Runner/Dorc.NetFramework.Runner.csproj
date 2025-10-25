@@ -92,10 +92,10 @@
       <Version>1.11.2</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging">
-      <Version>8.0.3</Version>
+      <Version>9.0.10</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions">
-      <Version>8.0.3</Version>
+      <Version>9.0.10</Version>
     </PackageReference>
     <PackageReference Include="System.Management">
       <Version>8.0.0</Version>

@@ -9,8 +9,7 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Dorc.Api.Tests
@@ -99,7 +98,7 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            ILog mockedLog = new MockedLog();
+            ILogger mockedLog = new MockedLog();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, true));
@@ -125,7 +124,7 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            ILog mockedLog = new MockedLog();
+            ILogger mockedLog = new MockedLog();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, false));
@@ -186,7 +185,7 @@ namespace Dorc.Api.Tests
         {
             var mockEnvPs = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedBuildFactory = Substitute.For<IDeployableBuildFactory>();
-            var mockedLog = Substitute.For<ILog>();
+            var mockedLog = Substitute.For<ILogger>();
             var request = new RequestDto();
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
 

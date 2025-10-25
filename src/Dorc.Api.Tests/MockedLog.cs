@@ -14,7 +14,6 @@ namespace Dorc.Api.Tests
         }
     }
 
-    // Legacy mock for compatibility - remove all old log4net methods
     public class OldMockedLog
     {
         public void Debug(object format)

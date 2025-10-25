@@ -7,7 +7,6 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using NSubstitute;

@@ -4,7 +4,6 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Org.OpenAPITools.Model;

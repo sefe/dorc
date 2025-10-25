@@ -19,7 +19,7 @@ namespace Dorc.NetFramework.Runner.Pipes
 
         public ScriptGroup GetScriptGroupProperties(string scriptGroupPipeName)
         {
-            logger.Information("Pipe name provided for client: '" + scriptGroupPipeName + "'.");
+            logger.LogInformation("Pipe name provided for client: '" + scriptGroupPipeName + "'.");
 
             try
             {
@@ -28,7 +28,7 @@ namespace Dorc.NetFramework.Runner.Pipes
                     scriptGroupPipeName,
                     PipeDirection.In))
                 {
-                    logger.Information("Connecting client pipe to server. Pipe name: '" + scriptGroupPipeName + "'.");
+                    logger.LogInformation("Connecting client pipe to server. Pipe name: '" + scriptGroupPipeName + "'.");
 
                     try
                     {
@@ -36,20 +36,20 @@ namespace Dorc.NetFramework.Runner.Pipes
 
                         if (pipeClient.IsConnected)
                         {
-                            logger.Information("Client pipe is connected.");
+                            logger.LogInformation("Client pipe is connected.");
                         }
                         else
                         {
-                            logger.Warning("Client pipe is NOT connected.");
+                            logger.LogWarning("Client pipe is NOT connected.");
                         }
                     }
                     catch (Exception e)
                     {
-                        logger.Error("Exception is thrown while trying to connect to named pipe sever: {0} " , e);
+                        logger.LogError("Exception is thrown while trying to connect to named pipe sever: {0} " , e);
                         throw;
                     }
 
-                    logger.Information("Deserializing received ScriptGroup.");
+                    logger.LogInformation("Deserializing received ScriptGroup.");
                     var options = new JsonSerializerOptions
                     {
                         WriteIndented = true,
@@ -65,22 +65,22 @@ namespace Dorc.NetFramework.Runner.Pipes
                     var list = scriptGroup.ScriptProperties.ToList();
                     var env = scriptGroup.CommonProperties["EnvironmentName"];
 
-                    logger.Information($"Received from pipe: {guid}");
+                    logger.LogInformation($"Received from pipe: {guid}");
                     foreach (var scriptGroupScriptProperty in list)
                     {
                         var props =JsonSerializer.Serialize(scriptGroupScriptProperty.Properties);
 
-                        logger.Information($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                        logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
                     }
 
-                    logger.Information("Deserialization of ScriptGroup is completed.");
+                    logger.LogInformation("Deserialization of ScriptGroup is completed.");
 
                     return scriptGroup;
                 }
             }
             catch (Exception ex)
             {
-                logger.Error("Client pipe has failed. Exception: " + ex);
+                logger.LogError("Client pipe has failed. Exception: " + ex);
                 throw;
             }
         }
