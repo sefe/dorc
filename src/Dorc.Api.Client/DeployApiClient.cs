@@ -1,4 +1,4 @@
-﻿using Serilog;
+﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Globalization;
 using System.Net.Http;
@@ -17,11 +17,11 @@ namespace Dorc.Api.Client
             _baseUrl = baseUrl;
         }
 
-        public async void PostToDorc(ILogger contextlogger, string endPoint, string urlParams)
+        public async void PostToDorc(ILogger<DeployApiClient> contextlogger, string endPoint, string urlParams)
         {
             HttpClientHandler handler = new HttpClientHandler { UseDefaultCredentials = true };
             string fullUrl = $"{_baseUrl}/{endPoint}?{urlParams}";
-            contextlogger.Verbose($"full url {fullUrl}");
+            contextlogger.LogDebug($"full url {fullUrl}");
 
             try
             {
@@ -33,20 +33,20 @@ namespace Dorc.Api.Client
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        contextlogger.Error($"Request failed with status code: {response.StatusCode}");
+                        contextlogger.LogError($"Request failed with status code: {response.StatusCode}");
                     }
                 }
             }
             catch (Exception e)
             {
-                contextlogger.Error($"Post to {fullUrl} failed with Exception {e.Message}");
+                contextlogger.LogError($"Post to {fullUrl} failed with Exception {e.Message}");
             }
         }
 
-        public async void PatchToDorc(ILogger contextlogger, string endPoint, string patchContent)
+        public async void PatchToDorc(ILogger<DeployApiClient> contextlogger, string endPoint, string patchContent)
         {
             string fullUrl = $"{_baseUrl}/{endPoint}?{urlParams}";
-            contextlogger.Verbose($"full url {fullUrl}");
+            contextlogger.LogDebug($"full url {fullUrl}");
             HttpClientHandler handler = new HttpClientHandler { UseDefaultCredentials = true };
             using (HttpClient client = new HttpClient(handler))
             {
@@ -66,12 +66,12 @@ namespace Dorc.Api.Client
                     response.EnsureSuccessStatusCode();
                     if (!response.IsSuccessStatusCode)
                     {
-                        contextlogger.Error($"Request to {fullUrl} failed with status code: {response.StatusCode}");
+                        contextlogger.LogError($"Request to {fullUrl} failed with status code: {response.StatusCode}");
                     }
                 }
                 catch (HttpRequestException ex)
                 {
-                    contextlogger.Error($"Post to {fullUrl} failed with Exception {ex.Message}");
+                    contextlogger.LogError($"Post to {fullUrl} failed with Exception {ex.Message}");
                 }
             }
         }

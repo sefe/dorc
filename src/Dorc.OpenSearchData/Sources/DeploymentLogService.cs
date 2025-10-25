@@ -1,7 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.OpenSearchData.Model;
 using Dorc.OpenSearchData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using OpenSearch.Client;
 
 namespace Dorc.OpenSearchData.Sources
@@ -9,13 +9,13 @@ namespace Dorc.OpenSearchData.Sources
     public class DeploymentLogService : IDeploymentLogService
     {
         private readonly IOpenSearchClient _openSearchClient;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
         private readonly string _deploymentResultIndex;
 
         private const int _pageSize = 5000;
 
-        public DeploymentLogService(IOpenSearchClient openSearchClient, ILog logger, string deploymentResultIndex)
+        public DeploymentLogService(IOpenSearchClient openSearchClient, ILogger logger, string deploymentResultIndex)
         {
             _openSearchClient = openSearchClient;
             _logger = logger;
@@ -35,7 +35,7 @@ namespace Dorc.OpenSearchData.Sources
             }
             catch (Exception e)
             {
-                _logger.Error("Request for the deployment result logs to the OpenSearch failed.", e);
+                _logger.LogError("Request for the deployment result logs to the OpenSearch failed.", e);
                 foreach (var deploymentResult in deploymentResults)
                     deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
             }
@@ -64,7 +64,7 @@ namespace Dorc.OpenSearchData.Sources
 
             if (!searchResponse.IsValid)
             {
-                _logger.Error($"OpenSearch query exception: {searchResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResponse.DebugInformation}");
+                _logger.LogError($"OpenSearch query exception: {searchResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResponse.DebugInformation}");
                 return logs;
             }
 
@@ -82,7 +82,7 @@ namespace Dorc.OpenSearchData.Sources
 
                     if (!scrollResponse.IsValid)
                     {
-                        _logger.Error($"OpenSearch scroll query exception: {scrollResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {scrollResponse.DebugInformation}");
+                        _logger.LogError($"OpenSearch scroll query exception: {scrollResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {scrollResponse.DebugInformation}");
                         break;
                     }
 
@@ -122,7 +122,7 @@ namespace Dorc.OpenSearchData.Sources
 
         private string GetLogLevelString(DeployOpenSearchLogModel logModel)
         {
-            return (logModel.level == LogLevel.Error || logModel.level == LogLevel.Warn)
+            return (logModel.level == OpenSearch.Client.LogLevel.Error || logModel.level == OpenSearch.Client.LogLevel.Warn)
                 ? "[" + logModel.level.ToString().ToUpper() + "]"
                 : string.Empty;
         }

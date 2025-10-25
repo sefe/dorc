@@ -1,7 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -16,9 +16,9 @@ namespace Dorc.Api.Controllers
         private readonly IRequestsStatusPersistentSource _requestsStatusPersistentSource;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
-        private readonly ILog _log;
+        private readonly ILogger _log;
 
-        public RequestStatusesController(IRequestsPersistentSource requestsPersistentSource, IRequestsStatusPersistentSource requestsStatusPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker, ILog log)
+        public RequestStatusesController(IRequestsPersistentSource requestsPersistentSource, IRequestsStatusPersistentSource requestsStatusPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker, ILogger log)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _requestsPersistentSource = requestsPersistentSource;
@@ -112,9 +112,9 @@ namespace Dorc.Api.Controllers
         [HttpPatch]
         public IActionResult Patch(int requestId, int deploymentResultId, [FromBody] string log)
         {
-            _log.Debug($"Calling Append to log method {log}");
+            _log.LogDebug($"Calling Append to log method {log}");
             _requestsStatusPersistentSource.AppendLogToJob(deploymentResultId, log);
-            _log.Debug($"Calling Append to log method {log}...Done");
+            _log.LogDebug($"Calling Append to log method {log}...Done");
             return Ok();
         }
 

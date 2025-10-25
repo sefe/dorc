@@ -12,6 +12,7 @@
     <ToolsPREDir>$(SolutionDir)Tools.PostRestoreEndurCLI\bin\$(Configuration)\net8.0\publish</ToolsPREDir>
     <ToolsPVCDir>$(SolutionDir)Tools.PropertyValueCreationCLI\bin\$(Configuration)\net8.0\publish</ToolsPVCDir>
     <ToolsReqDir>$(SolutionDir)Tools.RequestCLI\bin\$(Configuration)\net8.0\publish</ToolsReqDir>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
@@ -185,9 +186,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WixJsonFileExtension" Version="6.0.0.47" />
-    <PackageReference Include="WixToolset.Heat" Version="6.0.1" />
-    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.1" />
-    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="6.0.1" />
   <PropertyGroup>

@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
 
@@ -75,7 +76,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsTrue(environmentUsersApiResult.IsModelValid, environmentUsersApiResult.Message);
             var model = environmentUsersApiResult.Model as List<UserApiModel>;
             Assert.IsNotNull(model, $"Model not valid, raw data: {environmentUsersApiResult.RawJson}");
-            Assert.AreEqual(this.environmentUserCount, model.Count);
+            Assert.HasCount(this.environmentUserCount, model);
         }
         #endregion
     }

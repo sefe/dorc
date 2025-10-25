@@ -7,7 +7,6 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using NSubstitute;
@@ -162,7 +161,7 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            Assert.ThrowsException<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)));
+            Assert.Throws<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)));
         }
 
         [TestMethod]

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
     <TestsAcceptanceDir>$(SolutionDir)Tests.Acceptance\bin\$(Configuration)\net8.0\publish</TestsAcceptanceDir>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <DefineConstants>Debug;TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>
@@ -19,9 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WixJsonFileExtension" Version="6.0.0.47" />
-    <PackageReference Include="WixToolset.Heat" Version="6.0.1" />
-    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.1" />
-    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.1" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Tests.Acceptance\Tests.Acceptance.csproj">

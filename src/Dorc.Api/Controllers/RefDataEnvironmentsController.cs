@@ -2,7 +2,7 @@
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -17,13 +17,13 @@ namespace Dorc.Api.Controllers
         private readonly IEnvironmentsPersistentSource environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         public RefDataEnvironmentsController(
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            ILog logger)
+            ILogger logger)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _securityPrivilegesChecker = securityPrivilegesChecker;

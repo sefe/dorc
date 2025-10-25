@@ -10,13 +10,15 @@ using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using Dorc.Monitor.Logging;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
-using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
 using System.Reflection;
 using System.Text;
 
@@ -33,19 +35,53 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = monitorConfiguration.ServiceName;
 });
 
-#region log4net logger initialization
+#region OpenTelemetry logging initialization
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 string executingAssemblyLocation = Assembly.GetExecutingAssembly().Location;
 string executingAssemblyDirectoryPath = Path.GetDirectoryName(executingAssemblyLocation)!;
-string log4netFilePath = Path.Combine(executingAssemblyDirectoryPath, "log4net.config");
-FileInfo log4netFileInfo = new FileInfo(log4netFilePath);
-XmlConfigurator.Configure(log4netFileInfo);
+string logFilePath = Path.Combine("c:\\Log\\DOrc\\Deploy\\Services", $"{monitorConfiguration.ServiceName}.log");
 
-Type loggerType = MethodBase.GetCurrentMethod()?.DeclaringType!;
-var logger = LogManager.GetLogger(loggerType);
+// Ensure log directory exists
+Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
+
+// Configure logging with OpenTelemetry
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+});
+
+// Add file logging
+builder.Logging.AddFile(logFilePath, options =>
+{
+    options.Append = true;
+    options.FileSizeLimitBytes = 10 * 1024 * 1024; // 10MB
+    options.MaxRollingFiles = 100;
+});
+
+// Add OpenTelemetry with OTLP exporter
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+        .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+    
+    // Add OTLP exporter (configure endpoint via environment variables or appsettings)
+    var otlpEndpoint = configurationRoot.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+    if (!string.IsNullOrEmpty(otlpEndpoint))
+    {
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    }
+    
+    // Console exporter for debugging
+    logging.AddConsoleExporter();
+});
+
+builder.Logging.SetMinimumLevel(LogLevel.Information);
 #endregion
-
-builder.Services.AddSingleton<ILog>(logger);
 
 builder.Services.AddTransient<ScriptDispatcher>();
 

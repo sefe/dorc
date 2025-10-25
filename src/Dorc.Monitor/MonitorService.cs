@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using System.Collections.Concurrent;
@@ -7,7 +7,7 @@ namespace Dorc.Monitor
 {
     public sealed class MonitorService : BackgroundService
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         private bool isProduction;
         private readonly IServiceProvider serviceProvider;
@@ -19,7 +19,7 @@ namespace Dorc.Monitor
         private int requestProcessingIterationDelayMs;
 
         public MonitorService(
-            ILog logger,
+            ILogger<MonitorService> logger,
             IServiceProvider serviceProvider,
             IMonitorConfiguration configuration
             )
@@ -39,7 +39,7 @@ namespace Dorc.Monitor
 
         protected override async Task ExecuteAsync(CancellationToken monitorCancellationToken)
         {
-            logger.Info("Deployment Monitor service is started.");
+            logger.LogInformation("Deployment Monitor service is started.");
 
             try
             {
@@ -53,16 +53,16 @@ namespace Dorc.Monitor
             }
             catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
             {
-                logger.Warn("Monitor process is cancelled. " + operationCanceledException.Message);
+                logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
             }
             catch (Exception exception)
             {
-                logger.Error("Monitor process is failed. Exception: " + exception);
+                logger.LogError("Monitor process is failed. Exception: " + exception);
                 throw;
             }
             finally
             {
-                logger.Info("Deployment Monitor service is stopping.");
+                logger.LogInformation("Deployment Monitor service is stopping.");
             }
         }
 
