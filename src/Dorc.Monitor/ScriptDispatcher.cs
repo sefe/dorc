@@ -12,8 +12,6 @@ using System.Text;
 using System.Text.Json;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
-using System.Management.Automation.Language;
-using Dorc.PersistentData.Sources;
 
 namespace Dorc.Monitor
 {

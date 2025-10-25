@@ -2,6 +2,7 @@
 using System.Text.Json;
 using RestSharp;
 using Tests.Acceptance.Support;
+using Reqnroll;
 
 namespace Tests.Acceptance.StepDefinitions
 {

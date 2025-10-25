@@ -161,7 +161,7 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            Assert.ThrowsException<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)));
+            Assert.Throws<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)));
         }
 
         [TestMethod]

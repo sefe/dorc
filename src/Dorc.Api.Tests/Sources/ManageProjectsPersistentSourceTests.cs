@@ -110,7 +110,7 @@ namespace Dorc.Api.Tests.Sources
             };
 
             // Act & Assert
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 _source.ValidateComponents(components, 1, HttpRequestType.Put));
         }
 
@@ -130,7 +130,7 @@ namespace Dorc.Api.Tests.Sources
             };
 
             // Act & Assert
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 _source.ValidateComponents(components, 1, HttpRequestType.Put));
         }
 
@@ -155,7 +155,7 @@ namespace Dorc.Api.Tests.Sources
             };
 
             // Act & Assert
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 _source.ValidateComponents(components, 1, HttpRequestType.Put));
         }
 
@@ -174,7 +174,7 @@ namespace Dorc.Api.Tests.Sources
             };
 
             // Act & Assert
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() =>
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 _source.ValidateComponents(components, 1, HttpRequestType.Post));
         }
 
