@@ -175,7 +175,7 @@ export class AddEditEnvironment extends LitElement {
                 style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
               ></vaadin-icon>
               ${this.isEmptyOrSpaces(this.EnvOwnerDisplayName)
-                ? html`<div style="font-style: italic; color: red">
+        ? html`<div style="font-style: italic; color: red">
                     Press 'Set Owner' to fill
                   </div>`
                 : html` <div style="font-weight: bold;">
@@ -193,8 +193,8 @@ export class AddEditEnvironment extends LitElement {
               Search
             </vaadin-button>
             ${this.searchingUsers
-              ? html` <div class="small-loader"></div> `
-              : html``}
+        ? html` <div class="small-loader"></div> `
+        : html``}
           </vaadin-horizontal-layout>
           <vaadin-horizontal-layout>
             <vaadin-combo-box
@@ -335,8 +335,8 @@ export class AddEditEnvironment extends LitElement {
             Save
           </vaadin-button>
           ${this.savingMetadata
-            ? html` <div class="small-loader"></div> `
-            : html``}
+        ? html` <div class="small-loader"></div> `
+        : html``}
         </div>
         <div style="color: #FF3131">${this.ErrorMessage}</div>
       </div>
@@ -357,12 +357,14 @@ export class AddEditEnvironment extends LitElement {
     this._inputValueChanged();
   }
 
+
   clearTextField(id: string) {
     const el = this.shadowRoot?.getElementById(id) as
       | (HTMLElement & { value: string })
       | null;
     if (el) el.value = '';
   }
+
 
   setNewOwner() {
     const found = this.searchResults.find(
