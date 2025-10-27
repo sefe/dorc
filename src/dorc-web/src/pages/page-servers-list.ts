@@ -743,10 +743,10 @@ export class PageServersList extends PageElement {
       title = `Last checked: ${lastChecked.toLocaleString()}`;
     } else if (lastChecked < oneWeekAgo) {
       statusHtml = html`<vaadin-icon icon="vaadin:warning" style="color: orange;"></vaadin-icon> <span>Unreachable (7+ days)</span>`;
-      title = `Not reachable since: ${lastChecked.toLocaleString()}`;
+      title = `Unreachable - Last checked: ${lastChecked.toLocaleString()}`;
     } else {
       statusHtml = html`<vaadin-icon icon="vaadin:close-circle" style="color: red;"></vaadin-icon> <span>Offline</span>`;
-      title = `Last checked: ${lastChecked.toLocaleString()}`;
+      title = `Unreachable - Last checked: ${lastChecked.toLocaleString()}`;
     }
 
     render(

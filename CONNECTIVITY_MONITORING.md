@@ -42,13 +42,37 @@ The Status column in both the Servers and Databases list views displays:
 
 ## Configuration
 
-### Check Frequency
-The connectivity check interval is set to 1 hour by default. To modify:
+### Enabling Connectivity Checks
 
-**File**: `src/Dorc.Monitor/Connectivity/ConnectivityCheckService.cs`
-```csharp
-private readonly TimeSpan _checkInterval = TimeSpan.FromHours(1);
+The connectivity check service is **disabled by default** to avoid performance issues when multiple Monitor instances are running. To enable it, configure the `appsettings.json` file:
+
+**File**: `src/Dorc.Monitor/appsettings.json`
+```json
+{
+  "AppSettings": {
+    "EnableConnectivityCheck": "True",
+    "ConnectivityCheckIntervalMinutes": "60"
+  }
+}
 ```
+
+**Important**: Only enable this on **one** Monitor instance (typically the Production Monitor) to avoid:
+- Multiple instances checking the same resources simultaneously
+- Database contention when updating connectivity status
+- Unnecessary network traffic
+
+### Check Frequency
+
+The connectivity check interval can be configured in `appsettings.json`:
+
+**Default**: 60 minutes (1 hour)
+
+To modify, change the `ConnectivityCheckIntervalMinutes` setting:
+```json
+"ConnectivityCheckIntervalMinutes": "30"  // Check every 30 minutes
+```
+
+**Initial Delay**: The service waits 2 minutes after starting before performing the first check to allow the Monitor service to fully initialize.
 
 ### Unreachable Threshold
 The threshold for showing the orange warning is 7 days. This can be modified in the UI renderers:
@@ -58,7 +82,7 @@ The threshold for showing the orange warning is 7 days. This can be modified in 
 - `src/dorc-web/src/pages/page-databases-list.ts`
 
 ```typescript
-const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 ```
 
 ## Database Schema Changes
@@ -82,7 +106,8 @@ The script safely adds the columns only if they don't already exist.
 ## Logging
 
 The connectivity service logs:
-- Info messages when starting/stopping
+- Info messages when starting/stopping and configuration status
+- Info messages when starting each check cycle
 - Info messages after completing each check cycle with counts
 - Warning messages for individual unreachable resources
 - Error messages for unexpected failures during checks
@@ -91,14 +116,28 @@ The connectivity service logs:
 
 **Example Log Messages**:
 ```
-INFO  - Connectivity Check Service is starting.
+INFO  - Connectivity Check Service is starting. Check interval: 60 minutes.
+INFO  - Waiting 2 minutes before first connectivity check...
+INFO  - Starting connectivity check cycle...
 INFO  - Completed connectivity check for 42 servers.
 WARN  - Server PROD-WEB-01 (ID: 123) is not reachable.
 INFO  - Completed connectivity check for 18 databases.
 WARN  - Database AppDB on PROD-SQL-01 (ID: 456) is not reachable.
+INFO  - Connectivity check cycle completed.
+```
+
+**Disabled Service**:
+```
+INFO  - Connectivity Check Service is disabled in configuration.
 ```
 
 ## Troubleshooting
+
+### Service Not Starting
+- Check if `EnableConnectivityCheck` is set to `"True"` in `appsettings.json`
+- Review logs for the message: "Connectivity Check Service is disabled in configuration."
+- Verify the Monitor service has the necessary configuration settings
+- Check that the service waits 2 minutes before the first check (initial delay is intentional)
 
 ### Servers Always Showing as Offline
 - Verify the Dorc.Monitor service has network access to ping the servers
@@ -114,12 +153,20 @@ WARN  - Database AppDB on PROD-SQL-01 (ID: 456) is not reachable.
 ### Checks Not Running
 - Verify the Dorc.Monitor service is running
 - Check the Monitor service logs for errors
-- Ensure the `ConnectivityCheckService` is registered in `Program.cs`
+- Ensure `EnableConnectivityCheck` is set to `"True"` in appsettings.json
+- Verify only ONE Monitor instance has connectivity checking enabled
+- Look for the initial 2-minute delay message in logs
 
 ### Status Not Updating in UI
 - Refresh the browser page
 - Verify the Dorc.Api is serving the updated status fields
 - Check browser console for API errors
+- Wait for the next check cycle (default: 60 minutes after service start)
+
+### Multiple Monitor Instances Conflict
+- Only enable connectivity checking on ONE Monitor instance (typically Production)
+- Set `EnableConnectivityCheck` to `"False"` on all other instances
+- This prevents database contention and duplicate checks
 
 ## Security Considerations
 
