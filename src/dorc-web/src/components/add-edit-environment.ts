@@ -6,7 +6,6 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/checkbox';
-//import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
@@ -45,7 +44,6 @@ export class AddEditEnvironment extends LitElement {
 
   private searchADValue = '';
 
-  // track original name to allow keeping the same value during edits
   private originalEnvName: string | undefined;
 
   static get styles() {
@@ -125,7 +123,6 @@ export class AddEditEnvironment extends LitElement {
   set environment(value: EnvironmentApiModel) {
     const oldVal = this._environment;
     if (value === undefined) return;
-    // deep copy to avoid external mutation side effects
     this._environment = JSON.parse(JSON.stringify(value));
     this.hasUserChanges = false;
     this._canSubmit();
@@ -139,7 +136,6 @@ export class AddEditEnvironment extends LitElement {
     ) {
       this.EnvOwnerDisplayName = undefined;
       this.findDisplayNameForOwner();
-      // validation flows via field handlers; no duplicate path here
     }
     console.log(`setting environment ${value?.EnvironmentName}`);
     this.requestUpdate('environment', oldVal);
@@ -152,19 +148,13 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  // ------------------------------------------------------------
-  // Reusable wrapper
-  // ------------------------------------------------------------
   private handleFieldChange<T extends Event>(
     handler: (e: T) => void,
     e: T,
     { validate = true } = {}
   ) {
-    // 1) run the specific handler to update the model
     handler.call(this, e);
-    // 2) mark that the user changed something
     this.hasUserChanges = true;
-    // 3) validate / recompute canSubmit (your validator calls _canSubmit inside)
     if (validate) this._inputValueChanged();
   }
 
@@ -359,7 +349,6 @@ export class AddEditEnvironment extends LitElement {
   }
 
   public clearAllFields() {
-    // Prefer updating the model and let bindings reflect the UI.
     this.environment = this.getEmptyEnv();
     this.EnvOwnerDisplayName = '';
     this.selectedUser = '';
@@ -489,46 +478,31 @@ export class AddEditEnvironment extends LitElement {
   }
 
   findDisplayNameForOwner() {
-    if (
-      this.environment !== undefined &&
-      this.environment.Details?.EnvironmentOwner !== ''
-    ) {
-      if (
-        this.EnvOwnerDisplayName === undefined ||
-        this.EnvOwnerDisplayName === ''
-      ) {
+    const owner = this.environment?.Details?.EnvironmentOwner;
+    const ownerId = this.environment?.Details?.EnvironmentOwnerId;
+
+    if (owner !== undefined && owner !== '') {
+      if (!this.EnvOwnerDisplayName) {
         this.EnvOwnerDisplayName = ' ';
         const api = new RefDataEnvironmentsUsersApi();
+
         api
           .refDataEnvironmentsUsersSearchUsersSearchGet({
-            search: this.environment.Details?.EnvironmentOwner ?? ''
+            search: owner as string
           })
           .subscribe({
             next: (data: Array<UserElementApiModel>) => {
               const user =
                 data.length === 1
                   ? data[0]
-                  : (data.find(
-                      u =>
-                        u.Pid === this.environment.Details?.EnvironmentOwnerId
-                    ) ??
-                    data.find(
-                      u =>
-                        u.Sid === this.environment.Details?.EnvironmentOwnerId
-                    ) ??
-                    data.find(
-                      u =>
-                        u.Username ===
-                        this.environment.Details?.EnvironmentOwner
-                    ) ??
-                    data.find(
-                      u =>
-                        u.DisplayName ===
-                        this.environment.Details?.EnvironmentOwner
-                    ));
-              if (user)
-                this.EnvOwnerDisplayName =
-                  user.DisplayName !== null ? user.DisplayName : undefined;
+                  : (data.find(u => u.Pid === ownerId) ??
+                    data.find(u => u.Sid === ownerId) ??
+                    data.find(u => u.Username === owner) ??
+                    data.find(u => u.DisplayName === owner));
+
+              if (user) {
+                this.EnvOwnerDisplayName = user.DisplayName ?? undefined;
+              }
             },
             error: (err: any) => {
               this.EnvOwnerDisplayName = '';
@@ -537,17 +511,14 @@ export class AddEditEnvironment extends LitElement {
             complete: () => console.log('Finished searching Active Directory')
           });
       }
+
       this._checkName(this.environment.EnvironmentName ?? '');
       this._inputValueChanged();
     }
   }
 
-  // ------------------------------------------------------------
-  // Field handlers (model updates only)
-  // ------------------------------------------------------------
   updateSecure(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      // model update only; wrapper will set hasUserChanges + validate
       this.environment.EnvironmentSecure = e.detail.value;
     }
   }
@@ -580,16 +551,13 @@ export class AddEditEnvironment extends LitElement {
     if (this.environment) {
       const name = e.detail.value ?? '';
       this.environment.EnvironmentName = name.trim();
-      // field-specific validation
-      this._checkName(this.environment.EnvironmentName); // calls _canSubmit()
-      // NOTE: _inputValueChanged() will be called by the wrapper
+      this._checkName(this.environment.EnvironmentName);
     }
   }
 
   _descriptionValueChanged(e: CustomEvent<{ value: string }>) {
     if (!this.environment?.Details) return;
     this.environment.Details.Description = e.detail.value ?? '';
-    // wrapper handles validation; just request an update
     this.requestUpdate('environment');
   }
 
@@ -617,13 +585,9 @@ export class AddEditEnvironment extends LitElement {
     this.requestUpdate('environment');
   }
 
-  // ------------------------------------------------------------
-  // Validation & submit gating
-  // ------------------------------------------------------------
   _checkName(data: string) {
     const trimmed = (data ?? '').trim();
     const found = this.allEnvNames?.includes(trimmed) ?? false;
-    // allow keeping the original name on edit; require uniqueness on create/rename
     const isSameAsOriginal =
       trimmed.length > 0 && trimmed === (this.originalEnvName ?? '');
     this.isNameValid = trimmed.length > 0 && (!found || isSameAsOriginal);
@@ -657,7 +621,6 @@ export class AddEditEnvironment extends LitElement {
 
   saveMetadata() {
     if (this.environment) {
-      // keep hasUserChanges true until success; disable via saving flag
       this.canSubmit = false;
       this.savingMetadata = true;
 
@@ -667,7 +630,6 @@ export class AddEditEnvironment extends LitElement {
           .refDataEnvironmentsPost({ environmentApiModel: this.environment })
           .subscribe({
             next: (data: EnvironmentApiModel) => {
-              // success -> clear user changes
               this.hasUserChanges = false;
               this.envAdded();
               Notification.show(`Created Environment ${data.EnvironmentName}`, {
@@ -691,7 +653,6 @@ export class AddEditEnvironment extends LitElement {
           .subscribe({
             next: (data: EnvironmentApiModel) => {
               if (data !== null) {
-                // success -> clear user changes
                 this.hasUserChanges = false;
                 this.envUpdated(data);
                 Notification.show(
