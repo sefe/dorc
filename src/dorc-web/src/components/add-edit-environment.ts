@@ -6,7 +6,6 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/checkbox';
-import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
@@ -27,43 +26,36 @@ import type { EnvironmentApiModel } from '../apis/dorc-api';
 export class AddEditEnvironment extends LitElement {
   @property({ type: Boolean })
   canSubmit = false;
-
   @property() ErrorMessage = '';
-
   @property({ type: Array }) searchResults!: UserElementApiModel[];
-
   @property({ type: Boolean }) searchingUsers = false;
-
   @property({ type: String }) selectedUser!: string;
 
   @state() EnvOwnerDisplayName: string | undefined = '';
 
   private envValid = false;
-
   private isNameValid = false;
-
+  private hasUserChanges = false;
   private allEnvNames: string[] | undefined;
 
   @property({ type: Boolean }) private addMode = false;
-
   @property({ type: Boolean }) private readonly = true;
-
   @property({ type: Boolean }) private savingMetadata = false;
 
   private searchADValue = '';
+
+  private originalEnvName: string | undefined;
 
   static get styles() {
     return css`
       :host {
         display: inline;
       }
-        
       div#div {
         overflow: auto;
         width: calc(100% - 4px);
         height: calc(100vh - 175px);
       }
-
       vaadin-text-field {
         display: flex;
         align-items: center;
@@ -71,21 +63,17 @@ export class AddEditEnvironment extends LitElement {
         min-width: 490px;
         padding: 5px;
       }
-
       vaadin-combo-box {
         min-width: 490px;
         padding: 5px;
       }
-
       vaadin-combo-box.vaadin-text-field {
         --lumo-space-m: 0px;
       }
-
       .tooltip {
         position: relative;
         display: inline-block;
       }
-
       .tooltip .tooltiptext {
         visibility: hidden;
         width: 300px;
@@ -94,25 +82,20 @@ export class AddEditEnvironment extends LitElement {
         text-align: center;
         border-radius: 6px;
         padding: 5px 0;
-
-        /* Position the tooltip */
         position: absolute;
         z-index: 1;
       }
-
       .tooltip:hover .tooltiptext {
         visibility: visible;
       }
-
       .small-loader {
-        border: 2px solid #f3f3f3; /* Light grey */
-        border-top: 2px solid #3498db; /* Blue */
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #3498db;
         border-radius: 50%;
         width: 12px;
         height: 12px;
         animation: spin 2s linear infinite;
       }
-
       @keyframes spin {
         0% {
           transform: rotate(0deg);
@@ -121,11 +104,9 @@ export class AddEditEnvironment extends LitElement {
           transform: rotate(360deg);
         }
       }
-
       vaadin-button {
         margin-top: auto;
       }
-
       vaadin-button:disabled,
       vaadin-button[disabled] {
         background-color: #dde2e8;
@@ -139,19 +120,22 @@ export class AddEditEnvironment extends LitElement {
   get environment(): EnvironmentApiModel {
     return this._environment;
   }
-
   set environment(value: EnvironmentApiModel) {
     const oldVal = this._environment;
     if (value === undefined) return;
     this._environment = JSON.parse(JSON.stringify(value));
+    this.hasUserChanges = false;
+    this._canSubmit();
 
+    if (this._environment) {
+      this.originalEnvName = this._environment.EnvironmentName ?? '';
+    }
     if (
       this._environment &&
       this._environment?.EnvironmentName !== oldVal?.EnvironmentName
     ) {
       this.EnvOwnerDisplayName = undefined;
       this.findDisplayNameForOwner();
-      this.checkEnvironmentNameValid(this.environment?.EnvironmentName);
     }
     console.log(`setting environment ${value?.EnvironmentName}`);
     this.requestUpdate('environment', oldVal);
@@ -159,10 +143,19 @@ export class AddEditEnvironment extends LitElement {
 
   connectedCallback() {
     super.connectedCallback?.();
-
     if (this.addMode) {
       this.environment = this.getEmptyEnv();
     }
+  }
+
+  private handleFieldChange<T extends Event>(
+    handler: (e: T) => void,
+    e: T,
+    { validate = true } = {}
+  ) {
+    handler.call(this, e);
+    this.hasUserChanges = true;
+    if (validate) this._inputValueChanged();
   }
 
   render() {
@@ -184,8 +177,8 @@ export class AddEditEnvironment extends LitElement {
               ${this.isEmptyOrSpaces(this.EnvOwnerDisplayName)
         ? html`<div style="font-style: italic; color: red">
                     Press 'Set Owner' to fill
-                  </div> `
-        : html` <div style="font-weight: bold;">
+                  </div>`
+                : html` <div style="font-weight: bold;">
                     ${this.EnvOwnerDisplayName}
                   </div>`}
             </vaadin-horizontal-layout>
@@ -196,8 +189,8 @@ export class AddEditEnvironment extends LitElement {
               label="Search Criteria"
               @input="${this.updateSearchCriteria}"
             ></vaadin-text-field>
-            <vaadin-button @click="${this.searchAD}" style="margin-bottom: 5px"
-              >Search
+            <vaadin-button @click="${this.searchAD}" style="margin-bottom: 5px">
+              Search
             </vaadin-button>
             ${this.searchingUsers
         ? html` <div class="small-loader"></div> `
@@ -220,111 +213,127 @@ export class AddEditEnvironment extends LitElement {
             </vaadin-button>
           </vaadin-horizontal-layout>
         </vaadin-details>
+
         <vaadin-details
           opened
           summary="Environment Required Settings"
           style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
         >
-          
-      <vaadin-text-field
-        id="env-name"
-        label="Name"
-        required
-        auto-validate
-        .value=${this.environment?.EnvironmentName ?? ''}
-        @value-changed=${(e: CustomEvent<{ value: string }>) => { this._envNameValueChanged?.(e); this.canSubmit = true; }}
-        ?readonly=${this.readonly}>
-      </vaadin-text-field>
+          <vaadin-text-field
+            id="env-name"
+            label="Name"
+            required
+            auto-validate
+            .value=${this.environment?.EnvironmentName ?? ''}
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
+              this.handleFieldChange(this._envNameValueChanged, e)}
+            ?readonly=${this.readonly}
+          >
+          </vaadin-text-field>
 
-      <vaadin-checkbox
-        id="env-secure"
-        style="padding-top:10px; padding-left:20px"
-        .checked=${this.environment?.EnvironmentSecure ?? false}
-        @checked-changed=${(e: CustomEvent<{ value: boolean }>) => { this.updateSecure?.(e); this.canSubmit = true; }}
-        class="tooltip"
-        ?disabled=${this.readonly}>
-        <label slot="label">Is Secure
-          <span class="tooltiptext">Only use explicitly set environment properties, no defaults</span>
-        </label>
-      </vaadin-checkbox>
+          <vaadin-checkbox
+            id="env-secure"
+            style="padding-top:10px; padding-left:20px"
+            .checked=${this.environment?.EnvironmentSecure ?? false}
+            @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
+              this.handleFieldChange(this.updateSecure, e)}
+            class="tooltip"
+            ?disabled=${this.readonly}
+          >
+            <label slot="label"
+              >Is Secure
+              <span class="tooltiptext"
+                >Only use explicitly set environment properties, no
+                defaults</span
+              >
+            </label>
+          </vaadin-checkbox>
 
-      <vaadin-checkbox
-        id="env-prod"
-        style="padding-left:20px"
-        .checked=${this.environment?.EnvironmentIsProd ?? false}
-        @checked-changed=${(e: CustomEvent<{ value: boolean }>) => { this.updateIsProd?.(e); this.canSubmit = true; }}
-        class="tooltip"
-        ?disabled=${this.readonly}>
-        <label slot="label">Is Production
-          <span class="tooltiptext">Is Environment considered Production, uses the production deployment runner and account</span>
-        </label>
-      </vaadin-checkbox>
+          <vaadin-checkbox
+            id="env-prod"
+            style="padding-left:20px"
+            .checked=${this.environment?.EnvironmentIsProd ?? false}
+            @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
+              this.handleFieldChange(this.updateIsProd, e)}
+            class="tooltip"
+            ?disabled=${this.readonly}
+          >
+            <label slot="label"
+              >Is Production
+              <span class="tooltiptext"
+                >Is Environment considered Production, uses the production
+                deployment runner and account</span
+              >
+            </label>
+          </vaadin-checkbox>
 
-      <vaadin-text-field
-        id="env-desc"
-        class="block"
-        label="Description"
-        required
-        auto-validate
-        .value=${this.environment?.Details?.Description ?? ''}
-        @value-changed=${(e: CustomEvent<{ value: string }>) => { this._descriptionValueChanged?.(e); this.canSubmit = true; }}
-        ?readonly=${this.readonly}>
-      </vaadin-text-field>
-
+          <vaadin-text-field
+            id="env-desc"
+            class="block"
+            label="Description"
+            required
+            auto-validate
+            .value=${this.environment?.Details?.Description ?? ''}
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
+              this.handleFieldChange(this._descriptionValueChanged, e)}
+            ?readonly=${this.readonly}
+          >
+          </vaadin-text-field>
         </vaadin-details>
+
         <vaadin-details
           closed
           summary="Environment Optional Settings"
           style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
         >
+          <vaadin-text-field
+            id="opt-backup"
+            label="Backup Created From"
+            auto-validate
+            .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
+              this.handleFieldChange(this._backupValueChanged, e)}
+            ?readonly=${this.readonly}
+          ></vaadin-text-field>
 
-      <vaadin-text-field
-        id="opt-backup"
-        label="Backup Created From"
-        auto-validate
-        .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
-        @value-changed=${(e: CustomEvent) => { this._backupValueChanged?.(e); this.canSubmit = true; }}
-        ?readonly=${this.readonly}
-      ></vaadin-text-field>
+          <vaadin-text-field
+            id="opt-file-share"
+            label="File Share"
+            auto-validate
+            .value=${this.environment?.Details?.FileShare ?? ''}
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
+              this.handleFieldChange(this._fileShareValueChanged, e)}
+            ?readonly=${this.readonly}
+          ></vaadin-text-field>
 
-      <vaadin-text-field
-        id="opt-file-share"
-        label="File Share"
-        auto-validate
-        .value=${this.environment?.Details?.FileShare ?? ''}
-        @value-changed=${(e: CustomEvent) => { this._fileShareValueChanged?.(e); this.canSubmit = true; }}
-        ?readonly=${this.readonly}
-      ></vaadin-text-field>
+          <vaadin-text-field
+            id="opt-thin-client"
+            label="Thin Client Server"
+            auto-validate
+            .value=${this.environment?.Details?.ThinClient ?? ''}
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
+              this.handleFieldChange(this._thinClientValueChanged, e)}
+            ?readonly=${this.readonly}
+          ></vaadin-text-field>
 
-      <vaadin-text-field
-        id="opt-thin-client"
-        label="Thin Client Server"
-        auto-validate
-        .value=${this.environment?.Details?.ThinClient ?? ''}
-        @value-changed=${(e: CustomEvent) => { this._thinClientValueChanged?.(e); this.canSubmit = true; }}
-        ?readonly=${this.readonly}
-      ></vaadin-text-field>
-
-      <vaadin-text-field
-        id="opt-notes"
-        label="Notes"
-        auto-validate
-        .value=${this.environment?.Details?.Notes ?? ''}
-        @value-changed=${(e: CustomEvent) => { this._notesValueChanged?.(e); this.canSubmit = true; }}
-        ?readonly=${this.readonly}
-      ></vaadin-text-field>
-    </vaadin-details>
-
+          <vaadin-text-field
+            id="opt-notes"
+            label="Notes"
+            auto-validate
+            .value=${this.environment?.Details?.Notes ?? ''}
+            @value-changed=${(e: CustomEvent<{ value: string }>) =>
+              this.handleFieldChange(this._notesValueChanged, e)}
+            ?readonly=${this.readonly}
+          ></vaadin-text-field>
         </vaadin-details>
 
         <div style="padding-left: 4px; margin-right: 30px">
-       
-<vaadin-button
-  .disabled=${!this.canSubmit || this.readonly}
-  @click=${this.saveMetadata}>
-  Save
-</vaadin-button>
-
+          <vaadin-button
+            .disabled=${!this.canSubmit || this.readonly || this.savingMetadata}
+            @click=${this.saveMetadata}
+          >
+            Save
+          </vaadin-button>
           ${this.savingMetadata
         ? html` <div class="small-loader"></div> `
         : html``}
@@ -334,35 +343,25 @@ export class AddEditEnvironment extends LitElement {
     `;
   }
 
-  isEmptyOrSpaces(str: any) {
-    return str === undefined || str.match(/^ *$/) !== null;
+  isEmptyOrSpaces(str: unknown) {
+    if (typeof str !== 'string') return true;
+    return str.trim().length === 0;
   }
 
   public clearAllFields() {
+    this.environment = this.getEmptyEnv();
     this.EnvOwnerDisplayName = '';
-    this.clearTextField('search-criteria');
-    const searchResult = this.shadowRoot?.getElementById(
-      'searchResults'
-    ) as ComboBox;
-    if (searchResult) searchResult.selectedItem = undefined;
-
-    const secure = this.shadowRoot?.getElementById('env-secure') as Checkbox;
-    if (secure) secure.checked = false;
-    const prod = this.shadowRoot?.getElementById('env-prod') as Checkbox;
-    if (prod) prod.checked = false;
-
-    this.clearTextField('env-name');
-    this.clearTextField('env-desc');
-
-    this.clearTextField('opt-backup');
-    this.clearTextField('opt-file-share');
-    this.clearTextField('opt-thin-client');
-    this.clearTextField('opt-notes');
+    this.selectedUser = '';
+    this.searchADValue = '';
+    this.hasUserChanges = false;
+    this._inputValueChanged();
   }
 
 
   clearTextField(id: string) {
-    const el = this.shadowRoot?.getElementById(id) as (HTMLElement & { value: string }) | null;
+    const el = this.shadowRoot?.getElementById(id) as
+      | (HTMLElement & { value: string })
+      | null;
     if (el) el.value = '';
   }
 
@@ -378,7 +377,6 @@ export class AddEditEnvironment extends LitElement {
       ) {
         this.environment.Details.EnvironmentOwner = found.DisplayName;
         this.environment.Details.EnvironmentOwnerId = found.Pid ?? found.Sid;
-
         if (!this.addMode) {
           const api = new RefDataEnvironmentsUsersApi();
           api
@@ -401,7 +399,7 @@ export class AddEditEnvironment extends LitElement {
               error: (err: any) => {
                 console.error(err);
                 this.ErrorMessage = this.extractErrorMessage(err);
-              },
+              }
             });
         } else {
           this.setFoundOwnerLocally();
@@ -432,8 +430,8 @@ export class AddEditEnvironment extends LitElement {
     );
   }
 
-  searchResultsValueChanged(data: CustomEvent<any>) {
-    this.selectedUser = data.detail.value;
+  searchResultsValueChanged(e: CustomEvent<{ value: string }>) {
+    this.selectedUser = e.detail.value;
   }
 
   updateSearchCriteria(data: any) {
@@ -442,17 +440,14 @@ export class AddEditEnvironment extends LitElement {
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
     const field = this.shadowRoot?.getElementById(
       'search-criteria'
     ) as TextField;
     field.addEventListener('keydown', this.isCriteriaReady as EventListener);
-
     this.addEventListener(
       'env-owner-search-criteria-ready',
       this.searchAD as EventListener
     );
-
     const api = new RefDataEnvironmentsApi();
     api.refDataEnvironmentsGetAllEnvironmentNamesGet().subscribe({
       next: (data: string[]) => {
@@ -485,32 +480,31 @@ export class AddEditEnvironment extends LitElement {
   }
 
   findDisplayNameForOwner() {
-    if (
-      this.environment !== undefined &&
-      this.environment.Details?.EnvironmentOwner !== ''
-    ) {
-      if (
-        this.EnvOwnerDisplayName === undefined ||
-        this.EnvOwnerDisplayName === ''
-      ) {
+    const owner = this.environment?.Details?.EnvironmentOwner;
+    const ownerId = this.environment?.Details?.EnvironmentOwnerId;
+
+    if (owner !== undefined && owner !== '') {
+      if (!this.EnvOwnerDisplayName) {
         this.EnvOwnerDisplayName = ' ';
         const api = new RefDataEnvironmentsUsersApi();
+
         api
           .refDataEnvironmentsUsersSearchUsersSearchGet({
-            search: this.environment.Details?.EnvironmentOwner ?? ''
+            search: owner as string
           })
           .subscribe({
             next: (data: Array<UserElementApiModel>) => {
-              const user = data.length === 1
-                ? data[0]
-                : data.find(u => u.Pid === this.environment.Details?.EnvironmentOwnerId) ??
-                data.find(u => u.Sid === this.environment.Details?.EnvironmentOwnerId) ??
-                data.find(u => u.Username === this.environment.Details?.EnvironmentOwner) ??
-                data.find(u => u.DisplayName === this.environment.Details?.EnvironmentOwner);
+              const user =
+                data.length === 1
+                  ? data[0]
+                  : (data.find(u => u.Pid === ownerId) ??
+                    data.find(u => u.Sid === ownerId) ??
+                    data.find(u => u.Username === owner) ??
+                    data.find(u => u.DisplayName === owner));
 
-              if (user)
-                this.EnvOwnerDisplayName =
-                  user.DisplayName !== null ? user.DisplayName : undefined;
+              if (user) {
+                this.EnvOwnerDisplayName = user.DisplayName ?? undefined;
+              }
             },
             error: (err: any) => {
               this.EnvOwnerDisplayName = '';
@@ -525,17 +519,14 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  updateSecure(e: CustomEvent) {
-    const cbx = e.target as Checkbox;
+  updateSecure(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      this.environment.EnvironmentSecure = cbx.checked;
+      this.environment.EnvironmentSecure = e.detail.value;
     }
   }
-
-  updateIsProd(e: CustomEvent) {
-    const cbx = e.target as Checkbox;
+  updateIsProd(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      this.environment.EnvironmentIsProd = cbx.checked;
+      this.environment.EnvironmentIsProd = e.detail.value;
     }
   }
 
@@ -558,84 +549,50 @@ export class AddEditEnvironment extends LitElement {
     };
   }
 
-  _envNameValueChanged(data: any) {
-    this.checkEnvironmentNameValid(data);
-  }
-
-  _descriptionValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.Description = data.target.value;
-      }
-      this.environment = model;
-      this._inputValueChanged();
+  _envNameValueChanged(e: CustomEvent<{ value: string }>) {
+    if (this.environment) {
+      const name = e.detail.value ?? '';
+      this.environment.EnvironmentName = name.trim();
+      this._checkName(this.environment.EnvironmentName);
     }
   }
 
-  _backupValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.RestoredFromSourceDb = data.target.value;
-      }
-      this.environment = model;
-      this._inputValueChanged();
-    }
+  _descriptionValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.Description = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  _fileShareValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.FileShare = data.target.value;
-      }
-      this.environment = model;
-      this._inputValueChanged();
-    }
+  _backupValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.RestoredFromSourceDb = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  _thinClientValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.ThinClient = data.target.value;
-      }
-      this.environment = model;
-      this._inputValueChanged();
-    }
+  _fileShareValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.FileShare = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
-  _notesValueChanged(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const model: EnvironmentApiModel = JSON.parse(
-        JSON.stringify(this.environment)
-      );
-      if (model.Details) {
-        model.Details.Notes = data.target.value;
-      }
-      this.environment = model;
-      this._inputValueChanged();
-    }
+  _thinClientValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.ThinClient = e.detail.value ?? '';
+    this.requestUpdate('environment');
+  }
+
+  _notesValueChanged(e: CustomEvent<{ value: string }>) {
+    if (!this.environment?.Details) return;
+    this.environment.Details.Notes = e.detail.value ?? '';
+    this.requestUpdate('environment');
   }
 
   _checkName(data: string) {
-    const found = this.allEnvNames?.find(name => name === data);
-    // New environment check
-    if (found === undefined && data.trim().length > 0) {
-      this.isNameValid = true;
-    }
-    // Existing environment check
-    else this.isNameValid = found !== undefined && data === found;
-
+    const trimmed = (data ?? '').trim();
+    const found = this.allEnvNames?.includes(trimmed) ?? false;
+    const isSameAsOriginal =
+      trimmed.length > 0 && trimmed === (this.originalEnvName ?? '');
+    this.isNameValid = trimmed.length > 0 && (!found || isSameAsOriginal);
     this._canSubmit();
   }
 
@@ -661,19 +618,21 @@ export class AddEditEnvironment extends LitElement {
   }
 
   _canSubmit() {
-    this.canSubmit = this.envValid && this.isNameValid;
+    this.canSubmit = this.envValid && this.isNameValid && this.hasUserChanges;
   }
 
   saveMetadata() {
     if (this.environment) {
       this.canSubmit = false;
       this.savingMetadata = true;
+
       if (this.environment?.EnvironmentId === 0) {
         const api = new RefDataEnvironmentsApi();
         api
           .refDataEnvironmentsPost({ environmentApiModel: this.environment })
           .subscribe({
             next: (data: EnvironmentApiModel) => {
+              this.hasUserChanges = false;
               this.envAdded();
               Notification.show(`Created Environment ${data.EnvironmentName}`, {
                 theme: 'success',
@@ -696,6 +655,7 @@ export class AddEditEnvironment extends LitElement {
           .subscribe({
             next: (data: EnvironmentApiModel) => {
               if (data !== null) {
+                this.hasUserChanges = false;
                 this.envUpdated(data);
                 Notification.show(
                   `Updated Environment ${data.EnvironmentName}`,
@@ -721,9 +681,7 @@ export class AddEditEnvironment extends LitElement {
 
   envUpdated(data: EnvironmentApiModel) {
     const event = new CustomEvent('environment-details-updated', {
-      detail: {
-        environment: data
-      },
+      detail: { environment: data },
       bubbles: true,
       composed: true
     });
@@ -732,20 +690,17 @@ export class AddEditEnvironment extends LitElement {
 
   envAdded() {
     const event = new CustomEvent('environment-added', {
-      detail: {
-        environment: this.environment
-      },
+      detail: { environment: this.environment },
       bubbles: true,
       composed: true
     });
     this.dispatchEvent(event);
-
     this.Reset();
   }
 
   Reset() {
     this.environment = this.getEmptyEnv();
-
+    this.hasUserChanges = false;
     this.canSubmit = false;
   }
 
@@ -766,17 +721,7 @@ export class AddEditEnvironment extends LitElement {
     }
   }
 
-  private checkEnvironmentNameValid(data: any) {
-    if (this.environment !== undefined && data.target !== undefined) {
-      const environmentName = data.target.value as string;
-      this.environment.EnvironmentName = environmentName.trim();
-
-      this._checkName(this.environment.EnvironmentName);
-    }
-  }
-
   private extractErrorMessage(err: any): string {
-    // Try to extract a meaningful error message from the response
     if (err?.response?.ExceptionMessage) {
       return err.response.ExceptionMessage;
     }
@@ -792,7 +737,6 @@ export class AddEditEnvironment extends LitElement {
     if (typeof err === 'string') {
       return err;
     }
-    // Fallback to a generic error message instead of "[object Object]"
     return 'An unexpected error occurred. Please try again or contact support.';
   }
 }
