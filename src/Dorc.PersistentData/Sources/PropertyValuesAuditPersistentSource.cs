@@ -45,7 +45,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public GetPropertyValuesAuditListResponseDto GetPropertyValueAuditsByPage(int limit, int page, PagedDataOperators operators)
+        public GetPropertyValuesAuditListResponseDto GetPropertyValueAuditsByPage(int limit, int page, PagedDataOperators operators, bool useAndLogic)
         {
             PagedModel<Audit> output = null;
             using (var context = _contextFactory.GetContext())

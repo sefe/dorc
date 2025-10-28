@@ -2192,6 +2192,14 @@
               "format": "int32",
               "default": 50
             }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
           }
         ],
         "requestBody": {
