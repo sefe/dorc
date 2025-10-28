@@ -20,7 +20,7 @@ namespace Dorc.PersistentData.Sources
         private readonly ISecurityObjectFilter objectFilter;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IPropertyValuesPersistentSource propertyValuesPersistentSource;
-        private readonly ILogger logger;
+        private readonly ILogger<EnvironmentsPersistentSource> logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
 
@@ -29,7 +29,7 @@ namespace Dorc.PersistentData.Sources
             ISecurityObjectFilter objectFilter,
             IRolePrivilegesChecker rolePrivilegesChecker,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            ILogger logger,
+            ILogger<EnvironmentsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader,
             IAccessControlPersistentSource accessControlPersistentSource
             )

@@ -13,10 +13,10 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class BundledRequestsController : ControllerBase
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<BundledRequestsController> _logger;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
 
-        public BundledRequestsController(ILogger logger,
+        public BundledRequestsController(ILogger<BundledRequestsController> logger,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource)
         {
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;

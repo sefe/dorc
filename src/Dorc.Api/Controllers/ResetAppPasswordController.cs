@@ -23,7 +23,7 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly ISqlUserPasswordReset _sqlUserPasswordReset;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
-        private readonly ILogger _logger;
+        private readonly ILogger<ResetAppPasswordController> _logger;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IConfigurationSettings _configurationSettingsEngine;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -31,7 +31,7 @@ namespace Dorc.Api.Controllers
         public ResetAppPasswordController(IDatabasesPersistentSource databasesPersistentSource,
             ISqlUserPasswordReset sqlUserPasswordReset,
             IConfigValuesPersistentSource configValuesPersistentSource,
-            ILogger logger,
+            ILogger<ResetAppPasswordController> logger,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IConfigurationSettings configurationSettingsEngine,
             IClaimsPrincipalReader claimsPrincipalReader)

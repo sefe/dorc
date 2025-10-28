@@ -20,7 +20,7 @@ namespace Dorc.Api.Tests
         private ISecurityObjectFilter _objectFilter;
         private IRolePrivilegesChecker _rolePrivilegesChecker;
         private IPropertyValuesPersistentSource _propertyValuesPersistentSource;
-        private ILogger _logger;
+        private ILogger<EnvironmentsPersistentSource> _logger;
         private IClaimsPrincipalReader _claimsPrincipalReader;
         private IAccessControlPersistentSource _accessControlPersistentSource;
         private EnvironmentsPersistentSource _environmentsPersistentSource;
