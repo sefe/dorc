@@ -24,5 +24,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         
         void UpdateDatabaseConnectivityStatus(int databaseId, bool isReachable, DateTime lastChecked);
         List<Database> GetAllDatabasesForConnectivityCheck();
+        IEnumerable<Database> GetDatabasesForConnectivityCheckBatch(int skip, int take);
+        int GetTotalDatabaseCount();
     }
 }

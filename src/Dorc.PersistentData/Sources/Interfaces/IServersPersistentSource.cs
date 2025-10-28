@@ -24,5 +24,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         
         void UpdateServerConnectivityStatus(int serverId, bool isReachable, DateTime lastChecked);
         List<Server> GetAllServersForConnectivityCheck();
+        IEnumerable<Server> GetServersForConnectivityCheckBatch(int skip, int take);
+        int GetTotalServerCount();
     }
 }

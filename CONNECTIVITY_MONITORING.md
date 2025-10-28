@@ -7,10 +7,11 @@ DOrc now includes a system to periodically monitor the connectivity status of al
 ## Features
 
 ### Background Monitoring Service
-- Automatically checks connectivity to all servers and databases every hour
+- Automatically checks connectivity to all servers and databases at configurable intervals
 - Runs as a hosted service within the Dorc.Monitor application
+- **Uses batch processing** to efficiently handle large numbers of servers and databases (100 per batch)
 - Updates status information in the database for each check
-- Logs warnings when resources become unreachable
+- Logs progress and warnings when resources become unreachable
 
 ### Server Connectivity Check
 - Uses ICMP ping to verify server reachability
@@ -74,6 +75,8 @@ To modify, change the `ConnectivityCheckIntervalMinutes` setting:
 
 **Initial Delay**: The service waits 2 minutes after starting before performing the first check to allow the Monitor service to fully initialize.
 
+**Batch Processing**: The service processes servers and databases in batches of 100 to avoid loading large datasets into memory. This ensures efficient operation even with thousands of resources.
+
 ### Unreachable Threshold
 The threshold for showing the orange warning is 7 days. This can be modified in the UI renderers:
 
@@ -87,7 +90,7 @@ const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
 ## Database Schema Changes
 
-Two new columns have been added to track connectivity status:
+The connectivity status columns are included in the CREATE TABLE scripts for SERVER and DATABASE tables. When deploying the database project, these columns will be automatically added to new databases.
 
 ### SERVER Table
 - `LastChecked` (DATETIME2, nullable): Timestamp of the last connectivity check
@@ -97,11 +100,7 @@ Two new columns have been added to track connectivity status:
 - `LastChecked` (DATETIME2, nullable): Timestamp of the last connectivity check
 - `IsReachable` (BIT, nullable): Boolean indicating if the database was reachable
 
-### Migration
-A migration script is included to add these columns to existing databases:
-`src/Dorc.Database/Scripts/Post-Deployment/AddConnectivityStatusColumns.sql`
-
-The script safely adds the columns only if they don't already exist.
+**Note**: For existing databases, these columns will be added automatically during the next database deployment.
 
 ## Logging
 
@@ -119,10 +118,13 @@ The connectivity service logs:
 INFO  - Connectivity Check Service is starting. Check interval: 60 minutes.
 INFO  - Waiting 2 minutes before first connectivity check...
 INFO  - Starting connectivity check cycle...
+INFO  - Starting server connectivity check for 42 servers in batches of 100...
+INFO  - Processed 42/42 servers...
 INFO  - Completed connectivity check for 42 servers.
-WARN  - Server PROD-WEB-01 (ID: 123) is not reachable.
-INFO  - Completed connectivity check for 18 databases.
+INFO  - Starting database connectivity check for 18 databases in batches of 100...
 WARN  - Database AppDB on PROD-SQL-01 (ID: 456) is not reachable.
+INFO  - Processed 18/18 databases...
+INFO  - Completed connectivity check for 18 databases.
 INFO  - Connectivity check cycle completed.
 ```
 
@@ -134,10 +136,12 @@ INFO  - Connectivity Check Service is disabled in configuration.
 ## Troubleshooting
 
 ### Service Not Starting
-- Check if `EnableConnectivityCheck` is set to `"True"` in `appsettings.json`
+- Check if `EnableConnectivityCheck` is set to `"true"` (lowercase) in `appsettings.json`
+- The setting is **case-sensitive** - use `"true"` or `"True"`, not `"TRUE"`
 - Review logs for the message: "Connectivity Check Service is disabled in configuration."
 - Verify the Monitor service has the necessary configuration settings
 - Check that the service waits 2 minutes before the first check (initial delay is intentional)
+- If you see "Connectivity Check Service was cancelled during initial delay", the service is stopping before initialization completes - check for service restart issues
 
 ### Servers Always Showing as Offline
 - Verify the Dorc.Monitor service has network access to ping the servers

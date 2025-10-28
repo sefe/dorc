@@ -88,32 +88,45 @@ namespace Dorc.Monitor.Connectivity
                 using var scope = _serviceProvider.CreateScope();
                 var serversPersistentSource = scope.ServiceProvider.GetRequiredService<IServersPersistentSource>();
 
-                var servers = serversPersistentSource.GetAllServersForConnectivityCheck();
+                var totalServers = serversPersistentSource.GetTotalServerCount();
+                var batchSize = 100;
+                var processedCount = 0;
                 var now = DateTime.UtcNow;
 
-                foreach (var server in servers)
+                _logger.Info($"Starting server connectivity check for {totalServers} servers in batches of {batchSize}...");
+
+                for (int skip = 0; skip < totalServers; skip += batchSize)
                 {
-                    if (string.IsNullOrWhiteSpace(server.Name))
-                        continue;
+                    var servers = serversPersistentSource.GetServersForConnectivityCheckBatch(skip, batchSize);
 
-                    try
+                    foreach (var server in servers)
                     {
-                        var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name);
-                        serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, now);
+                        if (string.IsNullOrWhiteSpace(server.Name))
+                            continue;
 
-                        if (!isReachable)
+                        try
                         {
-                            _logger.Warn($"Server {server.Name} (ID: {server.Id}) is not reachable.");
+                            var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name);
+                            serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, now);
+
+                            if (!isReachable)
+                            {
+                                _logger.Warn($"Server {server.Name} (ID: {server.Id}) is not reachable.");
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            _logger.Error($"Error checking server {server.Name} (ID: {server.Id})", ex);
+                            serversPersistentSource.UpdateServerConnectivityStatus(server.Id, false, now);
+                        }
+
+                        processedCount++;
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.Error($"Error checking server {server.Name} (ID: {server.Id})", ex);
-                        serversPersistentSource.UpdateServerConnectivityStatus(server.Id, false, now);
-                    }
+
+                    _logger.Info($"Processed {processedCount}/{totalServers} servers...");
                 }
 
-                _logger.Info($"Completed connectivity check for {servers.Count()} servers.");
+                _logger.Info($"Completed connectivity check for {processedCount} servers.");
             }
             catch (Exception ex)
             {
@@ -128,32 +141,45 @@ namespace Dorc.Monitor.Connectivity
                 using var scope = _serviceProvider.CreateScope();
                 var databasesPersistentSource = scope.ServiceProvider.GetRequiredService<IDatabasesPersistentSource>();
 
-                var databases = databasesPersistentSource.GetAllDatabasesForConnectivityCheck();
+                var totalDatabases = databasesPersistentSource.GetTotalDatabaseCount();
+                var batchSize = 100;
+                var processedCount = 0;
                 var now = DateTime.UtcNow;
 
-                foreach (var database in databases)
+                _logger.Info($"Starting database connectivity check for {totalDatabases} databases in batches of {batchSize}...");
+
+                for (int skip = 0; skip < totalDatabases; skip += batchSize)
                 {
-                    if (string.IsNullOrWhiteSpace(database.ServerName) || string.IsNullOrWhiteSpace(database.Name))
-                        continue;
+                    var databases = databasesPersistentSource.GetDatabasesForConnectivityCheckBatch(skip, batchSize);
 
-                    try
+                    foreach (var database in databases)
                     {
-                        var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName, database.Name);
-                        databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, now);
+                        if (string.IsNullOrWhiteSpace(database.ServerName) || string.IsNullOrWhiteSpace(database.Name))
+                            continue;
 
-                        if (!isReachable)
+                        try
                         {
-                            _logger.Warn($"Database {database.Name} on {database.ServerName} (ID: {database.Id}) is not reachable.");
+                            var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName, database.Name);
+                            databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, now);
+
+                            if (!isReachable)
+                            {
+                                _logger.Warn($"Database {database.Name} on {database.ServerName} (ID: {database.Id}) is not reachable.");
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            _logger.Error($"Error checking database {database.Name} on {database.ServerName} (ID: {database.Id})", ex);
+                            databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, false, now);
+                        }
+
+                        processedCount++;
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.Error($"Error checking database {database.Name} on {database.ServerName} (ID: {database.Id})", ex);
-                        databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, false, now);
-                    }
+
+                    _logger.Info($"Processed {processedCount}/{totalDatabases} databases...");
                 }
 
-                _logger.Info($"Completed connectivity check for {databases.Count()} databases.");
+                _logger.Info($"Completed connectivity check for {processedCount} databases.");
             }
             catch (Exception ex)
             {

@@ -123,7 +123,10 @@ namespace Dorc.Monitor
         {
             get
             {
-                return bool.Parse(configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"] ?? "false");
+                var value = configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"];
+                return !string.IsNullOrWhiteSpace(value) && 
+                       bool.TryParse(value, out bool result) && 
+                       result;
             }
         }
 
