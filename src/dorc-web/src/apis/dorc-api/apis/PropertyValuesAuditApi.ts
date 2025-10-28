@@ -23,6 +23,7 @@ import type {
 export interface PropertyValuesAuditPutRequest {
     page?: number;
     limit?: number;
+    useAndLogic?: boolean;
     pagedDataOperators?: PagedDataOperators;
 }
 
@@ -33,9 +34,9 @@ export class PropertyValuesAuditApi extends BaseAPI {
 
     /**
      */
-    propertyValuesAuditPut({ page, limit, pagedDataOperators }: PropertyValuesAuditPutRequest): Observable<GetPropertyValuesAuditListResponseDto>
-    propertyValuesAuditPut({ page, limit, pagedDataOperators }: PropertyValuesAuditPutRequest, opts?: OperationOpts): Observable<AjaxResponse<GetPropertyValuesAuditListResponseDto>>
-    propertyValuesAuditPut({ page, limit, pagedDataOperators }: PropertyValuesAuditPutRequest, opts?: OperationOpts): Observable<GetPropertyValuesAuditListResponseDto | AjaxResponse<GetPropertyValuesAuditListResponseDto>> {
+    propertyValuesAuditPut({ page, limit, useAndLogic, pagedDataOperators }: PropertyValuesAuditPutRequest): Observable<GetPropertyValuesAuditListResponseDto>
+    propertyValuesAuditPut({ page, limit, useAndLogic, pagedDataOperators }: PropertyValuesAuditPutRequest, opts?: OperationOpts): Observable<AjaxResponse<GetPropertyValuesAuditListResponseDto>>
+    propertyValuesAuditPut({ page, limit, useAndLogic, pagedDataOperators }: PropertyValuesAuditPutRequest, opts?: OperationOpts): Observable<GetPropertyValuesAuditListResponseDto | AjaxResponse<GetPropertyValuesAuditListResponseDto>> {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
@@ -45,6 +46,7 @@ export class PropertyValuesAuditApi extends BaseAPI {
 
         if (page != null) { query['page'] = page; }
         if (limit != null) { query['limit'] = limit; }
+        if (useAndLogic != null) { query['useAndLogic'] = useAndLogic; }
 
         return this.request<GetPropertyValuesAuditListResponseDto>({
             url: '/PropertyValuesAudit',
