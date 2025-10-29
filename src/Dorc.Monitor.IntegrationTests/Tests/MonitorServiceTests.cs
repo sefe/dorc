@@ -67,7 +67,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             //    await monitorService.ExecuteTask; // wait until background task is finished
 
             // for debugging: comment next 3 lines
-            await Task.Delay(5000); // wait some time and stop service and check results
+            await Task.Delay(15000); // wait some time and stop service and check results
             source.Cancel();
             await monitorService.StopAsync(token);
 
@@ -153,7 +153,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
         {
             var prProcessorMock = Substitute.For<IPendingRequestProcessor>();
             prProcessorMock.When(s => s.ExecuteAsync(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
-                .Do(async c =>
+                .Do(c =>
                 {
                     var a = c.Arg<RequestToProcessDto>();
                     var b = c.Arg<CancellationToken>();
@@ -165,7 +165,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
                         queue.Enqueue(a.Request.UserName);
                         dict.AddOrUpdate(a.Request.EnvironmentName, a.Request.UserName, (key, oldValue) => oldValue += a.Request.UserName);
 
-                        await Task.Delay(sleepTime);
+                        Task.Delay(sleepTime);
                         Console.WriteLine($"{stopWatch.Elapsed}   stop {a.Request.UserName} {a.Request.EnvironmentName}");
                     }
                     else
