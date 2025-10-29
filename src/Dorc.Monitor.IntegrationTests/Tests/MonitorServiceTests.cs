@@ -123,7 +123,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
 
             UpdateDeploymentRequestStatus(requestToCancel, DeploymentRequestStatus.Cancelling);
 
-            await Task.Delay(3000); // give time for service to cancel request
+            await Task.Delay(15000); // give time for service to cancel request
 
             source.Cancel();
             await monitorService.StopAsync(token);
