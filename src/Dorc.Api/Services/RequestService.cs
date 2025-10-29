@@ -3,7 +3,6 @@ using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Services
 {
@@ -13,7 +12,7 @@ namespace Dorc.Api.Services
         private readonly ILogger _log;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
 
-        public RequestService(ILogger log, IDeployableBuildFactory deployableBuildFactory,
+        public RequestService(ILogger<RequestService> log, IDeployableBuildFactory deployableBuildFactory,
             IProjectsPersistentSource projectsPersistentSource)
         {
             _projectsPersistentSource = projectsPersistentSource;

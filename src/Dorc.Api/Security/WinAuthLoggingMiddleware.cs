@@ -6,7 +6,7 @@ namespace Dorc.Api.Security
     public class WinAuthLoggingMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly ILogger<WinAuthLoggingMiddleware> _logger;
+        private readonly ILogger _logger;
 
         private static readonly HashSet<string> LoggedUsers = new HashSet<string>();
 

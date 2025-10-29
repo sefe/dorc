@@ -11,7 +11,7 @@ namespace Dorc.Core.AzureDevOpsServer
     public class AzureDevOpsServerWebClient : IAzureDevOpsServerWebClient
     {
         private readonly string _serverUrl;
-        private readonly ILogger<AzureDevOpsServerWebClient> _log;
+        private readonly ILogger _log;
         private const string ApiVersion = "6.0";
         private readonly IAuthTokenGenerator _authTokenGenerator;
         private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");

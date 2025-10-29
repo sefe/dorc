@@ -11,21 +11,20 @@ namespace Dorc.Core
 {
     public class RequestsManager : IRequestsManager
     {
-        private readonly ILogger<RequestsManager> _logger;
+        private readonly ILogger _logger;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
-        public RequestsManager(ILogger<RequestsManager> logger,
-            ILoggerFactory loggerFactory,
+        public RequestsManager(ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
-            _logger = logger;
+            _logger = loggerFactory.CreateLogger("Dorc.Core.RequestsManager");
             _loggerFactory = loggerFactory;
         }
 

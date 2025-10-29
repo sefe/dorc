@@ -3,7 +3,6 @@ using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Services
 {

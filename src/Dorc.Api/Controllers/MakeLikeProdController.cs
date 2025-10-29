@@ -21,7 +21,7 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class MakeLikeProdController : ControllerBase
     {
-        private readonly ILogger<MakeLikeProdController> _logger;
+        private readonly ILogger _logger;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;

@@ -18,7 +18,7 @@ namespace Dorc.Api.Controllers
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly ILogger _log;
 
-        public RequestStatusesController(IRequestsPersistentSource requestsPersistentSource, IRequestsStatusPersistentSource requestsStatusPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker, ILogger log)
+        public RequestStatusesController(IRequestsPersistentSource requestsPersistentSource, IRequestsStatusPersistentSource requestsStatusPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker, ILogger<RequestStatusesController> log)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _requestsPersistentSource = requestsPersistentSource;

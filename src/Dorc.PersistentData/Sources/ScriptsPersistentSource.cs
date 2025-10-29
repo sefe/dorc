@@ -18,7 +18,7 @@ namespace Dorc.PersistentData.Sources
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILogger logger,
+            ILogger<ScriptsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {

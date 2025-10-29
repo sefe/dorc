@@ -12,7 +12,7 @@ namespace Dorc.Core.VariableResolution
         private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
-        private readonly ILogger<VariableResolver> _logger;
+        private readonly ILogger _logger;
         private readonly ILoggerFactory _loggerFactory;
 
         public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILogger<VariableResolver> logger, ILoggerFactory loggerFactory, IPropertyEvaluator propertyEvaluator)

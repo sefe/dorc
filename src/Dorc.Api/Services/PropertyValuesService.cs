@@ -2,11 +2,9 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
-using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
-using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Services
 {
@@ -28,7 +26,7 @@ namespace Dorc.Api.Services
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            ILogger log,
+            ILogger<PropertyValuesService> log,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {

@@ -14,7 +14,7 @@ namespace Dorc.Api.Controllers
     {
         private readonly IUsersPersistentSource _usersPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityService;
-        private readonly ILogger<DelegatedUsersController> _logger;
+        private readonly ILogger _logger;
 
         public DelegatedUsersController(IUsersPersistentSource usersPersistentSource, ISecurityPrivilegesChecker securityService, ILogger<DelegatedUsersController> logger)
         {

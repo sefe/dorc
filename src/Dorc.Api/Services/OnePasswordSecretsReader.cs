@@ -9,7 +9,7 @@ namespace Dorc.Api.Services
     /// </summary>
     public class OnePasswordSecretsReader : IConfigurationSecretsReader
     {
-        private readonly ILogger<OnePasswordSecretsReader> _log;
+        private readonly ILogger _log;
         private readonly IConfigurationSettings _config;
         private readonly OnePasswordClient? _onePasswordClient;
         private readonly string? _vaultId;

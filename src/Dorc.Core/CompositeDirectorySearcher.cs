@@ -7,7 +7,7 @@ namespace Dorc.Core
     public class CompositeActiveDirectorySearcher : IActiveDirectorySearcher
     {
         private readonly IEnumerable<IActiveDirectorySearcher> _searchers;
-        private readonly ILogger<CompositeActiveDirectorySearcher> _log;
+        private readonly ILogger _log;
 
         public CompositeActiveDirectorySearcher(IEnumerable<IActiveDirectorySearcher> searchers, ILogger<CompositeActiveDirectorySearcher> log)
         {

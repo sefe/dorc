@@ -10,7 +10,7 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class MetadataController : ControllerBase
     {
-        private readonly ILogger<MetadataController> _logger;
+        private readonly ILogger _logger;
 
         public MetadataController(ILogger<MetadataController> logger)
         {

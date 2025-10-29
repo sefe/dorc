@@ -23,7 +23,7 @@ namespace Dorc.Core
         private const string DORCNonProdDeployUsername = "DORC_NonProdDeployUsername";
         private const string DORCNonProdDeployPassword = "DORC_NonProdDeployPassword";
 
-        private readonly ILogger<ServiceStatus> _logger;
+        private readonly ILogger _logger;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;

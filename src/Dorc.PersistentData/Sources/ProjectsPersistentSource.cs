@@ -16,7 +16,7 @@ namespace Dorc.PersistentData.Sources
         private const string HttpsProtocolPrefix = "https://";
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILogger<ProjectsPersistentSource> _logger;
+        private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ProjectsPersistentSource(IDeploymentContextFactory contextFactory,

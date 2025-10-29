@@ -9,7 +9,7 @@ namespace Dorc.Core
     public class SqlUserPasswordReset : ISqlUserPasswordReset
     {
         private const string UserSearchCriteriaRegExPattern = @"^[a-zA-Z0-9-_.' ()&]+$";
-        private readonly ILogger<SqlUserPasswordReset> _logger;
+        private readonly ILogger _logger;
 
         public SqlUserPasswordReset(ILogger<SqlUserPasswordReset> logger)
         {

@@ -15,7 +15,7 @@ namespace Dorc.PersistentData.Sources
 
         public BundledRequestsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILogger logger)
+            ILogger<BundledRequestsPersistentSource> logger)
         {
             this.contextFactory = contextFactory;
             this.logger = logger;

@@ -5,7 +5,7 @@ namespace Dorc.Api.Services
 {
     public sealed class DefaultExceptionHandler : IExceptionHandler
     {
-        private readonly ILogger<DefaultExceptionHandler> _log;
+        private readonly ILogger _log;
 
         public DefaultExceptionHandler(ILogger<DefaultExceptionHandler> log)
         {

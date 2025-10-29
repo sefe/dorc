@@ -25,7 +25,7 @@ namespace Dorc.Api.Controllers
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
 
-        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger log,
+        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,

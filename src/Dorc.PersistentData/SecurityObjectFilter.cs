@@ -1,26 +1,21 @@
-﻿using System.Security.Principal;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Extensions;
+﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData
 {
     public class SecurityObjectFilter : ISecurityObjectFilter
     {
         private readonly IAccessControlPersistentSource accessControlPersistentSource;
-        private readonly ILogger logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public SecurityObjectFilter(
                    IAccessControlPersistentSource accessControlPersistentSource,
-                   ILogger logger,
                    IClaimsPrincipalReader claimsPrincipalReader
             )
         {
             this.accessControlPersistentSource = accessControlPersistentSource;
-            this.logger = logger;
             this._claimsPrincipalReader = claimsPrincipalReader;
         }
 

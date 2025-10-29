@@ -18,7 +18,7 @@ namespace Dorc.PersistentData.Sources
 
         public RequestsStatusPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILogger log,
+            ILogger<RequestsStatusPersistentSource> log,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {

@@ -13,7 +13,7 @@ namespace Dorc.Api.Services
     public class ApiServices : IApiServices
     {
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
-        private readonly ILogger<ApiServices> _log;
+        private readonly ILogger _log;
         private readonly IServiceStatus _serviceStatus;
         private readonly IManageUsers _manageUsers;
         private readonly IProjectsPersistentSource _projectsPersistentSource;

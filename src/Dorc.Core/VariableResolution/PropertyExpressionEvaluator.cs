@@ -8,7 +8,7 @@ namespace Dorc.Core.VariableResolution
     {
         private static ConcurrentDictionary<string, object> _compiledResults = new ConcurrentDictionary<string, object>();
 
-        private readonly ILogger<PropertyExpressionEvaluator> _logger;
+        private readonly ILogger _logger;
 
         public PropertyExpressionEvaluator(ILogger<PropertyExpressionEvaluator> logger)
         {

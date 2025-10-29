@@ -18,7 +18,7 @@ namespace Dorc.Core
         private readonly string _tenantId;
         private readonly string _clientId;
         private readonly string _clientSecret;
-        private readonly ILogger<AzureEntraSearcher> _log;
+        private readonly ILogger _log;
         private GraphServiceClient? _graphClient;
 
         public AzureEntraSearcher(IConfigurationSettings config, ILogger<AzureEntraSearcher> log)

@@ -8,7 +8,7 @@ namespace Dorc.Core.IdentityServer
     public class IdentityServerSearcher : IActiveDirectorySearcher
     {
         private readonly IdentityServerClient _client;
-        private readonly ILogger<IdentityServerSearcher> _log;
+        private readonly ILogger _log;
 
         public IdentityServerSearcher(IConfigurationSettings config, IConfigurationSecretsReader secretsReader, ILogger<IdentityServerSearcher> log, ILoggerFactory loggerFactory)
         {

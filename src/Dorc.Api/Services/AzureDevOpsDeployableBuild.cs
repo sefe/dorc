@@ -5,7 +5,6 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Model;
 
 // ReSharper disable AsyncConverter.AsyncWait
@@ -24,7 +23,7 @@ namespace Dorc.Api.Services
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private string _validationMessage;
 
-        public AzureDevOpsDeployableBuild(IAzureDevOpsServerWebClient azureDevOpsServerWebClient, ILogger log,
+        public AzureDevOpsDeployableBuild(IAzureDevOpsServerWebClient azureDevOpsServerWebClient, ILogger<AzureDevOpsDeployableBuild> log,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource)
         {

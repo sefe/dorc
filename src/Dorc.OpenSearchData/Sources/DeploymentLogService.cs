@@ -15,7 +15,7 @@ namespace Dorc.OpenSearchData.Sources
 
         private const int _pageSize = 5000;
 
-        public DeploymentLogService(IOpenSearchClient openSearchClient, ILogger logger, string deploymentResultIndex)
+        public DeploymentLogService(IOpenSearchClient openSearchClient, ILogger<DeploymentLogService> logger, string deploymentResultIndex)
         {
             _openSearchClient = openSearchClient;
             _logger = logger;

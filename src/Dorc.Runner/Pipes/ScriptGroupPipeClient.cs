@@ -7,7 +7,7 @@ namespace Dorc.Runner.Pipes
 {
     internal class ScriptGroupPipeClient : IScriptGroupPipeClient
     {
-        private readonly ILogger<Program> logger;
+        private readonly ILogger logger;
 
         internal ScriptGroupPipeClient(ILogger<Program> logger)
         {

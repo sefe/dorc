@@ -11,14 +11,11 @@ namespace Dorc.PersistentData.Sources
     public class AccessControlPersistentSource : IAccessControlPersistentSource
     {
         private readonly IDeploymentContextFactory contextFactory;
-        private readonly ILogger logger;
 
         public AccessControlPersistentSource(
-            IDeploymentContextFactory contextFactory,
-            ILogger logger)
+            IDeploymentContextFactory contextFactory)
         {
             this.contextFactory = contextFactory;
-            this.logger = logger;
         }
 
         public IEnumerable<AccessControlApiModel> GetAccessControls()

@@ -17,7 +17,7 @@ namespace Dorc.Core
     public class ActiveDirectorySearcher : IActiveDirectorySearcher
     {
         private readonly DirectoryEntry _activeDirectoryRoot;
-        private readonly ILogger<ActiveDirectorySearcher> _log;
+        private readonly ILogger _log;
         private static readonly string[] adProps = { "cn", "displayname", "objectsid", "mail" };
 
         public ActiveDirectorySearcher(string domainName, ILogger<ActiveDirectorySearcher> log)

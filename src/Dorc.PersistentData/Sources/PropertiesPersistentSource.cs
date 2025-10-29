@@ -12,7 +12,7 @@ namespace Dorc.PersistentData.Sources
         private readonly ILogger _log;
         private readonly IDeploymentContextFactory _contextFactory;
 
-        public PropertiesPersistentSource(IDeploymentContextFactory contextFactory, ILogger logger)
+        public PropertiesPersistentSource(IDeploymentContextFactory contextFactory, ILogger<PropertiesPersistentSource> logger)
         {
             _contextFactory = contextFactory;
             _log = logger;

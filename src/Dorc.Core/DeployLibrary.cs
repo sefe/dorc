@@ -20,7 +20,7 @@ namespace Dorc.Core
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILogger<DeployLibrary> _logger;
+        private readonly ILogger _logger;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;

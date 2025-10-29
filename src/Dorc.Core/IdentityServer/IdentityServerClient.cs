@@ -11,7 +11,7 @@ namespace Dorc.Core.IdentityServer
         private readonly string _authority;
         private readonly string _clientId;
         private readonly string _clientSecret;
-        private readonly ILogger<IdentityServerClient> _log;
+        private readonly ILogger _log;
         private string? _accessToken;
         private DateTime _tokenExpiration = DateTime.MinValue;
 
