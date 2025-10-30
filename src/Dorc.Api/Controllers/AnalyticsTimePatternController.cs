@@ -27,16 +27,17 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsTimePatternApiModel>))]
-        public IEnumerable<AnalyticsTimePatternApiModel> Get()
+        public IActionResult Get()
         {
             try
             {
-                return _analyticsPersistentSource.GetTimePatterns();
+                var result = _analyticsPersistentSource.GetTimePatterns();
+                return Ok(result);
             }
             catch (Exception e)
             {
                 _log.Error("AnalyticsTimePatternController.Get", e);
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving time pattern analytics.");
             }
         }
     }
