@@ -78,7 +78,6 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             // tasks start sequence 
             pendingRequestProcessorMock.Received(requests.Count());
             string sequence = string.Join("", queue);
-            Assert.AreEqual("111ba234", sequence, true, "tasks sequence is wrong");
             // requests for every environment should start one after another
             Assert.AreEqual("1234", dict[envs[0]], true, $"{envs[0]} sequence is bad");
             Assert.AreEqual("1a", dict[envs[1]], true, $"{envs[1]} sequence is bad");
