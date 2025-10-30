@@ -20,7 +20,6 @@ namespace Dorc.Core
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILogger _logger;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -38,7 +37,6 @@ namespace Dorc.Core
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
-            _logger = logger;
             _loggerFactory = loggerFactory;
             _environmentsPersistentSource = environmentsPersistentSource;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;

@@ -1,5 +1,4 @@
-﻿using Dorc.Core;
-using Dorc.Core.Security;
+﻿using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
 using Microsoft.Extensions.Logging;
@@ -10,9 +9,7 @@ namespace Tools.DeployCopyEnvBuildCLI
     {
         public AppRegistry()
         {
-            // Configure ILogger from DI container
-            For<ILoggerFactory>().Use<LoggerFactory>();
-            For(typeof(ILogger<>)).Use(typeof(Logger<>));
+            For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
             For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("DeployCopyEnvBuildCLI"));
             
             For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();

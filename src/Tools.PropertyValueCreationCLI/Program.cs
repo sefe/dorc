@@ -41,10 +41,8 @@ namespace Tools.PropertyValueCreationCLI
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
-                
-                // Configure ILogger from DI container
-                For<ILoggerFactory>().Use<LoggerFactory>();
-                For(typeof(ILogger<>)).Use(typeof(Logger<>));
+
+                For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
                 For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
             }
         }
