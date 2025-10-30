@@ -2,7 +2,7 @@
 
 namespace Dorc.Api.Tests
 {
-    public class MockedLog : ILogger
+    public class MockedLog<T> : ILogger<T>
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 

@@ -98,7 +98,7 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            ILogger mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<RequestService>();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, true));
@@ -124,7 +124,7 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            ILogger mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<RequestService>();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, false));
@@ -185,7 +185,7 @@ namespace Dorc.Api.Tests
         {
             var mockEnvPs = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedBuildFactory = Substitute.For<IDeployableBuildFactory>();
-            var mockedLog = Substitute.For<ILogger>();
+            var mockedLog = Substitute.For<ILogger<RequestService>>();
             var request = new RequestDto();
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
 

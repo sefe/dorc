@@ -17,7 +17,6 @@ namespace Dorc.Api.Tests.Controllers
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IRolePrivilegesChecker _rolePrivilegesChecker;
-        private ILogger<RefDataEnvironmentsController> _logger;
         private RefDataEnvironmentsController _controller;
         private ClaimsPrincipal _user;
 
@@ -27,8 +26,7 @@ namespace Dorc.Api.Tests.Controllers
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _rolePrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            _logger = Substitute.For<ILogger<RefDataEnvironmentsController>>();
-            _controller = new RefDataEnvironmentsController(_environmentsPersistentSource, _securityPrivilegesChecker, _rolePrivilegesChecker, _logger)
+            _controller = new RefDataEnvironmentsController(_environmentsPersistentSource, _securityPrivilegesChecker, _rolePrivilegesChecker)
             {
                 ControllerContext = new ControllerContext()
                 {

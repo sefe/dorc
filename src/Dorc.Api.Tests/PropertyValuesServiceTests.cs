@@ -30,7 +30,7 @@ namespace Dorc.Api.Tests
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             mockedClaimsPrincipalReader.GetSidsForUser(Arg.Any<IPrincipal>()).Returns(new List<string>());
 
@@ -84,7 +84,7 @@ namespace Dorc.Api.Tests
             var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             mockedClaimsPrincipalReader.GetSidsForUser(Arg.Any<IPrincipal>()).Returns(new List<string>());
 
@@ -138,7 +138,7 @@ namespace Dorc.Api.Tests
             var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             mockedClaimsPrincipalReader.GetSidsForUser(Arg.Any<IPrincipal>()).Returns(new List<string>());
 
@@ -175,7 +175,7 @@ namespace Dorc.Api.Tests
             var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             mockedClaimsPrincipalReader.GetSidsForUser(Arg.Any<IPrincipal>()).Returns(new List<string>());
 
@@ -255,7 +255,7 @@ namespace Dorc.Api.Tests
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             mockedClaimsPrincipalReader.GetSidsForUser(Arg.Any<IPrincipal>()).Returns(new List<string>());
 
@@ -315,7 +315,7 @@ namespace Dorc.Api.Tests
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -367,7 +367,7 @@ namespace Dorc.Api.Tests
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -415,7 +415,7 @@ namespace Dorc.Api.Tests
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
             var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>())
@@ -508,7 +508,7 @@ namespace Dorc.Api.Tests
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
             var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             mockedPropertyValuesPersistentSource.GetPropertyValuesByName(Arg.Any<string>())
@@ -595,7 +595,7 @@ namespace Dorc.Api.Tests
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -648,7 +648,7 @@ namespace Dorc.Api.Tests
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -697,7 +697,7 @@ namespace Dorc.Api.Tests
 
             var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             mockedApiSecurityService
@@ -786,7 +786,7 @@ namespace Dorc.Api.Tests
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
             mockedPropertiesPersistentSource.GetProperty(Arg.Any<string>())
                 .Returns(new PropertyApiModel { Name = propertyName, Secure = secure, Id = propertyId });
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -843,7 +843,7 @@ namespace Dorc.Api.Tests
 
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -891,7 +891,7 @@ namespace Dorc.Api.Tests
             var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -944,7 +944,7 @@ namespace Dorc.Api.Tests
             var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -1022,7 +1022,7 @@ namespace Dorc.Api.Tests
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
             mockedPropertiesPersistentSource.GetProperty(Arg.Any<string>())
                 .Returns(new PropertyApiModel { Name = propertyName, Secure = secure, Id = propertyId });
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
@@ -1101,7 +1101,7 @@ namespace Dorc.Api.Tests
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
             mockedPropertiesPersistentSource.GetProperty(Arg.Any<string>())
                 .Returns(new PropertyApiModel { Name = propertyName, Secure = secure, Id = propertyId });
-            var mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<PropertyValuesService>();
             var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 
             var testService = new PropertyValuesService(mockedApiSecurityService, mockedPropertyEncryptor,
