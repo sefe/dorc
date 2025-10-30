@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.Collections.Concurrent;
 
@@ -8,22 +8,23 @@ namespace Dorc.Monitor.IntegrationTests.Tests
     public class DeploymentEngineTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public async Task ProcessShouldStopOnUnhandledException()
         {
-            var loggerMock = Substitute.For<ILog>();
+            var loggerMock = Substitute.For<ILogger<DeploymentEngine>>();
             var drsp = Substitute.For<IDeploymentRequestStateProcessor>();
             drsp.When(d => d.AbandonRequests(Arg.Any<bool>(), Arg.Any<ConcurrentDictionary<int, CancellationTokenSource>>(), Arg.Any<CancellationToken>())).Do(c => throw new ArgumentException());
             var deploymentEngine = new DeploymentEngine(loggerMock, drsp);
-            await deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), new CancellationToken(), 100);
 
-            Assert.Fail("method should throw exception and never get here");
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+            {
+                await deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), new CancellationToken(), 100);
+            });
         }
 
         [TestMethod]
         public async Task ProcessShouldStopOnTokenCancellation()
         {
-            var loggerMock = Substitute.For<ILog>();
+            var loggerMock = Substitute.For<ILogger<DeploymentEngine>>();
             var iterationDelayMs = 50;
             var drsp = Substitute.For<IDeploymentRequestStateProcessor>();
             CancellationTokenSource source = new CancellationTokenSource();

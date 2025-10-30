@@ -1,4 +1,4 @@
-﻿using Serilog;
+﻿using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Client
 {
@@ -6,7 +6,7 @@ namespace Dorc.Api.Client
     {
         string urlParams { get; set; }
 
-        void PostToDorc(ILogger contextlogger, string endPoint, string urlParams);
-        void PatchToDorc(ILogger contextlogger, string endPoint, string patchContent);
+        void PostToDorc(ILogger<DeployApiClient> contextlogger, string endPoint, string urlParams);
+        void PatchToDorc(ILogger<DeployApiClient> contextlogger, string endPoint, string patchContent);
     }
 }

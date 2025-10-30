@@ -350,7 +350,7 @@ namespace Dorc.Api.Tests.Controllers
             };
 
             // Act & Assert
-            Assert.ThrowsException<Exception>(() => _controller.Post(refData));
+            Assert.Throws<Exception>(() => _controller.Post(refData));
         }
     }
 }

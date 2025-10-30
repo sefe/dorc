@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
 namespace Dorc.PersistentData.Sources
@@ -11,14 +11,11 @@ namespace Dorc.PersistentData.Sources
     public class AccessControlPersistentSource : IAccessControlPersistentSource
     {
         private readonly IDeploymentContextFactory contextFactory;
-        private readonly ILog logger;
 
         public AccessControlPersistentSource(
-            IDeploymentContextFactory contextFactory,
-            ILog logger)
+            IDeploymentContextFactory contextFactory)
         {
             this.contextFactory = contextFactory;
-            this.logger = logger;
         }
 
         public IEnumerable<AccessControlApiModel> GetAccessControls()

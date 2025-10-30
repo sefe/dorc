@@ -6,14 +6,14 @@ using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Services
 {
     public class ApiServices : IApiServices
     {
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IServiceStatus _serviceStatus;
         private readonly IManageUsers _manageUsers;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
@@ -26,7 +26,7 @@ namespace Dorc.Api.Services
             IProjectsPersistentSource projectsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IServersPersistentSource serversPersistentSource, ILog log)
+            IServersPersistentSource serversPersistentSource, ILogger<ApiServices> log)
         {
             _serversPersistentSource = serversPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -52,7 +52,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.Error("GetComponentsByProject", e);
+                _log.LogError(e, "GetComponentsByProject");
                 throw;
             }
         }

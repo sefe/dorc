@@ -1,10 +1,10 @@
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
+using Dorc.Api.Logging;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core.Configuration;
-using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -13,12 +13,14 @@ using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Lamar.Microsoft.DependencyInjection;
-using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
+using System.Reflection;
 using System.Text.Json.Serialization;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
@@ -27,10 +29,51 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
-builder.Logging.AddLog4Net();
+#region Logging Configuration
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+
+var fileLoggingSection = configBuilder.GetSection("FileLogging");
+var logPath = fileLoggingSection.GetValue<string>("LogPath");
+var logFileName = fileLoggingSection.GetValue<string>("FileName");
+var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 10);
+var maxRollingFiles = fileLoggingSection.GetValue<int>("MaxRollingFiles", 100);
+
+string logFilePath = Path.Combine(logPath, logFileName);
+Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
+
+builder.Logging.AddFile(logFilePath, options =>
+{
+    options.Append = true;
+    options.FileSizeLimitBytes = fileSizeLimitMB * 1024 * 1024;
+    options.MaxRollingFiles = maxRollingFiles;
+});
+
+var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
+{
+    builder.Logging.AddOpenTelemetry(logging =>
+    {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
+}
+#endregion
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
-var secretsReader = new OnePasswordSecretsReader(configurationSettings);
+
+// Create logger factory early for secrets reader
+using var loggerFactory = LoggerFactory.Create(logging =>
+{
+    logging.AddConsole();
+});
+var secretsReaderLogger = loggerFactory.CreateLogger<OnePasswordSecretsReader>();
+var secretsReader = new OnePasswordSecretsReader(configurationSettings, secretsReaderLogger);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
 
@@ -258,8 +301,6 @@ builder.Host.UseLamar((context, registry) =>
 
     registry.AddControllers();
 });
-
-XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
 var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));

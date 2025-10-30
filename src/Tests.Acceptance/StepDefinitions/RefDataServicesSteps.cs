@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Dorc.ApiModel;
+using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
 

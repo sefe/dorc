@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using Dorc.Core.Models;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Client.Auth;
@@ -11,7 +11,7 @@ namespace Dorc.Core.AzureDevOpsServer
     public class AzureDevOpsServerWebClient : IAzureDevOpsServerWebClient
     {
         private readonly string _serverUrl;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private const string ApiVersion = "6.0";
         private readonly IAuthTokenGenerator _authTokenGenerator;
         private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
@@ -31,7 +31,7 @@ namespace Dorc.Core.AzureDevOpsServer
         private static string azureEndpointUrl = AppSettings["AzureEndpoint"];
         
 
-        public AzureDevOpsServerWebClient(string serverUrl, ILog log)
+        public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)
         {
             var aadConnectionSettings = new AadConnectionSettings(clientId, aadInstance, azureDevOpsOrganizationUrl, scopes, secret, tenant);
             _log = log;
