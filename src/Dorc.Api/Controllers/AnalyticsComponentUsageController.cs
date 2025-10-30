@@ -27,16 +27,17 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsComponentUsageApiModel>))]
-        public IEnumerable<AnalyticsComponentUsageApiModel> Get()
+        public IActionResult Get()
         {
             try
             {
-                return _analyticsPersistentSource.GetComponentUsage();
+                var result = _analyticsPersistentSource.GetComponentUsage();
+                return Ok(result);
             }
             catch (Exception e)
             {
                 _log.Error("AnalyticsComponentUsageController.Get", e);
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving component usage analytics.");
             }
         }
     }
