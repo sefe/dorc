@@ -143,16 +143,16 @@ namespace Dorc.Monitor
                     deploymentResult,
                     deploymentResultStatus);
 
-                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
-                {
-                    Status = deploymentResultStatus.ToString()
-                });
-
                 componentsPersistentSource.SaveEnvComponentStatus(
                     environmentId,
                     component,
                     deploymentResultStatus.ToString(),
                     requestId);
+
+                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                {
+                    Status = deploymentResultStatus.ToString()
+                });
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;
