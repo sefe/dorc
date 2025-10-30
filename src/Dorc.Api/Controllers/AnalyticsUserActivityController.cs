@@ -27,16 +27,18 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsUserActivityApiModel>))]
-        public IEnumerable<AnalyticsUserActivityApiModel> Get()
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult Get()
         {
             try
             {
-                return _analyticsPersistentSource.GetUserActivity();
+                var result = _analyticsPersistentSource.GetUserActivity();
+                return Ok(result);
             }
             catch (Exception e)
             {
                 _log.Error("AnalyticsUserActivityController.Get", e);
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving user activity analytics.");
             }
         }
     }
