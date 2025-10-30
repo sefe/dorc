@@ -27,16 +27,17 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(AnalyticsDurationApiModel))]
-        public AnalyticsDurationApiModel Get()
+        public IActionResult Get()
         {
             try
             {
-                return _analyticsPersistentSource.GetDeploymentDuration();
+                var result = _analyticsPersistentSource.GetDeploymentDuration();
+                return Ok(result);
             }
             catch (Exception e)
             {
                 _log.Error("AnalyticsDurationController.Get", e);
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving deployment duration analytics.");
             }
         }
     }
