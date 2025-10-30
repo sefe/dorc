@@ -93,7 +93,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             var data = new[]
             {
                 new { Env = envs[0], Username = "q", Project = "1000" },
-                new { Env = envs[0], Username = "w", Project = "100" },
+                new { Env = envs[0], Username = "w", Project = "10000" },
                 new { Env = envs[0], Username = "e", Project = "100" },
             };
 
@@ -122,7 +122,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
 
             UpdateDeploymentRequestStatus(requestToCancel, DeploymentRequestStatus.Cancelling);
 
-            await Task.Delay(15000); // give time for service to cancel request
+            await Task.Delay(3000); // give time for service to cancel request
 
             source.Cancel();
             await monitorService.StopAsync(token);
