@@ -15,6 +15,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
+import '@vaadin/checkbox';
 import { css, PropertyValues, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -42,14 +43,15 @@ export class PageVariablesAudit extends PageElement {
 
   @property({ type: Boolean }) searching = false;
 
+  @property({ type: Boolean }) useAndFilter = true;
+
   static get styles() {
     return css`
       vaadin-grid#grid {
         overflow: hidden;
-        height: calc(100vh - 56px);
+        height: calc(100vh - 96px);
         --divider-color: rgb(223, 232, 239);
       }
-
       .overlay {
         width: 100%;
         height: 100%;
@@ -388,42 +390,69 @@ export class PageVariablesAudit extends PageElement {
       });
   }
 
-  valueHeaderRenderer(root: HTMLElement) {
-    render(
-      html`Value
-        <vaadin-grid-filter path="Value">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
-      root
-    );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
+valueHeaderRenderer = (root: HTMLElement) => {
+  const labelText = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
+  
+  render(
+    html`Value
+    <div>
+      <vaadin-grid-filter path="Value">
+        <vaadin-text-field
+          clear-button-visible
+          slot="filter"
+          focus-target
+          style="width: 100%"
+          theme="small"
+        ></vaadin-text-field>
+      </vaadin-grid-filter>
+      <vaadin-checkbox
+        id="filter-checkbox"
+        .checked="${!this.useAndFilter}"
+        .label="${labelText}"
+        title="Toggle between AND/OR filter logic"
+        style="--vaadin-checkbox-size: 14px;"
+        @change="${(e: Event) => {
+          this.useAndFilter = !(e.target as HTMLInputElement).checked;
+          const checkbox = root.querySelector('#filter-checkbox') as any;
+          if (checkbox) {
+            checkbox.label = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
+          }
+          this.shadowRoot?.querySelector('vaadin-grid')?.clearCache();
+          this.dispatchEvent(
+            new CustomEvent('searching-audit-started', {
+              detail: {},
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      >
+      </vaadin-checkbox>
+    </div>`,
     root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: CustomEvent) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-audit-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
-  }
+  );
 
-  getPropertyValuesAudit(
+  const filter: GridFilter = root.querySelector(
+    'vaadin-grid-filter'
+  ) as GridFilter;
+  root
+    .querySelector('vaadin-text-field')!
+    .addEventListener('value-changed', (e: CustomEvent) => {
+      filter.value = e.detail.value;
+      this.dispatchEvent(
+        new CustomEvent('searching-audit-started', {
+          detail: {},
+          bubbles: true,
+          composed: true
+        })
+      );
+    });
+};
+
+getPropertyValuesAudit = (
     params: GridDataProviderParams<PropertyValueAuditApiModel>,
-    callback: GridDataProviderCallback<PropertyValueAuditApiModel>
-  ) {
+    callback: GridDataProviderCallback<PropertyValueAuditApiModel>,
+  ) => {
     const valueIdx = params.filters.findIndex(
       filter => filter.path === 'Value'
     );
@@ -456,7 +485,7 @@ export class PageVariablesAudit extends PageElement {
           Filters: params.filters.map(
             (f: GridFilterDefinition): PagedDataFilter => ({
               Path: f.path,
-              FilterValue: f.value
+              FilterValue: f.value,
             })
           ),
           SortOrders: params.sortOrders.map(
@@ -467,7 +496,8 @@ export class PageVariablesAudit extends PageElement {
           )
         },
         limit: params.pageSize,
-        page: params.page + 1
+        page: params.page + 1,
+        useAndLogic: this.useAndFilter
       })
       .subscribe({
         next: (data: GetPropertyValuesAuditListResponseDto) => {

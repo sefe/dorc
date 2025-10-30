@@ -67,7 +67,10 @@ namespace Dorc.PersistentData.Sources
                         }
                     }
 
-                    reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
+                    if (useAndLogic)
+                        reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
+                    else
+                        reqStatusesQueryable = WhereAny(reqStatusesQueryable, filterLambdas.ToArray());
                 }
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
@@ -195,6 +198,24 @@ namespace Dorc.PersistentData.Sources
                 pred = pred == null
                     ? predicates[i]
                     : pred.And(predicates[i]);
+            }
+            return source.Where(pred);
+        }
+        private IQueryable<T> WhereAny<T>(
+            IQueryable<T> source,
+            params Expression<Func<T, bool>>[] predicates)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (predicates == null) throw new ArgumentNullException(nameof(predicates));
+            if (predicates.Length == 0) return source.Where(x => false);
+            if (predicates.Length == 1) return source.Where(predicates[0]);
+
+            Expression<Func<T, bool>> pred = null;
+            for (var i = 0; i < predicates.Length; i++)
+            {
+                pred = pred == null
+                    ? predicates[i]
+                    : pred.Or(predicates[i]);
             }
             return source.Where(pred);
         }
