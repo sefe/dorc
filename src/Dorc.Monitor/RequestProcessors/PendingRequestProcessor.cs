@@ -24,7 +24,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IDeploymentEventsPublisher eventsPublisher;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
-        private readonly ITeamsNotificationService _teamsNotificationService;
+        private readonly IJobNotificationService _notificationService;
 
         public PendingRequestProcessor(
             ILog logger,
@@ -37,7 +37,7 @@ namespace Dorc.Monitor.RequestProcessors
             IConfigValuesPersistentSource configValuesPersistentSource, 
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
-            ITeamsNotificationService teamsNotificationService)
+            IJobNotificationService notificationService)
         {
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -50,7 +50,7 @@ namespace Dorc.Monitor.RequestProcessors
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
             this.eventsPublisher = eventPublisher;
-            this._teamsNotificationService = teamsNotificationService;
+            this._notificationService = notificationService;
         }
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
@@ -123,7 +123,7 @@ namespace Dorc.Monitor.RequestProcessors
                             CompletedTime = DateTimeOffset.Now,
                         });
 
-                        _ = _teamsNotificationService.NotifyJobCompletionAsync(
+                        _ = _notificationService.NotifyJobCompletionAsync(
                             requestToExecute.Request.UserName,
                             requestToExecute.Request.Id,
                             deploymentRequestStatus.ToString(),
@@ -180,7 +180,7 @@ namespace Dorc.Monitor.RequestProcessors
                             CompletedTime = DateTimeOffset.Now,
                         });
 
-                        _ = _teamsNotificationService.NotifyJobCompletionAsync(
+                        _ = _notificationService.NotifyJobCompletionAsync(
                             requestToExecute.Request.UserName,
                             requestToExecute.Request.Id,
                             deploymentRequestStatus.ToString(),
@@ -262,7 +262,7 @@ namespace Dorc.Monitor.RequestProcessors
                         CompletedTime = DateTimeOffset.Now,
                     });
 
-                    _ = _teamsNotificationService.NotifyJobCompletionAsync(
+                    _ = _notificationService.NotifyJobCompletionAsync(
                         requestToExecute.Request.UserName,
                         requestToExecute.Request.Id,
                         deploymentRequestStatus.ToString(),
@@ -299,7 +299,7 @@ namespace Dorc.Monitor.RequestProcessors
                         CompletedTime = DateTimeOffset.Now,
                     });
 
-                    _ = _teamsNotificationService.NotifyJobCompletionAsync(
+                    _ = _notificationService.NotifyJobCompletionAsync(
                         requestToExecute.Request.UserName,
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored.ToString(),
@@ -327,7 +327,7 @@ namespace Dorc.Monitor.RequestProcessors
                     CompletedTime = DateTimeOffset.Now,
                 });
 
-                _ = _teamsNotificationService.NotifyJobCompletionAsync(
+                _ = _notificationService.NotifyJobCompletionAsync(
                     requestToExecute.Request.UserName,
                     requestToExecute.Request.Id,
                     DeploymentRequestStatus.Errored.ToString(),

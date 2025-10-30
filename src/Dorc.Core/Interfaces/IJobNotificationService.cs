@@ -1,15 +1,12 @@
-using Dorc.Core.Notifications;
-
 namespace Dorc.Core.Interfaces
 {
     /// <summary>
-    /// Legacy interface for backwards compatibility - use IUserNotificationService for new code
-    /// Service for sending notifications to Microsoft Teams
+    /// Service for sending job completion notifications to users
     /// </summary>
-    public interface ITeamsNotificationService
+    public interface IJobNotificationService
     {
         /// <summary>
-        /// Sends a job completion notification to the user via MS Teams
+        /// Sends a job completion notification to the user
         /// </summary>
         /// <param name="userName">The username or email of the user to notify</param>
         /// <param name="requestId">The deployment request ID</param>

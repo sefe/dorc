@@ -7,7 +7,7 @@ namespace Dorc.Monitor.Services
     /// <summary>
     /// Composite notification service that sends notifications through multiple providers
     /// </summary>
-    public class CompositeNotificationService : ITeamsNotificationService
+    public class CompositeNotificationService : IJobNotificationService
     {
         private readonly ILog _logger;
         private readonly IEnumerable<IUserNotificationService> _notificationServices;

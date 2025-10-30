@@ -9,7 +9,7 @@ The notification system is designed to be messaging-platform agnostic, allowing 
 ### Key Interfaces
 
 - **`IUserNotificationService`** - Generic interface for any notification provider
-- **`ITeamsNotificationService`** - Legacy interface used by the application (wraps composite service)
+- **`IJobNotificationService`** - Interface used by the application (wraps composite service)
 
 ### Components
 
