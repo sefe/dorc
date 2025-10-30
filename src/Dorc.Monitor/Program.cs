@@ -58,7 +58,11 @@ builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentReques
 builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEventPublisher>();
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
-builder.Services.AddSingleton<ITeamsNotificationService, TeamsNotificationService>();
+
+// Register notification services
+builder.Services.AddSingleton<IUserNotificationService, TeamsNotificationService>();
+// Register composite service as the main notification service used by the application
+builder.Services.AddSingleton<ITeamsNotificationService, CompositeNotificationService>();
 
 #if DEBUG
 builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();

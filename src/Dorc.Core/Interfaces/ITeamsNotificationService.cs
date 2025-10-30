@@ -1,6 +1,9 @@
+using Dorc.Core.Notifications;
+
 namespace Dorc.Core.Interfaces
 {
     /// <summary>
+    /// Legacy interface for backwards compatibility - use IUserNotificationService for new code
     /// Service for sending notifications to Microsoft Teams
     /// </summary>
     public interface ITeamsNotificationService

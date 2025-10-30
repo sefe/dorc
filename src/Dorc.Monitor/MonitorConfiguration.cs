@@ -119,11 +119,27 @@ namespace Dorc.Monitor
             }
         }
 
-        public string? TeamsWebhookUrl
+        public string? TeamsTenantId
         {
             get
             {
-                return configurationRoot.GetSection(appSettings)["TeamsWebhookUrl"];
+                return configurationRoot.GetSection(appSettings)["Teams:TenantId"];
+            }
+        }
+
+        public string? TeamsClientId
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Teams:ClientId"];
+            }
+        }
+
+        public string? TeamsClientSecret
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Teams:ClientSecret"];
             }
         }
     }
