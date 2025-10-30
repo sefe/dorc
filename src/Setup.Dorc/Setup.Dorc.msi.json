@@ -1,6 +1,7 @@
 {
   "ProductNames": [
-    "Deployment Orchestrator"
+    "Deployment Orchestrator",
+    "DevOps Orchestrator"
   ],
   "ServerType": "WebServer",
   "Parameters": [

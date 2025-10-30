@@ -1,6 +1,6 @@
 {
   "System": {
-    "SystemName": "Deployment Orchestrator",
+    "SystemName": "DevOps Orchestrator",
     "ComponentName": "Deployment Runner",
     "EnableLoggingDiagnostics": true,
     "EnvironmentName": "DV2",
