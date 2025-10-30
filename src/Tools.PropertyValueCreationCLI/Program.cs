@@ -34,6 +34,8 @@ namespace Tools.PropertyValueCreationCLI
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
+                For<Application>().Use<Application>();
+
                 For<ILog>().Use(LogManager.GetLogger("Log")).Singleton();
             }
         }

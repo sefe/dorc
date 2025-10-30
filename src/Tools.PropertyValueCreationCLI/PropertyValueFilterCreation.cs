@@ -24,9 +24,9 @@ namespace Tools.PropertyValueCreationCLI
 
         public void InsertPropertyValueFilter(string name, string value, string envName)
         {
-            var existingPropertyValues = _propertyValuesPersistentSource.GetPropertyValues(name, value, true)
+            var existingPropertyValues = _propertyValuesPersistentSource.GetPropertyValues(name, envName, true)
                 .FirstOrDefault()?.Value;
-            if (string.IsNullOrEmpty(existingPropertyValues))
+            if (!string.IsNullOrEmpty(existingPropertyValues))
             {
                 if (string.IsNullOrEmpty(envName))
                     _log.Warn("Default property already configured for property " + name);
