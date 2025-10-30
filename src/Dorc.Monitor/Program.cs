@@ -35,16 +35,10 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = monitorConfiguration.ServiceName;
 });
 
-#region OpenTelemetry logging initialization
+#region Logging Configuration
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-string executingAssemblyLocation = Assembly.GetExecutingAssembly().Location;
-string executingAssemblyDirectoryPath = Path.GetDirectoryName(executingAssemblyLocation)!;
-string logFilePath = Path.Combine("c:\\Log\\DOrc\\Deploy\\Services", $"{monitorConfiguration.ServiceName}.log");
 
-// Ensure log directory exists
-Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
-
-// Configure logging with OpenTelemetry
+// Configure logging providers
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
 {
@@ -52,35 +46,36 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
 });
 
-// Add file logging
+var fileLoggingSection = configurationRoot.GetSection("FileLogging");
+var logPath = fileLoggingSection.GetValue<string>("LogPath");
+var logFilename = monitorConfiguration.IsProduction ? "MonitorNonProd" : "MonitorProd";
+var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 10);
+var maxRollingFiles = fileLoggingSection.GetValue<int>("MaxRollingFiles", 100);
+    
+string logFilePath = Path.Combine(logPath, $"{logFilename}.log");
+Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
+    
 builder.Logging.AddFile(logFilePath, options =>
 {
     options.Append = true;
-    options.FileSizeLimitBytes = 10 * 1024 * 1024; // 10MB
-    options.MaxRollingFiles = 100;
+    options.FileSizeLimitBytes = fileSizeLimitMB * 1024 * 1024;
+    options.MaxRollingFiles = maxRollingFiles;
 });
 
-// Add OpenTelemetry with OTLP exporter
-builder.Logging.AddOpenTelemetry(logging =>
+var otlpEndpoint = configurationRoot.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
 {
-    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
-        .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
-    
-    // Add OTLP exporter (configure endpoint via environment variables or appsettings)
-    var otlpEndpoint = configurationRoot.GetValue<string>("OpenTelemetry:OtlpEndpoint");
-    if (!string.IsNullOrEmpty(otlpEndpoint))
+    builder.Logging.AddOpenTelemetry(logging =>
     {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+        
         logging.AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri(otlpEndpoint);
         });
-    }
-    
-    // Console exporter for debugging
-    logging.AddConsoleExporter();
-});
-
-builder.Logging.SetMinimumLevel(LogLevel.Information);
+    });
+}
 #endregion
 
 builder.Services.AddTransient<ScriptDispatcher>();

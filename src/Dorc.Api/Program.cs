@@ -1,10 +1,10 @@
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
+using Dorc.Api.Logging;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core.Configuration;
-using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -12,13 +12,11 @@ using Dorc.Core.VariableResolution;
 using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
-using Dorc.Api.Logging;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
@@ -31,35 +29,41 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
-// Configure OpenTelemetry logging
-string logFilePath = Path.Combine("c:\\Log\\DOrc\\Deploy\\Web\\Api", "Dorc.Api.log");
-Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
-
+#region Logging Configuration
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
+
+var fileLoggingSection = configBuilder.GetSection("FileLogging");
+var logPath = fileLoggingSection.GetValue<string>("LogPath");
+var logFileName = fileLoggingSection.GetValue<string>("FileName");
+var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 10);
+var maxRollingFiles = fileLoggingSection.GetValue<int>("MaxRollingFiles", 100);
+
+string logFilePath = Path.Combine(logPath, logFileName);
+Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
+
 builder.Logging.AddFile(logFilePath, options =>
 {
     options.Append = true;
-    options.FileSizeLimitBytes = 10 * 1024 * 1024; // 10MB
-    options.MaxRollingFiles = 100;
+    options.FileSizeLimitBytes = fileSizeLimitMB * 1024 * 1024;
+    options.MaxRollingFiles = maxRollingFiles;
 });
 
-builder.Logging.AddOpenTelemetry(logging =>
+var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
 {
-    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
-        .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
-    
-    var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
-    if (!string.IsNullOrEmpty(otlpEndpoint))
+    builder.Logging.AddOpenTelemetry(logging =>
     {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+
         logging.AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri(otlpEndpoint);
         });
-    }
-    
-    logging.AddConsoleExporter();
-});
+    });
+}
+#endregion
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
 
