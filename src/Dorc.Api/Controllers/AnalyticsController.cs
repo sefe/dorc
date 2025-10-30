@@ -1,8 +1,8 @@
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Dorc.Api.Controllers
@@ -12,12 +12,12 @@ namespace Dorc.Api.Controllers
     public class AnalyticsController : ControllerBase
     {
         private readonly IAnalyticsPersistentSource _analyticsPersistentSource;
-        private readonly ILog _log;
+        private readonly ILogger<AnalyticsController> _logger;
 
-        public AnalyticsController(IAnalyticsPersistentSource analyticsPersistentSource, ILog log)
+        public AnalyticsController(IAnalyticsPersistentSource analyticsPersistentSource, ILogger<AnalyticsController> logger)
         {
             _analyticsPersistentSource = analyticsPersistentSource;
-            _log = log;
+            _logger = logger;
         }
 
         /// <summary>
@@ -35,7 +35,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetDeploymentsMonth", e);
+                _logger.LogError(e, "Error retrieving deployments per project per month");
                 throw;
             }
         }
@@ -55,7 +55,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetDeploymentsDate", e);
+                _logger.LogError(e, "Error retrieving deployments per project and date");
                 throw;
             }
         }
@@ -77,7 +77,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetEnvironmentUsage", e);
+                _logger.LogError(e, "Error retrieving environment usage analytics");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving environment usage analytics.");
             }
         }
@@ -99,7 +99,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetUserActivity", e);
+                _logger.LogError(e, "Error retrieving user activity analytics");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving user activity analytics.");
             }
         }
@@ -120,7 +120,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetTimePattern", e);
+                _logger.LogError(e, "Error retrieving time pattern analytics");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving time pattern analytics.");
             }
         }
@@ -141,7 +141,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetComponentUsage", e);
+                _logger.LogError(e, "Error retrieving component usage analytics");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving component usage analytics.");
             }
         }
@@ -162,7 +162,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("AnalyticsController.GetDuration", e);
+                _logger.LogError(e, "Error retrieving deployment duration analytics");
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving deployment duration analytics.");
             }
         }
