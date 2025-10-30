@@ -1,12 +1,14 @@
-﻿using System;
-using System.IO;
-using Dorc.Core;
+﻿using Dorc.Core;
 using Dorc.Core.Security;
+using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
 using log4net;
 using log4net.Config;
+using System;
+using System.IO;
 
 namespace Tools.PropertyValueCreationCLI
 {
@@ -15,7 +17,10 @@ namespace Tools.PropertyValueCreationCLI
         private static void Main(string[] args)
         {
             XmlConfigurator.Configure(new FileInfo("log4net.config"));
-            var container = Container.For<ConsoleRegistry>();
+            var registry = new ConsoleRegistry();
+            registry.IncludeRegistry<PersistentDataRegistry>();
+
+            var container = new Container(registry);
             var app = container.GetInstance<Application>();
             app.CheckFile(args[0]);
             app.Run(args[0]);
@@ -34,6 +39,14 @@ namespace Tools.PropertyValueCreationCLI
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
+                For<IEnvironmentsPersistentSource>().Use<EnvironmentsPersistentSource>();
+                For<IPropertyEncryptor>().Use(x =>
+                {
+                    var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
+                    return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+                        secureKeyPersistentDataSource.GetSymmetricKey());
+                });
+                For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
                 For<Application>().Use<Application>();
 
                 For<ILog>().Use(LogManager.GetLogger("Log")).Singleton();
