@@ -27,16 +27,18 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsEnvironmentUsageApiModel>))]
-        public IEnumerable<AnalyticsEnvironmentUsageApiModel> Get()
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult Get()
         {
             try
             {
-                return _analyticsPersistentSource.GetEnvironmentUsage();
+                var result = _analyticsPersistentSource.GetEnvironmentUsage();
+                return Ok(result);
             }
             catch (Exception e)
             {
                 _log.Error("AnalyticsEnvironmentUsageController.Get", e);
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving environment usage analytics.");
             }
         }
     }
