@@ -118,6 +118,14 @@ namespace Dorc.Monitor
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
             }
         }
+
+        public string? TeamsWebhookUrl
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["TeamsWebhookUrl"];
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration

@@ -8,6 +8,7 @@ using Dorc.Monitor.Events;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.Monitor.Services;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -57,6 +58,7 @@ builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentReques
 builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEventPublisher>();
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
+builder.Services.AddSingleton<ITeamsNotificationService, TeamsNotificationService>();
 
 #if DEBUG
 builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();

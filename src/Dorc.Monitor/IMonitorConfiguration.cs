@@ -13,5 +13,8 @@
         string DorcApiClientId { get; }
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
+
+        // MS Teams webhook URL for job completion notifications
+        string? TeamsWebhookUrl { get; }
     }
 }
