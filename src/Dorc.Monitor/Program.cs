@@ -49,7 +49,7 @@ builder.Logging.AddSimpleConsole(options =>
 var fileLoggingSection = configurationRoot.GetSection("FileLogging");
 var logPath = fileLoggingSection.GetValue<string>("LogPath");
 var logFilename = monitorConfiguration.IsProduction ? "MonitorNonProd" : "MonitorProd";
-var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 10);
+var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 1);
 var maxRollingFiles = fileLoggingSection.GetValue<int>("MaxRollingFiles", 100);
     
 string logFilePath = Path.Combine(logPath, $"{logFilename}.log");
