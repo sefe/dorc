@@ -69,7 +69,7 @@ export class PageDatabasesList extends PageElement {
   static get styles() {
     return css`
       vaadin-grid#grid {
-        overflow: hidden;
+        overflow: auto;
         height: calc(100vh - 56px);
         --divider-color: rgb(223, 232, 239);
       }
@@ -388,12 +388,14 @@ export class PageDatabasesList extends PageElement {
     this.searching = false;
   }
 
-  updateGrid() {
-    if (this.grid) {
-      this.grid.clearCache();
-      this.loading = true;
-    }
+updateGrid() {
+  if (this.grid) {
+    this.grid.scrollToIndex(0);
+    this.grid.clearCache();
+    this.grid.requestContentUpdate();
+    this.loading = true;
   }
+}
 
   buttonsHeaderRenderer(root: HTMLElement) {
     render(
