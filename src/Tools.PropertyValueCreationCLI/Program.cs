@@ -1,12 +1,14 @@
-﻿using System;
-using System.IO;
-using Dorc.Core;
+﻿using Dorc.Core;
 using Dorc.Core.Security;
+using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
+using System.IO;
 
 namespace Tools.PropertyValueCreationCLI
 {
@@ -44,6 +46,13 @@ namespace Tools.PropertyValueCreationCLI
 
                 For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
                 For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
+                    var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
+                    return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+                        secureKeyPersistentDataSource.GetSymmetricKey());
+                });
+                For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
+                For<Application>().Use<Application>();
+
             }
         }
 
