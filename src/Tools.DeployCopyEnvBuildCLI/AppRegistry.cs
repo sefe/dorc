@@ -11,8 +11,8 @@ namespace Tools.DeployCopyEnvBuildCLI
         public AppRegistry()
         {
             For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
-            For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("DeployCopyEnvBuildCLI"));
-            
+            For(typeof(ILogger<>)).Use(typeof(Logger<>));
+
             For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
             For<IDeploymentEventsPublisher>().Use<NullDeploymentEventsPublisher>();
         }
