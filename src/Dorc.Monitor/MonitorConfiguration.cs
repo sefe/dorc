@@ -118,6 +118,30 @@ namespace Dorc.Monitor
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
             }
         }
+
+        public string? TeamsTenantId
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Teams:TenantId"];
+            }
+        }
+
+        public string? TeamsClientId
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Teams:ClientId"];
+            }
+        }
+
+        public string? TeamsClientSecret
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Teams:ClientSecret"];
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration
