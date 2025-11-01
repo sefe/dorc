@@ -105,9 +105,17 @@ namespace Dorc.Api.Events
             {
                 await Clients.Clients(unsubscribed).OnDeploymentRequestStatusChanged(eventData);
             }
-
-            // since it's possible that group might not exist, update them in second order to do not fail updating usual clients
-            await Clients.GroupExcept(groupName, new[] { callerId }).OnDeploymentRequestStatusChanged(eventData);
+            
+            try
+            {
+                await Clients.GroupExcept(groupName, new[] { callerId }).OnDeploymentRequestStatusChanged(eventData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting request status change to group {GroupName}, excluding connection", groupName);
+                _tracker.LeaveGroup(Context.ConnectionId, eventData.RequestId);
+                throw;
+            }
         }
 
         public async Task BroadcastResultStatusChangedAsync(DeploymentResultEventData eventData)
@@ -117,7 +125,17 @@ namespace Dorc.Api.Events
                 throw new HubException("Not authorized");
             }
 
-            await Clients.OthersInGroup(_tracker.GetGroupName(eventData.RequestId)).OnDeploymentResultStatusChanged(eventData);
+            var groupName = _tracker.GetGroupName(eventData.RequestId);
+            try
+            { 
+                await Clients.OthersInGroup(groupName).OnDeploymentResultStatusChanged(eventData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting request status change to group {GroupName}, excluding connection", groupName);
+                _tracker.LeaveGroup(Context.ConnectionId, eventData.RequestId);
+                throw;
+            }
         }
     }
 }
