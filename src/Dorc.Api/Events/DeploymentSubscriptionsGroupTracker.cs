@@ -59,4 +59,17 @@ internal sealed class DeploymentSubscriptionsGroupTracker : IDeploymentSubscript
 
         return result;
     }
+
+    public IReadOnlyList<string> GetGroupsForConnection(string connectionId)
+    {
+        if (_connectionGroups.TryGetValue(connectionId, out var set))
+        {
+            lock (set)
+            {
+                return set.ToList();
+            }
+        }
+
+        return Array.Empty<string>();
+    }
 }
