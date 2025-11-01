@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Dorc.ApiModel
 {
@@ -8,5 +9,7 @@ namespace Dorc.ApiModel
         public string Name { set; get; }
         public string OsName { set; get; }
         public string ApplicationTags { set; get; }
+        public DateTime? LastChecked { set; get; }
+        public bool? IsReachable { set; get; }
     }
 }

@@ -118,6 +118,27 @@ namespace Dorc.Monitor
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
             }
         }
+
+        public bool EnableConnectivityCheck
+        {
+            get
+            {
+                var value = configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"];
+                return !string.IsNullOrWhiteSpace(value) && 
+                       bool.TryParse(value, out bool result) && 
+                       result;
+            }
+        }
+
+        public int ConnectivityCheckIntervalMinutes
+        {
+            get
+            {
+                int interval = 60; // Default to 60 minutes (1 hour)
+                int.TryParse(configurationRoot.GetSection(appSettings)["ConnectivityCheckIntervalMinutes"], out interval);
+                return interval;
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration
