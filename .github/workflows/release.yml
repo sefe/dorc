@@ -69,6 +69,20 @@ jobs:
       working-directory: src/dorc-web
       run: npm run build
       
+    - name: Run TypeScript tests
+      working-directory: src/dorc-web
+      run: |
+        echo "Running TypeScript type checking..."
+        npm run type-checking
+      continue-on-error: true
+      
+    - name: Fail workflow if TypeScript tests failed (main/release branches)
+      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+      working-directory: src/dorc-web
+      run: |
+        echo "Running TypeScript type checking (strict)..."
+        npm run type-checking
+      
     - name: Version AssemblyInfo files
       shell: pwsh
       env:
