@@ -123,7 +123,7 @@ namespace Dorc.Core.VariableResolution
             }
         }
 
-        public string MigrateFromLegacy(string legacyEncryptedValue)
+        public string? MigrateFromLegacy(string? legacyEncryptedValue)
         {
             if (legacyEncryptedValue == null) return null;
             
@@ -135,6 +135,8 @@ namespace Dorc.Core.VariableResolution
             var decryptedValue = legacyEncryptedValue.StartsWith(LegacyVersionPrefix) 
                 ? _legacyEncryptor.DecryptValue(legacyEncryptedValue.Substring(LegacyVersionPrefix.Length))
                 : _legacyEncryptor.DecryptValue(legacyEncryptedValue);
+
+            if (decryptedValue == null) return null;
 
             return EncryptValue(decryptedValue);
         }

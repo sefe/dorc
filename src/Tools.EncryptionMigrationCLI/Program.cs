@@ -79,6 +79,7 @@ namespace Tools.EncryptionMigrationCLI
         public MigrationResult MigratePropertyValues(bool dryRun, bool force)
         {
             var result = new MigrationResult();
+            const int batchSize = 100;
 
             using (var context = _contextFactory.GetContext())
             {
@@ -95,6 +96,8 @@ namespace Tools.EncryptionMigrationCLI
                         .ToList();
 
                     _log.Info($"Processing property '{property.Name}' with {propertyValues.Count} values");
+
+                    int batchCount = 0;
 
                     foreach (var propertyValue in propertyValues)
                     {
@@ -123,7 +126,14 @@ namespace Tools.EncryptionMigrationCLI
                             if (!dryRun)
                             {
                                 propertyValue.Value = migratedValue;
-                                context.SaveChanges();
+                                batchCount++;
+
+                                if (batchCount >= batchSize)
+                                {
+                                    context.SaveChanges();
+                                    batchCount = 0;
+                                    _log.Info($"Saved batch of {batchSize} updates");
+                                }
                             }
 
                             result.Migrated++;
@@ -133,6 +143,12 @@ namespace Tools.EncryptionMigrationCLI
                             _log.Error($"Failed to migrate property value {propertyValue.Id}", ex);
                             result.Failed++;
                         }
+                    }
+
+                    if (!dryRun && batchCount > 0)
+                    {
+                        context.SaveChanges();
+                        _log.Info($"Saved final batch of {batchCount} updates");
                     }
                 }
             }
