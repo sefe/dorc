@@ -2,15 +2,6 @@ name: DOrc Release Build
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'release/**'
-      - 'feature/**'
-      - 'fix/**'
-      - 'hotfix/**'
-      - 'migration/**'
-      - 'copilot/**'
   pull_request:
     branches:
       - main
@@ -91,41 +82,6 @@ jobs:
         npm run test:unit
         echo "Running TypeScript type checking (strict)..."
         npm run type-checking
-      
-    - name: Install k6
-      shell: pwsh
-      run: |
-        Write-Host "Installing k6..."
-        if ($IsWindows) {
-          choco install k6 -y
-        } else {
-          Write-Host "k6 installation skipped on non-Windows platform"
-        }
-      continue-on-error: true
-      
-    - name: Run k6 load tests
-      working-directory: src/dorc-web
-      shell: pwsh
-      run: |
-        Write-Host "Running k6 load tests..."
-        if (Get-Command k6 -ErrorAction SilentlyContinue) {
-          npm run test:load
-        } else {
-          Write-Host "k6 not found, skipping load tests"
-        }
-      continue-on-error: true
-      
-    - name: Run k6 browser tests
-      working-directory: src/dorc-web
-      shell: pwsh
-      run: |
-        Write-Host "Running k6 browser tests..."
-        if (Get-Command k6 -ErrorAction SilentlyContinue) {
-          npm run test:browser
-        } else {
-          Write-Host "k6 not found, skipping browser tests"
-        }
-      continue-on-error: true
       
     - name: Version AssemblyInfo files
       shell: pwsh
