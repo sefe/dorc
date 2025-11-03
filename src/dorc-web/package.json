@@ -18,7 +18,9 @@
     "dev": "vite",
     "preview": "vite preview",
     "start": "npm run serve",
-    "test": "echo \"Error: no test specified\"",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "type-checking": "tsc --noEmit && npm run lit:type-checking",
     "prepare": "husky"
   },
@@ -89,7 +91,8 @@
     "stylelint": "^16.19.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^2.1.8"
   },
   "husky": {
     "hooks": {

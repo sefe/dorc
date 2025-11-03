@@ -56,6 +56,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
   
   private hubConnection: HubConnection | undefined;
+  private signalRSubscription: { dispose(): void } | undefined;
 
   static get styles() {
     return css`
@@ -171,6 +172,13 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    
+    // Dispose SignalR event subscription to prevent memory leaks
+    if (this.signalRSubscription) {
+      this.signalRSubscription.dispose();
+      this.signalRSubscription = undefined;
+    }
+    
     if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
       this.hubConnection.stop().catch(() => {});
     }
@@ -253,7 +261,8 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     if (!this.hubConnection)
       this.hubConnection = DeploymentHub.getConnection();
 
-    getReceiverRegister('IDeploymentsEventsClient')
+    // Store subscription to dispose it later and prevent memory leaks
+    this.signalRSubscription = getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
     const hubProxy = getHubProxyFactory('IDeploymentEventsHub')

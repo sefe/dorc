@@ -2,15 +2,6 @@ name: DOrc Release Build
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'release/**'
-      - 'feature/**'
-      - 'fix/**'
-      - 'hotfix/**'
-      - 'migration/**'
-      - 'copilot/**'
   pull_request:
     branches:
       - main
@@ -68,6 +59,20 @@ jobs:
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
+      
+    - name: Run TypeScript unit tests
+      working-directory: src/dorc-web
+      run: |
+        echo "Running TypeScript unit tests..."
+        npm run test:unit
+      continue-on-error: true
+      
+    - name: Fail workflow if TypeScript tests failed (main/release branches)
+      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+      working-directory: src/dorc-web
+      run: |
+        echo "Running TypeScript unit tests (strict)..."
+        npm run test:unit
       
     - name: Version AssemblyInfo files
       shell: pwsh

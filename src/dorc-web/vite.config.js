@@ -13,5 +13,9 @@ export default defineConfig({
   },
   server: {
     port: 8888
+  },
+  test: {
+    globals: true,
+    include: ['src/**/*.test.ts', 'src/**/*.spec.ts']
   }
 });

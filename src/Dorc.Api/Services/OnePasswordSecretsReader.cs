@@ -7,12 +7,13 @@ namespace Dorc.Api.Services
     /// <summary>
     /// Manages secrets using 1Password
     /// </summary>
-    public class OnePasswordSecretsReader : IConfigurationSecretsReader
+    public class OnePasswordSecretsReader : IConfigurationSecretsReader, IDisposable
     {
         private readonly ILog _log;
         private readonly IConfigurationSettings _config;
         private readonly OnePasswordClient? _onePasswordClient;
         private readonly string? _vaultId;
+        private bool _disposed;
 
         public OnePasswordSecretsReader(IConfigurationSettings config)
         {
@@ -61,6 +62,15 @@ namespace Dorc.Api.Services
             {
                 _log.Error($"Failed to get secret {humanizedName} from 1Password by ItemId {itemId}: {ex.Message}", ex);
                 return string.Empty;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _onePasswordClient?.Dispose();
+                _disposed = true;
             }
         }
     }

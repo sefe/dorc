@@ -53,6 +53,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   maxCountBeforeRefresh: number | undefined;
 
   private hubConnection: HubConnection | undefined;
+  private signalRSubscription: { dispose(): void } | undefined;
 
   @property({ type: Boolean }) isLoading = true;
 
@@ -364,6 +365,13 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    
+    // Dispose SignalR event subscription to prevent memory leaks
+    if (this.signalRSubscription) {
+      this.signalRSubscription.dispose();
+      this.signalRSubscription = undefined;
+    }
+    
     if (this.hubConnection) {
       this.hubConnection.stop().catch((err) => {
         console.error('Error stopping SignalR connection:', err);
@@ -374,7 +382,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   private async initializeSignalR() {
     this.hubConnection = DeploymentHub.getConnection();
 
-    getReceiverRegister('IDeploymentsEventsClient')
+    // Store subscription to dispose it later and prevent memory leaks
+    this.signalRSubscription = getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
     this.hubConnection.onclose(async () => {
