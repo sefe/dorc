@@ -18,7 +18,9 @@
     "dev": "vite",
     "preview": "vite preview",
     "start": "npm run serve",
-    "test": "echo \"Error: no test specified\"",
+    "test": "k6 run k6-tests/load-test-many-users.js && k6 run k6-tests/monitor-request-page-test.js",
+    "test:load": "k6 run k6-tests/load-test-many-users.js",
+    "test:browser": "k6 run k6-tests/monitor-request-page-test.js",
     "type-checking": "tsc --noEmit && npm run lit:type-checking",
     "prepare": "husky"
   },
