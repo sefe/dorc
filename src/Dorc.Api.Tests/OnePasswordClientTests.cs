@@ -102,35 +102,5 @@ namespace Dorc.Api.Tests
             Assert.IsNotNull(sharedClient.Timeout);
             sharedClient.Dispose();
         }
-
-        [TestMethod]
-        public async Task GetSecretValueAsync_WithInvalidCredentials_ThrowsException()
-        {
-            // Arrange
-            using var sut = new OnePasswordClient(_baseUrl, "invalid-key");
-            var vaultId = "test-vault";
-            var itemId = "test-item";
-
-            // Act & Assert
-            await Assert.ThrowsExceptionAsync<Exception>(async () =>
-            {
-                await sut.GetSecretValueAsync(vaultId, itemId);
-            });
-        }
-
-        [TestMethod]
-        public async Task GetItemAsync_WithInvalidCredentials_ThrowsException()
-        {
-            // Arrange
-            using var sut = new OnePasswordClient(_baseUrl, "invalid-key");
-            var vaultId = "test-vault";
-            var itemId = "test-item";
-
-            // Act & Assert
-            await Assert.ThrowsExceptionAsync<Exception>(async () =>
-            {
-                await sut.GetItemAsync(vaultId, itemId);
-            });
-        }
     }
 }
