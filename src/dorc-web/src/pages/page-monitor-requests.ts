@@ -51,7 +51,7 @@ export class PageMonitorRequests
 {
   @query('#grid') grid: Grid | undefined;
 
-  // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
+  // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
   // we need to store the max count of items before refresh to keep grid's cache size
   maxCountBeforeRefresh: number | undefined;
 
