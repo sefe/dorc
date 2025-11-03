@@ -624,6 +624,7 @@ export class EnvVariables extends PageEnvBase {
     const converted: PropertyValueDto = {
       Id: model.item.PropertyValueId,
       Value: model.item.PropertyValue,
+      MaskedValue: model.item.MaskedPropertyValue,
       PropertyValueFilter: model.item.PropertyValueScope,
       PropertyValueFilterId: model.item.PropertyValueScopeId,
       UserEditable: model.item.UserEditable,

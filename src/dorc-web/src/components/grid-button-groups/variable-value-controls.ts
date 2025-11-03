@@ -53,7 +53,7 @@ export class VariableValueControls extends LitElement {
       ${this.value?.Property?.Secure
         ? html`<vaadin-password-field
             id="${`propValue${this.value?.Id}`}"
-            value="Ex@mplePassw0rd"
+            value="${this.value?.MaskedValue ?? '********'}"
             reveal-button-hidden
             readonly
             focus-target

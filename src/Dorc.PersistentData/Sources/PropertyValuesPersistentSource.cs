@@ -518,6 +518,11 @@ namespace Dorc.PersistentData.Sources
                         .OrderBy(s => s.Property)
                         .Paginate(page, limit);
 
+                foreach (var item in output.Items.Where(i => i.Secure))
+                {
+                    item.MaskedPropertyValue = PropertyValueMasking.GenerateMaskedValue(item.PropertyValue, _encrypt);
+                }
+
                 return new GetScopedPropertyValuesResponseDto
                 {
                     CurrentPage = output.CurrentPage,
@@ -653,6 +658,11 @@ namespace Dorc.PersistentData.Sources
                     output = scopedPropertyValuesQuery.AsNoTracking()
                         .OrderBy(s => s.Property)
                         .Paginate(page, limit);
+
+                foreach (var item in output.Items.Where(i => i.Secure))
+                {
+                    item.MaskedPropertyValue = PropertyValueMasking.GenerateMaskedValue(item.PropertyValue, _encrypt);
+                }
 
                 return new GetScopedPropertyValuesResponseDto
                 {
