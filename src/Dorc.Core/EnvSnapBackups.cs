@@ -52,9 +52,9 @@ namespace Dorc.Core
                 Pooling = false,
                 InitialCatalog = "master"
             };
-            var connection = new SqlConnection(builder.ConnectionString);
 
             var databases = new DataTable();
+            using (var connection = new SqlConnection(builder.ConnectionString))
             using (var adapter = new SqlDataAdapter(sqlScript, connection))
             {
                 adapter.Fill(databases);

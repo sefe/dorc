@@ -18,34 +18,33 @@ namespace Dorc.Core
 
         public ApiBoolResult ResetSqlUserPassword(string targetDbServer, string username)
         {
-            var objConn = new SqlConnection
+            if (!Regex.IsMatch(username, UserSearchCriteriaRegExPattern))
+                throw new ArgumentException($"Parameter username contains invalid value {username}");
+
+            using (var objConn = new SqlConnection
             {
                 ConnectionString = "Data Source=" + targetDbServer +
                                    ";Initial Catalog=master;Integrated Security=True;TrustServerCertificate=True"
-            };
-            try
+            })
             {
-                if (!Regex.IsMatch(username, UserSearchCriteriaRegExPattern))
-                    throw new ArgumentException($"Parameter username contains invalid value {username}");
+                try
+                {
+                    objConn.Open();
 
-                objConn.Open();
+                    var sql = "ALTER LOGIN [" + username + "] WITH PASSWORD = N'" + username + "'";
 
-                var sql = "ALTER LOGIN [" + username + "] WITH PASSWORD = N'" + username + "'";
-
-                var objCmd = new SqlCommand(sql, objConn);
-                var returnVal = objCmd.ExecuteScalar();
-                return new ApiBoolResult { Result = true };
-            }
-            catch (Exception e)
-            {
-                var msg = $"Wasn't able to reset password for {username} on {targetDbServer}";
-                _logger.Error(msg, e);
-                return new ApiBoolResult { Result = false, Message = msg + "\n" + e.Message };
-            }
-            finally
-            {
-                objConn.Close();
-
+                    using (var objCmd = new SqlCommand(sql, objConn))
+                    {
+                        var returnVal = objCmd.ExecuteScalar();
+                        return new ApiBoolResult { Result = true };
+                    }
+                }
+                catch (Exception e)
+                {
+                    var msg = $"Wasn't able to reset password for {username} on {targetDbServer}";
+                    _logger.Error(msg, e);
+                    return new ApiBoolResult { Result = false, Message = msg + "\n" + e.Message };
+                }
             }
         }
     }

@@ -206,7 +206,11 @@ namespace Dorc.Core
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
             var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
             var result = new List<DeploymentRequestDetail>();
-            var bundleJson = new StreamReader(createRequest.BuildUrl).ReadToEnd();
+            string bundleJson;
+            using (var reader = new StreamReader(createRequest.BuildUrl))
+            {
+                bundleJson = reader.ReadToEnd();
+            }
             var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson);
 
             if (bundle == null)
