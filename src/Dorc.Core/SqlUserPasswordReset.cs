@@ -34,13 +34,12 @@ namespace Dorc.Core
                 {
                     objConn.Open();
 
-                    // Use parameterized query to prevent SQL injection
-                    var sql = "ALTER LOGIN @username WITH PASSWORD = @password";
+                    // Note: SQL Server doesn't support parameterizing object names (LOGIN names)
+                    // Input is validated with regex above to prevent SQL injection
+                    var sql = "ALTER LOGIN [" + username + "] WITH PASSWORD = N'" + username + "'";
 
                     using (var objCmd = new SqlCommand(sql, objConn))
                     {
-                        objCmd.Parameters.AddWithValue("@username", username);
-                        objCmd.Parameters.AddWithValue("@password", username);
                         var returnVal = objCmd.ExecuteScalar();
                         return new ApiBoolResult { Result = true };
                     }
