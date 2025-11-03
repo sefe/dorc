@@ -3,11 +3,17 @@ using System.Text.Json;
 
 namespace OnePassword.Connect.Client
 {
-    public class OnePasswordClient
+    public class OnePasswordClient : IDisposable
     {
+        private static readonly HttpClient SharedHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
         private readonly HttpClient _httpClient;
+        private readonly bool _disposeHttpClient;
 
-        public OnePasswordClient(string baseUrl, string apiKey)
+        public OnePasswordClient(string baseUrl, string apiKey) : this(baseUrl, apiKey, SharedHttpClient, false)
+        {
+        }
+
+        public OnePasswordClient(string baseUrl, string apiKey, HttpClient httpClient, bool disposeHttpClient)
         {
             if (string.IsNullOrEmpty(baseUrl))
             {
@@ -18,11 +24,9 @@ namespace OnePassword.Connect.Client
                 throw new ArgumentNullException(nameof(apiKey));
             }
 
-            _httpClient = new HttpClient()
-            {
-                BaseAddress = new Uri(baseUrl)
-            };
-
+            _httpClient = httpClient;
+            _disposeHttpClient = disposeHttpClient;
+            _httpClient.BaseAddress = new Uri(baseUrl);
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
 
@@ -56,6 +60,14 @@ namespace OnePassword.Connect.Client
 
             string json = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<OnePasswordItem>(json);
+        }
+
+        public void Dispose()
+        {
+            if (_disposeHttpClient)
+            {
+                _httpClient?.Dispose();
+            }
         }
     }
 }

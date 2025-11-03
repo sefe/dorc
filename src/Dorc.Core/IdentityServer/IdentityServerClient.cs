@@ -5,24 +5,34 @@ using System.Text.Json.Serialization;
 
 namespace Dorc.Core.IdentityServer
 {
-    public class IdentityServerClient
+    public class IdentityServerClient : IDisposable
     {
+        private static readonly HttpClient SharedHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+        
         private readonly HttpClient _httpClient;
+        private readonly bool _disposeHttpClient;
         private readonly string _authority;
         private readonly string _clientId;
         private readonly string _clientSecret;
         private readonly ILog _log;
         private string? _accessToken;
         private DateTime _tokenExpiration = DateTime.MinValue;
+        private bool _disposed;
 
         public IdentityServerClient(string authority, string clientId, string clientSecret, ILog log)
+            : this(authority, clientId, clientSecret, log, SharedHttpClient, false)
+        {
+        }
+
+        public IdentityServerClient(string authority, string clientId, string clientSecret, ILog log, HttpClient httpClient, bool disposeHttpClient)
         {
             _authority = authority.TrimEnd('/');
             _clientId = clientId;
             _clientSecret = clientSecret;
             _log = log;
+            _httpClient = httpClient;
+            _disposeHttpClient = disposeHttpClient;
 
-            _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
@@ -102,6 +112,18 @@ namespace Dorc.Core.IdentityServer
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadFromJsonAsync<ClientInfo>();
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                if (_disposeHttpClient)
+                {
+                    _httpClient?.Dispose();
+                }
+                _disposed = true;
+            }
         }
 
         private class TokenResponse

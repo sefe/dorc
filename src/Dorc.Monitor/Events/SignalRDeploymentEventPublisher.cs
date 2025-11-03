@@ -11,6 +11,8 @@ namespace Dorc.Monitor.Events
 {
     public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IAsyncDisposable
     {
+        private static readonly HttpClient SharedHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+        
         private readonly string? _hubUrl;
         private readonly ILog _logger;
         private readonly DorcApiTokenProvider _tokenProvider;
@@ -25,7 +27,7 @@ namespace Dorc.Monitor.Events
             _hubUrl = configuration.DisableSignalR ? null : new Uri(baseUri, "hubs/deployments").ToString();
             _logger = logger;
 
-            _tokenProvider = new DorcApiTokenProvider(OAuthClientConfiguration.FromMonitorConfiguration(configuration));
+            _tokenProvider = new DorcApiTokenProvider(OAuthClientConfiguration.FromMonitorConfiguration(configuration), SharedHttpClient);
         }
 
         public Task PublishNewRequestAsync(DeploymentRequestEventData eventData) =>

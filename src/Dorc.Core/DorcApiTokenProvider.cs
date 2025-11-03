@@ -10,6 +10,7 @@ namespace Dorc.Core
         private readonly IOAuthClientConfiguration _config;
         private readonly HttpClient _http;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+        private readonly bool _disposeHttpClient;
 
         private Uri? _authority;
         private string? _accessToken;
@@ -19,6 +20,14 @@ namespace Dorc.Core
         {
             _config = config;
             _http = new HttpClient();
+            _disposeHttpClient = true;
+        }
+
+        public DorcApiTokenProvider(IOAuthClientConfiguration config, HttpClient httpClient)
+        {
+            _config = config;
+            _http = httpClient;
+            _disposeHttpClient = false;
         }
 
         public async Task<string> GetTokenAsync()
@@ -124,7 +133,10 @@ namespace Dorc.Core
         public async ValueTask DisposeAsync()
         {
             _lock.Dispose();
-            _http.Dispose();
+            if (_disposeHttpClient)
+            {
+                _http.Dispose();
+            }
             await Task.CompletedTask;
         }
 
