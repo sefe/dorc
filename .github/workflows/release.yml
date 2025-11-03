@@ -69,7 +69,14 @@ jobs:
       working-directory: src/dorc-web
       run: npm run build
       
-    - name: Run TypeScript tests
+    - name: Run TypeScript unit tests
+      working-directory: src/dorc-web
+      run: |
+        echo "Running TypeScript unit tests..."
+        npm run test:unit
+      continue-on-error: true
+      
+    - name: Run TypeScript type checking
       working-directory: src/dorc-web
       run: |
         echo "Running TypeScript type checking..."
@@ -80,6 +87,8 @@ jobs:
       if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
       working-directory: src/dorc-web
       run: |
+        echo "Running TypeScript unit tests (strict)..."
+        npm run test:unit
         echo "Running TypeScript type checking (strict)..."
         npm run type-checking
       

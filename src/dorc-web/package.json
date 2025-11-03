@@ -18,7 +18,10 @@
     "dev": "vite",
     "preview": "vite preview",
     "start": "npm run serve",
-    "test": "k6 run k6-tests/load-test-many-users.js && k6 run k6-tests/monitor-request-page-test.js",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:k6": "k6 run k6-tests/load-test-many-users.js && k6 run k6-tests/monitor-request-page-test.js",
     "test:load": "k6 run k6-tests/load-test-many-users.js",
     "test:browser": "k6 run k6-tests/monitor-request-page-test.js",
     "type-checking": "tsc --noEmit && npm run lit:type-checking",
@@ -70,16 +73,19 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
+    "@open-wc/testing-helpers": "^3.0.1",
     "@openapitools/openapi-generator-cli": "^2.20.2",
     "@types/node": "^22.15.21",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
     "@typescript-eslint/parser": "^8.32.1",
+    "@vitest/ui": "^2.1.8",
     "eslint": "^9.27.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-lit": "^2.1.1",
     "eslint-plugin-lit-a11y": "^4.1.4",
     "eslint-plugin-wc": "^3.0.1",
     "globals": "^16.1.0",
+    "happy-dom": "^15.11.7",
     "husky": "^9.1.7",
     "lint-staged": "^16.0.0",
     "lit-analyzer": "^2.0.3",
@@ -91,7 +97,8 @@
     "stylelint": "^16.19.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^2.1.8"
   },
   "husky": {
     "hooks": {
