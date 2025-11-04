@@ -23,14 +23,14 @@ namespace Dorc.OpenSearchData.Sources
             _deploymentResultIndex = deploymentResultIndex;
         }
 
-        public void EnrichDeploymentResultsWithLogs(IEnumerable<DeploymentResultApiModel> deploymentResults)
+        public void EnrichDeploymentResultsWithLogs(IEnumerable<DeploymentResultApiModel> deploymentResults, int? maxLogsPerResult = null)
         {
             try
             {
                 var requestIds = deploymentResults.Select(deploymentResult => deploymentResult.RequestId).Distinct().ToList();
                 var deploymentResultIds = deploymentResults.Select(deploymentResult => deploymentResult.Id).Distinct().ToList();
 
-                var logs = GetLogsFromOpenSearch(requestIds, deploymentResultIds);
+                var logs = GetLogsFromOpenSearch(requestIds, deploymentResultIds, maxLogsPerResult);
 
                 MapLogsToDeploymentResults(deploymentResults, logs);
             }
@@ -42,7 +42,10 @@ namespace Dorc.OpenSearchData.Sources
             }
         }
 
-        private IEnumerable<DeployOpenSearchLogModel> GetLogsFromOpenSearch(List<int> requestIds, List<int> deploymentResultIds)
+        private IEnumerable<DeployOpenSearchLogModel> GetLogsFromOpenSearch(
+            List<int> requestIds, 
+            List<int> deploymentResultIds,
+            int? maxLogsPerResult = null)
         {
             var logs = new ConcurrentBag<DeployOpenSearchLogModel>();
 
@@ -60,7 +63,8 @@ namespace Dorc.OpenSearchData.Sources
                                                 .Terms(t => t
                                                     .Field(field => field.request_id)
                                                     .Terms(requestIds)))))
-                                    .Size(_pageSize));
+                                    .Sort(sort => sort.Ascending(d => d.timestamp))
+                                    .Size(maxLogsPerResult ?? _pageSize));
 
                 if (!searchResult.IsValid)
                 {
@@ -97,6 +101,33 @@ namespace Dorc.OpenSearchData.Sources
             return (logModel.level == LogLevel.Error || logModel.level == LogLevel.Warn)
                 ? "[" + logModel.level.ToString().ToUpper() + "]"
                 : string.Empty;
+        }
+
+        public string GetLogsForSingleResult(int requestId, int deploymentResultId)
+        {
+            try
+            {
+                var logs = GetLogsFromOpenSearch(new List<int> { requestId }, new List<int> { deploymentResultId });
+
+                var orderedLogs = logs
+                    .Where(d => d.deployment_result_id == deploymentResultId && d.request_id == requestId)
+                    .OrderBy(d => d.timestamp)
+                    .ToList();
+
+                if (!orderedLogs.Any())
+                {
+                    return string.Empty;
+                }
+
+                return string.Join(Environment.NewLine,
+                    orderedLogs.Select(d =>
+                        $"[{d.timestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss.ffffff}] {GetLogLevelString(d)}   {d.message}"));
+            }
+            catch (Exception e)
+            {
+                _logger.Error($"Request for the deployment result log (RequestId: {requestId}, ResultId: {deploymentResultId}) to the OpenSearch failed.", e);
+                return "No logs in the OpenSearch or it is unavailable.";
+            }
         }
     }
 }
