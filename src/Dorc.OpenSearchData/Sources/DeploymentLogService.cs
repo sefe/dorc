@@ -13,7 +13,7 @@ namespace Dorc.OpenSearchData.Sources
 
         private readonly string _deploymentResultIndex;
 
-        private const int _pageSize = 5000;
+        private const int _pageSize = 10000;
 
         public DeploymentLogService(IOpenSearchClient openSearchClient, ILog logger, string deploymentResultIndex)
         {
@@ -45,35 +45,28 @@ namespace Dorc.OpenSearchData.Sources
         {
             var logs = new List<DeployOpenSearchLogModel>();
 
-            for (int pageNumber = 1; ; pageNumber++)
+            var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
+                                .Index(_deploymentResultIndex)
+                                .Query(q => q
+                                    .Bool(b => b
+                                        .Must(must => must
+                                            .Terms(t => t
+                                                .Field(field => field.deployment_result_id)
+                                                .Terms(deploymentResultIds)),
+                                            must => must
+                                            .Terms(t => t
+                                                .Field(field => field.request_id)
+                                                .Terms(requestIds)))))
+                                .Size(_pageSize));
+
+            if (!searchResult.IsValid)
             {
-
-                var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
-                                    .Index(_deploymentResultIndex)
-                                    .Query(q => q
-                                        .Bool(b => b
-                                            .Must(must => must
-                                                .Terms(t => t
-                                                    .Field(field => field.deployment_result_id)
-                                                    .Terms(deploymentResultIds)),
-                                                must => must
-                                                .Terms(t => t
-                                                    .Field(field => field.request_id)
-                                                    .Terms(requestIds)))))
-                                    .From((pageNumber - 1) * _pageSize)
-                                    .Size(_pageSize));
-
-                if (!searchResult.IsValid)
-                {
-                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
-                    return logs;
-                }
-
-                if (searchResult.Documents != null && searchResult.Documents.Any())
-                    logs.AddRange(searchResult.Documents);
-                else
-                    break;
+                _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                return logs;
             }
+
+            if (searchResult.Documents != null && searchResult.Documents.Any())
+                logs.AddRange(searchResult.Documents);
 
             return logs;
         }
