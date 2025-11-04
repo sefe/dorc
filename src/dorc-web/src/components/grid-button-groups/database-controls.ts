@@ -40,7 +40,7 @@ function extractProblemDetails(err: unknown): ProblemDetails {
 }
 
 function getExtensions(pd: ProblemDetails): Record<string, unknown> | undefined {
-  return (pd.extensions as any) || (pd.Extensions as any);
+  return (pd.Extensions as any) || (pd.Extensions as any);
 }
 
 function blockersToLines(ext?: Record<string, unknown>): string[] {
