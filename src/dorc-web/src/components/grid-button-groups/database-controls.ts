@@ -9,7 +9,6 @@ import '../../icons/iron-icons.js';
 import {ApiBoolResult, DatabaseApiModel,RefDataDatabasesApi } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
-import type { AjaxError } from 'rxjs/ajax';
 
 type ProblemDetails = {
   title?: string;
@@ -25,67 +24,49 @@ function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null;
 }
 
-function isAjaxError(x: unknown): x is AjaxError {
-  if (!isRecord(x)) return false;
-  const anyX = x as any;
-  const hasStatus = typeof anyX.status === 'number';
-  const hasResponse = 'response' in anyX;
-  const hasTransport = 'xhr' in anyX || 'request' in anyX;
-  const isNamedAjaxError = anyX.name === 'AjaxError';
-  return (hasStatus && hasResponse && hasTransport) || isNamedAjaxError;
-}
-
 function extractProblemDetails(err: unknown): ProblemDetails {
   if (isRecord(err)) {
-    const detail = err['detail'];
-    if (isRecord(detail)) {
-      const response = detail['response'];
-      if (isRecord(response)) return response as ProblemDetails;
-    }
-    const response = err['response'];
-    if (isRecord(response)) return response as ProblemDetails;
-    if (
-      typeof err['title'] === 'string' ||
-      typeof err['detail'] === 'string' ||
-      typeof err['status'] === 'number'
-    ) {
-      return err as ProblemDetails;
-    }
-    return {};
+    const anyErr = err as any;
+    const resp = anyErr.response ?? anyErr?.detail?.response;
+    if (isRecord(resp)) return resp as ProblemDetails;
+
+    const looksLikePd =
+      typeof anyErr.title === 'string' ||
+      typeof anyErr.detail === 'string' ||
+      typeof anyErr.status === 'number';
+    if (looksLikePd) return anyErr as ProblemDetails;
   }
   return {};
 }
 
-function buildUserMessageFromError(err: unknown): string {
+function getExtensions(pd: ProblemDetails): Record<string, unknown> | undefined {
+  return (pd.extensions as any) || (pd.Extensions as any);
+}
+
+function blockersToLines(ext?: Record<string, unknown>): string[] {
+  if (!ext || typeof ext !== 'object') return [];
+  const blockers = (ext as any).blockers as Array<{ type: string; items: string[] }> | undefined;
+  if (!Array.isArray(blockers)) return [];
+  return blockers.flatMap(b => (b?.items ?? []).map(it => `• ${b.type}: ${it}`));
+}
+
+function buildUserMessageFromError(err: unknown, action: string): string {
   const pd = extractProblemDetails(err);
-  const title = typeof pd?.title === 'string' ? pd.title : undefined;
-  const detail = typeof pd?.detail === 'string' ? pd.detail : undefined;
-  const msg = typeof pd?.Message === 'string' ? pd.Message : undefined;
-  const exMsg =
-    typeof pd?.ExceptionMessage === 'string' ? pd.ExceptionMessage : undefined;
+
+  const message =
+    (pd.detail && String(pd.detail)) ||
+    (pd.title && String(pd.title)) ||
+    retrieveErrorMessage(err as any, `Failed to ${action}`);
+
+  const ext = getExtensions(pd);
+  const lines = blockersToLines(ext);
+  const suffix = lines.length ? `\n\nBlocked by:\n${lines.join('\n')}` : '';
 
   const correlationId =
-    pd?.correlationId ??
-    (isRecord(pd?.Extensions)
-      ? (pd!.Extensions as Record<string, unknown>)['correlationId'] as string | undefined
-      : undefined);
-  if (correlationId) {
-    console.warn(`CorrelationId for last error: ${correlationId}`);
-  }
+    pd.correlationId ?? (ext && typeof ext === 'object' ? (ext as any)['correlationId'] : undefined);
+  if (correlationId) console.warn(`CorrelationId for last error: ${String(correlationId)}`);
 
-  let message: string | undefined = detail ?? title ?? msg ?? exMsg;
-  if (!message) {
-    let fallback: string | undefined;
-    if (typeof err === 'string') {
-      fallback = retrieveErrorMessage(err, '');
-    } else if (isAjaxError(err)) {
-      fallback = retrieveErrorMessage(err, '');
-    } else {
-      fallback = undefined;
-    }
-    message = fallback ?? 'Failed to delete database';
-  }
-  return message;
+  return message + suffix;
 }
 
 @customElement('database-controls')
@@ -178,7 +159,7 @@ export class DatabaseControls extends LitElement {
         }
       },
       error: (err: unknown) => {
-        const message = buildUserMessageFromError(err);
+        const message = buildUserMessageFromError(err, 'delete database');
         this.showError(message);
       },
       complete: () => console.log(`Deleted database ${name}`)

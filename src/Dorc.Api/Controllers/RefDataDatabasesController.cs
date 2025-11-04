@@ -51,12 +51,53 @@ namespace Dorc.Api.Controllers
                     pd.Extensions[kvp.Key] = kvp.Value;
                 }
             }
-
             return StatusCode(statusCode, pd);
         }
 
+
+        // 1) Body present?
+        private IActionResult? ValidateBody(DatabaseApiModel? model)
+        {
+            if (model == null)
+                return ProblemResult(StatusCodes.Status400BadRequest, "Invalid request", "Body is required.");
+            return null;
+        }
+
+        // 2) Names present?
+        private IActionResult? ValidateNames(DatabaseApiModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.ServerName))
+                return ProblemResult(StatusCodes.Status400BadRequest, "Invalid request", "'Name' and 'ServerName' are required.");
+            return null;
+        }
+
+        // 3) ID > 0 (param/route/query id). Param name gives better error text reuse.
+        private IActionResult? ValidateIdPositive(int id, string paramName = "id")
+        {
+            if (id <= 0)
+                return ProblemResult(StatusCodes.Status400BadRequest, "Invalid request", $"'{paramName}' must be greater than zero.");
+            return null;
+        }
+
+        // 4) PUT-specific: route/query id must match body.Id
+        private IActionResult? ValidateIdMatches(int id, DatabaseApiModel model)
+        {
+            if (id != model.Id)
+                return ProblemResult(StatusCodes.Status400BadRequest, "Invalid request", "'id' must be the same as database.Id.");
+            return null;
+        }
+
+        // 5) Existence check (404 if not found)
+        private IActionResult? EnsureExists(int id)
+        {
+            var found = _databasesPersistentSource.GetDatabase(id);
+            if (found == null)
+                return ProblemResult(StatusCodes.Status404NotFound, "Not found", "The database could not be found.");
+            return null;
+        }
+
         /// <summary>
-        ///     Return database details by database ID
+        ///  Return database details by database ID
         /// </summary>
         /// <param name="id">Database ID</param>
         /// <returns></returns>
@@ -65,21 +106,10 @@ namespace Dorc.Api.Controllers
         [Route("{id}")]
         public IActionResult Get(int id)
         {
-            if (id <= 0)
-            {
-                return ProblemResult(StatusCodes.Status400BadRequest,
-                    "Invalid request",
-                    "'id' must be greater than zero.");
-            }
+            if (ValidateIdPositive(id) is IActionResult bad) return bad;
+            if (EnsureExists(id) is IActionResult nf) return nf;
 
             var model = _databasesPersistentSource.GetDatabase(id);
-            if (model == null)
-            {
-                return ProblemResult(StatusCodes.Status404NotFound,
-                    "Not found",
-                    "The database could not be found.");
-            }
-
             return Ok(model);
         }
 
@@ -93,39 +123,28 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public List<DatabaseApiModel> Get(string name = "", string server = "")
         {
-            // When neither filter is provided, return all
             if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(server))
             {
                 return _databasesPersistentSource.GetDatabases().ToList();
             }
-            // When either (or both) filter(s) is provided, return filtered
             return _databasesPersistentSource.GetDatabases(name, server).ToList();
         }
 
         /// <summary>
-        ///     Create Database entry
+        /// Create Database entry
         /// </summary>
         /// <param name="newDatabaseApiModel">Json string in request body</param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(ProblemDetails))]
         [HttpPost]
         public IActionResult Post([FromBody] DatabaseApiModel newDatabaseApiModel)
         {
             // 0) basic validation
-            if (newDatabaseApiModel == null)
-            {
-                return ProblemResult(StatusCodes.Status400BadRequest,
-                    "Invalid request",
-                    "Body is required.");
-            }
+            if (ValidateBody(newDatabaseApiModel) is IActionResult bad) return bad;
+            if (ValidateNames(newDatabaseApiModel) is IActionResult nameBad) return nameBad;
 
-            if (string.IsNullOrWhiteSpace(newDatabaseApiModel.Name) ||
-                string.IsNullOrWhiteSpace(newDatabaseApiModel.ServerName))
-            {
-                return ProblemResult(StatusCodes.Status400BadRequest,
-                    "Invalid request",
-                    "'Name' and 'ServerName' are required.");
-            }
 
             // 1) duplicate check BEFORE hitting storage
             var existing = _databasesPersistentSource
@@ -134,7 +153,6 @@ namespace Dorc.Api.Controllers
 
             if (existing != null)
             {
-                // Keep legacy detail to satisfy existing tests/assertions
                 return ProblemResult(StatusCodes.Status400BadRequest,
                     "Duplicate database",
                     $"Database already exists {newDatabaseApiModel.ServerName}:{newDatabaseApiModel.Name}");
@@ -148,7 +166,7 @@ namespace Dorc.Api.Controllers
             }
             catch (DbUpdateException)
             {
-                // true storage-level conflict
+                // true storage-level constraint collision
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Create blocked by constraints",
                     "The database could not be created due to constraint violations (e.g., unique keys or references).");
@@ -165,32 +183,24 @@ namespace Dorc.Api.Controllers
         /// Delete Database entry
         /// </summary>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(ProblemDetails))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(ProblemDetails))]
         [HttpDelete]
         public IActionResult Delete([FromQuery] int databaseId)
         {
             // 0) validate input
-            if (databaseId <= 0)
-            {
-                return ProblemResult(StatusCodes.Status400BadRequest,
-                    "Invalid request",
-                    "'databaseId' must be greater than zero.");
-            }
 
-            // 1) existence check
-            var dbModel = _databasesPersistentSource.GetDatabase(databaseId);
-            if (dbModel == null)
-            {
-                return ProblemResult(StatusCodes.Status404NotFound,
-                    "Not found",
-                    "The database could not be found.");
-            }
+            if (ValidateIdPositive(databaseId, nameof(databaseId)) is IActionResult bad) return bad;
+            if (EnsureExists(databaseId) is IActionResult nf) return nf;
 
             // 2) gather environment attachments once
             var envNamesAttachedToDatabase = (_databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId)
-                ?? Enumerable.Empty<string>())
-                .Distinct()
-                .OrderBy(x => x)
-                .ToList();
+                                               ?? Enumerable.Empty<string>())
+                                              .Distinct()
+                                              .OrderBy(x => x)
+                                              .ToList();
 
             // 3) authorization: user must have write on every attached environment
             var lackingWrite = new List<string>();
@@ -203,14 +213,16 @@ namespace Dorc.Api.Controllers
                         "Permissions check failed",
                         "Error while checking permissions; Environment missing in Deployment database.");
                 }
+
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environmentApiModel.EnvironmentName))
                 {
                     lackingWrite.Add(environmentApiModel.EnvironmentName);
                 }
             }
+
             if (lackingWrite.Count > 0)
             {
-                var ext = new Dictionary<string, object>
+                var ext403 = new Dictionary<string, object>
                 {
                     ["blockers"] = new object[]
                     {
@@ -220,13 +232,13 @@ namespace Dorc.Api.Controllers
                 return ProblemResult(StatusCodes.Status403Forbidden,
                     "Forbidden",
                     "You must have write permission on all environments attached to this database.",
-                    ext);
+                    ext403);
             }
 
             // 4) if assigned to environments, return 409 with blockers list
             if (envNamesAttachedToDatabase.Any())
             {
-                var ext = new Dictionary<string, object>
+                var ext409 = new Dictionary<string, object>
                 {
                     ["blockers"] = new object[]
                     {
@@ -236,10 +248,10 @@ namespace Dorc.Api.Controllers
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Delete blocked by references",
                     "Database is assigned to one or more environments. Unassign it before deleting.",
-                    ext);
+                    ext409);
             }
 
-            // 5) perform the delete; convert low-level issues into user-friendly conflicts
+            // 5) perform the delete
             try
             {
                 var deleted = _databasesPersistentSource.DeleteDatabase(databaseId);
@@ -253,13 +265,13 @@ namespace Dorc.Api.Controllers
                     "Delete failed",
                     "Deletion did not complete. The database may still be referenced by other entities.");
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException)
             {
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Delete blocked by references",
                     "The database is referenced by other entities (e.g., environments, pipelines, jobs, or history). Remove those references and try again.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ProblemResult(StatusCodes.Status500InternalServerError,
                     "Unexpected error",
@@ -281,7 +293,6 @@ namespace Dorc.Api.Controllers
         {
             var requestStatusesListResponseDto = _databasesPersistentSource.GetDatabaseApiModelByPage(limit,
                 page, operators, User);
-
             return Ok(requestStatusesListResponseDto);
         }
 
@@ -289,7 +300,7 @@ namespace Dorc.Api.Controllers
         /// Get Databas ServerNames list
         /// </summary>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<String?>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<string?>))]
         [HttpGet]
         [Route("GetDatabasServerNameslist")]
         public IActionResult GetDatabasServerNameslist()
@@ -315,42 +326,17 @@ namespace Dorc.Api.Controllers
             try
             {
                 // 0) basic validation
-                if (database == null)
-                {
-                    return ProblemResult(StatusCodes.Status400BadRequest,
-                        "Invalid request",
-                        "Body is required.");
-                }
+                if (ValidateBody(database) is IActionResult bad) return bad;
+                if (ValidateIdMatches(id, database) is IActionResult idMismatch) return idMismatch;
+                if (ValidateIdPositive(id) is IActionResult badId) return badId;
+                if (ValidateNames(database) is IActionResult nameBad) return nameBad;
 
-                if (id != database.Id)
-                {
-                    return ProblemResult(StatusCodes.Status400BadRequest,
-                        "Invalid request",
-                        "'id' must be the same as database.Id.");
-                }
-
-                if (id <= 0)
-                {
-                    return ProblemResult(StatusCodes.Status400BadRequest,
-                        "Invalid request",
-                        "'id' cannot be 0.");
-                }
-
-                if (string.IsNullOrWhiteSpace(database.Name) ||
-                    string.IsNullOrWhiteSpace(database.ServerName))
-                {
-                    return ProblemResult(StatusCodes.Status400BadRequest,
-                        "Invalid request",
-                        "'Name' and 'ServerName' are required.");
-                }
 
                 // 1) permissions on environments that reference this DB
-                var environmentNames = _databasesPersistentSource
-                    .GetEnvironmentNamesForDatabaseId(database.Id);
-
-                foreach (var envName in environmentNames)
+                var environmentNamesForDb = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
+                foreach (var envName in environmentNamesForDb)
                 {
-                    // NOTE: ensure this overload takes a *name*; adjust if your source expects an ID
+                    // Ensure this overload expects a *name*; if it expects an ID, switch accordingly.
                     var env = _environmentsPersistentSource.GetEnvironment(envName, User);
                     if (env == null)
                     {
@@ -374,7 +360,6 @@ namespace Dorc.Api.Controllers
 
                 if (dup != null && dup.Id != id)
                 {
-                    // Keep legacy message for existing tests
                     return ProblemResult(StatusCodes.Status400BadRequest,
                         "Duplicate database",
                         $"Database already exists {database.ServerName}:{database.Name}");
