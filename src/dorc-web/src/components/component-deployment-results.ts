@@ -27,6 +27,9 @@ export class ComponentDeploymentResults extends LitElement {
   @state()
   selectedLog: string | undefined;
 
+  @state()
+  isLoadingLog = false;
+
   constructor() {
     super();
 
@@ -64,6 +67,7 @@ export class ComponentDeploymentResults extends LitElement {
       <log-dialog
         .isOpened="${this.dialogOpened}"
         .selectedLog="${this.selectedLog}"
+        .isLoading="${this.isLoadingLog}"
       >
       </log-dialog>
 
@@ -167,6 +171,11 @@ export class ComponentDeploymentResults extends LitElement {
     const customEvent = e as CustomEvent;
     const result = customEvent.detail.result as DeploymentResultApiModel;
     
+    // Show dialog immediately with loading state
+    this.isLoadingLog = true;
+    this.selectedLog = '';
+    this.dialogOpened = true;
+    
     if (result.RequestId) {
       try {
         const api = new ResultStatusesApi();
@@ -175,30 +184,31 @@ export class ComponentDeploymentResults extends LitElement {
         logObservable.subscribe({
           next: (fullLog: string) => {
             this.selectedLog = fullLog;
-            this.dialogOpened = true;
+            this.isLoadingLog = false;
           },
           error: (error) => {
             console.error('Failed to fetch log:', error);
             // Fallback to the existing log if API call fails
             this.selectedLog = result.Log ?? 'Failed to load full log';
-            this.dialogOpened = true;
+            this.isLoadingLog = false;
           }
         });
       } catch (error) {
         console.error('Failed to create API instance:', error);
         // Fallback to the existing log if API creation fails
         this.selectedLog = result.Log ?? 'Failed to load full log';
-        this.dialogOpened = true;
+        this.isLoadingLog = false;
       }
     } else {
       // Fallback to the existing log if no RequestId
       this.selectedLog = result.Log ?? 'No log available';
-      this.dialogOpened = true;
+      this.isLoadingLog = false;
     }
   }
 
   private logDialogClosed() {
     this.dialogOpened = false;
+    this.isLoadingLog = false;
   }
 
   private timingsRenderer = (
