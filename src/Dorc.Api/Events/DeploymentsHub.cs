@@ -112,7 +112,7 @@ namespace Dorc.Api.Events
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error broadcasting request status change to group {GroupName}, excluding connection", groupName);
+                _logger.LogError(ex, $"Error broadcasting request status change to group {groupName} from connection {callerId}");
                 _tracker.LeaveGroup(Context.ConnectionId, eventData.RequestId);
                 throw;
             }
@@ -132,7 +132,7 @@ namespace Dorc.Api.Events
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error broadcasting request status change to group {GroupName}, excluding connection", groupName);
+                _logger.LogError(ex, $"Error broadcasting result status change to group {groupName}");
                 _tracker.LeaveGroup(Context.ConnectionId, eventData.RequestId);
                 throw;
             }
