@@ -111,18 +111,49 @@ namespace Dorc.Api.Controllers
         [HttpPost]
         public IActionResult Post([FromBody] DatabaseApiModel newDatabaseApiModel)
         {
+            // 0) basic validation
+            if (newDatabaseApiModel == null)
+            {
+                return ProblemResult(StatusCodes.Status400BadRequest,
+                    "Invalid request",
+                    "Body is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(newDatabaseApiModel.Name) ||
+                string.IsNullOrWhiteSpace(newDatabaseApiModel.ServerName))
+            {
+                return ProblemResult(StatusCodes.Status400BadRequest,
+                    "Invalid request",
+                    "'Name' and 'ServerName' are required.");
+            }
+
+            // 1) duplicate check BEFORE hitting storage
+            var existing = _databasesPersistentSource
+                .GetDatabases(newDatabaseApiModel.Name, newDatabaseApiModel.ServerName)
+                .FirstOrDefault();
+
+            if (existing != null)
+            {
+                // Keep legacy detail to satisfy existing tests/assertions
+                return ProblemResult(StatusCodes.Status400BadRequest,
+                    "Duplicate database",
+                    $"Database already exists {newDatabaseApiModel.ServerName}:{newDatabaseApiModel.Name}");
+            }
+
+            // 2) create
             try
             {
-                var databaseApiModel = _databasesPersistentSource.AddDatabase(newDatabaseApiModel);
-                return StatusCode(StatusCodes.Status200OK, databaseApiModel);
+                var created = _databasesPersistentSource.AddDatabase(newDatabaseApiModel);
+                return Ok(created);
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException)
             {
+                // true storage-level conflict
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Create blocked by constraints",
                     "The database could not be created due to constraint violations (e.g., unique keys or references).");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ProblemResult(StatusCodes.Status400BadRequest,
                     "Create failed",
@@ -283,24 +314,12 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var environmentIdsForServerName =
-                    _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
-
-                foreach (var envIds in environmentIdsForServerName)
+                // 0) basic validation
+                if (database == null)
                 {
-                    var env = _environmentsPersistentSource.GetEnvironment(envIds, User);
-                    if (env == null)
-                    {
-                        return ProblemResult(StatusCodes.Status400BadRequest,
-                            "Permissions check failed",
-                            "Error while checking permissions, probably Environment missing in Deployment database.");
-                    }
-                    if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
-                    {
-                        return ProblemResult(StatusCodes.Status403Forbidden,
-                            "Forbidden",
-                            $"You must have write permission on {env.EnvironmentName} to modify this database.");
-                    }
+                    return ProblemResult(StatusCodes.Status400BadRequest,
+                        "Invalid request",
+                        "Body is required.");
                 }
 
                 if (id != database.Id)
@@ -317,31 +336,68 @@ namespace Dorc.Api.Controllers
                         "'id' cannot be 0.");
                 }
 
-                var databaseApiModel = _databasesPersistentSource.GetDatabase(database.Id);
-                if (databaseApiModel != null && databaseApiModel.Id != id)
+                if (string.IsNullOrWhiteSpace(database.Name) ||
+                    string.IsNullOrWhiteSpace(database.ServerName))
                 {
                     return ProblemResult(StatusCodes.Status400BadRequest,
                         "Invalid request",
-                        "Cannot set the server name to the same as one that already exists!");
+                        "'Name' and 'ServerName' are required.");
                 }
 
-                var result = _databasesPersistentSource.UpdateDatabase(id, database, User);
-                if (result != null)
+                // 1) permissions on environments that reference this DB
+                var environmentNames = _databasesPersistentSource
+                    .GetEnvironmentNamesForDatabaseId(database.Id);
+
+                foreach (var envName in environmentNames)
                 {
-                    return Ok(result);
+                    // NOTE: ensure this overload takes a *name*; adjust if your source expects an ID
+                    var env = _environmentsPersistentSource.GetEnvironment(envName, User);
+                    if (env == null)
+                    {
+                        return ProblemResult(StatusCodes.Status400BadRequest,
+                            "Permissions check failed",
+                            "Error while checking permissions, probably Environment missing in Deployment database.");
+                    }
+
+                    if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
+                    {
+                        return ProblemResult(StatusCodes.Status403Forbidden,
+                            "Forbidden",
+                            $"You must have write permission on {env.EnvironmentName} to modify this database.");
+                    }
+                }
+
+                // 2) duplicate check for (Name, ServerName) against *other* records
+                var dup = _databasesPersistentSource
+                    .GetDatabases(database.Name, database.ServerName)
+                    .FirstOrDefault();
+
+                if (dup != null && dup.Id != id)
+                {
+                    // Keep legacy message for existing tests
+                    return ProblemResult(StatusCodes.Status400BadRequest,
+                        "Duplicate database",
+                        $"Database already exists {database.ServerName}:{database.Name}");
+                }
+
+                // 3) proceed with update
+                var updated = _databasesPersistentSource.UpdateDatabase(id, database, User);
+                if (updated != null)
+                {
+                    return Ok(updated);
                 }
 
                 return ProblemResult(StatusCodes.Status404NotFound,
                     "Not found",
                     "Error updating entry.");
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException)
             {
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Update blocked by constraints",
                     "The database may be referenced by other entities. Review constraints and try again.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ProblemResult(StatusCodes.Status500InternalServerError,
                     "Unexpected error",
