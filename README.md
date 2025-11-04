@@ -1,4 +1,4 @@
-# DOrc (DevOps Deployment Orchestrator)
+# DOrc (DevOps Orchestrator)
 
 ## Description
 

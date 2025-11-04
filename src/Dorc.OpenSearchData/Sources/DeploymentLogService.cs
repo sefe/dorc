@@ -3,6 +3,7 @@ using Dorc.OpenSearchData.Model;
 using Dorc.OpenSearchData.Sources.Interfaces;
 using log4net;
 using OpenSearch.Client;
+using System.Collections.Concurrent;
 
 namespace Dorc.OpenSearchData.Sources
 {
@@ -13,7 +14,7 @@ namespace Dorc.OpenSearchData.Sources
 
         private readonly string _deploymentResultIndex;
 
-        private const int _pageSize = 5000;
+        private const int _pageSize = 10000;
 
         public DeploymentLogService(IOpenSearchClient openSearchClient, ILog logger, string deploymentResultIndex)
         {
@@ -43,67 +44,38 @@ namespace Dorc.OpenSearchData.Sources
 
         private IEnumerable<DeployOpenSearchLogModel> GetLogsFromOpenSearch(List<int> requestIds, List<int> deploymentResultIds)
         {
-            var logs = new List<DeployOpenSearchLogModel>();
-            const string scrollTimeout = "1m";
+            var logs = new ConcurrentBag<DeployOpenSearchLogModel>();
 
-            var searchResponse = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
-                .Index(_deploymentResultIndex)
-                .Query(q => q
-                    .Bool(b => b
-                        .Must(must => must
-                            .Terms(t => t
-                                .Field(field => field.deployment_result_id)
-                                .Terms(deploymentResultIds)),
-                            must => must
-                            .Terms(t => t
-                                .Field(field => field.request_id)
-                                .Terms(requestIds)))))
-                .Size(_pageSize)
-                .Scroll(scrollTimeout)
-            );
-
-            if (!searchResponse.IsValid)
+            Parallel.ForEach(deploymentResultIds, deploymentResultId =>
             {
-                _logger.Error($"OpenSearch query exception: {searchResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResponse.DebugInformation}");
-                return logs;
-            }
+                var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
+                                    .Index(_deploymentResultIndex)
+                                    .Query(q => q
+                                        .Bool(b => b
+                                            .Must(must => must
+                                                .Term(t => t
+                                                    .Field(field => field.deployment_result_id)
+                                                    .Value(deploymentResultId)),
+                                                must => must
+                                                .Terms(t => t
+                                                    .Field(field => field.request_id)
+                                                    .Terms(requestIds)))))
+                                    .Size(_pageSize));
 
-            if (searchResponse.Documents != null && searchResponse.Documents.Any())
-            {
-                logs.AddRange(searchResponse.Documents);
-            }
-
-            var scrollId = searchResponse.ScrollId;
-            try
-            {
-                while (!string.IsNullOrEmpty(scrollId))
+                if (!searchResult.IsValid)
                 {
-                    var scrollResponse = _openSearchClient.Scroll<DeployOpenSearchLogModel>(scrollTimeout, scrollId);
+                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                    return;
+                }
 
-                    if (!scrollResponse.IsValid)
+                if (searchResult.Documents != null && searchResult.Documents.Any())
+                {
+                    foreach (var doc in searchResult.Documents)
                     {
-                        _logger.Error($"OpenSearch scroll query exception: {scrollResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {scrollResponse.DebugInformation}");
-                        break;
-                    }
-
-                    if (scrollResponse.Documents != null && scrollResponse.Documents.Any())
-                    {
-                        logs.AddRange(scrollResponse.Documents);
-                        scrollId = scrollResponse.ScrollId;
-                    }
-                    else
-                    {
-                        break;
+                        logs.Add(doc);
                     }
                 }
-            }
-            finally
-            {
-                if (!string.IsNullOrEmpty(scrollId))
-                {
-                    _openSearchClient.ClearScroll(c => c.ScrollId(scrollId));
-                }
-            }
+            });
 
             return logs;
         }
