@@ -38,7 +38,7 @@ namespace Dorc.Api.Controllers
 
             var deploymentResultModels = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
 
-            _deploymentLogService.EnrichDeploymentResultsWithLimitedLogs(deploymentResultModels, 3);
+            _deploymentLogService.EnrichDeploymentResultsWithLogs(deploymentResultModels, 3); // take only first 3 log lines per result
 
             return Ok(deploymentResultModels);
         }
