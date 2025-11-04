@@ -44,65 +44,35 @@ namespace Dorc.OpenSearchData.Sources
         private IEnumerable<DeployOpenSearchLogModel> GetLogsFromOpenSearch(List<int> requestIds, List<int> deploymentResultIds)
         {
             var logs = new List<DeployOpenSearchLogModel>();
-            const string scrollTimeout = "1m";
 
-            var searchResponse = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
-                .Index(_deploymentResultIndex)
-                .Query(q => q
-                    .Bool(b => b
-                        .Must(must => must
-                            .Terms(t => t
-                                .Field(field => field.deployment_result_id)
-                                .Terms(deploymentResultIds)),
-                            must => must
-                            .Terms(t => t
-                                .Field(field => field.request_id)
-                                .Terms(requestIds)))))
-                .Size(_pageSize)
-                .Scroll(scrollTimeout)
-            );
-
-            if (!searchResponse.IsValid)
+            for (int pageNumber = 1; ; pageNumber++)
             {
-                _logger.Error($"OpenSearch query exception: {searchResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResponse.DebugInformation}");
-                return logs;
-            }
 
-            if (searchResponse.Documents != null && searchResponse.Documents.Any())
-            {
-                logs.AddRange(searchResponse.Documents);
-            }
+                var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
+                                    .Index(_deploymentResultIndex)
+                                    .Query(q => q
+                                        .Bool(b => b
+                                            .Must(must => must
+                                                .Terms(t => t
+                                                    .Field(field => field.deployment_result_id)
+                                                    .Terms(deploymentResultIds)),
+                                                must => must
+                                                .Terms(t => t
+                                                    .Field(field => field.request_id)
+                                                    .Terms(requestIds)))))
+                                    .From((pageNumber - 1) * _pageSize)
+                                    .Size(_pageSize));
 
-            var scrollId = searchResponse.ScrollId;
-            try
-            {
-                while (!string.IsNullOrEmpty(scrollId))
+                if (!searchResult.IsValid)
                 {
-                    var scrollResponse = _openSearchClient.Scroll<DeployOpenSearchLogModel>(scrollTimeout, scrollId);
-
-                    if (!scrollResponse.IsValid)
-                    {
-                        _logger.Error($"OpenSearch scroll query exception: {scrollResponse.OriginalException?.Message}.{Environment.NewLine}Request information: {scrollResponse.DebugInformation}");
-                        break;
-                    }
-
-                    if (scrollResponse.Documents != null && scrollResponse.Documents.Any())
-                    {
-                        logs.AddRange(scrollResponse.Documents);
-                        scrollId = scrollResponse.ScrollId;
-                    }
-                    else
-                    {
-                        break;
-                    }
+                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                    return logs;
                 }
-            }
-            finally
-            {
-                if (!string.IsNullOrEmpty(scrollId))
-                {
-                    _openSearchClient.ClearScroll(c => c.ScrollId(scrollId));
-                }
+
+                if (searchResult.Documents != null && searchResult.Documents.Any())
+                    logs.AddRange(searchResult.Documents);
+                else
+                    break;
             }
 
             return logs;
