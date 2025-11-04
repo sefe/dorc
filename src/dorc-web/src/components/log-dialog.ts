@@ -83,6 +83,7 @@ export class LogDialog extends LitElement {
         });
         this.editor?.setValue(this.selectedLog ?? '');
         this.highlightWarningsLogs();
+        this.editor?.gotoLine(1, 0, false);
         this.editor?.clearSelection();
         })}"
       ></vaadin-dialog>
