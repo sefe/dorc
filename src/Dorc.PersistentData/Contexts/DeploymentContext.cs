@@ -277,8 +277,8 @@ namespace Dorc.PersistentData.Contexts
 
         public DataSet RunSp(string spName, List<SqlParameter> parameters)
         {
-            var connection = new SqlConnection(Database.GetConnectionString());
-            var cmd = new SqlCommand
+            using var connection = new SqlConnection(Database.GetConnectionString());
+            using var cmd = new SqlCommand
             {
                 CommandText = spName,
                 CommandType = CommandType.StoredProcedure,
