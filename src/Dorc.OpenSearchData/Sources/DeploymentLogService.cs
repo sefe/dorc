@@ -53,13 +53,13 @@ namespace Dorc.OpenSearchData.Sources
                                     .Query(q => q
                                         .Bool(b => b
                                             .Must(must => must
-                                                .Terms(t => t
-                                                    .Field(field => field.deployment_result_id)
-                                                    .Terms(deploymentResultIds)),
-                                                must => must
                                                 .Term(t => t
+                                                    .Field(field => field.deployment_result_id)
+                                                    .Value(deploymentResultId)),
+                                                must => must
+                                                .Terms(t => t
                                                     .Field(field => field.request_id)
-                                                    .Value("")))))
+                                                    .Terms(requestIds)))))
                                     .Size(_pageSize));
 
                 if (!searchResult.IsValid)
