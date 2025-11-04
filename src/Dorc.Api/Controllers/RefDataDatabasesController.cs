@@ -16,79 +16,17 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILogger<RefDataDatabasesController> _logger;
 
         public RefDataDatabasesController(
             IDatabasesPersistentSource databasesPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IEnvironmentsPersistentSource environmentsPersistentSource,
-            ILogger<RefDataDatabasesController> logger)
+            IEnvironmentsPersistentSource environmentsPersistentSource)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _databasesPersistentSource = databasesPersistentSource;
-            _logger = logger;
         }
 
-        // --- Helper to create consistent ProblemDetails results ---
-        private IActionResult ProblemResult(int statusCode, string title, string detail,
-            IDictionary<string, object>? extraExtensions = null)
-        {
-            var pd = new ProblemDetails
-            {
-                Title = title,
-                Detail = detail,
-                Status = statusCode
-            };
-
-            // Always include correlation id for supportability
-            if (!string.IsNullOrEmpty(HttpContext.TraceIdentifier))
-            {
-                pd.Extensions["correlationId"] = HttpContext.TraceIdentifier;
-            }
-
-            if (extraExtensions != null)
-            {
-                foreach (var kvp in extraExtensions)
-                {
-                    pd.Extensions[kvp.Key] = kvp.Value;
-                }
-            }
-
-            return StatusCode(statusCode, pd);
-        }
-
-<<<<<<< HEAD
-        /// <summary>
-        ///     Return database details by database ID
-        /// </summary>
-        /// <param name="id">Database ID</param>
-        /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
-        [HttpGet]
-        [Route("{id}")]
-        public IActionResult Get(int id)
-        {
-            if (id <= 0)
-            {
-                return ProblemResult(StatusCodes.Status400BadRequest,
-                    "Invalid request",
-                    "'id' must be greater than zero.");
-            }
-
-            var model = _databasesPersistentSource.GetDatabase(id);
-            if (model == null)
-            {
-                return ProblemResult(StatusCodes.Status404NotFound,
-                    "Not found",
-                    "The database could not be found.");
-            }
-
-            return Ok(model);
-        }
-
-        /// <summary>
-=======
         // --- Helper to create consistent ProblemDetails results ---
         private IActionResult ProblemResult(int statusCode, string title, string detail,
             IDictionary<string, object>? extraExtensions = null)
@@ -146,7 +84,6 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
         /// Gets  databases by name
         /// </summary>
         /// <param name="name">database name</param>
@@ -177,31 +114,16 @@ namespace Dorc.Api.Controllers
             try
             {
                 var databaseApiModel = _databasesPersistentSource.AddDatabase(newDatabaseApiModel);
-
                 return StatusCode(StatusCodes.Status200OK, databaseApiModel);
             }
             catch (DbUpdateException ex)
             {
-<<<<<<< HEAD
-                _logger.LogWarning(ex,
-                    "Create blocked by constraint; CorrelationId={CorrelationId}",
-                    HttpContext.TraceIdentifier);
-
-=======
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Create blocked by constraints",
                     "The database could not be created due to constraint violations (e.g., unique keys or references).");
             }
             catch (Exception ex)
             {
-<<<<<<< HEAD
-                _logger.LogError(ex,
-                    "Unexpected error creating database; CorrelationId={CorrelationId}",
-                    HttpContext.TraceIdentifier);
-
-=======
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
                 return ProblemResult(StatusCodes.Status400BadRequest,
                     "Create failed",
                     "The request could not be processed. Please review the input and try again.");
@@ -302,26 +224,12 @@ namespace Dorc.Api.Controllers
             }
             catch (DbUpdateException ex)
             {
-<<<<<<< HEAD
-                _logger.LogWarning(ex,
-                    "Delete blocked by FK/constraint for DatabaseId={DatabaseId}; CorrelationId={CorrelationId}",
-                    databaseId, HttpContext.TraceIdentifier);
-
-=======
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Delete blocked by references",
                     "The database is referenced by other entities (e.g., environments, pipelines, jobs, or history). Remove those references and try again.");
             }
             catch (Exception ex)
             {
-<<<<<<< HEAD
-                _logger.LogError(ex,
-                    "Unexpected error deleting DatabaseId={DatabaseId}; CorrelationId={CorrelationId}",
-                    databaseId, HttpContext.TraceIdentifier);
-
-=======
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
                 return ProblemResult(StatusCodes.Status500InternalServerError,
                     "Unexpected error",
                     "An unexpected error occurred while deleting the database.");
@@ -429,26 +337,12 @@ namespace Dorc.Api.Controllers
             }
             catch (DbUpdateException ex)
             {
-<<<<<<< HEAD
-                _logger.LogWarning(ex,
-                    "Update blocked by constraint for DatabaseId={DatabaseId}; CorrelationId={CorrelationId}",
-                    id, HttpContext.TraceIdentifier);
-
-=======
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
                 return ProblemResult(StatusCodes.Status409Conflict,
                     "Update blocked by constraints",
                     "The database may be referenced by other entities. Review constraints and try again.");
             }
             catch (Exception ex)
             {
-<<<<<<< HEAD
-                _logger.LogError(ex,
-                    "Unexpected error updating DatabaseId={DatabaseId}; CorrelationId={CorrelationId}",
-                    id, HttpContext.TraceIdentifier);
-
-=======
->>>>>>> 35902c8 (Fix scroll issue, update backend to provide message to frontend and fix formatting issues)
                 return ProblemResult(StatusCodes.Status500InternalServerError,
                     "Unexpected error",
                     "An unexpected error occurred while updating the database.");
