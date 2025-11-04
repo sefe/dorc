@@ -3,6 +3,7 @@ using Dorc.OpenSearchData.Model;
 using Dorc.OpenSearchData.Sources.Interfaces;
 using log4net;
 using OpenSearch.Client;
+using System.Collections.Concurrent;
 
 namespace Dorc.OpenSearchData.Sources
 {
@@ -43,30 +44,38 @@ namespace Dorc.OpenSearchData.Sources
 
         private IEnumerable<DeployOpenSearchLogModel> GetLogsFromOpenSearch(List<int> requestIds, List<int> deploymentResultIds)
         {
-            var logs = new List<DeployOpenSearchLogModel>();
+            var logs = new ConcurrentBag<DeployOpenSearchLogModel>();
 
-            var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
-                                .Index(_deploymentResultIndex)
-                                .Query(q => q
-                                    .Bool(b => b
-                                        .Must(must => must
-                                            .Terms(t => t
-                                                .Field(field => field.deployment_result_id)
-                                                .Terms(deploymentResultIds)),
-                                            must => must
-                                            .Terms(t => t
-                                                .Field(field => field.request_id)
-                                                .Terms(requestIds)))))
-                                .Size(_pageSize));
-
-            if (!searchResult.IsValid)
+            Parallel.ForEach(deploymentResultIds, deploymentResultId =>
             {
-                _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
-                return logs;
-            }
+                var searchResult = _openSearchClient.Search<DeployOpenSearchLogModel>(s => s
+                                    .Index(_deploymentResultIndex)
+                                    .Query(q => q
+                                        .Bool(b => b
+                                            .Must(must => must
+                                                .Terms(t => t
+                                                    .Field(field => field.deployment_result_id)
+                                                    .Terms(deploymentResultIds)),
+                                                must => must
+                                                .Term(t => t
+                                                    .Field(field => field.request_id)
+                                                    .Value("")))))
+                                    .Size(_pageSize));
 
-            if (searchResult.Documents != null && searchResult.Documents.Any())
-                logs.AddRange(searchResult.Documents);
+                if (!searchResult.IsValid)
+                {
+                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                    return;
+                }
+
+                if (searchResult.Documents != null && searchResult.Documents.Any())
+                {
+                    foreach (var doc in searchResult.Documents)
+                    {
+                        logs.Add(doc);
+                    }
+                }
+            });
 
             return logs;
         }
