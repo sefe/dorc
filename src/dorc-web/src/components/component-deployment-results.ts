@@ -12,7 +12,7 @@ import './grid-button-groups/server-controls';
 import './log-dialog';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/server-tags';
-import { DeploymentResultApiModel } from '../apis/dorc-api';
+import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
@@ -163,10 +163,38 @@ export class ComponentDeploymentResults extends LitElement {
     );
   }
 
-  private viewLog(e: CustomEvent) {
-    const result = e.detail.result as DeploymentResultApiModel;
-    this.selectedLog = result.Log ?? '';
-    this.dialogOpened = true;
+  private async viewLog(e: Event) {
+    const customEvent = e as CustomEvent;
+    const result = customEvent.detail.result as DeploymentResultApiModel;
+    
+    if (result.RequestId) {
+      try {
+        const api = new ResultStatusesApi();
+        const logObservable = api.resultStatusesLogGet({ requestId: result.RequestId, resultId: result.Id });
+        
+        logObservable.subscribe({
+          next: (fullLog: string) => {
+            this.selectedLog = fullLog;
+            this.dialogOpened = true;
+          },
+          error: (error) => {
+            console.error('Failed to fetch log:', error);
+            // Fallback to the existing log if API call fails
+            this.selectedLog = result.Log ?? 'Failed to load full log';
+            this.dialogOpened = true;
+          }
+        });
+      } catch (error) {
+        console.error('Failed to create API instance:', error);
+        // Fallback to the existing log if API creation fails
+        this.selectedLog = result.Log ?? 'Failed to load full log';
+        this.dialogOpened = true;
+      }
+    } else {
+      // Fallback to the existing log if no RequestId
+      this.selectedLog = result.Log ?? 'No log available';
+      this.dialogOpened = true;
+    }
   }
 
   private logDialogClosed() {
