@@ -126,13 +126,14 @@ export class AttachDatabase extends LitElement {
             </div>
           </div>
         ` : ''}
-
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
-          >Attach</vaadin-button
-        >
-        <vaadin-button @click="${this._reset}"
-          >Clear</vaadin-button
-        >
+          <vaadin-horizontal-layout style="margin-right: 30px">
+            <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}" style="margin: 2px"
+              >Attach</vaadin-button
+            >
+            <vaadin-button @click="${this._reset}" style="margin: 2px"
+              >Clear</vaadin-button
+            >
+          </vaadin-horizontal-layout>
       </div>
     `;
   }

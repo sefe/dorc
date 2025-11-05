@@ -207,26 +207,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   private refreshData() {
     this.resultsLoading = true;
-    const api = new ResultStatusesApi();
-    api.resultStatusesGet({ requestId: this.requestId }).subscribe({
-      next: (data: Array<DeploymentResultApiModel>) => {
-        this.resultItems = data;
-      },
-      error: (err: any) => {
-        console.error(err);
-      },
-      complete: () => {
-        console.log('done loading result Statuses');
-        this.loading = false;
-        this.resultsLoading = false;
-      }
-    });
-
-    this.refreshResultItems();
-  }
-
-  refreshResultItems = () => {
-    this.resultsLoading = true;
     const apiRequests = new RequestStatusesApi();
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
@@ -246,6 +226,27 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.resultsLoading = false;
       }
     });
+
+    this.refreshResultItems();
+  }
+
+  refreshResultItems = () => {
+    this.resultsLoading = true;
+
+    const api = new ResultStatusesApi();
+    api.resultStatusesGet({ requestId: this.requestId }).subscribe({
+      next: (data: Array<DeploymentResultApiModel>) => {
+        this.resultItems = data;
+      },
+      error: (err: any) => {
+        console.error(err);
+      },
+      complete: () => {
+        console.log('done loading result Statuses');
+        this.loading = false;
+        this.resultsLoading = false;
+      }
+    });    
   }
 
   private async initializeSignalR() {
