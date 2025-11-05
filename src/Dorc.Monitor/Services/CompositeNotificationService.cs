@@ -75,8 +75,19 @@ namespace Dorc.Monitor.Services
             }
             catch (Exception ex)
             {
+                if (IsFatalException(ex))
+                {
+                    throw;
+                }
                 _logger.Error($"Failed to send notification via '{service.ProviderName}' for request {notification.RequestId}", ex);
             }
+        }
+
+        private static bool IsFatalException(Exception ex)
+        {
+            return ex is OutOfMemoryException
+                || ex is StackOverflowException
+                || ex is ThreadAbortException;
         }
     }
 }

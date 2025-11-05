@@ -123,7 +123,7 @@ namespace Dorc.Monitor.RequestProcessors
                             CompletedTime = DateTimeOffset.Now,
                         });
 
-                        _ = _notificationService.NotifyJobCompletionAsync(
+                        SendJobCompletionNotificationAsync(
                             requestToExecute.Request.UserName,
                             requestToExecute.Request.Id,
                             deploymentRequestStatus.ToString(),
@@ -180,7 +180,7 @@ namespace Dorc.Monitor.RequestProcessors
                             CompletedTime = DateTimeOffset.Now,
                         });
 
-                        _ = _notificationService.NotifyJobCompletionAsync(
+                        SendJobCompletionNotificationAsync(
                             requestToExecute.Request.UserName,
                             requestToExecute.Request.Id,
                             deploymentRequestStatus.ToString(),
@@ -262,7 +262,7 @@ namespace Dorc.Monitor.RequestProcessors
                         CompletedTime = DateTimeOffset.Now,
                     });
 
-                    _ = _notificationService.NotifyJobCompletionAsync(
+                    SendJobCompletionNotificationAsync(
                         requestToExecute.Request.UserName,
                         requestToExecute.Request.Id,
                         deploymentRequestStatus.ToString(),
@@ -299,7 +299,7 @@ namespace Dorc.Monitor.RequestProcessors
                         CompletedTime = DateTimeOffset.Now,
                     });
 
-                    _ = _notificationService.NotifyJobCompletionAsync(
+                    SendJobCompletionNotificationAsync(
                         requestToExecute.Request.UserName,
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored.ToString(),
@@ -327,7 +327,7 @@ namespace Dorc.Monitor.RequestProcessors
                     CompletedTime = DateTimeOffset.Now,
                 });
 
-                _ = _notificationService.NotifyJobCompletionAsync(
+                SendJobCompletionNotificationAsync(
                     requestToExecute.Request.UserName,
                     requestToExecute.Request.Id,
                     DeploymentRequestStatus.Errored.ToString(),
@@ -485,6 +485,33 @@ namespace Dorc.Monitor.RequestProcessors
             propertyValuesPersistentSource.AddEnvironmentFilter(environmentName);
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environmentName);
-        }        
+        }
+
+        private void SendJobCompletionNotificationAsync(
+            string userName,
+            int requestId,
+            string status,
+            string environment,
+            string project,
+            string buildNumber)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _notificationService.NotifyJobCompletionAsync(
+                        userName,
+                        requestId,
+                        status,
+                        environment,
+                        project,
+                        buildNumber);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Failed to send job completion notification for request '{requestId}': {ex}");
+                }
+            });
+        }
     }
 }

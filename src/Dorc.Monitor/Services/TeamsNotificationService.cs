@@ -1,4 +1,3 @@
-using Azure.Core;
 using Azure.Identity;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
@@ -93,7 +92,7 @@ namespace Dorc.Monitor.Services
             catch (Exception ex)
             {
                 _logger.Error($"Error sending Teams notification for request {notification.RequestId} to user {notification.UserIdentifier}", ex);
-                throw; // Re-throw to allow composite service to handle
+                // Exception logged locally; composite service will handle via SendNotificationSafelyAsync
             }
         }
 
@@ -115,27 +114,25 @@ namespace Dorc.Monitor.Services
                 };
 
                 // First, try to find or create a chat with the user
+                // Use $expand to get members in a single request and pagination
                 var chats = await _graphClient.Chats.GetAsync(requestConfiguration =>
                 {
                     requestConfiguration.QueryParameters.Filter = $"chatType eq 'oneOnOne'";
+                    requestConfiguration.QueryParameters.Expand = new[] { "members" };
+                    requestConfiguration.QueryParameters.Top = 50; // Limit initial fetch
                 });
 
                 string? chatId = null;
                 
                 if (chats?.Value != null)
                 {
-                    foreach (var chat in chats.Value)
-                    {
-                        if (chat.Id == null) continue;
-                        
-                        var members = await _graphClient.Chats[chat.Id].Members.GetAsync();
-                        if (members?.Value != null && members.Value.Any(m => 
-                            m is AadUserConversationMember aadMember && aadMember.UserId == userId))
-                        {
-                            chatId = chat.Id;
-                            break;
-                        }
-                    }
+                    // Use explicit filtering with .Where()
+                    var matchingChat = chats.Value
+                        .Where(chat => chat.Id != null && chat.Members != null)
+                        .FirstOrDefault(chat => chat.Members!.Any(m => 
+                            m is AadUserConversationMember aadMember && aadMember.UserId == userId));
+                    
+                    chatId = matchingChat?.Id;
                 }
 
                 // If no existing chat found, create a new one

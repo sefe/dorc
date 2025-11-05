@@ -98,7 +98,7 @@ The `CompositeNotificationService` will automatically pick up all registered `IU
 
 **Permissions Required:**
 - `Chat.Create` - Create chats
-- `Chat.ReadWrite` - Send messages
+- `Chat.ReadWrite.All` - Send messages in all chats
 - `User.Read.All` - Look up users by email
 
 **Behavior:**
