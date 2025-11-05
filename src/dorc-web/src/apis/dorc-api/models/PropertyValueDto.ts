@@ -31,6 +31,11 @@ export interface PropertyValueDto {
      */
     Value?: string | null;
     /**
+     * @type {string}
+     * @memberof PropertyValueDto
+     */
+    MaskedValue?: string | null;
+    /**
      * @type {PropertyApiModel}
      * @memberof PropertyValueDto
      */
