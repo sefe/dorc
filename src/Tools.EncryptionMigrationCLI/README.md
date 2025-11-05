@@ -19,14 +19,18 @@ The new encryption provides:
 
 ### Prerequisites
 
-1. Valid `appsettings.json` with database connection string:
+1. Valid `appsettings.json` with database connection string and optional batch size:
 ```json
 {
   "ConnectionStrings": {
     "DOrcConnectionString": "Server=...;Database=...;..."
+  },
+  "Migration": {
+    "BatchSize": 100
   }
 }
 ```
+Note: BatchSize defaults to 100 if not specified. Adjust based on database size and network conditions.
 
 2. Database access with read/write permissions to PropertyValues table
 

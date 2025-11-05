@@ -39,7 +39,10 @@ namespace Tools.EncryptionMigrationCLI
                     secureKeySource.GetInitialisationVector(),
                     secureKeySource.GetSymmetricKey());
 
-                var migrator = new EncryptionMigration(contextFactory, encryptor, Log);
+                int batchSize = int.TryParse(configuration["Migration:BatchSize"], out int configuredBatchSize) 
+                    ? configuredBatchSize 
+                    : 100;
+                var migrator = new EncryptionMigration(contextFactory, encryptor, Log, batchSize);
                 
                 bool dryRun = args.Contains("--dry-run") || args.Contains("-d");
                 bool force = args.Contains("--force") || args.Contains("-f");
@@ -49,6 +52,7 @@ namespace Tools.EncryptionMigrationCLI
                     Log.Info("Running in DRY RUN mode - no changes will be made");
                 }
 
+                Log.Info($"Using batch size: {batchSize}");
                 var result = migrator.MigratePropertyValues(dryRun, force);
 
                 Log.Info($"Migration completed. Total: {result.Total}, Migrated: {result.Migrated}, Skipped: {result.Skipped}, Failed: {result.Failed}");
@@ -68,18 +72,19 @@ namespace Tools.EncryptionMigrationCLI
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly QuantumResistantPropertyEncryptor _encryptor;
         private readonly ILog _log;
+        private readonly int _batchSize;
 
-        public EncryptionMigration(IDeploymentContextFactory contextFactory, QuantumResistantPropertyEncryptor encryptor, ILog log)
+        public EncryptionMigration(IDeploymentContextFactory contextFactory, QuantumResistantPropertyEncryptor encryptor, ILog log, int batchSize = 100)
         {
             _contextFactory = contextFactory;
             _encryptor = encryptor;
             _log = log;
+            _batchSize = batchSize;
         }
 
         public MigrationResult MigratePropertyValues(bool dryRun, bool force)
         {
             var result = new MigrationResult();
-            const int batchSize = 100;
 
             using (var context = _contextFactory.GetContext())
             {
@@ -128,11 +133,11 @@ namespace Tools.EncryptionMigrationCLI
                                 propertyValue.Value = migratedValue;
                                 batchCount++;
 
-                                if (batchCount >= batchSize)
+                                if (batchCount >= _batchSize)
                                 {
                                     context.SaveChanges();
                                     batchCount = 0;
-                                    _log.Info($"Saved batch of {batchSize} updates");
+                                    _log.Info($"Saved batch of {_batchSize} updates");
                                 }
                             }
 
