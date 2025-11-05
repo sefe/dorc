@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the upgrade of DOrc's secret encryption from legacy AES-CBC to post-quantum resistant AES-256-GCM encryption.
+This document describes the upgrade of DOrc's secret encryption from legacy AES-CBC to quantum-resistant AES-256-GCM encryption.
 
 ## Summary of Changes
 

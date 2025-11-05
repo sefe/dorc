@@ -225,7 +225,7 @@ namespace Dorc.Core.Tests
                 Convert.FromBase64String(base64Part);
                 Assert.IsTrue(true, "Output should be valid base64");
             }
-            catch
+            catch (FormatException)
             {
                 Assert.Fail("Output is not valid base64");
             }

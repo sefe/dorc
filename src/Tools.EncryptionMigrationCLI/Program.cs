@@ -55,7 +55,7 @@ namespace Tools.EncryptionMigrationCLI
 
                 return result.Failed > 0 ? 1 : 0;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
             {
                 Log.Error("Migration failed", ex);
                 return 1;
@@ -138,7 +138,7 @@ namespace Tools.EncryptionMigrationCLI
 
                             result.Migrated++;
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
                         {
                             _log.Error($"Failed to migrate property value {propertyValue.Id}", ex);
                             result.Failed++;

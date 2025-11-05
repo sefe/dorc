@@ -8,6 +8,8 @@ namespace Dorc.Core.VariableResolution
     {
         private const string VersionPrefix = "v2:";
         private const string LegacyVersionPrefix = "v1:";
+        private const int NonceSizeBytes = 12;
+        private const int TagSizeBytes = 16;
         private readonly byte[] _key;
         private readonly PropertyEncryptor _legacyEncryptor;
 
@@ -31,7 +33,15 @@ namespace Dorc.Core.VariableResolution
                 
                 _legacyEncryptor = new PropertyEncryptor(iv, key);
             }
-            catch (Exception)
+            catch (FormatException)
+            {
+                using (var sha256 = SHA256.Create())
+                {
+                    _key = sha256.ComputeHash(Encoding.UTF8.GetBytes(key));
+                }
+                _legacyEncryptor = new PropertyEncryptor(iv, key);
+            }
+            catch (ArgumentException)
             {
                 using (var sha256 = SHA256.Create())
                 {
@@ -70,25 +80,29 @@ namespace Dorc.Core.VariableResolution
             {
                 var encryptedBytes = Convert.FromBase64String(encryptedValue);
 
-                if (encryptedBytes.Length < 12 + 16)
+                if (encryptedBytes.Length < NonceSizeBytes + TagSizeBytes)
                     throw new CryptographicException("Invalid encrypted data format");
 
-                var nonce = new byte[12];
-                var tag = new byte[16];
-                var ciphertext = new byte[encryptedBytes.Length - 12 - 16];
+                var nonce = new byte[NonceSizeBytes];
+                var tag = new byte[TagSizeBytes];
+                var ciphertext = new byte[encryptedBytes.Length - NonceSizeBytes - TagSizeBytes];
 
-                Array.Copy(encryptedBytes, 0, nonce, 0, 12);
-                Array.Copy(encryptedBytes, 12, ciphertext, 0, ciphertext.Length);
-                Array.Copy(encryptedBytes, 12 + ciphertext.Length, tag, 0, 16);
+                Array.Copy(encryptedBytes, 0, nonce, 0, NonceSizeBytes);
+                Array.Copy(encryptedBytes, NonceSizeBytes, ciphertext, 0, ciphertext.Length);
+                Array.Copy(encryptedBytes, NonceSizeBytes + ciphertext.Length, tag, 0, TagSizeBytes);
 
-                using (var aesGcm = new AesGcm(_key, 16))
+                using (var aesGcm = new AesGcm(_key, TagSizeBytes))
                 {
                     var plaintext = new byte[ciphertext.Length];
                     aesGcm.Decrypt(nonce, ciphertext, tag, plaintext);
                     return Encoding.UTF8.GetString(plaintext);
                 }
             }
-            catch (Exception ex)
+            catch (CryptographicException ex)
+            {
+                throw new CryptographicException("Failed to decrypt value with quantum-resistant algorithm", ex);
+            }
+            catch (FormatException ex)
             {
                 throw new CryptographicException("Failed to decrypt value with quantum-resistant algorithm", ex);
             }
@@ -99,13 +113,13 @@ namespace Dorc.Core.VariableResolution
             try
             {
                 var plaintext = Encoding.UTF8.GetBytes(value);
-                var nonce = new byte[12];
+                var nonce = new byte[NonceSizeBytes];
                 RandomNumberGenerator.Fill(nonce);
 
                 var ciphertext = new byte[plaintext.Length];
-                var tag = new byte[16];
+                var tag = new byte[TagSizeBytes];
 
-                using (var aesGcm = new AesGcm(_key, 16))
+                using (var aesGcm = new AesGcm(_key, TagSizeBytes))
                 {
                     aesGcm.Encrypt(nonce, plaintext, ciphertext, tag);
                 }
@@ -117,7 +131,7 @@ namespace Dorc.Core.VariableResolution
 
                 return Convert.ToBase64String(result);
             }
-            catch (Exception ex)
+            catch (CryptographicException ex)
             {
                 throw new CryptographicException("Failed to encrypt value with quantum-resistant algorithm", ex);
             }

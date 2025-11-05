@@ -19,7 +19,7 @@ namespace Dorc.PersistentData
                         length = Math.Min(Math.Max(decryptedValue.Length, 8), 32);
                     }
                 }
-                catch
+                catch (Exception)
                 {
                     length = 12;
                 }

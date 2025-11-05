@@ -70,10 +70,15 @@ namespace Dorc.Api.Services
 
             foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
             {
-                propertyValueDto.MaskedValue = GenerateMaskedValue(propertyValueDto.Value);
                 if (canReadSecrets)
                 {
-                    propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                    var decryptedValue = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                    propertyValueDto.Value = decryptedValue;
+                    propertyValueDto.MaskedValue = GenerateMaskedValueFromDecrypted(decryptedValue);
+                }
+                else
+                {
+                    propertyValueDto.MaskedValue = GenerateMaskedValue(propertyValueDto.Value);
                 }
             }
 
@@ -333,11 +338,20 @@ namespace Dorc.Api.Services
                     length = Math.Min(Math.Max(decryptedValue.Length, 8), 32);
                 }
             }
-            catch
+            catch (Exception)
             {
                 length = 12;
             }
 
+            return new string('*', length);
+        }
+
+        private string GenerateMaskedValueFromDecrypted(string? decryptedValue)
+        {
+            if (string.IsNullOrEmpty(decryptedValue))
+                return "********";
+
+            int length = Math.Min(Math.Max(decryptedValue.Length, 8), 32);
             return new string('*', length);
         }
     }
