@@ -1,4 +1,5 @@
 ﻿using Dorc.Core;
+using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
@@ -12,6 +13,7 @@ namespace Tools.DeployCopyEnvBuildCLI
         {
             For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
             For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
+            For<IDeploymentEventsPublisher>().Use<NullDeploymentEventsPublisher>();
         }
     }
 }

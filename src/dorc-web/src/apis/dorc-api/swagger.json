@@ -220,7 +220,7 @@
         }
       }
     },
-    "/Analytics/EnvironmentUsage": {
+    "/AnalyticsDeploymentsMonth": {
       "get": {
         "tags": [
           "Analytics"
@@ -233,7 +233,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                    "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
                   }
                 }
               },
@@ -241,122 +241,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                    "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Analytics/UserActivity": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Analytics/TimePattern": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Analytics/ComponentUsage": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Analytics/Duration": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
                 }
               }
             }
@@ -367,7 +253,7 @@
     "/AnalyticsDeploymentsDate": {
       "get": {
         "tags": [
-          "AnalyticsDeploymentsDate"
+          "Analytics"
         ],
         "responses": {
           "200": {
@@ -394,10 +280,10 @@
         }
       }
     },
-    "/AnalyticsDeploymentsMonth": {
+    "/AnalyticsEnvironmentUsage": {
       "get": {
         "tags": [
-          "AnalyticsDeploymentsMonth"
+          "Analytics"
         ],
         "responses": {
           "200": {
@@ -407,7 +293,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
                   }
                 }
               },
@@ -415,8 +301,152 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
                   }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsUserActivity": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsTimePattern": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsComponentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsDuration": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
                 }
               }
             }
@@ -2191,6 +2221,14 @@
               "type": "integer",
               "format": "int32",
               "default": 50
+            }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
             }
           }
         ],
@@ -6559,6 +6597,51 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/ResultStatuses/Log": {
+      "get": {
+        "tags": [
+          "ResultStatuses"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "resultId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }

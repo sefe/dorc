@@ -200,11 +200,6 @@ namespace Dorc.Monitor
                         deploymentResult,
                         deploymentResultStatus);
 
-                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
-                {
-                    Status = deploymentResultStatus.ToString()
-                });
-
                 componentsPersistentSource.SaveEnvComponentStatus(
                     environmentId,
                     component,
@@ -215,15 +210,11 @@ namespace Dorc.Monitor
                         component,
                         deploymentResultStatus.ToString(),
                         requestId);
-                //}
-                //else
-                //{
-                //    // For WaitingConfirmation, just update the log
-                //    deploymentResult.Log = componentResultLogBuilder.ToString();
-                //    requestsPersistentSource.UpdateResultLog(
-                //        deploymentResult,
-                //        componentResultLogBuilder.ToString());
-                //}
+
+                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                {
+                    Status = deploymentResultStatus.ToString()
+                });
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;
