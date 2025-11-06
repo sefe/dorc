@@ -47,11 +47,6 @@ export interface FlatPropertyValueApiModel {
      */
     PropertyValue?: string | null;
     /**
-     * @type {string}
-     * @memberof FlatPropertyValueApiModel
-     */
-    MaskedPropertyValue?: string | null;
-    /**
      * @type {Array<string>}
      * @memberof FlatPropertyValueApiModel
      */

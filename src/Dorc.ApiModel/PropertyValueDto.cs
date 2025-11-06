@@ -4,7 +4,6 @@
     {
         public long Id { get; set; }
         public string Value { get; set; }
-        public string MaskedValue { get; set; }
         public PropertyApiModel Property { get; set; }
         public string PropertyValueFilter { get; set; }
         public long? PropertyValueFilterId { get; set; }

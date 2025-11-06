@@ -68,17 +68,11 @@ namespace Dorc.Api.Services
                 });
             }
 
-            foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
+            if (canReadSecrets)
             {
-                if (canReadSecrets)
+                foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
                 {
-                    var decryptedValue = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
-                    propertyValueDto.Value = decryptedValue;
-                    propertyValueDto.MaskedValue = GenerateMaskedValueFromDecrypted(decryptedValue);
-                }
-                else
-                {
-                    propertyValueDto.MaskedValue = GenerateMaskedValue(propertyValueDto.Value);
+                    propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
                 }
             }
 
@@ -321,38 +315,6 @@ namespace Dorc.Api.Services
                 }
 
             return result;
-        }
-
-        private string GenerateMaskedValue(string? encryptedValue)
-        {
-            if (string.IsNullOrEmpty(encryptedValue))
-                return "********";
-
-            int length = 8;
-            
-            try
-            {
-                var decryptedValue = _propertyEncryptor.DecryptValue(encryptedValue);
-                if (!string.IsNullOrEmpty(decryptedValue))
-                {
-                    length = Math.Min(Math.Max(decryptedValue.Length, 8), 32);
-                }
-            }
-            catch (Exception)
-            {
-                length = 12;
-            }
-
-            return new string('*', length);
-        }
-
-        private string GenerateMaskedValueFromDecrypted(string? decryptedValue)
-        {
-            if (string.IsNullOrEmpty(decryptedValue))
-                return "********";
-
-            int length = Math.Min(Math.Max(decryptedValue.Length, 8), 32);
-            return new string('*', length);
         }
     }
 }
