@@ -53,7 +53,7 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
         }
 
-        public async Task<bool> DispatchAsync(
+        public bool Dispatch(
             ComponentApiModel component,
             DeploymentResultApiModel deploymentResult,
             IDictionary<string, VariableValue> properties,
@@ -136,7 +136,7 @@ namespace Dorc.Monitor
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
                 if (terreformOperation == TerrafromRunnerOperations.ApplyPlan)
                 {
-                    await _azureStorageAccountWorker.DownloadFileFromBlobsAsync(terraformPlanFileName, terraformPlanFilePath);
+                    _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
                 }
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
@@ -228,9 +228,9 @@ namespace Dorc.Monitor
                 {
                     case TerrafromRunnerOperations.CreatePlan:
                         // save Terraform binary plan file to Azure Storage Account
-                        await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanFilePath);
+                        _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                         // save Terraform human-readable plan file to Azure Storage Account
-                        await _azureStorageAccountWorker.SaveFileToBlobsAsync(terraformPlanContentFilePath);
+                        _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
 
                         // Update status to WaitingConfirmation
                         _requestsPersistentSource.UpdateResultStatus(
@@ -255,7 +255,7 @@ namespace Dorc.Monitor
             return true;
         }
 
-        private async Task<string> CreateTerraformPlanAsync(
+        private string CreateTerraformPlan(
             ComponentApiModel component,
             IDictionary<string, VariableValue> properties,
             string environmentName,
@@ -263,25 +263,25 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(component, environmentName, cancellationToken);
+            var terraformWorkingDir = SetupTerraformWorkingDirectory(component, environmentName, cancellationToken);
             
             try
             {
                 // Initialize Terraform if needed
-                await RunTerraformCommandAsync(terraformWorkingDir, "init", cancellationToken);
+                RunTerraformCommand(terraformWorkingDir, "init", cancellationToken);
                 
                 // Create Terraform variables file
-                await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
+                CreateTerraformVariablesFile(terraformWorkingDir, properties, cancellationToken);
                 
                 // Generate the plan
                 var planFileName = $"tfplan-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}";
                 var planArgs = $"plan -out={planFileName} -detailed-exitcode";
                 
-                var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
+                var planResult = RunTerraformCommand(terraformWorkingDir, planArgs, cancellationToken);
                 
                 // Get human-readable plan output
                 var showArgs = $"show -no-color {planFileName}";
-                var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
+                var planContent = RunTerraformCommand(terraformWorkingDir, showArgs, cancellationToken);
                 
                 logger.Info($"Terraform plan created successfully for component '{component.ComponentName}'");
                 return planContent;
@@ -293,7 +293,7 @@ namespace Dorc.Monitor
             }
         }
 
-        private async Task<string> SetupTerraformWorkingDirectoryAsync(
+        private string SetupTerraformWorkingDirectory(
             ComponentApiModel component, 
             string environmentName, 
             CancellationToken cancellationToken)
@@ -320,7 +320,7 @@ namespace Dorc.Monitor
             if (!string.IsNullOrEmpty(fullScriptPath) && Directory.Exists(fullScriptPath))
             {
                 logger.Info($"Copying Terraform files from '{fullScriptPath}' to working directory '{workingDir}'");
-                await CopyDirectoryAsync(fullScriptPath, workingDir, cancellationToken);
+                CopyDirectory(fullScriptPath, workingDir, cancellationToken);
             }
             else
             {
@@ -330,29 +330,26 @@ namespace Dorc.Monitor
             return workingDir;
         }
 
-        private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+        private void CopyDirectory(string sourceDir, string destDir, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
             {
-                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var relativePath = Path.GetRelativePath(sourceDir, file);
+                var destFile = Path.Combine(destDir, relativePath);
+                var destFileDir = Path.GetDirectoryName(destFile);
+
+                if (!string.IsNullOrEmpty(destFileDir))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
-                    var destFileDir = Path.GetDirectoryName(destFile);
-                    
-                    if (!string.IsNullOrEmpty(destFileDir))
-                    {
-                        Directory.CreateDirectory(destFileDir);
-                    }
-                    
-                    File.Copy(file, destFile, true);
+                    Directory.CreateDirectory(destFileDir);
                 }
-            }, cancellationToken);
+
+                File.Copy(file, destFile, true);
+            }
         }
 
-        private async Task CreateTerraformVariablesFileAsync(
+        private void CreateTerraformVariablesFile(
             string workingDir, 
             IDictionary<string, VariableValue> properties, 
             CancellationToken cancellationToken)
@@ -389,10 +386,10 @@ namespace Dorc.Monitor
             }
             
             var variablesFilePath = Path.Combine(workingDir, "terraform.tfvars");
-            await File.WriteAllTextAsync(variablesFilePath, variablesContent.ToString(), cancellationToken);
+            File.WriteAllText(variablesFilePath, variablesContent.ToString());
         }
 
-        private async Task<string> RunTerraformCommandAsync(
+        private string RunTerraformCommand(
             string workingDir, 
             string arguments, 
             CancellationToken cancellationToken)
@@ -436,7 +433,7 @@ namespace Dorc.Monitor
                 while (!process.HasExited)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    await Task.Delay(100, cancellationToken);
+                    Task.Delay(100, cancellationToken);
                 }
             }
             catch (Exception e)
@@ -458,10 +455,9 @@ namespace Dorc.Monitor
             return output;
         }
 
-        private async Task<string> SavePlanToBlobStorageAsync(
+        private string SavePlanToBlobStorage(
             string planContent,
-            int deploymentResultId,
-            CancellationToken cancellationToken)
+            int deploymentResultId)
         {
             // For now, save to local file system - this should be replaced with Azure Blob Storage
             var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
@@ -470,7 +466,7 @@ namespace Dorc.Monitor
             var fileName = $"plan-{deploymentResultId}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}.txt";
             var filePath = Path.Combine(planStorageDir, fileName);
             
-            await File.WriteAllTextAsync(filePath, planContent, cancellationToken);
+            File.WriteAllText(filePath, planContent);
             
             // Also save metadata about the plan for later execution
             var metadataFileName = $"plan-{deploymentResultId}-metadata.json";
@@ -485,7 +481,7 @@ namespace Dorc.Monitor
             };
             
             var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(metadataFilePath, metadataJson, cancellationToken);
+            File.WriteAllText(metadataFilePath, metadataJson);
             
             logger.Info($"Terraform plan saved to: {filePath}");
             
@@ -495,7 +491,7 @@ namespace Dorc.Monitor
             return blobUrl;
         }
 
-        public async Task<bool> ExecuteConfirmedPlanAsync(
+        public bool ExecuteConfirmedPlan(
             int deploymentResultId,
             CancellationToken cancellationToken)
         {
@@ -524,7 +520,7 @@ namespace Dorc.Monitor
                     DeploymentResultStatus.Running);
 
                 // Execute the actual Terraform plan
-                var executionResult = await ExecuteTerraformPlanAsync(deploymentResultId, cancellationToken);
+                var executionResult = ExecuteTerraformPlan(deploymentResultId, cancellationToken);
 
                 if (executionResult.Success)
                 {
@@ -563,7 +559,7 @@ namespace Dorc.Monitor
             }
         }
 
-        private async Task<TerraformExecutionResult> ExecuteTerraformPlanAsync(
+        private TerraformExecutionResult ExecuteTerraformPlan(
             int deploymentResultId,
             CancellationToken cancellationToken)
         {
@@ -572,7 +568,7 @@ namespace Dorc.Monitor
             try
             {
                 // Find the stored plan files and working directory from the temporary storage
-                var planInfo = await FindStoredPlanInfoAsync(deploymentResultId, cancellationToken);
+                var planInfo = FindStoredPlanInfo(deploymentResultId, cancellationToken);
                 if (planInfo == null)
                 {
                     return new TerraformExecutionResult 
@@ -586,7 +582,7 @@ namespace Dorc.Monitor
                 var applyArgs = $"apply -auto-approve {planInfo.PlanFileName}";
                 logger.Info($"Executing Terraform apply for deployment result ID: {deploymentResultId}");
                 
-                var applyOutput = await RunTerraformCommandAsync(planInfo.WorkingDirectory, applyArgs, cancellationToken);
+                var applyOutput = RunTerraformCommand(planInfo.WorkingDirectory, applyArgs, cancellationToken);
 
                 logger.Info($"Terraform apply completed successfully for deployment result ID: {deploymentResultId}");
                 
@@ -608,12 +604,10 @@ namespace Dorc.Monitor
             }
         }
 
-        private async Task<TerraformPlanInfo?> FindStoredPlanInfoAsync(
+        private TerraformPlanInfo? FindStoredPlanInfo(
             int deploymentResultId,
             CancellationToken cancellationToken)
-        {
-            await Task.CompletedTask; // Remove async warning
-            
+        {            
             try
             {
                 // Look for terraform working directories that match this deployment

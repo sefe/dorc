@@ -39,7 +39,7 @@ namespace Dorc.Monitor
             this.configValuesPersistentSource = configValuesPersistentSource;
         }
 
-        public async Task<bool> DeployComponentAsync(ComponentApiModel component,
+        public bool DeployComponent(ComponentApiModel component,
             DeploymentResultApiModel deploymentResult,
             int requestId,
             bool isProductionRequest,
@@ -83,7 +83,7 @@ namespace Dorc.Monitor
                             Status = DeploymentResultStatus.Running.ToString()
                         });
                         deploymentResultStatus = DeploymentResultStatus.Warning;
-                        isSuccessful = await terraformDispatcher.DispatchAsync(
+                        isSuccessful = terraformDispatcher.Dispatch(
                             component,
                             deploymentResult,
                             commonProperties,

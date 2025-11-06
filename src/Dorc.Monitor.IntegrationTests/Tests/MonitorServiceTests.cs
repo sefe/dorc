@@ -67,7 +67,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             //    await monitorService.ExecuteTask; // wait until background task is finished
 
             // for debugging: comment next 3 lines
-            await Task.Delay(20000); // wait some time and stop service and check results
+            await Task.Delay(5000); // wait some time and stop service and check results
             source.Cancel();
             await monitorService.StopAsync(token);
 
@@ -78,6 +78,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             // tasks start sequence 
             pendingRequestProcessorMock.Received(requests.Count());
             string sequence = string.Join("", queue);
+            Assert.AreEqual("111ba234", sequence, true, "tasks sequence is wrong");
             // requests for every environment should start one after another
             Assert.AreEqual("1234", dict[envs[0]], true, $"{envs[0]} sequence is bad");
             Assert.AreEqual("1a", dict[envs[1]], true, $"{envs[1]} sequence is bad");
@@ -93,7 +94,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             var data = new[]
             {
                 new { Env = envs[0], Username = "q", Project = "1000" },
-                new { Env = envs[0], Username = "w", Project = "10000" },
+                new { Env = envs[0], Username = "w", Project = "100" },
                 new { Env = envs[0], Username = "e", Project = "100" },
             };
 
@@ -122,7 +123,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
 
             UpdateDeploymentRequestStatus(requestToCancel, DeploymentRequestStatus.Cancelling);
 
-            await Task.Delay(10000); // give time for service to cancel request
+            await Task.Delay(3000); // give time for service to cancel request
 
             source.Cancel();
             await monitorService.StopAsync(token);
@@ -151,8 +152,8 @@ namespace Dorc.Monitor.IntegrationTests.Tests
         private IPendingRequestProcessor SetupPendingRequestProcessorMock(IList<string> envsToCheck, ConcurrentQueue<string> queue, ConcurrentDictionary<string, string> dict, Stopwatch stopWatch)
         {
             var prProcessorMock = Substitute.For<IPendingRequestProcessor>();
-            prProcessorMock.When(s => s.ExecuteAsync(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
-                .Do(async c =>
+            prProcessorMock.When(s => s.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .Do(c =>
                 {
                     var a = c.Arg<RequestToProcessDto>();
                     var b = c.Arg<CancellationToken>();
@@ -164,7 +165,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
                         queue.Enqueue(a.Request.UserName);
                         dict.AddOrUpdate(a.Request.EnvironmentName, a.Request.UserName, (key, oldValue) => oldValue += a.Request.UserName);
 
-                        await Task.Delay(sleepTime);
+                        Thread.Sleep(sleepTime);
                         Console.WriteLine($"{stopWatch.Elapsed}   stop {a.Request.UserName} {a.Request.EnvironmentName}");
                     }
                     else

@@ -22,7 +22,7 @@ namespace Dorc.Core.AzureStorageAccount
             _blobContainerName = configurationSettings.GetAzureStorageAccountTerraformBlobsContainerName();
         }
 
-        public async Task SaveFileToBlobsAsync(string fileName)
+        public void SaveFileToBlobs(string fileName)
         {
             if (!File.Exists(fileName))
             {
@@ -32,30 +32,30 @@ namespace Dorc.Core.AzureStorageAccount
             var containerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerName);
             var blobClient = containerClient.GetBlobClient(Path.GetFileName(fileName));
 
-            await blobClient.UploadAsync(fileName, true);
+            blobClient.Upload(fileName, true);
         }
 
-        public async Task<string> LoadFileFromBlobsAsync(string blobName)
+        public string LoadFileFromBlobs(string blobName)
         {
             var containerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerName);
             var blobClient = containerClient.GetBlobClient(Path.GetFileName(blobName));
-            var blobExists = await blobClient.ExistsAsync();
+            var blobExists = blobClient.Exists();
             if (!blobExists)
             {
                 throw new FileNotFoundException($"Blob {blobName} does not exist in container {this._blobContainerName}");
             }
 
-            using (StreamReader sr = new StreamReader(await blobClient.OpenReadAsync()))
+            using (StreamReader sr = new StreamReader(blobClient.OpenRead()))
             {
-                return await sr.ReadToEndAsync();
+                return sr.ReadToEnd();
             }
         }
 
-        public async Task DownloadFileFromBlobsAsync(string blobName, string filePath)
+        public void DownloadFileFromBlobs(string blobName, string filePath)
         {
             var containerClient = _blobServiceClient.GetBlobContainerClient(_blobContainerName);
             var blobClient = containerClient.GetBlobClient(Path.GetFileName(blobName));
-            var blobExists = await blobClient.ExistsAsync();
+            var blobExists = blobClient.Exists();
             if (!blobExists)
             {
                 throw new FileNotFoundException($"Blob {blobName} does not exist in container {this._blobContainerName}");
@@ -65,7 +65,7 @@ namespace Dorc.Core.AzureStorageAccount
                 File.Delete(filePath);
             }
 
-            await blobClient.DownloadToAsync(filePath);
+            blobClient.DownloadTo(filePath);
         }
     }
 }

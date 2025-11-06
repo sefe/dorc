@@ -7,7 +7,7 @@ namespace Dorc.Monitor
 {
     internal interface ITerraformDispatcher
     {
-        Task<bool> DispatchAsync(
+        bool Dispatch(
             ComponentApiModel component,
             DeploymentResultApiModel deploymentResult,
             IDictionary<string, VariableValue> properties,
@@ -18,7 +18,7 @@ namespace Dorc.Monitor
             TerrafromRunnerOperations terreformOperation,
             CancellationToken cancellationToken);
 
-        Task<bool> ExecuteConfirmedPlanAsync(
+        bool ExecuteConfirmedPlan(
             int deploymentResultId,
             CancellationToken cancellationToken);
     }

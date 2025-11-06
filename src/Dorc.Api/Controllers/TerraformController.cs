@@ -45,7 +45,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformPlanApiModel))]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet("plan/{deploymentResultId}")]
-        public async Task<IActionResult> GetTerraformPlan(int deploymentResultId)
+        public IActionResult GetTerraformPlan(int deploymentResultId)
         {
             try
             {
@@ -65,7 +65,7 @@ namespace Dorc.Api.Controllers
                 }
 
                 // Load plan content from storage
-                var planContent = await LoadPlanContentFromStorageAsync(deploymentResultId);
+                var planContent = LoadPlanContentFromStorage(deploymentResultId);
                 
                 var plan = new TerraformPlanApiModel
                 {
@@ -232,12 +232,12 @@ namespace Dorc.Api.Controllers
             return HasConfirmPermission(deploymentResult);
         }
 
-        private async Task<string> LoadPlanContentFromStorageAsync(int deploymentResultId)
+        private string LoadPlanContentFromStorage(int deploymentResultId)
         {
             try
             {
                 var terraformPlanBlobName = deploymentResultId.CreateTerraformPlanContantBlobName();
-                var blobContent = await _azureStorageAccountWorker.LoadFileFromBlobsAsync(terraformPlanBlobName);
+                var blobContent = _azureStorageAccountWorker.LoadFileFromBlobs(terraformPlanBlobName);
 
                 return blobContent;
             }

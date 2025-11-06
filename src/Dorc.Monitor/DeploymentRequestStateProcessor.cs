@@ -218,12 +218,7 @@ namespace Dorc.Monitor
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
-            // Select only Pending requests for each of environments that do not have any Running requests.
-            //var environmentRequestGroupsToExecute = this.requestsPersistentSource
-            //    .GetRequestsWithStatus(
-            //            DeploymentRequestStatus.Pending,
-            //            DeploymentRequestStatus.Running,
-            //            isProduction)
+            // Select only Pending and Confirmed requests for each of environments that do not have any Running requests.
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
                 .GetRequestsWithStatus(
                         DeploymentRequestStatus.Pending,
@@ -254,7 +249,7 @@ namespace Dorc.Monitor
                     this.logger.Debug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
                     continue;
                 }
-                var task = Task.Run(async () =>
+                var task = Task.Run(() =>
                 {
                     try
                     {
@@ -265,7 +260,7 @@ namespace Dorc.Monitor
                             requestToExecute.Request.Id,
                             requestCancellationTokenSource,
                             (requestId, existingCancellationTokenSource) => requestCancellationTokenSource);
-                        await this.ExecuteRequestAsync(requestToExecute, requestCancellationTokenSource.Token);
+                        this.ExecuteRequest(requestToExecute, requestCancellationTokenSource.Token);
                     }
                     catch (OperationCanceledException)
                     {
@@ -290,7 +285,7 @@ namespace Dorc.Monitor
             return requestGroupExecutionTasks.ToArray();
         }
 
-        private async Task ExecuteRequestAsync(RequestToProcessDto requestToExecute, CancellationToken requestCancellationToken)
+        private void ExecuteRequest(RequestToProcessDto requestToExecute, CancellationToken requestCancellationToken)
         {
             this.logger.Debug($"---------------begin execution of request {requestToExecute.Request.Id}---------------");
 
@@ -316,7 +311,7 @@ namespace Dorc.Monitor
                 var pendingRequestProcessor = this.serviceProvider.GetService(typeof(IPendingRequestProcessor)) as IPendingRequestProcessor;
                 if (pendingRequestProcessor == null)
                     throw new ArgumentNullException(nameof(pendingRequestProcessor));
-                await pendingRequestProcessor.ExecuteAsync(requestToExecute, requestCancellationToken);
+                pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken);
             }
             catch (Exception exception)
             {

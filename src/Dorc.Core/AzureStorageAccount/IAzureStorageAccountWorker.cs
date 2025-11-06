@@ -2,8 +2,8 @@
 {
     public interface IAzureStorageAccountWorker
     {
-        Task SaveFileToBlobsAsync(string fileName);
-        Task<string> LoadFileFromBlobsAsync(string blobName);
-        Task DownloadFileFromBlobsAsync(string blobName, string filePath);
+        void SaveFileToBlobs(string fileName);
+        string LoadFileFromBlobs(string blobName);
+        void DownloadFileFromBlobs(string blobName, string filePath);
     }
 }
