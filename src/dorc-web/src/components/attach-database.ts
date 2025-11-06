@@ -24,9 +24,6 @@ export class AttachDatabase extends LitElement {
   private selectedDatabase: DatabaseApiModel | undefined;
 
   @property({ type: Array })
-  private filteredDatabases: DatabaseApiModel[] | undefined;
-
-  @property({ type: Array })
   private databases: DatabaseApiModel[] | undefined;
 
   @property({ type: Boolean })
@@ -84,8 +81,8 @@ export class AttachDatabase extends LitElement {
             item-value-path="Id"
             item-label-path="Name"
             @value-changed="${this.setSelectedDatabase}"
-            .items="${this.filteredDatabases ?? this.databases}"
-            @filter-changed="${(this.filterDatabases)}"
+            .items="${this.databases}"
+            filter-property="Name"
             .renderer="${this._boundDatabasesRenderer}"
             placeholder="Select Database"
             style="width: 300px"
@@ -273,16 +270,4 @@ export class AttachDatabase extends LitElement {
     });
     console.log(result);
   }
-
-  private filterDatabases(e: CustomEvent) {
-    const filterValue = e.detail.value.toLowerCase() ?? '';
-        if (!filterValue) {
-      this.filteredDatabases = this.databases;
-      return;
-    }
-    this.filteredDatabases = this.databases?.filter(db => 
-      db.Name?.toLowerCase().includes(filterValue) ||
-      db.ServerName?.toLowerCase().includes(filterValue)
-    );
-  };
 }
