@@ -82,7 +82,6 @@ namespace Dorc.Monitor
                         {
                             Status = DeploymentResultStatus.Running.ToString()
                         });
-                        deploymentResultStatus = DeploymentResultStatus.Warning;
                         isSuccessful = terraformDispatcher.Dispatch(
                             component,
                             deploymentResult,

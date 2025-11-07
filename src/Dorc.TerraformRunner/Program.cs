@@ -42,6 +42,10 @@ namespace Dorc.TerraformmRunner
 #endif
 
                 var arguments = Parser.Default.ParseArguments<Options>(args);
+
+                if (arguments == null)
+                    throw new ArgumentNullException(nameof(arguments));
+
                 if (arguments.Tag != ParserResultType.Parsed)
                 {
                     foreach (var error in arguments.Errors)

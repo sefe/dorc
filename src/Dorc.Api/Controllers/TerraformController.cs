@@ -216,11 +216,7 @@ namespace Dorc.Api.Controllers
         }
 
         private bool HasConfirmPermission(DeploymentResultApiModel deploymentResult)
-        {
-            // TODO: Implement proper permission checking
-            // This should check if user has deploy permissions for the environment/project
-            var userName = _claimsPrincipalReader.GetUserName(User);
-            
+        {            
             // For now, check if user has admin privileges for the environment
             // In a real implementation, this would check environment-specific permissions
             return _apiSecurityService.IsEnvironmentOwnerOrAdmin(User, "default");
