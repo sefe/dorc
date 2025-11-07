@@ -15,7 +15,7 @@ namespace Dorc.Monitor.RunnerProcess
         public string ScriptPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
-        public TerrafromRunnerOperations TerrafromRunnerOperation { get; set; } = TerrafromRunnerOperations.None;
+        public TerraformRunnerOperations TerrafromRunnerOperation { get; set; } = TerraformRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
 

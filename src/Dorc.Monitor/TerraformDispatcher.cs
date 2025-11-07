@@ -61,7 +61,7 @@ namespace Dorc.Monitor
             bool isProduction,
             string environmentName,
             StringBuilder resultLogBuilder,
-            TerrafromRunnerOperations terreformOperation,
+            TerraformRunnerOperations terreformOperation,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -134,7 +134,7 @@ namespace Dorc.Monitor
                 var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
                 var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContantBlobName();
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
-                if (terreformOperation == TerrafromRunnerOperations.ApplyPlan)
+                if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                 {
                     _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
                 }
@@ -226,7 +226,7 @@ namespace Dorc.Monitor
                 
                 switch (terreformOperation)
                 {
-                    case TerrafromRunnerOperations.CreatePlan:
+                    case TerraformRunnerOperations.CreatePlan:
                         // save Terraform binary plan file to Azure Storage Account
                         _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                         // save Terraform human-readable plan file to Azure Storage Account
@@ -240,7 +240,7 @@ namespace Dorc.Monitor
                         logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
                         break;
 
-                    case TerrafromRunnerOperations.ApplyPlan:
+                    case TerraformRunnerOperations.ApplyPlan:
                         // Update status to WaitingConfirmation
                         _requestsPersistentSource.UpdateResultStatus(
                             deploymentResult,

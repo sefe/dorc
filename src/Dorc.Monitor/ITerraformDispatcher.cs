@@ -15,7 +15,7 @@ namespace Dorc.Monitor
             bool isProduction,
             string environmentName,
             StringBuilder resultLogBuilder,
-            TerrafromRunnerOperations terreformOperation,
+            TerraformRunnerOperations terreformOperation,
             CancellationToken cancellationToken);
 
         bool ExecuteConfirmedPlan(

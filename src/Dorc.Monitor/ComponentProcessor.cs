@@ -68,11 +68,11 @@ namespace Dorc.Monitor
                     case ComponentType.Terraform:
                         _logger.Info($"Processing Terraform component '{component.ComponentName}' - routing to TerraformDispatcher.");
 
-                        TerrafromRunnerOperations terreformOperation = TerrafromRunnerOperations.None;
+                        TerraformRunnerOperations terreformOperation = TerraformRunnerOperations.None;
                         if (deploymentResult.Status.Equals(DeploymentResultStatus.Pending.Value))
-                            terreformOperation = TerrafromRunnerOperations.CreatePlan;
+                            terreformOperation = TerraformRunnerOperations.CreatePlan;
                         else if (deploymentResult.Status.Equals(DeploymentResultStatus.Confirmed.Value))
-                            terreformOperation = TerrafromRunnerOperations.ApplyPlan;
+                            terreformOperation = TerraformRunnerOperations.ApplyPlan;
 
                         requestsPersistentSource.UpdateResultStatus(
                             deploymentResult!,
@@ -99,9 +99,9 @@ namespace Dorc.Monitor
                         {
                             deploymentResultStatus = terreformOperation switch
                             {
-                                TerrafromRunnerOperations.CreatePlan => DeploymentResultStatus.WaitingConfirmation,
-                                TerrafromRunnerOperations.ApplyPlan => DeploymentResultStatus.Complete,
-                                TerrafromRunnerOperations.None => throw new NotImplementedException()
+                                TerraformRunnerOperations.CreatePlan => DeploymentResultStatus.WaitingConfirmation,
+                                TerraformRunnerOperations.ApplyPlan => DeploymentResultStatus.Complete,
+                                TerraformRunnerOperations.None => throw new NotImplementedException()
                             };
                             _logger.Info($"Terraform component '{component.ComponentName}' plan created, waiting for confirmation.");
                         }
