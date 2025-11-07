@@ -17,7 +17,7 @@ namespace Dorc.TerraformmRunner
         [Option('t', "planFilePath", Required = true, HelpText = "Terraform plan file path")]
         public string PlanFilePath { get; set; }
 
-        [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan contant file path")]
+        [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan constant file path")]
         public string PlanContentFilePath { get; set; }
 
         [Option('o', "operation", Required = false, HelpText = "Selected operation")]

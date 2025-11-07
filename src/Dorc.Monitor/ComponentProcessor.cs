@@ -205,11 +205,6 @@ namespace Dorc.Monitor
                     component,
                     deploymentResultStatus.ToString(),
                     requestId);
-                    componentsPersistentSource.SaveEnvComponentStatus(
-                        environmentId,
-                        component,
-                        deploymentResultStatus.ToString(),
-                        requestId);
 
                 eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                 {
