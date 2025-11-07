@@ -17,9 +17,5 @@ namespace Dorc.Monitor
             StringBuilder resultLogBuilder,
             TerraformRunnerOperations terreformOperation,
             CancellationToken cancellationToken);
-
-        bool ExecuteConfirmedPlan(
-            int deploymentResultId,
-            CancellationToken cancellationToken);
     }
 }
