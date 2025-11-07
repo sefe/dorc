@@ -63,6 +63,9 @@
 
 				<ComponentRef Id="PropertyValueCreationConfigSetup"/>
 				<ComponentGroupRef Id="ToolsPropertyValueCreationComGroup"/>
+
+				<ComponentRef Id="EncryptionMigrationConfigSetup"/>
+				<ComponentGroupRef Id="ToolsEncryptionMigrationComGroup"/>
 			</Feature>
 		</Feature>
 
@@ -101,6 +104,7 @@
 							<Directory Id="EndurConfigDir" Name="EndurConfig" />
 							<Directory Id="PostRestoreEndurDir" Name="PostRestoreEndur" />
 							<Directory Id="PropertyValueCreationDir" Name="PropertyValueCreation" />
+							<Directory Id="EncryptionMigrationDir" Name="EncryptionMigration" />
 						</Directory>
 					</Directory>
 				</Directory>
