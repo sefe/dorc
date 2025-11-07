@@ -249,6 +249,7 @@ namespace Dorc.TerraformmRunner
             catch (Exception e)
             {
                 logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
+                throw;
             }
 
             var output = outputBuilder.ToString();
@@ -276,7 +277,6 @@ namespace Dorc.TerraformmRunner
 
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
-            var properties = scriptGroupProperties.CommonProperties;
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);

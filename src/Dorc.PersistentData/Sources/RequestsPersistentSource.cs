@@ -507,35 +507,27 @@ namespace Dorc.PersistentData.Sources
             if (req == null)
                 return null;
 
-            try
-            {
-                var status = (DeploymentRequestStatus)Enum.Parse(typeof(DeploymentRequestStatus), req.Status, true);
+            var status = (DeploymentRequestStatus)Enum.Parse(typeof(DeploymentRequestStatus), req.Status, true);
 
-                return new DeploymentRequestApiModel
-                {
-                    BuildNumber = req.BuildNumber,
-                    BuildUri = GetSafeProperty(() => req.BuildUri),
-                    CompletedTime = req.CompletedTime,
-                    Components = req.Components,
-                    DropLocation = GetSafeProperty(() => req.DropLocation),
-                    EnvironmentName = req.Environment,
-                    Id = req.Id,
-                    IsProd = req.IsProd,
-                    Project = req.Project,
-                    Log = req.Log,
-                    RequestDetails = req.RequestDetails,
-                    RequestedTime = req.RequestedTime,
-                    StartedTime = req.StartedTime,
-                    Status = status.ToString(),
-                    UserName = req.UserName,
-                    UncLogPath = req.UncLogPath
-                };
-            }
-            catch (Exception)
+            return new DeploymentRequestApiModel
             {
-                // If mapping fails completely, return null to skip this request
-                return null;
-            }
+                BuildNumber = req.BuildNumber,
+                BuildUri = GetSafeProperty(() => req.BuildUri),
+                CompletedTime = req.CompletedTime,
+                Components = req.Components,
+                DropLocation = GetSafeProperty(() => req.DropLocation),
+                EnvironmentName = req.Environment,
+                Id = req.Id,
+                IsProd = req.IsProd,
+                Project = req.Project,
+                Log = req.Log,
+                RequestDetails = req.RequestDetails,
+                RequestedTime = req.RequestedTime,
+                StartedTime = req.StartedTime,
+                Status = status.ToString(),
+                UserName = req.UserName,
+                UncLogPath = req.UncLogPath
+            };
         }
 
         private static string GetSafeProperty(Func<string> getter)
