@@ -188,7 +188,7 @@ namespace Dorc.TerraformmRunner
                     value = Newtonsoft.Json.JsonConvert.SerializeObject(property.Value.Value);
                 }
 
-                // Only [a-zA-Z0-9_] symbols can be used in Terrafrom identifiers. Replace all others with '_'
+                // Only [a-zA-Z0-9_] symbols can be used in Terraform identifiers. Replace all others with '_'
                 var propertyName = Regex.Replace(property.Key, "[^a-zA-Z0-9_]", "");
 
                 variablesContent.AppendLine($"{propertyName} = {value}");

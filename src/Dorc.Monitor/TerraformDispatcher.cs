@@ -132,7 +132,7 @@ namespace Dorc.Monitor
                     Directory.CreateDirectory(planStorageDir);
                 var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
                 var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
-                var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContantBlobName();
+                var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
                 if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                 {

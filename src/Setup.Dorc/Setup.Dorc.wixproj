@@ -127,7 +127,7 @@
 	   <SuppressRegistry>true</SuppressRegistry>
 	</HarvestDirectory>
 	<HarvestDirectory Include="$(DorcTerraformRunnerDir)">
-	   <DirectoryRefId>INSTALLLOCATIONTERRAFORMRUNNERNONPROD</DirectoryRefId>
+	   <DirectoryRefId>INSTALLLOCATIONTERRAFROMRUNNERNONPROD</DirectoryRefId>
 	   <ComponentGroupName>NonProdTerraformRunnerComGroup</ComponentGroupName>
 	   <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
 	   <PreprocessorVariable>var.DorcTerraformRunnerDir</PreprocessorVariable>

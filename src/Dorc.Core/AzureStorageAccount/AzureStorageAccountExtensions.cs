@@ -6,7 +6,7 @@
         {
             return $"plan-{deploymentResultId}.tfplan";
         }
-        public static string CreateTerraformPlanContantBlobName(this int deploymentResultId)
+        public static string CreateTerraformPlanContentBlobName(this int deploymentResultId)
         {
             return $"plan-{deploymentResultId}.txt";
         }

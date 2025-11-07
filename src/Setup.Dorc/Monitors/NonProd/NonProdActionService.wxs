@@ -68,7 +68,7 @@
 					</Component>
 				</Directory>
 
-				<Directory Id="INSTALLLOCATIONTERRAFORMRUNNERNONPROD" Name="TerraformRunner">
+				<Directory Id="INSTALLLOCATIONTERRAFROMRUNNERNONPROD" Name="TerraformRunner">
 					<Component Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" Guid="{3DD759A3-E0CB-45D3-8AB7-A8C2E229DA87}">
 						<Json:JsonFile Id="TerraformRunnerNonProdExeConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
