@@ -1,4 +1,5 @@
 ﻿using Dorc.Core.Configuration;
+using log4net;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Monitor
@@ -124,9 +125,15 @@ namespace Dorc.Monitor
             get
             {
                 var value = configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"];
-                return !string.IsNullOrWhiteSpace(value) && 
+                var isEnabled = !string.IsNullOrWhiteSpace(value) && 
                        bool.TryParse(value, out bool result) && 
                        result;
+                
+                // Log the configuration value for debugging
+                var log = LogManager.GetLogger(typeof(MonitorConfiguration));
+                log.Debug($"EnableConnectivityCheck configuration value: '{value}' -> {isEnabled}");
+                
+                return isEnabled;
             }
         }
 

@@ -73,7 +73,7 @@ To modify, change the `ConnectivityCheckIntervalMinutes` setting:
 "ConnectivityCheckIntervalMinutes": "30"  // Check every 30 minutes
 ```
 
-**Initial Delay**: The service waits 2 minutes after starting before performing the first check to allow the Monitor service to fully initialize.
+**Initial Delay**: The service waits 30 seconds after starting before performing the first check to allow other services to initialize.
 
 **Batch Processing**: The service processes servers and databases in batches of 100 to avoid loading large datasets into memory. This ensures efficient operation even with thousands of resources.
 
@@ -116,7 +116,8 @@ The connectivity service logs:
 **Example Log Messages**:
 ```
 INFO  - Connectivity Check Service is starting. Check interval: 60 minutes.
-INFO  - Waiting 2 minutes before first connectivity check...
+INFO  - Waiting 30 seconds before first connectivity check...
+INFO  - Initial delay completed. Starting connectivity checks...
 INFO  - Starting connectivity check cycle...
 INFO  - Starting server connectivity check for 42 servers in batches of 100...
 INFO  - Processed 42/42 servers...
@@ -126,6 +127,7 @@ WARN  - Database AppDB on PROD-SQL-01 (ID: 456) is not reachable.
 INFO  - Processed 18/18 databases...
 INFO  - Completed connectivity check for 18 databases.
 INFO  - Connectivity check cycle completed.
+INFO  - Waiting 60 minutes until next connectivity check...
 ```
 
 **Disabled Service**:
@@ -137,11 +139,12 @@ INFO  - Connectivity Check Service is disabled in configuration.
 
 ### Service Not Starting
 - Check if `EnableConnectivityCheck` is set to `"true"` (lowercase) in `appsettings.json`
-- The setting is **case-sensitive** - use `"true"` or `"True"`, not `"TRUE"`
+- The setting is **case-insensitive** - use `"true"` or `"True"` (both work)
 - Review logs for the message: "Connectivity Check Service is disabled in configuration."
 - Verify the Monitor service has the necessary configuration settings
-- Check that the service waits 2 minutes before the first check (initial delay is intentional)
-- If you see "Connectivity Check Service was cancelled during initial delay", the service is stopping before initialization completes - check for service restart issues
+- The service waits 30 seconds before the first check (initial delay is intentional)
+- If you see "Connectivity Check Service was cancelled during initial delay", the service is being stopped during startup - this should not happen with the reduced 30-second delay
+- Check debug logs for configuration value: "EnableConnectivityCheck configuration value: 'True' -> True"
 
 ### Servers Always Showing as Offline
 - Verify the Dorc.Monitor service has network access to ping the servers

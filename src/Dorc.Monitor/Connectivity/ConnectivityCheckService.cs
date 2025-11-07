@@ -39,9 +39,9 @@ namespace Dorc.Monitor.Connectivity
             
             _logger.Info($"Connectivity Check Service is starting. Check interval: {_checkInterval.TotalMinutes} minutes.");
 
-            // Add initial delay to allow the service to fully start and avoid startup conflicts
-            var initialDelay = TimeSpan.FromMinutes(2);
-            _logger.Info($"Waiting {initialDelay.TotalMinutes} minutes before first connectivity check...");
+            // Add a small initial delay to allow other services to initialize
+            var initialDelay = TimeSpan.FromSeconds(30);
+            _logger.Info($"Waiting {initialDelay.TotalSeconds} seconds before first connectivity check...");
             
             try
             {
@@ -52,6 +52,8 @@ namespace Dorc.Monitor.Connectivity
                 _logger.Info("Connectivity Check Service was cancelled during initial delay.");
                 return;
             }
+
+            _logger.Info("Initial delay completed. Starting connectivity checks...");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -69,6 +71,7 @@ namespace Dorc.Monitor.Connectivity
 
                 try
                 {
+                    _logger.Info($"Waiting {_checkInterval.TotalMinutes} minutes until next connectivity check...");
                     await Task.Delay(_checkInterval, stoppingToken);
                 }
                 catch (OperationCanceledException)
