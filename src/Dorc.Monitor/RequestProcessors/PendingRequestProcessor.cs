@@ -145,7 +145,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                                 deploymentResults.Add(componentId, deploymentResult);
                             }
-                            else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed))
+                            else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed.ToString()))
                             {
                                 logger.Warn($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
                             }
