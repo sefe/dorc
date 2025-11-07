@@ -12,13 +12,14 @@
     <ToolsPREDir>$(SolutionDir)Tools.PostRestoreEndurCLI\bin\$(Configuration)\net8.0\publish</ToolsPREDir>
     <ToolsPVCDir>$(SolutionDir)Tools.PropertyValueCreationCLI\bin\$(Configuration)\net8.0\publish</ToolsPVCDir>
     <ToolsReqDir>$(SolutionDir)Tools.RequestCLI\bin\$(Configuration)\net8.0\publish</ToolsReqDir>
+    <ToolsEMDir>$(SolutionDir)Tools.EncryptionMigrationCLI\bin\$(Configuration)\net8.0\publish</ToolsEMDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>
@@ -72,6 +73,7 @@
     <ProjectReference Include="..\Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj" />
     <ProjectReference Include="..\Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj" />
     <ProjectReference Include="..\Tools.RequestCLI\Tools.RequestCLI.csproj" />
+    <ProjectReference Include="..\Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj" />
   </ItemGroup>
   <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
@@ -82,6 +84,7 @@
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.RequestCLI\Tools.RequestCLI.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj&quot; -c $(Configuration)" />
   </Target>
   <ItemGroup>
     <HarvestDirectory Include="$(DorcWebUIDir)">
@@ -176,6 +179,14 @@
       <ComponentGroupName>ToolsRequestComGroup</ComponentGroupName>
       <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.ToolsReqDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(ToolsEMDir)">
+      <DirectoryRefId>EncryptionMigrationDir</DirectoryRefId>
+      <ComponentGroupName>ToolsEncryptionMigrationComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.ToolsEMDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
     </HarvestDirectory>
