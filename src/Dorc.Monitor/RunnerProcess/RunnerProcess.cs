@@ -12,10 +12,9 @@ namespace Dorc.Monitor.RunnerProcess
         private bool disposedValue;
         #endregion
 
-        private IntPtr processHandle;
-        private IntPtr primaryThreadHandle;
+        private readonly IntPtr processHandle;
+        private readonly IntPtr primaryThreadHandle;
         private uint processId;
-        private uint primaryThreadId;
 
         private ProcessWaitHandle completeEvent;
 
@@ -37,7 +36,6 @@ namespace Dorc.Monitor.RunnerProcess
             this.primaryThreadHandle = processInfo.Thread;
 
             this.processId = processInfo.ProcessId;
-            this.primaryThreadId = processInfo.ThreadId;
 
             this.completeEvent = new ProcessWaitHandle(processInfo.Process);
         }
@@ -94,7 +92,6 @@ namespace Dorc.Monitor.RunnerProcess
             Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(this.primaryThreadHandle);
 
             this.processId = 0;
-            this.primaryThreadId = 0;
         }
 
         #region Dispose pattern implementation

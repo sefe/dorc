@@ -118,36 +118,33 @@ namespace Dorc.Monitor
                         // Handle PowerShell components
                         var script = GetScripts(component.ComponentId);
 
-                        if (isProductionEnvironment)
+                        if (isProductionEnvironment && script.NonProdOnly)
                         {
-                            if (script.NonProdOnly)
+                            deploymentResultStatus = DeploymentResultStatus.Warning;
+
+                            var warningMessage = $"SCRIPT '{script.Path}' IS SET TO RUN FOR NON PROD ENVIRONMENTS ONLY! SKIPPED THIS SCRIPT EXECUTION!";
+                            _logger.Warn(warningMessage);
+                            componentResultLogBuilder.AppendLine(warningMessage);
+
+                            requestsPersistentSource.UpdateResultLog(
+                                deploymentResult,
+                                componentResultLogBuilder.ToString());
+                            requestsPersistentSource.UpdateResultStatus(
+                                deploymentResult,
+                                deploymentResultStatus);
+
+                            eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                             {
-                                deploymentResultStatus = DeploymentResultStatus.Warning;
+                                Status = deploymentResultStatus.ToString()
+                            });
 
-                                var warningMessage = $"SCRIPT '{script.Path}' IS SET TO RUN FOR NON PROD ENVIRONMENTS ONLY! SKIPPED THIS SCRIPT EXECUTION!";
-                                _logger.Warn(warningMessage);
-                                componentResultLogBuilder.AppendLine(warningMessage);
+                            componentsPersistentSource.SaveEnvComponentStatus(
+                                environmentId,
+                                component,
+                                deploymentResultStatus.ToString(),
+                                requestId);
 
-                                requestsPersistentSource.UpdateResultLog(
-                                    deploymentResult,
-                                    componentResultLogBuilder.ToString());
-                                requestsPersistentSource.UpdateResultStatus(
-                                    deploymentResult,
-                                    deploymentResultStatus);
-
-                                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
-                                {
-                                    Status = deploymentResultStatus.ToString()
-                                });
-
-                                componentsPersistentSource.SaveEnvComponentStatus(
-                                    environmentId,
-                                    component,
-                                    deploymentResultStatus.ToString(),
-                                    requestId);
-
-                                return true;
-                            }
+                            return true;
                         }
 
                         isSuccessful = scriptDispatcher.Dispatch(
