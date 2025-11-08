@@ -2,7 +2,7 @@
   "profiles": {
     "Dorc.TerraformRunner": {
       "commandName": "Project",
-      "commandLineArgs": "-p \"DOrcMonitor-1672542\" -l \"C:\\Log\\DOrc\\Deploy\\Services\\Requests\\test.log\" -s \"C:\\temp\\0001-Terraform\\terraform-project1\" -t \"C:\\Users\\ksuspits\\AppData\\Local\\Temp\\terraform-plans\\plan-3065320.tfplan\" -c \"C:\\Users\\ksuspits\\AppData\\Local\\Temp\\terraform-plans\\plan-3065320.txt\" -o 1 -f true"
+      "commandLineArgs": "-p \"DOrcMonitor-1672542\" -l \"test.log\" -s \"terraform-project\" -t \"plan-3065320.tfplan\" -c \"plan-3065320.txt\" -o 1 -f true"
     }
   }
 }
