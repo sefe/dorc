@@ -106,10 +106,6 @@ namespace Dorc.Monitor.RequestProcessors
                         requestDetail);
 
                     logger.Info($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
-                    foreach (var comp in orderedNonSkippedComponents)
-                    {
-                        logger.Info($"  - Component: '{comp.ComponentName}', Type: {comp.ComponentType} (Enum Value: {(int)comp.ComponentType}), ID: {comp.ComponentId}");
-                    }
 
                     if (!orderedNonSkippedComponents.Any())
                     {
@@ -129,7 +125,6 @@ namespace Dorc.Monitor.RequestProcessors
                         return;
                     }
 
-                    //var deploymentResults = new Dictionary<int, DeploymentResultApiModel>();
                     var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id).ToDictionary(r => r.ComponentId);
                     foreach (var nonSkippedComponent in orderedNonSkippedComponents)
                     {

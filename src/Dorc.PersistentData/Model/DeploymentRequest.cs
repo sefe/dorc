@@ -64,15 +64,7 @@ namespace Dorc.PersistentData.Model
             {
                 if (_xml == null)
                 {
-                    try
-                    {
-                        _xml = XElement.Parse(RequestDetails ?? "<root></root>");
-                    }
-                    catch (Exception)
-                    {
-                        // If XML parsing fails, return a safe default
-                        _xml = new XElement("root");
-                    }
+                    _xml = XElement.Parse(RequestDetails ?? "<root></root>");
                 }
 
                 return _xml;
