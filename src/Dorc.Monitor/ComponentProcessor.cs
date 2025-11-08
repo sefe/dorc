@@ -82,6 +82,7 @@ namespace Dorc.Monitor
                         {
                             Status = DeploymentResultStatus.Running.ToString()
                         });
+
                         isSuccessful = terraformDispatcher.Dispatch(
                             component,
                             deploymentResult,
@@ -114,6 +115,11 @@ namespace Dorc.Monitor
                         requestsPersistentSource.UpdateResultStatus(
                             deploymentResult!,
                             DeploymentResultStatus.Running);
+
+                        eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                        {
+                            Status = DeploymentResultStatus.Running.ToString()
+                        });
 
                         // Handle PowerShell components
                         var script = GetScripts(component.ComponentId);

@@ -16,17 +16,14 @@ namespace Dorc.Monitor
     {
         private readonly ILog logger;
         private readonly IDeploymentRequestStateProcessor deploymentRequestStateProcessor;
-        private readonly IServiceProvider serviceProvider;
 
         public DeploymentEngine(
             ILog logger,
-            IDeploymentRequestStateProcessor deploymentRequestStateProcessor,
-            IServiceProvider serviceProvider
+            IDeploymentRequestStateProcessor deploymentRequestStateProcessor
             )
         {
             this.logger = logger;
             this.deploymentRequestStateProcessor = deploymentRequestStateProcessor;
-            this.serviceProvider = serviceProvider;
         }
 
         public async Task ProcessDeploymentRequestsAsync(
@@ -54,8 +51,6 @@ namespace Dorc.Monitor
                     monitorCancellationToken.ThrowIfCancellationRequested();
 
                     deploymentRequestStateProcessor.ExecuteRequests(isProduction, requestCancellationSources, monitorCancellationToken);
-
-                    monitorCancellationToken.ThrowIfCancellationRequested();
                 }
                 catch (OperationCanceledException ex)
                 {
