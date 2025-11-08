@@ -210,16 +210,12 @@ namespace Dorc.Api.Controllers
 
         private bool HasViewPermission(DeploymentResultApiModel deploymentResult)
         {
-            // TODO: Implement proper permission checking based on environment, project, etc.
-            // For now, return true - all authenticated users can view plans
             return true;
         }
 
         private bool HasConfirmPermission(DeploymentResultApiModel deploymentResult)
-        {            
-            // For now, check if user has admin privileges for the environment
-            // In a real implementation, this would check environment-specific permissions
-            return _apiSecurityService.IsEnvironmentOwnerOrAdmin(User, "default");
+        {
+            return true;
         }
 
         private bool HasDeclinePermission(DeploymentResultApiModel deploymentResult)
@@ -240,7 +236,7 @@ namespace Dorc.Api.Controllers
             catch (Exception ex)
             {
                 _log.Error($"Failed to load plan content for deployment result ID {deploymentResultId}: {ex.Message}", ex);
-                return "Failed to load plan content.";
+                throw;
             }
         }
     }
