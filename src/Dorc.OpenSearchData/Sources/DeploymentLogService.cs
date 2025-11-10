@@ -36,7 +36,7 @@ namespace Dorc.OpenSearchData.Sources
             }
             catch (Exception e)
             {
-                _logger.LogError("Request for the deployment result logs to the OpenSearch failed.", e);
+                _logger.LogError(e, "Request for the deployment result logs to the OpenSearch failed.");
                 foreach (var deploymentResult in deploymentResults)
                     deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
             }
@@ -68,7 +68,7 @@ namespace Dorc.OpenSearchData.Sources
 
                 if (!searchResult.IsValid)
                 {
-                    _logger.Error($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
+                    _logger.LogError($"OpenSearch query exception: {searchResult.OriginalException?.Message}.{Environment.NewLine}Request information: {searchResult.DebugInformation}");
                     return;
                 }
 
@@ -125,7 +125,7 @@ namespace Dorc.OpenSearchData.Sources
             }
             catch (Exception e)
             {
-                _logger.Error($"Request for the deployment result log (RequestId: {requestId}, ResultId: {deploymentResultId}) to the OpenSearch failed.", e);
+                _logger.LogError(e, $"Request for the deployment result log (RequestId: {requestId}, ResultId: {deploymentResultId}) to the OpenSearch failed.");
                 return "No logs in the OpenSearch or it is unavailable.";
             }
         }
