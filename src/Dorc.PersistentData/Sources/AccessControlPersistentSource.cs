@@ -5,6 +5,8 @@ using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -104,6 +106,109 @@ namespace Dorc.PersistentData.Sources
                     .OrderBy(x => x.Name)
                     .ToList();
             }
+        }
+
+        public void UpdateAccessControlsWithHistory(
+            Guid objectId,
+            List<AccessControlApiModel> newPrivileges,
+            ClaimsPrincipal user)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                // Get environment for history tracking
+                var environment = context.Environments.FirstOrDefault(e => e.ObjectId == objectId);
+                
+                if (environment == null)
+                    throw new ArgumentException("Environment not found");
+                    
+                // Get username from ClaimsPrincipal
+                var username = user.Identity?.Name ?? "Unknown";
+                
+                // Get existing access controls
+                var existingAccessControls = context.AccessControls
+                    .Where(ac => ac.ObjectId == objectId)
+                    .ToList();
+                    
+                var existingDict = existingAccessControls.ToDictionary(ac => ac.Id);
+                var newIds = newPrivileges.Select(p => p.Id).ToArray();
+                
+                // Track removed users
+                foreach (var existing in existingAccessControls)
+                {
+                    if (!newIds.Contains(existing.Id))
+                    {
+                        EnvironmentHistoryPersistentSource.AddHistory(
+                            environment,
+                            GetPermissionsString(existing.Allow),
+                            $"User '{existing.Name}' removed from access control",
+                            username,
+                            "Access Control - User Removed",
+                            context
+                        );
+                        
+                        context.AccessControls.Remove(existing);
+                    }
+                }
+                
+                // Track added or modified users
+                foreach (var privilege in newPrivileges)
+                {
+                    if (privilege.Id == 0)
+                    {
+                        // NEW USER
+                        var newAccessControl = new AccessControl
+                        {
+                            ObjectId = objectId,
+                            Name = privilege.Name,
+                            Sid = privilege.Sid,
+                            Pid = privilege.Pid,
+                            Allow = privilege.Allow,
+                            Deny = privilege.Deny
+                        };
+                        context.AccessControls.Add(newAccessControl);
+                        
+                        EnvironmentHistoryPersistentSource.AddHistory(
+                            environment,
+                            string.Empty,
+                            $"User '{privilege.Name}' added with permissions: {GetPermissionsString(privilege.Allow)}",
+                            username,
+                            "Access Control - User Added",
+                            context
+                        );
+                    }
+                    else if (existingDict.TryGetValue(privilege.Id, out var existing))
+                    {
+                        if (existing.Allow != privilege.Allow || existing.Deny != privilege.Deny)
+                        {
+                            EnvironmentHistoryPersistentSource.AddHistory(
+                                environment,
+                                GetPermissionsString(existing.Allow),
+                                $"User '{privilege.Name}' permissions changed to: {GetPermissionsString(privilege.Allow)}",
+                                username,
+                                "Access Control - Permissions Modified",
+                                context
+                            );
+                            
+                            existing.Allow = privilege.Allow;
+                            existing.Deny = privilege.Deny;
+                            existing.Name = privilege.Name;
+                            existing.Sid = privilege.Sid;
+                            existing.Pid = privilege.Pid;
+                        }
+                    }
+                }
+                
+                context.SaveChanges();
+            }
+        }
+        
+        private string GetPermissionsString(int permissions)
+        {
+            var perms = new List<string>();
+            if ((permissions & 1) != 0) perms.Add("Write");
+            if ((permissions & 2) != 0) perms.Add("Read Secrets");
+            if ((permissions & 4) != 0) perms.Add("Owner");
+            return perms.Any() ? string.Join(", ", perms) : "None";
         }
 
         private AccessControlApiModel MapToAccessControlApiModel(AccessControl ac)

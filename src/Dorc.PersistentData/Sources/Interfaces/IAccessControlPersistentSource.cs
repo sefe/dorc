@@ -13,5 +13,9 @@ namespace Dorc.PersistentData.Sources.Interfaces
         Guid DeleteAccessControl(int id);
         IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(ClaimsPrincipal user, string accessControlName) where TEntity : SecurityObject;
         IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(Type type, ClaimsPrincipal user) where TEntity : SecurityObject;
+        void UpdateAccessControlsWithHistory(
+            Guid objectId,
+            List<AccessControlApiModel> privileges,
+            ClaimsPrincipal user);
     }
 }

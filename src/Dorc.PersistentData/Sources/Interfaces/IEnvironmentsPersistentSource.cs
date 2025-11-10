@@ -38,6 +38,5 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
         void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user);
         EnvironmentApiModel MapToEnvironmentApiModel(Environment env, bool userEditable, bool isOwner);
-        void UpdateAccessControlsWithHistory(Guid objectId, List<AccessControlApiModel> newPrivileges, ClaimsPrincipal user);
     }
 }

@@ -20,18 +20,15 @@ namespace Dorc.Api.Controllers
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
         private readonly IActiveDirectorySearcher _adSearcher;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
-        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
         public AccessControlController(
             IAccessControlPersistentSource accessControlPersistentSource,
             IActiveDirectorySearcher adSearcher,
-            ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IEnvironmentsPersistentSource environmentsPersistentSource)
+            ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _adSearcher = adSearcher;
             _accessControlPersistentSource = accessControlPersistentSource;
-            _environmentsPersistentSource = environmentsPersistentSource;
         }
 
         /// <summary>
@@ -114,8 +111,8 @@ namespace Dorc.Api.Controllers
                         .ToList();
                     
                     var newOwners = accessControl.Privileges
-                        .Where(p => (p.Allow & 4) != 0)
-                        .ToList();
+    .Where(p => (p.Allow & 4) != 0)
+    .ToList();
 
                     if (currentOwners.Any() && !newOwners.Any())
                     {
@@ -123,10 +120,16 @@ namespace Dorc.Api.Controllers
                             "Cannot remove all owners from an environment. At least one owner must remain.");
                     }
                     
-                    _environmentsPersistentSource.UpdateAccessControlsWithHistory(accessControl.ObjectId, accessControl.Privileges.ToList(), User);
+                    // Use new method with history tracking
+                    _accessControlPersistentSource.UpdateAccessControlsWithHistory(
+                        accessControl.ObjectId,
+                        accessControl.Privileges.ToList(),
+                        User
+                    );
                 }
                 else
                 {
+                    // Projects - no history
                     var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
                         .Select(p => p.Id).ToArray();
                     var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
