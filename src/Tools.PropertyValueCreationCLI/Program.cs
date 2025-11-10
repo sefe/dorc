@@ -46,6 +46,7 @@ namespace Tools.PropertyValueCreationCLI
 
                 For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
                 For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
+                For<IPropertyEncryptor>().Use(x => { 
                     var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
                     return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
                         secureKeyPersistentDataSource.GetSymmetricKey());
