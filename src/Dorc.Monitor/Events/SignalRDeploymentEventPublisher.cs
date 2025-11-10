@@ -88,10 +88,6 @@ namespace Dorc.Monitor.Events
                                 }
                             };
                         })
-                        .ConfigureLogging(logging =>
-                        {
-                            // SignalR will use the logger from DI
-                        })
                         .WithAutomaticReconnect();
                     _connection = builder.Build();
                 }
