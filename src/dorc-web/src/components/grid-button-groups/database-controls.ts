@@ -119,7 +119,8 @@ export class DatabaseControls extends LitElement {
               if (headerMsg && headerMsg.trim()) {
                 message = (retrieveErrorMessage(headerMsg, base) || headerMsg || base).trim();
               }
-            } catch {
+            } catch (e) {
+              console.debug('Header extraction failed:', e);
             }
           }
 
@@ -139,7 +140,9 @@ export class DatabaseControls extends LitElement {
               const dbgHeader = err?.xhr?.getResponseHeader?.('X-Error-Message');
               console.debug('X-Error-Message header =', dbgHeader);
             }
-          } catch {}
+          } catch (e) {
+             console.debug('Header dump failed:', e);
+          }
         },
         complete: () => console.log(`Deleted database ${name}`)
       });
