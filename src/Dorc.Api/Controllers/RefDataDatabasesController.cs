@@ -17,6 +17,28 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
+        private static class Err
+        {
+            public const string BodyRequired = "Body is required.";
+            public const string NameServerRequired = "'Name' and 'ServerName' are required.";
+            public const string IdPositive = "'{0}' must be greater than zero.";
+            public const string IdMismatch = "'id' must be the same as database.Id.";
+            public const string NotFound = "The database could not be found.";
+            public const string EnvMissing = "Error while checking permissions; Environment missing in Deployment database.";
+            public const string PermissionAll = "You must have write permission on all environments attached to this database: {0}";
+            public const string PermissionSingle = "You must have write permission on {0} to modify this database.";
+            public const string DeleteBlocked = "Database is assigned to one or more environments. Unassign it before deleting: {0}";
+            public const string DeleteIncomplete = "Deletion did not complete. The database may still be referenced by other entities.";
+            public const string DeleteConstraint = "The database is referenced by other entities (e.g., environments, pipelines, jobs, or history). Remove those references and try again.";
+            public const string DeleteUnexpected = "An unexpected error occurred while deleting the database.";
+            public const string UpdateConstraint = "The database may be referenced by other entities. Review constraints and try again.";
+            public const string UpdateUnexpected = "An unexpected error occurred while updating the database.";
+            public const string CreateConstraint = "The database could not be created due to constraint violations (e.g., unique keys or references).";
+            public const string CreateGenericBad = "The request could not be processed. Please review the input and try again.";
+
+            public static string Duplicate(string server, string name) => $"Database already exists {server}:{name}";
+        }
+
         public RefDataDatabasesController(
             IDatabasesPersistentSource databasesPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
@@ -28,7 +50,8 @@ namespace Dorc.Api.Controllers
         }
 
         // ---------- Helpers
-        // Plain-text -> ContentResult (kept for other endpoints)
+        private IActionResult BadRequestText(string message) => new BadRequestObjectResult(message);
+
         private ContentResult TextError(int statusCode, string message)
         {
             var response = HttpContext?.Response;
@@ -36,18 +59,18 @@ namespace Dorc.Api.Controllers
             {
                 response.Headers["X-Error-Message"] = message ?? string.Empty;
 
-                const string exposeHeader = "Access-Control-Expose-Headers";
-                var current = response.Headers[exposeHeader].ToString();
+                const string expose = "Access-Control-Expose-Headers";
+                var current = response.Headers[expose].ToString();
                 if (string.IsNullOrWhiteSpace(current))
                 {
-                    response.Headers[exposeHeader] = "X-Error-Message";
+                    response.Headers[expose] = "X-Error-Message";
                 }
                 else
                 {
                     var parts = current.Split(',').Select(h => h.Trim());
                     if (!parts.Contains("X-Error-Message", StringComparer.OrdinalIgnoreCase))
                     {
-                        response.Headers[exposeHeader] = current + ", X-Error-Message";
+                        response.Headers[expose] = current + ", X-Error-Message";
                     }
                 }
             }
@@ -60,81 +83,60 @@ namespace Dorc.Api.Controllers
             };
         }
 
-        // For tests expecting ObjectResult (BadRequestObjectResult.Value = string)
-        private IActionResult BadRequestText(string message) => new BadRequestObjectResult(message);
-
-        // ---------- Validators
-
+        // ---------- Validators 
         private IActionResult? ValidateBody(DatabaseApiModel? model)
         {
-            if (model == null)
-                return BadRequestText("Body is required.");
+            if (model == null) return BadRequestText(Err.BodyRequired);
             return null;
         }
 
         private IActionResult? ValidateNames(DatabaseApiModel? model)
         {
-            if (model == null)
-                return BadRequestText("Body is required.");
-
-            if (string.IsNullOrWhiteSpace(model.Name) ||
-                string.IsNullOrWhiteSpace(model.ServerName))
-                return BadRequestText("'Name' and 'ServerName' are required.");
-
+            if (model == null) return BadRequestText(Err.BodyRequired);
+            if (string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.ServerName))
+                return BadRequestText(Err.NameServerRequired);
             return null;
         }
 
         private IActionResult? ValidateIdPositive(int id, string paramName = "id")
         {
-            if (id <= 0)
-                return BadRequestText($"'{paramName}' must be greater than zero.");
+            if (id <= 0) return BadRequestText(string.Format(Err.IdPositive, paramName));
             return null;
         }
 
         private IActionResult? ValidateIdMatches(int id, DatabaseApiModel? model)
         {
-            if (model == null)
-                return BadRequestText("Body is required.");
-            if (id != model.Id)
-                return BadRequestText("'id' must be the same as database.Id.");
+            if (model == null) return BadRequestText(Err.BodyRequired);
+            if (id != model.Id) return BadRequestText(Err.IdMismatch);
             return null;
         }
 
         private IActionResult? EnsureExists(int id)
         {
             var found = _databasesPersistentSource.GetDatabase(id);
-            if (found == null)
-                return TextError(StatusCodes.Status404NotFound, "The database could not be found.");
+            if (found == null) return TextError(StatusCodes.Status404NotFound, Err.NotFound);
             return null;
         }
 
-        // Duplicate check (null-safe + returns BadRequestObjectResult for tests)
         private IActionResult? ValidateDuplicate(DatabaseApiModel model, int? excludeId = null)
         {
             if (_databasesPersistentSource == null)
-            {
-                // Preserve exact message shape used in tests
-                return BadRequestText($"Database already exists {model.ServerName}:{model.Name}");
-            }
+                return BadRequestText(Err.Duplicate(model.ServerName, model.Name));
 
-            var candidates = _databasesPersistentSource
-                .GetDatabases(model.Name, model.ServerName)
-                ?? Enumerable.Empty<DatabaseApiModel>();
-
+            var candidates = _databasesPersistentSource.GetDatabases(model.Name, model.ServerName)
+                            ?? Enumerable.Empty<DatabaseApiModel>();
             var existing = candidates.FirstOrDefault();
             var exists = existing != null && (!excludeId.HasValue || existing.Id != excludeId.Value);
 
-            if (exists)
-            {
-                return BadRequestText($"Database already exists {model.ServerName}:{model.Name}");
-            }
-
+            if (exists) return BadRequestText(Err.Duplicate(model.ServerName, model.Name));
             return null;
         }
 
-        // ---------- Actions
-
-        /// <summary>Return database details by database ID</summary>
+        /// <summary>
+        ///     Return database details by database ID
+        /// </summary>
+        /// <param name="id">Database ID</param>
+        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
@@ -149,19 +151,27 @@ namespace Dorc.Api.Controllers
             return Ok(model);
         }
 
-        /// <summary>Gets databases by name</summary>
+        /// <summary>
+        /// Gets  databases by name
+        /// </summary>
+        /// <param name="name">database name</param>
+        /// <param name="server">database server name</param>
+        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<DatabaseApiModel>))]
         [HttpGet]
         public List<DatabaseApiModel> Get(string name = "", string server = "")
         {
             if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(server))
-            {
                 return (_databasesPersistentSource.GetDatabases() ?? Enumerable.Empty<DatabaseApiModel>()).ToList();
-            }
+
             return (_databasesPersistentSource.GetDatabases(name, server) ?? Enumerable.Empty<DatabaseApiModel>()).ToList();
         }
 
-        /// <summary>Create Database entry</summary>
+        /// <summary>
+        ///     Create Database entry
+        /// </summary>
+        /// <param name="newDatabaseApiModel">Json string in request body</param>
+        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
@@ -171,7 +181,7 @@ namespace Dorc.Api.Controllers
             if (ValidateBody(newDatabaseApiModel) is IActionResult bad) return bad;
             if (ValidateNames(newDatabaseApiModel) is IActionResult nameBad) return nameBad;
 
-            // Duplicate guard (repo-null => force 400; else real check)
+            // Duplicate guard
             if (ValidateDuplicate(newDatabaseApiModel!, excludeId: null) is IActionResult dup) return dup;
 
             try
@@ -181,24 +191,22 @@ namespace Dorc.Api.Controllers
             }
             catch (ArgumentException ex)
             {
-                // Required by tests: 400 with exact message
+                // 400 with exact message (tests)
                 return BadRequestText(ex.Message);
             }
             catch (DbUpdateException)
             {
-                return TextError(
-                    StatusCodes.Status409Conflict,
-                    "The database could not be created due to constraint violations (e.g., unique keys or references).");
+                return TextError(StatusCodes.Status409Conflict, Err.CreateConstraint);
             }
             catch (Exception)
             {
-                return TextError(
-                    StatusCodes.Status400BadRequest,
-                    "The request could not be processed. Please review the input and try again.");
+                return BadRequestText(Err.CreateGenericBad);
             }
         }
 
-        /// <summary>Delete Database entry</summary>
+        /// <summary>
+        ///     Delete Database entry
+        /// </summary>
         [Produces("application/json", "text/plain")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
@@ -212,96 +220,84 @@ namespace Dorc.Api.Controllers
             if (ValidateIdPositive(databaseId, nameof(databaseId)) is IActionResult bad) return bad;
             if (EnsureExists(databaseId) is IActionResult nf) return nf;
 
-            var envNamesAttachedToDatabase = (_databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId)
-                                              ?? Enumerable.Empty<string>())
-                .Distinct()
-                .OrderBy(x => x)
-                .ToList();
+            var envNamesAttachedToDatabase =
+                (_databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId) ?? Enumerable.Empty<string>())
+                .Distinct().OrderBy(x => x).ToList();
 
             var lackingWrite = new List<string>();
             foreach (var environmentName in envNamesAttachedToDatabase)
             {
                 var environmentApiModel = _environmentsPersistentSource.GetEnvironment(environmentName);
                 if (environmentApiModel == null)
-                {
-                    return TextError(
-                        StatusCodes.Status400BadRequest,
-                        "Error while checking permissions; Environment missing in Deployment database.");
-                }
+                    return TextError(StatusCodes.Status400BadRequest, Err.EnvMissing);
 
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environmentApiModel.EnvironmentName))
-                {
                     lackingWrite.Add(environmentApiModel.EnvironmentName);
-                }
             }
 
             if (lackingWrite.Count > 0)
-            {
-                return TextError(
-                    StatusCodes.Status403Forbidden,
-                    "You must have write permission on all environments attached to this database: " +
-                    string.Join(", ", lackingWrite.OrderBy(x => x)));
-            }
+                return TextError(StatusCodes.Status403Forbidden,
+                                 string.Format(Err.PermissionAll, string.Join(", ", lackingWrite.OrderBy(x => x))));
 
             if (envNamesAttachedToDatabase.Any())
-            {
-                return TextError(
-                    StatusCodes.Status409Conflict,
-                    "Database is assigned to one or more environments. Unassign it before deleting: " +
-                    string.Join(", ", envNamesAttachedToDatabase));
-            }
+                return TextError(StatusCodes.Status409Conflict,
+                                 string.Format(Err.DeleteBlocked, string.Join(", ", envNamesAttachedToDatabase)));
 
             try
             {
                 var deleted = _databasesPersistentSource.DeleteDatabase(databaseId);
-                if (deleted)
-                {
-                    return Ok(new ApiBoolResult { Result = true, Message = "Database deleted" });
-                }
+                if (deleted) return Ok(new ApiBoolResult { Result = true, Message = "Database deleted" });
 
-                return TextError(
-                    StatusCodes.Status409Conflict,
-                    "Deletion did not complete. The database may still be referenced by other entities.");
+                return TextError(StatusCodes.Status409Conflict, Err.DeleteIncomplete);
             }
             catch (DbUpdateException)
             {
-                return TextError(
-                    StatusCodes.Status409Conflict,
-                    "The database is referenced by other entities (e.g., environments, pipelines, jobs, or history). Remove those references and try again.");
+                return TextError(StatusCodes.Status409Conflict, Err.DeleteConstraint);
             }
             catch (Exception)
             {
-                return TextError(
-                    StatusCodes.Status500InternalServerError,
-                    "An unexpected error occurred while deleting the database.");
+                return TextError(StatusCodes.Status500InternalServerError, Err.DeleteUnexpected);
             }
         }
 
-        /// <summary>Get Databases by page</summary>
+        /// <summary>
+        /// Get Databases by page
+        /// </summary>
+        /// <param name="operators"></param>
+        /// <param name="page"></param>
+        /// <param name="limit"></param>
+        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(GetDatabaseApiModelListResponseDto))]
         [HttpPut]
         [Route("ByPage")]
         public IActionResult Put([FromBody] PagedDataOperators operators, int page = 1, int limit = 50)
         {
-            var requestStatusesListResponseDto = _databasesPersistentSource.GetDatabaseApiModelByPage(
-                limit,
-                page,
-                operators,
-                User);
+            var requestStatusesListResponseDto = _databasesPersistentSource.GetDatabaseApiModelByPage(limit,
+                page, operators, User);
+
             return Ok(requestStatusesListResponseDto);
         }
 
-        /// <summary>Get Databas ServerNames list</summary>
+        /// <summary>
+        /// Get Databas ServerNames list
+        /// </summary>
+        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<string?>))]
         [HttpGet]
         [Route("GetDatabasServerNameslist")]
         public IActionResult GetDatabasServerNameslist()
         {
             var result = _databasesPersistentSource.GetDatabasServerNameslist();
+
             return Ok(result);
         }
 
-        /// <summary>Edit database entry</summary>
+        /// <summary>
+        /// Edit database entry
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="database"></param>
+        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
@@ -316,9 +312,7 @@ namespace Dorc.Api.Controllers
                 if (ValidateIdPositive(id) is IActionResult badId) return badId;
                 if (ValidateNames(database) is IActionResult nameBad) return nameBad;
 
-                // permissions on environments (NULL-SAFE)
-                var environmentIdsForServerName =
-                    _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database!.Id)
+                var environmentIdsForServerName = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database!.Id)
                     ?? Enumerable.Empty<string>();
 
                 foreach (var envName in environmentIdsForServerName)
@@ -326,46 +320,32 @@ namespace Dorc.Api.Controllers
                     var env = _environmentsPersistentSource.GetEnvironment(envName, User);
                     if (env == null)
                     {
-                        return TextError(
-                            StatusCodes.Status400BadRequest,
-                            "Error while checking permissions, probably Environment missing in Deployment database.");
+                        return TextError(StatusCodes.Status400BadRequest, Err.EnvMissing);
                     }
-
                     if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
                     {
-                        return TextError(
-                            StatusCodes.Status403Forbidden,
-                            $"You must have write permission on {env.EnvironmentName} to modify this database.");
+                        return TextError(StatusCodes.Status403Forbidden, string.Format(Err.PermissionSingle, env.EnvironmentName));
                     }
                 }
 
-                // duplicate check (NULL-SAFE)
                 if (ValidateDuplicate(database!, excludeId: id) is IActionResult dup) return dup;
 
                 var updated = _databasesPersistentSource.UpdateDatabase(id, database!, User);
-                if (updated != null)
-                {
-                    return Ok(updated);
-                }
+                if (updated != null) return Ok(updated);
 
                 return TextError(StatusCodes.Status404NotFound, "Error updating entry.");
             }
             catch (ArgumentException ex)
             {
-                // Required by tests: 400 with exact message
                 return BadRequestText(ex.Message);
             }
             catch (DbUpdateException)
             {
-                return TextError(
-                    StatusCodes.Status409Conflict,
-                    "The database may be referenced by other entities. Review constraints and try again.");
+                return TextError(StatusCodes.Status409Conflict, Err.UpdateConstraint);
             }
             catch (Exception)
             {
-                return TextError(
-                    StatusCodes.Status500InternalServerError,
-                    "An unexpected error occurred while updating the database.");
+                return TextError(StatusCodes.Status500InternalServerError, Err.UpdateUnexpected);
             }
         }
     }
