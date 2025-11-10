@@ -24,7 +24,7 @@ namespace Dorc.Core
             _environmentsPersistentSource = environmentsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
-            _logger = loggerFactory.CreateLogger("Dorc.Core.RequestsManager");
+            _logger = loggerFactory.CreateLogger<RequestsManager>();
             _loggerFactory = loggerFactory;
         }
 
