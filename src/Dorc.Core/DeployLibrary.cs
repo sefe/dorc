@@ -29,7 +29,6 @@ namespace Dorc.Core
             IComponentsPersistentSource componentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ILogger<DeployLibrary> logger,
             ILoggerFactory loggerFactory,
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,

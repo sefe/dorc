@@ -11,7 +11,6 @@ namespace Dorc.Core.Tests
     public class VariableResolverTests
     {
         private IPropertyValuesPersistentSource _propertyValuesPersistentSource;
-        private ILogger<VariableResolver> _logger;
         private ILoggerFactory _loggerFactory;
         private VariableResolver _resolver;
 
@@ -19,10 +18,9 @@ namespace Dorc.Core.Tests
         public void Setup()
         {
             _propertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
-            _logger = Substitute.For<ILogger<VariableResolver>>();
             _loggerFactory = Substitute.For<ILoggerFactory>();
             _loggerFactory.CreateLogger<PropertyExpressionEvaluator>().Returns(Substitute.For<ILogger<PropertyExpressionEvaluator>>());
-            _resolver = new VariableResolver(_propertyValuesPersistentSource, _logger, _loggerFactory, new PropertyEvaluator());
+            _resolver = new VariableResolver(_propertyValuesPersistentSource, _loggerFactory, new PropertyEvaluator());
         }
 
         [TestMethod]

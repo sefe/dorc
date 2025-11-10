@@ -13,15 +13,14 @@ namespace Dorc.Core.VariableResolution
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILogger _logger;
-        private readonly ILoggerFactory _loggerFactory;
 
-        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILogger<VariableResolver> logger, ILoggerFactory loggerFactory, IPropertyEvaluator propertyEvaluator)
+        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILoggerFactory loggerFactory, IPropertyEvaluator propertyEvaluator)
         {
             _propertyEvaluator = propertyEvaluator;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
-            _loggerFactory = loggerFactory;
-            _expressionEvaluator = new PropertyExpressionEvaluator(_loggerFactory.CreateLogger<PropertyExpressionEvaluator>());
-            _logger = logger;
+            
+            _expressionEvaluator = new PropertyExpressionEvaluator(loggerFactory.CreateLogger<PropertyExpressionEvaluator>());
+            _logger = loggerFactory.CreateLogger<VariableResolver>();
         }
 
         public bool PropertiesLoaded()

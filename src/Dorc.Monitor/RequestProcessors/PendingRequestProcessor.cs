@@ -27,7 +27,6 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly ILoggerFactory _loggerFactory;
 
         public PendingRequestProcessor(
-            ILogger<PendingRequestProcessor> logger,
             ILoggerFactory loggerFactory,
             IComponentProcessor componentProcessor,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
@@ -42,7 +41,7 @@ namespace Dorc.Monitor.RequestProcessors
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
-            this.logger = logger;
+            this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
             this._variableScopeOptionsResolver = variableScopeOptionsResolver;
@@ -57,7 +56,7 @@ namespace Dorc.Monitor.RequestProcessors
         {
             logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
 
-            _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory.CreateLogger<VariableResolver>(), _loggerFactory, _propertyEvaluator);
+            _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
             try
             {
