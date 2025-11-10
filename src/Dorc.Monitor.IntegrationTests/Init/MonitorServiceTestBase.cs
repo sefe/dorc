@@ -40,7 +40,7 @@ namespace Dorc.Monitor.Tests.Init
         /// <exception cref="InvalidOperationException"></exception>
         internal ServiceProvider InitializeServiceProvider()
         {
-            collection.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
+            collection.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
             collection.AddTransient<ScriptDispatcher>();
 
