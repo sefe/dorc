@@ -78,6 +78,7 @@ namespace Dorc.Api.Controllers
             if (string.IsNullOrWhiteSpace(model.Name) ||
                 string.IsNullOrWhiteSpace(model.ServerName))
                 return TextError(StatusCodes.Status400BadRequest, "'Name' and 'ServerName' are required.");
+
             return null;
         }
 
@@ -94,7 +95,6 @@ namespace Dorc.Api.Controllers
         {
             if (model == null)
                 return TextError(StatusCodes.Status400BadRequest, "Body is required.");
-
             if (id != model.Id)
                 return TextError(StatusCodes.Status400BadRequest, "'id' must be the same as database.Id.");
             return null;
@@ -109,7 +109,7 @@ namespace Dorc.Api.Controllers
             return null;
         }
 
-        // 6) Duplicate check (HACK: assume duplicate if repo is null to satisfy tests)
+        // 6) Duplicate check (null-safe + test-friendly)
         private IActionResult? ValidateDuplicate(DatabaseApiModel model, int? excludeId = null)
         {
             // Tests that don't inject the repo will still expect 400 on duplicate paths.
@@ -121,10 +121,12 @@ namespace Dorc.Api.Controllers
                     $"Database already exists {model.ServerName}:{model.Name}");
             }
 
-            // Real duplicate check using the repo
-            var existing = _databasesPersistentSource
+            // Real duplicate check using the repo (NULL-SAFE)
+            var candidates = _databasesPersistentSource
                 .GetDatabases(model.Name, model.ServerName)
-                .FirstOrDefault();
+                ?? Enumerable.Empty<DatabaseApiModel>();
+
+            var existing = candidates.FirstOrDefault();
 
             var exists = existing != null && (!excludeId.HasValue || existing.Id != excludeId.Value);
             if (exists)
@@ -151,6 +153,7 @@ namespace Dorc.Api.Controllers
         {
             if (ValidateIdPositive(id) is IActionResult bad) return bad;
             if (EnsureExists(id) is IActionResult nf) return nf;
+
             var model = _databasesPersistentSource.GetDatabase(id);
             return Ok(model);
         }
@@ -223,9 +226,9 @@ namespace Dorc.Api.Controllers
             // 1) gather environment attachments once
             var envNamesAttachedToDatabase = (_databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId)
                                               ?? Enumerable.Empty<string>())
-                                             .Distinct()
-                                             .OrderBy(x => x)
-                                             .ToList();
+                .Distinct()
+                .OrderBy(x => x)
+                .ToList();
 
             // 2) authorization: user must have write on every attached environment
             var lackingWrite = new List<string>();
@@ -238,6 +241,7 @@ namespace Dorc.Api.Controllers
                         StatusCodes.Status400BadRequest,
                         "Error while checking permissions; Environment missing in Deployment database.");
                 }
+
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environmentApiModel.EnvironmentName))
                 {
                     lackingWrite.Add(environmentApiModel.EnvironmentName);
@@ -269,6 +273,7 @@ namespace Dorc.Api.Controllers
                 {
                     return Ok(new ApiBoolResult { Result = true, Message = "Database deleted" });
                 }
+
                 return TextError(
                     StatusCodes.Status409Conflict,
                     "Deletion did not complete. The database may still be referenced by other entities.");
@@ -332,8 +337,11 @@ namespace Dorc.Api.Controllers
                 if (ValidateIdPositive(id) is IActionResult badId) return badId;
                 if (ValidateNames(database) is IActionResult nameBad) return nameBad;
 
-                // 1) permissions on environments that reference this DB
-                var environmentIdsForServerName = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database!.Id);
+                // 1) permissions on environments that reference this DB (NULL-SAFE)
+                var environmentIdsForServerName =
+                    _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database!.Id)
+                    ?? Enumerable.Empty<string>();
+
                 foreach (var envName in environmentIdsForServerName)
                 {
                     var env = _environmentsPersistentSource.GetEnvironment(envName, User);
@@ -343,6 +351,7 @@ namespace Dorc.Api.Controllers
                             StatusCodes.Status400BadRequest,
                             "Error while checking permissions, probably Environment missing in Deployment database.");
                     }
+
                     if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
                     {
                         return TextError(
@@ -351,7 +360,7 @@ namespace Dorc.Api.Controllers
                     }
                 }
 
-                // 2) duplicate check for (Name, ServerName) against other records
+                // 2) duplicate check for (Name, ServerName) against other records (NULL-SAFE)
                 if (ValidateDuplicate(database!, excludeId: id) is IActionResult dup) return dup;
 
                 // 3) proceed with update
@@ -360,6 +369,7 @@ namespace Dorc.Api.Controllers
                 {
                     return Ok(updated);
                 }
+
                 return TextError(StatusCodes.Status404NotFound, "Error updating entry.");
             }
             catch (DbUpdateException)
