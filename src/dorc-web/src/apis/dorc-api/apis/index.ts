@@ -51,3 +51,4 @@ export * from './AnalyticsUserActivityApi';
 export * from './AnalyticsTimePatternApi';
 export * from './AnalyticsComponentUsageApi';
 export * from './AnalyticsDurationApi';
+export * from './TerraformApi';

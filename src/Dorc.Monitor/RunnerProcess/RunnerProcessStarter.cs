@@ -5,7 +5,7 @@ using static Dorc.Monitor.RunnerProcess.ProcessSecurityContextBuilder;
 
 namespace Dorc.Monitor.RunnerProcess
 {
-    internal partial class RunnerProcessStarter
+    internal class RunnerProcessStarter
     {
         private readonly ILogger logger;
 

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
 using Dorc.PersistentData.Model;
+using Dorc.ApiModel;
 
 namespace Dorc.PersistentData.EntityTypeConfigurations
 {
@@ -15,6 +16,9 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .HasOne(x => x.Script);
 
+            builder
+                .Property(x => x.ComponentType)
+                .HasConversion<int>();
 
             builder
                 .HasOne(x => x.Parent)

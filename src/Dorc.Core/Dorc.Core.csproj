@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.17.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.10" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.25.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.95.0" />
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />

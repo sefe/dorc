@@ -4,6 +4,8 @@ using Dorc.Api.Interfaces;
 using Dorc.Api.Logging;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
+using Dorc.Core;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
@@ -264,6 +266,7 @@ builder.Services
         opts.JsonSerializerOptions.MaxDepth = 64;
         opts.JsonSerializerOptions.IncludeFields = true;
         opts.JsonSerializerOptions.Converters.Add(new ExceptionJsonConverter());
+        opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
@@ -287,6 +290,7 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
+builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
 builder.Host.UseLamar((context, registry) =>
 {

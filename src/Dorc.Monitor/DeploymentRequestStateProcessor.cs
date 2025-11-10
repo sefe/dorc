@@ -5,6 +5,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Graph.Models.Security;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
@@ -217,11 +218,12 @@ namespace Dorc.Monitor
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
-            // Select only Pending requests for each of environments that do not have any Running requests.
+            // Select only Pending and Confirmed requests for each of environments that do not have any Running requests.
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
                 .GetRequestsWithStatus(
                         DeploymentRequestStatus.Pending,
                         DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Confirmed,
                         isProduction)
                 .OrderBy(pendingOrRunningRequest => pendingOrRunningRequest.Id)
                 .GroupBy(
