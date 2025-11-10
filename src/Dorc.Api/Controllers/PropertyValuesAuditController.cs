@@ -27,10 +27,10 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(GetPropertyValuesAuditListResponseDto))]
         [HttpPut]
-        public IActionResult Put([FromBody] PagedDataOperators operators, int page = 1, int limit = 50)
+        public IActionResult Put([FromBody] PagedDataOperators operators, int page = 1, int limit = 50, bool useAndLogic = true)
         {
             var requestStatusesListResponseDto = _propertyValuesAuditPersistentSource.GetPropertyValueAuditsByPage(limit,
-                page, operators);
+                page, operators, useAndLogic);
 
             return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
         }

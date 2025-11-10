@@ -12,7 +12,7 @@ import './grid-button-groups/server-controls';
 import './log-dialog';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/server-tags';
-import { DeploymentResultApiModel } from '../apis/dorc-api';
+import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
@@ -26,6 +26,9 @@ export class ComponentDeploymentResults extends LitElement {
 
   @state()
   selectedLog: string | undefined;
+
+  @state()
+  isLoadingLog = false;
 
   constructor() {
     super();
@@ -64,6 +67,7 @@ export class ComponentDeploymentResults extends LitElement {
       <log-dialog
         .isOpened="${this.dialogOpened}"
         .selectedLog="${this.selectedLog}"
+        .isLoading="${this.isLoadingLog}"
       >
       </log-dialog>
 
@@ -163,14 +167,48 @@ export class ComponentDeploymentResults extends LitElement {
     );
   }
 
-  private viewLog(e: CustomEvent) {
-    const result = e.detail.result as DeploymentResultApiModel;
-    this.selectedLog = result.Log ?? '';
+  private async viewLog(e: Event) {
+    const customEvent = e as CustomEvent;
+    const result = customEvent.detail.result as DeploymentResultApiModel;
+    
+    // Show dialog immediately with loading state
+    this.isLoadingLog = true;
+    this.selectedLog = '';
     this.dialogOpened = true;
+    
+    if (result.RequestId) {
+      try {
+        const api = new ResultStatusesApi();
+        const logObservable = api.resultStatusesLogGet({ requestId: result.RequestId, resultId: result.Id });
+        
+        logObservable.subscribe({
+          next: (fullLog: string) => {
+            this.selectedLog = fullLog;
+            this.isLoadingLog = false;
+          },
+          error: (error) => {
+            console.error('Failed to fetch log:', error);
+            // Fallback to the existing log if API call fails
+            this.selectedLog = result.Log ?? 'Failed to load full log';
+            this.isLoadingLog = false;
+          }
+        });
+      } catch (error) {
+        console.error('Failed to create API instance:', error);
+        // Fallback to the existing log if API creation fails
+        this.selectedLog = result.Log ?? 'Failed to load full log';
+        this.isLoadingLog = false;
+      }
+    } else {
+      // Fallback to the existing log if no RequestId
+      this.selectedLog = result.Log ?? 'No log available';
+      this.isLoadingLog = false;
+    }
   }
 
   private logDialogClosed() {
     this.dialogOpened = false;
+    this.isLoadingLog = false;
   }
 
   private timingsRenderer = (
