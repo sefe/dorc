@@ -48,7 +48,7 @@ namespace Dorc.Api.Services
             if (project == null)
             {
                 var msg = $"Unable to locate a project with the name '{projectName}'";
-                _log.LogError(msg, "An error occurred");
+                _log.LogError(msg);
                 throw new Exception(msg);
             }
             request.BuildUrl = project.ArtefactsUrl.Split(';')[0];
