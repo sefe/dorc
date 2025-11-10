@@ -104,7 +104,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred");
+                _logger.LogError(e, "An error occurred while retrieving the notify email address");
                 return Results.Problem(e.Message, statusCode: StatusCodes.Status500InternalServerError);
             }
         }
