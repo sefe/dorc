@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOrc Terraform Plan Management - UI Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #2c5b8a;
+            color: white;
+            padding: 20px;
+        }
+        .grid-container {
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .status-waiting-confirmation {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status-confirmed {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status-running {
+            background-color: #cce5ff;
+            color: #004085;
+            border: 1px solid #99d3ff;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .action-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .action-button:hover {
+            background: #0056b3;
+        }
+        .view-plan-btn {
+            background: #17a2b8;
+        }
+        .view-plan-btn:hover {
+            background: #138496;
+        }
+        .plan-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            width: 80%;
+            max-width: 800px;
+            max-height: 80%;
+            z-index: 1000;
+            display: none;
+        }
+        .plan-dialog.open {
+            display: block;
+        }
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            display: none;
+        }
+        .dialog-overlay.open {
+            display: block;
+        }
+        .dialog-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dialog-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .dialog-actions {
+            padding: 15px 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .plan-output {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+        .confirm-btn {
+            background: #28a745;
+        }
+        .confirm-btn:hover {
+            background: #218838;
+        }
+        .decline-btn {
+            background: #dc3545;
+        }
+        .decline-btn:hover {
+            background: #c82333;
+        }
+        .close-btn {
+            background: #6c757d;
+        }
+        .close-btn:hover {
+            background: #5a6268;
+        }
+        .terraform-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>DOrc Deployment Results - Terraform Plan Management</h1>
+            <p>Example showing Terraform plan approval workflow</p>
+        </div>
+        
+        <div class="grid-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Environment</th>
+                        <th>Status</th>
+                        <th>Start Time</th>
+                        <th>Actions</th>
+                        <th>Log</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SQL Database Infrastructure</td>
+                        <td>dev</td>
+                        <td><span class="status-badge status-waiting-confirmation">Waiting Confirmation</span></td>
+                        <td>2024-01-15 14:30:15</td>
+                        <td>
+                            <button class="action-button view-plan-btn" onclick="openPlanDialog()">
+                                👁️ View Plan
+                            </button>
+                        </td>
+                        <td>Terraform plan created successfully...</td>
+                    </tr>
+                    <tr>
+                        <td>SQL MI Infrastructure</td>
+                        <td>prod</td>
+                        <td><span class="status-badge status-confirmed">Confirmed</span></td>
+                        <td>2024-01-15 14:28:42</td>
+                        <td>
+                            <button class="action-button view-plan-btn" onclick="openPlanDialog()">
+                                👁️ View Plan
+                            </button>
+                        </td>
+                        <td>Plan confirmed and queued for execution...</td>
+                    </tr>
+                    <tr>
+                        <td>SQL Database Infrastructure</td>
+                        <td>staging</td>
+                        <td><span class="status-badge status-running">Running</span></td>
+                        <td>2024-01-15 14:25:18</td>
+                        <td>-</td>
+                        <td>Executing terraform apply...</td>
+                    </tr>
+                    <tr>
+                        <td>PowerShell Component</td>
+                        <td>dev</td>
+                        <td><span class="status-badge status-success">Success</span></td>
+                        <td>2024-01-15 14:20:05</td>
+                        <td>-</td>
+                        <td>PowerShell script executed successfully...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Plan Dialog Overlay -->
+    <div class="dialog-overlay" id="dialogOverlay" onclick="closePlanDialog()"></div>
+    
+    <!-- Plan Dialog -->
+    <div class="plan-dialog" id="planDialog">
+        <div class="dialog-header">
+            <h3>Terraform Plan - SQL Database Infrastructure (dev)</h3>
+            <button class="action-button close-btn" onclick="closePlanDialog()">✕</button>
+        </div>
+        
+        <div class="dialog-content">
+            <p><strong>Deployment Result ID:</strong> 12345</p>
+            <p><strong>Created:</strong> 2024-01-15 14:30:15</p>
+            <p><strong>Status:</strong> WaitingConfirmation</p>
+            
+            <h4>Terraform Plan Output:</h4>
+            <div class="plan-output">Terraform used the selected providers to generate the following execution plan.
+Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # azurerm_mssql_database.main will be created
+  + resource "azurerm_mssql_database" "main" {
+      + collation                     = "SQL_Latin1_General_CP1_CI_AS"
+      + creation_source_database_id   = (known after apply)
+      + database_id                   = (known after apply)
+      + id                           = (known after apply)
+      + license_type                 = "LicenseIncluded"
+      + max_size_gb                  = 10
+      + name                         = "myapp-dev-db"
+      + server_id                    = (known after apply)
+      + sku_name                     = "Basic"
+      + tags                         = {
+          + "Environment" = "dev"
+          + "Owner"       = "DevTeam"
+          + "Project"     = "MyApp"
+        }
+    }
+
+  # azurerm_mssql_firewall_rule.main will be created
+  + resource "azurerm_mssql_firewall_rule" "main" {
+      + end_ip_address   = "0.0.0.0"
+      + id              = (known after apply)
+      + name            = "AllowAzureServices"
+      + server_id       = (known after apply)
+      + start_ip_address = "0.0.0.0"
+    }
+
+  # azurerm_mssql_server.main will be created
+  + resource "azurerm_mssql_server" "main" {
+      + administrator_login          = "sqladmin"
+      + administrator_login_password = (sensitive value)
+      + fully_qualified_domain_name  = (known after apply)
+      + id                          = (known after apply)
+      + location                    = "East US"
+      + minimum_tls_version         = "1.2"
+      + name                        = "myapp-dev-sql"
+      + resource_group_name         = "rg-myapp-dev"
+      + tags                        = {
+          + "Environment" = "dev"
+          + "Owner"       = "DevTeam"
+          + "Project"     = "MyApp"
+        }
+      + version                     = "12.0"
+    }
+
+Plan: 3 to add, 0 to change, 0 to destroy.</div>
+        </div>
+        
+        <div class="dialog-actions">
+            <button class="action-button decline-btn" onclick="declinePlan()">❌ Decline</button>
+            <button class="action-button confirm-btn" onclick="confirmPlan()">✅ Confirm</button>
+            <button class="action-button close-btn" onclick="closePlanDialog()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        function openPlanDialog() {
+            document.getElementById('dialogOverlay').classList.add('open');
+            document.getElementById('planDialog').classList.add('open');
+        }
+        
+        function closePlanDialog() {
+            document.getElementById('dialogOverlay').classList.remove('open');
+            document.getElementById('planDialog').classList.remove('open');
+        }
+        
+        function confirmPlan() {
+            alert('Terraform plan confirmed! Status will change to "Confirmed" and execution will begin.');
+            closePlanDialog();
+        }
+        
+        function declinePlan() {
+            alert('Terraform plan declined! Status will change to "Cancelled".');
+            closePlanDialog();
+        }
+    </script>
+</body>
+</html>
