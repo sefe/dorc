@@ -17,4 +17,8 @@ public interface IDeploymentSubscriptionsGroupTracker
     /// Optionally exclude a specific connection id (e.g. the caller).
     /// </summary>
     IReadOnlyList<string> GetUnsubscribedConnections(string? excludeConnectionId = null);
+    /// <summary>
+    /// Returns all group names that a connection has joined.
+    /// </summary>
+    IReadOnlyList<string> GetGroupsForConnection(string connectionId);
 }

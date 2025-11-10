@@ -211,38 +211,6 @@ this.ScenarioInitialize(scenarioInfo);
             }
             this.ScenarioCleanup();
         }
-        
-        [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute()]
-        [Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute("Attempt to create duplicate Database entry")]
-        [Microsoft.VisualStudio.TestTools.UnitTesting.TestPropertyAttribute("FeatureTitle", "RefDataDatabases")]
-        public void AttemptToCreateDuplicateDatabaseEntry()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            TechTalk.SpecFlow.ScenarioInfo scenarioInfo = new TechTalk.SpecFlow.ScenarioInfo("Attempt to create duplicate Database entry", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 33
-this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((TagHelper.ContainsIgnoreTag(tagsOfScenario) || TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                this.ScenarioStart();
-#line 34
- testRunner.Given("There is a database named \'duplicateDB\' on the server named \'duplicateServer\'", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Given ");
-#line hidden
-#line 35
- testRunner.And("I have created POST request to RefDataDatabases with body below", "{\"DatabaseName\":\"duplicateDB\",\"DatabaseType\":\"autoDatabaseType\",\"DbServerName\":\"d" +
-                        "uplicateServer\",\"DbCluster\":\"autoCluster\",\"AdGroup\":\"OTHER\"}", ((TechTalk.SpecFlow.Table)(null)), "And ");
-#line hidden
-#line 39
- testRunner.Then("The result should be error \'Database already exists duplicateServer:duplicateDB\'", ((string)(null)), ((TechTalk.SpecFlow.Table)(null)), "Then ");
-#line hidden
-            }
-            this.ScenarioCleanup();
-        }
     }
 }
 #pragma warning restore

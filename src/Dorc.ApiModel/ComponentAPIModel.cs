@@ -15,5 +15,6 @@ namespace Dorc.ApiModel
         public int ParentId { get; set; }
         public bool? IsEnabled { set; get; }
         public string PSVersion { set; get; }
+        public ComponentType ComponentType { get; set; } = ComponentType.PowerShell;
     }
 }

@@ -66,15 +66,11 @@ export class EnvDatabases extends PageEnvBase {
         <div>
           <div class="inline">
             <div class="inline">
-              ${!this.envReadOnly
-                ? html`
                   <vaadin-button
                     title="Attach Database"
-                    theme="small"
                     @click="${this.openAttachDatabaseDialog}"
+                    .disabled="${!this.environment?.UserEditable}"
                   >Attach Database</vaadin-button>
-                `
-                : html``}
               <vaadin-dialog
                 id='attach-database-dialog'
                 header-title='Attach Database'
@@ -172,9 +168,11 @@ export class EnvDatabases extends PageEnvBase {
   `;
 
   private renderAttachDatabaseFooter = () => html`
+  <div style="display: flex; justify-content: flex-end">
     <vaadin-button @click="${this.closeAttachDatabaseDialog}"
       >Close</vaadin-button
     >
+    </div>
   `;
 
   private openAttachDatabaseDialog() {
