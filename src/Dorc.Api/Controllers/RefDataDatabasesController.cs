@@ -27,18 +27,30 @@ namespace Dorc.Api.Controllers
             _databasesPersistentSource = databasesPersistentSource;
         }
 
+        // using Microsoft.Extensions.Primitives;
+        // using System.Linq;
+
         private ContentResult TextError(int statusCode, string message)
         {
-            Response.Headers["X-Error-Message"] = message ?? string.Empty;
-            const string exposeHeader = "Access-Control-Expose-Headers";
-            var current = Response.Headers[exposeHeader].ToString();
-            if (string.IsNullOrWhiteSpace(current))
+            var response = HttpContext?.Response;
+            if (response != null)
             {
-                Response.Headers[exposeHeader] = "X-Error-Message";
-            }
-            else if (!current.Split(',').Any(h => string.Equals(h.Trim(), "X-Error-Message", StringComparison.OrdinalIgnoreCase)))
-            {
-                Response.Headers[exposeHeader] = current + ", X-Error-Message";
+                response.Headers["X-Error-Message"] = message ?? string.Empty;
+
+                const string exposeHeader = "Access-Control-Expose-Headers";
+                var current = response.Headers[exposeHeader].ToString();
+                if (string.IsNullOrWhiteSpace(current))
+                {
+                    response.Headers[exposeHeader] = "X-Error-Message";
+                }
+                else
+                {
+                    var parts = current.Split(',').Select(h => h.Trim());
+                    if (!parts.Contains("X-Error-Message", StringComparer.OrdinalIgnoreCase))
+                    {
+                        response.Headers[exposeHeader] = current + ", X-Error-Message";
+                    }
+                }
             }
 
             return new ContentResult
