@@ -82,9 +82,6 @@
     <PackageReference Include="CommandLineParser">
       <Version>2.9.1</Version>
     </PackageReference>
-    <PackageReference Include="Dapper">
-      <Version>2.1.66</Version>
-    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json">
       <Version>9.0.10</Version>
     </PackageReference>
