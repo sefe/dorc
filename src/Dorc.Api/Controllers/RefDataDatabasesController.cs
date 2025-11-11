@@ -89,13 +89,18 @@ namespace Dorc.Api.Controllers
         /// <summary>
         ///     Delete Database entry
         /// </summary>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(ApiBoolResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         [HttpDelete]
         public IActionResult Delete(int databaseId)
         {
             try
             {
-                var environmentNamesAttachedToDatabase = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId) ?? Enumerable.Empty<string>();
+                var environmentNamesAttachedToDatabase = (_databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId) ?? Enumerable.Empty<string>()).ToList();
 
                 foreach (var environmentName in environmentNamesAttachedToDatabase)
                 {
@@ -108,8 +113,7 @@ namespace Dorc.Api.Controllers
                             $"User doesn't have \"Write\" permission for this action on {environmentApiModel.EnvironmentName}!");
                 }
 
-
-                if (environmentNamesAttachedToDatabase != null && environmentNamesAttachedToDatabase.Any())
+                if (environmentNamesAttachedToDatabase.Any())
                     return StatusCode(StatusCodes.Status409Conflict,
                         $"Cannot delete: this database is used by environments: {string.Join(", ", environmentNamesAttachedToDatabase)}. Detach it first and retry.");
 
