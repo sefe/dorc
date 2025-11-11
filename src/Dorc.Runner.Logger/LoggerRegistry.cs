@@ -1,7 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
-using OpenSearch.Client;
 using Microsoft.Extensions.Logging;
+using OpenSearch.Client;
+using Serilog;
+using Serilog.Events;
 using System;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace Dorc.Runner.Logger
 {
@@ -38,16 +41,26 @@ namespace Dorc.Runner.Logger
 
         private ILogger InitializeSerilog(string runnerLogPath)
         {
-            logPath = runnerLogPath;
-            
-            // Create a simple logger factory for file logging
-            var loggerFactory = LoggerFactory.Create(builder =>
+            var config = new ConfigurationBuilder()
+                .AddJsonFile("loggerSettings.json", optional: false).Build();
+
+            if (bool.TryParse(config["System:EnableLoggingDiagnostics"], out var enableSelfLog) &&
+                enableSelfLog)
             {
-                builder.AddConsole();
-                builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Debug);
-            });
-            
-            return loggerFactory.CreateLogger("Runner");
+                Serilog.Debugging.SelfLog.Enable(Console.Error);
+            }
+
+            logPath = runnerLogPath;
+            string outputTemplate = config["System:outputTemplate"];
+            var logLevel = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), config["Serilog:MinimumLevel:Default"] ?? "Debug");
+
+            var seriLogger = new LoggerConfiguration()
+                .ReadFrom.Configuration(config)
+                                .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
+                .Enrich.FromLogContext()
+                .CreateLogger();
+
+            return new LoggerFactory().AddSerilog(seriLogger).CreateLogger("Runner");
         }
 
         private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationSection openSearchConfig)
