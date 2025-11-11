@@ -65,7 +65,7 @@ namespace Dorc.Runner
                     _runnerLogger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
 
-                _runnerLogger.Information("Arguments: {args}", string.Join(", ", args));
+                _runnerLogger.Information("Arguments: {0}", string.Join(", ", args));
   
                 try
                 {

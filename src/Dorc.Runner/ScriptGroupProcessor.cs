@@ -2,7 +2,6 @@
 using Dorc.PowerShell;
 using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
-using Microsoft.Extensions.Logging;
 
 namespace Dorc.Runner
 {
@@ -34,8 +33,6 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
-            // Logging context is set via logger.SetRequestId and logger.SetDeploymentResultId above
-            // IRunnerLogger handles the scoped logging internally via FileLogger
             var scriptRunner = new PowerShellScriptRunner(this.logger);
             int sumResult = 0;
             foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
