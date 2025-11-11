@@ -1,13 +1,11 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Management;
-using CommandLine;
+﻿using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
 using Microsoft.Extensions.Configuration;
-using OpenSearch.Client;
-using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Management;
 
 namespace Dorc.Runner
 {
@@ -55,42 +53,33 @@ namespace Dorc.Runner
                     .AddJsonFile("loggerSettings.json", optional: false)
                     .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
-                _runnerLogger = runnerLogger;
-
-                // Create a logger factory to get typed loggers
-                var loggerFactory = LoggerFactory.Create(builder =>
-                {
-                    builder.AddConsole();
-                    builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Debug);
-                });
-                var typedLogger = loggerFactory.CreateLogger<Program>();
+                _runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
+                _runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    runnerLogger.Information("Runner process is started on behalf of the user: {0}", owner);
+                    _runnerLogger.Information("Runner process is started on behalf of the user: {0}", owner);
                 }
 
-                runnerLogger.Information("Arguments: {args}", string.Join(", ", args));
+                _runnerLogger.Information("Arguments: {args}", string.Join(", ", args));
   
                 try
                 {
                     IScriptGroupPipeClient scriptGroupReader;
                     if (options.UseFile)
                     {
-                        runnerLogger.Debug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(typedLogger);
+                        _runnerLogger.Debug("Using file instead of pipes");
+                        scriptGroupReader = new ScriptGroupFileReader(_runnerLogger);
                     }
                     else
-                        scriptGroupReader = new ScriptGroupPipeClient(typedLogger);
+                        scriptGroupReader = new ScriptGroupPipeClient(_runnerLogger);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
-                        runnerLogger,
+                        _runnerLogger,
                         scriptGroupReader);
 
                     var result = scriptGroupProcessor.Process(options.PipeName, requestId);
@@ -98,7 +87,7 @@ namespace Dorc.Runner
                 }
                 catch (Exception ex)
                 {
-                    runnerLogger.Error(ex, "Deployment error");
+                    _runnerLogger.Error(ex, "Deployment error");
 
                     Exit(-1);
                     throw;

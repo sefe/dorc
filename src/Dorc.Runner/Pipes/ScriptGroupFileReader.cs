@@ -1,16 +1,16 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Microsoft.Extensions.Logging;
+using Dorc.Runner.Logger;
 using System.Text.Json;
 
 namespace Dorc.Runner.Pipes
 {
     internal class ScriptGroupFileReader : IScriptGroupPipeClient
     {
-        private ILogger<Program> logger;
+        private IRunnerLogger logger;
 
-        internal ScriptGroupFileReader(ILogger<Program> logger)
+        internal ScriptGroupFileReader(IRunnerLogger logger)
         {
             this.logger = logger;
         }
@@ -20,7 +20,7 @@ namespace Dorc.Runner.Pipes
             string filename = $"{RunnerConstants.ScriptGroupFilesPath}{pipeName}.json";
             try
             {
-                logger.LogInformation("Deserializing received ScriptGroup.");
+                logger.Information("Deserializing received ScriptGroup.");
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = true,
@@ -39,21 +39,21 @@ namespace Dorc.Runner.Pipes
                 var list = scriptGroup.ScriptProperties.ToList();
                 var env = scriptGroup.CommonProperties["EnvironmentName"];
 
-                logger.LogInformation($"Received from file: {guid}");
+                logger.Information($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
                     var props = JsonSerializer.Serialize(scriptGroupScriptProperty.Properties);
 
-                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                    logger.Information($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
                 }
 
-                logger.LogInformation("Deserialization of ScriptGroup is completed.");
+                logger.Information("Deserialization of ScriptGroup is completed.");
 
                 return scriptGroup;
             }
             catch (Exception exc)
             {
-                logger.LogError(exc.Message);
+                logger.Error(exc.Message);
                 throw;
             }
         }
