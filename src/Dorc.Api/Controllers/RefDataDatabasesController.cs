@@ -96,7 +96,7 @@ namespace Dorc.Api.Controllers
         [ProducesResponseType(typeof(string), StatusCodes.Status409Conflict)]
         [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         [HttpDelete]
-        public IActionResult Delete(int databaseId)
+        public ActionResult<ApiBoolResult> Delete(int databaseId)
         {
             try
             {
@@ -126,7 +126,7 @@ namespace Dorc.Api.Controllers
             catch (DbUpdateException ex) when (ex.InnerException is SqlException sql && sql.Number == 547)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
-                    "Cannot delete: the database is referenced by other records (foreign key constraint). Remove references and try again.");
+                    "Cannot delete: the database is referenced by other records (users and their permissions to the database). Remove those references and try again.");
             }
             catch (DbUpdateException ex)
             {
