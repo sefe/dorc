@@ -107,7 +107,7 @@ namespace Dorc.Monitor.RequestProcessors
                     var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
                         requestDetail);
 
-                    logger.Info($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
+                    logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
 
                     if (!orderedNonSkippedComponents.Any())
                     {
