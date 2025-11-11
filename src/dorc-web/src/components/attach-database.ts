@@ -275,7 +275,7 @@ export class AttachDatabase extends LitElement {
 
   private filterDatabases(e: CustomEvent) {
     const filterValue = e.detail.value.toLowerCase() ?? '';
-        if (!filterValue) {
+    if (!filterValue) {
       this.filteredDatabases = this.databases;
       return;
     }
@@ -283,5 +283,5 @@ export class AttachDatabase extends LitElement {
       db.Name?.toLowerCase().includes(filterValue) ||
       db.ServerName?.toLowerCase().includes(filterValue)
     );
-  };
+  }
 }
