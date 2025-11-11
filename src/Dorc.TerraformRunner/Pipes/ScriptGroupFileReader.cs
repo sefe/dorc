@@ -1,11 +1,8 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Serilog;
+using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Dorc.TerraformmRunner.Pipes
 {
@@ -23,7 +20,7 @@ namespace Dorc.TerraformmRunner.Pipes
             string filename = $"{RunnerConstants.ScriptGroupFilesPath}{pipeName}.json";
             try
             {
-                logger.Information("Deserializing received ScriptGroup.");
+                logger.LogInformation("Deserializing received ScriptGroup.");
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = true,
@@ -42,21 +39,21 @@ namespace Dorc.TerraformmRunner.Pipes
                 var list = scriptGroup.ScriptProperties.ToList();
                 var env = scriptGroup.CommonProperties["EnvironmentName"];
 
-                logger.Information($"Received from file: {guid}");
+                logger.LogInformation($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
                     var props = JsonSerializer.Serialize(scriptGroupScriptProperty.Properties);
 
-                    logger.Information($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
                 }
 
-                logger.Information("Deserialization of ScriptGroup is completed.");
+                logger.LogInformation("Deserialization of ScriptGroup is completed.");
 
                 return scriptGroup;
             }
             catch (Exception exc)
             {
-                logger.Error(exc.Message);
+                logger.LogError(exc, exc.Message);
                 throw;
             }
         }        
