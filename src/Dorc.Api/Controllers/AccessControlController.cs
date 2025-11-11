@@ -111,8 +111,8 @@ namespace Dorc.Api.Controllers
                         .ToList();
                     
                     var newOwners = accessControl.Privileges
-    .Where(p => (p.Allow & 4) != 0)
-    .ToList();
+                        .Where(p => (p.Allow & 4) != 0)
+                        .ToList();
 
                     if (currentOwners.Any() && !newOwners.Any())
                     {

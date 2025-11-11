@@ -137,10 +137,10 @@ namespace Dorc.PersistentData.Sources
                 {
                     if (!newIds.Contains(existing.Id))
                     {
-                        EnvironmentHistoryPersistentSource.AddHistory(
+                        AddAccessControlHistory(
                             environment,
-                            GetPermissionsString(existing.Allow),
-                            $"User '{existing.Name}' removed from access control",
+                            $"User: {existing.Name}, Permissions: {GetPermissionsString(existing.Allow)}",
+                            "User Removed",
                             username,
                             "Access Control - User Removed",
                             context
@@ -167,10 +167,10 @@ namespace Dorc.PersistentData.Sources
                         };
                         context.AccessControls.Add(newAccessControl);
                         
-                        EnvironmentHistoryPersistentSource.AddHistory(
+                        AddAccessControlHistory(
                             environment,
-                            string.Empty,
-                            $"User '{privilege.Name}' added with permissions: {GetPermissionsString(privilege.Allow)}",
+                            "New User",
+                            $"User: {privilege.Name}, Permissions: {GetPermissionsString(privilege.Allow)}",
                             username,
                             "Access Control - User Added",
                             context
@@ -180,10 +180,10 @@ namespace Dorc.PersistentData.Sources
                     {
                         if (existing.Allow != privilege.Allow || existing.Deny != privilege.Deny)
                         {
-                            EnvironmentHistoryPersistentSource.AddHistory(
+                            AddAccessControlHistory(
                                 environment,
-                                GetPermissionsString(existing.Allow),
-                                $"User '{privilege.Name}' permissions changed to: {GetPermissionsString(privilege.Allow)}",
+                                $"User: {existing.Name}, Permissions: {GetPermissionsString(existing.Allow)}",
+                                $"User: {privilege.Name}, Permissions: {GetPermissionsString(privilege.Allow)}",
                                 username,
                                 "Access Control - Permissions Modified",
                                 context
@@ -201,7 +201,30 @@ namespace Dorc.PersistentData.Sources
                 context.SaveChanges();
             }
         }
-        
+
+        private void AddAccessControlHistory(
+            Model.Environment environment,
+            string fromValue,
+            string toValue,
+            string updatedBy,
+            string updateType,
+            IDeploymentContext context)
+        {
+            var newHistory = new EnvironmentHistory
+            {
+                Environment = environment,
+                UpdateDate = DateTime.Now,
+                UpdateType = updateType,
+                UpdatedBy = updatedBy,
+                FromValue = fromValue,
+                ToValue = toValue,
+                Details = $"Access control change for environment: {environment.Name}"
+            };
+            context.EnvironmentHistories.Add(newHistory);
+            
+            environment.LastUpdate = newHistory.UpdateDate;
+        }
+
         private string GetPermissionsString(int permissions)
         {
             var perms = new List<string>();
