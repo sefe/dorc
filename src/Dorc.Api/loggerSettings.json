@@ -1,6 +1,18 @@
 {
   "Serilog": {
-    "MinimumLevel": "Information",
+    "Using": [
+      "Serilog.Sinks.File"
+    ],
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft.AspNetCore": "Warning",
+        "System": "Warning"
+      }
+    },
+    "Enrich": [
+      "WithThreadId"
+    ],
     "WriteTo": [
       {
         "Name": "File",

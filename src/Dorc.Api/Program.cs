@@ -1,10 +1,8 @@
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
-using Dorc.Api.Logging;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
-using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
@@ -23,6 +21,7 @@ using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using Serilog;
+using Serilog.Extensions.Logging;
 using System.Reflection;
 using System.Text.Json.Serialization;
 
@@ -32,16 +31,17 @@ const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
-    .AddJsonFile("loggerSettings.json")
+    .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
     .Build();
 
 #region Logging Configuration
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-builder.Logging.AddSerilog(new LoggerConfiguration()
+Log.Logger = new LoggerConfiguration()
     .Enrich.WithThreadId()
     .ReadFrom.Configuration(configBuilder)
-    .CreateLogger());
+    .CreateLogger();
+builder.Logging.AddSerilog(Log.Logger);
 
 var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
 if (!string.IsNullOrEmpty(otlpEndpoint))
@@ -62,11 +62,8 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 var configurationSettings = new ConfigurationSettings(configBuilder);
 
 // Create logger factory early for secrets reader
-using var loggerFactory = LoggerFactory.Create(logging =>
-{
-    logging.AddConsole();
-});
-var secretsReaderLogger = loggerFactory.CreateLogger<OnePasswordSecretsReader>();
+var secretsReaderLogger = new SerilogLoggerFactory()
+        .CreateLogger<OnePasswordSecretsReader>();
 var secretsReader = new OnePasswordSecretsReader(configurationSettings, secretsReaderLogger);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
