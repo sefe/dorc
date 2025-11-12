@@ -11,7 +11,6 @@ using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
-using Dorc.Monitor.Logging;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,12 +19,15 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
+using Serilog;
 using System.Reflection;
-using System.Text;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+var configurationRoot = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+    .Build();
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 
 builder.Services.AddTransient(s => configurationRoot);
@@ -37,9 +39,7 @@ builder.Services.AddWindowsService(options =>
 });
 
 #region Logging Configuration
-Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-// Configure logging providers
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
 {
@@ -47,21 +47,11 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
 });
 
-var fileLoggingSection = configurationRoot.GetSection("FileLogging");
-var logPath = fileLoggingSection.GetValue<string>("LogPath");
-var logFilename = monitorConfiguration.IsProduction ? "MonitorNonProd" : "MonitorProd";
-var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 1);
-var maxRollingFiles = fileLoggingSection.GetValue<int>("MaxRollingFiles", 100);
-    
-string logFilePath = Path.Combine(logPath, $"{logFilename}.log");
-Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
-    
-builder.Logging.AddFile(logFilePath, options =>
-{
-    options.Append = true;
-    options.FileSizeLimitBytes = fileSizeLimitMB * 1024 * 1024;
-    options.MaxRollingFiles = maxRollingFiles;
-});
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithThreadId()
+    .ReadFrom.Configuration(configurationRoot)
+    .CreateLogger();
+builder.Logging.AddSerilog(Log.Logger);
 
 var otlpEndpoint = configurationRoot.GetValue<string>("OpenTelemetry:OtlpEndpoint");
 if (!string.IsNullOrEmpty(otlpEndpoint))

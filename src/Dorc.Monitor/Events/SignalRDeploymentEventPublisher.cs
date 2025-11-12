@@ -1,7 +1,6 @@
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Monitor.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.SignalR.Client;
 using TypedSignalR.Client;
@@ -18,7 +17,7 @@ namespace Dorc.Monitor.Events
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
         private bool _isConnectionBecomeLost;
 
-        public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILogger logger)
+        public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILogger<SignalRDeploymentEventPublisher> logger)
         {
             var baseUri = new Uri(configuration.RefDataApiUrl, UriKind.Absolute);
             _hubUrl = configuration.DisableSignalR ? null : new Uri(baseUri, "hubs/deployments").ToString();
