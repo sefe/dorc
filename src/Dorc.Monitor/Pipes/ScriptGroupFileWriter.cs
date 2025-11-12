@@ -10,7 +10,7 @@ namespace Dorc.Monitor.Pipes
     {
         private ILogger logger;
 
-        public ScriptGroupFileWriter(ILogger logger)
+        public ScriptGroupFileWriter(ILogger<ScriptGroupFileWriter> logger)
         {
             this.logger = logger;
         }

@@ -32,7 +32,7 @@ namespace Dorc.Monitor
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
         public TerraformDispatcher(
-            ILogger logger,
+            ILogger<TerraformDispatcher> logger,
             IRequestsPersistentSource requestsPersistentSource,
             IConfigValuesPersistentSource configValuesPersistentSource,
             IConfigurationSettings configurationSettingsEngine,

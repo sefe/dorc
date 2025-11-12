@@ -14,7 +14,7 @@ namespace Dorc.Monitor.Pipes
 
         private ScriptGroupPipeServer() { }
 
-        public ScriptGroupPipeServer(ILogger logger)
+        public ScriptGroupPipeServer(ILogger<ScriptGroupPipeServer> logger)
         {
             this.logger = logger;
         }
