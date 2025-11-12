@@ -97,8 +97,8 @@ The `CompositeNotificationService` will automatically pick up all registered `IU
 - `Teams:ClientSecret` - Azure AD application secret
 
 **Permissions Required:**
-- `Chat.Create` - Create chats
-- `Chat.ReadWrite.All` - Send messages in all chats
+- `Chat.Create` - Create one-on-one chats with users
+- `Chat.ReadWrite.All` - Read existing chats and send messages (required to find existing chats and post messages)
 - `User.Read.All` - Look up users by email
 
 **Behavior:**

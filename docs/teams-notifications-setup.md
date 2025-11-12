@@ -13,6 +13,14 @@ When a deployment job completes, DOrc can send a direct message to the user who 
 
 **Important**: Notifications are only sent if the user's username is a valid email address.
 
+## User Control
+
+**Automatic Opt-in**: Users with valid email addresses automatically receive notifications.
+
+**How to Opt-out**: Currently, notifications are automatically sent to all users whose username is a valid email address. If the Teams service is not configured (TenantId, ClientId, or ClientSecret are empty), no notifications will be sent to anyone.
+
+**Note**: Future enhancements may include per-user notification preferences to allow individual users to opt-in or opt-out of Teams notifications.
+
 ## Prerequisites
 
 1. Azure AD tenant with Microsoft Teams enabled
@@ -54,12 +62,16 @@ After registration, note these values (you'll need them for configuration):
 2. Click **Add a permission**
 3. Select **Microsoft Graph** > **Application permissions**
 4. Add these permissions:
-   - `Chat.Create` - Create chats
-   - `Chat.ReadWrite.All` - Send messages in all chats
-   - `User.Read.All` - Read all users' profiles
+   - `Chat.Create` - Create one-on-one chats with users
+   - `Chat.ReadWrite.All` - Read existing chats and send messages (required to find existing chats and post messages)
+   - `User.Read.All` - Look up users by email address
 5. Click **Add permissions**
 6. Click **Grant admin consent for [Your Organization]**
 7. Confirm the consent
+
+**Note**: `Chat.ReadWrite.All` is required (not just `Chat.Create`) because the service needs to:
+- Read existing one-on-one chats to avoid creating duplicates
+- Send messages to those chats
 
 ## DOrc Configuration
 
