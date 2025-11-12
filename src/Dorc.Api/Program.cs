@@ -22,6 +22,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
+using Serilog;
 using System.Reflection;
 using System.Text.Json.Serialization;
 
@@ -29,27 +30,18 @@ const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
-var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+var configBuilder = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("loggerSettings.json")
+    .Build();
 
 #region Logging Configuration
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-
-var fileLoggingSection = configBuilder.GetSection("FileLogging");
-var logPath = fileLoggingSection.GetValue<string>("LogPath");
-var logFileName = fileLoggingSection.GetValue<string>("FileName");
-var fileSizeLimitMB = fileLoggingSection.GetValue<int>("FileSizeLimitMB", 10);
-var maxRollingFiles = fileLoggingSection.GetValue<int>("MaxRollingFiles", 100);
-
-string logFilePath = Path.Combine(logPath, logFileName);
-Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
-
-builder.Logging.AddFile(logFilePath, options =>
-{
-    options.Append = true;
-    options.FileSizeLimitBytes = fileSizeLimitMB * 1024 * 1024;
-    options.MaxRollingFiles = maxRollingFiles;
-});
+builder.Logging.AddSerilog(new LoggerConfiguration()
+    .Enrich.WithThreadId()
+    .ReadFrom.Configuration(configBuilder)
+    .CreateLogger());
 
 var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
 if (!string.IsNullOrEmpty(otlpEndpoint))

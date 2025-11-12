@@ -1,0 +1,15 @@
+{
+  "Serilog": {
+    "MinimumLevel": "Information",
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "c:\\Log\\DOrc\\Deploy\\Web\\Api\\Dorc.Api.log",
+          "rollingInterval": "Day",
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{ThreadId}] {Level:u3} {SourceContext} - {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  }
+}
