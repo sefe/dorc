@@ -21,7 +21,7 @@ namespace Dorc.PowerShell
             IDictionary<string, VariableValue> scriptProperties,
             IDictionary<string, VariableValue> commonProperties)
         {
-            logger.Information("Starting execution of script '{0}'", scriptName);
+            logger.FileLogger.LogInformation("Starting execution of script '{0}'", scriptName);
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
 
@@ -62,9 +62,9 @@ namespace Dorc.PowerShell
 
                         try
                         {
-                            logger.Information("Execution of the powershell Script {0} is beginning", scriptName);
+                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} is beginning", scriptName);
                             powerShell.Invoke(null, outputCollection);
-                            logger.Information("Execution of the powershell Script {0} has completed", scriptName);
+                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} has completed", scriptName);
                         }
                         catch (Exception exception)
                         {
@@ -74,7 +74,7 @@ namespace Dorc.PowerShell
                             {
                                 throw;
                             }
-                            logger.Information("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
+                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
                             throw new RemoteException(exceptionMessage, exception);
                         }
 

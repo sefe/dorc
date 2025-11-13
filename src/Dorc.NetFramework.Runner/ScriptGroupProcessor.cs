@@ -39,7 +39,7 @@ namespace Dorc.NetFramework.Runner
                     throw new Exception("ScriptGroup is not initialized.");
                 }
 
-                logger.Debug("ScriptGroup is received.");
+                logger.FileLogger.LogDebug("ScriptGroup is received.");
 
                 var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
 

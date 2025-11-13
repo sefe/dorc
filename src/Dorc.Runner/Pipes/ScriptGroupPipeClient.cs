@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Runner.Logger;
+using Microsoft.Extensions.Logging;
 using System.IO.Pipes;
 using System.Text.Json;
 
@@ -16,7 +17,7 @@ namespace Dorc.Runner.Pipes
 
         public ScriptGroup GetScriptGroupProperties(string scriptGroupPipeName)
         {
-            this.logger.Information("Pipe name provided for client: '" + scriptGroupPipeName + "'.");
+            this.logger.FileLogger.LogInformation("Pipe name provided for client: '" + scriptGroupPipeName + "'.");
 
             try
             {
@@ -25,7 +26,7 @@ namespace Dorc.Runner.Pipes
                     scriptGroupPipeName,
                     PipeDirection.In))
                 {
-                    this.logger.Information("Connecting client pipe to server. Pipe name: '" + scriptGroupPipeName + "'.");
+                    this.logger.FileLogger.LogInformation("Connecting client pipe to server. Pipe name: '" + scriptGroupPipeName + "'.");
 
                     try
                     {
@@ -33,7 +34,7 @@ namespace Dorc.Runner.Pipes
 
                         if (pipeClient.IsConnected)
                         {
-                            this.logger.Information("Client pipe is connected.");
+                            this.logger.FileLogger.LogInformation("Client pipe is connected.");
                         }
                         else
                         {
@@ -46,11 +47,11 @@ namespace Dorc.Runner.Pipes
                         throw;
                     }
 
-                    this.logger.Information("Deserializing received ScriptGroup.");
+                    this.logger.FileLogger.LogInformation("Deserializing received ScriptGroup.");
 
                     ScriptGroup scriptGroup = JsonSerializer.Deserialize<ScriptGroup>(pipeClient, JsonSerializerOptions.Default);
 
-                    this.logger.Information("Deserialization of ScriptGroup is completed.");
+                    this.logger.FileLogger.LogInformation("Deserialization of ScriptGroup is completed.");
 
                     return scriptGroup;
                 }
