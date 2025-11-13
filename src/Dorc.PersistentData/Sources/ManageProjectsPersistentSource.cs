@@ -23,11 +23,13 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IScriptAuditPersistentSource _scriptAuditPersistentSource;
 
-        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource)
+        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptAuditPersistentSource scriptAuditPersistentSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _contextFactory = contextFactory;
+            _scriptAuditPersistentSource = scriptAuditPersistentSource;
         }
 
         public void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel)
@@ -57,6 +59,195 @@ namespace Dorc.PersistentData.Sources
 
                 context.RefDataAudits.Add(refDataAudit);
                 context.SaveChanges();
+            }
+        }
+
+        public void ProcessComponentCreationWithAudit(IList<ComponentApiModel> components, int projectId, string username)
+        {
+            // Create components first
+            TraverseComponents(components, null, projectId, CreateComponent);
+
+            // Create script audits for components that have scripts
+            InsertScriptAuditsForComponents(components, ActionType.Create, username);
+        }
+
+        public void ProcessComponentsWithAudit(IList<ComponentApiModel> components, int projectId, string username, HttpRequestType requestType)
+        {
+            // Capture the original ComponentId values before processing to determine audit actions
+            var originalComponentStates = new List<(ComponentApiModel component, ActionType actionType)>();
+            var flattenedComponents = new List<ComponentApiModel>();
+            FlattenApiComponents(components, flattenedComponents);
+            
+            foreach (var component in flattenedComponents)
+            {
+                if (!string.IsNullOrEmpty(component.ScriptPath))
+                {
+                    ActionType actionType = component.ComponentId == 0 ? ActionType.Create : ActionType.Update;
+                    originalComponentStates.Add((component, actionType));
+                }
+            }
+
+            // Handle delete audits BEFORE components are processed to capture scripts before they're removed
+            HandleDeletedComponentScriptAudits(flattenedComponents, projectId, username);
+
+            // Perform the component operations
+            var updateAndInsertComponents = UpdateComponent;
+            updateAndInsertComponents += CreateComponent;
+
+            TraverseComponents(components, null, projectId, updateAndInsertComponents);
+
+            DeleteComponents(flattenedComponents, projectId);
+
+            // Create script audits using the captured original states
+            InsertScriptAuditsWithCapturedStates(originalComponentStates, username);
+        }
+
+        internal void InsertScriptAuditsWithCapturedStates(List<(ComponentApiModel component, ActionType actionType)> componentStates, string username)
+        {
+            if (componentStates == null || string.IsNullOrEmpty(username)) return;
+            
+            foreach (var (component, actionType) in componentStates)
+            {
+                // For components with scripts, we need to find the corresponding script in the database
+                using (var context = _contextFactory.GetContext())
+                {
+                    var script = context.Components
+                        .Include(c => c.Script)
+                        .Where(c => c.Id == component.ComponentId)
+                        .Select(c => c.Script)
+                        .FirstOrDefault();
+                        
+                    if (script != null)
+                    {
+                        var scriptApiModel = new ScriptApiModel
+                        {
+                            Id = script.Id,
+                            Name = script.Name,
+                            Path = script.Path,
+                            IsPathJSON = script.IsPathJSON,
+                            NonProdOnly = script.NonProdOnly,
+                            IsEnabled = component.IsEnabled ?? true,
+                            PowerShellVersionNumber = script.PowerShellVersionNumber
+                        };
+                        
+                        _scriptAuditPersistentSource.InsertScriptAudit(username, actionType, scriptApiModel);
+                    }
+                }
+            }
+        }
+
+        internal void InsertScriptAuditsForComponentsWithProperActions(IList<ComponentApiModel> components, string username)
+        {
+            if (components == null || string.IsNullOrEmpty(username)) return;
+            
+            var flattenedComponents = new List<ComponentApiModel>();
+            FlattenApiComponents(components, flattenedComponents);
+            
+            foreach (var component in flattenedComponents)
+            {
+                if (!string.IsNullOrEmpty(component.ScriptPath))
+                {
+                    // Determine the correct action type based on ComponentId
+                    ActionType actionType = component.ComponentId == 0 ? ActionType.Create : ActionType.Update;
+                    
+                    // For components with scripts, we need to find the corresponding script in the database
+                    using (var context = _contextFactory.GetContext())
+                    {
+                        var script = context.Components
+                            .Include(c => c.Script)
+                            .Where(c => c.Id == component.ComponentId)
+                            .Select(c => c.Script)
+                            .FirstOrDefault();
+                            
+                        if (script != null)
+                        {
+                            var scriptApiModel = new ScriptApiModel
+                            {
+                                Id = script.Id,
+                                Name = script.Name,
+                                Path = script.Path,
+                                IsPathJSON = script.IsPathJSON,
+                                NonProdOnly = script.NonProdOnly,
+                                IsEnabled = component.IsEnabled ?? true,
+                                PowerShellVersionNumber = script.PowerShellVersionNumber
+                            };
+                            
+                            _scriptAuditPersistentSource.InsertScriptAudit(username, actionType, scriptApiModel);
+                        }
+                    }
+                }
+            }
+        }
+
+        internal void InsertScriptAuditsForComponents(IList<ComponentApiModel> components, ActionType actionType, string username)
+        {
+            if (components == null || string.IsNullOrEmpty(username)) return;
+            
+            var flattenedComponents = new List<ComponentApiModel>();
+            FlattenApiComponents(components, flattenedComponents);
+            
+            foreach (var component in flattenedComponents)
+            {
+                if (!string.IsNullOrEmpty(component.ScriptPath))
+                {
+                    // For components with scripts, we need to find the corresponding script in the database
+                    using (var context = _contextFactory.GetContext())
+                    {
+                        var script = context.Components
+                            .Include(c => c.Script)
+                            .Where(c => c.Id == component.ComponentId)
+                            .Select(c => c.Script)
+                            .FirstOrDefault();
+                            
+                        if (script != null)
+                        {
+                            var scriptApiModel = new ScriptApiModel
+                            {
+                                Id = script.Id,
+                                Name = script.Name,
+                                Path = script.Path,
+                                IsPathJSON = script.IsPathJSON,
+                                NonProdOnly = script.NonProdOnly,
+                                IsEnabled = component.IsEnabled ?? true,
+                                PowerShellVersionNumber = script.PowerShellVersionNumber
+                            };
+                            
+                            _scriptAuditPersistentSource.InsertScriptAudit(username, actionType, scriptApiModel);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void HandleDeletedComponentScriptAudits(IList<ComponentApiModel> apiComponents, int projectId, string username)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var components = context.Components
+                    .Include(c => c.Projects)
+                    .Include(c => c.Script)
+                    .Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
+                
+                var componentsToDelete = components.Where(x => apiComponents.All(y => y.ComponentId != x.Id));
+                
+                foreach (var component in componentsToDelete)
+                {
+                    if (component.Script != null)
+                    {
+                        var scriptApiModel = new ScriptApiModel
+                        {
+                            Id = component.Script.Id,
+                            Name = component.Script.Name,
+                            Path = component.Script.Path,
+                            IsPathJSON = component.Script.IsPathJSON,
+                            NonProdOnly = component.Script.NonProdOnly,
+                            IsEnabled = component.IsEnabled ?? true,
+                            PowerShellVersionNumber = component.Script.PowerShellVersionNumber
+                        };
+                        
+                        _scriptAuditPersistentSource.InsertScriptAudit(username, ActionType.Delete, scriptApiModel);
+                    }
+                }
             }
         }
 
@@ -486,7 +677,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var components = context.Components.Include(c => c.Projects).Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
+                var components = context.Components.Include(c => c.Projects).Include(c => c.Script).Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
                 var componentsToDelete = components.Where(x => apiComponents.All(y => y.ComponentId != x.Id));
                 foreach (var component in componentsToDelete)
                 {
@@ -497,6 +688,16 @@ namespace Dorc.PersistentData.Sources
                             component.Parent.Children.Remove(component);
 
                         component.Projects.Remove(project);
+                    }
+                    
+                    // If the component has no more project associations, delete the component and its script
+                    if (component.Projects.Count == 0)
+                    {
+                        if (component.Script != null)
+                        {
+                            context.Scripts.Remove(component.Script);
+                        }
+                        context.Components.Remove(component);
                     }
                 }
 

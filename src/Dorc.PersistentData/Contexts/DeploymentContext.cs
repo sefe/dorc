@@ -64,6 +64,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         public DbSet<RequestStatuses> RequestStatuses { get; set; }
         public DbSet<Script> Scripts { get; set; }
+        public DbSet<ScriptAudit> ScriptAudits { get; set; }
         public DbSet<SecureKey> SecureKeys { get; set; }
         public DbSet<Server> Servers { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
@@ -150,6 +151,7 @@ namespace Dorc.PersistentData.Contexts
             new RefDataAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<RefDataAudit>());
             new RefDataAuditActionConfiguration().Configure(modelBuilder.Entity<RefDataAuditAction>());
             new ScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<Script>());
+            new ScriptAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ScriptAudit>());
             new SecureKeyEntityTypeConfiguration().Configure(modelBuilder.Entity<SecureKey>());
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
