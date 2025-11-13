@@ -7,13 +7,12 @@ import { GridItemModel } from '@vaadin/grid';
 import '@polymer/paper-dialog';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/text-field';
-import { TextField } from '@vaadin/text-field';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi,
-  RefDataGroupsApi, type ServerApiModel
+  RefDataGroupsApi
 } from '../apis/dorc-api';
 import {
   ApiBoolResult,
@@ -131,29 +130,29 @@ export class AddEditDatabase extends LitElement {
       <div style="padding: 10px; width:500px">
         <vaadin-vertical-layout>
           <vaadin-text-field
-            id="database-name"
             class="block"
             label="Database"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
             required
+            auto-validate
             @input="${this._dbNameValueChanged}"
             .value="${this.DatabaseName}"
           ></vaadin-text-field>
           <vaadin-text-field
-            id="database-type"
             class="block"
             label="Application Tag"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
             required
+            auto-validate
             @input="${this._dbTypeValueChanged}"
             .value="${this.DatabaseType}"
           ></vaadin-text-field>
           <vaadin-text-field
-            id="database-instance"
             class="block"
             pattern="^[a-zA-Z0-9_]{1,128}(\\\\[a-zA-Z0-9_]{1,128})?$"
             label="Instance"
             required
+            auto-validate
             @input="${this._sqlServerValueChanged}"
             .value="${this.DbServerName}"
           ></vaadin-text-field>
@@ -161,6 +160,7 @@ export class AddEditDatabase extends LitElement {
             class="block"
             label="Array Name (leave blank if unknown)"
             @input="${this._dbaArrayNameValueChanged}"
+            auto-validate
             .value="${this.ArrayName}"
           ></vaadin-text-field>
           <vaadin-combo-box
