@@ -2,8 +2,10 @@ import '@polymer/paper-toggle-button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/dialog';  
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { css, PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../add-edit-server';
 import '../attach-server';
@@ -11,16 +13,17 @@ import '../attached-servers';
 import { Notification } from '@vaadin/notification';
 import { PageEnvBase } from './page-env-base';
 import { ServerApiModel } from '../../apis/dorc-api';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 
 @customElement('env-servers')
 export class EnvServers extends PageEnvBase {
-  @property({ type: Boolean }) private addServer = false;
-
-  @property({ type: Boolean }) private attachServer = false;
 
   @property({ type: Boolean }) private envReadOnly = false;
 
   @property({ type: Array }) private servers: Array<ServerApiModel> | undefined;
+
+  @state()
+  private attachServerDialogOpened = false;
 
   static get styles() {
     return css`
@@ -62,45 +65,24 @@ export class EnvServers extends PageEnvBase {
       >
         <div>
           <div class="inline">
-            <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="addDatabase"
-                .checked="${this.addServer}"
-                @click="${this._addServer}"
-                .disabled="${this.envReadOnly}"
-                >ADD
-              </paper-toggle-button>
-            </div>
-            <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="attachDatabase"
-                .checked="${this.attachServer}"
-                @click="${this._attachServer}"
-                .disabled="${this.envReadOnly}"
-                >ATTACH
-              </paper-toggle-button>
-            </div>
+            <vaadin-button
+              title="Attach Server"
+              @click="${this.openAttachServerDialog}"
+              .disabled="${this.envReadOnly}">
+                Attach Server
+          </vaadin-button>
+          <vaadin-dialog
+            id='attach-server-dialog'
+            header-title='Attach Server'
+            .opened='${this.attachServerDialogOpened}'
+            draggable
+            @opened-changed='${(event: DialogOpenedChangedEvent) => {
+              this.attachServerDialogOpened = event.detail.value;
+            }}'
+            ${dialogRenderer(this.renderAttachServerDialog, [])}
+            ${dialogFooterRenderer(this.renderAttachServerFooter, [])}
+          ></vaadin-dialog>
           </div>
-          ${this.addServer
-            ? html` <div class="center-aligned">
-                <add-edit-server
-                  .envId="${this.environmentId ?? 0}"
-                  .attach="${this.addServer}"
-                  @server-attached="${this._serverAdded}"
-                ></add-edit-server>
-              </div>`
-            : html``}
-          ${this.attachServer
-            ? html` <div class="center-aligned">
-                <attach-server
-                  .envId="${this.environmentId}"
-                  @server-attached="${this._serverAttached}"
-                ></attach-server>
-              </div>`
-            : html``}
-          <div>
             <attached-servers
               id="attached-servers"
               .envId="${this.environmentId ?? 0}"
@@ -113,6 +95,20 @@ export class EnvServers extends PageEnvBase {
       </vaadin-details>
     `;
   }
+
+  private renderAttachServerDialog = () => html`
+    <attach-server
+      .envId="${this.environmentId}"
+      @server-attached="${this._serverAttached}"
+    ></attach-server>
+    `;
+
+  private renderAttachServerFooter = () => html`
+    <vaadin-button @click="${this.closeAttachServerDialog}"
+      >Close</vaadin-button
+    >
+  `;
+
 
   constructor() {
     super();
@@ -137,28 +133,10 @@ export class EnvServers extends PageEnvBase {
     this.refreshEnvDetails(this.environment);
   }
 
-  _addServer() {
-    this.addServer = !this.addServer;
-    if (this.addServer) {
-      this.attachServer = !this.addServer;
-    }
-  }
-
-  _attachServer() {
-    this.attachServer = !this.attachServer;
-    if (this.attachServer) {
-      this.addServer = !this.attachServer;
-    }
-  }
-
-  _serverAdded(e: CustomEvent) {
-    this.serverAttachSuccess(e.detail.message);
-    this.addServer = false;
-  }
 
   _serverAttached(e: CustomEvent) {
     this.serverAttachSuccess(e.detail.message);
-    this.attachServer = false;
+    this.closeAttachServerDialog();
   }
 
   serverAttachSuccess(text: string) {
@@ -177,4 +155,13 @@ export class EnvServers extends PageEnvBase {
         : undefined;
     this.envReadOnly = !this.environment?.UserEditable;
   }
+
+  private openAttachServerDialog() {
+    this.attachServerDialogOpened = true;
+  }
+
+  private closeAttachServerDialog() {
+    this.attachServerDialogOpened = false;
+  }
+
 }

@@ -1,6 +1,7 @@
 {
   "ProductNames": [
-    "Deployment Orchestrator"
+    "Deployment Orchestrator",
+    "DevOps Orchestrator"
   ],
   "ServerType": "WebServer",
   "Parameters": [
@@ -195,6 +196,26 @@
     {
       "MSIParameter": "AZURE.SIGNALR.CONNECTIONSTRING",
       "DeployProperty": "AZURE_SIGNALR_CONNECTIONSTRING"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.TENANTID",
+      "DeployProperty": "AZURESTORAGEACCOUNT_TENANTID"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.CLIENTID",
+      "DeployProperty": "AZURESTORAGEACCOUNT_CLIENTID"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.CLIENTSECRET",
+      "DeployProperty": "AZURESTORAGEACCOUNT_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.URI",
+      "DeployProperty": "AZURESTORAGEACCOUNT_URI"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME",
+      "DeployProperty": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME"
     }
   ]
 }

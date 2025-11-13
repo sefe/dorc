@@ -18,7 +18,7 @@ namespace Dorc.Core
 
         public ApiBoolResult ResetSqlUserPassword(string targetDbServer, string username)
         {
-            var objConn = new SqlConnection
+            using var objConn = new SqlConnection
             {
                 ConnectionString = "Data Source=" + targetDbServer +
                                    ";Initial Catalog=master;Integrated Security=True;TrustServerCertificate=True"
