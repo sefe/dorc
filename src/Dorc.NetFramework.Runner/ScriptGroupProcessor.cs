@@ -4,6 +4,7 @@ using Dorc.ApiModel;
 using Dorc.NetFramework.PowerShell;
 using Dorc.NetFramework.Runner.Pipes;
 using Dorc.Runner.Logger;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.NetFramework.Runner
 {
@@ -27,8 +28,7 @@ namespace Dorc.NetFramework.Runner
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deploymentResultId);
 
-            logger.Information($"Request Id :{requestId}");
-            logger.Information($"Deployment Result Id :{deploymentResultId}");
+            logger.FileLogger.LogInformation($"Request Id :{requestId}, Deployment Result Id :{deploymentResultId}");
             try
             {
                 if (scriptGroupProperties == null
@@ -39,7 +39,7 @@ namespace Dorc.NetFramework.Runner
                     throw new Exception("ScriptGroup is not initialized.");
                 }
 
-                logger.Information("ScriptGroup is received.");
+                logger.Debug("ScriptGroup is received.");
 
                 var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
 
