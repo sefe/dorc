@@ -89,6 +89,86 @@ namespace Dorc.Monitor.Services
 
                 _logger.Info($"Successfully sent Teams notification for request {notification.RequestId} to user {notification.UserIdentifier}");
             }
+            catch (Microsoft.Graph.Models.ODataErrors.ODataError odataEx)
+            {
+                // Handle Graph API specific errors with detailed diagnostics
+                var errorCode = odataEx.Error?.Code;
+                var errorMessage = odataEx.Error?.Message ?? string.Empty;
+                var innerError = odataEx.Error?.InnerError;
+                
+                // Log diagnostic information for troubleshooting
+                _logger.Error($"Graph API ODataError for request {notification.RequestId}:");
+                _logger.Error($"  Error Code: {errorCode}");
+                _logger.Error($"  Error Message: {errorMessage}");
+                _logger.Error($"  User: {notification.UserIdentifier}");
+                
+                if (innerError != null)
+                {
+                    if (innerError.AdditionalData?.ContainsKey("code") == true)
+                    {
+                        _logger.Error($"  Inner Error Code: {innerError.AdditionalData["code"]}");
+                    }
+                    if (innerError.AdditionalData?.ContainsKey("request-id") == true)
+                    {
+                        _logger.Error($"  Request ID: {innerError.AdditionalData["request-id"]}");
+                    }
+                    if (innerError.AdditionalData?.ContainsKey("date") == true)
+                    {
+                        _logger.Error($"  Date: {innerError.AdditionalData["date"]}");
+                    }
+                }
+                
+                // Provide specific guidance based on error type
+                if (errorCode == "InteractionRequired" || errorMessage.Contains("Continuous access evaluation"))
+                {
+                    _logger.Error($"TEAMS NOTIFICATION BLOCKED BY CONDITIONAL ACCESS POLICY:");
+                    _logger.Error($"  This service principal is being blocked by Continuous Access Evaluation (CAE) policies.");
+                    _logger.Error($"  Common causes:");
+                    _logger.Error($"    - Location-based Conditional Access policies requiring authentication from specific IP addresses");
+                    _logger.Error($"    - The service is authenticating from an IP not in the Trusted Named Locations");
+                    _logger.Error($"    - Device compliance or risk-based policies affecting the service principal");
+                    _logger.Error($"  Recommended solutions:");
+                    _logger.Error($"    1. Add this service's IP address to Entra Conditional Access Trusted Named Locations");
+                    _logger.Error($"    2. Create a Conditional Access policy exclusion for this service principal");
+                    _logger.Error($"    3. Ensure consistent egress IP addresses for Microsoft Graph API calls");
+                    _logger.Error($"  Troubleshooting steps:");
+                    _logger.Error($"    1. Check Entra Sign-in Logs > Service Principal Sign-ins for this application");
+                    _logger.Error($"    2. Review Conditional Access > Policies to identify which policy is blocking access");
+                    _logger.Error($"    3. Verify the service's current IP address is in a Trusted Named Location");
+                    _logger.Error($"  See: https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-continuous-access-evaluation");
+                }
+                else if (errorCode == "Authorization_RequestDenied")
+                {
+                    _logger.Error($"TEAMS NOTIFICATION AUTHORIZATION DENIED:");
+                    _logger.Error($"  The service principal does not have sufficient permissions.");
+                    _logger.Error($"  Required Microsoft Graph API permissions:");
+                    _logger.Error($"    - Chat.Create (Application permission)");
+                    _logger.Error($"    - Chat.ReadWrite.All (Application permission)");
+                    _logger.Error($"    - User.Read.All (Application permission)");
+                    _logger.Error($"  Verify:");
+                    _logger.Error($"    1. These permissions are added to the app registration");
+                    _logger.Error($"    2. Admin consent has been granted for these permissions");
+                    _logger.Error($"    3. The service principal has not been disabled or expired");
+                }
+                else if (errorCode == "InvalidAuthenticationToken")
+                {
+                    _logger.Error($"TEAMS NOTIFICATION AUTHENTICATION TOKEN ERROR:");
+                    _logger.Error($"  The authentication token is invalid or expired.");
+                    _logger.Error($"  Verify:");
+                    _logger.Error($"    1. TenantId, ClientId, and ClientSecret are correctly configured");
+                    _logger.Error($"    2. The client secret has not expired");
+                    _logger.Error($"    3. The service principal is enabled in Azure AD");
+                }
+                else
+                {
+                    _logger.Error($"TEAMS NOTIFICATION ERROR:");
+                    _logger.Error($"  An unexpected Graph API error occurred.");
+                    _logger.Error($"  Review the error details above and check Microsoft Graph API status.");
+                }
+                
+                _logger.Error($"Full exception:", odataEx);
+                // Exception logged locally; composite service will handle via SendNotificationSafelyAsync
+            }
             catch (Exception ex)
             {
                 _logger.Error($"Error sending Teams notification for request {notification.RequestId} to user {notification.UserIdentifier}", ex);

@@ -102,7 +102,11 @@ After configuration:
 
 ## Troubleshooting
 
-### No notifications received
+For detailed troubleshooting information, see the [Teams Notifications Troubleshooting Guide](teams-notifications-troubleshooting.md).
+
+### Quick Checks
+
+**No notifications received:**
 
 **Check 1: Is the service configured?**
 - Look for log message: `"Teams notification service configured successfully with Graph API"`
@@ -120,7 +124,14 @@ After configuration:
 - Verify admin consent was granted for all required permissions
 - Check Azure AD audit logs for permission-related errors
 
+**Check 5: Conditional Access blocking the service?**
+- Look for error: `"Continuous access evaluation resulted in challenge"`
+- This indicates Conditional Access policies are blocking the service principal
+- See the [Troubleshooting Guide](teams-notifications-troubleshooting.md#1-continuous-access-evaluation-cae-errors) for detailed solutions
+
 ### Common Errors
+
+For detailed error diagnosis and solutions, see [teams-notifications-troubleshooting.md](teams-notifications-troubleshooting.md).
 
 **"Failed to initialize Teams Graph API client"**
 - Verify Tenant ID, Client ID, and Client Secret are correct
@@ -134,12 +145,18 @@ After configuration:
 - The email address doesn't match any user in your Azure AD tenant
 - User might not have Teams enabled
 
+**"Continuous access evaluation" errors**
+- Conditional Access policies are blocking the service principal
+- See [CAE Troubleshooting](teams-notifications-troubleshooting.md#1-continuous-access-evaluation-cae-errors)
+- Common solution: Add service IP to Trusted Named Locations
+
 ## Security Considerations
 
 1. **Store secrets securely**: Consider using Azure Key Vault or another secrets management system instead of plain text in configuration files
 2. **Least privilege**: The app only requests permissions it needs for direct messaging
 3. **Audit logs**: Monitor Azure AD sign-in logs for the service principal's activity
 4. **Secret rotation**: Set up a process to rotate the client secret before it expires
+5. **Conditional Access**: Ensure service principal IP addresses are in Trusted Named Locations to avoid CAE blocks
 
 ## Adding Additional Notification Channels
 
