@@ -267,16 +267,4 @@ export class AttachDatabase extends LitElement {
     });
     console.log(result);
   }
-
-  private filterDatabases(e: CustomEvent) {
-    const filterValue = e.detail.value.toLowerCase() ?? '';
-    if (!filterValue) {
-      this.filteredDatabases = this.databases;
-      return;
-    }
-    this.filteredDatabases = this.databases?.filter(db => 
-      db.Name?.toLowerCase().includes(filterValue) ||
-      db.ServerName?.toLowerCase().includes(filterValue)
-    );
-  }
 }
