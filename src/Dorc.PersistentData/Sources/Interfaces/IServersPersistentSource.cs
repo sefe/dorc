@@ -21,5 +21,10 @@ namespace Dorc.PersistentData.Sources.Interfaces
             PagedDataOperators operators, IPrincipal user);
 
         IEnumerable<Server> GetAppServerDetails(string envName);
+        
+        void UpdateServerConnectivityStatus(int serverId, bool isReachable, DateTime lastChecked);
+        List<Server> GetAllServersForConnectivityCheck();
+        IEnumerable<Server> GetServersForConnectivityCheckBatch(int skip, int take);
+        int GetTotalServerCount();
     }
 }
