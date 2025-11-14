@@ -77,10 +77,10 @@ export class AddPermission extends LitElement {
           ></vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
-          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
           <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
             >Save</vaadin-button
           >
+          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
       </div>
       <div>
@@ -126,18 +126,17 @@ export class AddPermission extends LitElement {
       },
       error: (err: any) => {
         this.overlayMessage = 'Error creating permission!';
-        if (err?.response)
-          this.errorMessage =  err.response;
+        if (err?.response) this.errorMessage = err.response;
         console.error(err);
       },
       complete: () => {
         console.log('done adding permission');
         this.reset();
         Notification.show(`Permission added successfully`, {
-                      theme: 'success',
-                      position: 'bottom-start',
-                      duration: 3000
-                    });
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 3000
+        });
       }
     });
   }
