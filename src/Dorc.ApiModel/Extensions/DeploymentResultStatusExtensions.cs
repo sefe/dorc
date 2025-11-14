@@ -46,6 +46,16 @@ namespace Dorc.ApiModel.Extensions
                 return DeploymentResultStatus.Failed;
             }
 
+            if (str.Equals(DeploymentResultStatus.WaitingConfirmation.ToString(), StringComparison.InvariantCultureIgnoreCase))
+            {
+                return DeploymentResultStatus.WaitingConfirmation;
+            }
+
+            if (str.Equals(DeploymentResultStatus.Confirmed.ToString(), StringComparison.InvariantCultureIgnoreCase))
+            {
+                return DeploymentResultStatus.Confirmed;
+            }
+
             throw new ArgumentException($"Can't parse '{str}' as DeploymentResultStatus.");
         }
     }

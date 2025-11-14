@@ -3,6 +3,7 @@ using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Events
 {
@@ -17,10 +18,14 @@ namespace Dorc.Api.Events
     public sealed class DeploymentsHub : Hub<IDeploymentsEventsClient>, IDeploymentEventsHub
     {
         private readonly IDeploymentSubscriptionsGroupTracker _tracker;
+        private readonly ILogger<DeploymentsHub> _logger;
 
-        public DeploymentsHub(IDeploymentSubscriptionsGroupTracker tracker)
+        public DeploymentsHub(
+            IDeploymentSubscriptionsGroupTracker tracker,
+            ILogger<DeploymentsHub> logger)
         {
             _tracker = tracker;
+            _logger = logger;
         }
 
         public static string GetGroupName(int requestId) => $"req:{requestId}";
@@ -31,10 +36,32 @@ namespace Dorc.Api.Events
             return base.OnConnectedAsync();
         }
 
-        public override Task OnDisconnectedAsync(Exception? exception)
+        public override async Task OnDisconnectedAsync(Exception? exception)
         {
+            // Get all groups this connection was part of and remove from Azure SignalR
+            var groupsForConnection = _tracker.GetGroupsForConnection(Context.ConnectionId);
+                
+            if (groupsForConnection.Count > 0)
+            {
+                // Explicitly remove current connection from all groups in Azure SignalR
+                foreach (var groupName in groupsForConnection)
+                {
+                    try
+                    {
+                        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, 
+                            "Failed to remove connection {ConnectionId} from group {GroupName}", 
+                            Context.ConnectionId, groupName);
+                    }
+                }
+            }
+                
             _tracker.UnregisterConnection(Context.ConnectionId);
-            return base.OnDisconnectedAsync(exception);
+            
+            await base.OnDisconnectedAsync(exception);
         }
 
         // Group management: clients call these to scope updates to a request
@@ -74,17 +101,21 @@ namespace Dorc.Api.Events
 
             var unsubscribed = _tracker.GetUnsubscribedConnections(callerId);
 
-            var tasks = new List<Task>
-            {
-                Clients.GroupExcept(groupName, new[] { callerId }).OnDeploymentRequestStatusChanged(eventData)
-            };
-
             if (unsubscribed.Count > 0)
             {
-                tasks.Add(Clients.Clients(unsubscribed).OnDeploymentRequestStatusChanged(eventData));
+                await Clients.Clients(unsubscribed).OnDeploymentRequestStatusChanged(eventData);
             }
-
-            await Task.WhenAll(tasks);
+            
+            try
+            {
+                await Clients.GroupExcept(groupName, new[] { callerId }).OnDeploymentRequestStatusChanged(eventData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error broadcasting request status change to group {groupName} from connection {callerId}");
+                _tracker.LeaveGroup(Context.ConnectionId, eventData.RequestId);
+                throw;
+            }
         }
 
         public async Task BroadcastResultStatusChangedAsync(DeploymentResultEventData eventData)
@@ -94,7 +125,17 @@ namespace Dorc.Api.Events
                 throw new HubException("Not authorized");
             }
 
-            await Clients.OthersInGroup(_tracker.GetGroupName(eventData.RequestId)).OnDeploymentResultStatusChanged(eventData);
+            var groupName = _tracker.GetGroupName(eventData.RequestId);
+            try
+            { 
+                await Clients.OthersInGroup(groupName).OnDeploymentResultStatusChanged(eventData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error broadcasting result status change to group {groupName}");
+                _tracker.LeaveGroup(Context.ConnectionId, eventData.RequestId);
+                throw;
+            }
         }
     }
 }

@@ -80,6 +80,26 @@
 		</xsl:attribute>
 	</xsl:template>
 
+	<!-- Non Prod Terraform Runner -->
+
+	<xsl:template match="wix:File[@Source='$(var.DorcTerraformRunnerDir)\appsettings.json']/@Id">
+		<xsl:attribute name="{name()}">
+			<xsl:value-of select="'NonProdTerraformRunnerExeConfig'" />
+		</xsl:attribute>
+	</xsl:template>
+
+	<xsl:template match="wix:File[@Source='$(var.DorcTerraformRunnerDir)\loggerSettings.json']/@Id">
+		<xsl:attribute name="{name()}">
+			<xsl:value-of select="'NonProdTerraformRunnerExeLoggingConfig'" />
+		</xsl:attribute>
+	</xsl:template>
+
+	<xsl:template match="wix:File[@Source='$(var.DorcTerraformRunnerDir)\Dorc.TerraformRunner.exe']/@Id">
+		<xsl:attribute name="{name()}">
+			<xsl:value-of select="'NonProdTerraformRunnerExe'" />
+		</xsl:attribute>
+	</xsl:template>
+
 	<xsl:template match="*[self::wix:Component or self::wix:ComponentRef]
                         [key('MonitorExeToRemove', @Id)]" />
 
