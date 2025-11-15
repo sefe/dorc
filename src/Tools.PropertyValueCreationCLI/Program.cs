@@ -5,8 +5,8 @@ using Dorc.PersistentData;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
-using log4net;
-using log4net.Config;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 
@@ -16,10 +16,14 @@ namespace Tools.PropertyValueCreationCLI
     {
         private static void Main(string[] args)
         {
-            XmlConfigurator.Configure(new FileInfo("log4net.config"));
-            var registry = new ConsoleRegistry();
-            registry.IncludeRegistry<PersistentDataRegistry>();
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .Build();
 
+            var registry = new ConsoleRegistry();
+            registry.For<IConfiguration>().Use(configuration);
+            
             var container = new Container(registry);
             var app = container.GetInstance<Application>();
             app.CheckFile(args[0]);
@@ -39,9 +43,10 @@ namespace Tools.PropertyValueCreationCLI
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
-                For<IEnvironmentsPersistentSource>().Use<EnvironmentsPersistentSource>();
-                For<IPropertyEncryptor>().Use(x =>
-                {
+
+                For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
+                For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
+                For<IPropertyEncryptor>().Use(x => { 
                     var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
                     return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
                         secureKeyPersistentDataSource.GetSymmetricKey());
@@ -49,19 +54,18 @@ namespace Tools.PropertyValueCreationCLI
                 For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
                 For<Application>().Use<Application>();
 
-                For<ILog>().Use(LogManager.GetLogger("Log")).Singleton();
             }
         }
 
         public class Application
         {
-            private readonly ILog _log;
+            private readonly ILogger _log;
             private readonly IPropertyCreation _propertyCreation;
             private readonly IPropertyValueFilterCreation _propertyValueFilterCreation;
             private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
             public Application(IPropertyCreation propertyCreation,
-                IPropertyValueFilterCreation propertyValueFilterCreation, ILog log, IEnvironmentsPersistentSource environmentsPersistentSource
+                IPropertyValueFilterCreation propertyValueFilterCreation, ILogger log, IEnvironmentsPersistentSource environmentsPersistentSource
                 )
             {
                 _environmentsPersistentSource = environmentsPersistentSource;
@@ -98,7 +102,7 @@ namespace Tools.PropertyValueCreationCLI
                 var configs = new DeployCsvFileReader().GetValues(File.ReadAllLines(filepath));
                 foreach (var row in configs)
                 {
-                    _log.Info("===== PropertyName:" + row.PropertyName + "  Secure:" + row.IsSecure + "  Value:" +
+                    _log.LogInformation("===== PropertyName:" + row.PropertyName + "  Secure:" + row.IsSecure + "  Value:" +
                               row.Value + "  Environment:" + row.Environment + " ====");
                     _propertyCreation.InsertProperty(row.PropertyName, row.IsSecure, Environment.UserName);
                     _propertyValueFilterCreation.InsertPropertyValueFilter(row.PropertyName, row.Value,

@@ -12,7 +12,6 @@
       "Serilog.Enrichers.Thread",
       "Serilog.Sinks.Async",
       "Serilog.Sinks.File",
-      "Serilog.Sinks.Http",
       "Serilog.Formatting.Compact"
     ],
     "Enrich": [

@@ -8,13 +8,14 @@ using Dorc.Runner.Logger;
 using Dorc.TerraformmRunner.Pipes;
 using Dorc.TerraformRunner;
 using Microsoft.Extensions.Configuration;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.TerraformmRunner
 {
     internal class Program
     {
         private static Options options;
+        private static ILogger contextLogger;
 
         static Program()
         {
@@ -33,11 +34,11 @@ namespace Dorc.TerraformmRunner
             try
             {
 #if LoggingForDebugging
-                Log.Logger.Information("Passed arguments:");
+                Console.WriteLine("Passed arguments:");
 
                 foreach (string arg in args)
                 {
-                    Log.Logger.Information("\t" + arg);
+                    Console.WriteLine("\t" + arg);
                 }
 #endif
 
@@ -50,7 +51,7 @@ namespace Dorc.TerraformmRunner
                 {
                     foreach (var error in arguments.Errors)
                     {
-                        Log.Logger.Error(error.ToString());
+                        Console.WriteLine(error.ToString());
                     }
 
                     if (Environment.UserInteractive)
@@ -68,23 +69,21 @@ namespace Dorc.TerraformmRunner
 
                 var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
-                Log.Logger = runnerLogger.FileLogger;
-
-                var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
+                contextLogger = runnerLogger.FileLogger;
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var dorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
+                contextLogger.LogInformation($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    contextLogger.Information("Runner process is started on behalf of the user: {0}", owner);
+                    contextLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
                 }
 
                 var idx = 0;
                 foreach (var s in args)
                 {
-                    contextLogger.Information("args[{0}]: {1}", idx++, s);
+                    contextLogger.LogInformation("args[{0}]: {1}", idx++, s);
                 }
 
                 Debug.Assert(arguments != null);
@@ -95,7 +94,7 @@ namespace Dorc.TerraformmRunner
 
                     if (options.UseFile)
                     {
-                        contextLogger.Debug("Using file instead of pipes");
+                        contextLogger.LogDebug("Using file instead of pipes");
                         scriptGroupReader = new ScriptGroupFileReader(contextLogger);
                     }
                     else
@@ -115,7 +114,7 @@ namespace Dorc.TerraformmRunner
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error("Exception occured {0}", ex.Message);
+                    contextLogger?.LogError(ex, $"Exception occured {ex.Message}");
                     Exit(-1);
                 }
                 Exit(0);
@@ -130,13 +129,13 @@ namespace Dorc.TerraformmRunner
         {
             Thread.Sleep(10000);
 
-            Log.Logger.Information(RunnerConstants.StandardStreamEndString);
+            contextLogger?.LogInformation(RunnerConstants.StandardStreamEndString);
         }
 
         static void Exit(int exitCode)
         {
             FinalizeProgram();
-            Log.Logger.Information("Program Exiting with code {0}", exitCode);
+            contextLogger?.LogInformation("Program Exiting with code {0}", exitCode);
             Environment.Exit(exitCode);
         }
 

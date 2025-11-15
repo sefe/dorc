@@ -12,7 +12,7 @@ namespace Dorc.Api.Controllers
     public class AnalyticsController : ControllerBase
     {
         private readonly IAnalyticsPersistentSource _analyticsPersistentSource;
-        private readonly ILogger<AnalyticsController> _logger;
+        private readonly ILogger _logger;
 
         public AnalyticsController(IAnalyticsPersistentSource analyticsPersistentSource, ILogger<AnalyticsController> logger)
         {

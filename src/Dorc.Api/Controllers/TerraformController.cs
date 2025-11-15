@@ -5,7 +5,6 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -17,14 +16,14 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class TerraformController : ControllerBase
     {
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
 
         public TerraformController(
-            ILog log,
+            ILogger<TerraformController> log,
             IRequestsPersistentSource requestsPersistentSource,
             ISecurityPrivilegesChecker apiSecurityService,
             IClaimsPrincipalReader claimsPrincipalReader,
@@ -49,7 +48,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                _log.Info($"Getting Terraform plan for deployment result ID: {deploymentResultId}");
+                _log.LogInformation($"Getting Terraform plan for deployment result ID: {deploymentResultId}");
 
                 // Get the deployment result
                 var deploymentResult = _requestsPersistentSource.GetDeploymentResults(deploymentResultId);
@@ -79,7 +78,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to get Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to get Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}");
                 return StatusCode(StatusCodes.Status500InternalServerError, "Failed to retrieve Terraform plan");
             }
         }
@@ -96,7 +95,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                _log.Info($"Confirming Terraform plan for deployment result ID: {deploymentResultId}");
+                _log.LogInformation($"Confirming Terraform plan for deployment result ID: {deploymentResultId}");
 
                 // Get the deployment result
                 var deploymentResult = _requestsPersistentSource.GetDeploymentResults(deploymentResultId);
@@ -129,7 +128,7 @@ namespace Dorc.Api.Controllers
 
                 // Log the confirmation action for audit purposes
                 var userName = _claimsPrincipalReader.GetUserName(User);
-                _log.Info($"Terraform plan confirmed for deployment result ID: {deploymentResultId} by user: {userName}");
+                _log.LogInformation($"Terraform plan confirmed for deployment result ID: {deploymentResultId} by user: {userName}");
                 
                 // Note: The actual execution will be handled by the Monitor service when it picks up the Confirmed status
                 
@@ -142,7 +141,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to confirm Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to confirm Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
                 return StatusCode(StatusCodes.Status500InternalServerError, "Failed to confirm Terraform plan");
             }
         }
@@ -159,7 +158,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                _log.Info($"Declining Terraform plan for deployment result ID: {deploymentResultId}");
+                _log.LogInformation($"Declining Terraform plan for deployment result ID: {deploymentResultId}");
 
                 // Get the deployment result
                 var deploymentResult = _requestsPersistentSource.GetDeploymentResults(deploymentResultId);
@@ -192,7 +191,7 @@ namespace Dorc.Api.Controllers
 
                 // Log the decline action for audit purposes
                 var userName = _claimsPrincipalReader.GetUserName(User);
-                _log.Info($"Terraform plan declined for deployment result ID: {deploymentResultId} by user: {userName}");
+                _log.LogInformation($"Terraform plan declined for deployment result ID: {deploymentResultId} by user: {userName}");
 
                 return Ok(new { 
                     message = "Terraform plan declined successfully",
@@ -203,7 +202,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to decline Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to decline Terraform plan for deployment result ID {deploymentResultId}: {ex.Message}", ex);
                 return StatusCode(StatusCodes.Status500InternalServerError, "Failed to decline Terraform plan");
             }
         }
@@ -235,7 +234,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to load plan content for deployment result ID {deploymentResultId}: {ex.Message}", ex);
+                _log.LogError(ex, $"Failed to load plan content for deployment result ID {deploymentResultId}: {ex.Message}", ex);
                 throw;
             }
         }

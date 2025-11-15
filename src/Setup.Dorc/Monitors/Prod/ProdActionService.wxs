@@ -25,8 +25,6 @@
 
 					<Json:JsonFile Id="SetRefDataApiUrlProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#ProdDeployMonitorExeConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 
-					<util:XmlFile Id="ProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#ProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorProd.log" />
-
 					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#ProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
 					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#ProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />

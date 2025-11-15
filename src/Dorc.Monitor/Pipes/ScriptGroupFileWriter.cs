@@ -1,6 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Dorc.ApiModel.MonitorRunnerApi;
 
@@ -8,9 +8,9 @@ namespace Dorc.Monitor.Pipes
 {
     internal class ScriptGroupFileWriter : IScriptGroupPipeServer
     {
-        private ILog logger;
+        private ILogger logger;
 
-        public ScriptGroupFileWriter(ILog logger)
+        public ScriptGroupFileWriter(ILogger<ScriptGroupFileWriter> logger)
         {
             this.logger = logger;
         }
@@ -40,7 +40,7 @@ namespace Dorc.Monitor.Pipes
             }
             catch (Exception ex)
             {
-                logger.Error($"File creation has failed. File name: '{filename}'. Exception: {ex}");
+                logger.LogError($"File creation has failed. File name: '{filename}'. Exception: {ex}");
                 throw;
             }
         }

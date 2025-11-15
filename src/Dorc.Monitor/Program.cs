@@ -12,18 +12,22 @@ using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
-using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
+using Serilog;
 using System.Reflection;
-using System.Text;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+var configurationRoot = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+    .Build();
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 
 builder.Services.AddTransient(s => configurationRoot);
@@ -34,19 +38,36 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = monitorConfiguration.ServiceName;
 });
 
-#region log4net logger initialization
-Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-string executingAssemblyLocation = Assembly.GetExecutingAssembly().Location;
-string executingAssemblyDirectoryPath = Path.GetDirectoryName(executingAssemblyLocation)!;
-string log4netFilePath = Path.Combine(executingAssemblyDirectoryPath, "log4net.config");
-FileInfo log4netFileInfo = new FileInfo(log4netFilePath);
-XmlConfigurator.Configure(log4netFileInfo);
+#region Logging Configuration
 
-Type loggerType = MethodBase.GetCurrentMethod()?.DeclaringType!;
-var logger = LogManager.GetLogger(loggerType);
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+});
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithThreadId()
+    .ReadFrom.Configuration(configurationRoot)
+    .CreateLogger();
+builder.Logging.AddSerilog(Log.Logger);
+
+var otlpEndpoint = configurationRoot.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
+{
+    builder.Logging.AddOpenTelemetry(logging =>
+    {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+        
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
+}
 #endregion
-
-builder.Services.AddSingleton<ILog>(logger);
 
 builder.Services.AddTransient<ScriptDispatcher>();
 

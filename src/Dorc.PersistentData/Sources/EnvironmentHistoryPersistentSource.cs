@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -10,10 +10,10 @@ namespace Dorc.PersistentData.Sources
 {
     public class EnvironmentHistoryPersistentSource : IEnvironmentHistoryPersistentSource
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IDeploymentContextFactory _contextFactory;
 
-        public EnvironmentHistoryPersistentSource(ILog logger, IDeploymentContextFactory contextFactory)
+        public EnvironmentHistoryPersistentSource(ILogger<EnvironmentHistoryPersistentSource> logger, IDeploymentContextFactory contextFactory)
         {
             _contextFactory = contextFactory;
             _logger = logger;
@@ -24,9 +24,9 @@ namespace Dorc.PersistentData.Sources
         {
             try
             {
-                _logger.Info(
+                _logger.LogInformation(
                     $"Updating the Environment and EnvironmentHistory tables for environment {envName}");
-                _logger.Info("Here...");
+                _logger.LogInformation("Here...");
 
                 using (var context = _contextFactory.GetContext())
                 {
@@ -38,8 +38,8 @@ namespace Dorc.PersistentData.Sources
             }
             catch (Exception ex)
             {
-                _logger.Info($"Error occurred updating the Env Mgt database for environment {envName}");
-                _logger.Info($"Error message:  {ex.Message}. ");
+                _logger.LogInformation($"Error occurred updating the Env Mgt database for environment {envName}");
+                _logger.LogInformation($"Error message:  {ex.Message}. ");
                 return false;
             }
         }

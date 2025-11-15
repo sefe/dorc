@@ -1,26 +1,21 @@
-﻿using System.Security.Principal;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Extensions;
+﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData
 {
     public class SecurityObjectFilter : ISecurityObjectFilter
     {
         private readonly IAccessControlPersistentSource accessControlPersistentSource;
-        private readonly ILog logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public SecurityObjectFilter(
                    IAccessControlPersistentSource accessControlPersistentSource,
-                   ILog logger,
                    IClaimsPrincipalReader claimsPrincipalReader
             )
         {
             this.accessControlPersistentSource = accessControlPersistentSource;
-            this.logger = logger;
             this._claimsPrincipalReader = claimsPrincipalReader;
         }
 

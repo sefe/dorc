@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -17,7 +17,6 @@ namespace Dorc.Api.Tests.Controllers
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IRolePrivilegesChecker _rolePrivilegesChecker;
-        private ILog _logger;
         private RefDataEnvironmentsController _controller;
         private ClaimsPrincipal _user;
 
@@ -27,8 +26,7 @@ namespace Dorc.Api.Tests.Controllers
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _rolePrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
-            _logger = Substitute.For<ILog>();
-            _controller = new RefDataEnvironmentsController(_environmentsPersistentSource, _securityPrivilegesChecker, _rolePrivilegesChecker, _logger)
+            _controller = new RefDataEnvironmentsController(_environmentsPersistentSource, _securityPrivilegesChecker, _rolePrivilegesChecker)
             {
                 ControllerContext = new ControllerContext()
                 {
