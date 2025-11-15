@@ -12,6 +12,13 @@ namespace Dorc.Monitor.Services
     /// <summary>
     /// Microsoft Teams implementation of user notification service using Graph API
     /// Sends direct messages to users via Teams
+    /// 
+    /// CAE Support: This service uses Microsoft.Graph SDK v5.96+ and Azure.Identity v1.14+
+    /// which both support Continuous Access Evaluation (CAE). However, as a daemon application
+    /// using client credentials flow, CAE challenges cannot be automatically resolved.
+    /// When Conditional Access policies block the service, administrative action is required
+    /// (e.g., adding service IPs to Trusted Named Locations or excluding the service principal).
+    /// See docs/teams-notifications-troubleshooting.md for details.
     /// </summary>
     public class TeamsNotificationService : IUserNotificationService
     {

@@ -13,6 +13,18 @@ When a deployment job completes, DOrc can send a direct message to the user who 
 
 **Important**: Notifications are only sent if the user's username is a valid email address.
 
+## Continuous Access Evaluation (CAE) Support
+
+**DOrc fully supports CAE:**
+- Uses Microsoft.Graph SDK v5.96.0+ with native CAE token handling
+- Uses Azure.Identity v1.14.0+ which automatically handles CAE token refresh
+- Implements proper error handling for CAE challenges
+
+**Service Principal Limitation:**
+DOrc uses service-to-service authentication (client credentials flow). When Conditional Access policies block the service, this is a **permanent failure** that requires administrative action - the service cannot automatically resolve CAE challenges like an interactive application can.
+
+**Best Practice:** Configure Conditional Access policies to trust the IP addresses from which DOrc Monitor runs, or exclude the DOrc service principal from location-based policies. See [Troubleshooting Guide](teams-notifications-troubleshooting.md#1-continuous-access-evaluation-cae-errors) for details.
+
 ## User Control
 
 **Automatic Opt-in**: Users with valid email addresses automatically receive notifications.
@@ -26,6 +38,7 @@ When a deployment job completes, DOrc can send a direct message to the user who 
 1. Azure AD tenant with Microsoft Teams enabled
 2. Admin access to create Azure AD app registrations
 3. Access to the DOrc Monitor service configuration
+4. **For CAE:** Ensure DOrc Monitor service IP is added to Conditional Access Trusted Named Locations
 
 ## Azure AD App Registration
 

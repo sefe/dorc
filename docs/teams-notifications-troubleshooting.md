@@ -2,6 +2,23 @@
 
 This guide helps diagnose and resolve common issues with Teams notifications in DOrc.
 
+## CAE Support in DOrc
+
+**DOrc's Teams notification service supports Continuous Access Evaluation (CAE):**
+
+- Uses Microsoft.Graph SDK v5.96.0+ with native CAE support
+- Uses Azure.Identity v1.14.0+ which handles CAE token refresh
+- Implements proper error handling for CAE challenges
+
+**Important Limitation for Service Principals:**
+
+DOrc uses **client credentials flow** (service-to-service authentication) which means:
+- CAE challenges **cannot be automatically resolved** because there's no interactive user to re-authenticate
+- When Conditional Access policies block the service, it's a **permanent failure** requiring infrastructure changes
+- The service correctly logs CAE errors with actionable guidance rather than attempting futile retries
+
+**Reference:** [Microsoft CAE Documentation](https://learn.microsoft.com/en-us/entra/identity-platform/app-resilience-continuous-access-evaluation)
+
 ## Common Errors
 
 ### 1. Continuous Access Evaluation (CAE) Errors
@@ -13,6 +30,9 @@ Microsoft.Graph.Models.ODataErrors.ODataError: Continuous access evaluation resu
 
 **What This Means:**
 The service principal is being blocked by Azure AD Conditional Access policies, typically location-based policies. This happens when the service authenticates from an IP address that doesn't match the allowed locations in your Conditional Access configuration.
+
+**Why Can't This Be Automatically Fixed?**
+Unlike interactive applications where a user can re-authenticate, DOrc uses service-to-service authentication (client credentials flow). When a CAE challenge occurs, there's no way for the service to respond to the challenge automatically - it requires administrative action to update Conditional Access policies or network configuration.
 
 #### Diagnosis Steps
 
