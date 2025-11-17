@@ -7,6 +7,8 @@ using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
 using log4net;
 using Microsoft.Extensions.Configuration;
+using System;
+using System.Linq;
 using System.Text;
 
 namespace Dorc.Monitor.RequestProcessors
@@ -160,6 +162,9 @@ namespace Dorc.Monitor.RequestProcessors
                     {
                         logger.Warn($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
+                        // All components are disabled, so mark as completed with disabled steps
+                        deploymentRequestStatus = DeploymentRequestStatus.CompletedWithDisabledSteps;
+                        
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
@@ -235,6 +240,20 @@ namespace Dorc.Monitor.RequestProcessors
                                 logger.Error("Deployment of remaining components is aborted.");
                                 break;
                             }
+                        }
+                    }
+
+                    // Check if deployment completed successfully but has disabled steps
+                    if (deploymentRequestStatus == DeploymentRequestStatus.Completed)
+                    {
+                        var allDeploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id);
+                        var hasDisabledSteps = allDeploymentResults.Any(result => 
+                            result.Status.Equals(DeploymentResultStatus.Disabled.ToString(), StringComparison.OrdinalIgnoreCase));
+                            
+                        if (hasDisabledSteps)
+                        {
+                            deploymentRequestStatus = DeploymentRequestStatus.CompletedWithDisabledSteps;
+                            logger.Info($"Request {requestToExecute.Request.Id} completed with disabled steps.");
                         }
                     }
 
