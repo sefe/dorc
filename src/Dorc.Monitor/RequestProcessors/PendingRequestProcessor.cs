@@ -24,6 +24,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IDeploymentEventsPublisher eventsPublisher;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
+        private readonly IJobNotificationService _notificationService;
 
         public PendingRequestProcessor(
             ILog logger,
@@ -35,7 +36,8 @@ namespace Dorc.Monitor.RequestProcessors
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IConfigValuesPersistentSource configValuesPersistentSource, 
             IPropertyEvaluator propertyEvaluator,
-            IDeploymentEventsPublisher eventPublisher)
+            IDeploymentEventsPublisher eventPublisher,
+            IJobNotificationService notificationService)
         {
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -48,6 +50,7 @@ namespace Dorc.Monitor.RequestProcessors
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
             this.eventsPublisher = eventPublisher;
+            this._notificationService = notificationService;
         }
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
@@ -122,6 +125,14 @@ namespace Dorc.Monitor.RequestProcessors
                             CompletedTime = DateTimeOffset.Now,
                         });
 
+                        SendJobCompletionNotificationAsync(
+                            requestToExecute.Request.UserName,
+                            requestToExecute.Request.Id,
+                            deploymentRequestStatus.ToString(),
+                            environmentName,
+                            requestToExecute.Request.Project,
+                            requestToExecute.Request.BuildNumber);
+
                         return;
                     }
 
@@ -170,6 +181,14 @@ namespace Dorc.Monitor.RequestProcessors
                             Status = deploymentRequestStatus.ToString(),
                             CompletedTime = DateTimeOffset.Now,
                         });
+
+                        SendJobCompletionNotificationAsync(
+                            requestToExecute.Request.UserName,
+                            requestToExecute.Request.Id,
+                            deploymentRequestStatus.ToString(),
+                            environmentName,
+                            requestToExecute.Request.Project,
+                            requestToExecute.Request.BuildNumber);
 
                         return;
                     }
@@ -248,6 +267,14 @@ namespace Dorc.Monitor.RequestProcessors
                         Status = deploymentRequestStatus.ToString(),
                         CompletedTime = DateTimeOffset.Now,
                     });
+
+                    SendJobCompletionNotificationAsync(
+                        requestToExecute.Request.UserName,
+                        requestToExecute.Request.Id,
+                        deploymentRequestStatus.ToString(),
+                        requestDetail.EnvironmentName,
+                        requestToExecute.Request.Project,
+                        requestToExecute.Request.BuildNumber);
                 }
                 catch (Exception ex)
                 {
@@ -277,6 +304,14 @@ namespace Dorc.Monitor.RequestProcessors
                         Status = DeploymentRequestStatus.Errored.ToString(),
                         CompletedTime = DateTimeOffset.Now,
                     });
+
+                    SendJobCompletionNotificationAsync(
+                        requestToExecute.Request.UserName,
+                        requestToExecute.Request.Id,
+                        DeploymentRequestStatus.Errored.ToString(),
+                        requestToExecute.Request.EnvironmentName,
+                        requestToExecute.Request.Project,
+                        requestToExecute.Request.BuildNumber);
                 }
             }
             catch (Exception e)
@@ -297,6 +332,14 @@ namespace Dorc.Monitor.RequestProcessors
                     Status = DeploymentRequestStatus.Errored.ToString(),
                     CompletedTime = DateTimeOffset.Now,
                 });
+
+                SendJobCompletionNotificationAsync(
+                    requestToExecute.Request.UserName,
+                    requestToExecute.Request.Id,
+                    DeploymentRequestStatus.Errored.ToString(),
+                    requestToExecute.Request.EnvironmentName,
+                    requestToExecute.Request.Project,
+                    requestToExecute.Request.BuildNumber);
 
                 return;
             }
@@ -448,6 +491,33 @@ namespace Dorc.Monitor.RequestProcessors
             propertyValuesPersistentSource.AddEnvironmentFilter(environmentName);
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environmentName);
-        }        
+        }
+
+        private void SendJobCompletionNotificationAsync(
+            string userName,
+            int requestId,
+            string status,
+            string environment,
+            string project,
+            string buildNumber)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _notificationService.NotifyJobCompletionAsync(
+                        userName,
+                        requestId,
+                        status,
+                        environment,
+                        project,
+                        buildNumber);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Failed to send job completion notification for request '{requestId}': {ex}");
+                }
+            });
+        }
     }
 }

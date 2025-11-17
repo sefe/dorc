@@ -13,5 +13,10 @@
         string DorcApiClientId { get; }
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
+
+        // MS Teams Graph API settings for direct user notifications
+        string? TeamsTenantId { get; }
+        string? TeamsClientId { get; }
+        string? TeamsClientSecret { get; }
     }
 }
