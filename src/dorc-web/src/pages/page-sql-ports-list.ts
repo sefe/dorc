@@ -13,6 +13,7 @@ import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
+import GlobalCache from '../global-cache';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
@@ -24,12 +25,36 @@ export class PageSqlPortsList extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
+  @property({ type: Boolean }) private isAdmin = false;
+
+  public userRoles!: string[];
+
   private loading = true;
 
   constructor() {
     super();
+    this.getUserRoles();
     this.getSqlPortsList();
   }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+  }
+
   
   private getSqlPortsList() {
     const api = new RefDataSqlPortsApi();
@@ -104,6 +129,7 @@ export class PageSqlPortsList extends PageElement {
         <vaadin-button
           title="Add SQL Port"
           style="width: 250px"
+          .disabled="${!this.isAdmin}"
           @click="${this.addSqlPort}"
         >
           <vaadin-icon
