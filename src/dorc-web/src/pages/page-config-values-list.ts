@@ -16,22 +16,27 @@ import { GridItemModel } from '@vaadin/grid';
 import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
+import { RefDataRolesApi } from '../apis/dorc-api';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends PageElement {
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
-  
+
   @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
 
   @property({ type: Array }) appConfig = [];
 
   @property({ type: Boolean }) details = false;
 
+  @property({ type: Boolean }) isAdmin = false;
+
   private loading = true;
 
   constructor() {
     super();
     this.getConfigValuesList();
+    this.isSecuredRenderer = this.isSecuredRenderer.bind(this);
+    this.isForProdRenderer = this.isForProdRenderer.bind(this);
   }
 
   private getConfigValuesList() {
@@ -42,6 +47,46 @@ export class PageConfigValuesList extends PageElement {
       },
       error: (err: any) => console.error(err),
       complete: () => console.log('done loading config values')
+    });
+  }
+
+  private loadRoles(): void {
+    const api = new RefDataRolesApi();
+    api.refDataRolesGet().subscribe({
+      next: (roles: string[]) => {
+        this.isAdmin =
+          Array.isArray(roles) && roles.some(r => r?.toLowerCase() === 'admin');
+        const grid = this.shadowRoot?.getElementById('grid') as any;
+        grid?.requestContentUpdate?.();
+        this.requestUpdate();
+      },
+      error: err => {
+        console.error('Failed to load roles', err);
+        this.isAdmin = false;
+        const grid = this.shadowRoot?.getElementById('grid') as any;
+        grid?.requestContentUpdate?.();
+        this.requestUpdate();
+      }
+    });
+  }
+
+  private updateConfigItem(updated: ConfigValueApiModel): void {
+    const api = new RefDataConfigApi();
+    const id = (updated as any).Id ?? (updated as any).id;
+
+    if (id == null) {
+      console.error('Missing Id on ConfigValueApiModel; cannot update.');
+      return;
+    }
+
+    api.refDataConfigPut({ id, configValueApiModel: updated }).subscribe({
+      next: () => {
+        this.getConfigValuesList();
+      },
+      error: (err: any) => {
+        console.error('Update failed', err);
+        this.getConfigValuesList();
+      }
     });
   }
 
@@ -129,7 +174,7 @@ export class PageConfigValuesList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaaadin-icon slot="prefix" icon="vaadin:search"></vaaadin-icon>
+          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add Config Value"
@@ -185,7 +230,7 @@ export class PageConfigValuesList extends PageElement {
                 resizable
                 width="100px"
                 flex-grow="0"
-                .renderer="${this.isSecuredRenderer}"
+                .renderer=${this.isSecuredRenderer}
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="IsForProd"
@@ -193,11 +238,11 @@ export class PageConfigValuesList extends PageElement {
                 resizable
                 width="100px"
                 flex-grow="0"
-                .renderer="${this.isForProdRenderer}"
+                .renderer=${this.isForProdRenderer}
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Config Value"
-                .renderer="${this.variableValueControlsRenderer}"
+                .renderer=${this.variableValueControlsRenderer}
                 resizable
                 flex-grow="1"
               ></vaadin-grid-column>
@@ -208,6 +253,7 @@ export class PageConfigValuesList extends PageElement {
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
+    this.loadRoles();
 
     this.addEventListener(
       'config-value-created',
@@ -251,7 +297,12 @@ export class PageConfigValuesList extends PageElement {
     const checkbox = new Checkbox();
 
     checkbox.checked = configValueApiModel.Secure as boolean;
-    checkbox.disabled = true;
+    checkbox.disabled = !this.isAdmin;
+
+    checkbox.addEventListener('change', async () => {
+      await this.updateConfigItem({...configValueApiModel, Secure: checkbox.checked
+      });
+    });
 
     render(checkbox, root);
   }
@@ -266,7 +317,12 @@ export class PageConfigValuesList extends PageElement {
     const checkbox = new Checkbox();
 
     checkbox.checked = configValueApiModel.IsForProd as boolean;
-    checkbox.disabled = true;
+    checkbox.disabled = !this.isAdmin;
+
+    checkbox.addEventListener('change', async () => {
+      await this.updateConfigItem({...configValueApiModel, IsForProd: checkbox.checked
+      });
+    });
 
     render(checkbox, root);
   }
