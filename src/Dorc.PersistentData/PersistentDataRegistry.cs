@@ -41,6 +41,7 @@ namespace Dorc.PersistentData
             For<IRequestsPersistentSource>().Use<RequestsPersistentSource>().Scoped();
             For<IRequestsStatusPersistentSource>().Use<RequestsStatusPersistentSource>().Scoped();
             For<IScriptsPersistentSource>().Use<ScriptsPersistentSource>().Scoped();
+            For<IScriptAuditPersistentSource>().Use<ScriptAuditPersistentSource>().Scoped();
             For<ISecureKeyPersistentDataSource>().Use<SecureKeyPersistentDataSource>().Singleton(); // no need to read secure key every time from db
             For<ISecurityObjectFilter>().Use<SecurityObjectFilter>().Scoped();
             For<IServersPersistentSource>().Use<ServersPersistentSource>().Scoped();

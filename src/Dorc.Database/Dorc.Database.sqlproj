@@ -301,6 +301,7 @@
     <Build Include="deploy\Stored Procedures\sp_Select_Deployments_By_Project_Month.sql" />
     <Build Include="deploy\Tables\RefDataAuditAction.sql" />
     <Build Include="deploy\Tables\RefDataAudit.sql" />
+    <Build Include="deploy\Tables\ScriptAudit.sql" />
     <Build Include="deploy\Stored Procedures\AppendRequestLog.sql" />
     <Build Include="deploy\Stored Procedures\get_global_properties.sql" />
     <Build Include="deploy\Stored Procedures\get_environment_properties.sql" />
