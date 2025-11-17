@@ -54,8 +54,7 @@ export class PageConfigValuesList extends PageElement {
     const api = new RefDataRolesApi();
     api.refDataRolesGet().subscribe({
       next: (roles: string[]) => {
-        this.isAdmin =
-          Array.isArray(roles) && roles.some(r => r?.toLowerCase() === 'admin');
+        this.isAdmin = roles.find(p => p === 'Admin') !== undefined;
         const grid = this.shadowRoot?.getElementById('grid') as any;
         grid?.requestContentUpdate?.();
         this.requestUpdate();
@@ -72,10 +71,10 @@ export class PageConfigValuesList extends PageElement {
 
   private updateConfigItem(updated: ConfigValueApiModel): void {
     const api = new RefDataConfigApi();
-    const id = (updated as any).Id ?? (updated as any).id;
+    const id = updated.Id;
 
     if (id == null) {
-      console.error('Missing Id on ConfigValueApiModel; cannot update.');
+      console.error(`Missing Id on ConfigValueApiModel; keys: ${Object.keys(updated)}`);
       return;
     }
 
