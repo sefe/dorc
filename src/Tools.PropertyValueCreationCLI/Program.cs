@@ -7,8 +7,10 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Serilog;
 using System;
 using System.IO;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace Tools.PropertyValueCreationCLI
 {
@@ -19,11 +21,13 @@ namespace Tools.PropertyValueCreationCLI
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
                 .Build();
 
-            var registry = new ConsoleRegistry();
+            var registry = new ConsoleRegistry(configuration);
             registry.For<IConfiguration>().Use(configuration);
-            
+            registry.IncludeRegistry<PersistentDataRegistry>();
+
             var container = new Container(registry);
             var app = container.GetInstance<Application>();
             app.CheckFile(args[0]);
@@ -32,7 +36,7 @@ namespace Tools.PropertyValueCreationCLI
 
         public class ConsoleRegistry : ServiceRegistry
         {
-            public ConsoleRegistry()
+            public ConsoleRegistry(IConfigurationRoot config)
             {
                 Scan(scan =>
                 {
@@ -42,10 +46,17 @@ namespace Tools.PropertyValueCreationCLI
                 // requires explicit registration; doesn't follow convention
                 For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
                 For<IPropertyCreation>().Use<PropertyCreation>();
-                For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
+                For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();                
 
-                For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
+                Log.Logger = new LoggerConfiguration()
+                    .ReadFrom.Configuration(config)
+                    .CreateLogger();
+
+                var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddSerilog(Log.Logger));
+                For<ILoggerFactory>().Use(_ => loggerFactory);
                 For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
+                For(typeof(ILogger<>)).Use(typeof(Logger<>));
+
                 For<IPropertyEncryptor>().Use(x => { 
                     var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
                     return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
@@ -65,7 +76,7 @@ namespace Tools.PropertyValueCreationCLI
             private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
             public Application(IPropertyCreation propertyCreation,
-                IPropertyValueFilterCreation propertyValueFilterCreation, ILogger log, IEnvironmentsPersistentSource environmentsPersistentSource
+                IPropertyValueFilterCreation propertyValueFilterCreation, ILogger<Application> log, IEnvironmentsPersistentSource environmentsPersistentSource
                 )
             {
                 _environmentsPersistentSource = environmentsPersistentSource;
