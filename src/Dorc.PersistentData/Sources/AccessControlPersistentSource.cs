@@ -7,6 +7,7 @@ using log4net;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -228,9 +229,9 @@ namespace Dorc.PersistentData.Sources
         private string GetPermissionsString(int permissions)
         {
             var perms = new List<string>();
-            if ((permissions & 1) != 0) perms.Add("Write");
-            if ((permissions & 2) != 0) perms.Add("Read Secrets");
-            if ((permissions & 4) != 0) perms.Add("Owner");
+            if ((permissions & (int)AccessLevel.Write) != 0) perms.Add("Write");
+            if ((permissions & (int)AccessLevel.ReadSecrets) != 0) perms.Add("Read Secrets");
+            if ((permissions & (int)AccessLevel.Owner) != 0) perms.Add("Owner");
             return perms.Any() ? string.Join(", ", perms) : "None";
         }
 

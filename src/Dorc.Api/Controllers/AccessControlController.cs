@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Versioning;
+using System.Security.Principal;
 using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
@@ -107,11 +108,11 @@ namespace Dorc.Api.Controllers
                 if (accessControl.Type == AccessControlType.Environment)
                 {
                     var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .Where(p => (p.Allow & 4) != 0)
+                        .Where(p => (p.Allow & (int)AccessLevel.Owner) != 0)
                         .ToList();
                     
                     var newOwners = accessControl.Privileges
-                        .Where(p => (p.Allow & 4) != 0)
+                        .Where(p => (p.Allow & (int)AccessLevel.Owner) != 0)
                         .ToList();
 
                     if (currentOwners.Any() && !newOwners.Any())
