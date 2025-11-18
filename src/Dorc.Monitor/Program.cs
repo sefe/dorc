@@ -47,6 +47,10 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
 });
 
+var environmentSuffix = monitorConfiguration.IsProduction ? "Prod" : "NonProd";
+var logConfigPath = "Serilog:WriteTo:0:Args:path";
+configurationRoot[logConfigPath] = configurationRoot[logConfigPath]?.Replace("{env}", environmentSuffix);
+
 Log.Logger = new LoggerConfiguration()
     .Enrich.WithThreadId()
     .ReadFrom.Configuration(configurationRoot)

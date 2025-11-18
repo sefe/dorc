@@ -13,7 +13,7 @@
       {
         "Name": "File",
         "Args": {
-          "path": "c:\\Log\\DOrc\\Deploy\\Services\\MonitorNonProd_.log",
+          "path": "c:\\Log\\DOrc\\Deploy\\Services\\Monitor{env}_.log",
           "rollingInterval": "Day",
           "rollOnFileSizeLimit": true,
           "fileSizeLimitBytes": 10485760,
