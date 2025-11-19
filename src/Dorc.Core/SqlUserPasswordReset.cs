@@ -1,6 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 using System.Text.RegularExpressions;
 
@@ -9,9 +9,9 @@ namespace Dorc.Core
     public class SqlUserPasswordReset : ISqlUserPasswordReset
     {
         private const string UserSearchCriteriaRegExPattern = @"^[a-zA-Z0-9-_.' ()&]+$";
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
-        public SqlUserPasswordReset(ILog logger)
+        public SqlUserPasswordReset(ILogger<SqlUserPasswordReset> logger)
         {
             _logger = logger;
         }
@@ -39,7 +39,7 @@ namespace Dorc.Core
             catch (Exception e)
             {
                 var msg = $"Wasn't able to reset password for {username} on {targetDbServer}";
-                _logger.Error(msg, e);
+                _logger.LogError(e, msg);
                 return new ApiBoolResult { Result = false, Message = msg + "\n" + e.Message };
             }
             finally

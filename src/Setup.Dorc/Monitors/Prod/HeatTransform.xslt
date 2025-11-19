@@ -34,12 +34,6 @@
 		</xsl:attribute>
 	</xsl:template>
 
-	<xsl:template match="wix:File[@Source='$(var.DorcMonitorDir)\log4net.config']/@Id">
-		<xsl:attribute name="{name()}">
-			<xsl:value-of select="'ProdLog4NetConfig'" />
-		</xsl:attribute>
-	</xsl:template>
-
 	<!-- Prod Net Framework Runner -->
 
 	<xsl:template match="wix:File[@Source='$(var.DorcNetFrameworkRunnerDir)\appsettings.json']/@Id">

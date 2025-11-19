@@ -5,16 +5,12 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Dorc.Monitor
 {
@@ -25,7 +21,7 @@ namespace Dorc.Monitor
         private const string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";
         private const string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";
 
-        private readonly ILog logger;
+        private readonly ILogger logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IConfigurationSettings _configurationSettingsEngine;
@@ -36,7 +32,7 @@ namespace Dorc.Monitor
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
         public TerraformDispatcher(
-            ILog logger,
+            ILogger<TerraformDispatcher> logger,
             IRequestsPersistentSource requestsPersistentSource,
             IConfigValuesPersistentSource configValuesPersistentSource,
             IConfigurationSettings configurationSettingsEngine,
@@ -66,14 +62,14 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            logger.Info($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+            logger.LogInformation($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
 
             // Update status to Running
             _requestsPersistentSource.UpdateResultStatus(
                 deploymentResult,
                 DeploymentResultStatus.Running);
 
-            logger.Info($"Updated deployment result {deploymentResult.Id} status to Running.");
+            logger.LogInformation($"Updated deployment result {deploymentResult.Id} status to Running.");
 
             isScriptExecutionSuccessful = true;
 
@@ -83,7 +79,7 @@ namespace Dorc.Monitor
             if (string.IsNullOrEmpty(processAccountName)
                 || string.IsNullOrEmpty(processAccountPassword))
             {
-                logger.Error($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
+                logger.LogError($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
 
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
@@ -118,7 +114,7 @@ namespace Dorc.Monitor
                         startedScriptGroupPipeName,
                         scriptGroup,
                         pipeCancellationTokenSource.Token);
-                logger.Info($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
+                logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
                 var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                 .GetSection("AppSettings")["RunnerLogPath"]!;
@@ -152,7 +148,7 @@ namespace Dorc.Monitor
                 try
                 {
                     Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
-                    logger.Info("Starting Runner process.");
+                    logger.LogInformation("Starting Runner process.");
 
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -161,7 +157,7 @@ namespace Dorc.Monitor
                     {
                         if (Marshal.GetLastWin32Error() != 0)
                         {
-                            logger.Error("The process creation was not successful.");
+                            logger.LogError("The process creation was not successful.");
                             throw new Win32Exception(Marshal.GetLastWin32Error());
                         }
 
@@ -169,21 +165,21 @@ namespace Dorc.Monitor
 
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            logger.Debug("Trying to terminate the Runner process.");
+                            logger.LogDebug("Trying to terminate the Runner process.");
                             process.Kill();
-                            logger.Info("The Runner process is terminated.");
+                            logger.LogInformation("The Runner process is terminated.");
                             throw new OperationCanceledException("The Runner process is terminated.");
                         }
 
-                        logger.Debug("Waiting for process to exit.");
+                        logger.LogDebug("Waiting for process to exit.");
                         var resultCode = process.WaitForExit();
-                        logger.Info($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+                        logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
 
                         cancellationToken.ThrowIfCancellationRequested();
 
                         if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
                         {
-                            logger.Info("The Runner process is terminated.");
+                            logger.LogInformation("The Runner process is terminated.");
                             throw new OperationCanceledException("The Runner process is terminated.");
                         }
                         else if (resultCode != 0)
@@ -193,7 +189,7 @@ namespace Dorc.Monitor
 
                             if (ex != null)
                             {
-                                logger.Error("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
+                                logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
                                                        + " Message:" + ex.Message
                                                        + "; Source: " + ex.Source
                                                        + "; Data: " + ex.Data
@@ -205,10 +201,10 @@ namespace Dorc.Monitor
 
                         if (Marshal.GetLastWin32Error() != 0)
                         {
-                            logger.Error("Waiting the process to exit was not successful.");
+                            logger.LogError("Waiting the process to exit was not successful.");
                             throw new Win32Exception(Marshal.GetLastWin32Error());
                         }
-                        logger.Info("Runner process has been created.");
+                        logger.LogInformation("Runner process has been created.");
                     }
                     finally
                     {
@@ -220,7 +216,7 @@ namespace Dorc.Monitor
                 catch (Exception e)
                 {
                     pipeCancellationTokenSource.Cancel();
-                    logger.Error($"Exception is thrown while operating with the Runner process. Exception: {e}");
+                    logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
                     throw;
                 }
                 
@@ -237,7 +233,7 @@ namespace Dorc.Monitor
                             deploymentResult,
                             DeploymentResultStatus.WaitingConfirmation);
 
-                        logger.Info($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                        logger.LogInformation($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
                         break;
 
                     case TerraformRunnerOperations.ApplyPlan:
@@ -246,7 +242,7 @@ namespace Dorc.Monitor
                             deploymentResult,
                             DeploymentResultStatus.Complete);
 
-                        logger.Info($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
+                        logger.LogInformation($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
                         break;
                 }
 

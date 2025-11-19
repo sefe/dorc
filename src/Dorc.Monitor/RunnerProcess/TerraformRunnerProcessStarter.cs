@@ -1,13 +1,14 @@
-﻿using System.ComponentModel;
+﻿using Microsoft.Extensions.Logging;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
-using log4net;
+
 using static Dorc.Monitor.RunnerProcess.ProcessSecurityContextBuilder;
 
 namespace Dorc.Monitor.RunnerProcess
 {
     internal partial class TerraformRunnerProcessStarter
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         public string RunnerExecutableFullName { get; set; } = string.Empty;
         public string ScriptGroupPipeName { get; set; } = string.Empty;
@@ -19,7 +20,7 @@ namespace Dorc.Monitor.RunnerProcess
 
         private TerraformRunnerProcessStarter() { }
 
-        public TerraformRunnerProcessStarter(ILog logger)
+        public TerraformRunnerProcessStarter(ILogger logger)
         {
             this.logger = logger;
         }
@@ -68,7 +69,7 @@ namespace Dorc.Monitor.RunnerProcess
 #if DEBUG
             commandLine += " --useFile=true";
 #endif
-            this.logger.Info($"About to start process {this.RunnerExecutableFullName} with args {commandLine/*ProcessParameters.CommandLine*/}");
+            this.logger.LogInformation($"About to start process {this.RunnerExecutableFullName} with args {commandLine/*ProcessParameters.CommandLine*/}");
 
             var creationFlags = (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_NO_WINDOW |
                     (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_UNICODE_ENVIRONMENT;
@@ -95,11 +96,11 @@ namespace Dorc.Monitor.RunnerProcess
             {
                 var winError = Marshal.GetLastWin32Error();
                 var message = $"CreateProcessAsUser failed with win32 error: {winError}";
-                this.logger.Error(message);
+                this.logger.LogError(message);
                 throw new Exception(message);
             }
 
-            this.logger.Info("Completed Starting child process");
+            this.logger.LogInformation("Completed Starting child process");
 
             var runnerProcess = new RunnerProcess(
                 processInformation);

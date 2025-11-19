@@ -4,7 +4,7 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Org.OpenAPITools.Model;
 
@@ -58,7 +58,7 @@ namespace Dorc.Api.Tests
                         Project = new TeamProjectReference {Name="Build2"},
                         Definition = new DefinitionReference { Name= "Definition1"}},
                 }));
-            ILog mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
 
             var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
             var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
@@ -110,7 +110,7 @@ namespace Dorc.Api.Tests
                         BuildNumber = "buildText_buildNum", KeepForever = false, Uri = "vstfs://some_path"
                     },
                 }));
-            ILog mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
             var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
             var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
             var result = tfsBuild.IsValid(new BuildDetails(request));
@@ -159,7 +159,7 @@ namespace Dorc.Api.Tests
                         Project = new TeamProjectReference {Name="Build1"},
                         Definition = new DefinitionReference { Name= "Definition1"}},
                 }));
-            ILog mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
             var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
             var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
             var result = tfsBuild.IsValid(new BuildDetails(request));
@@ -214,7 +214,7 @@ namespace Dorc.Api.Tests
                         Definition = new DefinitionReference { Name= "Definition1"}
                     },
                 }));
-            ILog mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
             var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
             var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
             var result = tfsBuild.IsValid(new BuildDetails(request));
@@ -270,7 +270,7 @@ namespace Dorc.Api.Tests
                         Definition = new DefinitionReference { Name= "Definition1"}
                     },
                 }));
-            ILog mockedLog = new MockedLog();
+            var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
             var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
             var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
             var result = tfsBuild.IsValid(new BuildDetails(request));
