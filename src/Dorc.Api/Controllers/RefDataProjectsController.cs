@@ -189,10 +189,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    string.IsNullOrWhiteSpace(ex.GetBaseException()?.Message)
-                        ? "Unexpected error while deleting the project. Please try again or contact support."
-                        : $"Error deleting project {projectName}: {ex.GetBaseException()?.Message.Trim()}");
+                return StatusCode(StatusCodes.Status409Conflict,
+                    $"The project \"{projectName}\" cannot be deleted because it is linked to other deployment requests. Please remove those links or update the related requests before trying again.");
             }
         }
     }
