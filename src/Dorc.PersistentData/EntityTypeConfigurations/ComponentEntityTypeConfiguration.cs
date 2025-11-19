@@ -15,9 +15,9 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .HasOne(x => x.Script);
 
-            //builder
-            //    .Property(x => x.ComponentType)
-            //    .HasConversion<int>();
+            builder
+                .Property(x => x.ComponentType)
+                .HasConversion<int>();
 
             builder
                 .HasOne(x => x.Parent)
