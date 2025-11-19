@@ -21,6 +21,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using Serilog;
 using System.Reflection;
+using System.Text;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -39,7 +40,7 @@ builder.Services.AddWindowsService(options =>
 });
 
 #region Logging Configuration
-
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
 {
