@@ -187,7 +187,7 @@ namespace Dorc.Api.Controllers
             {
                 return NotFound(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(StatusCodes.Status409Conflict,
                     $"The project \"{projectName}\" cannot be deleted because it is linked to other deployment requests. Please remove those links or update the related requests before trying again.");
