@@ -1,7 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using Dorc.PersistentData.Model;
 using Microsoft.EntityFrameworkCore;
-using Dorc.PersistentData.Model;
-using Dorc.ApiModel;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Dorc.PersistentData.EntityTypeConfigurations
 {

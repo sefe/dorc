@@ -11,6 +11,7 @@ namespace Dorc.PersistentData.Model
         public bool StopOnFailure { get; set; }
         public Script? Script { get; set; }
         public int? ScriptId { get; set; }
+
         public ComponentType ComponentType { get; set; } = ComponentType.PowerShell;
         public ICollection<Component> Children { get; set; } = new List<Component>();
         public ICollection<Project> Projects { get; set; } = new List<Project>();

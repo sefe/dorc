@@ -153,36 +153,44 @@ namespace Dorc.Api.Controllers
         /// </summary>
         /// <param name="projectId"></param>
         /// <returns></returns>
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         [HttpDelete("{projectId}")]
-        [SwaggerResponse(StatusCodes.Status200OK)]
         public IActionResult Delete(int projectId)
         {
-            if (!_rolePrivilegesChecker.IsAdmin(User) && !_rolePrivilegesChecker.IsPowerUser(User))
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    "Projects can only be deleted by privileged users or Admins!");
-
-            var projectApiModel = _projectsPersistentSource.GetProject(projectId);
-            if (projectApiModel == null)
-                return StatusCode(StatusCodes.Status404NotFound, "Project not found!");
-
-            if (!(_rolePrivilegesChecker.IsPowerUser(User) && _securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName)) 
-                && !_rolePrivilegesChecker.IsAdmin(User))
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    "Projects can only be deleted by privileged users or Admins!");
-
+            string? projectName = null;
             try
             {
+                if (!_rolePrivilegesChecker.IsAdmin(User) && !_rolePrivilegesChecker.IsPowerUser(User))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Projects can only be deleted by privileged users or Admins!");
+
+                var projectApiModel = _projectsPersistentSource.GetProject(projectId);
+                if (projectApiModel == null)
+                    return NotFound("Project not found!");
+
+                projectName = projectApiModel.ProjectName;
+
+                if (!(_rolePrivilegesChecker.IsPowerUser(User) && _securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName))
+                    && !_rolePrivilegesChecker.IsAdmin(User))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Projects can only be deleted by privileged users or Admins!");
+
                 _projectsPersistentSource.DeleteProject(projectId);
-                return StatusCode(StatusCodes.Status200OK, "Project deleted successfully");
+                return Ok($"Project {projectName} deleted successfully");
             }
             catch (ArgumentException ex)
             {
-                return StatusCode(StatusCodes.Status404NotFound, ex.Message);
+                return NotFound(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, 
-                    $"Error deleting project: {ex.Message}");
+                return StatusCode(StatusCodes.Status409Conflict,
+                    $"The project \"{projectName}\" cannot be deleted because it is linked to other deployment requests. Please remove those links or update the related requests before trying again.");
             }
         }
     }
