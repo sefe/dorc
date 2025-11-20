@@ -123,7 +123,6 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     });
 }
 
-
 static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
     services.AddSwaggerGen(c =>
@@ -249,7 +248,7 @@ app.UseIpRateLimiting();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.OAuthClientId(configurationSettings.GetOAuthSwaggerClientId());
+    c.OAuthClientId(configurationSettings.GetOAuthUiClientId());
     c.OAuthAppName("DORC API");
     c.OAuthUsePkce();
 });
