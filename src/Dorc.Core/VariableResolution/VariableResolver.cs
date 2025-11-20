@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core.VariableResolution
 {
@@ -12,14 +12,15 @@ namespace Dorc.Core.VariableResolution
         private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
-        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILog logger, IPropertyEvaluator propertyEvaluator)
+        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILoggerFactory loggerFactory, IPropertyEvaluator propertyEvaluator)
         {
             _propertyEvaluator = propertyEvaluator;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
-            _expressionEvaluator = new PropertyExpressionEvaluator(logger);
-            _logger = logger;
+            
+            _expressionEvaluator = new PropertyExpressionEvaluator(loggerFactory.CreateLogger<PropertyExpressionEvaluator>());
+            _logger = loggerFactory.CreateLogger<VariableResolver>();
         }
 
         public bool PropertiesLoaded()
@@ -81,7 +82,7 @@ namespace Dorc.Core.VariableResolution
             }
             catch (Exception ex)
             {
-                _logger.Error($"Failed to evaluate property '{property}': {ex.Message}", ex);
+                _logger.LogError(ex, "Failed to evaluate property '{Property}': {ErrorMessage}", property, ex.Message);
                 return null;
             }
         }

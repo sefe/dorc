@@ -4,7 +4,7 @@ using Dorc.Core;
 using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -12,8 +12,6 @@ using System.Text;
 using System.Text.Json;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
-using System.Management.Automation.Language;
-using Dorc.PersistentData.Sources;
 
 namespace Dorc.Monitor
 {
@@ -24,7 +22,7 @@ namespace Dorc.Monitor
         private string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";   
         private string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";   
 
-        private readonly ILog logger;
+        private readonly ILogger logger;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IScriptGroupPipeServer scriptGroupPipeServer;
@@ -38,7 +36,7 @@ namespace Dorc.Monitor
         public ScriptDispatcher(
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IConfigValuesPersistentSource configValuesPersistentSource,
-            ILog logger,
+            ILogger<ScriptDispatcher> logger,
             IScriptGroupPipeServer scriptGroupPipeServer,
             IConfigurationSettings configurationSettingsEngine,
             IRequestsPersistentSource requestsPersistentSource)
@@ -73,7 +71,7 @@ namespace Dorc.Monitor
             if (string.IsNullOrEmpty(processAccountName)
                 || string.IsNullOrEmpty(processAccountPassword))
             {
-                logger.Error($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
+                logger.LogError($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
 
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
@@ -97,7 +95,7 @@ namespace Dorc.Monitor
                             startedScriptGroupPipeName,
                             scriptGroup,
                             pipeCancellationTokenSource.Token);
-                    logger.Info($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
+                    logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
                     var contextBuilder = new ProcessSecurityContextBuilder(logger)
                     {
@@ -126,7 +124,7 @@ namespace Dorc.Monitor
                         try
                         {
                             Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
-                            logger.Info("Starting Runner process.");
+                            logger.LogInformation("Starting Runner process.");
 
                             cancellationToken.ThrowIfCancellationRequested();
 
@@ -135,7 +133,7 @@ namespace Dorc.Monitor
                             {
                                 if (Marshal.GetLastWin32Error() != 0)
                                 {
-                                    logger.Error("The process creation was not successful.");
+                                    logger.LogError("The process creation was not successful.");
                                     throw new Win32Exception(Marshal.GetLastWin32Error());
                                 }
 
@@ -143,21 +141,21 @@ namespace Dorc.Monitor
 
                                 if (cancellationToken.IsCancellationRequested)
                                 {
-                                    logger.Debug("Trying to terminate the Runner process.");
+                                    logger.LogDebug("Trying to terminate the Runner process.");
                                     process.Kill();
-                                    logger.Info("The Runner process is terminated.");
+                                    logger.LogInformation("The Runner process is terminated.");
                                     throw new OperationCanceledException("The Runner process is terminated.");
                                 }
 
-                                logger.Debug("Waiting for process to exit.");
+                                logger.LogDebug("Waiting for process to exit.");
                                 var resultCode = process.WaitForExit();
-                                logger.Info($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+                                logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
 
                                 cancellationToken.ThrowIfCancellationRequested();
 
-                                if (resultCode == RunnerProcessStarter.RunnerProcess.ProcessTerminatedExitCode)
+                                if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
                                 {
-                                    logger.Info("The Runner process is terminated.");
+                                    logger.LogInformation("The Runner process is terminated.");
                                     throw new OperationCanceledException("The Runner process is terminated.");
                                 }
                                 else if (resultCode != 0)
@@ -167,7 +165,7 @@ namespace Dorc.Monitor
 
                                     if (ex != null)
                                     {
-                                        logger.Error("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
+                                        logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
                                                                + " Message:" + ex.Message
                                                                + "; Source: " + ex.Source
                                                                + "; Data: " + ex.Data
@@ -179,10 +177,10 @@ namespace Dorc.Monitor
 
                                 if (Marshal.GetLastWin32Error() != 0)
                                 {
-                                    logger.Error("Waiting the process to exit was not successful.");
+                                    logger.LogError("Waiting the process to exit was not successful.");
                                     throw new Win32Exception(Marshal.GetLastWin32Error());
                                 }
-                                logger.Info("Runner process has been created.");
+                                logger.LogInformation("Runner process has been created.");
                             }
                             finally
                             {
@@ -194,7 +192,7 @@ namespace Dorc.Monitor
                         catch (Exception e)
                         {
                             pipeCancellationTokenSource.Cancel();
-                            logger.Error($"Exception is thrown while operating with the Runner process. Exception: {e}");
+                            logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
                             throw;
                         }
                     }
@@ -261,7 +259,7 @@ namespace Dorc.Monitor
             string deploymentRunnerPath;
 
             if (string.IsNullOrEmpty(powerShellVersionNumber)
-                || powerShellVersionNumber.Equals("v5.1"))     
+                || powerShellVersionNumber.Equals(PowerShellVersion.V5_1.ToVersionString()))     
             {
                 deploymentRunnerPath = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                 .GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"]!;
@@ -274,12 +272,12 @@ namespace Dorc.Monitor
 
             if (!File.Exists(deploymentRunnerPath))
             {
-                logger.Error($"Runner with the path '{deploymentRunnerPath}' is NOT found.");
+                logger.LogError($"Runner with the path '{deploymentRunnerPath}' is NOT found.");
                 throw new InvalidOperationException("Specified DeploymentRunnerPath does not exist");
             }
             var fileInfo = new FileInfo(deploymentRunnerPath);
 
-            logger.Info($"Runner with the file full name '{fileInfo.FullName}' is chosen.");
+            logger.LogInformation($"Runner with the file full name '{fileInfo.FullName}' is chosen.");
 
             return fileInfo.FullName;
         }
@@ -299,7 +297,7 @@ namespace Dorc.Monitor
                 return Path.Combine(scriptsLocation, scriptApiModel.Path);
             }
 
-            logger.Info($"Found a JSON Path with {scriptApiModel.Path}.");
+            logger.LogInformation($"Found a JSON Path with {scriptApiModel.Path}.");
 
             var deserializeObject = JsonSerializer.Deserialize<JSONPath>(scriptApiModel.Path);
 

@@ -1,5 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 
 namespace Dorc.Core.VariableResolution
@@ -8,9 +8,9 @@ namespace Dorc.Core.VariableResolution
     {
         private static ConcurrentDictionary<string, object> _compiledResults = new ConcurrentDictionary<string, object>();
 
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
-        public PropertyExpressionEvaluator(ILog logger)
+        public PropertyExpressionEvaluator(ILogger<PropertyExpressionEvaluator> logger)
         {
             _logger = logger;
         }

@@ -1,8 +1,8 @@
-﻿using Dorc.Core;
+﻿using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Tools.DeployCopyEnvBuildCLI
 {
@@ -10,8 +10,11 @@ namespace Tools.DeployCopyEnvBuildCLI
     {
         public AppRegistry()
         {
-            For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
+            For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
+            For(typeof(ILogger<>)).Use(typeof(Logger<>));
+
             For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
+            For<IDeploymentEventsPublisher>().Use<NullDeploymentEventsPublisher>();
         }
     }
 }

@@ -302,6 +302,7 @@ namespace Dorc.PersistentData.Sources
                         ObjectId = Guid.NewGuid(),
                         Description = "Created via API",
                         IsEnabled = apiComponent.IsEnabled,
+                        ComponentType = apiComponent.ComponentType
                     };
 
                     if (apiComponent.ScriptPath != null)
@@ -311,7 +312,8 @@ namespace Dorc.PersistentData.Sources
                             Name = apiComponent.ComponentName,
                             Path = apiComponent.ScriptPath,
                             NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
+                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
                         };
 
                         component.Script = script;
@@ -334,12 +336,16 @@ namespace Dorc.PersistentData.Sources
                 var component = context.Components
                     .Include(c => c.Projects)
                     .Include(s => s.Script)
+                    .ThenInclude(s => s.Components)
                     .Include(c => c.Parent)
                     .First(x => x.Id == apiComponent.ComponentId);
 
                 if (component.Projects.Count == 0)
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
+
+                // Update ComponentType for all updates
+                component.ComponentType = apiComponent.ComponentType;
 
                 DuplicateComponent(apiComponent, component, context);
 
@@ -351,28 +357,105 @@ namespace Dorc.PersistentData.Sources
                     if (component.Parent.Id != parentId)
                         component.Parent = context.Components.First(x => x.Id == parentId);
 
+                // Handle script updates
+                var oldScript = component.Script;
+                var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
+
                 if (!string.IsNullOrEmpty(apiComponent.ScriptPath))
                 {
-                    var script = component.Script;
-                    script.Name = apiComponent.ComponentName;
-                    script.Path = apiComponent.ScriptPath;
-                    script.NonProdOnly = apiComponent.NonProdOnly;
-                    script.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
-                }
-                else if (apiComponent.ScriptPath == null)
-                {
-                    context.Scripts.Remove(component.Script);
-                }
-                else if (apiComponent.ScriptPath != null)
-                {
-                    var script = new Script
+                    // Component has a script path
+                    if (oldScript != null)
                     {
-                        Name = apiComponent.ComponentName,
-                        Path = apiComponent.ScriptPath,
-                        NonProdOnly = apiComponent.NonProdOnly,
-                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath)
-                    };
-                    component.Script = script;
+                        // Check if script content is changing
+                        var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
+                            || oldScript.NonProdOnly != apiComponent.NonProdOnly
+                            || oldScript.Name != apiComponent.ComponentName
+                            || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
+
+                        if (isScriptContentChanged)
+                        {
+                            if (isScriptShared)
+                            {
+                                // Script is shared with other components, create a new script
+                                var newScript = new Script
+                                {
+                                    Name = apiComponent.ComponentName,
+                                    Path = apiComponent.ScriptPath,
+                                    NonProdOnly = apiComponent.NonProdOnly,
+                                    IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                    PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                                };
+                                component.Script = newScript;
+                            }
+                            else
+                            {
+                                // Script is not shared, update it
+                                oldScript.Name = apiComponent.ComponentName;
+                                oldScript.Path = apiComponent.ScriptPath;
+                                oldScript.NonProdOnly = apiComponent.NonProdOnly;
+                                oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
+                                oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
+                            }
+                        }
+                        else
+                        {
+                            // Script content unchanged, only update name if needed
+                            if (oldScript.Name != apiComponent.ComponentName)
+                            {
+                                if (isScriptShared)
+                                {
+                                    // Script is shared, create new script with updated name
+                                    var newScript = new Script
+                                    {
+                                        Name = apiComponent.ComponentName,
+                                        Path = apiComponent.ScriptPath,
+                                        NonProdOnly = apiComponent.NonProdOnly,
+                                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                                    };
+                                    component.Script = newScript;
+                                }
+                                else
+                                {
+                                    oldScript.Name = apiComponent.ComponentName;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Component didn't have a script, create new one
+                        var script = new Script
+                        {
+                            Name = apiComponent.ComponentName,
+                            Path = apiComponent.ScriptPath,
+                            NonProdOnly = apiComponent.NonProdOnly,
+                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                        };
+                        component.Script = script;
+                    }
+                }
+                else if (apiComponent.ScriptPath == null && oldScript != null)
+                {
+                    // Script is being removed from component
+                    if (isScriptShared)
+                    {
+                        // Script is shared, just remove reference
+                        component.Script = null;
+                        component.ScriptId = null;
+                    }
+                    else
+                    {
+                        // Script is not shared, delete it
+                        component.Script = null;
+                        component.ScriptId = null;
+                        context.Scripts.Remove(oldScript);
+                    }
+                }
+                else if (component.Script != null)
+                {
+                    component.Script.PowerShellVersionNumber = null; // it is just a container for other components, no sense to have PS version for it
                 }
 
                 context.SaveChanges();
@@ -396,6 +479,7 @@ namespace Dorc.PersistentData.Sources
 
             component.Name = apiComponent.ComponentName;
             component.StopOnFailure = apiComponent.StopOnFailure;
+            component.ComponentType = apiComponent.ComponentType;
         }
 
         public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
@@ -500,7 +584,9 @@ namespace Dorc.PersistentData.Sources
                     NonProdOnly = script.NonProdOnly,
                     StopOnFailure = comp.StopOnFailure,
                     IsEnabled = comp.IsEnabled,
-                    ParentId = comp.Parent != null ? comp.Parent.Id : 0
+                    ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                    ComponentType = comp.ComponentType,
+                    PSVersion = script.PowerShellVersionNumber
                 };
 
             return new ComponentApiModel
@@ -511,7 +597,8 @@ namespace Dorc.PersistentData.Sources
                 NonProdOnly = true,
                 StopOnFailure = comp.StopOnFailure,
                 IsEnabled = comp.IsEnabled,
-                ParentId = comp.Parent != null ? comp.Parent.Id : 0
+                ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                ComponentType = comp.ComponentType
             };
         }
 

@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Pipes;
@@ -10,11 +11,12 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using JasperFx.Core;
-using log4net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 
 namespace Dorc.Monitor.Tests.Init
 {
@@ -38,8 +40,7 @@ namespace Dorc.Monitor.Tests.Init
         /// <exception cref="InvalidOperationException"></exception>
         internal ServiceProvider InitializeServiceProvider()
         {
-            var logger = LogManager.GetLogger(logRepo);
-            collection.AddTransient<ILog>(provider => logger);
+            collection.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
             collection.AddTransient<ScriptDispatcher>();
 
@@ -60,6 +61,7 @@ namespace Dorc.Monitor.Tests.Init
 
             collection.AddTransient<IDeploymentContextFactory>(provider => new DeploymentContextFactory(monitorConfiguration.DOrcConnectionString));
 
+            collection.AddSingleton<IDeploymentEventsPublisher>(ctx => Substitute.For<IDeploymentEventsPublisher>());
             collection.AddScoped<IVariableResolver, VariableResolver>();
             collection.AddScoped<IComponentProcessor, ComponentProcessor>();
             collection.AddScoped<IScriptDispatcher, ScriptDispatcher>();

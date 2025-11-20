@@ -3,8 +3,8 @@ using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
-using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -13,24 +13,58 @@ using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Lamar.Microsoft.DependencyInjection;
-using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
+using Serilog;
+using Serilog.Extensions.Logging;
+using System.Reflection;
 using System.Text.Json.Serialization;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
-var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+var configBuilder = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .Build();
 
-builder.Logging.AddLog4Net();
+#region Logging Configuration
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithThreadId()
+    .ReadFrom.Configuration(configBuilder)
+    .CreateLogger();
+builder.Logging.AddSerilog(Log.Logger);
+
+var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
+{
+    builder.Logging.AddOpenTelemetry(logging =>
+    {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
+}
+#endregion
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
-var secretsReader = new OnePasswordSecretsReader(configurationSettings);
+
+// Create logger factory early for secrets reader
+var secretsReaderLogger = new SerilogLoggerFactory()
+        .CreateLogger<OnePasswordSecretsReader>();
+var secretsReader = new OnePasswordSecretsReader(configurationSettings, secretsReaderLogger);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
 
@@ -221,6 +255,7 @@ builder.Services
         opts.JsonSerializerOptions.MaxDepth = 64;
         opts.JsonSerializerOptions.IncludeFields = true;
         opts.JsonSerializerOptions.Converters.Add(new ExceptionJsonConverter());
+        opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
@@ -244,6 +279,7 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
+builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
 builder.Host.UseLamar((context, registry) =>
 {
@@ -258,8 +294,6 @@ builder.Host.UseLamar((context, registry) =>
 
     registry.AddControllers();
 });
-
-XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
 var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));

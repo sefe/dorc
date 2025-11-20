@@ -14,6 +14,7 @@ import type { PropertyValueDto } from '../../apis/dorc-api';
 import { Response } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
+import { Notification } from '@vaadin/notification';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -141,7 +142,10 @@ export class VariableValueControls extends LitElement {
             this.fireVariableValueDeletedEvent(value);
           },
           error: (err: any) => this.fireVariableValueDeletedEvent(err),
-          complete: () => console.log('done deleting variable value')
+          complete: () => {
+            console.log('done deleting variable value');
+            this.showSuccessMessage('Variable value deleted successfully!');
+          }
         });
     }
   }
@@ -199,6 +203,15 @@ export class VariableValueControls extends LitElement {
           `#propValue${this.value?.Id}`
         ) as unknown as TextField;
         if (textField) textField.readonly = true;
+        this.showSuccessMessage('Variable value saved successfully!');
       });
+  }
+
+  private showSuccessMessage(text: string) {
+    Notification.show(text, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
   }
 }

@@ -5,7 +5,6 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Org.OpenAPITools.Model;
 
 // ReSharper disable AsyncConverter.AsyncWait
@@ -18,13 +17,13 @@ namespace Dorc.Api.Services
         private string _azureDevOpsProject;
         private string _azureDevOpsBuildDefinitionName;
         private readonly IAzureDevOpsServerWebClient _azureDevOpsServerWebClient;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private string _validationMessage;
 
-        public AzureDevOpsDeployableBuild(IAzureDevOpsServerWebClient azureDevOpsServerWebClient, ILog log,
+        public AzureDevOpsDeployableBuild(IAzureDevOpsServerWebClient azureDevOpsServerWebClient, ILogger<AzureDevOpsDeployableBuild> log,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource)
         {
@@ -48,7 +47,7 @@ namespace Dorc.Api.Services
             if (!buildTypeOk)
             {
                 _validationMessage = "Failed Build Type Check";
-                _log.Warn(_validationMessage);
+                _log.LogWarning(_validationMessage);
                 return false;
             }
 
@@ -58,7 +57,7 @@ namespace Dorc.Api.Services
             var buildDefsForProject = _azureDevOpsServerWebClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
                 project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
 
-            _log.Debug($"Found {buildDefsForProject.Count} build definitions in the project.");
+            _log.LogDebug($"Found {buildDefsForProject.Count} build definitions in the project.");
 
             var buildDefs = new List<BuildDefinitionReference>();
             if (dorcBuild.BuildText != null && dorcBuild.BuildText.Contains(";"))
@@ -73,14 +72,14 @@ namespace Dorc.Api.Services
                 if (!buildDefs.Any())
                 {
                     _validationMessage = $"Found No Build Definitions in the project with name {dorcBuild.BuildText}";
-                    _log.Debug($"Found No Build Definitions in the project with name {dorcBuild.BuildText}");
+                    _log.LogDebug($"Found No Build Definitions in the project with name {dorcBuild.BuildText}");
                     return false;
                 }
 
                 var buildsFromDefinitionsAsync = _azureDevOpsServerWebClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
                     buildDefs).Result;
 
-                _log.Debug($"Found {buildsFromDefinitionsAsync.Count} builds in the project.");
+                _log.LogDebug($"Found {buildsFromDefinitionsAsync.Count} builds in the project.");
 
                 var pinned = dorcBuild.Pinned ?? false ? buildsFromDefinitionsAsync.Where(b => b.KeepForever) : buildsFromDefinitionsAsync;
                 builds.AddRange(pinned);
@@ -94,7 +93,7 @@ namespace Dorc.Api.Services
                 {
                     var buildsFromDefinitionsAsync = _azureDevOpsServerWebClient.GetBuildsFromBuildNumberAsync(project.ArtefactsUrl, dorcBuild.BuildText, proj).Result;
 
-                    _log.Debug($"Found {buildsFromDefinitionsAsync.Count} builds in the project.");
+                    _log.LogDebug($"Found {buildsFromDefinitionsAsync.Count} builds in the project.");
 
                     var pinned = dorcBuild.Pinned ?? false ? buildsFromDefinitionsAsync.Where(b => b.KeepForever) : buildsFromDefinitionsAsync;
                     builds.AddRange(pinned);
@@ -126,7 +125,7 @@ namespace Dorc.Api.Services
 
             if (!builds.Any())
             {
-                _log.Warn("No Builds was found for specified arguments");
+                _log.LogWarning("No Builds was found for specified arguments");
                 _validationMessage = "No Builds was found for specified arguments";
                 return false;
             }
@@ -149,7 +148,7 @@ namespace Dorc.Api.Services
             if (!AzureDevOpsBuildUrl.StartsWith("vstfs"))
                 return false;
 
-            _log.Debug("Successfully validated Build.");
+            _log.LogDebug("Successfully validated Build.");
             return true;
         }
 
