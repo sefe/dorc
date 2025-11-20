@@ -19,6 +19,7 @@
 					<Json:JsonFile Id="SetTerraformRunnerPathNonProd" ElementPath="$.AppSettings.TerraformDeploymentRunnerPath" Value="[#NonProdTerraformRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetIsProductionNonProd" ElementPath="$.AppSettings.IsProduction" Value="False" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetEnvironmentNonProd" ElementPath="$.AppSettings.Environment" Value="[ENVIRONMENT]" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetServiceNameNonProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceNonProd" File="[#NonProdDeployMonitorExeConfig]" />
 
