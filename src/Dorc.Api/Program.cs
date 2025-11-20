@@ -52,36 +52,6 @@ builder.Services.AddCors(options =>
         });
 });
 
-string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
-switch (authenticationScheme)
-{
-    case ConfigAuthScheme.OAuth:
-        ConfigureOAuth(builder, configurationSettings, secretsReader);
-        break;
-    case ConfigAuthScheme.WinAuth:
-        ConfigureWinAuth(builder);
-        break;
-    case ConfigAuthScheme.Both:
-        ConfigureBoth(builder, configurationSettings, secretsReader);
-        break;
-    default:
-        ConfigureWinAuth(builder);
-        break;
-}
-
-static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
-{
-    if (registerOwnReader)
-    {
-        builder.Services.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
-    }
-
-    builder.Services
-        .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
-        .AddTransient<IClaimsTransformation, ClaimsTransformer>()
-        .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-        .AddNegotiate();
-}
 
 static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader, bool registerOwnReader = true)
 {
@@ -153,62 +123,44 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     });
 }
 
-static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader)
+
+static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
-    builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-    builder.Services.AddTransient<IClaimsPrincipalReader, ClaimsPrincipalReaderFactory>();
-
-    ConfigureWinAuth(builder, false);
-    ConfigureOAuth(builder, configurationSettings, secretsReader, false);
-
-    // Add a Policy Scheme to dynamically select the authentication scheme
-    builder.Services.AddAuthentication(options =>
+    services.AddSwaggerGen(c =>
     {
-        options.DefaultScheme = "DynamicScheme";
-        options.DefaultChallengeScheme = "DynamicScheme";
-    })
-    .AddPolicyScheme("DynamicScheme", "Dynamic Authentication Scheme", options =>
-    {
-        options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
-    });
-}
-
-static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
-{
-    if (authenticationScheme is not ConfigAuthScheme.OAuth)
-    {
-        services.AddSwaggerGen();
-    }
-    else
-    {
-        services.AddSwaggerGen(options =>
+        // Define OAuth2 scheme
+        c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
         {
-            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            Type = SecuritySchemeType.OAuth2,
+            Flows = new OpenApiOAuthFlows
             {
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                Scheme = "Bearer",
-                BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Description = "Enter 'Bearer {your JWT token}' to authenticate."
-            });
-
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                AuthorizationCode = new OpenApiOAuthFlow
                 {
+                    AuthorizationUrl = new Uri($"{configurationSettings.GetOAuthAuthority()}/connect/authorize"),
+                    TokenUrl = new Uri($"{configurationSettings.GetOAuthAuthority()}/connect/token"),
+                    Scopes = new Dictionary<string, string>
                     {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        new string[] { }
+                        { configurationSettings.GetOAuthApiGlobalScope(), "Access to the DORC API" },
                     }
-                });
+                }
+            }
         });
-    }
+
+        c.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "oauth2"
+                    }
+                },
+                new string[] { }
+            }
+        });
+    });
 }
 
 builder.Services
@@ -228,7 +180,7 @@ builder.Services
     });
 
 builder.Services.AddEndpointsApiExplorer();
-AddSwaggerGen(builder.Services, authenticationScheme);
+AddSwaggerGen(builder.Services , configurationSettings);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
@@ -295,7 +247,12 @@ var app = builder.Build();
 app.UseIpRateLimiting();
 
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.OAuthClientId(configurationSettings.GetOAuthSwaggerClientId());
+    c.OAuthAppName("DORC API");
+    c.OAuthUsePkce();
+});
 app.UseExceptionHandler(_ => { }); // empty lambda is required until https://github.com/dotnet/aspnetcore/issues/51888 is fixed
 app.UseCors(dorcCorsRefDataPolicy);
 
@@ -307,13 +264,10 @@ app.UseAuthorization();
 app.UseMiddleware<WinAuthLoggingMiddleware>();
 
 var endpointConventionBuilder = app.MapControllers();
-if (authenticationScheme is ConfigAuthScheme.OAuth)
-{
     // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
-}
 
 // Map SignalR hub
 app.MapHub<DeploymentsHub>("/hubs/deployments");
 
-app.Run();
+app.Run();// Apply security requirement globally
