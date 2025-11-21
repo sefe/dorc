@@ -34,6 +34,8 @@ var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
     .Build();
 
+var configurationSettings = new ConfigurationSettings(configBuilder);
+
 #region Logging Configuration
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -49,7 +51,13 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
     builder.Logging.AddOpenTelemetry(logging =>
     {
         logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
-            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0")
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["service.namespace"] = "DOrc",
+                ["deployment.environment"] = configurationSettings.GetEnvironment(),
+                ["host.name"] = Environment.MachineName
+            }));
 
         logging.AddOtlpExporter(options =>
         {
@@ -58,8 +66,6 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
     });
 }
 #endregion
-
-var configurationSettings = new ConfigurationSettings(configBuilder);
 
 // Create logger factory early for secrets reader
 var secretsReaderLogger = new SerilogLoggerFactory()

@@ -18,6 +18,7 @@
 					<Json:JsonFile Id="SetTerraformRunnerPathProd" ElementPath="$.AppSettings.TerraformDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdTerraformRunnerExe]" />
 
 					<Json:JsonFile Id="SetIsProductionProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetEnvironmentProd" ElementPath="$.AppSettings.Environment" Value="[ENVIRONMENT]" File="[#ProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetServiceNameProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceProd" File="[#ProdDeployMonitorExeConfig]" />
 
@@ -39,6 +40,8 @@
 					<Json:JsonFile Id="AzureStorageAccountClientSecretProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
 					<Json:JsonFile Id="AzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+					
+					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
