@@ -46,4 +46,14 @@ export interface ServerApiModel {
      * @memberof ServerApiModel
      */
     ApplicationTags?: string | null;
+    /**
+     * @type {string}
+     * @memberof ServerApiModel
+     */
+    LastChecked?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof ServerApiModel
+     */
+    IsReachable?: boolean | null;
 }

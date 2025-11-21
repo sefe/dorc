@@ -1,4 +1,6 @@
-﻿namespace Dorc.ApiModel
+﻿using System;
+
+namespace Dorc.ApiModel
 {
     public class DatabaseApiModel : EnvironmentUiPartBase
     {
@@ -8,5 +10,7 @@
         public string AdGroup { set; get; }
         public int Id { set; get; }
         public string ArrayName { set; get; }
+        public DateTime? LastChecked { set; get; }
+        public bool? IsReachable { set; get; }
     }
 }

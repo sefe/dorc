@@ -232,6 +232,13 @@ export class PageDatabasesList extends PageElement {
           header='Mapped Environments'
         ></vaadin-grid-column>
         <vaadin-grid-column
+          width='120px'
+          flex-grow='0'
+          .renderer='${this.connectivityStatusRenderer}'
+          resizable
+          header='Status'
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           width='200px'
           flex-grow='0'
           resizable
@@ -671,6 +678,39 @@ export class PageDatabasesList extends PageElement {
             </button>`
         )}
       `,
+      root
+    );
+  };
+
+  private connectivityStatusRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DatabaseApiModel>
+  ) => {
+    const database = model.item;
+    const isReachable = database.IsReachable;
+    const lastChecked = database.LastChecked ? new Date(database.LastChecked) : null;
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    let statusHtml;
+    let title = '';
+    
+    if (lastChecked === null) {
+      statusHtml = html`<span style="color: gray;">Not checked</span>`;
+      title = 'Connectivity has not been checked yet';
+    } else if (isReachable === true) {
+      statusHtml = html`<vaadin-icon icon="vaadin:check-circle" style="color: green;"></vaadin-icon> <span>Online</span>`;
+      title = `Last checked: ${lastChecked.toLocaleString()}`;
+    } else if (lastChecked < oneWeekAgo) {
+      statusHtml = html`<vaadin-icon icon="vaadin:warning" style="color: orange;"></vaadin-icon> <span>Unreachable (7+ days)</span>`;
+      title = `Unreachable - Last checked: ${lastChecked.toLocaleString()}`;
+    } else {
+      statusHtml = html`<vaadin-icon icon="vaadin:close-circle" style="color: red;"></vaadin-icon> <span>Offline</span>`;
+      title = `Unreachable - Last checked: ${lastChecked.toLocaleString()}`;
+    }
+
+    render(
+      html`<div title="${title}" style="display: flex; align-items: center; gap: 4px;">${statusHtml}</div>`,
       root
     );
   };

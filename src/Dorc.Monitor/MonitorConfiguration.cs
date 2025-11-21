@@ -1,4 +1,5 @@
 ﻿using Dorc.Core.Configuration;
+using log4net;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Monitor
@@ -116,6 +117,33 @@ namespace Dorc.Monitor
             get
             {
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
+            }
+        }
+
+        public bool EnableConnectivityCheck
+        {
+            get
+            {
+                var value = configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"];
+                var isEnabled = !string.IsNullOrWhiteSpace(value) && 
+                       bool.TryParse(value, out bool result) && 
+                       result;
+                
+                // Log the configuration value for debugging
+                var log = LogManager.GetLogger(typeof(MonitorConfiguration));
+                log.Debug($"EnableConnectivityCheck configuration value: '{value}' -> {isEnabled}");
+                
+                return isEnabled;
+            }
+        }
+
+        public int ConnectivityCheckIntervalMinutes
+        {
+            get
+            {
+                int interval = 60; // Default to 60 minutes (1 hour)
+                int.TryParse(configurationRoot.GetSection(appSettings)["ConnectivityCheckIntervalMinutes"], out interval);
+                return interval;
             }
         }
     }

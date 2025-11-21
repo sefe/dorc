@@ -13,5 +13,9 @@
         string DorcApiClientId { get; }
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
+
+        // Connectivity check settings
+        bool EnableConnectivityCheck { get; }
+        int ConnectivityCheckIntervalMinutes { get; }
     }
 }

@@ -122,7 +122,10 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
         secureKeyPersistentDataSource.GetSymmetricKey());
 });
 
+builder.Services.AddTransient<Dorc.Core.Connectivity.IConnectivityChecker, Dorc.Core.Connectivity.ConnectivityChecker>();
+
 builder.Services.AddHostedService<MonitorService>();
+builder.Services.AddHostedService<Dorc.Monitor.Connectivity.ConnectivityCheckService>();
 builder.Services.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalReader>();
 
 IHost host = builder.Build();
