@@ -41,7 +41,7 @@
 					<Json:JsonFile Id="AzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 					
-					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.AppSettings.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
