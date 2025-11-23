@@ -6,6 +6,7 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -75,6 +76,22 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 #endregion
 
 builder.Services.AddTransient<ScriptDispatcher>();
+
+// Register distributed lock service based on HA configuration
+builder.Services.AddSingleton<IDistributedLockService>(sp =>
+{
+    var config = sp.GetRequiredService<IMonitorConfiguration>();
+    var logger = sp.GetRequiredService<ILogger<RabbitMqDistributedLockService>>();
+    
+    if (config.HighAvailabilityEnabled)
+    {
+        return new RabbitMqDistributedLockService(logger, config);
+    }
+    else
+    {
+        return new NoOpDistributedLockService();
+    }
+});
 
 PersistentSourcesRegistry.Register(builder.Services);
 

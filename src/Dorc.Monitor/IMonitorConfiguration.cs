@@ -13,5 +13,13 @@
         string DorcApiClientId { get; }
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
+
+        // High Availability settings
+        bool HighAvailabilityEnabled { get; }
+        string RabbitMqHostName { get; }
+        int RabbitMqPort { get; }
+        string RabbitMqUserName { get; }
+        string RabbitMqPassword { get; }
+        string? RabbitMqVirtualHost { get; }
     }
 }

@@ -118,6 +118,74 @@ namespace Dorc.Monitor
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
             }
         }
+
+        public bool HighAvailabilityEnabled
+        {
+            get
+            {
+                return bool.Parse(configurationRoot.GetSection(appSettings)["HighAvailability:Enabled"] ?? "false");
+            }
+        }
+
+        public string RabbitMqHostName
+        {
+            get
+            {
+                var hostName = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:HostName"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(hostName))
+                {
+                    throw new InvalidOperationException("RabbitMQ HostName is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:HostName).");
+                }
+                return hostName ?? "localhost";
+            }
+        }
+
+        public int RabbitMqPort
+        {
+            get
+            {
+                var portStr = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Port"];
+                if (int.TryParse(portStr, out int port))
+                {
+                    return port;
+                }
+                return 5672; // Default RabbitMQ port
+            }
+        }
+
+        public string RabbitMqUserName
+        {
+            get
+            {
+                var userName = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:UserName"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(userName))
+                {
+                    throw new InvalidOperationException("RabbitMQ UserName is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:UserName).");
+                }
+                return userName ?? "guest";
+            }
+        }
+
+        public string RabbitMqPassword
+        {
+            get
+            {
+                var password = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Password"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(password))
+                {
+                    throw new InvalidOperationException("RabbitMQ Password is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:Password).");
+                }
+                return password ?? "guest";
+            }
+        }
+
+        public string? RabbitMqVirtualHost
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:VirtualHost"];
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration
