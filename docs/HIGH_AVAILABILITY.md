@@ -32,14 +32,16 @@ The HA implementation uses RabbitMQ as a distributed coordination service. Key f
 
 ### 1. Install RabbitMQ
 
-**Using Docker:**
+**Using Docker with OAuth Plugin:**
 ```bash
 docker run -d --name rabbitmq \
   -p 5672:5672 \
   -p 15672:15672 \
-  -e RABBITMQ_DEFAULT_USER=dorc \
-  -e RABBITMQ_DEFAULT_PASS=yourpassword \
+  -e RABBITMQ_PLUGINS=rabbitmq_auth_backend_oauth2 \
   rabbitmq:3-management
+
+# Enable OAuth plugin
+docker exec rabbitmq rabbitmq-plugins enable rabbitmq_auth_backend_oauth2
 ```
 
 **Using Package Manager (Ubuntu/Debian):**
@@ -48,6 +50,21 @@ sudo apt-get update
 sudo apt-get install rabbitmq-server
 sudo systemctl enable rabbitmq-server
 sudo systemctl start rabbitmq-server
+
+# Enable OAuth plugin
+sudo rabbitmq-plugins enable rabbitmq_auth_backend_oauth2
+```
+
+**Configure RabbitMQ OAuth:**
+
+Create `/etc/rabbitmq/rabbitmq.conf`:
+```ini
+# OAuth 2.0 configuration
+auth_backends.1 = oauth
+auth_oauth2.resource_server_id = rabbitmq
+auth_oauth2.additional_scopes_key = scope
+auth_oauth2.issuer = https://your-oauth-server.com
+auth_oauth2.jwks_url = https://your-oauth-server.com/.well-known/jwks.json
 ```
 
 ### 2. Configure Monitor appsettings.json
@@ -65,9 +82,13 @@ Update the `appsettings.json` file for each monitor instance:
       "RabbitMQ": {
         "HostName": "rabbitmq.yourdomain.com",
         "Port": "5672",
-        "UserName": "dorc",
-        "Password": "yourpassword",
-        "VirtualHost": "/"
+        "VirtualHost": "/",
+        "OAuth": {
+          "ClientId": "dorc-monitor",
+          "ClientSecret": "your-oauth-secret",
+          "TokenEndpoint": "https://auth.yourdomain.com/oauth/token",
+          "Scope": "rabbitmq:configure:* rabbitmq:read:* rabbitmq:write:*"
+        }
       }
     }
   }
@@ -81,9 +102,11 @@ Update the `appsettings.json` file for each monitor instance:
 | `Enabled` | Yes | `false` | Enable/disable high availability mode |
 | `HostName` | When HA enabled | `localhost` | RabbitMQ server hostname or IP |
 | `Port` | No | `5672` | RabbitMQ server port |
-| `UserName` | When HA enabled | `guest` | RabbitMQ authentication username |
-| `Password` | When HA enabled | `guest` | RabbitMQ authentication password |
 | `VirtualHost` | No | `/` | RabbitMQ virtual host |
+| `OAuth:ClientId` | When HA enabled | - | OAuth 2.0 client ID for RabbitMQ authentication |
+| `OAuth:ClientSecret` | When HA enabled | - | OAuth 2.0 client secret for RabbitMQ authentication |
+| `OAuth:TokenEndpoint` | When HA enabled | - | OAuth 2.0 token endpoint URL |
+| `OAuth:Scope` | No | - | OAuth 2.0 scope (optional, depends on OAuth server configuration) |
 
 ## Deployment Scenarios
 
@@ -120,8 +143,13 @@ Configuration on all monitors:
   "RabbitMQ": {
     "HostName": "rabbitmq-server",
     "Port": "5672",
-    "UserName": "dorc",
-    "Password": "securepassword"
+    "VirtualHost": "/",
+    "OAuth": {
+      "ClientId": "dorc-monitor",
+      "ClientSecret": "secure-oauth-secret",
+      "TokenEndpoint": "https://auth.domain.com/oauth/token",
+      "Scope": "rabbitmq:*"
+    }
   }
 }
 ```
@@ -194,11 +222,13 @@ Setting `HighAvailability.Enabled` to `false` or omitting the HA configuration e
 
 ## Security Recommendations
 
-1. Use strong RabbitMQ passwords
-2. Enable TLS/SSL for RabbitMQ connections in production
-3. Use RabbitMQ access control to limit monitor permissions
-4. Run RabbitMQ in a private network, not exposed to the internet
-5. Store RabbitMQ credentials in secure configuration (e.g., Azure Key Vault, environment variables)
+1. **OAuth 2.0 Authentication**: The implementation uses OAuth 2.0 for RabbitMQ authentication, which is more secure than username/password
+2. **Secure OAuth Credentials**: Store OAuth client secrets in secure configuration (e.g., Azure Key Vault, environment variables)
+3. **TLS/SSL**: Enable TLS/SSL for both RabbitMQ connections and OAuth token endpoint
+4. **Least Privilege**: Configure OAuth scopes to grant only the minimum required permissions
+5. **Network Security**: Run RabbitMQ in a private network, not exposed to the internet
+6. **Token Caching**: Tokens are cached and automatically refreshed to minimize token endpoint calls
+7. **Audit Logging**: Enable RabbitMQ audit logging to track connection and queue operations
 
 ## Maintenance
 

@@ -1,28 +1,37 @@
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Http;
 
 namespace Dorc.Monitor.HighAvailability
 {
     /// <summary>
     /// RabbitMQ-based distributed lock service using message queues with TTL for lock management.
     /// Each lock is represented by an exclusive queue - only one consumer can connect to it at a time.
+    /// Uses OAuth 2.0 for authentication.
     /// </summary>
     public class RabbitMqDistributedLockService : IDistributedLockService, IDisposable
     {
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
+        private readonly HttpClient httpClient;
         private IConnection? connection;
         private readonly object connectionLock = new object();
         private bool disposed = false;
+        private string? cachedToken;
+        private DateTime tokenExpiry = DateTime.MinValue;
 
         public RabbitMqDistributedLockService(
             ILogger<RabbitMqDistributedLockService> logger,
-            IMonitorConfiguration configuration)
+            IMonitorConfiguration configuration,
+            IHttpClientFactory httpClientFactory)
         {
             this.logger = logger;
             this.configuration = configuration;
+            this.httpClient = httpClientFactory.CreateClient();
         }
 
         public bool IsEnabled => configuration.HighAvailabilityEnabled;
@@ -104,20 +113,25 @@ namespace Dorc.Monitor.HighAvailability
 
                 try
                 {
+                    // Get OAuth token
+                    var token = GetOAuthTokenAsync().GetAwaiter().GetResult();
+                    
                     var factory = new ConnectionFactory
                     {
                         HostName = configuration.RabbitMqHostName,
                         Port = configuration.RabbitMqPort,
-                        UserName = configuration.RabbitMqUserName,
-                        Password = configuration.RabbitMqPassword,
                         VirtualHost = configuration.RabbitMqVirtualHost ?? "/",
                         RequestedHeartbeat = TimeSpan.FromSeconds(60),
                         AutomaticRecoveryEnabled = true,
-                        NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
+                        NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
+                        // Use OAuth token as username with empty password
+                        // RabbitMQ OAuth plugin expects token in username field
+                        UserName = token,
+                        Password = ""
                     };
 
                     connection = factory.CreateConnection($"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}");
-                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port}", 
+                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} using OAuth", 
                         configuration.RabbitMqHostName, configuration.RabbitMqPort);
                 }
                 catch (Exception ex)
@@ -126,6 +140,62 @@ namespace Dorc.Monitor.HighAvailability
                         configuration.RabbitMqHostName, configuration.RabbitMqPort);
                     throw;
                 }
+            }
+        }
+
+        private async Task<string> GetOAuthTokenAsync()
+        {
+            // Check if we have a cached token that's still valid
+            if (!string.IsNullOrEmpty(cachedToken) && DateTime.UtcNow < tokenExpiry)
+            {
+                return cachedToken;
+            }
+
+            try
+            {
+                logger.LogDebug("Acquiring OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
+
+                // Prepare OAuth 2.0 client credentials request
+                var requestBody = new Dictionary<string, string>
+                {
+                    { "grant_type", "client_credentials" },
+                    { "client_id", configuration.RabbitMqOAuthClientId },
+                    { "client_secret", configuration.RabbitMqOAuthClientSecret }
+                };
+
+                // Add scope if provided
+                if (!string.IsNullOrWhiteSpace(configuration.RabbitMqOAuthScope))
+                {
+                    requestBody.Add("scope", configuration.RabbitMqOAuthScope);
+                }
+
+                var request = new HttpRequestMessage(HttpMethod.Post, configuration.RabbitMqOAuthTokenEndpoint)
+                {
+                    Content = new FormUrlEncodedContent(requestBody)
+                };
+
+                var response = await httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                var tokenResponse = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>();
+                
+                if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+                {
+                    throw new InvalidOperationException("Failed to obtain OAuth token - empty response");
+                }
+
+                // Cache the token with a 10-second buffer before expiry
+                cachedToken = tokenResponse.AccessToken;
+                tokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 10);
+
+                logger.LogDebug("Successfully acquired OAuth token, expires in {ExpiresIn} seconds", tokenResponse.ExpiresIn);
+
+                return cachedToken;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to acquire OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
+                throw;
             }
         }
 
@@ -152,6 +222,24 @@ namespace Dorc.Monitor.HighAvailability
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// OAuth 2.0 token response.
+    /// </summary>
+    internal class OAuthTokenResponse
+    {
+        [JsonPropertyName("access_token")]
+        public string AccessToken { get; set; } = "";
+
+        [JsonPropertyName("token_type")]
+        public string TokenType { get; set; } = "";
+
+        [JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
+
+        [JsonPropertyName("scope")]
+        public string? Scope { get; set; }
     }
 
     /// <summary>

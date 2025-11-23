@@ -77,15 +77,19 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 
 builder.Services.AddTransient<ScriptDispatcher>();
 
+// Add HttpClient for OAuth token acquisition
+builder.Services.AddHttpClient();
+
 // Register distributed lock service based on HA configuration
 builder.Services.AddSingleton<IDistributedLockService>(sp =>
 {
     var config = sp.GetRequiredService<IMonitorConfiguration>();
     var logger = sp.GetRequiredService<ILogger<RabbitMqDistributedLockService>>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
     
     if (config.HighAvailabilityEnabled)
     {
-        return new RabbitMqDistributedLockService(logger, config);
+        return new RabbitMqDistributedLockService(logger, config, httpClientFactory);
     }
     else
     {

@@ -18,8 +18,12 @@
         bool HighAvailabilityEnabled { get; }
         string RabbitMqHostName { get; }
         int RabbitMqPort { get; }
-        string RabbitMqUserName { get; }
-        string RabbitMqPassword { get; }
         string? RabbitMqVirtualHost { get; }
+        
+        // RabbitMQ OAuth settings
+        string RabbitMqOAuthClientId { get; }
+        string RabbitMqOAuthClientSecret { get; }
+        string RabbitMqOAuthTokenEndpoint { get; }
+        string RabbitMqOAuthScope { get; }
     }
 }

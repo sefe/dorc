@@ -123,9 +123,13 @@ IDistributedLock
       "RabbitMQ": {
         "HostName": "rabbitmq.internal.domain",
         "Port": "5672",
-        "UserName": "dorc",
-        "Password": "***",
-        "VirtualHost": "/"
+        "VirtualHost": "/",
+        "OAuth": {
+          "ClientId": "dorc-monitor",
+          "ClientSecret": "***",
+          "TokenEndpoint": "https://auth.internal.domain/oauth/token",
+          "Scope": "rabbitmq:configure:* rabbitmq:read:* rabbitmq:write:*"
+        }
       }
     }
   }
@@ -166,14 +170,17 @@ While unit tests verify the service layer, integration tests with actual RabbitM
 ## Security
 
 ### Implemented
-- ✅ Authentication via username/password
-- ✅ Configurable virtual host isolation
-- ✅ Connection pooling and automatic recovery
+- ✅ **OAuth 2.0 Authentication** - Secure token-based authentication
+- ✅ **Automatic Token Refresh** - Tokens cached and refreshed automatically
+- ✅ **Configurable Virtual Host Isolation** - Supports multi-tenant RabbitMQ
+- ✅ **Connection Pooling and Automatic Recovery** - Resilient connections
 
 ### Recommended for Production
-- 🔒 TLS/SSL encryption for RabbitMQ connections
-- 🔒 Strong passwords (not defaults)
-- 🔒 Credentials in secure configuration (e.g., Azure Key Vault)
+- 🔒 TLS/SSL encryption for RabbitMQ connections and OAuth token endpoint
+- 🔒 Strong OAuth client secrets (stored in Azure Key Vault or similar)
+- 🔒 Least-privilege OAuth scopes
+- 🔒 RabbitMQ on private network (not internet-facing)
+- 🔒 RabbitMQ audit logging enabled
 - 🔒 RabbitMQ on private network (not internet-facing)
 - 🔒 RabbitMQ user with minimal permissions (queue management only)
 
