@@ -31,5 +31,6 @@
         string GetAzureStorageAccountClientSecret();
         string GetAzureStorageAccounUri();
         string GetAzureStorageAccountTerraformBlobsContainerName();
+        string GetWindowsApiUrl();
     }
 }

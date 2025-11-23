@@ -90,17 +90,24 @@ switch (authenticationScheme)
     case ConfigAuthScheme.OAuth:
         ConfigureOAuth(builder, configurationSettings, secretsReader);
         break;
+#if WINDOWS
     case ConfigAuthScheme.WinAuth:
         ConfigureWinAuth(builder);
         break;
     case ConfigAuthScheme.Both:
         ConfigureBoth(builder, configurationSettings, secretsReader);
         break;
+#endif
     default:
+#if WINDOWS
         ConfigureWinAuth(builder);
+#else
+        ConfigureOAuth(builder, configurationSettings, secretsReader);
+#endif
         break;
 }
 
+#if WINDOWS
 static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
 {
     if (registerOwnReader)
@@ -114,6 +121,7 @@ static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnRead
         .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
 }
+#endif
 
 static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader, bool registerOwnReader = true)
 {
@@ -185,6 +193,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     });
 }
 
+#if WINDOWS
 static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader)
 {
     builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
@@ -204,6 +213,7 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
         options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
     });
 }
+#endif
 
 static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
 {
@@ -281,12 +291,24 @@ builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
+// Register WindowsApiClient only on non-Windows platforms to call Windows API remotely
+#if !WINDOWS
+builder.Services.AddHttpClient<IWindowsApiClient, WindowsApiClient>();
+#endif
+
 builder.Host.UseLamar((context, registry) =>
 {
     registry.IncludeRegistry<OpenSearchDataRegistry>();
     registry.IncludeRegistry<PersistentDataRegistry>();
     registry.IncludeRegistry<CoreRegistry>();
-    registry.IncludeRegistry<ApiRegistry>();
+    
+    // Only include Windows-specific registry on Windows OS
+#if WINDOWS
+    if (OperatingSystem.IsWindows())
+    {
+        registry.IncludeRegistry<ApiRegistry>();
+    }
+#endif
 
     registry.AddScoped<IBundledRequestVariableLoader, BundledRequestVariableLoader>();
     registry.AddKeyedTransient<IVariableResolver, VariableResolver>("VariableResolver");
@@ -334,7 +356,14 @@ app.UseCors(dorcCorsRefDataPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<WinAuthLoggingMiddleware>();
+
+// Only use Windows-specific middleware on Windows platform
+#if WINDOWS
+if (OperatingSystem.IsWindows())
+{
+    app.UseMiddleware<WinAuthLoggingMiddleware>();
+}
+#endif
 
 var endpointConventionBuilder = app.MapControllers();
 if (authenticationScheme is ConfigAuthScheme.OAuth)

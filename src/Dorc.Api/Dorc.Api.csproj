@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <SatelliteResourceLanguages>en-GB</SatelliteResourceLanguages>
   </PropertyGroup>
+  <!-- Define WINDOWS symbol when building on Windows -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
   </PropertyGroup>
@@ -38,6 +42,24 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.OpenSearchData\Dorc.OpenSearchData.csproj" />
+  </ItemGroup>
+
+  <!-- Exclude Windows-specific files on non-Windows platforms -->
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <Compile Remove="Controllers\DirectorySearchController.cs" />
+    <Compile Remove="Controllers\ResetAppPasswordController.cs" />
+    <Compile Remove="Controllers\AccessControlController.cs" />
+    <Compile Remove="Controllers\AccountController.cs" />
+    <Compile Remove="Controllers\BundledRequestsController.cs" />
+    <Compile Remove="Controllers\MakeLikeProdController.cs" />
+    <Compile Remove="Security\WinAuthClaimsPrincipalReader.cs" />
+    <Compile Remove="Security\WinAuthLoggingMiddleware.cs" />
+    <Compile Remove="Security\ClaimsPrincipalReaderFactory.cs" />
+    <Compile Remove="Services\ApiRegistry.cs" />
+    <Compile Remove="Services\DirectorySearcherFactory.cs" />
+    <Compile Remove="Services\ClaimsTransformer.cs" />
+    <Compile Remove="Services\CachedUserGroupReader.cs" />
+    <Compile Remove="Services\UserGroupReaderFactory.cs" />
   </ItemGroup>
 
   <ItemGroup>
