@@ -1,6 +1,7 @@
 ﻿using System.Security.Principal;
+using Dorc.Api.Deployment;
+using Dorc.Api.Exceptions;
 using Dorc.Api.Interfaces;
-using Dorc.Api.Services;
 using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
@@ -59,7 +60,7 @@ namespace Dorc.Api.Tests
         {
             var mockEnvPs = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
-            ILogger<RequestService> mockedLog = Substitute.For<ILogger<RequestService>>();
+            ILogger<Requests> mockedLog = Substitute.For<ILogger<Requests>>();
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
             // build valid, request created
             RequestDto request = new RequestDto
@@ -75,7 +76,7 @@ namespace Dorc.Api.Tests
             };
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(new RequestStatusDto { Id = 1 }, true));
-            var test1Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
+            var test1Service = new Requests(mockedLog, mockedFactory, mockedProjectsPds);
 
             var result1 = test1Service.CreateRequest(request, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
             Assert.AreEqual(1, result1.Id);
@@ -98,11 +99,11 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            var mockedLog = new MockedLog<RequestService>();
+            var mockedLog = new MockedLog<Requests>();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, true));
-            var test2Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
+            var test2Service = new Requests(mockedLog, mockedFactory, mockedProjectsPds);
             var result2 = test2Service.CreateRequest(request, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
             Assert.IsNull(result2);
         }
@@ -124,11 +125,11 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            var mockedLog = new MockedLog<RequestService>();
+            var mockedLog = new MockedLog<Requests>();
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, false));
-            var test3service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
+            var test3service = new Requests(mockedLog, mockedFactory, mockedProjectsPds);
             Exception expectedException = null;
             try
             {
@@ -160,12 +161,12 @@ namespace Dorc.Api.Tests
                 Pinned = false
             };
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            var mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
-            var mockedLogger = Substitute.For<ILogger<RequestService>>();
+            var mockedFileOperations = Substitute.For<IFileOperations>();
+            var mockedLogger = Substitute.For<ILogger<Requests>>();
             var mockedLoggerFactory = Substitute.For<ILoggerFactory>();
             var mockDeployLibrary = Substitute.For<IDeployLibrary>();
-            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource);
-            var test4Service = new RequestService(mockedLogger, factory, mockedProjectsPds);
+            IDeployableBuildFactory factory = new Dorc.Api.Build.DeployableBuildFactory(mockedFileOperations, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource);
+            var test4Service = new Requests(mockedLogger, factory, mockedProjectsPds);
             Exception expectedException1 = null;
             try
             {
@@ -185,7 +186,7 @@ namespace Dorc.Api.Tests
         {
             var mockEnvPs = Substitute.For<IEnvironmentsPersistentSource>();
             var mockedBuildFactory = Substitute.For<IDeployableBuildFactory>();
-            var mockedLog = Substitute.For<ILogger<RequestService>>();
+            var mockedLog = Substitute.For<ILogger<Requests>>();
             var request = new RequestDto();
             var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
 
@@ -195,7 +196,7 @@ namespace Dorc.Api.Tests
                     ArtefactsUrl = "http://some_url"
                 });
 
-            var service = new RequestService(mockedLog, mockedBuildFactory, mockedProjectsPds);
+            var service = new Requests(mockedLog, mockedBuildFactory, mockedProjectsPds);
             service.CheckRequest(ref request);
             Assert.IsTrue(request.BuildUrl.Equals("http://some_url"));
         }
