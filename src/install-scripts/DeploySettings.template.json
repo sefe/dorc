@@ -410,56 +410,56 @@
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA.ENABLED",
+          "Name": "HA_ENABLED",
           "Value": "false"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA.RABBITMQ.HOSTNAME",
+          "Name": "HA_RABBITMQ_HOSTNAME",
           "Value": ""
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA.RABBITMQ.PORT",
+          "Name": "HA_RABBITMQ_PORT",
           "Value": "5672"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA.RABBITMQ.VIRTUALHOST",
+          "Name": "HA_RABBITMQ_VIRTUALHOST",
           "Value": "/"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
-          "Name": "HA.RABBITMQ.OAUTH.CLIENTID",
+          "Name": "HA_RABBITMQ_OAUTH_CLIENTID",
           "Value": "[Replace with your RabbitMQ OAuth Client ID]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
-          "Name": "HA.RABBITMQ.OAUTH.CLIENTSECRET",
+          "Name": "HA_RABBITMQ_OAUTH_CLIENTSECRET",
           "Value": "[Replace with your RabbitMQ OAuth Client Secret]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA.RABBITMQ.OAUTH.TOKENENDPOINT",
+          "Name": "HA_RABBITMQ_OAUTH_TOKENENDPOINT",
           "Value": ""
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA.RABBITMQ.OAUTH.SCOPE",
+          "Name": "HA_RABBITMQ_OAUTH_SCOPE",
           "Value": ""
         },
         {
