@@ -99,13 +99,13 @@ namespace Dorc.Api.Tests
                         {Name = "BuildDef2"},
                 });
             mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
-                .Returns(Task.Factory.StartNew(() => new List<Build>
+                .Returns(Task.Factory.StartNew(() => new List<Org.OpenAPITools.Model.Build>
                 {
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                     {
                         BuildNumber = "buildText_build1", KeepForever = false, Uri = "vstfs://some_path"
                     },
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                     {
                         BuildNumber = "buildText_buildNum", KeepForever = false, Uri = "vstfs://some_path"
                     },
@@ -150,12 +150,12 @@ namespace Dorc.Api.Tests
                         {Name = "buildText"},
                 });
             mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
-                .Returns(Task.Factory.StartNew(() => new List<Build>
+                .Returns(Task.Factory.StartNew(() => new List<Org.OpenAPITools.Model.Build>
                 {
-                        new Build {BuildNumber = "build1", KeepForever = false,Uri = "vstfs://some_path1",
+                        new Org.OpenAPITools.Model.Build {BuildNumber = "build1", KeepForever = false,Uri = "vstfs://some_path1",
                         Project = new TeamProjectReference {Name="Build1"},
                         Definition = new DefinitionReference { Name= "Definition1"}},
-                        new Build {BuildNumber = "buildNum", KeepForever = true,Uri = "vstfs://some_path2",
+                        new Org.OpenAPITools.Model.Build {BuildNumber = "buildNum", KeepForever = true,Uri = "vstfs://some_path2",
                         Project = new TeamProjectReference {Name="Build1"},
                         Definition = new DefinitionReference { Name= "Definition1"}},
                 }));
@@ -199,15 +199,15 @@ namespace Dorc.Api.Tests
                         {Name = "buildText"},
                 });
             mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
-                .Returns(Task.Factory.StartNew(() => new List<Build>
+                .Returns(Task.Factory.StartNew(() => new List<Org.OpenAPITools.Model.Build>
                 {
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                     {
                         BuildNumber = "buildNum2", KeepForever = false, Uri = "vstfs://some_path2",
                         Project = new TeamProjectReference {Name="Build1"},
                         Definition = new DefinitionReference { Name= "Definition1"}
                     },
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                     {
                         BuildNumber = "buildNum1", KeepForever = false, Uri = "vstfs://some_path1",
                         Project = new TeamProjectReference {Name="Build2"},
