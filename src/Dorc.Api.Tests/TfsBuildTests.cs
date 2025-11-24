@@ -1,5 +1,5 @@
 ﻿using Dorc.Api.Model;
-using Dorc.Api.Services;
+using Dorc.Api.Build;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
@@ -47,13 +47,13 @@ namespace Dorc.Api.Tests
                     });
 
             mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
-                .Returns(Task.Factory.StartNew(() => new List<Build>
+                .Returns(Task.Factory.StartNew(() => new List<Org.OpenAPITools.Model.Build>
                 {
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                         {BuildNumber = "build1", KeepForever = false, Uri =  "vstfs://some_path",
                         Project = new TeamProjectReference {Name="Build1"},
                         Definition = new DefinitionReference { Name= "Definition1"} },
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                         {BuildNumber = "buildNum", KeepForever = false, Uri = "vstfs://some_path",
                         Project = new TeamProjectReference {Name="Build2"},
                         Definition = new DefinitionReference { Name= "Definition1"}},
