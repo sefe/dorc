@@ -1,7 +1,23 @@
 {
+  "DacPacFileNames": [
+    "Dorc.Database.dacpac"
+  ],
+  "DACPACBlackList": "create user",
+  "MsiFileNames": [
+    {
+      "Name": "Setup.Dorc.msi",
+      "ProductNames": "Deployment Orchestrator"
+    },
+    {
+      "Name": "Setup.Acceptance.msi",
+      "ProductNames": "DOrc Acceptance Testing"
+    }
+  ],
+  "DeploymentServices": "DeploymentActionServiceNonProd;DeploymentActionServiceProd",
+  "DACPACPublishProfile": "\\\\\\\\UNCPath\\\\DACPACPublishProfiles\\\\PublishProfile.xml",
+  "SqlPackagePath": "C:\\\\Program Files\\\\Microsoft SQL Server\\\\150\\\\DAC\\\\bin\\\\SqlPackage.exe",
   "Environments": [
     {
-      "Name": "DOrc Sample Env 01",
       "MsiProperties": [
         {
           "AccountNameProperty": "",
@@ -9,8 +25,7 @@
           "IsSecure": false,
           "Name": "ServerNames_WebServer",
           "Value": [
-            "DORCSERVER01",
-            "DORCSERVER02"
+            "DORC-URI"
           ]
         },
         {
@@ -18,35 +33,42 @@
           "IsPath": false,
           "IsSecure": false,
           "Name": "ENVIRONMENT",
-          "Value": "DOrc Sample Env 01"
+          "Value": "DOrc DV 01"
+        },
+        {
+          "AccountNameProperty": "ENVIRONMENT_TIER",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "ENVIRONMENT_TIER",
+          "Value": "DEV"
         },
         {
           "AccountNameProperty": "SERVICE_IDENTITY",
           "IsPath": false,
           "IsSecure": false,
           "Name": "SERVICE_PASSWORD",
-          "Value": ""
+          "Value": "Gazprom01"
         },
         {
           "AccountNameProperty": "SVC_ACCOUNTPROD",
           "IsPath": false,
           "IsSecure": false,
           "Name": "SVC_PASSWORDPROD",
-          "Value": ""
+          "Value": "Gazprom01"
         },
         {
           "AccountNameProperty": "DORC_NonProdDeployUsername",
           "IsPath": false,
           "IsSecure": false,
           "Name": "DORC_NonProdDeployPassword",
-          "Value": ""
+          "Value": "Gazprom01"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
           "Name": "SERVICE_IDENTITY",
-          "Value": "DOMAIN\\SVC-SE-DORC-WEB"
+          "Value": "DOMAIN\\SVC-DORC-WEB"
         },
         {
           "AccountNameProperty": "",
@@ -74,28 +96,28 @@
           "IsPath": false,
           "IsSecure": false,
           "Name": "SVC_ACCOUNTPROD",
-          "Value": "DOMAIN\\SVC-SE-DORC-PROD"
+          "Value": "DOMAIN\\SVC-DORC-PROD"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
           "Name": "DORC_NonProdDeployUsername",
-          "Value": "DOMAIN\\SVC-SE-DORC-NONP"
+          "Value": "DOMAIN\\SVC-DORC-NONPROD"
         },
         {
           "AccountNameProperty": "",
           "IsPath": true,
           "IsSecure": false,
           "Name": "SCRIPT_FOLDER",
-          "Value": "//UNCScriptsPath"
+          "Value": "//Itss.global/prod/GLO/APP/DORC/Scripts/Scripts.DV/"
         },
         {
-          "AccountNameProperty": "",
+          "Name": "DEPLOYMENT_LOG_FOLDER",
           "IsPath": true,
           "IsSecure": false,
-          "Name": "DEPLOYMENT_LOG_FOLDER",
-          "Value": "//UNCLogPath"
+          "Value": "//Itss.global/prod/GLO/APP/DORC/Logs/Logs.DV",
+          "AccountNameProperty": ""
         },
         {
           "AccountNameProperty": "",
@@ -109,7 +131,7 @@
           "IsPath": false,
           "IsSecure": false,
           "Name": "DEPLOYMENTORCHESTRATOR_CORS",
-          "Value": "http://DORC-URI,http://localhost"
+          "Value": "http://dorc-server,https://dorc-server,http://localhost,https://localhost"
         },
         {
           "AccountNameProperty": "",
@@ -131,6 +153,258 @@
           "IsSecure": false,
           "Name": "AD_ROLEPROVIDER_GROUP_ADMIN",
           "Value": "DOrc-Admins-AD-Group"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AADADOSORGURL",
+          "Value": "https://dev.azure.com/YOUR-ORG/"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AADCLIENTID",
+          "Value": "[Replace with your Azure AD Client ID]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "AADSECRET",
+          "Value": "[Replace with your Azure AD Secret]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AADTENANT",
+          "Value": "[Replace with your Azure AD Tenant ID]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DOMAINNAME",
+          "Value": "DOMAIN"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DOMAINNAMEINTRA",
+          "Value": "DOMAIN.INTRA"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "SMTPHOST",
+          "Value": "smtp.domain.intra"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORCHELPERPAGE",
+          "Value": "https://wiki/display/DOrc+Help"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "DORCAZUREDEVOPSLINK",
+          "Value": "[Example Azure DevOps PAT]"
+        },
+        {
+          "AccountNameProperty": "CERTIFICATE_PASSWORD",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "CERTIFICATE_PASSWORD",
+          "Value": "ChangeMePassword123"
+        },
+        {
+          "AccountNameProperty": "ENVIRONMENTISPRODUCTION",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "ENVIRONMENTISPRODUCTION",
+          "Value": "FALSE"
+        },
+        {
+          "AccountNameProperty": "DORC_AUTHENTICATION_SCHEME",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_AUTHENTICATION_SCHEME",
+          "Value": "OAuth+WinAuth"
+        },
+        {
+          "AccountNameProperty": "DORC_OAUTH_AUTHORITY",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_OAUTH_AUTHORITY",
+          "Value": "https://identityserver:5200"
+        },
+        {
+          "AccountNameProperty": "DORC_OAUTH_UI_CLIENT_ID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_OAUTH_UI_CLIENT_ID",
+          "Value": "dorc-ui"
+        },
+        {
+          "AccountNameProperty": "DORC_OAUTH_UI_REQUESTED_SCOPES",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_OAUTH_UI_REQUESTED_SCOPES",
+          "Value": "openid profile offline_access email dorc-api.manage"
+        },
+        {
+          "AccountNameProperty": "DORC_OAUTH_API_RESOURCE_NAME",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_OAUTH_API_RESOURCE_NAME",
+          "Value": "dorc-api"
+        },
+        {
+          "AccountNameProperty": "DORC_OAUTH_API_GLOBAL_SCOPE",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_OAUTH_API_GLOBAL_SCOPE",
+          "Value": "dorc-api.manage"
+        },
+        {
+          "AccountNameProperty": "ONE_PASSWORD_BASE_URL",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "ONE_PASSWORD_BASE_URL",
+          "Value": "https://1password.example.com"
+        },
+        {
+          "AccountNameProperty": "ONE_PASSWORD_APIKEY",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "ONE_PASSWORD_APIKEY",
+          "Value": "[Replace with your 1Password API Key]"
+        },
+        {
+          "AccountNameProperty": "ONE_PASSWORD_VAULT_ID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "ONE_PASSWORD_VAULT_ID",
+          "Value": "[Replace with your 1Password Vault ID]"
+        },
+        {
+          "AccountNameProperty": "ONE_PASSWORD_ITEM_ID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "ONE_PASSWORD_ITEM_ID",
+          "Value": "[Replace with your 1Password Item ID]"
+        },
+        {
+          "AccountNameProperty": "OPENSEARCH_URI",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "OPENSEARCH_URI",
+          "Value": "https://opensearch.example.com:9200"
+        },
+        {
+          "AccountNameProperty": "OPENSEARCH_USERNAME",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "OPENSEARCH_USERNAME",
+          "Value": "os-sec-admin"
+        },
+        {
+          "AccountNameProperty": "OPENSEARCH_PASSWORD",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "OPENSEARCH_PASSWORD",
+          "Value": "[Replace with your OpenSearch password]"
+        },
+        {
+          "AccountNameProperty": "OPENSEARCH_DEPLOYMENTRESULTINDEX",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "OPENSEARCH_DEPLOYMENTRESULTINDEX",
+          "Value": "deployment_results_logs"
+        },
+        {
+          "AccountNameProperty": "IDENTITYSERVER_CLIENTID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "IDENTITYSERVER_CLIENTID",
+          "Value": "dorc-ids-client"
+        },
+        {
+          "AccountNameProperty": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID",
+          "Value": "[Replace with your 1Password IdentityServer Item ID]"
+        },
+        {
+          "AccountNameProperty": "DORC_API_CLIENTID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_API_CLIENTID",
+          "Value": "dorc-cli"
+        },
+        {
+          "AccountNameProperty": "DORC_API_CLIENTSECRET",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "DORC_API_CLIENTSECRET",
+          "Value": "[Replace with your DORC API Client Secret]"
+        },
+        {
+          "AccountNameProperty": "AZURE_SIGNALR_USE",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AZURE_SIGNALR_USE",
+          "Value": "false"
+        },
+        {
+          "AccountNameProperty": "AZURE_SIGNALR_CONNECTIONSTRING",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "AZURE_SIGNALR_CONNECTIONSTRING",
+          "Value": "[Replace with your Azure SignalR Connection String or leave as is for single node]"
+        },
+        {
+          "AccountNameProperty": "AZURESTORAGEACCOUNT_TENANTID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AZURESTORAGEACCOUNT_TENANTID",
+          "Value": "[Replace with your Azure Tenant ID]"
+        },
+        {
+          "AccountNameProperty": "AZURESTORAGEACCOUNT_CLIENTID",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AZURESTORAGEACCOUNT_CLIENTID",
+          "Value": "[Replace with your Azure Storage Account Client ID]"
+        },
+        {
+          "AccountNameProperty": "AZURESTORAGEACCOUNT_CLIENTSECRET",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "AZURESTORAGEACCOUNT_CLIENTSECRET",
+          "Value": "[Replace with your Azure Storage Account Client Secret]"
+        },
+        {
+          "AccountNameProperty": "AZURESTORAGEACCOUNT_URI",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AZURESTORAGEACCOUNT_URI",
+          "Value": "https://storageaccount.blob.core.windows.net"
+        },
+        {
+          "AccountNameProperty": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME",
+          "Value": "dorc-terraform"
         },
         {
           "AccountNameProperty": "",
@@ -165,14 +439,14 @@
           "IsPath": false,
           "IsSecure": true,
           "Name": "HA.RABBITMQ.OAUTH.CLIENTID",
-          "Value": ""
+          "Value": "[Replace with your RabbitMQ OAuth Client ID]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
           "Name": "HA.RABBITMQ.OAUTH.CLIENTSECRET",
-          "Value": ""
+          "Value": "[Replace with your RabbitMQ OAuth Client Secret]"
         },
         {
           "AccountNameProperty": "",
@@ -187,30 +461,21 @@
           "IsSecure": false,
           "Name": "HA.RABBITMQ.OAUTH.SCOPE",
           "Value": ""
+        },
+        {
+          "AccountNameProperty": "OTEL_COLLECTOR_URL",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "OTEL_COLLECTOR_URL",
+          "Value": "http://127.0.0.1:4317"
         }
       ],
       "TargetServers": [
         "DORCSERVER01",
         "DORCSERVER02"
-      ]
+      ],
+      "Name": "DOrc Sample Env 01"
     }
   ],
-  "MsiFileNames": [
-    {
-      "Name": "Setup.Dorc.msi",
-      "ProductNames": "Deployment Orchestrator"
-    },
-    {
-      "Name": "Setup.Acceptance.msi",
-      "ProductNames": "DOrc Acceptance Testing"
-    }
-  ],
-  "DacPacFileNames": [
-    "Dorc.Database.dacpac"
-  ],
-  "DACPACPublishProfile": "\\\\UNCPath\\DACPACPublishProfiles\\PublishProfile.xml",
-  "DACPACBlackList": "create user",
-  "DeploymentServices": "DeploymentActionServiceNonProd;DeploymentActionServiceProd",
-  "Modules": [],
-  "SqlPackagePath": "C:\\Program Files\\Microsoft SQL Server\\150\\DAC\\bin\\SqlPackage.exe"
+  "Modules": []
 }
