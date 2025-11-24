@@ -1,5 +1,6 @@
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
+using Dorc.Api.Identity;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
@@ -307,7 +308,7 @@ builder.Host.UseLamar((context, registry) =>
 #if WINDOWS
     if (OperatingSystem.IsWindows())
     {
-        registry.IncludeRegistry<ApiRegistry>();
+        registry.IncludeRegistry<DependencyRegistry>();
     }
 #endif
 

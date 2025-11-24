@@ -1,7 +1,5 @@
 using Dorc.Api.Windows.Identity;
-using Dorc.Api.Windows.Build;
 using Dorc.Api.Windows.Deployment;
-using Dorc.Api.Windows.Orchestration;
 using Dorc.Core;
 using Dorc.Core.Account;
 using Dorc.Core.Configuration;
@@ -26,12 +24,8 @@ namespace Dorc.Api.Windows.Configuration
             // Identity & Directory Services
             ConfigureIdentityServices(configSettings);
 
-            // Build & Deployment
-            ConfigureBuildServices();
+            // Deployment
             ConfigureDeploymentServices();
-
-            // Orchestration
-            ConfigureOrchestrationServices();
         }
 
         private void ConfigureIdentityServices(ConfigurationSettings configSettings)
@@ -57,28 +51,16 @@ namespace Dorc.Api.Windows.Configuration
             For<IAccountExistenceChecker>().Use<AccountExistenceChecker>().Scoped();
         }
 
-        private void ConfigureBuildServices()
-        {
-            For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
-        }
-
         private void ConfigureDeploymentServices()
         {
-            For<IProperties>().Use<PropertiesService>();
-            For<IPropertyValues>().Use<PropertyValuesService>();
-            For<IRequests>().Use<RequestService>();
-            For<IFileOperations>().Use<FileSystemHelper>();
+            For<IProperties>().Use<Properties>();
+            For<IPropertyValues>().Use<PropertyValues>();
+            For<IRequests>().Use<Requests>();
+            For<IFileOperations>().Use<FileOperations>();
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IManageUsers>().Use<ManageUsers>();
             For<IEnvironmentMapper>().Use<EnvironmentMapper>();
-        }
-
-        private void ConfigureOrchestrationServices()
-        {
-            For<EnvironmentOrchestrator>().Use<EnvironmentOrchestrator>();
-            For<ProjectComponentOrchestrator>().Use<ProjectComponentOrchestrator>();
-            For<ServiceStatusOrchestrator>().Use<ServiceStatusOrchestrator>();
         }
     }
 }
