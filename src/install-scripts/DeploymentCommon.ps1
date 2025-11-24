@@ -209,18 +209,42 @@ Function Get-EnvSettings {
             {
                 if ($prop.IsSecure)
                 {
-                    if ([string]::IsNullOrEmpty($prop.Value))
+                    # Check if this is a service account password or a general secret
+                    if (-not [string]::IsNullOrEmpty($prop.AccountNameProperty))
                     {
-                        # This relates to an account name, we need to get a secure password from user
-                        $svcAccountName = $this.GetPropertyValue($prop.AccountNameProperty)
-                        if ([System.Environment]::UserInteractive)
+                        # This is a service account password
+                        if ([string]::IsNullOrEmpty($prop.Value))
                         {
-                            $prop.Value = Read-Host -Prompt "Enter Password for Account $($svcAccountName)" -AsSecureString | ConvertFrom-SecureString
+                            $svcAccountName = $this.GetPropertyValue($prop.AccountNameProperty)
+                            if ([System.Environment]::UserInteractive)
+                            {
+                                $prop.Value = Read-Host -Prompt "Enter Password for Account $($svcAccountName)" -AsSecureString | ConvertFrom-SecureString
+                            }
+                            else
+                            {
+                                Write-Host "Non-interactive mode: Missing secure property '$($prop.Name)' for account '$($svcAccountName)'. Expected value in DeploySettings.json"
+                                $prop.Value = ""
+                            }
+                        }
+                    }
+                    else
+                    {
+                        # This is a general secret (not tied to an account)
+                        if ([string]::IsNullOrEmpty($prop.Value))
+                        {
+                            if ([System.Environment]::UserInteractive)
+                            {
+                                $prop.Value = Read-Host -Prompt "Enter value for secret property '$($prop.Name)'" -AsSecureString | ConvertFrom-SecureString
+                            }
+                            else
+                            {
+                                Write-Host "Non-interactive mode: Missing secret property '$($prop.Name)'. Expected value in DeploySettings.json"
+                                $prop.Value = ""
+                            }
                         }
                         else
                         {
-                            Write-Host "Non-interactive mode: Missing secure property '$($prop.Name)' for account '$($svcAccountName)'. Expected value in DeploySettings.json"
-                            $prop.Value = ""
+                            # Secret is already set, no action needed
                         }
                     }
                 }
