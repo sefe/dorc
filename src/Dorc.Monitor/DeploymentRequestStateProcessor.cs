@@ -282,6 +282,11 @@ namespace Dorc.Monitor
                         if (!environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id))
                         {
                             this.logger.LogDebug($"Another task already started processing environment '{requestGroup.Key}'");
+                            if (envLock != null)
+                            {
+                                await envLock.DisposeAsync();
+                                this.logger.LogDebug($"Released distributed lock for environment '{requestGroup.Key}' due to TryAdd failure");
+                            }
                             return;
                         }
 

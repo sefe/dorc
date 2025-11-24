@@ -18,6 +18,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly HttpClient httpClient;
         private IConnection? connection;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim tokenSemaphore = new SemaphoreSlim(1, 1);
         private bool disposed = false;
         private string? cachedToken;
         private DateTime tokenExpiry = DateTime.MinValue;
@@ -89,7 +90,7 @@ namespace Dorc.Monitor.HighAvailability
                     logger.LogWarning(ex, "Error acquiring lock for '{ResourceKey}'", resourceKey);
                     await channel.CloseAsync();
                     await channel.DisposeAsync();
-                    throw;
+                    return null;
                 }
             }
             catch (Exception ex)
@@ -148,14 +149,15 @@ namespace Dorc.Monitor.HighAvailability
 
         private async Task<string> GetOAuthTokenAsync()
         {
-            // Check if we have a cached token that's still valid
-            if (!string.IsNullOrEmpty(cachedToken) && DateTime.UtcNow < tokenExpiry)
-            {
-                return cachedToken;
-            }
-
+            await tokenSemaphore.WaitAsync();
             try
             {
+                // Check if we have a cached token that's still valid
+                if (!string.IsNullOrEmpty(cachedToken) && DateTime.UtcNow < tokenExpiry)
+                {
+                    return cachedToken;
+                }
+
                 logger.LogDebug("Acquiring OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
 
                 // Prepare OAuth 2.0 client credentials request
@@ -172,33 +174,38 @@ namespace Dorc.Monitor.HighAvailability
                     requestBody.Add("scope", configuration.RabbitMqOAuthScope);
                 }
 
-                var request = new HttpRequestMessage(HttpMethod.Post, configuration.RabbitMqOAuthTokenEndpoint)
+                using (var request = new HttpRequestMessage(HttpMethod.Post, configuration.RabbitMqOAuthTokenEndpoint)
                 {
                     Content = new FormUrlEncodedContent(requestBody)
-                };
-
-                var response = await httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-
-                var tokenResponse = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>();
-                
-                if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+                })
                 {
-                    throw new InvalidOperationException("Failed to obtain OAuth token - empty response");
+                    var response = await httpClient.SendAsync(request);
+                    response.EnsureSuccessStatusCode();
+
+                    var tokenResponse = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>();
+                    
+                    if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+                    {
+                        throw new InvalidOperationException("Failed to obtain OAuth token - empty response");
+                    }
+
+                    // Cache the token with a 10-second buffer before expiry
+                    cachedToken = tokenResponse.AccessToken;
+                    tokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 10);
+
+                    logger.LogDebug("Successfully acquired OAuth token, expires in {ExpiresIn} seconds", tokenResponse.ExpiresIn);
+
+                    return cachedToken;
                 }
-
-                // Cache the token with a 10-second buffer before expiry
-                cachedToken = tokenResponse.AccessToken;
-                tokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 10);
-
-                logger.LogDebug("Successfully acquired OAuth token, expires in {ExpiresIn} seconds", tokenResponse.ExpiresIn);
-
-                return cachedToken;
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to acquire OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
                 throw;
+            }
+            finally
+            {
+                tokenSemaphore.Release();
             }
         }
 
@@ -222,6 +229,8 @@ namespace Dorc.Monitor.HighAvailability
                 connectionSemaphore.Dispose();
             }
 
+            tokenSemaphore.Dispose();
+
             if (connToDispose != null)
             {
                 try
@@ -234,6 +243,9 @@ namespace Dorc.Monitor.HighAvailability
                     logger.LogWarning(ex, "Error closing RabbitMQ connection");
                 }
             }
+
+            // Note: httpClient is created from IHttpClientFactory and should NOT be disposed manually
+            // The factory manages the lifecycle of HttpClient instances
         }
     }
 
@@ -325,10 +337,37 @@ namespace Dorc.Monitor.HighAvailability
             }
         }
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
-            Dispose();
-            return ValueTask.CompletedTask;
+            if (disposed)
+                return;
+
+            disposed = true;
+            
+            if (channel != null && channel.IsOpen)
+            {
+                try
+                {
+                    await channel.QueueDeleteAsync(queueName);
+                    logger.LogDebug("Released distributed lock for resource '{ResourceKey}'", ResourceKey);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error deleting lock queue for '{ResourceKey}'", ResourceKey);
+                }
+
+                try
+                {
+                    await channel.CloseAsync();
+                    await channel.DisposeAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error disposing channel for '{ResourceKey}'", ResourceKey);
+                }
+            }
+            
+            channel = null;
         }
     }
 }
