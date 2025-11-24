@@ -1,9 +1,9 @@
-﻿using Dorc.Api.Interfaces;
+﻿using Dorc.Api.Windows.Interfaces;
 using System.IO;
 
-namespace Dorc.Api.Deployment
+namespace Dorc.Api.Windows.Windows.Services
 {
-    public class FileSystemHelper : IFileSystemHelper
+    public class FileOperations : IFileOperations
     {
         public bool DirectoryExists(string path)
         {

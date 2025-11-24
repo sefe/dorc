@@ -10,7 +10,7 @@ namespace Dorc.Api.Identity
         private readonly CachedUserGroupReader _winUserGroupReader;
         private readonly CachedUserGroupReader _oauthUserGroupsReader;
 
-        public UserGroupReaderFactory(IConfigurationSettings config,
+        public UserGroupProvider(IConfigurationSettings config,
             IMemoryCache cache,
             IDirectorySearcherFactory searcherFactory)
         {

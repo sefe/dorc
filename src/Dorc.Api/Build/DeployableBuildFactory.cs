@@ -10,13 +10,13 @@ namespace Dorc.Api.Build
 {
     public class DeployableBuildFactory : IDeployableBuildFactory
     {
-        private readonly IFileSystemHelper _fileSystemHelper;
+        private readonly IFileOperations _fileSystemHelper;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
 
-        public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILoggerFactory loggerFactory,
+        public DeployableBuildFactory(IFileOperations fileSystemHelper, ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource)
         {

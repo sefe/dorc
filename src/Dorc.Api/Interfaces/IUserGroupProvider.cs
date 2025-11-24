@@ -1,6 +1,6 @@
 ﻿namespace Dorc.Api.Interfaces
 {
-    public interface IUserGroupsReaderFactory
+    public interface IUserGroupProvider
     {
         IUserGroupReader GetWinAuthUserGroupsReader();
         IUserGroupReader GetOAuthUserGroupsReader();

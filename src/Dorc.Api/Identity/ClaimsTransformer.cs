@@ -21,7 +21,7 @@ namespace Dorc.Api.Identity
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IUserGroupsReaderFactory adUserGroupReaderFactory, IHttpContextAccessor httpContextAccessor)
+        public ClaimsTransformer(IConfiguration config, IUserGroupProvider adUserGroupReaderFactory, IHttpContextAccessor httpContextAccessor)
         {
             _adUserGroupReader = adUserGroupReaderFactory.GetWinAuthUserGroupsReader();
             _httpContextAccessor = httpContextAccessor;

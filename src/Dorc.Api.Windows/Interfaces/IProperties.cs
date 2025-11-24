@@ -1,9 +1,9 @@
 ﻿using Dorc.ApiModel;
 using System.Security.Claims;
 
-namespace Dorc.Api.Interfaces
+namespace Dorc.Api.Windows.Interfaces
 {
-    public interface IPropertiesService
+    public interface IProperties
     {
         PropertyApiModel GetProperty(string propertyName);
         IEnumerable<PropertyApiModel> GetProperties();

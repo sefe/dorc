@@ -1,6 +1,6 @@
 ﻿namespace Dorc.Api.Interfaces
 {
-    public interface IAuditingManager
+    public interface IAuditing
     {
 
         int InsertAudit(long propertyId, long propertyValueId, string propertyName, string environmentName,

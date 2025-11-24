@@ -8,7 +8,7 @@ using System.Security.Claims;
 
 namespace Dorc.Api.Deployment
 {
-    public class PropertyValuesService : IPropertyValuesService
+    public class PropertyValues : IPropertyValues
     {
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
@@ -20,13 +20,13 @@ namespace Dorc.Api.Deployment
         private readonly ILogger _log; 
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public PropertyValuesService(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
+        public PropertyValues(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
             IPropertiesPersistentSource propertiesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            ILogger<PropertyValuesService> log,
+            ILogger<PropertyValues> log,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {

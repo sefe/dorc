@@ -3,7 +3,7 @@ using System.Security.Claims;
 
 namespace Dorc.Api.Windows.Interfaces
 {
-    public interface IPropertyValuesService
+    public interface IPropertyValues
     {
         IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName, ClaimsPrincipal user);
         IEnumerable<Response> DeletePropertyValues(IEnumerable<PropertyValueDto> propertyValuesToDelete,

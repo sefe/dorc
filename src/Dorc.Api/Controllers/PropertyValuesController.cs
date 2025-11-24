@@ -17,13 +17,13 @@ namespace Dorc.Api.Controllers
     [Route("api/[controller]")]
     public class PropertyValuesController : ControllerBase
     {
-        private readonly IPropertyValuesService _propertyValuesService;
+        private readonly IPropertyValues _propertyValuesService;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
 
-        public PropertyValuesController(IPropertyValuesService propertyValuesService,
+        public PropertyValuesController(IPropertyValues propertyValuesService,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IEnvironmentsPersistentSource environmentsPersistentSource, IVariableScopeOptionsResolver variableScopeOptionsResolver)

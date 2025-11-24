@@ -6,13 +6,13 @@ using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Windows.Windows.Services
 {
-    public class RequestService : IRequestService
+    public class Requests : IRequests
     {
         private readonly IDeployableBuildFactory _deployableBuildFactory;
         private readonly ILogger _log;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
 
-        public RequestService(ILogger<RequestService> log, IDeployableBuildFactory deployableBuildFactory,
+        public Requests(ILogger<Requests> log, IDeployableBuildFactory deployableBuildFactory,
             IProjectsPersistentSource projectsPersistentSource)
         {
             _projectsPersistentSource = projectsPersistentSource;

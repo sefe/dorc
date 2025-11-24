@@ -8,7 +8,7 @@ namespace Dorc.Api.Windows.Orchestration
     /// <summary>
     /// Orchestrates Windows service status operations
     /// </summary>
-    public class ServiceStatusOrchestrator
+    public class WindowsServicesOrchestrator
     {
         private readonly IServiceStatus _serviceStatus;
 

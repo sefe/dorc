@@ -1,27 +1,27 @@
 ﻿using System.Security.Claims;
-using Dorc.Api.Interfaces;
+using Dorc.Api.Windows.Interfaces;
 using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 
-namespace Dorc.Api.Deployment
+namespace Dorc.Api.Windows.Windows.Services
 {
-    public class PropertiesService : IPropertiesService
+    public class Properties : IProperties
     {
         private readonly ILogger _log;
         private readonly IPropertiesPersistentSource _propertiesPersistentSource;
-        private readonly IPropertyValuesService _propertyValuesService;
+        private readonly IPropertyValues _propertyValuesService;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEncryptor _propertyEncryptor;
 
-        public PropertiesService(
+        public Properties(
             IPropertiesPersistentSource propertiesPersistentSource,
-            IPropertyValuesService propertyValuesService,
+            IPropertyValues propertyValuesService,
             IClaimsPrincipalReader claimsPrincipalReader,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyEncryptor propertyEncryptor,
-            ILogger<PropertiesService> logger
+            ILogger<Properties> logger
             )
         {
             _propertyValuesService = propertyValuesService;

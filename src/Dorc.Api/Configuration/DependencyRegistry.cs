@@ -12,16 +12,16 @@ namespace Dorc.Api.Configuration
     [SupportedOSPlatform("windows")]
     public class DependencyRegistry : ServiceRegistry
     {
-        public ApiRegistry()
+        public DependencyRegistry()
         {
             var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
             var configSettings = new ConfigurationSettings(configuration);
             var domain = configSettings.GetConfigurationDomainNameIntra();
 
-            For<IPropertiesService>().Use<PropertiesService>();
-            For<IPropertyValuesService>().Use<PropertyValuesService>();
+            For<IProperties>().Use<Properties>();
+            For<IPropertyValues>().Use<PropertyValues>();
                 
-            For<IRequestService>().Use<RequestService>();
+            For<IRequests>().Use<Requests>();
 
             For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
             For<DirectorySearcher>().Use(serviceContext =>
@@ -42,7 +42,7 @@ namespace Dorc.Api.Configuration
 
             For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
 
-            For<IFileSystemHelper>().Use<FileSystemHelper>();
+            For<IFileOperations>().Use<FileOperations>();
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();

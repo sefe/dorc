@@ -1,6 +1,6 @@
 ﻿namespace Dorc.Api.Interfaces
 {
-    public interface IFileSystemHelper
+    public interface IFileOperations
     {
         bool DirectoryExists(string path);
     }

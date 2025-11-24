@@ -64,10 +64,10 @@ namespace Dorc.Api.Windows.Configuration
 
         private void ConfigureDeploymentServices()
         {
-            For<IPropertiesService>().Use<PropertiesService>();
-            For<IPropertyValuesService>().Use<PropertyValuesService>();
-            For<IRequestService>().Use<RequestService>();
-            For<IFileSystemHelper>().Use<FileSystemHelper>();
+            For<IProperties>().Use<PropertiesService>();
+            For<IPropertyValues>().Use<PropertyValuesService>();
+            For<IRequests>().Use<RequestService>();
+            For<IFileOperations>().Use<FileSystemHelper>();
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IManageUsers>().Use<ManageUsers>();

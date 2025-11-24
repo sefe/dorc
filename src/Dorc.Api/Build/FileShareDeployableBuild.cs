@@ -9,12 +9,12 @@ namespace Dorc.Api.Build
 {
     public class FileShareDeployableBuild : IDeployableBuild
     {
-        private readonly IFileSystemHelper _helper;
+        private readonly IFileOperations _helper;
         private string _validationMessage;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
 
-        public FileShareDeployableBuild(IFileSystemHelper helper, IDeployLibrary deployLibrary, IRequestsPersistentSource requestsPersistentSource)
+        public FileShareDeployableBuild(IFileOperations helper, IDeployLibrary deployLibrary, IRequestsPersistentSource requestsPersistentSource)
         {
             _deployLibrary = deployLibrary;
             _requestsPersistentSource = requestsPersistentSource;

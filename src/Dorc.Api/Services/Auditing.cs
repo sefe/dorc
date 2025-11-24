@@ -4,12 +4,12 @@ using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Services
 {
-    public class AuditingManager : IAuditingManager
+    public class Auditing : IAuditing
     {
         private readonly IPropertyValuesAuditPersistentSource _propertyValuesAuditPersistentSource;
         private readonly IDeploymentContextFactory _contextFactory;
 
-        public AuditingManager(IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource, IDeploymentContextFactory contextFactory)
+        public Auditing(IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource, IDeploymentContextFactory contextFactory)
         {
             _contextFactory = contextFactory;
             _propertyValuesAuditPersistentSource = propertyValuesAuditPersistentSource;
