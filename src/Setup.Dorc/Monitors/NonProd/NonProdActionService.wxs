@@ -19,6 +19,7 @@
 					<Json:JsonFile Id="SetTerraformRunnerPathNonProd" ElementPath="$.AppSettings.TerraformDeploymentRunnerPath" Value="[#NonProdTerraformRunnerExe]" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetIsProductionNonProd" ElementPath="$.AppSettings.IsProduction" Value="False" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetEnvironmentNonProd" ElementPath="$.AppSettings.Environment" Value="[ENVIRONMENT]" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetServiceNameNonProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceNonProd" File="[#NonProdDeployMonitorExeConfig]" />
 
@@ -41,6 +42,7 @@
 					<Json:JsonFile Id="AzureStorageAccountUriNonProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameNonProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 
+					<Json:JsonFile Id="SetOtelUrlNonProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">

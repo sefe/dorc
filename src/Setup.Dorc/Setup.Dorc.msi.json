@@ -216,6 +216,10 @@
     {
       "MSIParameter": "AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME",
       "DeployProperty": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME"
+    },
+    {
+      "MSIParameter": "OTEL.COLLECTOR.URL",
+      "DeployProperty": "OTEL_COLLECTOR_URL"
     }
   ]
 }

@@ -65,7 +65,13 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
     builder.Logging.AddOpenTelemetry(logging =>
     {
         logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
-            .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0"));
+            .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0")
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["service.namespace"] = "DOrc",
+                ["deployment.environment"] = monitorConfiguration.Environment,
+                ["host.name"] = Environment.MachineName
+            }));
         
         logging.AddOtlpExporter(options =>
         {
