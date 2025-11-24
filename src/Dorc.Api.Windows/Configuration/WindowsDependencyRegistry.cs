@@ -1,5 +1,6 @@
 using Dorc.Api.Windows.Identity;
 using Dorc.Api.Windows.Deployment;
+using Dorc.Api.Windows.Interfaces;
 using Dorc.Core;
 using Dorc.Core.Account;
 using Dorc.Core.Configuration;

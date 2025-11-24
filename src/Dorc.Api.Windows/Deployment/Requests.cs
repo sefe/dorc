@@ -1,10 +1,11 @@
 ﻿using System.Security.Claims;
+using Dorc.Api.Windows.Exceptions;
 using Dorc.Api.Windows.Interfaces;
 using Dorc.Api.Windows.Model;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Deployment
 {
     public class Requests : IRequests
     {

@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 using System.Security.Claims;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Deployment
 {
     public class EnvironmentMapper : IEnvironmentMapper
     {

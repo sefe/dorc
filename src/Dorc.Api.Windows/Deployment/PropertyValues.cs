@@ -1,4 +1,5 @@
-﻿using Dorc.Api.Windows.Interfaces;
+﻿using Dorc.Api.Windows.Exceptions;
+using Dorc.Api.Windows.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -6,7 +7,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Deployment
 {
     public class PropertyValues : IPropertyValues
     {

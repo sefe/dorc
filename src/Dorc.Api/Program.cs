@@ -1,4 +1,5 @@
 using AspNetCoreRateLimit;
+using Dorc.Api.Configuration;
 using Dorc.Api.Events;
 using Dorc.Api.Identity;
 using Dorc.Api.Interfaces;
