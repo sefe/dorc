@@ -125,10 +125,9 @@ IDistributedLock
         "Port": "5672",
         "VirtualHost": "/",
         "OAuth": {
-          "UserName": "svc-dorc-monitor@internal.domain",
-          "Password": "***",
-          "TokenEndpoint": "https://auth.internal.domain/oauth/token",
           "ClientId": "dorc-monitor",
+          "ClientSecret": "***",
+          "TokenEndpoint": "https://auth.internal.domain/oauth/token",
           "Scope": "rabbitmq:configure:* rabbitmq:read:* rabbitmq:write:*"
         }
       }
@@ -171,19 +170,18 @@ While unit tests verify the service layer, integration tests with actual RabbitM
 ## Security
 
 ### Implemented
-- ✅ **OAuth 2.0 ROPC Authentication** - Resource Owner Password Credentials flow with service account
+- ✅ **OAuth 2.0 Authentication** - Client credentials flow for secure authentication
 - ✅ **Automatic Token Refresh** - Tokens cached and refreshed automatically
 - ✅ **Configurable Virtual Host Isolation** - Supports multi-tenant RabbitMQ
 - ✅ **Connection Pooling and Automatic Recovery** - Resilient connections
 
 ### Recommended for Production
 - 🔒 TLS/SSL encryption for RabbitMQ connections and OAuth token endpoint
-- 🔒 Service account credentials stored in Azure Key Vault or similar
+- 🔒 Strong OAuth client secrets (stored in Azure Key Vault or similar)
 - 🔒 Least-privilege OAuth scopes
 - 🔒 RabbitMQ on private network (not internet-facing)
 - 🔒 RabbitMQ audit logging enabled
 - 🔒 RabbitMQ user with minimal permissions (queue management only)
-- 🔒 Dedicated service account with limited permissions
 
 ## Backward Compatibility
 

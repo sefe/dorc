@@ -84,10 +84,9 @@ Update the `appsettings.json` file for each monitor instance:
         "Port": "5672",
         "VirtualHost": "/",
         "OAuth": {
-          "UserName": "svc-dorc-monitor@domain.com",
-          "Password": "service-account-password",
-          "TokenEndpoint": "https://auth.yourdomain.com/oauth/token",
           "ClientId": "dorc-monitor",
+          "ClientSecret": "your-oauth-secret",
+          "TokenEndpoint": "https://auth.yourdomain.com/oauth/token",
           "Scope": "rabbitmq:configure:* rabbitmq:read:* rabbitmq:write:*"
         }
       }
@@ -104,10 +103,9 @@ Update the `appsettings.json` file for each monitor instance:
 | `HostName` | When HA enabled | `localhost` | RabbitMQ server hostname or IP |
 | `Port` | No | `5672` | RabbitMQ server port |
 | `VirtualHost` | No | `/` | RabbitMQ virtual host |
-| `OAuth:UserName` | When HA enabled | - | Service account username for OAuth authentication |
-| `OAuth:Password` | When HA enabled | - | Service account password for OAuth authentication |
+| `OAuth:ClientId` | When HA enabled | - | OAuth 2.0 client ID for RabbitMQ authentication |
+| `OAuth:ClientSecret` | When HA enabled | - | OAuth 2.0 client secret for RabbitMQ authentication |
 | `OAuth:TokenEndpoint` | When HA enabled | - | OAuth 2.0 token endpoint URL |
-| `OAuth:ClientId` | When HA enabled | - | OAuth 2.0 client ID for Resource Owner Password Credentials flow |
 | `OAuth:Scope` | No | - | OAuth 2.0 scope (optional, depends on OAuth server configuration) |
 
 ## Deployment Scenarios
@@ -147,10 +145,9 @@ Configuration on all monitors:
     "Port": "5672",
     "VirtualHost": "/",
     "OAuth": {
-      "UserName": "svc-dorc-monitor@domain.com",
-      "Password": "service-account-password",
-      "TokenEndpoint": "https://auth.domain.com/oauth/token",
       "ClientId": "dorc-monitor",
+      "ClientSecret": "secure-oauth-secret",
+      "TokenEndpoint": "https://auth.domain.com/oauth/token",
       "Scope": "rabbitmq:*"
     }
   }
@@ -225,14 +222,13 @@ Setting `HighAvailability.Enabled` to `false` or omitting the HA configuration e
 
 ## Security Recommendations
 
-1. **OAuth 2.0 ROPC Flow**: Uses Resource Owner Password Credentials flow with service account for RabbitMQ authentication
-2. **Service Account Security**: Store service account password in secure configuration (e.g., Azure Key Vault, environment variables)
+1. **OAuth 2.0 Authentication**: The implementation uses OAuth 2.0 client credentials flow for RabbitMQ authentication
+2. **Secure OAuth Credentials**: Store OAuth client secrets in secure configuration (e.g., Azure Key Vault, environment variables)
 3. **TLS/SSL**: Enable TLS/SSL for both RabbitMQ connections and OAuth token endpoint
 4. **Least Privilege**: Configure OAuth scopes to grant only the minimum required permissions
 5. **Network Security**: Run RabbitMQ in a private network, not exposed to the internet
 6. **Token Caching**: Tokens are cached and automatically refreshed to minimize token endpoint calls
 7. **Audit Logging**: Enable RabbitMQ audit logging to track connection and queue operations
-8. **Service Account Management**: Use dedicated service account with limited permissions for DOrc Monitor
 
 ## Maintenance
 

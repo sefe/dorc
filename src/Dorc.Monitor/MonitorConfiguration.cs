@@ -161,29 +161,29 @@ namespace Dorc.Monitor
             }
         }
 
-        public string RabbitMqOAuthUserName
+        public string RabbitMqOAuthClientId
         {
             get
             {
-                var userName = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:UserName"];
-                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(userName))
+                var clientId = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:ClientId"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(clientId))
                 {
-                    throw new InvalidOperationException("RabbitMQ OAuth UserName is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:UserName).");
+                    throw new InvalidOperationException("RabbitMQ OAuth ClientId is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:ClientId).");
                 }
-                return userName ?? "";
+                return clientId ?? "";
             }
         }
 
-        public string RabbitMqOAuthPassword
+        public string RabbitMqOAuthClientSecret
         {
             get
             {
-                var password = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:Password"];
-                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(password))
+                var clientSecret = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:ClientSecret"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(clientSecret))
                 {
-                    throw new InvalidOperationException("RabbitMQ OAuth Password is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:Password).");
+                    throw new InvalidOperationException("RabbitMQ OAuth ClientSecret is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:ClientSecret).");
                 }
-                return password ?? "";
+                return clientSecret ?? "";
             }
         }
 
@@ -197,19 +197,6 @@ namespace Dorc.Monitor
                     throw new InvalidOperationException("RabbitMQ OAuth TokenEndpoint is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:TokenEndpoint).");
                 }
                 return tokenEndpoint ?? "";
-            }
-        }
-
-        public string RabbitMqOAuthClientId
-        {
-            get
-            {
-                var clientId = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:ClientId"];
-                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(clientId))
-                {
-                    throw new InvalidOperationException("RabbitMQ OAuth ClientId is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:ClientId).");
-                }
-                return clientId ?? "";
             }
         }
 

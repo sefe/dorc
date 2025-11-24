@@ -9,7 +9,7 @@ namespace Dorc.Monitor.HighAvailability
     /// <summary>
     /// RabbitMQ-based distributed lock service using message queues with TTL for lock management.
     /// Each lock is represented by an exclusive queue - only one consumer can connect to it at a time.
-    /// Uses OAuth 2.0 Resource Owner Password Credentials (ROPC) flow with service account.
+    /// Uses OAuth 2.0 client credentials flow for authentication.
     /// </summary>
     public class RabbitMqDistributedLockService : IDistributedLockService, IDisposable
     {
@@ -112,7 +112,7 @@ namespace Dorc.Monitor.HighAvailability
 
                 try
                 {
-                    // Get OAuth token using Resource Owner Password Credentials flow
+                    // Get OAuth token using client credentials flow
                     var token = await GetOAuthTokenAsync();
                     
                     var factory = new ConnectionFactory
@@ -130,8 +130,8 @@ namespace Dorc.Monitor.HighAvailability
                     };
 
                     connection = await factory.CreateConnectionAsync($"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}");
-                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} using OAuth (account: {UserName})", 
-                        configuration.RabbitMqHostName, configuration.RabbitMqPort, configuration.RabbitMqOAuthUserName);
+                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} using OAuth", 
+                        configuration.RabbitMqHostName, configuration.RabbitMqPort);
                 }
                 catch (Exception ex)
                 {
@@ -156,16 +156,14 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                logger.LogDebug("Acquiring OAuth token from {TokenEndpoint} for user {UserName}", 
-                    configuration.RabbitMqOAuthTokenEndpoint, configuration.RabbitMqOAuthUserName);
+                logger.LogDebug("Acquiring OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
 
-                // Prepare OAuth 2.0 Resource Owner Password Credentials request
+                // Prepare OAuth 2.0 client credentials request
                 var requestBody = new Dictionary<string, string>
                 {
-                    { "grant_type", "password" },
-                    { "username", configuration.RabbitMqOAuthUserName },
-                    { "password", configuration.RabbitMqOAuthPassword },
-                    { "client_id", configuration.RabbitMqOAuthClientId }
+                    { "grant_type", "client_credentials" },
+                    { "client_id", configuration.RabbitMqOAuthClientId },
+                    { "client_secret", configuration.RabbitMqOAuthClientSecret }
                 };
 
                 // Add scope if provided
@@ -193,8 +191,7 @@ namespace Dorc.Monitor.HighAvailability
                 cachedToken = tokenResponse.AccessToken;
                 tokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 10);
 
-                logger.LogDebug("Successfully acquired OAuth token for {UserName}, expires in {ExpiresIn} seconds", 
-                    configuration.RabbitMqOAuthUserName, tokenResponse.ExpiresIn);
+                logger.LogDebug("Successfully acquired OAuth token, expires in {ExpiresIn} seconds", tokenResponse.ExpiresIn);
 
                 return cachedToken;
             }
