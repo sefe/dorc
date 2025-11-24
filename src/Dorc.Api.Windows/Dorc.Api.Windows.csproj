@@ -32,5 +32,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.OpenSearchData\Dorc.OpenSearchData.csproj" />
+    <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
   </ItemGroup>
 </Project>

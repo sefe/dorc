@@ -5,7 +5,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using System.Security.Claims;
 
-namespace Dorc.Api.Windows.Services
+namespace Dorc.Api.Windows.Build
 {
     public class FileShareDeployableBuild : IDeployableBuild
     {

@@ -1,101 +1,39 @@
-﻿using System.Reflection;
 using System.Security.Claims;
 using Dorc.Api.Windows.Interfaces;
 using Dorc.ApiModel;
-using Dorc.Core;
 using Dorc.Core.Interfaces;
-using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.Api.Windows.Services
+namespace Dorc.Api.Windows.Orchestration
 {
-    public class ApiServices : IApiServices
+    /// <summary>
+    /// Orchestrates environment-related operations including components, databases, and servers
+    /// </summary>
+    public class EnvironmentOrchestrator
     {
-        private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly ILogger _log;
-        private readonly IServiceStatus _serviceStatus;
         private readonly IManageUsers _manageUsers;
-        private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
 
-        public ApiServices(IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IServiceStatus serviceStatus, IManageUsers manageUsers,
-            IProjectsPersistentSource projectsPersistentSource,
+        public EnvironmentOrchestrator(
+            IManageUsers manageUsers,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IServersPersistentSource serversPersistentSource, ILogger<ApiServices> log)
+            IServersPersistentSource serversPersistentSource, 
+            ILogger<EnvironmentOrchestrator> log)
         {
             _serversPersistentSource = serversPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
-            _projectsPersistentSource = projectsPersistentSource;
             _manageUsers = manageUsers;
-            _serviceStatus = serviceStatus;
             _log = log;
-            _manageProjectsPersistentSource = manageProjectsPersistentSource;
-        }
-
-        public TemplateApiModel<ComponentApiModel> GetComponentsByProject(string projectName)
-        {
-            try
-            {
-                var project = _projectsPersistentSource.GetProject(projectName);
-                if (project == null)
-                    throw new InvalidDataException($"Unable to locate '{projectName}' in DOrc!");
-
-                var components = _projectsPersistentSource.GetComponentsForProject(projectName);
-
-                return new TemplateApiModel<ComponentApiModel> { Project = project, Items = components };
-            }
-            catch (Exception e)
-            {
-                _log.LogError(e, "GetComponentsByProject");
-                throw;
-            }
-        }
-
-        public List<ServiceStatusApiModel> GetEnvDaemonsStatuses(string envName, ClaimsPrincipal principal)
-        {
-            return _serviceStatus.GetServicesAndStatus(envName, principal).Select(MapToServiceStatusApiModel).ToList();
-        }
-
-        public List<ServiceStatusApiModel> GetEnvDaemonsStatuses(int envId)
-        {
-            return _serviceStatus.GetServicesAndStatus(envId).Select(MapToServiceStatusApiModel).ToList();
-        }
-
-        public ServiceStatusApiModel ChangeServiceState(ServiceStatusApiModel daemon, ClaimsPrincipal principal)
-        {
-            return MapToServiceStatusApiModel(_serviceStatus.ChangeServiceState(MapToServicesAndStatus(daemon), principal));
-        }
-
-        private ServicesAndStatus MapToServicesAndStatus(ServiceStatusApiModel ss)
-        {
-            return new ServicesAndStatus
-            {
-                EnvName = ss.EnvName,
-                ServerName = ss.ServerName,
-                ServiceName = ss.ServiceName,
-                ServiceStatus = ss.ServiceStatus
-            };
-        }
-
-        private ServiceStatusApiModel MapToServiceStatusApiModel(ServicesAndStatus ss)
-        {
-            return new ServiceStatusApiModel
-            {
-                EnvName = ss.EnvName,
-                ServerName = ss.ServerName,
-                ServiceName = ss.ServiceName,
-                ServiceStatus = ss.ServiceStatus
-            };
         }
 
         /// <summary>
-        ///     Return detailed information about environment items: db's, apps and etc
+        /// Return detailed information about environment items: databases, apps, etc
         /// </summary>
         /// <param name="id">Environment ID</param>
         /// <param name="user"></param>
@@ -128,10 +66,10 @@ namespace Dorc.Api.Windows.Services
         }
 
         /// <summary>
-        ///     Return DB Servers list
+        /// Return DB Servers list
         /// </summary>
         /// <param name="id">Environment ID</param>
-        /// <returns>List of EnvironmentContentDbServerApiModel</returns>
+        /// <returns>List of DatabaseApiModel</returns>
         public IEnumerable<DatabaseApiModel> GetDbServers(int id)
         {
             var databases = _databasesPersistentSource.GetDatabasesForEnvId(id).ToArray();
@@ -157,7 +95,7 @@ namespace Dorc.Api.Windows.Services
         }
 
         /// <summary>
-        ///     Detach or attach component from Environment
+        /// Detach or attach component from Environment
         /// </summary>
         /// <param name="envId">Environment ID</param>
         /// <param name="componentId">Component ID</param>
@@ -170,15 +108,6 @@ namespace Dorc.Api.Windows.Services
         {
             var actions = PrepareActions(user);
             return actions[component][action].Invoke(envId, componentId);
-        }
-
-        public List<ReleaseInformationApiModel> GetReleaseInformation(IEnumerable<int> requestIds)
-        {
-            var orderedRequestIds = requestIds.OrderBy(x => x);
-            var listOfReleaseInformation = new List<ReleaseInformationApiModel>();
-            foreach (var id in orderedRequestIds)
-                listOfReleaseInformation.Add(_manageProjectsPersistentSource.GetRequestDetails(id));
-            return listOfReleaseInformation;
         }
 
         private Dictionary<string, Dictionary<string, ComponentActions>> PrepareActions(ClaimsPrincipal user)
@@ -212,6 +141,5 @@ namespace Dorc.Api.Windows.Services
         }
 
         private delegate EnvironmentApiModel ComponentActions(int envId, int componentId);
-
     }
 }

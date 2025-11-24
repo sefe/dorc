@@ -5,7 +5,7 @@ using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Identity
 {
     public class CachedUserGroupReader : IUserGroupReader
     {

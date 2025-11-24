@@ -3,16 +3,16 @@ using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Identity
 {
-    public class UserGroupReaderFactory : IUserGroupsReaderFactory
+    public class UserGroupProvider : IUserGroupProvider
     {
         private readonly CachedUserGroupReader _winUserGroupReader;
         private readonly CachedUserGroupReader _oauthUserGroupsReader;
 
-        public UserGroupReaderFactory(IConfigurationSettings config,
+        public UserGroupProvider(IConfigurationSettings config,
             IMemoryCache cache,
-            IDirectorySearcherFactory searcherFactory)
+            IDirectorySearchProvider searcherFactory)
         {
             _winUserGroupReader = new CachedUserGroupReader(config, cache, searcherFactory.GetActiveDirectorySearcher());
             _oauthUserGroupsReader = new CachedUserGroupReader(config, cache, searcherFactory.GetOAuthDirectorySearcher());

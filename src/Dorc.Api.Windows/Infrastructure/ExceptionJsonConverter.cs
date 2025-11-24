@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Dorc.Api.Windows.Services
+namespace Dorc.Api.Windows.Infrastructure
 {
     public class ExceptionJsonConverter : JsonConverter<Exception>
     {

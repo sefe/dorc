@@ -6,10 +6,11 @@ using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Org.OpenAPITools.Model;
+using AzureDevOpsBuild = Org.OpenAPITools.Model.Build;
 
 // ReSharper disable AsyncConverter.AsyncWait
 
-namespace Dorc.Api.Windows.Services
+namespace Dorc.Api.Windows.Build
 {
     public class AzureDevOpsDeployableBuild : IDeployableBuild
     {
@@ -34,7 +35,7 @@ namespace Dorc.Api.Windows.Services
             _azureDevOpsServerWebClient = azureDevOpsServerWebClient;
         }
 
-        private void SetBuildRefs(Build build)
+        private void SetBuildRefs(AzureDevOpsBuild build)
         {
             _azureDevOpsProject = build.Project.Name;
             _azureDevOpsBuildDefinitionName = build.Definition.Name;

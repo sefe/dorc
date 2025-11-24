@@ -1,5 +1,6 @@
+using Dorc.Api.Windows.Identity;
+using Dorc.Api.Windows.Configuration;
 using Dorc.Api.Windows.Security;
-using Dorc.Api.Windows.Services;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
@@ -37,12 +38,10 @@ builder.Logging.AddSerilog(Log.Logger);
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
 
-// Create logger factory early for secrets reader
-var secretsReaderLogger = new SerilogLoggerFactory()
-    .CreateLogger<OnePasswordSecretsReader>();
-var secretsReader = new OnePasswordSecretsReader(configurationSettings, secretsReaderLogger);
-
-builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
+builder.Services.AddSingleton<IConfigurationSecretsReader>(sp => 
+    new Core.Security.OnePasswordSecretsReader(
+        configurationSettings, 
+        sp.GetRequiredService<ILogger<Core.Security.OnePasswordSecretsReader>>()));
 
 var allowedCorsLocations = configurationSettings.GetAllowedCorsLocations();
 
@@ -94,7 +93,7 @@ builder.Host.UseLamar((context, registry) =>
     registry.IncludeRegistry<OpenSearchDataRegistry>();
     registry.IncludeRegistry<PersistentDataRegistry>();
     registry.IncludeRegistry<CoreRegistry>();
-    registry.IncludeRegistry<ApiRegistry>();
+    registry.IncludeRegistry<WindowsDependencyRegistry>();
 
     registry.AddControllers();
 });

@@ -6,7 +6,7 @@ using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Identity
 {
     public class AdPermittedGroup
     {
@@ -21,9 +21,9 @@ namespace Dorc.Api.Windows.Windows.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IUserGroupsReaderFactory adUserGroupReaderFactory, IHttpContextAccessor httpContextAccessor)
+        public ClaimsTransformer(IConfiguration config, IUserGroupProvider adUserGroupProvider, IHttpContextAccessor httpContextAccessor)
         {
-            _adUserGroupReader = adUserGroupReaderFactory.GetWinAuthUserGroupsReader();
+            _adUserGroupReader = adUserGroupProvider.GetWinAuthUserGroupsReader();
             _httpContextAccessor = httpContextAccessor;
             var activeDirectoryRoles = config.GetSection("AppSettings:ActiveDirectoryRoles").GetChildren()
                 .ToDictionary(x => x.Key, x => x.Value);

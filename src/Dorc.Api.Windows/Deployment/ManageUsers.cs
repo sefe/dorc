@@ -1,10 +1,10 @@
-﻿using Dorc.Api.Controllers;
+﻿using Dorc.Api.Windows.Model;
 using Dorc.Api.Windows.Interfaces;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
 
-namespace Dorc.Api.Windows.Windows.Services
+namespace Dorc.Api.Windows.Deployment
 {
     public class ManageUsers : IManageUsers
     {

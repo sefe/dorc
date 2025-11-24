@@ -1,4 +1,4 @@
-﻿namespace Dorc.Api.Windows.Services
+﻿namespace Dorc.Api.Windows.Exceptions
 {
     public class WrongBuildTypeException : Exception
     {
