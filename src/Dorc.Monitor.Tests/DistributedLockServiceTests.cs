@@ -42,6 +42,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
         private ILogger<RabbitMqDistributedLockService> mockLogger;
         private IMonitorConfiguration mockConfiguration;
         private IHttpClientFactory mockHttpClientFactory;
+        private HttpClient? httpClient;
 
         [TestInitialize]
         public void Setup()
@@ -50,8 +51,15 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration = Substitute.For<IMonitorConfiguration>();
             mockHttpClientFactory = Substitute.For<IHttpClientFactory>();
             
-            // Setup a default HttpClient
-            mockHttpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
+            // Setup a default HttpClient that will be tracked for disposal
+            httpClient = new HttpClient();
+            mockHttpClientFactory.CreateClient(Arg.Any<string>()).Returns(httpClient);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            httpClient?.Dispose();
         }
 
         [TestMethod]
