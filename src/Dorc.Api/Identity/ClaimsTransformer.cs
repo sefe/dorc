@@ -6,7 +6,7 @@ using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Identity
 {
     public class AdPermittedGroup
     {

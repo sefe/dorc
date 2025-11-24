@@ -9,7 +9,7 @@ using Org.OpenAPITools.Model;
 
 // ReSharper disable AsyncConverter.AsyncWait
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Build
 {
     public class AzureDevOpsDeployableBuild : IDeployableBuild
     {

@@ -3,9 +3,9 @@ using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Identity
 {
-    public class UserGroupReaderFactory : IUserGroupsReaderFactory
+    public class UserGroupProvider : IUserGroupProvider
     {
         private readonly CachedUserGroupReader _winUserGroupReader;
         private readonly CachedUserGroupReader _oauthUserGroupsReader;

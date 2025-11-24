@@ -1,4 +1,4 @@
-﻿namespace Dorc.Api.Services
+﻿namespace Dorc.Api.Infrastructure
 {
     public class ApiEndpoints
     {

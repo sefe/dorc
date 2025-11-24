@@ -6,7 +6,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Deployment
 {
     public class PropertyValuesService : IPropertyValuesService
     {

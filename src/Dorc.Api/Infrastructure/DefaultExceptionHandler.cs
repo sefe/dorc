@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Diagnostics;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Infrastructure
 {
     public sealed class DefaultExceptionHandler : IExceptionHandler
     {

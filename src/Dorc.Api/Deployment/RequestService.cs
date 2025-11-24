@@ -4,7 +4,7 @@ using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Deployment
 {
     public class RequestService : IRequestService
     {

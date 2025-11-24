@@ -1,7 +1,7 @@
 ﻿using Dorc.Api.Interfaces;
 using System.IO;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Deployment
 {
     public class FileSystemHelper : IFileSystemHelper
     {

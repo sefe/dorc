@@ -1,11 +1,11 @@
-﻿using Dorc.Api.Windows.Interfaces;
-using Dorc.Api.Windows.Model;
+﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using System.Security.Claims;
 
-namespace Dorc.Api.Windows.Build
+namespace Dorc.Api.Build
 {
     public class FileShareDeployableBuild : IDeployableBuild
     {

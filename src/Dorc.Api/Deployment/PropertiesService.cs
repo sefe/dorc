@@ -4,7 +4,7 @@ using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Deployment
 {
     public class PropertiesService : IPropertiesService
     {

@@ -5,9 +5,9 @@ using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Identity
 {
-    public class DirectorySearcherFactory : IDirectorySearcherFactory
+    public class DirectorySearchProvider : IDirectorySearchProvider
     {
         private readonly ActiveDirectorySearcher _adSearcher;
         private readonly IActiveDirectorySearcher _oauthDirectorySearcher;

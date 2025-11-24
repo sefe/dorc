@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using System.Text.Json;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Infrastructure
 {
     /// <summary>
     /// HTTP client implementation for calling Windows-specific API endpoints

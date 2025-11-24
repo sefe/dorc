@@ -7,10 +7,10 @@ using Lamar;
 using System.DirectoryServices;
 using System.Runtime.Versioning;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Configuration
 {
     [SupportedOSPlatform("windows")]
-    public class ApiRegistry : ServiceRegistry
+    public class DependencyRegistry : ServiceRegistry
     {
         public ApiRegistry()
         {
