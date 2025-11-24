@@ -4,7 +4,6 @@ using RabbitMQ.Client.Exceptions;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Http;
 
 namespace Dorc.Monitor.HighAvailability
 {

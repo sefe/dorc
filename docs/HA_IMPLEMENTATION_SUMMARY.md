@@ -181,7 +181,6 @@ While unit tests verify the service layer, integration tests with actual RabbitM
 - 🔒 Least-privilege OAuth scopes
 - 🔒 RabbitMQ on private network (not internet-facing)
 - 🔒 RabbitMQ audit logging enabled
-- 🔒 RabbitMQ on private network (not internet-facing)
 - 🔒 RabbitMQ user with minimal permissions (queue management only)
 
 ## Backward Compatibility
