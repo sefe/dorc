@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Exceptions;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;

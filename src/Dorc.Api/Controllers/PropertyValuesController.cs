@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Exceptions;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;

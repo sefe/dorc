@@ -52,7 +52,7 @@ namespace Dorc.Api.Build
             }
 
             var project = _projectsPersistentSource.GetProject(dorcBuild.Project);
-            var builds = new List<Build>();
+            var builds = new List<Org.OpenAPITools.Model.Build>();
 
             var buildDefsForProject = _azureDevOpsServerWebClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
                 project.ArtefactsSubPaths, project.ArtefactsBuildRegex);

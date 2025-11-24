@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 

@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
+using Dorc.Api.Exceptions;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 

@@ -1,4 +1,10 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Deployment;
+using Dorc.Api.Build;
+using Dorc.Api.Identity;
+using Dorc.Api.Infrastructure;
+using Dorc.Api.Exceptions;
+using Dorc.Api.Services;
 using Dorc.Core;
 using Dorc.Core.Account;
 using Dorc.Core.Configuration;
@@ -31,16 +37,16 @@ namespace Dorc.Api.Configuration
                 return directorySearcher;
             }).Scoped();
             
-            For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()
+            For<IDirectorySearchProvider>().Use<DirectorySearchProvider>().Singleton()
                 .Ctor<string>().Is(configSettings.GetConfigurationDomainNameIntra())
                 .Ctor<TimeSpan?>().Is(configSettings.GetADUserCacheTimeSpan());
             For<IActiveDirectorySearcher>().Use(context =>
             {
-                var factory = context.GetRequiredService<IDirectorySearcherFactory>();
+                var factory = context.GetRequiredService<IDirectorySearchProvider>();
                 return factory.GetOAuthDirectorySearcher();
             }).Singleton();
 
-            For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
+            For<IUserGroupProvider>().Use<UserGroupProvider>().Singleton();
 
             For<IFileOperations>().Use<FileOperations>();
             For<IRequestsManager>().Use<RequestsManager>();
