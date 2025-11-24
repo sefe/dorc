@@ -34,7 +34,7 @@ namespace Dorc.Api.Build
             _azureDevOpsServerWebClient = azureDevOpsServerWebClient;
         }
 
-        private void SetBuildRefs(Build build)
+        private void SetBuildRefs(Org.OpenAPITools.Model.Build build)
         {
             _azureDevOpsProject = build.Project.Name;
             _azureDevOpsBuildDefinitionName = build.Definition.Name;

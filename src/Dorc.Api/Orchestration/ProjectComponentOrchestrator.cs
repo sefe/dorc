@@ -2,7 +2,7 @@ using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.Api.Windows.Orchestration
+namespace Dorc.Api.Orchestration
 {
     /// <summary>
     /// Orchestrates project and component-related operations

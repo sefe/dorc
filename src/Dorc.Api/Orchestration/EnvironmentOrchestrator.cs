@@ -1,11 +1,11 @@
 using System.Security.Claims;
-using Dorc.Api.Windows.Interfaces;
+using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.Api.Windows.Orchestration
+namespace Dorc.Api.Orchestration
 {
     /// <summary>
     /// Orchestrates environment-related operations including components, databases, and servers

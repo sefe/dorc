@@ -1,14 +1,10 @@
 ﻿using Dorc.Core;
 using Dorc.Core.Configuration;
-using Dorc.Api.Interfaces;
 using Dorc.Core.IdentityServer;
-using Dorc.Api.Interfaces;
 using Dorc.Core.Interfaces;
 using Dorc.Api.Interfaces;
 using Microsoft.Extensions.Logging;
-using Dorc.Api.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
-using Dorc.Api.Interfaces;
 
 namespace Dorc.Api.Identity
 {

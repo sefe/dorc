@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
 
-namespace Dorc.Api.Windows.Orchestration
+namespace Dorc.Api.Orchestration
 {
     /// <summary>
     /// Orchestrates Windows service status operations
@@ -12,7 +12,7 @@ namespace Dorc.Api.Windows.Orchestration
     {
         private readonly IServiceStatus _serviceStatus;
 
-        public ServiceStatusOrchestrator(IServiceStatus serviceStatus)
+        public WindowsServicesOrchestrator(IServiceStatus serviceStatus)
         {
             _serviceStatus = serviceStatus;
         }
