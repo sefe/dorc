@@ -3,6 +3,7 @@ using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -43,6 +44,9 @@ namespace Dorc.Monitor.Tests.Init
             collection.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
             collection.AddTransient<ScriptDispatcher>();
+
+            // Register distributed lock service (NoOp for integration tests - HA not needed)
+            collection.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
 
             PersistentSourcesRegistry.Register(collection);
 
