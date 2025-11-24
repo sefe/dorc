@@ -213,7 +213,15 @@ Function Get-EnvSettings {
                     {
                         # This relates to an account name, we need to get a secure password from user
                         $svcAccountName = $this.GetPropertyValue($prop.AccountNameProperty)
-                        $prop.Value = Read-Host -Prompt "Enter Password for Account $($svcAccountName)" -AsSecureString | ConvertFrom-SecureString
+                        if ([System.Environment]::UserInteractive)
+                        {
+                            $prop.Value = Read-Host -Prompt "Enter Password for Account $($svcAccountName)" -AsSecureString | ConvertFrom-SecureString
+                        }
+                        else
+                        {
+                            Write-Host "Non-interactive mode: Missing secure property '$($prop.Name)' for account '$($svcAccountName)'. Expected value in DeploySettings.json"
+                            $prop.Value = ""
+                        }
                     }
                 }
             }
@@ -271,4 +279,5 @@ Function Get-EnvSettings {
     }
 }
 #endregion Function Get-EnvSettings
+
 
