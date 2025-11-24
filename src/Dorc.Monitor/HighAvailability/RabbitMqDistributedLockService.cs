@@ -18,7 +18,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly IMonitorConfiguration configuration;
         private readonly HttpClient httpClient;
         private IConnection? connection;
-        private readonly object connectionLock = new object();
+        private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
         private bool disposed = false;
         private string? cachedToken;
         private DateTime tokenExpiry = DateTime.MinValue;
@@ -45,7 +45,7 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                EnsureConnection();
+                await EnsureConnectionAsync();
                 
                 if (connection == null || !connection.IsOpen)
                 {
@@ -53,7 +53,7 @@ namespace Dorc.Monitor.HighAvailability
                     return null;
                 }
 
-                var channel = connection.CreateModel();
+                var channel = await connection.CreateChannelAsync();
                 var queueName = $"dorc.lock.{resourceKey}";
                 
                 try
@@ -66,7 +66,7 @@ namespace Dorc.Monitor.HighAvailability
                         { "x-expires", leaseTimeMs + 5000 } // Queue expires slightly after lease time if not deleted
                     };
 
-                    channel.QueueDeclare(
+                    await channel.QueueDeclareAsync(
                         queue: queueName,
                         durable: false,
                         exclusive: true, // This is the key - only one connection can have this queue
@@ -81,15 +81,15 @@ namespace Dorc.Monitor.HighAvailability
                 catch (OperationInterruptedException ex) when (ex.ShutdownReason.ReplyCode == 405) // RESOURCE_LOCKED
                 {
                     logger.LogDebug("Failed to acquire lock for '{ResourceKey}' - already locked by another instance", resourceKey);
-                    channel.Close();
-                    channel.Dispose();
+                    await channel.CloseAsync();
+                    await channel.DisposeAsync();
                     return null;
                 }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Error acquiring lock for '{ResourceKey}'", resourceKey);
-                    channel.Close();
-                    channel.Dispose();
+                    await channel.CloseAsync();
+                    await channel.DisposeAsync();
                     throw;
                 }
             }
@@ -100,9 +100,10 @@ namespace Dorc.Monitor.HighAvailability
             }
         }
 
-        private void EnsureConnection()
+        private async Task EnsureConnectionAsync()
         {
-            lock (connectionLock)
+            await connectionSemaphore.WaitAsync();
+            try
             {
                 if (connection != null && connection.IsOpen)
                     return;
@@ -113,7 +114,7 @@ namespace Dorc.Monitor.HighAvailability
                 try
                 {
                     // Get OAuth token
-                    var token = GetOAuthTokenAsync().GetAwaiter().GetResult();
+                    var token = await GetOAuthTokenAsync();
                     
                     var factory = new ConnectionFactory
                     {
@@ -129,7 +130,7 @@ namespace Dorc.Monitor.HighAvailability
                         Password = ""
                     };
 
-                    connection = factory.CreateConnection($"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}");
+                    connection = await factory.CreateConnectionAsync($"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}");
                     logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} using OAuth", 
                         configuration.RabbitMqHostName, configuration.RabbitMqPort);
                 }
@@ -139,6 +140,10 @@ namespace Dorc.Monitor.HighAvailability
                         configuration.RabbitMqHostName, configuration.RabbitMqPort);
                     throw;
                 }
+            }
+            finally
+            {
+                connectionSemaphore.Release();
             }
         }
 
@@ -204,20 +209,30 @@ namespace Dorc.Monitor.HighAvailability
                 return;
 
             disposed = true;
-            lock (connectionLock)
+            
+            IConnection? connToDispose = null;
+            connectionSemaphore.Wait();
+            try
             {
-                if (connection != null)
+                connToDispose = connection;
+                connection = null;
+            }
+            finally
+            {
+                connectionSemaphore.Release();
+                connectionSemaphore.Dispose();
+            }
+
+            if (connToDispose != null)
+            {
+                try
                 {
-                    try
-                    {
-                        connection.Close();
-                        connection.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Error closing RabbitMQ connection");
-                    }
-                    connection = null;
+                    connToDispose.CloseAsync().GetAwaiter().GetResult();
+                    connToDispose.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error closing RabbitMQ connection");
                 }
             }
         }
@@ -247,7 +262,7 @@ namespace Dorc.Monitor.HighAvailability
     internal class RabbitMqDistributedLock : IDistributedLock
     {
         private readonly ILogger logger;
-        private IModel? channel;
+        private IChannel? channel;
         private readonly string queueName;
         private bool disposed = false;
         private readonly object disposeLock = new object();
@@ -256,7 +271,7 @@ namespace Dorc.Monitor.HighAvailability
 
         public bool IsValid => !disposed && channel != null && channel.IsOpen;
 
-        public RabbitMqDistributedLock(ILogger logger, IModel channel, string queueName, string resourceKey)
+        public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey)
         {
             this.logger = logger;
             this.channel = channel;
@@ -288,7 +303,7 @@ namespace Dorc.Monitor.HighAvailability
                         // Delete the queue to release the lock immediately
                         try
                         {
-                            channel.QueueDelete(queueName);
+                            channel.QueueDeleteAsync(queueName).GetAwaiter().GetResult();
                             logger.LogDebug("Released distributed lock for resource '{ResourceKey}'", ResourceKey);
                         }
                         catch (Exception ex)
@@ -296,8 +311,8 @@ namespace Dorc.Monitor.HighAvailability
                             logger.LogWarning(ex, "Error deleting lock queue for '{ResourceKey}'", ResourceKey);
                         }
 
-                        channel.Close();
-                        channel.Dispose();
+                        channel.CloseAsync().GetAwaiter().GetResult();
+                        channel.DisposeAsync().AsTask().GetAwaiter().GetResult();
                     }
                 }
                 catch (Exception ex)

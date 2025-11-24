@@ -252,7 +252,7 @@ dotnet test Dorc.Core.Tests/Dorc.Core.Tests.csproj
 
 ### Dependency Verification
 ```bash
-gh-advisory-database check RabbitMQ.Client 6.8.1
+gh-advisory-database check RabbitMQ.Client 7.2.0
 # ✅ No vulnerabilities found
 ```
 
