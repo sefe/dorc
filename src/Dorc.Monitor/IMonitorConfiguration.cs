@@ -21,10 +21,11 @@
         int RabbitMqPort { get; }
         string? RabbitMqVirtualHost { get; }
         
-        // RabbitMQ OAuth settings
-        string RabbitMqOAuthClientId { get; }
-        string RabbitMqOAuthClientSecret { get; }
+        // RabbitMQ OAuth settings (Resource Owner Password Credentials flow)
+        string RabbitMqOAuthUserName { get; }
+        string RabbitMqOAuthPassword { get; }
         string RabbitMqOAuthTokenEndpoint { get; }
+        string RabbitMqOAuthClientId { get; }
         string RabbitMqOAuthScope { get; }
     }
 }

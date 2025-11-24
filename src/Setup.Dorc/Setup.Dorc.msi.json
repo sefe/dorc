@@ -238,16 +238,20 @@
       "DeployProperty": "HA_RABBITMQ_VIRTUALHOST"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTID",
-      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTID"
+      "MSIParameter": "HA.RABBITMQ.OAUTH.USERNAME",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_USERNAME"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTSECRET",
-      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTSECRET"
+      "MSIParameter": "HA.RABBITMQ.OAUTH.PASSWORD",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_PASSWORD"
     },
     {
       "MSIParameter": "HA.RABBITMQ.OAUTH.TOKENENDPOINT",
       "DeployProperty": "HA_RABBITMQ_OAUTH_TOKENENDPOINT"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTID",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTID"
     },
     {
       "MSIParameter": "HA.RABBITMQ.OAUTH.SCOPE",

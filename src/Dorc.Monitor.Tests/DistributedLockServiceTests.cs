@@ -104,8 +104,9 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration.HighAvailabilityEnabled.Returns(true);
             mockConfiguration.RabbitMqHostName.Returns("invalid-host-that-does-not-exist");
             mockConfiguration.RabbitMqPort.Returns(5672);
+            mockConfiguration.RabbitMqOAuthUserName.Returns("test-user");
+            mockConfiguration.RabbitMqOAuthPassword.Returns("test-password");
             mockConfiguration.RabbitMqOAuthClientId.Returns("test-client");
-            mockConfiguration.RabbitMqOAuthClientSecret.Returns("test-secret");
             mockConfiguration.RabbitMqOAuthTokenEndpoint.Returns("http://localhost:9999/oauth/token");
             mockConfiguration.RabbitMqOAuthScope.Returns("");
             mockConfiguration.RabbitMqVirtualHost.Returns("/");
