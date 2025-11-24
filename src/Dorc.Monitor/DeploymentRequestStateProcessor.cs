@@ -220,7 +220,7 @@ namespace Dorc.Monitor
             }
         }
 
-        public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
+        public async Task<Task[]> ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             // Select only Pending and Confirmed requests for each of environments that do not have any Running requests.
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
@@ -253,43 +253,31 @@ namespace Dorc.Monitor
                     this.logger.LogDebug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
                     continue;
                 }
+
+                // Try to acquire distributed lock for this environment BEFORE creating the task
+                // This ensures only one monitor instance processes this environment at a time
+                IDistributedLock? envLock = null;
+                if (distributedLockService.IsEnabled)
+                {
+                    var lockKey = $"env:{requestGroup.Key}";
+                    // Lock lease time is longer than typical request duration to handle long deployments
+                    // The lock will auto-release if the monitor crashes
+                    envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
+                    
+                    if (envLock == null)
+                    {
+                        this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
+                        continue; // Skip this environment - another monitor is processing it
+                    }
+
+                    this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
+                }
+
                 var task = Task.Run(async () =>
                 {
-                    IDistributedLock? envLock = null;
                     try
                     {
                         monitorCancellationToken.ThrowIfCancellationRequested();
-
-                        // Try to acquire distributed lock for this environment BEFORE adding to tracking
-                        // This ensures only one monitor instance processes this environment at a time
-                        if (distributedLockService.IsEnabled)
-                        {
-                            var lockKey = $"env:{requestGroup.Key}";
-                            // Lock lease time is longer than typical request duration to handle long deployments
-                            // The lock will auto-release if the monitor crashes
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
-                            
-                            if (envLock == null)
-                            {
-                                this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
-                                return; // Exit early without adding to environmentRequestIdRunning
-                            }
-
-                            this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
-                        }
-
-                        // Only add to tracking after successfully acquiring the lock (or if HA is disabled)
-                        if (!environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id))
-                        {
-                            this.logger.LogDebug($"Another task already started processing environment '{requestGroup.Key}'");
-                            if (envLock != null)
-                            {
-                                await envLock.DisposeAsync();
-                                this.logger.LogDebug($"Released distributed lock for environment '{requestGroup.Key}' due to TryAdd failure");
-                            }
-                            return;
-                        }
-
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
                         requestCancellationSources!.AddOrUpdate(
                             requestToExecute.Request.Id,

@@ -50,7 +50,7 @@ namespace Dorc.Monitor
 
                     monitorCancellationToken.ThrowIfCancellationRequested();
 
-                    deploymentRequestStateProcessor.ExecuteRequests(isProduction, requestCancellationSources, monitorCancellationToken);
+                    await deploymentRequestStateProcessor.ExecuteRequests(isProduction, requestCancellationSources, monitorCancellationToken);
                 }
                 catch (OperationCanceledException ex)
                 {
