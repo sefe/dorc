@@ -70,6 +70,8 @@
 		<Json:JsonFile Id="AzureStorageAccountClientSecret" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
 		<Json:JsonFile Id="AzureStorageAccountUri" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
 		<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerName" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+
+		<Json:JsonFile Id="ApiOtelUrl" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
