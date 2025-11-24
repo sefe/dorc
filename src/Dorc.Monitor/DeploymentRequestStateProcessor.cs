@@ -260,7 +260,7 @@ namespace Dorc.Monitor
                     {
                         monitorCancellationToken.ThrowIfCancellationRequested();
 
-                        // Try to acquire distributed lock for this environment
+                        // Try to acquire distributed lock for this environment BEFORE adding to tracking
                         // This ensures only one monitor instance processes this environment at a time
                         if (distributedLockService.IsEnabled)
                         {
@@ -272,10 +272,17 @@ namespace Dorc.Monitor
                             if (envLock == null)
                             {
                                 this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
-                                return;
+                                return; // Exit early without adding to environmentRequestIdRunning
                             }
 
                             this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
+                        }
+
+                        // Only add to tracking after successfully acquiring the lock (or if HA is disabled)
+                        if (!environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id))
+                        {
+                            this.logger.LogDebug($"Another task already started processing environment '{requestGroup.Key}'");
+                            return;
                         }
 
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
