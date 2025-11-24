@@ -70,4 +70,8 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Security\OnePassword\Models\" />
+  </ItemGroup>
 </Project>

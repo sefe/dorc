@@ -255,15 +255,15 @@ namespace Dorc.Api.Tests
                         {Name = "buildText"},
                 });
             mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
-                .Returns(Task.Factory.StartNew(() => new List<Build>
+                .Returns(Task.Factory.StartNew(() => new List<Org.OpenAPITools.Model.Build>
                 {
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                     {
                         BuildNumber = "19.01.01.2", KeepForever = false, Uri = "vstfs://some_path2",
                         Project = new TeamProjectReference {Name="Build1"},
                         Definition = new DefinitionReference { Name= "Definition1"}
                     },
-                    new Build
+                    new Org.OpenAPITools.Model.Build
                     {
                         BuildNumber = "19.01.01.1", KeepForever = false, Uri = "vstfs://some_path1",
                         Project = new TeamProjectReference {Name="Build2"},

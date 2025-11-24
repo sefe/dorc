@@ -39,9 +39,9 @@ builder.Logging.AddSerilog(Log.Logger);
 var configurationSettings = new ConfigurationSettings(configBuilder);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(sp => 
-    new Core.Security.OnePasswordSecretsReader(
+    new Dorc.Core.Security.OnePasswordSecretsReader(
         configurationSettings, 
-        sp.GetRequiredService<ILogger<Core.Security.OnePasswordSecretsReader>>()));
+        sp.GetRequiredService<ILogger<Dorc.Core.Security.OnePasswordSecretsReader>>()));
 
 var allowedCorsLocations = configurationSettings.GetAllowedCorsLocations();
 

@@ -1,6 +1,6 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
-namespace OnePassword.Connect.Client
+namespace Dorc.Core.Security.OnePassword
 {
     public class OnePasswordItem
     {

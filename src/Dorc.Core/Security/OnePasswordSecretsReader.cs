@@ -1,8 +1,8 @@
 using Dorc.Core.Configuration;
+using Dorc.Core.Security.OnePassword;
 using Microsoft.Extensions.Logging;
-using OnePassword.Connect.Client;
 
-namespace Dorc.Api.Infrastructure
+namespace Dorc.Core.Security
 {
     /// <summary>
     /// Manages secrets using 1Password
@@ -64,4 +64,4 @@ namespace Dorc.Api.Infrastructure
             }
         }
     }
-} 
+}
