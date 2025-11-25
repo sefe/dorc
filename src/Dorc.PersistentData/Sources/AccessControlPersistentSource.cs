@@ -111,10 +111,10 @@ namespace Dorc.PersistentData.Sources
                 if (existingAccessControl == null) return Guid.Empty;
 
                 var deletedGuid = existingAccessControl.ObjectId;
-                
+
                 var deletedName = existingAccessControl.Name;
                 var deletedPermissions = existingAccessControl.Allow;
-                
+
                 context.AccessControls.Remove(existingAccessControl);
 
                 context.SaveChanges();
@@ -156,7 +156,7 @@ namespace Dorc.PersistentData.Sources
                 Details = $"Access control change for environment: {environment.Name}"
             };
             context.EnvironmentHistories.Add(newHistory);
-            
+
             environment.LastUpdate = newHistory.UpdateDate;
         }
 
@@ -195,6 +195,28 @@ namespace Dorc.PersistentData.Sources
                 Pid = ac.Pid,
                 Sid = ac.Sid,
             };
+        }
+
+        public IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(ClaimsPrincipal user, string accessControlName) where TEntity : SecurityObject
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                return ((IEnumerable)context.Set<TEntity>())
+                    .Cast<SecurityObject>()
+                    .OrderBy(x => x.Name)
+                    .Where(x => x.Name == accessControlName).ToList();
+            }
+        }
+
+        public IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(Type type, ClaimsPrincipal user) where TEntity : SecurityObject
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                return ((IEnumerable)context.Set<TEntity>())
+                    .Cast<SecurityObject>()
+                    .OrderBy(x => x.Name)
+                    .ToList();
+            }
         }
     }
 }
