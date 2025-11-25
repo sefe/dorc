@@ -153,7 +153,7 @@ namespace Dorc.PersistentData.Sources
                 UpdatedBy = updatedBy,
                 FromValue = fromValue,
                 ToValue = toValue,
-                Details = $"Access control change for environment: {environment.Name}"
+                Details = String.Empty
             };
             context.EnvironmentHistories.Add(newHistory);
 
