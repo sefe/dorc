@@ -37,24 +37,41 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public AccessControlApiModel AddAccessControl(AccessControlApiModel accessControl, Guid objectId)
+        public AccessControlApiModel AddAccessControl(AccessControlApiModel accessControl, Guid objectId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
                 var newAccessControl = context.AccessControls.Add(MapToAccessControl(accessControl, objectId));
                 context.SaveChanges();
 
+                var environment = context.Environments.FirstOrDefault(e => e.ObjectId == objectId);
+                if (environment != null)
+                {
+                    AddAccessControlHistory(
+                        environment,
+                        "New User",
+                        $"User: {accessControl.Name}, Permissions: {GetPermissionsString(accessControl.Allow)}",
+                        user.Identity?.Name ?? "Unknown",
+                        "Access Control - User Added",
+                        context
+                    );
+                    context.SaveChanges();
+                }
+
                 return MapToAccessControlApiModel(newAccessControl.Entity);
             }
         }
 
-        public AccessControlApiModel UpdateAccessControl(AccessControlApiModel accessControl)
+        public AccessControlApiModel UpdateAccessControl(AccessControlApiModel accessControl, Guid objectId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
                 var existingAccessControl = context.AccessControls.Find(accessControl.Id);
 
                 if (existingAccessControl == null) return null;
+
+                var oldPermissions = existingAccessControl.Allow;
+                var oldName = existingAccessControl.Name;
 
                 existingAccessControl.Pid = accessControl.Pid;
                 existingAccessControl.Sid = accessControl.Sid;
@@ -64,11 +81,28 @@ namespace Dorc.PersistentData.Sources
 
                 context.SaveChanges();
 
+                if (oldPermissions != accessControl.Allow)
+                {
+                    var environment = context.Environments.FirstOrDefault(e => e.ObjectId == objectId);
+                    if (environment != null)
+                    {
+                        AddAccessControlHistory(
+                            environment,
+                            $"User: {oldName}, Permissions: {GetPermissionsString(oldPermissions)}",
+                            $"User: {accessControl.Name}, Permissions: {GetPermissionsString(accessControl.Allow)}",
+                            user.Identity?.Name ?? "Unknown",
+                            "Access Control - Permissions Modified",
+                            context
+                        );
+                        context.SaveChanges();
+                    }
+                }
+
                 return MapToAccessControlApiModel(context.AccessControls.Find(accessControl.Id));
             }
         }
 
-        public Guid DeleteAccessControl(int id)
+        public Guid DeleteAccessControl(int id, Guid objectId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -77,126 +111,29 @@ namespace Dorc.PersistentData.Sources
                 if (existingAccessControl == null) return Guid.Empty;
 
                 var deletedGuid = existingAccessControl.ObjectId;
+                
+                var deletedName = existingAccessControl.Name;
+                var deletedPermissions = existingAccessControl.Allow;
+                
                 context.AccessControls.Remove(existingAccessControl);
 
                 context.SaveChanges();
-                return deletedGuid;
-            }
-        }
 
-        public IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(ClaimsPrincipal user, string accessControlName) where TEntity : SecurityObject
-        {
-            using (var context = contextFactory.GetContext())
-            {
-                return ((IEnumerable)context.Set<TEntity>())
-                    .Cast<SecurityObject>()
-                    .OrderBy(x => x.Name)
-                    .Where(x => x.Name == accessControlName).ToList();
-            }
-        }
-
-        public IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(Type type, ClaimsPrincipal user) where TEntity : SecurityObject
-        {
-            using (var context = contextFactory.GetContext())
-            {
-                return ((IEnumerable)context.Set<TEntity>())
-                    .Cast<SecurityObject>()
-                    .OrderBy(x => x.Name)
-                    .ToList();
-            }
-        }
-
-        public void UpdateAccessControlsWithHistory(
-            Guid objectId,
-            List<AccessControlApiModel> newPrivileges,
-            ClaimsPrincipal user)
-        {
-            using (var context = contextFactory.GetContext())
-            {
-                // Get environment for history tracking
                 var environment = context.Environments.FirstOrDefault(e => e.ObjectId == objectId);
-                
-                if (environment == null)
-                    throw new ArgumentException("Environment not found");
-                    
-                // Get username from ClaimsPrincipal
-                var username = user.Identity?.Name ?? "Unknown";
-                
-                // Get existing access controls
-                var existingAccessControls = context.AccessControls
-                    .Where(ac => ac.ObjectId == objectId)
-                    .ToList();
-                    
-                var existingDict = existingAccessControls.ToDictionary(ac => ac.Id);
-                var newIds = newPrivileges.Select(p => p.Id).ToArray();
-                
-                // Track removed users
-                foreach (var existing in existingAccessControls)
+                if (environment != null)
                 {
-                    if (!newIds.Contains(existing.Id))
-                    {
-                        AddAccessControlHistory(
-                            environment,
-                            $"User: {existing.Name}, Permissions: {GetPermissionsString(existing.Allow)}",
-                            "User Removed",
-                            username,
-                            "Access Control - User Removed",
-                            context
-                        );
-                        
-                        context.AccessControls.Remove(existing);
-                    }
+                    AddAccessControlHistory(
+                        environment,
+                        $"User: {deletedName}, Permissions: {GetPermissionsString(deletedPermissions)}",
+                        "User Removed",
+                        user.Identity?.Name ?? "Unknown",
+                        "Access Control - User Removed",
+                        context
+                    );
+                    context.SaveChanges();
                 }
-                
-                // Track added or modified users
-                foreach (var privilege in newPrivileges)
-                {
-                    if (privilege.Id == 0)
-                    {
-                        // NEW USER
-                        var newAccessControl = new AccessControl
-                        {
-                            ObjectId = objectId,
-                            Name = privilege.Name,
-                            Sid = privilege.Sid,
-                            Pid = privilege.Pid,
-                            Allow = privilege.Allow,
-                            Deny = privilege.Deny
-                        };
-                        context.AccessControls.Add(newAccessControl);
-                        
-                        AddAccessControlHistory(
-                            environment,
-                            "New User",
-                            $"User: {privilege.Name}, Permissions: {GetPermissionsString(privilege.Allow)}",
-                            username,
-                            "Access Control - User Added",
-                            context
-                        );
-                    }
-                    else if (existingDict.TryGetValue(privilege.Id, out var existing))
-                    {
-                        if (existing.Allow != privilege.Allow || existing.Deny != privilege.Deny)
-                        {
-                            AddAccessControlHistory(
-                                environment,
-                                $"User: {existing.Name}, Permissions: {GetPermissionsString(existing.Allow)}",
-                                $"User: {privilege.Name}, Permissions: {GetPermissionsString(privilege.Allow)}",
-                                username,
-                                "Access Control - Permissions Modified",
-                                context
-                            );
-                            
-                            existing.Allow = privilege.Allow;
-                            existing.Deny = privilege.Deny;
-                            existing.Name = privilege.Name;
-                            existing.Sid = privilege.Sid;
-                            existing.Pid = privilege.Pid;
-                        }
-                    }
-                }
-                
-                context.SaveChanges();
+
+                return deletedGuid;
             }
         }
 

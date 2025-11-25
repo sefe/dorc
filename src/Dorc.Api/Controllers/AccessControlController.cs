@@ -22,8 +22,7 @@ namespace Dorc.Api.Controllers
         private readonly IActiveDirectorySearcher _adSearcher;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
-        public AccessControlController(
-            IAccessControlPersistentSource accessControlPersistentSource,
+        public AccessControlController(IAccessControlPersistentSource accessControlPersistentSource,
             IActiveDirectorySearcher adSearcher,
             ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
@@ -108,51 +107,42 @@ namespace Dorc.Api.Controllers
                 if (accessControl.Type == AccessControlType.Environment)
                 {
                     var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .Where(p => (p.Allow & (int)AccessLevel.Owner) != 0)
+                        .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
                         .ToList();
                     
                     var newOwners = accessControl.Privileges
-                        .Where(p => (p.Allow & (int)AccessLevel.Owner) != 0)
+                        .Where(p => (p.Allow & 4) != 0)
                         .ToList();
 
+                    // If we're removing all owners, prevent the update
                     if (currentOwners.Any() && !newOwners.Any())
                     {
                         return StatusCode(StatusCodes.Status400BadRequest,
                             "Cannot remove all owners from an environment. At least one owner must remain.");
                     }
-                    
-                    // Use new method with history tracking
-                    _accessControlPersistentSource.UpdateAccessControlsWithHistory(
-                        accessControl.ObjectId,
-                        accessControl.Privileges.ToList(),
-                        User
-                    );
                 }
-                else
-                {
-                    // Projects - no history
-                    var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .Select(p => p.Id).ToArray();
-                    var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
-                    
-                    foreach (var existingId in existingIds)
-                    {
-                        if (!newIds.Contains(existingId))
-                        {
-                            _accessControlPersistentSource.DeleteAccessControl(existingId);
-                        }
-                    }
 
-                    foreach (var accessControlPrivilege in accessControl.Privileges)
+                var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
+                    .ToArray();
+                var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
+                
+                foreach (var existingId in existingIds)
+                {
+                    if (!newIds.Contains(existingId))
                     {
-                        if (accessControlPrivilege.Id == 0)
-                        {
-                            _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId);
-                        }
-                        else if (accessControlPrivilege.Id > 0)
-                        {
-                            _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege);
-                        }
+                        _accessControlPersistentSource.DeleteAccessControl(existingId, accessControl.ObjectId, User);
+                    }
+                }
+
+                foreach (var accessControlPrivilege in accessControl.Privileges)
+                {
+                    if (accessControlPrivilege.Id == 0)
+                    {
+                        _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
+                    }
+                    else if (accessControlPrivilege.Id > 0)
+                    {
+                        _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
                     }
                 }
 
