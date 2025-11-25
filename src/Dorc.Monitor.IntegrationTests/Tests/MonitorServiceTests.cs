@@ -35,7 +35,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
                 new { Env = envs[2], Username = "b", Project = "500" },
             };
 
-            var requests = data.Map(d => DeploymentRequestData.GetDeploymentRequest(d.Env, d.Username, d.Project));
+            var requests = data.Select(d => DeploymentRequestData.GetDeploymentRequest(d.Env, d.Username, d.Project)).ToArray();
 
             AddDeploymentRequests(requests);
 
@@ -98,8 +98,8 @@ namespace Dorc.Monitor.IntegrationTests.Tests
                 new { Env = envs[0], Username = "e", Project = "100" },
             };
 
-            var requests = data.Map(d =>
-                DeploymentRequestData.GetDeploymentRequest(d.Env, d.Username, d.Project));
+            var requests = data.Select(d =>
+                DeploymentRequestData.GetDeploymentRequest(d.Env, d.Username, d.Project)).ToArray();
             var requestToCancel = requests[1];
             AddDeploymentRequests(requests);
 

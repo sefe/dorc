@@ -65,6 +65,13 @@
 
 		<Json:JsonFile Id="AzureSignalRUse" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
 		<Json:JsonFile Id="AzureSignalRConnectionString" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
+		<Json:JsonFile Id="AzureStorageAccountTenantId" ElementPath="$.AzureStorageAccount.TenantId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
+		<Json:JsonFile Id="AzureStorageAccountClientId" ElementPath="$.AzureStorageAccount.ClientId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
+		<Json:JsonFile Id="AzureStorageAccountClientSecret" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
+		<Json:JsonFile Id="AzureStorageAccountUri" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
+		<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerName" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+
+		<Json:JsonFile Id="ApiOtelUrl" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">

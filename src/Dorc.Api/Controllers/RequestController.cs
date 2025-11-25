@@ -4,7 +4,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -18,14 +18,14 @@ namespace Dorc.Api.Controllers
     {
         private readonly IRequestService _service;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IRequestsManager _requestsManager;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
 
-        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILog log,
+        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
@@ -63,7 +63,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/:id", e);
+                _log.LogError(e, "api/Request/:id");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -98,7 +98,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/BuildDefinitions", e);
+                _log.LogError(e, "api/Request/BuildDefinitions");
                 var unrollException = UnrollException(e);
                 var result = StatusCode(StatusCodes.Status500InternalServerError, unrollException);
                 return result;
@@ -134,7 +134,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/Builds", e);
+                _log.LogError(e, "api/Request/Builds");
                 var unrollException = UnrollException(e);
                 var result = StatusCode(StatusCodes.Status500InternalServerError, unrollException);
                 return result;
@@ -180,7 +180,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/Components", e);
+                _log.LogError(e, "api/Request/Components");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -204,7 +204,7 @@ namespace Dorc.Api.Controllers
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
                 {
-                    _log.Info($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
@@ -227,7 +227,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/restart", e);
+                _log.LogError(e, "api/Request/restart");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -252,7 +252,7 @@ namespace Dorc.Api.Controllers
                 if (!canModifyEnv)
                 {
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.Info($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
@@ -280,7 +280,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/cancel", e);
+                _log.LogError(e, "api/Request/cancel");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -302,7 +302,7 @@ namespace Dorc.Api.Controllers
                 if (!canModifyEnv)
                 {
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.Info($"Forbidden request to {requestDto.Environment} from {username}");
+                    _log.LogInformation($"Forbidden request to {requestDto.Environment} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                             $"Forbidden request to {requestDto.Environment} from {username}");
                 }
@@ -316,19 +316,19 @@ namespace Dorc.Api.Controllers
                     if (result.Id <= 0)
                         return BadRequest(result.Status);
 
-                    _log.Info($"Request {result.Id} created");
+                    _log.LogInformation($"Request {result.Id} created");
 
                     return Ok(result);
                 }
                 catch (Exception e)
                 {
-                    _log.Error(e.Message);
+                    _log.LogError(e.Message);
                     return BadRequest(e.Message);
                 }
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/post", e);
+                _log.LogError(e, "api/Request/post");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }

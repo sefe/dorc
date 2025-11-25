@@ -3,8 +3,8 @@ using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
-using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -13,24 +13,64 @@ using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Lamar.Microsoft.DependencyInjection;
-using log4net.Config;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
+using Serilog;
+using Serilog.Extensions.Logging;
+using System.Reflection;
 using System.Text.Json.Serialization;
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
-var configBuilder = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-
-builder.Logging.AddLog4Net();
+var configBuilder = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .Build();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
-var secretsReader = new OnePasswordSecretsReader(configurationSettings);
+
+#region Logging Configuration
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithThreadId()
+    .ReadFrom.Configuration(configBuilder)
+    .CreateLogger();
+builder.Logging.AddSerilog(Log.Logger);
+
+var otlpEndpoint = configBuilder.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
+{
+    builder.Logging.AddOpenTelemetry(logging =>
+    {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0")
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["service.namespace"] = "DOrc",
+                ["deployment.environment"] = configurationSettings.GetEnvironment(),
+                ["host.name"] = Environment.MachineName
+            }));
+
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
+}
+#endregion
+
+// Create logger factory early for secrets reader
+var secretsReaderLogger = new SerilogLoggerFactory()
+        .CreateLogger<OnePasswordSecretsReader>();
+var secretsReader = new OnePasswordSecretsReader(configurationSettings, secretsReaderLogger);
 
 builder.Services.AddSingleton<IConfigurationSecretsReader>(secretsReader);
 
@@ -171,42 +211,46 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
     });
 }
 
-static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
+static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
-    if (authenticationScheme is not ConfigAuthScheme.OAuth)
+    string? authority = configurationSettings.GetOAuthAuthority();
+    string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
+    
+    services.AddSwaggerGen(options =>
     {
-        services.AddSwaggerGen();
-    }
-    else
-    {
-        services.AddSwaggerGen(options =>
+        // Always configure OAuth2 for Swagger UI regardless of auth scheme
+        options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
         {
-            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            Type = SecuritySchemeType.OAuth2,
+            Flows = new OpenApiOAuthFlows
             {
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                Scheme = "Bearer",
-                BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Description = "Enter 'Bearer {your JWT token}' to authenticate."
-            });
-
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                AuthorizationCode = new OpenApiOAuthFlow
                 {
+                    AuthorizationUrl = new Uri($"{authority}/connect/authorize"),
+                    TokenUrl = new Uri($"{authority}/connect/token"),
+                    Scopes = new Dictionary<string, string>
                     {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        new string[] { }
+                        { dorcApiGlobalScope, "Access to DORC API" }
                     }
-                });
+                }
+            }
         });
-    }
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "oauth2"
+                    }
+                },
+                new[] { dorcApiGlobalScope }
+            }
+        });
+    });
 }
 
 builder.Services
@@ -221,11 +265,12 @@ builder.Services
         opts.JsonSerializerOptions.MaxDepth = 64;
         opts.JsonSerializerOptions.IncludeFields = true;
         opts.JsonSerializerOptions.Converters.Add(new ExceptionJsonConverter());
+        opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
 builder.Services.AddEndpointsApiExplorer();
-AddSwaggerGen(builder.Services, authenticationScheme);
+AddSwaggerGen(builder.Services, configurationSettings);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
@@ -244,6 +289,7 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
+builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
 builder.Host.UseLamar((context, registry) =>
 {
@@ -258,8 +304,6 @@ builder.Host.UseLamar((context, registry) =>
 
     registry.AddControllers();
 });
-
-XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
 var cxnString = configurationSettings.GetDorcConnectionString();
 builder.Services.AddScoped<DeploymentContext>(_ => new DeploymentContext(cxnString));
@@ -291,7 +335,13 @@ var app = builder.Build();
 app.UseIpRateLimiting();
 
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.OAuthClientId(configurationSettings.GetOAuthUiClientId());
+    c.OAuthAppName("DORC API");
+    c.OAuthUsePkce();
+    c.OAuthScopes(configurationSettings.GetOAuthApiGlobalScope());
+});
 app.UseExceptionHandler(_ => { }); // empty lambda is required until https://github.com/dotnet/aspnetcore/issues/51888 is fixed
 app.UseCors(dorcCorsRefDataPolicy);
 

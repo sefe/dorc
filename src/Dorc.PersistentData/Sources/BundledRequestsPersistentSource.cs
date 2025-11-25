@@ -2,7 +2,7 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
@@ -11,11 +11,11 @@ namespace Dorc.PersistentData.Sources
     public class BundledRequestsPersistentSource : IBundledRequestsPersistentSource
     {
         private readonly IDeploymentContextFactory contextFactory;
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         public BundledRequestsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILog logger)
+            ILogger<BundledRequestsPersistentSource> logger)
         {
             this.contextFactory = contextFactory;
             this.logger = logger;
@@ -43,7 +43,7 @@ namespace Dorc.PersistentData.Sources
                 return context.BundledRequests.Where(br => br.ProjectId == project.Id).AsNoTracking().Select(requests =>
                     MapToBundledRequestApiModel(requests)).ToList();
 
-            logger.Warn($"Project with name {projectName} not found");
+            logger.LogWarning($"Project with name {projectName} not found");
             return new List<BundledRequestsApiModel>();
         }
 
@@ -60,7 +60,7 @@ namespace Dorc.PersistentData.Sources
 
             if (exists)
             {
-                logger.Warn($"A bundled request with ProjectId {model.ProjectId}, BundleName '{model.BundleName}', and RequestName '{model.RequestName}' already exists.");
+                logger.LogWarning($"A bundled request with ProjectId {model.ProjectId}, BundleName '{model.BundleName}', and RequestName '{model.RequestName}' already exists.");
                 return; // Do not add the duplicate entry
             }
 
@@ -94,7 +94,7 @@ namespace Dorc.PersistentData.Sources
             }
             else
             {
-                logger.Warn($"Bundle with name {model.BundleName} not found for update");
+                logger.LogWarning($"Bundle with name {model.BundleName} not found for update");
             }
         }
 
@@ -114,7 +114,7 @@ namespace Dorc.PersistentData.Sources
             else
             {
                 // Log a warning if the bundled request was not found
-                logger.Warn($"Bundled request with ID {id} not found for deletion.");
+                logger.LogWarning($"Bundled request with ID {id} not found for deletion.");
             }
         }
 

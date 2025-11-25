@@ -4,7 +4,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Win32.SafeHandles;
@@ -23,7 +23,7 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly ISqlUserPasswordReset _sqlUserPasswordReset;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IConfigurationSettings _configurationSettingsEngine;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -31,7 +31,7 @@ namespace Dorc.Api.Controllers
         public ResetAppPasswordController(IDatabasesPersistentSource databasesPersistentSource,
             ISqlUserPasswordReset sqlUserPasswordReset,
             IConfigValuesPersistentSource configValuesPersistentSource,
-            ILog logger,
+            ILogger<ResetAppPasswordController> logger,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IConfigurationSettings configurationSettingsEngine,
             IClaimsPrincipalReader claimsPrincipalReader)
@@ -79,7 +79,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", username, envName, envFilter);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }

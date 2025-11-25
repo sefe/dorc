@@ -118,6 +118,14 @@ namespace Dorc.Monitor
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
             }
         }
+
+        public string Environment
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Environment"] ?? "unknown";
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration

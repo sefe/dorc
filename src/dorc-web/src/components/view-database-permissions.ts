@@ -170,7 +170,7 @@ export class ViewDatabasePermissions extends LitElement {
   }
 
   sortUsers(a: UserApiModel, b: UserApiModel): number {
-    if (String(a.DisplayName) > String(b.DisplayName)) return 1;
+    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
 
     return -1;
   }

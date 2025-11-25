@@ -180,6 +180,26 @@ export class LogDialog extends LitElement {
           editorDiv.style.display = 'block';
         }
 
+        this.editor = ace.edit(editorDiv);
+        this.editor.renderer.attachToShadowRoot();
+    
+        this.editor.setTheme('ace/theme/monokai');
+        this.editor.session.setMode('ace/mode/less');
+        this.editor.getSession().setUseWorker(false);
+        this.editor.setReadOnly(true);
+        this.editor.setHighlightActiveLine(true);
+    
+        this.editor.setOptions({
+          autoScrollEditorIntoView: true,
+          enableBasicAutocompletion: false,
+          enableLiveAutocompletion: false,
+          placeholder: '',
+          enableSnippets: false
+        });
+        this.editor?.setValue(this.selectedLog ?? '');
+        this.highlightWarningsLogs();
+        this.editor?.gotoLine(1, 0, false);
+        this.editor?.clearSelection();
         // Update the editor content
         if (this.editor) {
           this.editor.setValue(this.selectedLog ?? '');

@@ -9,7 +9,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using Environment = System.Environment;
 
@@ -23,7 +23,7 @@ namespace Dorc.Core
         private const string DORCNonProdDeployUsername = "DORC_NonProdDeployUsername";
         private const string DORCNonProdDeployPassword = "DORC_NonProdDeployPassword";
 
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
@@ -31,7 +31,7 @@ namespace Dorc.Core
         private readonly string _domainName;
 
         public ServiceStatus(IConfigValuesPersistentSource configValuesPersistentSource,
-            ILog logger, IEnvironmentsPersistentSource environmentsPersistentSource,
+            ILogger<ServiceStatus> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IConfigurationSettings configurationSettingsEngine)
@@ -140,7 +140,7 @@ namespace Dorc.Core
                             }
                             catch (Exception ex)
                             {
-                                _logger.Info("Error retrieving servicesAndStatus info for " +
+                                _logger.LogInformation("Error retrieving servicesAndStatus info for " +
                                              daemonApiModel.Name + Environment.NewLine +
                                              "        " + ex.Message + Environment.NewLine +
                                              "        " + ex.InnerException);
@@ -149,14 +149,14 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.Info("Error, couldn't ping: " + serverApiModel.Name +
+                        _logger.LogInformation("Error, couldn't ping: " + serverApiModel.Name +
                                      Environment.NewLine + ex.Message);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.Info("Error building list of servers/services" + Environment.NewLine + ex.Message);
+                _logger.LogInformation("Error building list of servers/services" + Environment.NewLine + ex.Message);
             }
 
             return iResults;
@@ -180,7 +180,7 @@ namespace Dorc.Core
 
                         try
                         {
-                            _logger.Debug("Server is alive: " + sa.ServerName);
+                            _logger.LogDebug("Server is alive: " + sa.ServerName);
 
                             using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName))
                             {
@@ -196,7 +196,7 @@ namespace Dorc.Core
                         }
                         catch (Exception ex)
                         {
-                            _logger.Debug("Error retrieving servicesAndStatus info for " +
+                            _logger.LogDebug("Error retrieving servicesAndStatus info for " +
                                          sa.ServiceName + Environment.NewLine +
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
@@ -204,14 +204,14 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.Debug("Error, couldn't ping: " + sa.ServerName +
+                        _logger.LogDebug("Error, couldn't ping: " + sa.ServerName +
                                      Environment.NewLine + ex.Message);
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.Info("Error building list of servers/services" + Environment.NewLine + ex.Message);
+                _logger.LogInformation("Error building list of servers/services" + Environment.NewLine + ex.Message);
             }
 
             return resultsDict.OrderBy(kvp => kvp.Key)
