@@ -2,6 +2,8 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
+using Dorc.Core.TerraformSources;
+using Dorc.Core.AzureDevOpsServer;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
@@ -28,6 +30,7 @@ namespace Dorc.Monitor
         private readonly IDeploymentRequestProcessesPersistentSource _processesPersistentSource;
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
+        private readonly IAzureDevOpsServerWebClient _azureDevOpsClient;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -38,7 +41,8 @@ namespace Dorc.Monitor
             IConfigurationSettings configurationSettingsEngine,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IScriptGroupPipeServer scriptGroupPipeServer,
-            IAzureStorageAccountWorker azureStorageAccountWorker)
+            IAzureStorageAccountWorker azureStorageAccountWorker,
+            IAzureDevOpsServerWebClient azureDevOpsClient)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -47,6 +51,7 @@ namespace Dorc.Monitor
             this._processesPersistentSource = processesPersistentSource;
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
+            this._azureDevOpsClient = azureDevOpsClient;
         }
 
         public bool Dispatch(
@@ -88,10 +93,61 @@ namespace Dorc.Monitor
             // Get the script root from configuration
             var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
 
-            // Resolve the full script path by combining script root with component script path
-            var fullScriptPath = string.IsNullOrEmpty(scriptRoot)
-                ? component.ScriptPath
-                : Path.Combine(scriptRoot, component.ScriptPath);
+            // Retrieve Terraform source code based on component configuration
+            string fullScriptPath;
+            string? tempSourceDir = null;
+            
+            try
+            {
+                if (component.ComponentType == ComponentType.Terraform && 
+                    component.TerraformSourceType != TerraformSourceType.SharedFolder)
+                {
+                    // Create a temporary directory for Terraform source code
+                    tempSourceDir = Path.Combine(
+                        Path.GetTempPath(),
+                        "terraform-source",
+                        $"{deploymentResult.Id}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
+                    Directory.CreateDirectory(tempSourceDir);
+
+                    logger.LogInformation($"Retrieving Terraform source from {component.TerraformSourceType} for component '{component.ComponentName}'");
+
+                    // Create source provider factory and retrieve source
+                    var sourceProviderFactory = new TerraformSourceProviderFactory(
+                        _configValuesPersistentSource,
+                        _azureDevOpsClient,
+                        logger);
+                    
+                    var sourceProvider = sourceProviderFactory.Create(component, scriptRoot);
+                    var retrievalSuccess = sourceProvider.RetrieveSourceAsync(tempSourceDir, cancellationToken).GetAwaiter().GetResult();
+
+                    if (!retrievalSuccess)
+                    {
+                        logger.LogError($"Failed to retrieve Terraform source for component '{component.ComponentName}'");
+                        isScriptExecutionSuccessful = false;
+                        return isScriptExecutionSuccessful;
+                    }
+
+                    fullScriptPath = tempSourceDir;
+                    logger.LogInformation($"Terraform source retrieved successfully to '{fullScriptPath}'");
+                }
+                else
+                {
+                    // Legacy behavior: use script path from shared folder
+                    fullScriptPath = string.IsNullOrEmpty(scriptRoot)
+                        ? component.ScriptPath
+                        : Path.Combine(scriptRoot, component.ScriptPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"Failed to retrieve Terraform source: {ex.Message}");
+                if (tempSourceDir != null && Directory.Exists(tempSourceDir))
+                {
+                    try { Directory.Delete(tempSourceDir, true); } catch { }
+                }
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
 
             var scriptGroup = GetScriptGroup(
                 fullScriptPath,
@@ -246,6 +302,20 @@ namespace Dorc.Monitor
                         break;
                 }
 
+            }
+
+            // Clean up temporary source directory if it was created
+            if (tempSourceDir != null && Directory.Exists(tempSourceDir))
+            {
+                try
+                {
+                    Directory.Delete(tempSourceDir, true);
+                    logger.LogDebug($"Cleaned up temporary Terraform source directory: {tempSourceDir}");
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, $"Failed to clean up temporary Terraform source directory: {ex.Message}");
+                }
             }
 
             return true;

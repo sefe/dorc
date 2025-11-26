@@ -10,3 +10,4 @@ Example:      :setvar TableName MyTable
 --------------------------------------------------------------------------------------
 */
 :r .\CleanupOrphanedScripts.sql
+:r .\AddTerraformSourceColumns.sql

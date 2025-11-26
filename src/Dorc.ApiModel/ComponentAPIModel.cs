@@ -16,5 +16,12 @@ namespace Dorc.ApiModel
         public bool? IsEnabled { set; get; }
         public string PSVersion { set; get; }
         public ComponentType ComponentType { get; set; } = ComponentType.PowerShell;
+        
+        // Terraform source configuration
+        public TerraformSourceType TerraformSourceType { get; set; } = TerraformSourceType.SharedFolder;
+        public string TerraformGitRepoUrl { get; set; }
+        public string TerraformGitBranch { get; set; }
+        public string TerraformGitPath { get; set; }
+        public int? TerraformArtifactBuildId { get; set; }
     }
 }
