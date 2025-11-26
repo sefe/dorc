@@ -59,7 +59,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         [TestCleanup]
         public void Cleanup()
         {
-            httpClient?.Dispose();
+            // HttpClient created from IHttpClientFactory should NOT be manually disposed
+            // The factory manages the lifetime and disposes them internally
         }
 
         [TestMethod]

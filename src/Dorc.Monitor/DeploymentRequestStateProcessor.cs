@@ -256,29 +256,31 @@ namespace Dorc.Monitor
 
                 // Try to acquire distributed lock for this environment BEFORE creating the task
                 // This ensures only one monitor instance processes this environment at a time
-                IDistributedLock? envLock = null;
-                if (distributedLockService.IsEnabled)
-                {
-                    var lockKey = $"env:{requestGroup.Key}";
-                    // Lock lease time is longer than typical request duration to handle long deployments
-                    // The lock will auto-release if the monitor crashes
-                    // Using GetAwaiter().GetResult() to make synchronous call (ExecuteRequests must be sync to not block other operations)
-                    envLock = distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken).GetAwaiter().GetResult();
-                    
-                    if (envLock == null)
-                    {
-                        this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
-                        continue; // Skip this environment - another monitor is processing it
-                    }
-
-                    this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
-                }
-
                 var task = Task.Run(async () =>
                 {
+                    // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method
+                    // and to prevent closure over loop variable
+                    IDistributedLock? envLock = null;
                     try
                     {
                         monitorCancellationToken.ThrowIfCancellationRequested();
+
+                        if (distributedLockService.IsEnabled)
+                        {
+                            var lockKey = $"env:{requestGroup.Key}";
+                            // Lock lease time is longer than typical request duration to handle long deployments
+                            // The lock will auto-release if the monitor crashes
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
+                            
+                            if (envLock == null)
+                            {
+                                this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
+                                return; // Skip this environment - another monitor is processing it
+                            }
+
+                            this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
+                        }
+
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
                         requestCancellationSources!.AddOrUpdate(
                             requestToExecute.Request.Id,
