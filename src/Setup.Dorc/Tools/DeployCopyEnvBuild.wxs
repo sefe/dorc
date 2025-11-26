@@ -5,7 +5,7 @@
         <DirectoryRef Id="DeployCopyEnvBuildDir">
 
           <Component Id="DeployCopyEnvBuildConfigSetup" DiskId="1" KeyPath="yes" Guid="5ce836a5-a5d5-4314-b904-067043009bb8">
-			  <Json:JsonFile Id="DeployCopyEnvBuildConfigDOrcConnectionString" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" File="[#ToolsDeployCopyEnvBuildConfig];MultiSubnetFailover=True" />
+			  <Json:JsonFile Id="DeployCopyEnvBuildConfigDOrcConnectionString" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=True" File="[#ToolsDeployCopyEnvBuildConfig]" />
           </Component>
         </DirectoryRef>
   </Fragment>

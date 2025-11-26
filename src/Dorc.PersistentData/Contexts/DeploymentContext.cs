@@ -71,7 +71,6 @@ namespace Dorc.PersistentData.Contexts
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            //optionsBuilder.UseSqlServer(nameOrConnectionString);
             optionsBuilder.UseSqlServer(nameOrConnectionString, sqlOptions =>
             {
                 sqlOptions.EnableRetryOnFailure(
