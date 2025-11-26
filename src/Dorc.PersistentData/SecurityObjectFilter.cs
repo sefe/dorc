@@ -1,7 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Principal;
 
 namespace Dorc.PersistentData
@@ -60,8 +59,8 @@ namespace Dorc.PersistentData
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             var userAccessControls = accessControls.Where(
-                accessControl => EF.Constant(userSids).Contains(accessControl.Sid) ||
-                accessControl.Pid != null && EF.Constant(userSids).Contains(accessControl.Pid)
+                accessControl => userSids.Contains(accessControl.Sid) ||
+                accessControl.Pid != null && userSids.Contains(accessControl.Pid)
              ).ToList();
 
             return userAccessControls;
