@@ -220,7 +220,7 @@ namespace Dorc.Monitor
             }
         }
 
-        public async Task<Task[]> ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
+        public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             // Select only Pending and Confirmed requests for each of environments that do not have any Running requests.
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
@@ -262,7 +262,8 @@ namespace Dorc.Monitor
                     var lockKey = $"env:{requestGroup.Key}";
                     // Lock lease time is longer than typical request duration to handle long deployments
                     // The lock will auto-release if the monitor crashes
-                    envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
+                    // Using GetAwaiter().GetResult() to make synchronous call (ExecuteRequests must be sync to not block other operations)
+                    envLock = distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken).GetAwaiter().GetResult();
                     
                     if (envLock == null)
                     {
