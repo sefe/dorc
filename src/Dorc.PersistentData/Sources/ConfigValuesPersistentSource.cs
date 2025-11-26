@@ -8,7 +8,7 @@ namespace Dorc.PersistentData.Sources
     public class ConfigValuesPersistentSource : IConfigValuesPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private IPropertyEncryptor _propertyEncrypt;
+        private readonly IPropertyEncryptor _propertyEncrypt;
 
         public ConfigValuesPersistentSource(IDeploymentContextFactory contextFactory,
             IPropertyEncryptor propertyEncrypt)
@@ -73,11 +73,22 @@ namespace Dorc.PersistentData.Sources
             configValue.Key = model.Key;
             configValue.IsForProd = model.IsForProd;
 
-            if (!string.IsNullOrEmpty(model.Value) && model.Value != configValue.Value)
+            if (model.Value != null)
             {
-                configValue.Value = configValue.Secure
-                    ? _propertyEncrypt.EncryptValue(model.Value)
-                    : model.Value;
+                string? existingPlain = configValue.Secure
+                    ? _propertyEncrypt.DecryptValue(configValue.Value!)
+                    : configValue.Value;
+
+                string incomingPlain = model.Value;
+
+                bool changed = !string.Equals(incomingPlain, existingPlain, StringComparison.Ordinal);
+
+                if (changed)
+                {
+                    configValue.Value = configValue.Secure
+                        ? _propertyEncrypt.EncryptValue(incomingPlain)
+                        : incomingPlain;
+                }
             }
 
             context.SaveChanges();
