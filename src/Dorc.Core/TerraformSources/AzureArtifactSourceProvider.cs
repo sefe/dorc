@@ -16,6 +16,7 @@ namespace Dorc.Core.TerraformSources
         private readonly string _project;
         private readonly IAzureDevOpsServerWebClient _azureDevOpsClient;
         private readonly ILogger _logger;
+        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
 
         public AzureArtifactSourceProvider(
             int buildId,
@@ -58,7 +59,7 @@ namespace Dorc.Core.TerraformSources
                     artifact = artifacts[0];
                 }
 
-                _logger.LogInformation($"Downloading artifact '{artifact.Name}' from {artifact.Resource.DownloadUrl}");
+                _logger.LogInformation($"Downloading artifact '{artifact.Name}' (URL sanitized for security)");
 
                 // Download and extract the artifact
                 var downloadUrl = artifact.Resource.DownloadUrl;
@@ -80,19 +81,14 @@ namespace Dorc.Core.TerraformSources
 
             try
             {
-                // Download the artifact zip file
-                using (var httpClient = new HttpClient())
-                {
-                    httpClient.Timeout = TimeSpan.FromMinutes(10); // Longer timeout for large artifacts
-                    
-                    _logger.LogDebug($"Downloading artifact from {downloadUrl}");
-                    var response = await httpClient.GetAsync(downloadUrl, cancellationToken);
-                    response.EnsureSuccessStatusCode();
+                // Download the artifact zip file using shared HttpClient
+                _logger.LogDebug($"Downloading artifact to temporary file");
+                var response = await _httpClient.GetAsync(downloadUrl, cancellationToken);
+                response.EnsureSuccessStatusCode();
 
-                    await using (var fileStream = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                    {
-                        await response.Content.CopyToAsync(fileStream, cancellationToken);
-                    }
+                await using (var fileStream = new FileStream(tempZipPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    await response.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
                 _logger.LogDebug($"Extracting artifact to {targetDirectory}");

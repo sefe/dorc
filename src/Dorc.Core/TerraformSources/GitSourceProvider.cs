@@ -35,7 +35,7 @@ namespace Dorc.Core.TerraformSources
         {
             try
             {
-                _logger.LogInformation($"Cloning Git repository '{_repoUrl}' branch '{_branch}' to '{workingDirectory}'");
+                _logger.LogInformation($"Cloning Git repository from '{SanitizeUrlForLogging(_repoUrl)}' branch '{_branch}' to '{workingDirectory}'");
 
                 var tempCloneDir = Path.Combine(Path.GetTempPath(), $"git-clone-{Guid.NewGuid()}");
                 Directory.CreateDirectory(tempCloneDir);
@@ -51,7 +51,7 @@ namespace Dorc.Core.TerraformSources
 
                     if (!cloneResult)
                     {
-                        _logger.LogError($"Failed to clone Git repository '{_repoUrl}'");
+                        _logger.LogError($"Failed to clone Git repository from '{SanitizeUrlForLogging(_repoUrl)}'");
                         return false;
                     }
 
@@ -64,7 +64,7 @@ namespace Dorc.Core.TerraformSources
 
                     if (!checkoutResult)
                     {
-                        _logger.LogError($"Failed to checkout branch '{_branch}' from repository '{_repoUrl}'");
+                        _logger.LogError($"Failed to checkout branch '{_branch}' from repository '{SanitizeUrlForLogging(_repoUrl)}'");
                         return false;
                     }
 
@@ -75,7 +75,7 @@ namespace Dorc.Core.TerraformSources
 
                     if (!Directory.Exists(sourceDir))
                     {
-                        _logger.LogError($"Path '{_path}' does not exist in repository '{_repoUrl}'");
+                        _logger.LogError($"Path '{_path}' does not exist in repository '{SanitizeUrlForLogging(_repoUrl)}'");
                         return false;
                     }
 
@@ -102,23 +102,22 @@ namespace Dorc.Core.TerraformSources
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to retrieve Terraform code from Git repository '{_repoUrl}': {ex.Message}");
+                _logger.LogError(ex, $"Failed to retrieve Terraform code from Git repository '{SanitizeUrlForLogging(_repoUrl)}': {ex.Message}");
                 return false;
             }
         }
 
         private string GetCloneArgs(string targetDirectory)
         {
-            var repoUrlWithAuth = _repoUrl;
-            
-            // Add authentication to URL if credentials are provided
+            // Build clone URL with credentials embedded (only used internally, not logged)
+            var cloneUrl = _repoUrl;
             if (!string.IsNullOrEmpty(_gitUsername) && !string.IsNullOrEmpty(_gitPassword))
             {
                 var uri = new Uri(_repoUrl);
-                repoUrlWithAuth = $"{uri.Scheme}://{_gitUsername}:{_gitPassword}@{uri.Host}{uri.PathAndQuery}";
+                cloneUrl = $"{uri.Scheme}://{Uri.EscapeDataString(_gitUsername)}:{Uri.EscapeDataString(_gitPassword)}@{uri.Host}{uri.PathAndQuery}";
             }
-
-            return $"--branch {_branch} --single-branch {repoUrlWithAuth} \"{targetDirectory}\"";
+            
+            return $"--branch {_branch} --single-branch \"{cloneUrl}\" \"{targetDirectory}\"";
         }
 
         private async Task<bool> RunGitCommandAsync(
@@ -136,7 +135,7 @@ namespace Dorc.Core.TerraformSources
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.CreateNoWindow = true;
 
-            _logger.LogDebug($"Running Git command: git {command} {SanitizeArguments(arguments)} in {workingDir}");
+            _logger.LogDebug($"Running Git command: git {command} in {workingDir}");
 
             try
             {
@@ -149,7 +148,9 @@ namespace Dorc.Core.TerraformSources
 
                 if (process.ExitCode != 0)
                 {
-                    _logger.LogError($"Git command failed with exit code {process.ExitCode}. Error: {error}");
+                    // Sanitize error output to remove any credentials
+                    var sanitizedError = SanitizeForLogging(error);
+                    _logger.LogError($"Git command failed with exit code {process.ExitCode}. Error: {sanitizedError}");
                     return false;
                 }
 
@@ -163,14 +164,36 @@ namespace Dorc.Core.TerraformSources
             }
         }
 
-        private string SanitizeArguments(string arguments)
+        private string SanitizeUrlForLogging(string url)
         {
-            // Remove credentials from log output
+            // Remove credentials from URL for logging
+            try
+            {
+                var uri = new Uri(url);
+                if (!string.IsNullOrEmpty(uri.UserInfo))
+                {
+                    return $"{uri.Scheme}://***@{uri.Host}{uri.PathAndQuery}";
+                }
+            }
+            catch
+            {
+                // If URL parsing fails, return a safe placeholder
+            }
+            return url;
+        }
+
+        private string SanitizeForLogging(string text)
+        {
+            // Remove password from any text for logging
             if (!string.IsNullOrEmpty(_gitPassword))
             {
-                arguments = arguments.Replace(_gitPassword, "***");
+                text = text.Replace(_gitPassword, "***");
             }
-            return arguments;
+            if (!string.IsNullOrEmpty(_gitUsername))
+            {
+                text = text.Replace(_gitUsername, "***");
+            }
+            return text;
         }
 
         private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
@@ -181,14 +204,14 @@ namespace Dorc.Core.TerraformSources
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    // Skip .git directory
-                    if (file.Contains(Path.DirectorySeparatorChar + ".git" + Path.DirectorySeparatorChar) ||
-                        file.Contains(Path.AltDirectorySeparatorChar + ".git" + Path.AltDirectorySeparatorChar))
+                    // Skip .git directory by checking if any path segment is ".git"
+                    var relativePath = Path.GetRelativePath(sourceDir, file);
+                    var pathSegments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (pathSegments.Any(segment => segment.Equals(".git", StringComparison.OrdinalIgnoreCase)))
                     {
                         continue;
                     }
 
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
                     var destFile = Path.Combine(destDir, relativePath);
                     var destFileDir = Path.GetDirectoryName(destFile);
 

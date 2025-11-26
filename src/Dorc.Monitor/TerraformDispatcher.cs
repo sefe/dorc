@@ -118,6 +118,8 @@ namespace Dorc.Monitor
                         logger);
                     
                     var sourceProvider = sourceProviderFactory.Create(component, scriptRoot);
+                    // Note: Using GetAwaiter().GetResult() here is acceptable as the calling method (DeployComponent)
+                    // is synchronous by design and runs in a background worker context
                     var retrievalSuccess = sourceProvider.RetrieveSourceAsync(tempSourceDir, cancellationToken).GetAwaiter().GetResult();
 
                     if (!retrievalSuccess)
