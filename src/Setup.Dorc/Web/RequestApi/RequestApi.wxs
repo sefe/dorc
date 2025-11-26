@@ -29,7 +29,7 @@
 		  <iis:CertificateRef Id='MySSLCertApi' />
           <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApi" />
         </iis:WebSite>
-        <Json:JsonFile Id="ReqApiConnectionString" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+        <Json:JsonFile Id="ReqApiConnectionString" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=True" />
 
         <Json:JsonFile Id="WebRequestApiCors" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
 
@@ -97,7 +97,7 @@
 			  <iis:CertificateRef Id='MySSLCertApiProd' />
 			  <iis:WebApplication Id="DOrcApiWebAppProd" WebAppPool="DeployApiPoolProd" Name="DOrcApi" />
 		  </iis:WebSite>
-		  <Json:JsonFile Id="ReqApiConnectionStringProd" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+		  <Json:JsonFile Id="ReqApiConnectionStringProd" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=True" />
 
 		  <Json:JsonFile Id="WebRequestApiCorsProd" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
 
