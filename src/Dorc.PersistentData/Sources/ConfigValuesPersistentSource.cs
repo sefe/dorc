@@ -1,9 +1,7 @@
 ﻿using Dorc.ApiModel;
-using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -71,14 +69,15 @@ namespace Dorc.PersistentData.Sources
             var configValue = context.ConfigValues
                 .First(pv => pv.Id == model.Id);
 
-            configValue.Value = model.Value;
             configValue.Secure = model.Secure;
             configValue.Key = model.Key;
             configValue.IsForProd = model.IsForProd;
 
-            if (configValue.Secure)
+            if (!string.IsNullOrEmpty(model.Value) && model.Value != configValue.Value)
             {
-                configValue.Value = _propertyEncrypt.EncryptValue(configValue.Value);
+                configValue.Value = configValue.Secure
+                    ? _propertyEncrypt.EncryptValue(model.Value)
+                    : model.Value;
             }
 
             context.SaveChanges();
