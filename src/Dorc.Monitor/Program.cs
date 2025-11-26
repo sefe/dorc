@@ -116,6 +116,7 @@ builder.Services.AddTransient<IDeploymentContextFactory>(provider => new Deploym
 builder.Services.AddDbContext<DeploymentContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
     {
+        sqlOptions.CommandTimeout(60);
         sqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(10),

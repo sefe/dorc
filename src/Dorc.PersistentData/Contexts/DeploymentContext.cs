@@ -73,6 +73,7 @@ namespace Dorc.PersistentData.Contexts
         {
             optionsBuilder.UseSqlServer(nameOrConnectionString, sqlOptions =>
             {
+                sqlOptions.CommandTimeout(60);
                 sqlOptions.EnableRetryOnFailure(
                     maxRetryCount: 5,
                     maxRetryDelay: TimeSpan.FromSeconds(10),
