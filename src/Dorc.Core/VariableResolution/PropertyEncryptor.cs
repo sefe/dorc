@@ -7,12 +7,6 @@ namespace Dorc.Core.VariableResolution
     {
         private readonly Aes _provider;
 
-        private bool IsBase64(string value)
-        {
-            Span<byte> buffer = new Span<byte>(new byte[value.Length]);
-            return Convert.TryFromBase64String(value, buffer, out _);
-        }
-
         public PropertyEncryptor(string iv, string key)
         {
             try
@@ -30,7 +24,6 @@ namespace Dorc.Core.VariableResolution
         public string? DecryptValue(string value)
         {
             if (value == null) return null;
-            if (!IsBase64(value)) return value;
             var decryptor = _provider.CreateDecryptor();
 
             Span<byte> buffer = new Span<byte>(new byte[value.Length]);
