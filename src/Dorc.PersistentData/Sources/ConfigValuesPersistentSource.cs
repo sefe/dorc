@@ -1,16 +1,14 @@
 ﻿using Dorc.ApiModel;
-using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Dorc.PersistentData.Sources
 {
     public class ConfigValuesPersistentSource : IConfigValuesPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private IPropertyEncryptor _propertyEncrypt;
+        private readonly IPropertyEncryptor _propertyEncrypt;
 
         public ConfigValuesPersistentSource(IDeploymentContextFactory contextFactory,
             IPropertyEncryptor propertyEncrypt)
@@ -69,16 +67,57 @@ namespace Dorc.PersistentData.Sources
         {
             using var context = _contextFactory.GetContext();
             var configValue = context.ConfigValues
-                .First(pv => pv.Id == model.Id);
+                .FirstOrDefault(pv => pv.Id == model.Id)
+                ?? throw new Exception("Config value not found");
 
-            configValue.Value = model.Value;
+            bool oldSecure = configValue.Secure;
+            bool oldIsForProd = configValue.IsForProd.GetValueOrDefault();
+            string oldValue = configValue.Value ?? string.Empty;
+
             configValue.Secure = model.Secure;
             configValue.Key = model.Key;
             configValue.IsForProd = model.IsForProd;
 
-            if (configValue.Secure)
+            bool secureChanged = oldSecure != model.Secure;
+            bool isForProdChanged = oldIsForProd != model.IsForProd.GetValueOrDefault();
+
+            string ResolveExistingPlain()
             {
-                configValue.Value = _propertyEncrypt.EncryptValue(configValue.Value);
+                if (string.IsNullOrEmpty(oldValue)) return string.Empty;
+                if (!oldSecure) return oldValue;
+
+                try
+                {
+                    return _propertyEncrypt.DecryptValue(oldValue) ?? string.Empty;
+                }
+                catch
+                {
+                    return oldValue;
+                }
+            }
+
+            if (secureChanged)
+            {
+                if (model.Secure)
+                {
+                    string plain = model.Value ?? ResolveExistingPlain();
+                    configValue.Value = _propertyEncrypt.EncryptValue(plain);
+                }
+                else
+                {
+                    string plain = ResolveExistingPlain();
+                    configValue.Value = plain;
+                }
+            }
+            else if (!isForProdChanged && model.Value != null)
+            {
+                string existingPlain = ResolveExistingPlain();
+                if (!string.Equals(model.Value, existingPlain, StringComparison.Ordinal))
+                {
+                    configValue.Value = configValue.Secure
+                        ? _propertyEncrypt.EncryptValue(model.Value)
+                        : model.Value;
+                }
             }
 
             context.SaveChanges();
