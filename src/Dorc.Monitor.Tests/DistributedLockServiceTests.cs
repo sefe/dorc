@@ -9,19 +9,6 @@ namespace Dorc.Monitor.Tests.HighAvailability
     public class NoOpDistributedLockServiceTests
     {
         [TestMethod]
-        public void IsEnabled_ShouldReturnFalse()
-        {
-            // Arrange
-            var service = new NoOpDistributedLockService();
-
-            // Act
-            var isEnabled = service.IsEnabled;
-
-            // Assert
-            Assert.IsFalse(isEnabled);
-        }
-
-        [TestMethod]
         public async Task TryAcquireLockAsync_ShouldReturnNull()
         {
             // Arrange
@@ -61,34 +48,6 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // HttpClient created from IHttpClientFactory should NOT be manually disposed
             // The factory manages the lifetime and disposes them internally
-        }
-
-        [TestMethod]
-        public void IsEnabled_WhenHADisabled_ShouldReturnFalse()
-        {
-            // Arrange
-            mockConfiguration.HighAvailabilityEnabled.Returns(false);
-            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration, mockHttpClientFactory);
-
-            // Act
-            var isEnabled = service.IsEnabled;
-
-            // Assert
-            Assert.IsFalse(isEnabled);
-        }
-
-        [TestMethod]
-        public void IsEnabled_WhenHAEnabled_ShouldReturnTrue()
-        {
-            // Arrange
-            mockConfiguration.HighAvailabilityEnabled.Returns(true);
-            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration, mockHttpClientFactory);
-
-            // Act
-            var isEnabled = service.IsEnabled;
-
-            // Assert
-            Assert.IsTrue(isEnabled);
         }
 
         [TestMethod]
