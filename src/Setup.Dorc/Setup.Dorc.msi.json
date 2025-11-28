@@ -252,6 +252,18 @@
     {
       "MSIParameter": "HA.RABBITMQ.OAUTH.SCOPE",
       "DeployProperty": "HA_RABBITMQ_OAUTH_SCOPE"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.SSL.ENABLED",
+      "DeployProperty": "HA_RABBITMQ_SSL_ENABLED"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.SSL.SERVERNAME",
+      "DeployProperty": "HA_RABBITMQ_SSL_SERVERNAME"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.SSL.VERSION",
+      "DeployProperty": "HA_RABBITMQ_SSL_VERSION"
     }
   ]
 }

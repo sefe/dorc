@@ -83,9 +83,6 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 
 builder.Services.AddTransient<ScriptDispatcher>();
 
-// Add HttpClient for OAuth token acquisition
-builder.Services.AddHttpClient();
-
 // Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
 builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
 

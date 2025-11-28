@@ -53,6 +53,11 @@
 					<Json:JsonFile Id="HARabbitMQOAuthClientSecretNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientSecret" Value="[HA.RABBITMQ.OAUTH.CLIENTSECRET]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQOAuthTokenEndpointNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.TokenEndpoint" Value="[HA.RABBITMQ.OAUTH.TOKENENDPOINT]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQOAuthScopeNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.Scope" Value="[HA.RABBITMQ.OAUTH.SCOPE]" File="[#NonProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability SSL/TLS Configuration -->
+					<Json:JsonFile Id="HARabbitMQSslEnabledNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Enabled" Value="[HA.RABBITMQ.SSL.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslServerNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.ServerName" Value="[HA.RABBITMQ.SSL.SERVERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">

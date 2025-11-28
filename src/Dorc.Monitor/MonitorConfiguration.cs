@@ -209,6 +209,31 @@ namespace Dorc.Monitor
                 return scope ?? "";
             }
         }
+
+        public bool RabbitMqSslEnabled
+        {
+            get
+            {
+                var sslEnabled = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:Enabled"];
+                return bool.TryParse(sslEnabled, out bool result) && result;
+            }
+        }
+
+        public string? RabbitMqSslServerName
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:ServerName"];
+            }
+        }
+
+        public string? RabbitMqSslVersion
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:Version"];
+            }
+        }
                 
         public string Environment
         {

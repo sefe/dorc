@@ -26,5 +26,10 @@
         string RabbitMqOAuthClientSecret { get; }
         string RabbitMqOAuthTokenEndpoint { get; }
         string RabbitMqOAuthScope { get; }
+
+        // RabbitMQ SSL/TLS settings
+        bool RabbitMqSslEnabled { get; }
+        string? RabbitMqSslServerName { get; }
+        string? RabbitMqSslVersion { get; }
     }
 }

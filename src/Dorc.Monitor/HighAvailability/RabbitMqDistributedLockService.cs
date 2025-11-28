@@ -2,37 +2,31 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
+using RabbitMQ.Client.OAuth2;
+using System.Security.Authentication;
 
 namespace Dorc.Monitor.HighAvailability
 {
     /// <summary>
     /// RabbitMQ-based distributed lock service using quorum queues with single-active consumer pattern.
     /// Supports RabbitMQ clusters with automatic failover and ensures only one monitor instance processes deployments per environment.
-    /// Uses OAuth 2.0 client credentials flow for authentication.
+    /// Uses OAuth 2.0 client credentials flow with automatic token refresh via official RabbitMQ.Client.OAuth2 package.
     /// </summary>
     public class RabbitMqDistributedLockService : IDistributedLockService, IDisposable
     {
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
-        // HttpClient instance is managed by IHttpClientFactory and must NOT be disposed manually
-        private readonly HttpClient httpClient;
         private IConnection? connection;
+        private CredentialsRefresher? credentialsRefresher;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
-        private readonly SemaphoreSlim tokenSemaphore = new SemaphoreSlim(1, 1);
         private bool disposed = false;
-        private string? cachedToken;
-        private DateTime tokenExpiry = DateTime.MinValue;
 
         public RabbitMqDistributedLockService(
             ILogger<RabbitMqDistributedLockService> logger,
-            IMonitorConfiguration configuration,
-            IHttpClientFactory httpClientFactory)
+            IMonitorConfiguration configuration)
         {
             this.logger = logger;
             this.configuration = configuration;
-            this.httpClient = httpClientFactory.CreateClient();
         }
 
         public bool IsEnabled => configuration.HighAvailabilityEnabled;
@@ -47,7 +41,7 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                await EnsureConnectionAsync();
+                await EnsureConnectionAsync(cancellationToken);
                 
                 if (connection == null || !connection.IsOpen)
                 {
@@ -55,7 +49,7 @@ namespace Dorc.Monitor.HighAvailability
                     return null;
                 }
 
-                var channel = await connection.CreateChannelAsync();
+                var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
                 
                 // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
                 // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
@@ -70,7 +64,8 @@ namespace Dorc.Monitor.HighAvailability
                         exchange: exchangeName,
                         type: ExchangeType.Direct,
                         durable: true,
-                        autoDelete: false);
+                        autoDelete: false,
+                        cancellationToken: cancellationToken);
 
                     // Declare a quorum queue with single-active consumer for cluster support
                     // Quorum queues replicate across cluster nodes for high availability
@@ -85,20 +80,23 @@ namespace Dorc.Monitor.HighAvailability
                         durable: true, // Quorum queues must be durable
                         exclusive: false, // Quorum queues don't support exclusive mode
                         autoDelete: false, // Keep queue for lock reacquisition
-                        arguments: args);
+                        arguments: args,
+                        cancellationToken: cancellationToken);
 
                     // Bind queue to environment-specific exchange
                     await channel.QueueBindAsync(
                         queue: queueName,
                         exchange: exchangeName,
-                        routingKey: queueName);
+                        routingKey: queueName,
+                        cancellationToken: cancellationToken);
 
                     // Publish a lock message that the consumer will hold
                     var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
                     await channel.BasicPublishAsync(
                         exchange: exchangeName,
                         routingKey: queueName,
-                        body: lockMessage);
+                        body: lockMessage,
+                        cancellationToken: cancellationToken);
 
                     // Start consuming - single-active consumer ensures only one monitor processes this
                     var consumer = new AsyncEventingBasicConsumer(channel);
@@ -114,7 +112,8 @@ namespace Dorc.Monitor.HighAvailability
                     var consumerTag = await channel.BasicConsumeAsync(
                         queue: queueName,
                         autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
-                        consumer: consumer);
+                        consumer: consumer,
+                        cancellationToken: cancellationToken);
 
                     logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
                         resourceKey);
@@ -124,7 +123,7 @@ namespace Dorc.Monitor.HighAvailability
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Error acquiring lock for '{ResourceKey}'", resourceKey);
-                    await channel.CloseAsync();
+                    await channel.CloseAsync(cancellationToken: cancellationToken);
                     await channel.DisposeAsync();
                     return null;
                 }
@@ -136,9 +135,9 @@ namespace Dorc.Monitor.HighAvailability
             }
         }
 
-        private async Task EnsureConnectionAsync()
+        private async Task EnsureConnectionAsync(CancellationToken cancellationToken)
         {
-            await connectionSemaphore.WaitAsync();
+            await connectionSemaphore.WaitAsync(cancellationToken);
             try
             {
                 if (connection != null && connection.IsOpen)
@@ -149,9 +148,6 @@ namespace Dorc.Monitor.HighAvailability
 
                 try
                 {
-                    // Get OAuth token using client credentials flow
-                    var token = await GetOAuthTokenAsync();
-                    
                     var factory = new ConnectionFactory
                     {
                         HostName = configuration.RabbitMqHostName,
@@ -160,15 +156,33 @@ namespace Dorc.Monitor.HighAvailability
                         RequestedHeartbeat = TimeSpan.FromSeconds(60),
                         AutomaticRecoveryEnabled = true,
                         NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
-                        // Use OAuth token as username with empty password
-                        // RabbitMQ OAuth plugin expects token in username field
-                        UserName = token,
-                        Password = ""
+                        ClientProvidedName = $"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}"
                     };
 
-                    connection = await factory.CreateConnectionAsync($"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}");
-                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} using OAuth", 
-                        configuration.RabbitMqHostName, configuration.RabbitMqPort);
+                    // Configure OAuth 2.0 with automatic token refresh
+                    await ConfigureOAuth2Async(factory, cancellationToken);
+
+                    // Configure SSL/TLS for RabbitMQ connection if enabled
+                    if (configuration.RabbitMqSslEnabled)
+                    {
+                        var sslProtocols = GetSslProtocols();
+                        factory.Ssl = new SslOption
+                        {
+                            Enabled = true,
+                            ServerName = configuration.RabbitMqSslServerName,
+                            AcceptablePolicyErrors = System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch |
+                                                     System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors,
+                            Version = sslProtocols
+                        };
+                        logger.LogDebug("RabbitMQ SSL/TLS enabled with version {Version} and server name: {ServerName}", 
+                            sslProtocols, configuration.RabbitMqSslServerName);
+                    }
+
+                    connection = await factory.CreateConnectionAsync(cancellationToken);
+                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} with OAuth 2.0 automatic token refresh{SslInfo}", 
+                        configuration.RabbitMqHostName, 
+                        configuration.RabbitMqPort,
+                        configuration.RabbitMqSslEnabled ? " and SSL/TLS" : "");
                 }
                 catch (Exception ex)
                 {
@@ -183,66 +197,100 @@ namespace Dorc.Monitor.HighAvailability
             }
         }
 
-        private async Task<string> GetOAuthTokenAsync()
+        private async Task ConfigureOAuth2Async(ConnectionFactory factory, CancellationToken cancellationToken)
         {
-            await tokenSemaphore.WaitAsync();
-            try
+            logger.LogDebug("Configuring OAuth 2.0 with automatic token refresh for RabbitMQ");
+
+            var tokenEndpointUri = new Uri(configuration.RabbitMqOAuthTokenEndpoint);
+            var httpClientHandler = CreateHttpClientHandler();
+
+            // Create OAuth2 client with credentials
+            var oAuth2ClientBuilder = new OAuth2ClientBuilder(
+                configuration.RabbitMqOAuthClientId,
+                configuration.RabbitMqOAuthClientSecret,
+                tokenEndpointUri);
+
+            oAuth2ClientBuilder.SetHttpClientHandler(httpClientHandler);
+
+            // Add scope if provided
+            if (!string.IsNullOrWhiteSpace(configuration.RabbitMqOAuthScope))
             {
-                // Check if we have a cached token that's still valid
-                if (!string.IsNullOrEmpty(cachedToken) && DateTime.UtcNow < tokenExpiry)
-                {
-                    return cachedToken;
-                }
+                oAuth2ClientBuilder.SetScope(configuration.RabbitMqOAuthScope);
+                logger.LogDebug("OAuth 2.0 scope configured: {Scope}", configuration.RabbitMqOAuthScope);
+            }
 
-                logger.LogDebug("Acquiring OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
+            // Build the OAuth2 client (async)
+            var oAuth2Client = await oAuth2ClientBuilder.BuildAsync(cancellationToken);
 
-                // Prepare OAuth 2.0 client credentials request
-                var requestBody = new Dictionary<string, string>
-                {
-                    { "grant_type", "client_credentials" },
-                    { "client_id", configuration.RabbitMqOAuthClientId },
-                    { "client_secret", configuration.RabbitMqOAuthClientSecret }
-                };
+            // Create credentials provider
+            var credentialsProvider = new OAuth2ClientCredentialsProvider("DOrc", oAuth2Client);
 
-                // Add scope if provided
-                if (!string.IsNullOrWhiteSpace(configuration.RabbitMqOAuthScope))
-                {
-                    requestBody.Add("scope", configuration.RabbitMqOAuthScope);
-                }
+            // Create and start automatic credentials refresher in background
+            credentialsRefresher = new CredentialsRefresher(
+                credentialsProvider,
+                OnCredentialsRefreshedAsync,
+                cancellationToken);
 
-                using (var request = new HttpRequestMessage(HttpMethod.Post, configuration.RabbitMqOAuthTokenEndpoint)
-                {
-                    Content = new FormUrlEncodedContent(requestBody)
-                })
-                {
-                    var response = await httpClient.SendAsync(request);
-                    response.EnsureSuccessStatusCode();
+            // Configure connection factory with credentials provider
+            // The CredentialsRefresher will automatically manage token refresh
+            factory.CredentialsProvider = credentialsProvider;
 
-                    var tokenResponse = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>();
-                    
-                    if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+            logger.LogInformation("OAuth 2.0 credentials refresher started with proactive token refresh");
+        }
+
+        private HttpClientHandler CreateHttpClientHandler()
+        {
+            var handler = new HttpClientHandler();
+
+            // If SSL is enabled for RabbitMQ, use appropriate certificate handling for token endpoint
+            if (configuration.RabbitMqSslEnabled)
+            {
+                var sslProtocols = GetSslProtocols();
+                handler.SslProtocols = sslProtocols;
+                logger.LogDebug("HTTP client SSL/TLS version configured for OAuth token endpoint: {Version}", sslProtocols);
+
+                // Accept self-signed or mismatched certificates if server name is specified
+                if (!string.IsNullOrWhiteSpace(configuration.RabbitMqSslServerName))
+                {
+                    handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
                     {
-                        throw new InvalidOperationException("Failed to obtain OAuth token - empty response");
-                    }
+                        if (errors == System.Net.Security.SslPolicyErrors.None)
+                            return true;
 
-                    // Cache the token with a 10-second buffer before expiry
-                    cachedToken = tokenResponse.AccessToken;
-                    tokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 10);
-
-                    logger.LogDebug("Successfully acquired OAuth token, expires in {ExpiresIn} seconds", tokenResponse.ExpiresIn);
-
-                    return cachedToken;
+                        logger.LogWarning("SSL certificate validation error for OAuth token endpoint: {Errors}", errors);
+                        return false;
+                    };
                 }
             }
-            catch (Exception ex)
+
+            return handler;
+        }
+
+        private async Task OnCredentialsRefreshedAsync(Credentials? credentials, Exception? exception = null, CancellationToken cancellationToken = default)
+        {
+            if (exception == null && credentials != null)
             {
-                logger.LogError(ex, "Failed to acquire OAuth token from {TokenEndpoint}", configuration.RabbitMqOAuthTokenEndpoint);
-                throw;
+                if (credentials.ValidUntil.HasValue)
+                {
+                    var validTimespan = credentials.ValidUntil.Value;
+                    logger.LogInformation(
+                        "OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds",
+                        validTimespan.Days,
+                        validTimespan.Hours,
+                        validTimespan.Minutes,
+                        validTimespan.Seconds);
+                }
+                else
+                {
+                    logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid indefinitely");
+                }
             }
-            finally
+            else if (exception != null)
             {
-                tokenSemaphore.Release();
+                logger.LogError(exception, "Failed to refresh OAuth 2.0 credentials");
             }
+
+            await Task.CompletedTask;
         }
 
         /// <summary>
@@ -270,6 +318,27 @@ namespace Dorc.Monitor.HighAvailability
             return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
         }
 
+        /// <summary>
+        /// Parses the configured TLS version string to System.Security.Authentication.SslProtocols.
+        /// Supported values: Tls12, Tls13, TLS12_TLS13, or empty for system default.
+        /// </summary>
+        private SslProtocols GetSslProtocols()
+        {
+            if (string.IsNullOrWhiteSpace(configuration.RabbitMqSslVersion))
+            {
+                // Default to TLS 1.2+ (system will negotiate highest supported)
+                return SslProtocols.Tls12 | SslProtocols.Tls13;
+            }
+
+            return configuration.RabbitMqSslVersion.ToUpperInvariant() switch
+            {
+                "TLS12" => SslProtocols.Tls12,
+                "TLS13" => SslProtocols.Tls13,
+                "TLS12_TLS13" or "TLS1.2_TLS1.3" => SslProtocols.Tls12 | SslProtocols.Tls13,
+                _ => SslProtocols.Tls12 | SslProtocols.Tls13
+            };
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -277,8 +346,10 @@ namespace Dorc.Monitor.HighAvailability
 
             disposed = true;
             
+            credentialsRefresher?.Dispose();
+
             IConnection? connToDispose = null;
-            connectionSemaphore.Wait();
+            connectionSemaphore.Wait(TimeSpan.FromSeconds(5));
             try
             {
                 connToDispose = connection;
@@ -287,144 +358,82 @@ namespace Dorc.Monitor.HighAvailability
             finally
             {
                 connectionSemaphore.Release();
-                connectionSemaphore.Dispose();
             }
-
-            tokenSemaphore.Dispose();
 
             if (connToDispose != null)
             {
                 try
                 {
-                    connToDispose.CloseAsync().GetAwaiter().GetResult();
-                    connToDispose.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                    connToDispose.CloseAsync().Wait(TimeSpan.FromSeconds(5));
+                    connToDispose.Dispose();
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Error closing RabbitMQ connection");
+                    logger.LogWarning(ex, "Error disposing RabbitMQ connection");
                 }
             }
 
-            // Note: httpClient is created from IHttpClientFactory and should NOT be disposed manually
-            // The factory manages the lifecycle of HttpClient instances
+            connectionSemaphore.Dispose();
         }
     }
 
     /// <summary>
-    /// OAuth 2.0 token response.
-    /// </summary>
-    internal class OAuthTokenResponse
-    {
-        [JsonPropertyName("access_token")]
-        public string AccessToken { get; set; } = "";
-
-        [JsonPropertyName("token_type")]
-        public string TokenType { get; set; } = "";
-
-        [JsonPropertyName("expires_in")]
-        public int ExpiresIn { get; set; }
-
-        [JsonPropertyName("scope")]
-        public string? Scope { get; set; }
-    }
-
-    /// <summary>
-    /// Represents a lock held via a RabbitMQ quorum queue with single-active consumer.
+    /// Represents a distributed lock held via RabbitMQ single-active consumer on a quorum queue.
     /// </summary>
     internal class RabbitMqDistributedLock : IDistributedLock
     {
         private readonly ILogger logger;
-        private IChannel? channel;
+        private readonly IChannel channel;
         private readonly string queueName;
+        private readonly string resourceKey;
         private readonly string consumerTag;
         private bool disposed = false;
-        private readonly object disposeLock = new object();
 
-        public string ResourceKey { get; }
+        public string ResourceKey => resourceKey;
 
         public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey, string consumerTag)
         {
             this.logger = logger;
             this.channel = channel;
             this.queueName = queueName;
-            this.ResourceKey = resourceKey;
+            this.resourceKey = resourceKey;
             this.consumerTag = consumerTag;
-        }
-
-        public void Dispose()
-        {
-            lock (disposeLock)
-            {
-                if (disposed)
-                    return;
-
-                disposed = true;
-                
-                try
-                {
-                    if (channel != null && channel.IsOpen)
-                    {
-                        try
-                        {
-                            // Cancel the consumer to release the single-active consumer slot
-                            channel.BasicCancelAsync(consumerTag).GetAwaiter().GetResult();
-                            logger.LogDebug("Released distributed lock for resource '{ResourceKey}'", ResourceKey);
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogWarning(ex, "Error canceling consumer for '{ResourceKey}'", ResourceKey);
-                        }
-
-                        channel.CloseAsync().GetAwaiter().GetResult();
-                        channel.DisposeAsync().AsTask().GetAwaiter().GetResult();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Error disposing distributed lock for '{ResourceKey}'", ResourceKey);
-                }
-                finally
-                {
-                    channel = null;
-                }
-            }
         }
 
         public async ValueTask DisposeAsync()
         {
-            lock (disposeLock)
-            {
-                if (disposed)
-                    return;
+            if (disposed)
+                return;
 
-                disposed = true;
-            }
-            
-            if (channel != null && channel.IsOpen)
-            {
-                try
-                {
-                    // Cancel the consumer to release the single-active consumer slot
-                    await channel.BasicCancelAsync(consumerTag);
-                    logger.LogDebug("Released distributed lock for resource '{ResourceKey}'", ResourceKey);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Error canceling consumer for '{ResourceKey}'", ResourceKey);
-                }
+            disposed = true;
 
-                try
-                {
-                    await channel.CloseAsync();
-                    await channel.DisposeAsync();
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Error disposing channel for '{ResourceKey}'", ResourceKey);
-                }
+            try
+            {
+                // Cancel the consumer to release the lock
+                await channel.BasicCancelAsync(consumerTag);
+                logger.LogDebug("Cancelled consumer for lock '{ResourceKey}'", resourceKey);
             }
-            
-            channel = null;
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error cancelling consumer for lock '{ResourceKey}'", resourceKey);
+            }
+
+            try
+            {
+                // Close the channel
+                await channel.CloseAsync();
+                await channel.DisposeAsync();
+                logger.LogDebug("Closed channel for lock '{ResourceKey}'", resourceKey);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error closing channel for lock '{ResourceKey}'", resourceKey);
+            }
+        }
+
+        public void Dispose()
+        {
+            DisposeAsync().GetAwaiter().GetResult();
         }
     }
 }
