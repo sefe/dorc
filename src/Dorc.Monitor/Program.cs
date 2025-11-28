@@ -87,21 +87,8 @@ builder.Services.AddTransient<ScriptDispatcher>();
 builder.Services.AddHttpClient();
 
 // Register distributed lock service based on HA configuration
-builder.Services.AddSingleton<IDistributedLockService>(sp =>
-{
-    var config = sp.GetRequiredService<IMonitorConfiguration>();
-    var logger = sp.GetRequiredService<ILogger<RabbitMqDistributedLockService>>();
-    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-    
-    if (config.HighAvailabilityEnabled)
-    {
-        return new RabbitMqDistributedLockService(logger, config, httpClientFactory);
-    }
-    else
-    {
-        return new NoOpDistributedLockService();
-    }
-});
+// Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
+builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
 
 PersistentSourcesRegistry.Register(builder.Services);
 

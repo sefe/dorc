@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -7,8 +8,8 @@ using System.Text.Json.Serialization;
 namespace Dorc.Monitor.HighAvailability
 {
     /// <summary>
-    /// RabbitMQ-based distributed lock service using message queues with TTL for lock management.
-    /// Each lock is represented by an exclusive queue - only one consumer can connect to it at a time.
+    /// RabbitMQ-based distributed lock service using quorum queues with single-active consumer pattern.
+    /// Supports RabbitMQ clusters with automatic failover and ensures only one monitor instance processes deployments per environment.
     /// Uses OAuth 2.0 client credentials flow for authentication.
     /// </summary>
     public class RabbitMqDistributedLockService : IDistributedLockService, IDisposable
@@ -58,32 +59,39 @@ namespace Dorc.Monitor.HighAvailability
                 
                 try
                 {
-                    // Try to declare an exclusive queue - only one consumer can hold it
-                    // If another monitor already has this lock, this will throw OperationInterruptedException
+                    // Declare a quorum queue with single-active consumer for cluster support
+                    // Quorum queues replicate across cluster nodes for high availability
                     var args = new Dictionary<string, object>
                     {
-                        // Auto-delete the queue when the consumer disconnects (failover handling)
-                        { "x-expires", leaseTimeMs + 5000 } // Queue expires slightly after lease time if not deleted
+                        { "x-queue-type", "quorum" }, // Use quorum queue for cluster replication
+                        { "x-single-active-consumer", true } // Only one consumer gets messages at a time
                     };
 
                     await channel.QueueDeclareAsync(
                         queue: queueName,
-                        durable: false,
-                        exclusive: true, // This is the key - only one connection can have this queue
-                        autoDelete: true,
+                        durable: true, // Quorum queues must be durable
+                        exclusive: false, // Quorum queues don't support exclusive mode
+                        autoDelete: false, // Keep queue for lock reacquisition
                         arguments: args);
 
-                    logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' with lease {LeaseMs}ms", 
-                        resourceKey, leaseTimeMs);
+                    // Publish a lock message that the consumer will hold
+                    var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
+                    await channel.BasicPublishAsync(
+                        exchange: "",
+                        routingKey: queueName,
+                        body: lockMessage);
 
-                    return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey);
-                }
-                catch (OperationInterruptedException ex) when (ex.ShutdownReason.ReplyCode == 405) // RESOURCE_LOCKED
-                {
-                    logger.LogDebug("Failed to acquire lock for '{ResourceKey}' - already locked by another instance", resourceKey);
-                    await channel.CloseAsync();
-                    await channel.DisposeAsync();
-                    return null;
+                    // Start consuming - single-active consumer ensures only one monitor processes this
+                    var consumer = new AsyncEventingBasicConsumer(channel);
+                    var consumerTag = await channel.BasicConsumeAsync(
+                        queue: queueName,
+                        autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
+                        consumer: consumer);
+
+                    logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
+                        resourceKey);
+
+                    return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey, consumerTag);
                 }
                 catch (Exception ex)
                 {
@@ -268,34 +276,26 @@ namespace Dorc.Monitor.HighAvailability
     }
 
     /// <summary>
-    /// Represents a lock held via an exclusive RabbitMQ queue.
+    /// Represents a lock held via a RabbitMQ quorum queue with single-active consumer.
     /// </summary>
     internal class RabbitMqDistributedLock : IDistributedLock
     {
         private readonly ILogger logger;
         private IChannel? channel;
         private readonly string queueName;
+        private readonly string consumerTag;
         private bool disposed = false;
         private readonly object disposeLock = new object();
 
         public string ResourceKey { get; }
 
-        public bool IsValid => !disposed && channel != null && channel.IsOpen;
-
-        public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey)
+        public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey, string consumerTag)
         {
             this.logger = logger;
             this.channel = channel;
             this.queueName = queueName;
             this.ResourceKey = resourceKey;
-        }
-
-        public Task<bool> RenewLeaseAsync(int leaseTimeMs, CancellationToken cancellationToken)
-        {
-            // With exclusive queues, as long as the connection is alive, the lock is held
-            // The queue will auto-delete when connection closes, so no explicit renewal needed
-            // Just verify the channel is still open
-            return Task.FromResult(IsValid);
+            this.consumerTag = consumerTag;
         }
 
         public void Dispose()
@@ -311,15 +311,15 @@ namespace Dorc.Monitor.HighAvailability
                 {
                     if (channel != null && channel.IsOpen)
                     {
-                        // Delete the queue to release the lock immediately
                         try
                         {
-                            channel.QueueDeleteAsync(queueName).GetAwaiter().GetResult();
+                            // Cancel the consumer to release the single-active consumer slot
+                            channel.BasicCancelAsync(consumerTag).GetAwaiter().GetResult();
                             logger.LogDebug("Released distributed lock for resource '{ResourceKey}'", ResourceKey);
                         }
                         catch (Exception ex)
                         {
-                            logger.LogWarning(ex, "Error deleting lock queue for '{ResourceKey}'", ResourceKey);
+                            logger.LogWarning(ex, "Error canceling consumer for '{ResourceKey}'", ResourceKey);
                         }
 
                         channel.CloseAsync().GetAwaiter().GetResult();
@@ -348,12 +348,13 @@ namespace Dorc.Monitor.HighAvailability
             {
                 try
                 {
-                    await channel.QueueDeleteAsync(queueName);
+                    // Cancel the consumer to release the single-active consumer slot
+                    await channel.BasicCancelAsync(consumerTag);
                     logger.LogDebug("Released distributed lock for resource '{ResourceKey}'", ResourceKey);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Error deleting lock queue for '{ResourceKey}'", ResourceKey);
+                    logger.LogWarning(ex, "Error canceling consumer for '{ResourceKey}'", ResourceKey);
                 }
 
                 try

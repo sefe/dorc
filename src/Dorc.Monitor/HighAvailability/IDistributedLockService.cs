@@ -30,19 +30,5 @@ namespace Dorc.Monitor.HighAvailability
         /// The resource key this lock is for.
         /// </summary>
         string ResourceKey { get; }
-
-        /// <summary>
-        /// Renews the lock lease to prevent it from expiring.
-        /// Should be called periodically during long-running operations.
-        /// </summary>
-        /// <param name="leaseTimeMs">Extended lease time in milliseconds</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>True if renewal was successful, false otherwise</returns>
-        Task<bool> RenewLeaseAsync(int leaseTimeMs, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Gets whether this lock is still valid (not expired or released).
-        /// </summary>
-        bool IsValid { get; }
     }
 }
