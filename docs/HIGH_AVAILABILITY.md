@@ -12,16 +12,18 @@ The HA implementation uses RabbitMQ as a distributed coordination service. Key f
 
 1. **Environment-Level Locking**: Each deployment environment (e.g., "Production", "Staging") can only be processed by one monitor instance at a time
 2. **Sequential Execution**: Deployments within an environment execute sequentially, never in parallel
-3. **Automatic Failover**: If a monitor crashes, its locks are automatically released, allowing other monitors to take over
+3. **Automatic Failover**: If a monitor crashes, its locks are automatically released (via message redelivery), allowing other monitors to take over
 4. **Cross-Environment Parallelism**: Different environments can be processed simultaneously by different monitor instances
+5. **Multi-Tenancy**: Multiple DOrc instances (Prod/Staging/Dev) can share a single RabbitMQ cluster with complete isolation
 
 ### Lock Mechanism
 
-- Uses RabbitMQ **exclusive queues** for lock management
-- Each environment gets a unique queue: `dorc.lock.env:{environmentName}`
-- Only one monitor can declare an exclusive queue at a time
-- Queues auto-delete when the monitor disconnects (automatic cleanup on crash)
-- Lock leases prevent indefinite locking if a monitor hangs
+- Uses RabbitMQ **quorum queues with single-active consumer** for lock management
+- Each DOrc environment gets its own exchange: `dorc.{environment}` (e.g., `dorc.prod`, `dorc.staging`)
+- Each deployment environment gets a queue bound to the exchange: `lock.env:{environmentName}`
+- Single-active consumer ensures only one monitor receives messages from a queue
+- Lock held by not acknowledging the message until deployment completes
+- Message automatically redelivered when consumer disconnects (automatic cleanup on crash)
 
 ## Prerequisites
 

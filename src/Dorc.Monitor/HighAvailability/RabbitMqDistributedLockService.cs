@@ -56,12 +56,21 @@ namespace Dorc.Monitor.HighAvailability
 
                 var channel = await connection.CreateChannelAsync();
                 
-                // Include environment in queue name to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
-                var environment = configuration.Environment.ToLowerInvariant();
-                var queueName = $"dorc.{environment}.lock.{resourceKey}";
+                // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
+                // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
+                var environment = SanitizeEnvironmentName(configuration.Environment);
+                var exchangeName = $"dorc.{environment}";
+                var queueName = $"lock.{resourceKey}";
                 
                 try
                 {
+                    // Declare a direct exchange for this DOrc environment
+                    await channel.ExchangeDeclareAsync(
+                        exchange: exchangeName,
+                        type: ExchangeType.Direct,
+                        durable: true,
+                        autoDelete: false);
+
                     // Declare a quorum queue with single-active consumer for cluster support
                     // Quorum queues replicate across cluster nodes for high availability
                     var args = new Dictionary<string, object>
@@ -77,10 +86,16 @@ namespace Dorc.Monitor.HighAvailability
                         autoDelete: false, // Keep queue for lock reacquisition
                         arguments: args);
 
+                    // Bind queue to environment-specific exchange
+                    await channel.QueueBindAsync(
+                        queue: queueName,
+                        exchange: exchangeName,
+                        routingKey: queueName);
+
                     // Publish a lock message that the consumer will hold
                     var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
                     await channel.BasicPublishAsync(
-                        exchange: "",
+                        exchange: exchangeName,
                         routingKey: queueName,
                         body: lockMessage);
 
@@ -218,6 +233,31 @@ namespace Dorc.Monitor.HighAvailability
             {
                 tokenSemaphore.Release();
             }
+        }
+
+        /// <summary>
+        /// Sanitizes the environment name for use in RabbitMQ exchange names.
+        /// Converts to lowercase and replaces spaces and special characters with hyphens.
+        /// </summary>
+        private static string SanitizeEnvironmentName(string environment)
+        {
+            if (string.IsNullOrWhiteSpace(environment))
+            {
+                return "default";
+            }
+
+            // Convert to lowercase
+            var sanitized = environment.ToLowerInvariant();
+            
+            // Replace spaces and invalid characters with hyphens
+            // RabbitMQ exchange names can contain: letters, digits, hyphen, underscore, period, colon
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"[^a-z0-9\-_.:]+", "-");
+            
+            // Remove leading/trailing hyphens
+            sanitized = sanitized.Trim('-');
+            
+            // If empty after sanitization, use default
+            return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
         }
 
         public void Dispose()

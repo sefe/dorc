@@ -6,29 +6,35 @@ This implementation adds high availability (HA) support to the DOrc Monitor serv
 ## Technical Approach
 
 ### Distributed Locking with RabbitMQ
-The implementation uses **RabbitMQ exclusive queues** as the distributed locking mechanism:
+The implementation uses **RabbitMQ quorum queues with single-active consumer** as the distributed locking mechanism:
 
-1. **Lock Acquisition**: When a monitor wants to process a deployment for an environment, it attempts to declare an exclusive queue named `dorc.lock.env:{environmentName}`
-2. **Exclusive Property**: RabbitMQ allows only one connection to declare/hold an exclusive queue at a time
-3. **Lock Release**: The queue is automatically deleted when:
+1. **Exchange-Based Isolation**: Each DOrc environment (Prod/Staging/Dev) uses its own RabbitMQ exchange (e.g., `dorc.prod`, `dorc.staging`)
+2. **Queue per Resource**: Each deployment environment gets a queue (e.g., `lock.env:Production`) bound to the DOrc environment's exchange
+3. **Single-Active Consumer**: RabbitMQ ensures only one consumer receives messages from a queue at a time
+4. **Lock Release**: Locks are automatically released when:
    - The monitor explicitly releases the lock (normal completion)
-   - The monitor crashes or disconnects (automatic failover)
-4. **Lock Lease**: Queues have a TTL to prevent indefinite locking if a monitor hangs
+   - The monitor crashes or disconnects (automatic failover via message redelivery)
 
 ### Key Design Decisions
 
 #### Why RabbitMQ?
 - **Requirement**: Issue specified "stick to using RabbitMQ"
 - **Proven Technology**: Industry-standard message broker
-- **Built-in Features**: Exclusive queues provide exactly-once semantics
-- **Automatic Cleanup**: Queues auto-delete on disconnect (perfect for failover)
+- **Built-in Features**: Single-active consumer provides exactly-once semantics
+- **Automatic Cleanup**: Message redelivery on disconnect (perfect for failover)
 - **High Performance**: Minimal overhead (~10-50ms per lock operation)
 
 #### Why Quorum Queues with Single-Active Consumer?
 - **Cluster Support**: Quorum queues replicate across RabbitMQ cluster nodes for high availability
 - **Automatic Failover**: Single-active consumer ensures only one monitor holds the lock; automatic failover if consumer crashes
-- **Reliable**: No manual lock management or TTL renewal - lock held by not acknowledging message
+- **Reliable**: No manual lock management - lock held by not acknowledging message
 - **Failsafe**: Message redelivered automatically on consumer crash/disconnect
+
+#### Why Environment-Specific Exchanges?
+- **Multi-Tenancy**: Multiple DOrc instances (Prod/Staging/Dev) can share a single RabbitMQ cluster
+- **Clean Isolation**: Each DOrc environment has its own exchange namespace
+- **Simpler Queue Names**: Queue names are simple (e.g., `lock.env:Production`) without environment prefixes
+- **Standard Pattern**: Follows RabbitMQ best practices for multi-tenant applications
 
 #### Environment-Level Locking
 - **Granularity**: Locks are per-environment, not per-request
