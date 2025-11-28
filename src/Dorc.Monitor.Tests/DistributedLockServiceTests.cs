@@ -29,7 +29,6 @@ namespace Dorc.Monitor.Tests.HighAvailability
         private ILogger<RabbitMqDistributedLockService> mockLogger;
         private IMonitorConfiguration mockConfiguration;
         private IHttpClientFactory mockHttpClientFactory;
-        private HttpClient? httpClient;
 
         [TestInitialize]
         public void Setup()
@@ -38,16 +37,14 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration = Substitute.For<IMonitorConfiguration>();
             mockHttpClientFactory = Substitute.For<IHttpClientFactory>();
             
-            // Setup a default HttpClient that will be tracked for disposal
-            httpClient = new HttpClient();
-            mockHttpClientFactory.CreateClient(Arg.Any<string>()).Returns(httpClient);
+            // IHttpClientFactory manages HttpClient lifetime - no manual disposal needed
+            mockHttpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
         }
 
         [TestCleanup]
         public void Cleanup()
         {
-            // HttpClient created from IHttpClientFactory should NOT be manually disposed
-            // The factory manages the lifetime and disposes them internally
+            // IHttpClientFactory manages HttpClient lifetime
         }
 
         [TestMethod]

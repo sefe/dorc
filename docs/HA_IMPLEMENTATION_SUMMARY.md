@@ -65,8 +65,8 @@ The implementation uses **RabbitMQ quorum queues with single-active consumer** a
            ┌───────────────────────────────┐
            │         RabbitMQ Server       │
            │                               │
-           │  Queue: dorc.lock.env:Prod    │ ◄─ Monitor 1 holds
-           │  Queue: dorc.lock.env:Staging │ ◄─ Monitor 2 holds
+           │  Queue: lock.env:Prod         │ ◄─ Monitor 1 holds
+           │  Queue: lock.env:Staging      │ ◄─ Monitor 2 holds
            └───────────────────────────────┘
                            ▲
                            │

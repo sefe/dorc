@@ -256,6 +256,7 @@ namespace Dorc.Monitor
 
                 // Try to acquire distributed lock for this environment BEFORE creating the task
                 // This ensures only one monitor instance processes this environment at a time
+                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
                 var task = Task.Run(async () =>
                 {
                     // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method

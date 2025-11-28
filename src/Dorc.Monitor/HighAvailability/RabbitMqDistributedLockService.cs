@@ -16,6 +16,7 @@ namespace Dorc.Monitor.HighAvailability
     {
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
+        // HttpClient instance is managed by IHttpClientFactory and must NOT be disposed manually
         private readonly HttpClient httpClient;
         private IConnection? connection;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
@@ -101,6 +102,15 @@ namespace Dorc.Monitor.HighAvailability
 
                     // Start consuming - single-active consumer ensures only one monitor processes this
                     var consumer = new AsyncEventingBasicConsumer(channel);
+                    
+                    // Attach event handler to receive and hold the message
+                    consumer.ReceivedAsync += async (model, ea) =>
+                    {
+                        // Message received - lock is held by NOT acknowledging
+                        // The lock will be released when consumer is cancelled (in Dispose)
+                        await Task.CompletedTask;
+                    };
+                    
                     var consumerTag = await channel.BasicConsumeAsync(
                         queue: queueName,
                         autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
@@ -382,10 +392,13 @@ namespace Dorc.Monitor.HighAvailability
 
         public async ValueTask DisposeAsync()
         {
-            if (disposed)
-                return;
+            lock (disposeLock)
+            {
+                if (disposed)
+                    return;
 
-            disposed = true;
+                disposed = true;
+            }
             
             if (channel != null && channel.IsOpen)
             {

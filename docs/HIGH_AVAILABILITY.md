@@ -181,7 +181,7 @@ Both monitors can work simultaneously on different environments.
 1. Access RabbitMQ Management UI: `http://rabbitmq-server:15672`
 2. Login with configured credentials
 3. Check the **Connections** tab - you should see active connections from each monitor
-4. Check the **Queues** tab - you should see `dorc.lock.env:*` queues when deployments are running
+4. Check the **Queues** tab - you should see `lock.env:*` queues when deployments are running
 
 ### Log Messages
 
