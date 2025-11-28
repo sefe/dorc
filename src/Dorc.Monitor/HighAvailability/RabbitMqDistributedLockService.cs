@@ -17,7 +17,6 @@ namespace Dorc.Monitor.HighAvailability
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
         private IConnection? connection;
-        private CredentialsRefresher? credentialsRefresher;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
         private HttpClientHandler? httpClientHandler;
@@ -226,21 +225,24 @@ namespace Dorc.Monitor.HighAvailability
             // Build the OAuth2 client (async)
             var oAuth2Client = await oAuth2ClientBuilder.BuildAsync(cancellationToken);
 
-            // Create credentials provider
+            // Create credentials provider - this handles OAuth token acquisition and caching
             var credentialsProvider = new OAuth2ClientCredentialsProvider("DOrc", oAuth2Client);
 
-            // Create and start automatic credentials refresher in background
-            // Use service-lifetime cancellation token, not request-scoped one
-            credentialsRefresher = new CredentialsRefresher(
-                credentialsProvider,
-                OnCredentialsRefreshedAsync,
-                serviceCts.Token);
+            // Get initial token to ensure credentials are available before first connection attempt
+            // This primes the credentials provider so it has a valid token ready
+            var initialCredentials = await credentialsProvider.GetCredentialsAsync(cancellationToken);
+            logger.LogDebug("Initial OAuth 2.0 token acquired. Valid for {Days}d {Hours}h {Minutes}m {Seconds}s",
+                initialCredentials.ValidUntil?.Days ?? 0,
+                initialCredentials.ValidUntil?.Hours ?? 0,
+                initialCredentials.ValidUntil?.Minutes ?? 0,
+                initialCredentials.ValidUntil?.Seconds ?? 0);
 
-            // Configure connection factory with credentials provider
-            // The CredentialsRefresher will automatically manage token refresh
+            // Configure connection factory with OAuth credentials provider
+            // The CredentialsProvider will be called by RabbitMQ.Client for each connection attempt
+            // It automatically returns the cached token if still valid, or acquires a new one if expired
             factory.CredentialsProvider = credentialsProvider;
 
-            logger.LogInformation("OAuth 2.0 credentials refresher started with proactive token refresh");
+            logger.LogInformation("OAuth 2.0 credentials provider configured. RabbitMQ.Client will use OAuth tokens for authentication");
         }
 
         private HttpClientHandler CreateHttpClientHandler()
@@ -273,33 +275,6 @@ namespace Dorc.Monitor.HighAvailability
             }
 
             return handler;
-        }
-
-        private async Task OnCredentialsRefreshedAsync(Credentials? credentials, Exception? exception = null, CancellationToken cancellationToken = default)
-        {
-            if (exception == null && credentials != null)
-            {
-                if (credentials.ValidUntil.HasValue)
-                {
-                    var validTimespan = credentials.ValidUntil.Value;
-                    logger.LogInformation(
-                        "OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds",
-                        validTimespan.Days,
-                        validTimespan.Hours,
-                        validTimespan.Minutes,
-                        validTimespan.Seconds);
-                }
-                else
-                {
-                    logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid indefinitely");
-                }
-            }
-            else if (exception != null)
-            {
-                logger.LogError(exception, "Failed to refresh OAuth 2.0 credentials");
-            }
-
-            await Task.CompletedTask;
         }
 
         /// <summary>
@@ -365,8 +340,6 @@ namespace Dorc.Monitor.HighAvailability
             {
                 logger.LogWarning(ex, "Error cancelling service operations during disposal");
             }
-            
-            credentialsRefresher?.Dispose();
 
             IConnection? connToDispose = null;
             connectionSemaphore.Wait(TimeSpan.FromSeconds(5));
