@@ -158,7 +158,9 @@ namespace Dorc.Monitor.HighAvailability
                         RequestedHeartbeat = TimeSpan.FromSeconds(60),
                         AutomaticRecoveryEnabled = true,
                         NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
-                        ClientProvidedName = $"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}"
+                        ClientProvidedName = $"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}",
+                        UserName = "dorc-oauth",
+                        Password = "oauth"
                     };
 
                     // Configure OAuth 2.0 with automatic token refresh
