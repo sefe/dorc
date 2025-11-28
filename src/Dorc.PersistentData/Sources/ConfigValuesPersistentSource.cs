@@ -63,6 +63,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        /// Only one property changes per request (Secure OR IsForProd OR Value).
         public ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel model)
         {
             using var context = _contextFactory.GetContext();
@@ -70,56 +71,47 @@ namespace Dorc.PersistentData.Sources
                 .FirstOrDefault(pv => pv.Id == model.Id)
                 ?? throw new KeyNotFoundException($"Config value with Id={model.Id} not found.");
 
-            bool oldSecure = configValue.Secure;
-            bool oldIsForProd = configValue.IsForProd.GetValueOrDefault();
             string oldValue = configValue.Value ?? string.Empty;
+            string oldPlain = oldValue;
 
-            configValue.Secure = model.Secure;
-            configValue.Key = model.Key;
-            configValue.IsForProd = model.IsForProd;
-
-            bool secureChanged = oldSecure != model.Secure;
-            bool isForProdChanged = oldIsForProd != model.IsForProd.GetValueOrDefault();
-
-            string ResolveExistingPlain()
+            if (configValue.Secure && !string.IsNullOrEmpty(oldValue))
             {
-                if (string.IsNullOrEmpty(oldValue)) return string.Empty;
-                if (!oldSecure) return oldValue;
-
-                var plain = _propertyEncrypt.DecryptValue(oldValue);
-                if (plain == null)
-                    throw new ApplicationException($"Failed to decrypt secure value for Id={configValue.Id}");
-                return plain;
+                oldPlain = _propertyEncrypt.DecryptValue(oldValue)
+                    ?? throw new ApplicationException($"Failed to decrypt secure value for Id={configValue.Id}");
             }
 
-            string existingPlain = ResolveExistingPlain();
-
-            if (secureChanged)
+            // 1) If Secure changed encrypt/decrypt value
+            if (configValue.Secure != model.Secure)
             {
                 if (model.Secure)
                 {
                     if (model.Value == null)
-                        throw new ArgumentException("When toggling Secure to true, model.Value must contain plaintext.");
+                        throw new ArgumentException("Value required when Secure=true.");
                     configValue.Value = _propertyEncrypt.EncryptValue(model.Value);
                 }
                 else
                 {
-                    configValue.Value = existingPlain;
+                    configValue.Value = oldPlain;
                 }
             }
 
-            else if (model.Value != null && !isForProdChanged)
+            // 2) Else if IsForProd changed update the flag
+            else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
             {
-                bool sameAsStored = string.Equals(model.Value, configValue.Value, StringComparison.Ordinal);
-                bool sameAsPlain = string.Equals(model.Value, existingPlain, StringComparison.Ordinal);
-
-                if (!sameAsStored && !sameAsPlain)
-                {
-                    configValue.Value = configValue.Secure
-                        ? _propertyEncrypt.EncryptValue(model.Value)
-                        : model.Value;
-                }
+                configValue.IsForProd = model.IsForProd;
             }
+
+            // 3) Else if Value changed update (encrypt if Secure)
+            else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
+            {
+                configValue.Value = model.Secure
+                    ? _propertyEncrypt.EncryptValue(model.Value)
+                    : model.Value;
+            }
+
+            configValue.Secure = model.Secure;
+            configValue.IsForProd = model.IsForProd;
+            configValue.Key = model.Key;
 
             context.SaveChanges();
             return MapToConfigValueApiModel(configValue);
