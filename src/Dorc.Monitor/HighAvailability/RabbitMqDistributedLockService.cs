@@ -55,7 +55,10 @@ namespace Dorc.Monitor.HighAvailability
                 }
 
                 var channel = await connection.CreateChannelAsync();
-                var queueName = $"dorc.lock.{resourceKey}";
+                
+                // Include environment in queue name to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
+                var environment = configuration.Environment.ToLowerInvariant();
+                var queueName = $"dorc.{environment}.lock.{resourceKey}";
                 
                 try
                 {
