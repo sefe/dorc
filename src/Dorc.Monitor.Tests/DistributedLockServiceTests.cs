@@ -28,23 +28,12 @@ namespace Dorc.Monitor.Tests.HighAvailability
     {
         private ILogger<RabbitMqDistributedLockService> mockLogger;
         private IMonitorConfiguration mockConfiguration;
-        private IHttpClientFactory mockHttpClientFactory;
 
         [TestInitialize]
         public void Setup()
         {
             mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
             mockConfiguration = Substitute.For<IMonitorConfiguration>();
-            mockHttpClientFactory = Substitute.For<IHttpClientFactory>();
-            
-            // IHttpClientFactory manages HttpClient lifetime - no manual disposal needed
-            mockHttpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
-        }
-
-        [TestCleanup]
-        public void Cleanup()
-        {
-            // IHttpClientFactory manages HttpClient lifetime
         }
 
         [TestMethod]
@@ -52,7 +41,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // Arrange
             mockConfiguration.HighAvailabilityEnabled.Returns(false);
-            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration, mockHttpClientFactory);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
             var cancellationToken = CancellationToken.None;
 
             // Act
@@ -75,7 +64,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration.RabbitMqOAuthScope.Returns("");
             mockConfiguration.RabbitMqVirtualHost.Returns("/");
 
-            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration, mockHttpClientFactory);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
             var cancellationToken = CancellationToken.None;
 
             // Act
@@ -91,7 +80,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // Arrange
             mockConfiguration.HighAvailabilityEnabled.Returns(false);
-            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration, mockHttpClientFactory);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
 
             // Act & Assert - should not throw
             service.Dispose();
@@ -102,7 +91,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // Arrange
             mockConfiguration.HighAvailabilityEnabled.Returns(false);
-            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration, mockHttpClientFactory);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
 
             // Act & Assert - should not throw
             service.Dispose();

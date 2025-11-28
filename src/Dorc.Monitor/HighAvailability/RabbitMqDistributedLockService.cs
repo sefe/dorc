@@ -19,6 +19,8 @@ namespace Dorc.Monitor.HighAvailability
         private IConnection? connection;
         private CredentialsRefresher? credentialsRefresher;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
+        private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
+        private HttpClientHandler? httpClientHandler;
         private bool disposed = false;
 
         public RabbitMqDistributedLockService(
@@ -226,10 +228,11 @@ namespace Dorc.Monitor.HighAvailability
             var credentialsProvider = new OAuth2ClientCredentialsProvider("DOrc", oAuth2Client);
 
             // Create and start automatic credentials refresher in background
+            // Use service-lifetime cancellation token, not request-scoped one
             credentialsRefresher = new CredentialsRefresher(
                 credentialsProvider,
                 OnCredentialsRefreshedAsync,
-                cancellationToken);
+                serviceCts.Token);
 
             // Configure connection factory with credentials provider
             // The CredentialsRefresher will automatically manage token refresh
@@ -240,7 +243,11 @@ namespace Dorc.Monitor.HighAvailability
 
         private HttpClientHandler CreateHttpClientHandler()
         {
+            // Dispose previous handler if it exists
+            httpClientHandler?.Dispose();
+            
             var handler = new HttpClientHandler();
+            httpClientHandler = handler;
 
             // If SSL is enabled for RabbitMQ, use appropriate certificate handling for token endpoint
             if (configuration.RabbitMqSslEnabled)
@@ -257,8 +264,8 @@ namespace Dorc.Monitor.HighAvailability
                         if (errors == System.Net.Security.SslPolicyErrors.None)
                             return true;
 
-                        logger.LogWarning("SSL certificate validation error for OAuth token endpoint: {Errors}", errors);
-                        return false;
+                        logger.LogWarning("SSL certificate validation error for OAuth token endpoint: {Errors}. Accepting certificate due to configuration.", errors);
+                        return true; // Accept self-signed or mismatched certificates as configured
                     };
                 }
             }
@@ -345,6 +352,17 @@ namespace Dorc.Monitor.HighAvailability
                 return;
 
             disposed = true;
+
+            try
+            {
+                // Cancel service-level operations
+                serviceCts?.Cancel();
+                serviceCts?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error cancelling service operations during disposal");
+            }
             
             credentialsRefresher?.Dispose();
 
@@ -373,6 +391,15 @@ namespace Dorc.Monitor.HighAvailability
                 }
             }
 
+            try
+            {
+                httpClientHandler?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error disposing HTTP client handler");
+            }
+
             connectionSemaphore.Dispose();
         }
     }
@@ -387,7 +414,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly string queueName;
         private readonly string resourceKey;
         private readonly string consumerTag;
-        private bool disposed = false;
+        private int disposedFlag = 0;  // Use int for Interlocked operations
 
         public string ResourceKey => resourceKey;
 
@@ -402,10 +429,9 @@ namespace Dorc.Monitor.HighAvailability
 
         public async ValueTask DisposeAsync()
         {
-            if (disposed)
+            // Thread-safe disposal check and set using Interlocked
+            if (Interlocked.Exchange(ref disposedFlag, 1) == 1)
                 return;
-
-            disposed = true;
 
             try
             {
