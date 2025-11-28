@@ -24,11 +24,11 @@ The implementation uses **RabbitMQ exclusive queues** as the distributed locking
 - **Automatic Cleanup**: Queues auto-delete on disconnect (perfect for failover)
 - **High Performance**: Minimal overhead (~10-50ms per lock operation)
 
-#### Why Exclusive Queues vs. Messages?
-- **Simpler**: Queue existence = lock held, queue deleted = lock released
-- **Automatic**: RabbitMQ handles cleanup on disconnect
-- **Reliable**: No manual lock management or TTL renewal required
-- **Failsafe**: Impossible to create deadlocks
+#### Why Quorum Queues with Single-Active Consumer?
+- **Cluster Support**: Quorum queues replicate across RabbitMQ cluster nodes for high availability
+- **Automatic Failover**: Single-active consumer ensures only one monitor holds the lock; automatic failover if consumer crashes
+- **Reliable**: No manual lock management or TTL renewal - lock held by not acknowledging message
+- **Failsafe**: Message redelivered automatically on consumer crash/disconnect
 
 #### Environment-Level Locking
 - **Granularity**: Locks are per-environment, not per-request
