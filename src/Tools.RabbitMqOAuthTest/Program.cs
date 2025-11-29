@@ -189,28 +189,29 @@ class Program
 
         // Test token request first
         Console.WriteLine("[TRACE] Testing OAuth Token Request...");
-        var client = new System.Net.Http.HttpClient();
-        var tokenRequest = new System.Net.Http.FormUrlEncodedContent(new Dictionary<string, string>
+        using (var client = new System.Net.Http.HttpClient())
+        using (var tokenRequest = new System.Net.Http.FormUrlEncodedContent(new Dictionary<string, string>
         {
             { "client_id", clientId },
             { "client_secret", clientSecret },
             { "scope", scope },
             { "grant_type", "client_credentials" }
-        });
-
-        try
+        }))
         {
-            var response = await client.PostAsync(tokenEndpoint, tokenRequest);
-            Console.WriteLine($"  Response Status: {response.StatusCode}");
-            
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                Console.WriteLine($"  Error: {await response.Content.ReadAsStringAsync()}");
+                var response = await client.PostAsync(tokenEndpoint, tokenRequest);
+                Console.WriteLine($"  Response Status: {response.StatusCode}");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"  Error: {await response.Content.ReadAsStringAsync()}");
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"  Token request failed: {ex.Message}");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  Token request failed: {ex.Message}");
+            }
         }
 
         Console.WriteLine();

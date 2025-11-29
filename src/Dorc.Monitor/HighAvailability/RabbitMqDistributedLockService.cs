@@ -222,7 +222,7 @@ namespace Dorc.Monitor.HighAvailability
             logger.LogDebug("Configuring OAuth 2.0 with automatic token refresh for RabbitMQ");
 
             var tokenEndpointUri = new Uri(configuration.RabbitMqOAuthTokenEndpoint);
-            var httpClientHandler = CreateHttpClientHandler();
+            var handler = CreateHttpClientHandler();
 
             // Create OAuth2 client with credentials using v2.0.0 API
             var oAuth2ClientBuilder = new OAuth2ClientBuilder(
@@ -230,7 +230,7 @@ namespace Dorc.Monitor.HighAvailability
                 configuration.RabbitMqOAuthClientSecret,
                 tokenEndpointUri);
 
-            oAuth2ClientBuilder.SetHttpClientHandler(httpClientHandler);
+            oAuth2ClientBuilder.SetHttpClientHandler(handler);
 
             // Add scope if provided
             if (!string.IsNullOrWhiteSpace(configuration.RabbitMqOAuthScope))
