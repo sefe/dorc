@@ -20,6 +20,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
         private HttpClientHandler? httpClientHandler;
+        private OAuth2ClientCredentialsProvider? credentialsProvider;
         private bool disposed = false;
 
         public RabbitMqDistributedLockService(
@@ -51,6 +52,22 @@ namespace Dorc.Monitor.HighAvailability
                 }
 
                 var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+                
+                // Refresh OAuth token before attempting lock acquisition to ensure token hasn't expired
+                if (credentialsProvider != null)
+                {
+                    try
+                    {
+                        var credentials = await credentialsProvider.GetCredentialsAsync(cancellationToken);
+                        logger.LogDebug("OAuth token refreshed before lock acquisition. Valid for {ValidUntil}", 
+                            credentials.ValidUntil);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to refresh OAuth token before lock acquisition");
+                        // Continue anyway - the provider will try again on channel creation
+                    }
+                }
                 
                 // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
                 // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
@@ -229,7 +246,7 @@ namespace Dorc.Monitor.HighAvailability
             // Note: The RabbitMQ PLAIN mechanism uses the UserName/Password set on the ConnectionFactory,
             // along with the CredentialsProvider. The CredentialsProvider intercepts the PLAIN challenge
             // and provides the OAuth token as the password. The UserName must match what RabbitMQ expects.
-            var credentialsProvider = new OAuth2ClientCredentialsProvider("DOrc", oAuth2Client);
+            credentialsProvider = new OAuth2ClientCredentialsProvider("DOrc", oAuth2Client);
 
             // Get initial token to ensure credentials are available before first connection attempt
             // This primes the credentials provider so it has a valid token ready
