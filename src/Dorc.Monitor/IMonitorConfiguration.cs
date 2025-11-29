@@ -1,4 +1,4 @@
-﻿namespace Dorc.Monitor
+namespace Dorc.Monitor
 {
     public interface IMonitorConfiguration
     {
@@ -26,7 +26,6 @@
         string RabbitMqOAuthClientSecret { get; }
         string RabbitMqOAuthTokenEndpoint { get; }
         string RabbitMqOAuthScope { get; }
-
         // RabbitMQ SSL/TLS settings
         bool RabbitMqSslEnabled { get; }
         string? RabbitMqSslServerName { get; }

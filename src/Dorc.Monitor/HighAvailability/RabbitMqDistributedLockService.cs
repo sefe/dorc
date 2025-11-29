@@ -158,8 +158,8 @@ namespace Dorc.Monitor.HighAvailability
                         AutomaticRecoveryEnabled = true,
                         NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
                         ClientProvidedName = $"DOrc.Monitor-{Environment.MachineName}-{Guid.NewGuid()}",
-                        UserName = "dorc-oauth",
-                        Password = "oauth"
+                        UserName = "",
+                        Password = ""
                     };
 
                     // Configure OAuth 2.0 with automatic token refresh
@@ -207,7 +207,7 @@ namespace Dorc.Monitor.HighAvailability
             var tokenEndpointUri = new Uri(configuration.RabbitMqOAuthTokenEndpoint);
             var httpClientHandler = CreateHttpClientHandler();
 
-            // Create OAuth2 client with credentials
+            // Create OAuth2 client with credentials using v2.0.0 API
             var oAuth2ClientBuilder = new OAuth2ClientBuilder(
                 configuration.RabbitMqOAuthClientId,
                 configuration.RabbitMqOAuthClientSecret,
@@ -226,12 +226,15 @@ namespace Dorc.Monitor.HighAvailability
             var oAuth2Client = await oAuth2ClientBuilder.BuildAsync(cancellationToken);
 
             // Create credentials provider - this handles OAuth token acquisition and caching
+            // Note: The RabbitMQ PLAIN mechanism uses the UserName/Password set on the ConnectionFactory,
+            // along with the CredentialsProvider. The CredentialsProvider intercepts the PLAIN challenge
+            // and provides the OAuth token as the password. The UserName must match what RabbitMQ expects.
             var credentialsProvider = new OAuth2ClientCredentialsProvider("DOrc", oAuth2Client);
 
             // Get initial token to ensure credentials are available before first connection attempt
             // This primes the credentials provider so it has a valid token ready
             var initialCredentials = await credentialsProvider.GetCredentialsAsync(cancellationToken);
-            logger.LogDebug("Initial OAuth 2.0 token acquired. Valid for {Days}d {Hours}h {Minutes}m {Seconds}s",
+            logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds",
                 initialCredentials.ValidUntil?.Days ?? 0,
                 initialCredentials.ValidUntil?.Hours ?? 0,
                 initialCredentials.ValidUntil?.Minutes ?? 0,
@@ -242,7 +245,7 @@ namespace Dorc.Monitor.HighAvailability
             // It automatically returns the cached token if still valid, or acquires a new one if expired
             factory.CredentialsProvider = credentialsProvider;
 
-            logger.LogInformation("OAuth 2.0 credentials provider configured. RabbitMQ.Client will use OAuth tokens for authentication");
+            logger.LogDebug("OAuth 2.0 credentials provider configured for RabbitMQ");
         }
 
         private HttpClientHandler CreateHttpClientHandler()
