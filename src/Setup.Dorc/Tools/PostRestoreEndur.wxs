@@ -5,7 +5,7 @@
     <DirectoryRef Id="PostRestoreEndurDir">
       <Component Id="PostRestoreEndurConfigSetup" DiskId="1" KeyPath="yes" Guid="{D2AB46DA-5A2B-4111-8EB4-38E8D142FAF5}">
 
-		  <Json:JsonFile Id="PREDOrcConnectionString" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=True;ConnectRetryCount=5;ConnectRetryInterval=2" File="[#PostRestoreEndurConfig]" />
+		  <Json:JsonFile Id="PREDOrcConnectionString" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" File="[#PostRestoreEndurConfig]" />
       </Component>
     </DirectoryRef>
   </Fragment>

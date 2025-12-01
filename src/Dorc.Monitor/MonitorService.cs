@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using System.Data.SqlClient;
 
 namespace Dorc.Monitor
 {
@@ -17,6 +17,43 @@ namespace Dorc.Monitor
 
         private bool disposedValue;
         private int requestProcessingIterationDelayMs;
+
+
+        private static readonly int[] TransientErrors = { 596, 4060, 10928, 10929, 40197, 40501, 40613 };
+
+        private static bool IsTransient(SqlException ex) => TransientErrors.Contains(ex.Number);
+
+        private static bool ShouldClearPool(SqlException ex) => ex.Number == 596;
+
+        private async Task<IDeploymentEngine> CreateDeploymentEngineWithRetryAsync(CancellationToken token)
+        {
+            const int maxAttempts = 5;
+            const int delaySeconds = 2;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    var engine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
+                    if (engine == null)
+                        throw new NullReferenceException("DeploymentEngine is null");
+
+                    return engine;
+                }
+                catch (SqlException ex) when (IsTransient(ex))
+                {
+                    if (ShouldClearPool(ex)) SqlConnection.ClearAllPools();
+
+                    logger.LogWarning("Startup SQL failed (attempt {Attempt}/{Max}, code {Code}). Retrying in {Delay}s...",
+                        attempt, maxAttempts, ex.Number, delaySeconds);
+
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds), token);
+                }
+            }
+
+            throw new InvalidOperationException("Failed to initialize DeploymentEngine after retries.");
+        }
+
 
         public MonitorService(
             ILogger<MonitorService> logger,
@@ -57,16 +94,27 @@ namespace Dorc.Monitor
                 {
                     logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
                 }
-                catch (SqlException sqlException)
+
+                catch (SqlException sqlEx) when (IsTransient(sqlEx))
                 {
-                    logger.LogWarning("Transient SQL failure, retrying in 10s. Exception: " + sqlException);
-                    await Task.Delay(TimeSpan.FromSeconds(10), monitorCancellationToken);
+                    logger.LogWarning("Transient SQL error {ErrorNumber}. Retrying...", sqlEx.Number);
+
+
+                    if (ShouldClearPool(sqlEx))
+                    {
+                        SqlConnection.ClearAllPools();
+                        logger.LogInformation("Cleared SQL connection pools due to error 596.");
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(2), monitorCancellationToken);
+                    deploymentEngine = await CreateDeploymentEngineWithRetryAsync(monitorCancellationToken);
                 }
-                catch (Exception exception)
+                catch (Exception ex)
                 {
-                    logger.LogError("Monitor process is failed. Exception: " + exception);
-                    await Task.Delay(TimeSpan.FromSeconds(10), monitorCancellationToken);
+                    logger.LogError("Fatal error in MonitorService: {Exception}", ex);
+                    throw;
                 }
+
             }
 
             logger.LogInformation("Deployment Monitor service is stopping.");

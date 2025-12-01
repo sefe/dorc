@@ -119,7 +119,7 @@ builder.Services.AddDbContext<DeploymentContext>(options =>
         sqlOptions.CommandTimeout(60);
         sqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(10),
+            maxRetryDelay: TimeSpan.FromSeconds(2),
             errorNumbersToAdd: null);
     }));
 
