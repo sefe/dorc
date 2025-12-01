@@ -149,7 +149,7 @@ export class AddEditDatabase extends LitElement {
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
-            pattern="^[a-zA-Z0-9_-]{1,128}(\\\\[a-zA-Z0-9_-]{1,128})?$"
+            pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
             label="Instance"
             required
             auto-validate
