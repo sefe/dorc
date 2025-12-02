@@ -4,6 +4,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Dorc.TerraformmRunner.Pipes;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 
 //using System.Diagnostics;
 using System.Text;
@@ -119,43 +120,24 @@ namespace Dorc.TerraformmRunner
                 throw new InvalidOperationException("Git repository URL is not configured.");
             }
 
-            logger.FileLogger.LogInformation($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{scriptGroup.TerraformGitBranch}'");
+            // Validate and sanitize branch name to prevent command injection
+            var branchName = SanitizeGitParameter(scriptGroup.TerraformGitBranch ?? "main");
+            
+            logger.FileLogger.LogInformation($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{branchName}'");
 
             // Determine if this is GitHub or Azure DevOps
             bool isGitHub = scriptGroup.TerraformGitRepoUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
             bool isAzureDevOps = scriptGroup.TerraformGitRepoUrl.Contains("dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
                                  scriptGroup.TerraformGitRepoUrl.Contains("visualstudio.com", StringComparison.OrdinalIgnoreCase);
 
-            string repoUrl = scriptGroup.TerraformGitRepoUrl;
+            string repoUrl = InjectGitCredentials(scriptGroup, isGitHub, isAzureDevOps);
 
-            // Inject credentials into URL if available
-            if (!string.IsNullOrEmpty(scriptGroup.TerraformGitPat))
-            {
-                var uri = new Uri(repoUrl);
-                if (isGitHub)
-                {
-                    // For GitHub: https://[PAT]@github.com/...
-                    repoUrl = $"{uri.Scheme}://{scriptGroup.TerraformGitPat}@{uri.Host}{uri.PathAndQuery}";
-                }
-                else if (isAzureDevOps)
-                {
-                    // For Azure DevOps: https://[PAT]@dev.azure.com/...
-                    repoUrl = $"{uri.Scheme}://{scriptGroup.TerraformGitPat}@{uri.Host}{uri.PathAndQuery}";
-                }
-            }
-            else if (isAzureDevOps && !string.IsNullOrEmpty(scriptGroup.AzureBearerToken))
-            {
-                // For Azure DevOps with bearer token: use PAT format with token
-                var uri = new Uri(repoUrl);
-                repoUrl = $"{uri.Scheme}://{scriptGroup.AzureBearerToken}@{uri.Host}{uri.PathAndQuery}";
-            }
-
-            // Use git command to clone the repository
-            var cloneArgs = $"clone --branch {scriptGroup.TerraformGitBranch} --depth 1 {repoUrl} {workingDir}";
+            // Use git command to clone the repository with validated parameters
+            var cloneArgs = $"clone --branch \"{branchName}\" --depth 1 \"{repoUrl}\" \"{workingDir}\"";
             
             try
             {
-                await RunCommandAsync("git", cloneArgs, Path.GetTempPath(), cancellationToken);
+                await RunCommandAsync("git", cloneArgs, Path.GetTempPath(), cancellationToken, sanitizeForLog: true);
             }
             catch (Exception ex)
             {
@@ -186,6 +168,54 @@ namespace Dorc.TerraformmRunner
             }
 
             logger.FileLogger.LogInformation($"Successfully cloned Git repository to '{workingDir}'");
+        }
+
+        private string InjectGitCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)
+        {
+            string repoUrl = scriptGroup.TerraformGitRepoUrl;
+
+            // Inject credentials into URL if available
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformGitPat))
+            {
+                var uri = new Uri(repoUrl);
+                if (isGitHub)
+                {
+                    // For GitHub: https://[PAT]@github.com/...
+                    repoUrl = $"{uri.Scheme}://{Uri.EscapeDataString(scriptGroup.TerraformGitPat)}@{uri.Host}{uri.PathAndQuery}";
+                }
+                else if (isAzureDevOps)
+                {
+                    // For Azure DevOps: https://[PAT]@dev.azure.com/...
+                    repoUrl = $"{uri.Scheme}://{Uri.EscapeDataString(scriptGroup.TerraformGitPat)}@{uri.Host}{uri.PathAndQuery}";
+                }
+            }
+            else if (isAzureDevOps && !string.IsNullOrEmpty(scriptGroup.AzureBearerToken))
+            {
+                // For Azure DevOps with bearer token: use PAT format with token
+                var uri = new Uri(repoUrl);
+                repoUrl = $"{uri.Scheme}://{Uri.EscapeDataString(scriptGroup.AzureBearerToken)}@{uri.Host}{uri.PathAndQuery}";
+            }
+
+            return repoUrl;
+        }
+
+        private string SanitizeGitParameter(string parameter)
+        {
+            // Only allow alphanumeric characters, hyphens, underscores, forward slashes, and dots
+            // This prevents command injection while allowing valid branch names
+            if (string.IsNullOrEmpty(parameter))
+            {
+                return "main";
+            }
+
+            var sanitized = Regex.Replace(parameter, @"[^a-zA-Z0-9\-_/\.]", "");
+            
+            if (string.IsNullOrEmpty(sanitized))
+            {
+                throw new InvalidOperationException($"Invalid branch name: '{parameter}'");
+            }
+
+            return sanitized;
         }
 
         private async Task DownloadAzureArtifactAsync(
@@ -243,7 +273,8 @@ namespace Dorc.TerraformmRunner
             string fileName,
             string arguments,
             string workingDir,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool sanitizeForLog = false)
         {
             using var process = new System.Diagnostics.Process();
             process.StartInfo.FileName = fileName;
@@ -273,7 +304,9 @@ namespace Dorc.TerraformmRunner
                 }
             };
 
-            logger.FileLogger.LogDebug($"Running command: {fileName} {arguments} in {workingDir}");
+            // Sanitize arguments for logging if they contain credentials
+            var logArguments = sanitizeForLog ? SanitizeArgumentsForLogging(arguments) : arguments;
+            logger.FileLogger.LogDebug($"Running command: {fileName} {logArguments} in {workingDir}");
 
             try
             {
@@ -290,7 +323,7 @@ namespace Dorc.TerraformmRunner
             }
             catch (Exception e)
             {
-                logger.Error($"Running command failed: {fileName} {arguments} in {workingDir}", e);
+                logger.Error($"Running command failed: {fileName} {logArguments} in {workingDir}", e);
                 throw;
             }
 
@@ -306,6 +339,13 @@ namespace Dorc.TerraformmRunner
 
             logger.Information($"Command completed successfully. Output:{Environment.NewLine}{output}");
             return output;
+        }
+
+        private string SanitizeArgumentsForLogging(string arguments)
+        {
+            // Replace any URLs containing credentials with sanitized versions
+            // Pattern matches: https://[anything]@[domain]
+            return Regex.Replace(arguments, @"https://[^@]+@([a-zA-Z0-9\-\.]+)", "https://***@$1");
         }
 
         private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)

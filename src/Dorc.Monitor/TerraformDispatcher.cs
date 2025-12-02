@@ -30,6 +30,7 @@ namespace Dorc.Monitor
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IConfigurationSection _appSettings;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -51,6 +52,8 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
+            this._appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                .GetSection("AppSettings");
         }
 
         public bool Dispatch(
@@ -328,9 +331,16 @@ namespace Dorc.Monitor
                 // For Azure artifacts, use existing build information from the request
                 if (!string.IsNullOrEmpty(request.BuildUri))
                 {
-                    // Extract build ID from BuildUri
-                    var uri = new Uri(request.BuildUri);
-                    scriptGroup.AzureBuildId = uri.LocalPath.Split('/').Last();
+                    // Extract build ID from BuildUri with proper validation
+                    try
+                    {
+                        var uri = new Uri(request.BuildUri);
+                        scriptGroup.AzureBuildId = uri.LocalPath.Split('/').Last();
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, $"Failed to parse BuildUri: {request.BuildUri}");
+                    }
                 }
                 
                 scriptGroup.AzureProject = request.Project;
@@ -359,15 +369,12 @@ namespace Dorc.Monitor
         private string GetAzureBearerToken()
         {
             // Use the same authentication mechanism as AzureDevOpsServerWebClient
-            var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings");
-            
-            var aadInstance = appSettings["AadInstance"];
-            var tenant = appSettings["AadTenant"];
-            var clientId = appSettings["AadClientId"];
-            var secret = appSettings["AadSecret"];
-            var azureDevOpsOrganizationUrl = appSettings["AadAdosOrgUrl"];
-            var scopes = new[] { appSettings["AadScopes"] };
+            var aadInstance = _appSettings["AadInstance"];
+            var tenant = _appSettings["AadTenant"];
+            var clientId = _appSettings["AadClientId"];
+            var secret = _appSettings["AadSecret"];
+            var azureDevOpsOrganizationUrl = _appSettings["AadAdosOrgUrl"];
+            var scopes = new[] { _appSettings["AadScopes"] };
             
             try
             {
