@@ -20,6 +20,14 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasConversion<int>();
 
             builder
+                .Property(x => x.TerraformSourceType)
+                .HasConversion<int>();
+
+            builder
+                .Property(x => x.TerraformGitBranch)
+                .HasMaxLength(256);
+
+            builder
                 .HasOne(x => x.Parent)
                 .WithMany(x => x.Children)
                 .HasForeignKey("ParentId");

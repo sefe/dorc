@@ -29,6 +29,14 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .Property(e => e.ArtefactsBuildRegex);
 
             builder
+                .Property(e => e.TerraformGitRepoUrl)
+                .HasMaxLength(512);
+
+            builder
+                .Property(e => e.TerraformSubPath)
+                .HasMaxLength(512);
+
+            builder
                 .Property(x => x.SourceDatabaseId);
 
             builder

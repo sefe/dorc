@@ -1,11 +1,9 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
-//using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Runner.Logger;
+using Dorc.TerraformmRunner.CodeSources;
 using Dorc.TerraformmRunner.Pipes;
 using Microsoft.Extensions.Logging;
-
-//using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -15,16 +13,15 @@ namespace Dorc.TerraformmRunner
     {
         private readonly IRunnerLogger logger;
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
-        //private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
 
         public TerraformProcessor(
             IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient)
-            //IRequestsPersistentSource requestsPersistentSource)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
-            //this.requestsPersistentSource = requestsPersistentSource;
+            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger);
         }
 
         public async Task<bool> PreparePlanAsync(
@@ -45,11 +42,11 @@ namespace Dorc.TerraformmRunner
 
             logger.FileLogger.LogInformation($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroupProperties, cancellationToken);
 
             try
             {
-                // Create terraform plan (placeholder implementation)
+                // Create terraform plan
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
                 logger.FileLogger.LogInformation($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
@@ -69,6 +66,7 @@ namespace Dorc.TerraformmRunner
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
             int requestId,
             string scriptPath,
+            ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
             // Create a unique working directory for this deployment
@@ -79,40 +77,15 @@ namespace Dorc.TerraformmRunner
 
             Directory.CreateDirectory(workingDir);
 
-            // Copy Terraform files from component script path to working directory
-            if (!string.IsNullOrEmpty(scriptPath) && Directory.Exists(scriptPath))
-            {
-                logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptPath}' to working directory '{workingDir}'");
-                await CopyDirectoryAsync(scriptPath, workingDir, cancellationToken);
-            }
-            else
-            {
-                throw new InvalidOperationException($"Terraform script path '{scriptPath}' does not exist.");
-            }
+            // Get the appropriate provider for the source type
+            var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
+            
+            logger.FileLogger.LogInformation($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
+            
+            // Provision the code using the selected provider
+            await provider.ProvisionCodeAsync(scriptGroup, scriptPath, workingDir, cancellationToken);
 
             return workingDir;
-        }
-
-        private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
-        {
-            await Task.Run(() =>
-            {
-                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
-                    var destFileDir = Path.GetDirectoryName(destFile);
-
-                    if (!string.IsNullOrEmpty(destFileDir))
-                    {
-                        Directory.CreateDirectory(destFileDir);
-                    }
-
-                    File.Copy(file, destFile, true);
-                }
-            }, cancellationToken);
         }
 
         private async Task<string> CreateTerraformPlanAsync(
@@ -287,19 +260,16 @@ namespace Dorc.TerraformmRunner
 
             try
             {
-
                 // Execute the actual Terraform plan
-                var executionResult = await ExecuteTerraformPlanAsync(requestId, scriptPath, planFile, cancellationToken);
+                var executionResult = await ExecuteTerraformPlanAsync(requestId, scriptPath, planFile, scriptGroupProperties, cancellationToken);
 
                 if (executionResult.Success)
                 {
-
                     logger.FileLogger.LogInformation($"Terraform plan executed successfully for deployment result ID: {deployResultId}");
                     return true;
                 }
                 else
                 {
-
                     logger.FileLogger.LogError($"Terraform plan execution failed for deployment result ID {deployResultId}: {executionResult.ErrorMessage}");
                     return false;
                 }
@@ -315,6 +285,7 @@ namespace Dorc.TerraformmRunner
             int requestId,
             string scriptPath,
             string planFile,
+            ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -322,7 +293,7 @@ namespace Dorc.TerraformmRunner
             var terraformWorkingDir = string.Empty;
             try
             {
-                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
+                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroup, cancellationToken);
 
                 // Initialize Terraform if needed
                 await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
