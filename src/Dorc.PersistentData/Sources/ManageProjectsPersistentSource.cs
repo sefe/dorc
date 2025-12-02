@@ -302,7 +302,9 @@ namespace Dorc.PersistentData.Sources
                         ObjectId = Guid.NewGuid(),
                         Description = "Created via API",
                         IsEnabled = apiComponent.IsEnabled,
-                        ComponentType = apiComponent.ComponentType
+                        ComponentType = apiComponent.ComponentType,
+                        TerraformSourceType = apiComponent.TerraformSourceType,
+                        TerraformGitBranch = apiComponent.TerraformGitBranch
                     };
 
                     if (apiComponent.ScriptPath != null)
@@ -480,6 +482,8 @@ namespace Dorc.PersistentData.Sources
             component.Name = apiComponent.ComponentName;
             component.StopOnFailure = apiComponent.StopOnFailure;
             component.ComponentType = apiComponent.ComponentType;
+            component.TerraformSourceType = apiComponent.TerraformSourceType;
+            component.TerraformGitBranch = apiComponent.TerraformGitBranch;
         }
 
         public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
@@ -586,6 +590,8 @@ namespace Dorc.PersistentData.Sources
                     IsEnabled = comp.IsEnabled,
                     ParentId = comp.Parent != null ? comp.Parent.Id : 0,
                     ComponentType = comp.ComponentType,
+                    TerraformSourceType = comp.TerraformSourceType,
+                    TerraformGitBranch = comp.TerraformGitBranch,
                     PSVersion = script.PowerShellVersionNumber
                 };
 
@@ -598,7 +604,9 @@ namespace Dorc.PersistentData.Sources
                 StopOnFailure = comp.StopOnFailure,
                 IsEnabled = comp.IsEnabled,
                 ParentId = comp.Parent != null ? comp.Parent.Id : 0,
-                ComponentType = comp.ComponentType
+                ComponentType = comp.ComponentType,
+                TerraformSourceType = comp.TerraformSourceType,
+                TerraformGitBranch = comp.TerraformGitBranch
             };
         }
 

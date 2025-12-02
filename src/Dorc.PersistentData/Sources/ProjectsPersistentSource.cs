@@ -187,7 +187,9 @@ namespace Dorc.PersistentData.Sources
                 {
                     Name = apiProject.ProjectName,
                     Description = apiProject.ProjectDescription,
-                    ObjectId = Guid.NewGuid()
+                    ObjectId = Guid.NewGuid(),
+                    TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
+                    TerraformSubPath = apiProject.TerraformSubPath
                 };
 
                 if (ProjectArtifactsUriHttpValid(apiProject))
@@ -230,6 +232,8 @@ namespace Dorc.PersistentData.Sources
                     currentProj.Name = newProjectDetails.ProjectName;
 
                 currentProj.Description = newProjectDetails.ProjectDescription;
+                currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
+                currentProj.TerraformSubPath = newProjectDetails.TerraformSubPath;
 
                 if (ProjectArtifactsUriHttpValid(newProjectDetails) || ProjectArtifactsUriFileValid(newProjectDetails))
                 {
@@ -413,6 +417,8 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsSubPaths = project.ArtefactsSubPaths,
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
+                TerraformGitRepoUrl = project.TerraformGitRepoUrl,
+                TerraformSubPath = project.TerraformSubPath,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null
             };
         }
