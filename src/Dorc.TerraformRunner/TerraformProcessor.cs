@@ -45,7 +45,7 @@ namespace Dorc.TerraformmRunner
 
             logger.FileLogger.LogInformation($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroupProperties, cancellationToken);
 
             try
             {
@@ -69,6 +69,7 @@ namespace Dorc.TerraformmRunner
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
             int requestId,
             string scriptPath,
+            ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
             // Create a unique working directory for this deployment
@@ -79,18 +80,232 @@ namespace Dorc.TerraformmRunner
 
             Directory.CreateDirectory(workingDir);
 
-            // Copy Terraform files from component script path to working directory
-            if (!string.IsNullOrEmpty(scriptPath) && Directory.Exists(scriptPath))
+            // Handle different Terraform source types
+            switch (scriptGroup.TerraformSourceType)
             {
-                logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptPath}' to working directory '{workingDir}'");
-                await CopyDirectoryAsync(scriptPath, workingDir, cancellationToken);
-            }
-            else
-            {
-                throw new InvalidOperationException($"Terraform script path '{scriptPath}' does not exist.");
+                case TerraformSourceType.Git:
+                    await CloneGitRepositoryAsync(scriptGroup, workingDir, cancellationToken);
+                    break;
+
+                case TerraformSourceType.AzureArtifact:
+                    await DownloadAzureArtifactAsync(scriptGroup, workingDir, cancellationToken);
+                    break;
+
+                case TerraformSourceType.SharedFolder:
+                default:
+                    // Copy Terraform files from component script path to working directory
+                    if (!string.IsNullOrEmpty(scriptPath) && Directory.Exists(scriptPath))
+                    {
+                        logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptPath}' to working directory '{workingDir}'");
+                        await CopyDirectoryAsync(scriptPath, workingDir, cancellationToken);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Terraform script path '{scriptPath}' does not exist.");
+                    }
+                    break;
             }
 
             return workingDir;
+        }
+
+        private async Task CloneGitRepositoryAsync(
+            ScriptGroup scriptGroup,
+            string workingDir,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(scriptGroup.TerraformGitRepoUrl))
+            {
+                throw new InvalidOperationException("Git repository URL is not configured.");
+            }
+
+            logger.FileLogger.LogInformation($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{scriptGroup.TerraformGitBranch}'");
+
+            // Determine if this is GitHub or Azure DevOps
+            bool isGitHub = scriptGroup.TerraformGitRepoUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
+            bool isAzureDevOps = scriptGroup.TerraformGitRepoUrl.Contains("dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
+                                 scriptGroup.TerraformGitRepoUrl.Contains("visualstudio.com", StringComparison.OrdinalIgnoreCase);
+
+            string repoUrl = scriptGroup.TerraformGitRepoUrl;
+
+            // Inject credentials into URL if available
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformGitPat))
+            {
+                var uri = new Uri(repoUrl);
+                if (isGitHub)
+                {
+                    // For GitHub: https://[PAT]@github.com/...
+                    repoUrl = $"{uri.Scheme}://{scriptGroup.TerraformGitPat}@{uri.Host}{uri.PathAndQuery}";
+                }
+                else if (isAzureDevOps)
+                {
+                    // For Azure DevOps: https://[PAT]@dev.azure.com/...
+                    repoUrl = $"{uri.Scheme}://{scriptGroup.TerraformGitPat}@{uri.Host}{uri.PathAndQuery}";
+                }
+            }
+            else if (isAzureDevOps && !string.IsNullOrEmpty(scriptGroup.AzureBearerToken))
+            {
+                // For Azure DevOps with bearer token: use PAT format with token
+                var uri = new Uri(repoUrl);
+                repoUrl = $"{uri.Scheme}://{scriptGroup.AzureBearerToken}@{uri.Host}{uri.PathAndQuery}";
+            }
+
+            // Use git command to clone the repository
+            var cloneArgs = $"clone --branch {scriptGroup.TerraformGitBranch} --depth 1 {repoUrl} {workingDir}";
+            
+            try
+            {
+                await RunCommandAsync("git", cloneArgs, Path.GetTempPath(), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.FileLogger.LogError(ex, $"Failed to clone Git repository: {ex.Message}");
+                throw new InvalidOperationException($"Failed to clone Git repository: {ex.Message}", ex);
+            }
+
+            // If a sub-path is specified, move only that directory to the root
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
+            {
+                var subPathDir = Path.Combine(workingDir, scriptGroup.TerraformSubPath);
+                if (Directory.Exists(subPathDir))
+                {
+                    var tempDir = Path.Combine(Path.GetTempPath(), $"terraform-temp-{Guid.NewGuid()}");
+                    Directory.Move(workingDir, tempDir);
+                    Directory.CreateDirectory(workingDir);
+                    
+                    var subPathInTemp = Path.Combine(tempDir, scriptGroup.TerraformSubPath);
+                    await CopyDirectoryAsync(subPathInTemp, workingDir, cancellationToken);
+                    
+                    // Clean up temp directory
+                    Directory.Delete(tempDir, true);
+                }
+                else
+                {
+                    logger.FileLogger.LogWarning($"Terraform sub-path '{scriptGroup.TerraformSubPath}' not found in repository.");
+                }
+            }
+
+            logger.FileLogger.LogInformation($"Successfully cloned Git repository to '{workingDir}'");
+        }
+
+        private async Task DownloadAzureArtifactAsync(
+            ScriptGroup scriptGroup,
+            string workingDir,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(scriptGroup.AzureOrganization) || 
+                string.IsNullOrEmpty(scriptGroup.AzureProject) ||
+                string.IsNullOrEmpty(scriptGroup.AzureBuildId))
+            {
+                throw new InvalidOperationException("Azure DevOps artifact information is not configured.");
+            }
+
+            logger.FileLogger.LogInformation($"Downloading Azure artifact from build '{scriptGroup.AzureBuildId}' in project '{scriptGroup.AzureProject}'");
+
+            // Use Azure DevOps REST API to download artifacts
+            var artifactUrl = $"https://dev.azure.com/{scriptGroup.AzureOrganization}/{scriptGroup.AzureProject}/_apis/build/builds/{scriptGroup.AzureBuildId}/artifacts?api-version=6.0";
+            
+            using (var httpClient = new HttpClient())
+            {
+                if (!string.IsNullOrEmpty(scriptGroup.AzureBearerToken))
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = 
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", scriptGroup.AzureBearerToken);
+                }
+
+                try
+                {
+                    var response = await httpClient.GetAsync(artifactUrl, cancellationToken);
+                    response.EnsureSuccessStatusCode();
+                    
+                    var content = await response.Content.ReadAsStringAsync();
+                    logger.FileLogger.LogInformation($"Retrieved artifact list from Azure DevOps");
+                    
+                    // Parse the response and download the appropriate artifact
+                    // This is a simplified implementation - in production you'd want to:
+                    // 1. Parse the JSON response to find the right artifact
+                    // 2. Download and extract the artifact
+                    // 3. Extract to the working directory
+                    
+                    // For now, log a message indicating this needs more implementation
+                    logger.FileLogger.LogWarning("Azure artifact download is not fully implemented yet. This requires parsing the artifact list and downloading the correct artifact.");
+                    throw new NotImplementedException("Azure artifact download feature is not yet fully implemented.");
+                }
+                catch (Exception ex)
+                {
+                    logger.FileLogger.LogError(ex, $"Failed to download Azure artifact: {ex.Message}");
+                    throw new InvalidOperationException($"Failed to download Azure artifact: {ex.Message}", ex);
+                }
+            }
+        }
+
+        private async Task<string> RunCommandAsync(
+            string fileName,
+            string arguments,
+            string workingDir,
+            CancellationToken cancellationToken)
+        {
+            using var process = new System.Diagnostics.Process();
+            process.StartInfo.FileName = fileName;
+            process.StartInfo.Arguments = arguments;
+            process.StartInfo.WorkingDirectory = workingDir;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.CreateNoWindow = true;
+
+            var outputBuilder = new StringBuilder();
+            var errorBuilder = new StringBuilder();
+
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    outputBuilder.AppendLine(e.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    errorBuilder.AppendLine(e.Data);
+                }
+            };
+
+            logger.FileLogger.LogDebug($"Running command: {fileName} {arguments} in {workingDir}");
+
+            try
+            {
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // Wait for the process to complete or be cancelled
+                while (!process.HasExited)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await Task.Delay(100, cancellationToken);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error($"Running command failed: {fileName} {arguments} in {workingDir}", e);
+                throw;
+            }
+
+            var output = outputBuilder.ToString();
+            var error = errorBuilder.ToString();
+
+            if (process.ExitCode != 0)
+            {
+                var errorMessage = $"Command failed with exit code {process.ExitCode}. Error: {error}";
+                logger.Error(errorMessage);
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            logger.Information($"Command completed successfully. Output:{Environment.NewLine}{output}");
+            return output;
         }
 
         private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
@@ -289,7 +504,7 @@ namespace Dorc.TerraformmRunner
             {
 
                 // Execute the actual Terraform plan
-                var executionResult = await ExecuteTerraformPlanAsync(requestId, scriptPath, planFile, cancellationToken);
+                var executionResult = await ExecuteTerraformPlanAsync(requestId, scriptPath, planFile, scriptGroupProperties, cancellationToken);
 
                 if (executionResult.Success)
                 {
@@ -315,6 +530,7 @@ namespace Dorc.TerraformmRunner
             int requestId,
             string scriptPath,
             string planFile,
+            ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -322,7 +538,7 @@ namespace Dorc.TerraformmRunner
             var terraformWorkingDir = string.Empty;
             try
             {
-                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
+                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroup, cancellationToken);
 
                 // Initialize Terraform if needed
                 await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);

@@ -20,6 +20,7 @@ namespace Dorc.Monitor
         private const string ProdDeployPasswordPropertyName = "DORC_ProdDeployPassword";
         private const string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";
         private const string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";
+        private const string TerraformGitPatPropertyName = "Terraform_AzureDevOps_PAT";
 
         private readonly ILogger logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
@@ -28,6 +29,7 @@ namespace Dorc.Monitor
         private readonly IDeploymentRequestProcessesPersistentSource _processesPersistentSource;
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
+        private readonly IProjectsPersistentSource _projectsPersistentSource;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -38,7 +40,8 @@ namespace Dorc.Monitor
             IConfigurationSettings configurationSettingsEngine,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IScriptGroupPipeServer scriptGroupPipeServer,
-            IAzureStorageAccountWorker azureStorageAccountWorker)
+            IAzureStorageAccountWorker azureStorageAccountWorker,
+            IProjectsPersistentSource projectsPersistentSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -47,6 +50,7 @@ namespace Dorc.Monitor
             this._processesPersistentSource = processesPersistentSource;
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
+            this._projectsPersistentSource = projectsPersistentSource;
         }
 
         public bool Dispatch(
@@ -93,10 +97,28 @@ namespace Dorc.Monitor
                 ? component.ScriptPath
                 : Path.Combine(scriptRoot, component.ScriptPath);
 
+            // Get request and project information for Terraform source configuration
+            var request = _requestsPersistentSource.GetRequest(requestId);
+            ProjectApiModel? project = null;
+            if (!string.IsNullOrEmpty(request?.Project))
+            {
+                try
+                {
+                    project = _projectsPersistentSource.GetProject(request.Project);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, $"Could not retrieve project '{request.Project}' for request {requestId}");
+                }
+            }
+
             var scriptGroup = GetScriptGroup(
                 fullScriptPath,
                 properties,
-                deploymentResult.Id);
+                deploymentResult.Id,
+                component,
+                request,
+                project);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
@@ -273,16 +295,93 @@ namespace Dorc.Monitor
         private ScriptGroup GetScriptGroup(
             string scriptsLocation,
             IDictionary<string, VariableValue> properties,
-            int deploymentResultId)
+            int deploymentResultId,
+            ComponentApiModel component,
+            DeploymentRequestApiModel request,
+            ProjectApiModel? project)
         {
-            return new ScriptGroup()
+            var scriptGroup = new ScriptGroup()
             {
                 ID = Guid.NewGuid(),
                 DeployResultId = deploymentResultId,
                 ScriptsLocation = scriptsLocation,
                 CommonProperties = properties,
-                ScriptProperties = new List<ScriptProperties>()
+                ScriptProperties = new List<ScriptProperties>(),
+                TerraformSourceType = component.TerraformSourceType,
+                TerraformGitBranch = component.TerraformGitBranch ?? "main"
             };
+
+            // Set Terraform-specific fields based on source type
+            if (component.TerraformSourceType == TerraformSourceType.Git && project != null)
+            {
+                scriptGroup.TerraformGitRepoUrl = project.TerraformGitRepoUrl;
+                scriptGroup.TerraformSubPath = project.TerraformSubPath;
+                
+                // Get PAT token from environment properties
+                if (properties.TryGetValue(TerraformGitPatPropertyName, out var patValue))
+                {
+                    scriptGroup.TerraformGitPat = patValue.Value?.ToString() ?? string.Empty;
+                }
+            }
+            else if (component.TerraformSourceType == TerraformSourceType.AzureArtifact)
+            {
+                // For Azure artifacts, use existing build information from the request
+                if (!string.IsNullOrEmpty(request.BuildUri))
+                {
+                    // Extract build ID from BuildUri
+                    var uri = new Uri(request.BuildUri);
+                    scriptGroup.AzureBuildId = uri.LocalPath.Split('/').Last();
+                }
+                
+                scriptGroup.AzureProject = request.Project;
+                
+                // Get bearer token for Azure DevOps using same mechanism as in API
+                scriptGroup.AzureBearerToken = GetAzureBearerToken();
+                
+                if (project != null && !string.IsNullOrEmpty(project.ArtefactsUrl))
+                {
+                    // Extract organization from ArtefactsUrl
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        project.ArtefactsUrl, 
+                        @"https://(?:dev\.azure\.com/([^/]+)|([^/]+)\.visualstudio\.com)");
+                    if (match.Success)
+                    {
+                        scriptGroup.AzureOrganization = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+                    }
+                }
+                
+                scriptGroup.TerraformSubPath = project?.TerraformSubPath;
+            }
+
+            return scriptGroup;
+        }
+
+        private string GetAzureBearerToken()
+        {
+            // Use the same authentication mechanism as AzureDevOpsServerWebClient
+            var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                .GetSection("AppSettings");
+            
+            var aadInstance = appSettings["AadInstance"];
+            var tenant = appSettings["AadTenant"];
+            var clientId = appSettings["AadClientId"];
+            var secret = appSettings["AadSecret"];
+            var azureDevOpsOrganizationUrl = appSettings["AadAdosOrgUrl"];
+            var scopes = new[] { appSettings["AadScopes"] };
+            
+            try
+            {
+                var aadConnectionSettings = new Org.OpenAPITools.Client.Auth.AadConnectionSettings(
+                    clientId, aadInstance, azureDevOpsOrganizationUrl, scopes, secret, tenant);
+                var authTokenGenerator = Org.OpenAPITools.Client.Auth.AuthTokenGeneratorFactory
+                    .GetAuthTokenGenerator(aadConnectionSettings);
+                return authTokenGenerator.GetToken();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to get Azure bearer token");
+                return string.Empty;
+            }
         }
 
         private class TerraformExecutionResult
