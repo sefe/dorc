@@ -5,6 +5,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -20,7 +21,6 @@ namespace Dorc.Monitor
         private const string ProdDeployPasswordPropertyName = "DORC_ProdDeployPassword";
         private const string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";
         private const string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";
-        private const string TerraformGitPatPropertyName = "Terraform_AzureDevOps_PAT";
 
         private readonly ILogger logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
@@ -30,7 +30,7 @@ namespace Dorc.Monitor
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
-        private readonly IConfigurationSection _appSettings;
+        private readonly TerraformSourceConfigurator _sourceConfigurator;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -52,8 +52,10 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
-            this._appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+            
+            var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                 .GetSection("AppSettings");
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, appSettings);
         }
 
         public bool Dispatch(
@@ -309,86 +311,13 @@ namespace Dorc.Monitor
                 DeployResultId = deploymentResultId,
                 ScriptsLocation = scriptsLocation,
                 CommonProperties = properties,
-                ScriptProperties = new List<ScriptProperties>(),
-                TerraformSourceType = component.TerraformSourceType,
-                TerraformGitBranch = component.TerraformGitBranch ?? "main"
+                ScriptProperties = new List<ScriptProperties>()
             };
 
-            // Set Terraform-specific fields based on source type
-            if (component.TerraformSourceType == TerraformSourceType.Git && project != null)
-            {
-                scriptGroup.TerraformGitRepoUrl = project.TerraformGitRepoUrl;
-                scriptGroup.TerraformSubPath = project.TerraformSubPath;
-                
-                // Get PAT token from environment properties
-                if (properties.TryGetValue(TerraformGitPatPropertyName, out var patValue))
-                {
-                    scriptGroup.TerraformGitPat = patValue.Value?.ToString() ?? string.Empty;
-                }
-            }
-            else if (component.TerraformSourceType == TerraformSourceType.AzureArtifact)
-            {
-                // For Azure artifacts, use existing build information from the request
-                if (!string.IsNullOrEmpty(request.BuildUri))
-                {
-                    // Extract build ID from BuildUri with proper validation
-                    try
-                    {
-                        var uri = new Uri(request.BuildUri);
-                        scriptGroup.AzureBuildId = uri.LocalPath.Split('/').Last();
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, $"Failed to parse BuildUri: {request.BuildUri}");
-                    }
-                }
-                
-                scriptGroup.AzureProject = request.Project;
-                
-                // Get bearer token for Azure DevOps using same mechanism as in API
-                scriptGroup.AzureBearerToken = GetAzureBearerToken();
-                
-                if (project != null && !string.IsNullOrEmpty(project.ArtefactsUrl))
-                {
-                    // Extract organization from ArtefactsUrl
-                    var match = System.Text.RegularExpressions.Regex.Match(
-                        project.ArtefactsUrl, 
-                        @"https://(?:dev\.azure\.com/([^/]+)|([^/]+)\.visualstudio\.com)");
-                    if (match.Success)
-                    {
-                        scriptGroup.AzureOrganization = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
-                    }
-                }
-                
-                scriptGroup.TerraformSubPath = project?.TerraformSubPath;
-            }
+            // Use the configurator to set Terraform-specific fields based on source type
+            _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
 
             return scriptGroup;
-        }
-
-        private string GetAzureBearerToken()
-        {
-            // Use the same authentication mechanism as AzureDevOpsServerWebClient
-            var aadInstance = _appSettings["AadInstance"];
-            var tenant = _appSettings["AadTenant"];
-            var clientId = _appSettings["AadClientId"];
-            var secret = _appSettings["AadSecret"];
-            var azureDevOpsOrganizationUrl = _appSettings["AadAdosOrgUrl"];
-            var scopes = new[] { _appSettings["AadScopes"] };
-            
-            try
-            {
-                var aadConnectionSettings = new Org.OpenAPITools.Client.Auth.AadConnectionSettings(
-                    clientId, aadInstance, azureDevOpsOrganizationUrl, scopes, secret, tenant);
-                var authTokenGenerator = Org.OpenAPITools.Client.Auth.AuthTokenGeneratorFactory
-                    .GetAuthTokenGenerator(aadConnectionSettings);
-                return authTokenGenerator.GetToken();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to get Azure bearer token");
-                return string.Empty;
-            }
         }
 
         private class TerraformExecutionResult
