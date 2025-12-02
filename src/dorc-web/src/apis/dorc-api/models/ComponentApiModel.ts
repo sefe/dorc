@@ -11,6 +11,10 @@
  * Do not edit the class manually.
  */
 
+import type {
+    TerraformSourceType,
+} from './';
+
 /**
  * @export
  * @interface ComponentApiModel
@@ -56,4 +60,19 @@ export interface ComponentApiModel {
      * @memberof ComponentApiModel
      */
     PSVersion?: string | null;
+    /**
+     * @type {number}
+     * @memberof ComponentApiModel
+     */
+    ComponentType?: number;
+    /**
+     * @type {TerraformSourceType}
+     * @memberof ComponentApiModel
+     */
+    TerraformSourceType?: TerraformSourceType;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    TerraformGitBranch?: string | null;
 }
