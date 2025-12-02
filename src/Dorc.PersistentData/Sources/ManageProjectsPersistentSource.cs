@@ -290,7 +290,10 @@ namespace Dorc.PersistentData.Sources
                         duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
                         duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
                         var script = duplicateComponent.Script;
-                        script.Name = $"{script.Name} {duplicateComponent.Name}";
+                        if (script != null)
+                        {
+                            script.Name = $"{script.Name} {duplicateComponent.Name}";
+                        }
 
                         context.SaveChanges();
                     }
@@ -307,7 +310,9 @@ namespace Dorc.PersistentData.Sources
                         TerraformGitBranch = apiComponent.TerraformGitBranch
                     };
 
-                    if (apiComponent.ScriptPath != null)
+                    // Only create Script entity for PowerShell components
+                    // Terraform components may have ScriptPath (for SharedFolder type) but don't use Script entities
+                    if (apiComponent.ComponentType == ComponentType.PowerShell && apiComponent.ScriptPath != null)
                     {
                         var script = new Script
                         {
@@ -359,54 +364,29 @@ namespace Dorc.PersistentData.Sources
                     if (component.Parent.Id != parentId)
                         component.Parent = context.Components.First(x => x.Id == parentId);
 
-                // Handle script updates
-                var oldScript = component.Script;
-                var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
-
-                if (!string.IsNullOrEmpty(apiComponent.ScriptPath))
+                // Handle script updates for PowerShell components only
+                // Terraform components use ScriptPath differently and don't have traditional scripts
+                if (apiComponent.ComponentType == ComponentType.PowerShell)
                 {
-                    // Component has a script path
-                    if (oldScript != null)
-                    {
-                        // Check if script content is changing
-                        var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
-                            || oldScript.NonProdOnly != apiComponent.NonProdOnly
-                            || oldScript.Name != apiComponent.ComponentName
-                            || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
+                    var oldScript = component.Script;
+                    var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
 
-                        if (isScriptContentChanged)
+                    if (!string.IsNullOrEmpty(apiComponent.ScriptPath))
+                    {
+                        // Component has a script path
+                        if (oldScript != null)
                         {
-                            if (isScriptShared)
-                            {
-                                // Script is shared with other components, create a new script
-                                var newScript = new Script
-                                {
-                                    Name = apiComponent.ComponentName,
-                                    Path = apiComponent.ScriptPath,
-                                    NonProdOnly = apiComponent.NonProdOnly,
-                                    IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                    PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                                };
-                                component.Script = newScript;
-                            }
-                            else
-                            {
-                                // Script is not shared, update it
-                                oldScript.Name = apiComponent.ComponentName;
-                                oldScript.Path = apiComponent.ScriptPath;
-                                oldScript.NonProdOnly = apiComponent.NonProdOnly;
-                                oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
-                                oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
-                            }
-                        }
-                        else
-                        {
-                            // Script content unchanged, only update name if needed
-                            if (oldScript.Name != apiComponent.ComponentName)
+                            // Check if script content is changing
+                            var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
+                                || oldScript.NonProdOnly != apiComponent.NonProdOnly
+                                || oldScript.Name != apiComponent.ComponentName
+                                || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
+
+                            if (isScriptContentChanged)
                             {
                                 if (isScriptShared)
                                 {
-                                    // Script is shared, create new script with updated name
+                                    // Script is shared with other components, create a new script
                                     var newScript = new Script
                                     {
                                         Name = apiComponent.ComponentName,
@@ -419,45 +399,99 @@ namespace Dorc.PersistentData.Sources
                                 }
                                 else
                                 {
+                                    // Script is not shared, update it
                                     oldScript.Name = apiComponent.ComponentName;
+                                    oldScript.Path = apiComponent.ScriptPath;
+                                    oldScript.NonProdOnly = apiComponent.NonProdOnly;
+                                    oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
+                                    oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
+                                }
+                            }
+                            else
+                            {
+                                // Script content unchanged, only update name if needed
+                                if (oldScript.Name != apiComponent.ComponentName)
+                                {
+                                    if (isScriptShared)
+                                    {
+                                        // Script is shared, create new script with updated name
+                                        var newScript = new Script
+                                        {
+                                            Name = apiComponent.ComponentName,
+                                            Path = apiComponent.ScriptPath,
+                                            NonProdOnly = apiComponent.NonProdOnly,
+                                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                                        };
+                                        component.Script = newScript;
+                                    }
+                                    else
+                                    {
+                                        oldScript.Name = apiComponent.ComponentName;
+                                    }
                                 }
                             }
                         }
-                    }
-                    else
-                    {
-                        // Component didn't have a script, create new one
-                        var script = new Script
+                        else
                         {
-                            Name = apiComponent.ComponentName,
-                            Path = apiComponent.ScriptPath,
-                            NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                        };
-                        component.Script = script;
+                            // Component didn't have a script, create new one
+                            var script = new Script
+                            {
+                                Name = apiComponent.ComponentName,
+                                Path = apiComponent.ScriptPath,
+                                NonProdOnly = apiComponent.NonProdOnly,
+                                IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                            };
+                            component.Script = script;
+                        }
+                    }
+                    else if (apiComponent.ScriptPath == null && oldScript != null)
+                    {
+                        // Script is being removed from component
+                        if (isScriptShared)
+                        {
+                            // Script is shared, just remove reference
+                            component.Script = null;
+                            component.ScriptId = null;
+                        }
+                        else
+                        {
+                            // Script is not shared, delete it
+                            component.Script = null;
+                            component.ScriptId = null;
+                            context.Scripts.Remove(oldScript);
+                        }
+                    }
+                    else if (component.Script != null)
+                    {
+                        component.Script.PowerShellVersionNumber = null; // it is just a container for other components, no sense to have PS version for it
                     }
                 }
-                else if (apiComponent.ScriptPath == null && oldScript != null)
+                else if (apiComponent.ComponentType == ComponentType.Terraform)
                 {
-                    // Script is being removed from component
-                    if (isScriptShared)
+                    // For Terraform components, ScriptPath is used for SharedFolder source type
+                    // but we don't create Script entities for Terraform components
+                    // Just ensure no script is associated if one exists
+                    if (component.Script != null)
                     {
-                        // Script is shared, just remove reference
-                        component.Script = null;
-                        component.ScriptId = null;
+                        var oldScript = component.Script;
+                        var isScriptShared = oldScript.Components.Count > 1;
+                        
+                        if (isScriptShared)
+                        {
+                            // Script is shared, just remove reference from this component
+                            component.Script = null;
+                            component.ScriptId = null;
+                        }
+                        else
+                        {
+                            // Script is not shared, delete it as Terraform components don't use scripts
+                            component.Script = null;
+                            component.ScriptId = null;
+                            context.Scripts.Remove(oldScript);
+                        }
                     }
-                    else
-                    {
-                        // Script is not shared, delete it
-                        component.Script = null;
-                        component.ScriptId = null;
-                        context.Scripts.Remove(oldScript);
-                    }
-                }
-                else if (component.Script != null)
-                {
-                    component.Script.PowerShellVersionNumber = null; // it is just a container for other components, no sense to have PS version for it
                 }
 
                 context.SaveChanges();
