@@ -31,6 +31,11 @@ namespace Dorc.TerraformRunner.CodeSources
                 throw new InvalidOperationException("Azure DevOps artifact information is not configured.");
             }
 
+            if (string.IsNullOrEmpty(scriptGroup.AzureBearerToken))
+            {
+                throw new ArgumentException("No Azure DevOps bearer token provided by Monitor, check its logs. Cannot download artifact");
+            }
+
             _logger.FileLogger.LogInformation($"Downloading Azure artifact from build '{scriptGroup.AzureBuildId}' in projects '{scriptGroup.AzureProjects}'");
 
             var projectNames = scriptGroup.AzureProjects.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
