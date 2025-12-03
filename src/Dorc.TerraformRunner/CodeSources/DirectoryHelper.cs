@@ -15,19 +15,24 @@
                 await CopyDirectoryAsync(subPathInTemp, workingDir, cancellationToken);
 
                 // Clean up temp directory
-                try
-                {
-                    RemoveReadOnlyAttributes(tempDir);
-                    Directory.Delete(tempDir, true);
-                }
-                catch (Exception ex)
-                {
-                    throw new ApplicationException($"Failed to delete temporary directory '{tempDir}'", ex);
-                }
+                SafeRemoveDirectory(tempDir);
             }
             else
             {
                 throw new ArgumentException($"Terraform sub-path '{subPath}' not found in repository.");
+            }
+        }
+
+        public static void SafeRemoveDirectory(string tempDir)
+        {
+            try
+            {
+                RemoveReadOnlyAttributes(tempDir);
+                Directory.Delete(tempDir, true);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException($"Failed to delete directory '{tempDir}'", ex);
             }
         }
 

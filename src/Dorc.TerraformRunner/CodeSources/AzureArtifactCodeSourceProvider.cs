@@ -106,7 +106,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 // If a sub-path is specified, extract only that directory
                 if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
                 {
-                    await ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                    await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
                 }
 
                 _logger.FileLogger.LogInformation($"Successfully downloaded artifact to '{workingDir}'");
@@ -211,49 +211,6 @@ namespace Dorc.TerraformRunner.CodeSources
                 using var fileStream = File.Create(destFile);
                 await response.Content.CopyToAsync(fileStream, cancellationToken);
             }
-        }
-
-        private async Task ExtractSubPathAsync(string workingDir, string subPath, CancellationToken cancellationToken)
-        {
-            var subPathDir = Path.Combine(workingDir, subPath);
-            if (Directory.Exists(subPathDir))
-            {
-                var tempDir = Path.Combine(Path.GetTempPath(), $"terraform-temp-{Guid.NewGuid()}");
-                Directory.Move(workingDir, tempDir);
-                Directory.CreateDirectory(workingDir);
-                
-                var subPathInTemp = Path.Combine(tempDir, subPath);
-                await CopyDirectoryAsync(subPathInTemp, workingDir, cancellationToken);
-                
-                // Clean up temp directory
-                Directory.Delete(tempDir, true);
-            }
-            else
-            {
-                _logger.FileLogger.LogWarning($"Terraform sub-path '{subPath}' not found in artifact.");
-            }
-        }
-
-        private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
-        {
-            await Task.Run(() =>
-            {
-                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
-                    var destFileDir = Path.GetDirectoryName(destFile);
-
-                    if (!string.IsNullOrEmpty(destFileDir))
-                    {
-                        Directory.CreateDirectory(destFileDir);
-                    }
-
-                    File.Copy(file, destFile, true);
-                }
-            }, cancellationToken);
         }
     }
 }

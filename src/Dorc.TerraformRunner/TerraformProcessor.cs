@@ -333,7 +333,7 @@ namespace Dorc.TerraformRunner
             if (String.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
                 return;
 
-            Directory.Delete(folderPath, true);
+            DirectoryHelper.SafeRemoveDirectory(folderPath);
         }
 
         private class TerraformExecutionResult
