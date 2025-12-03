@@ -1,0 +1,146 @@
+using System.Security.Claims;
+using Dorc.Api.Interfaces;
+using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Repositories;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
+
+namespace Dorc.Api.Orchestration
+{
+    /// <summary>
+    /// Orchestrates environment-related operations including components, databases, and servers
+    /// </summary>
+    public class EnvironmentOrchestrator
+    {
+        private readonly ILogger _log;
+        private readonly IManageUsers _manageUsers;
+        private readonly IDatabasesPersistentSource _databasesPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IServersPersistentSource _serversPersistentSource;
+
+        public EnvironmentOrchestrator(
+            IManageUsers manageUsers,
+            IDatabasesPersistentSource databasesPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IServersPersistentSource serversPersistentSource, 
+            ILogger<EnvironmentOrchestrator> log)
+        {
+            _serversPersistentSource = serversPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _databasesPersistentSource = databasesPersistentSource;
+            _manageUsers = manageUsers;
+            _log = log;
+        }
+
+        /// <summary>
+        /// Return detailed information about environment items: databases, apps, etc
+        /// </summary>
+        /// <param name="id">Environment ID</param>
+        /// <param name="user"></param>
+        public EnvironmentContentApiModel GetEnvironmentsDetails(int id, ClaimsPrincipal user)
+        {
+            var result = new EnvironmentContentApiModel();
+
+            var env = _environmentsPersistentSource.GetEnvironment(id, user);
+
+            result.DbServers = GetDbServers(id);
+            result.AppServers = _serversPersistentSource.GetEnvContentAppServersForEnvId(id);
+
+            if (env != null)
+            {
+                result.EnvironmentName = env.EnvironmentName;
+                result.FileShare = env.Details?.FileShare;
+                result.Description = env.Details?.Description;
+                result.Builds =
+                    _environmentsPersistentSource.GetEnvironmentComponentStatuses(env.EnvironmentName, DateTime.Now);
+                result.EndurUsers = _manageUsers.GetUsersForEnvironment(id, UserAccountType.Endur);
+                result.DelegatedUsers = _manageUsers.GetUsersForEnvironment(id, UserAccountType.NotSet);
+                result.MappedProjects = _environmentsPersistentSource.GetMappedProjects(env.EnvironmentName);
+            }
+            else
+            {
+                result.EnvironmentName = "";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Return DB Servers list
+        /// </summary>
+        /// <param name="id">Environment ID</param>
+        /// <returns>List of DatabaseApiModel</returns>
+        public IEnumerable<DatabaseApiModel> GetDbServers(int id)
+        {
+            var databases = _databasesPersistentSource.GetDatabasesForEnvId(id).ToArray();
+            if (databases.Any())
+            {
+                var dataBasesResult = new List<DatabaseApiModel>();
+                foreach (var db in databases)
+                    dataBasesResult.Add(
+                        new DatabaseApiModel
+                        {
+                            Id = db.Id,
+                            Name = db.Name,
+                            ServerName = db.ServerName,
+                            Type = db.Type,
+                            AdGroup = db.AdGroup,
+                            ArrayName = db.ArrayName
+                        }
+                    );
+                return dataBasesResult;
+            }
+
+            return new List<DatabaseApiModel>();
+        }
+
+        /// <summary>
+        /// Detach or attach component from Environment
+        /// </summary>
+        /// <param name="envId">Environment ID</param>
+        /// <param name="componentId">Component ID</param>
+        /// <param name="action">attach or detach</param>
+        /// <param name="component">server or database</param>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        public EnvironmentApiModel ChangeEnvComponent<T>(int envId, int componentId, string action,
+            string component, ClaimsPrincipal user)
+        {
+            var actions = PrepareActions(user);
+            return actions[component][action].Invoke(envId, componentId);
+        }
+
+        private Dictionary<string, Dictionary<string, ComponentActions>> PrepareActions(ClaimsPrincipal user)
+        {
+            var actions = new Dictionary<string, Dictionary<string, ComponentActions>>();
+            var server = new Dictionary<string, ComponentActions>
+            {
+                {
+                    "attach",
+                    (envId, serverId) => _environmentsPersistentSource.AttachServerToEnv(envId, serverId, user)
+                },
+                {
+                    "detach",
+                    (envId, serverId) => _environmentsPersistentSource.DetachServerFromEnv(envId, serverId, user)
+                }
+            };
+            actions.Add("server", server);
+            var database = new Dictionary<string, ComponentActions>
+            {
+                {
+                    "attach",
+                    (envId, databaseId) => _environmentsPersistentSource.AttachDatabaseToEnv(envId, databaseId, user)
+                },
+                {
+                    "detach",
+                    (envId, databaseId) => _environmentsPersistentSource.DetachDatabaseFromEnv(envId, databaseId, user)
+                }
+            };
+            actions.Add("database", database);
+            return actions;
+        }
+
+        private delegate EnvironmentApiModel ComponentActions(int envId, int componentId);
+    }
+}

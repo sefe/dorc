@@ -18,7 +18,7 @@ namespace Dorc.Api.Security
         public ClaimsPrincipalReaderFactory(
             IConfigurationSettings config,
             IHttpContextAccessor httpContextAccessor,
-            IUserGroupsReaderFactory userGroupsReaderFactory
+            IUserGroupProvider userGroupsReaderFactory
             )
         {
             _httpContextAccessor = httpContextAccessor;
