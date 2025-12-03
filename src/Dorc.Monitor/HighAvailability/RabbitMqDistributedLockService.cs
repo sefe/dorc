@@ -41,116 +41,158 @@ namespace Dorc.Monitor.HighAvailability
                 return null;
             }
 
-            try
+            // Try lock acquisition with retry on token expiry
+            const int maxRetries = 2;
+            for (int retry = 0; retry < maxRetries; retry++)
             {
-                await EnsureConnectionAsync(cancellationToken);
-                
-                if (connection == null || !connection.IsOpen)
+                try
                 {
-                    logger.LogWarning("RabbitMQ connection is not available for lock acquisition on '{ResourceKey}'", resourceKey);
-                    return null;
-                }
+                    await EnsureConnectionAsync(cancellationToken);
+                    
+                    if (connection == null || !connection.IsOpen)
+                    {
+                        logger.LogWarning("RabbitMQ connection is not available for lock acquisition on '{ResourceKey}'", resourceKey);
+                        return null;
+                    }
 
-                var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
-                
-                // Refresh OAuth token before attempting lock acquisition to ensure token hasn't expired
-                if (credentialsProvider != null)
-                {
+                    var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+                    
+                    // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
+                    // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
+                    var environment = SanitizeEnvironmentName(configuration.Environment);
+                    var exchangeName = $"dorc.{environment}";
+                    var queueName = $"lock.{resourceKey}";
+                    
                     try
                     {
-                        var credentials = await credentialsProvider.GetCredentialsAsync(cancellationToken);
-                        logger.LogDebug("OAuth token refreshed before lock acquisition. Valid for {ValidUntil}", 
-                            credentials.ValidUntil);
+                        // Declare a direct exchange for this DOrc environment
+                        await channel.ExchangeDeclareAsync(
+                            exchange: exchangeName,
+                            type: ExchangeType.Direct,
+                            durable: true,
+                            autoDelete: false,
+                            cancellationToken: cancellationToken);
+
+                        // Declare a quorum queue with single-active consumer for cluster support
+                        // Quorum queues replicate across cluster nodes for high availability
+                        var args = new Dictionary<string, object>
+                        {
+                            { "x-queue-type", "quorum" }, // Use quorum queue for cluster replication
+                            { "x-single-active-consumer", true } // Only one consumer gets messages at a time
+                        };
+
+                        await channel.QueueDeclareAsync(
+                            queue: queueName,
+                            durable: true, // Quorum queues must be durable
+                            exclusive: false, // Quorum queues don't support exclusive mode
+                            autoDelete: false, // Keep queue for lock reacquisition
+                            arguments: args,
+                            cancellationToken: cancellationToken);
+
+                        // Bind queue to environment-specific exchange
+                        await channel.QueueBindAsync(
+                            queue: queueName,
+                            exchange: exchangeName,
+                            routingKey: queueName,
+                            cancellationToken: cancellationToken);
+
+                        // Publish a lock message that the consumer will hold
+                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
+                        await channel.BasicPublishAsync(
+                            exchange: exchangeName,
+                            routingKey: queueName,
+                            body: lockMessage,
+                            cancellationToken: cancellationToken);
+
+                        // Start consuming - single-active consumer ensures only one monitor processes this
+                        var consumer = new AsyncEventingBasicConsumer(channel);
+                        
+                        // Attach event handler to receive and hold the message
+                        consumer.ReceivedAsync += async (model, ea) =>
+                        {
+                            // Message received - lock is held by NOT acknowledging
+                            // The lock will be released when consumer is cancelled (in Dispose)
+                            await Task.CompletedTask;
+                        };
+                        
+                        var consumerTag = await channel.BasicConsumeAsync(
+                            queue: queueName,
+                            autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
+                            consumer: consumer,
+                            cancellationToken: cancellationToken);
+
+                        logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
+                            resourceKey);
+
+                        return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey, consumerTag);
+                    }
+                    catch (OperationInterruptedException opEx) when (opEx.Message.Contains("ACCESS_REFUSED") && retry < maxRetries - 1)
+                    {
+                        // OAuth token likely expired - close channel and force connection refresh
+                        logger.LogWarning(opEx, "ACCESS_REFUSED error on lock acquisition for '{ResourceKey}' - OAuth token may have expired. Refreshing connection and retrying (attempt {Retry}/{MaxRetries})", 
+                            resourceKey, retry + 1, maxRetries);
+                        
+                        await channel.CloseAsync(cancellationToken: cancellationToken);
+                        await channel.DisposeAsync();
+                        
+                        // Force connection recreation to get fresh OAuth token
+                        await ForceConnectionRefreshAsync(cancellationToken);
+                        
+                        // Continue to next retry iteration
+                        continue;
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, "Failed to refresh OAuth token before lock acquisition");
-                        // Continue anyway - the provider will try again on channel creation
+                        logger.LogWarning(ex, "Error acquiring lock for '{ResourceKey}'", resourceKey);
+                        await channel.CloseAsync(cancellationToken: cancellationToken);
+                        await channel.DisposeAsync();
+                        return null;
                     }
-                }
-                
-                // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
-                // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
-                var environment = SanitizeEnvironmentName(configuration.Environment);
-                var exchangeName = $"dorc.{environment}";
-                var queueName = $"lock.{resourceKey}";
-                
-                try
-                {
-                    // Declare a direct exchange for this DOrc environment
-                    await channel.ExchangeDeclareAsync(
-                        exchange: exchangeName,
-                        type: ExchangeType.Direct,
-                        durable: true,
-                        autoDelete: false,
-                        cancellationToken: cancellationToken);
-
-                    // Declare a quorum queue with single-active consumer for cluster support
-                    // Quorum queues replicate across cluster nodes for high availability
-                    var args = new Dictionary<string, object>
-                    {
-                        { "x-queue-type", "quorum" }, // Use quorum queue for cluster replication
-                        { "x-single-active-consumer", true } // Only one consumer gets messages at a time
-                    };
-
-                    await channel.QueueDeclareAsync(
-                        queue: queueName,
-                        durable: true, // Quorum queues must be durable
-                        exclusive: false, // Quorum queues don't support exclusive mode
-                        autoDelete: false, // Keep queue for lock reacquisition
-                        arguments: args,
-                        cancellationToken: cancellationToken);
-
-                    // Bind queue to environment-specific exchange
-                    await channel.QueueBindAsync(
-                        queue: queueName,
-                        exchange: exchangeName,
-                        routingKey: queueName,
-                        cancellationToken: cancellationToken);
-
-                    // Publish a lock message that the consumer will hold
-                    var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
-                    await channel.BasicPublishAsync(
-                        exchange: exchangeName,
-                        routingKey: queueName,
-                        body: lockMessage,
-                        cancellationToken: cancellationToken);
-
-                    // Start consuming - single-active consumer ensures only one monitor processes this
-                    var consumer = new AsyncEventingBasicConsumer(channel);
-                    
-                    // Attach event handler to receive and hold the message
-                    consumer.ReceivedAsync += async (model, ea) =>
-                    {
-                        // Message received - lock is held by NOT acknowledging
-                        // The lock will be released when consumer is cancelled (in Dispose)
-                        await Task.CompletedTask;
-                    };
-                    
-                    var consumerTag = await channel.BasicConsumeAsync(
-                        queue: queueName,
-                        autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
-                        consumer: consumer,
-                        cancellationToken: cancellationToken);
-
-                    logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
-                        resourceKey);
-
-                    return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey, consumerTag);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Error acquiring lock for '{ResourceKey}'", resourceKey);
-                    await channel.CloseAsync(cancellationToken: cancellationToken);
-                    await channel.DisposeAsync();
+                    logger.LogError(ex, "Failed to acquire distributed lock for '{ResourceKey}'", resourceKey);
                     return null;
                 }
             }
-            catch (Exception ex)
+            
+            logger.LogError("Failed to acquire distributed lock for '{ResourceKey}' after {MaxRetries} retries", resourceKey, maxRetries);
+            return null;
+        }
+
+        private async Task ForceConnectionRefreshAsync(CancellationToken cancellationToken)
+        {
+            await connectionSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                logger.LogError(ex, "Failed to acquire distributed lock for '{ResourceKey}'", resourceKey);
-                return null;
+                // Close and dispose existing connection if any
+                if (connection != null)
+                {
+                    try
+                    {
+                        await connection.CloseAsync(cancellationToken);
+                        connection.Dispose();
+                        logger.LogDebug("Closed existing RabbitMQ connection for refresh");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Error closing connection during forced refresh");
+                    }
+                    connection = null;
+                }
+
+                // Clear cached credentials to force new token acquisition
+                credentialsProvider = null;
+                
+                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token");
             }
+            finally
+            {
+                connectionSemaphore.Release();
+            }
+            
+            // Recreate connection with new credentials
+            await EnsureConnectionAsync(cancellationToken);
         }
 
         private async Task EnsureConnectionAsync(CancellationToken cancellationToken)
