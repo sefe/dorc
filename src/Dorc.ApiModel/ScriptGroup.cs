@@ -20,7 +20,7 @@ namespace Dorc.ApiModel
         public string TerraformGitPat { get; set; }
         public string AzureBearerToken { get; set; }
         public string AzureBuildId { get; set; }
-        public string AzureProject { get; set; }
+        public string AzureProjects { get; set; }
         public string AzureOrganization { get; set; }
 
         public IDictionary<string, VariableValue> CommonProperties { get; set; }

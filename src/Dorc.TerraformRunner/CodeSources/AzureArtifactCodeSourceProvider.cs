@@ -25,13 +25,15 @@ namespace Dorc.TerraformRunner.CodeSources
         public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string scriptPath, string workingDir, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(scriptGroup.AzureOrganization) || 
-                string.IsNullOrEmpty(scriptGroup.AzureProject) ||
+                string.IsNullOrEmpty(scriptGroup.AzureProjects) ||
                 string.IsNullOrEmpty(scriptGroup.AzureBuildId))
             {
                 throw new InvalidOperationException("Azure DevOps artifact information is not configured.");
             }
 
-            _logger.FileLogger.LogInformation($"Downloading Azure artifact from build '{scriptGroup.AzureBuildId}' in project '{scriptGroup.AzureProject}'");
+            _logger.FileLogger.LogInformation($"Downloading Azure artifact from build '{scriptGroup.AzureBuildId}' in projects '{scriptGroup.AzureProjects}'");
+
+            var projectNames = scriptGroup.AzureProjects.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
             // Configure the Azure DevOps API client
             var basePath = $"https://dev.azure.com/{scriptGroup.AzureOrganization}";
@@ -43,82 +45,96 @@ namespace Dorc.TerraformRunner.CodeSources
 
             var artifactsApi = new ArtifactsApi(config);
             var apiVersion = "6.0";
-
-            try
+            var downloaded = false;
+            foreach (var projName in projectNames)
             {
-                // Get the list of artifacts for the build
-                var artifacts = await artifactsApi.ArtifactsListAsync(
-                    scriptGroup.AzureOrganization,
-                    scriptGroup.AzureProject,
-                    int.Parse(scriptGroup.AzureBuildId),
-                    apiVersion,
-                    cancellationToken: cancellationToken
-                );
-
-                if (artifacts == null || artifacts.Count == 0)
+                _logger.FileLogger.LogInformation($"Processing project '{projName}'");
+                var encodedProjName = Uri.EscapeDataString(projName);
+                try
                 {
-                    throw new InvalidOperationException($"No artifacts found for build '{scriptGroup.AzureBuildId}'");
-                }
-
-                _logger.FileLogger.LogInformation($"Found {artifacts.Count} artifact(s) for build '{scriptGroup.AzureBuildId}'");
-
-                // Find the first artifact (or you could filter by name if needed)
-                var artifact = artifacts[0];
-                
-                _logger.FileLogger.LogInformation($"Downloading artifact '{artifact.Name}' (Type: {artifact.Resource?.Type})");
-
-                // Download the artifact
-                if (artifact.Resource?.Type == "Container")
-                {
-                    // For container artifacts, download as ZIP
-                    await DownloadContainerArtifactAsync(
+                    // Get the list of artifacts for the build
+                    var artifacts = await artifactsApi.ArtifactsListAsync(
                         scriptGroup.AzureOrganization,
-                        scriptGroup.AzureProject,
-                        scriptGroup.AzureBuildId,
-                        artifact.Name,
-                        workingDir,
-                        scriptGroup.AzureBearerToken,
-                        cancellationToken
+                        encodedProjName,
+                        int.Parse(scriptGroup.AzureBuildId),
+                        apiVersion,
+                        cancellationToken: cancellationToken
                     );
-                }
-                else if (artifact.Resource?.Type == "FilePath")
-                {
-                    // For file path artifacts, use the download URL
-                    if (!string.IsNullOrEmpty(artifact.Resource?.DownloadUrl))
+
+                    if (artifacts == null || artifacts.Count == 0)
                     {
-                        await DownloadFromUrlAsync(
-                            artifact.Resource.DownloadUrl,
+                        _logger.FileLogger.LogInformation($"No artifacts found for build '{scriptGroup.AzureBuildId}' in project '{projName}'");
+                        continue;
+                    }
+
+                    _logger.FileLogger.LogInformation($"Found {artifacts.Count} artifact(s) for build '{scriptGroup.AzureBuildId}' in project '{projName}'");
+
+                    // Find the first artifact (or you could filter by name if needed)
+                    var artifact = artifacts[0];
+
+                    _logger.FileLogger.LogInformation($"Downloading artifact '{artifact.Name}' (Type: {artifact.Resource?.Type}) from project '{projName}'");
+
+                    // Download the artifact
+                    if (artifact.Resource?.Type == "Container")
+                    {
+                        // For container artifacts, download as ZIP
+                        downloaded = await DownloadContainerArtifactAsync(
+                            scriptGroup.AzureOrganization,
+                            encodedProjName,
+                            scriptGroup.AzureBuildId,
+                            artifact.Name,
                             workingDir,
                             scriptGroup.AzureBearerToken,
                             cancellationToken
                         );
                     }
+                    else if (artifact.Resource?.Type == "FilePath")
+                    {
+                        // For file path artifacts, use the download URL
+                        if (!string.IsNullOrEmpty(artifact.Resource?.DownloadUrl))
+                        {
+                            downloaded = await DownloadFromUrlAsync(
+                                artifact.Resource.DownloadUrl,
+                                workingDir,
+                                scriptGroup.AzureBearerToken,
+                                cancellationToken
+                            );
+                        }
+                        else
+                        {
+                            _logger.FileLogger.LogInformation($"No download URL found for artifact '{artifact.Name}' in project '{projName}'");
+                            continue;
+                        }
+                    }
                     else
                     {
-                        throw new InvalidOperationException($"No download URL found for artifact '{artifact.Name}'");
+                        _logger.FileLogger.LogInformation($"Unsupported artifact type: {artifact.Resource?.Type} in project '{projName}'");
+                        continue;
                     }
-                }
-                else
-                {
-                    throw new InvalidOperationException($"Unsupported artifact type: {artifact.Resource?.Type}");
-                }
 
-                // If a sub-path is specified, extract only that directory
-                if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
-                {
-                    await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
-                }
+                    // If a sub-path is specified, extract only that directory
+                    if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
+                    {
+                        await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                    }
 
-                _logger.FileLogger.LogInformation($"Successfully downloaded artifact to '{workingDir}'");
+                    _logger.FileLogger.LogInformation($"Successfully downloaded artifact to '{workingDir}' from project '{projName}'");
+
+                }
+                catch (Exception ex)
+                {
+                    _logger.FileLogger.LogError(ex, $"Failed to download Azure artifact: {ex.Message}");
+                    continue;
+                }
             }
-            catch (Exception ex)
+
+            if (!downloaded)
             {
-                _logger.FileLogger.LogError(ex, $"Failed to download Azure artifact: {ex.Message}");
-                throw new InvalidOperationException($"Failed to download Azure artifact: {ex.Message}", ex);
+                throw new InvalidOperationException("Failed to download Azure DevOps artifact from all specified projects.");
             }
         }
 
-        private async Task DownloadContainerArtifactAsync(
+        private async Task<bool> DownloadContainerArtifactAsync(
             string organization,
             string project,
             string buildId,
@@ -154,6 +170,8 @@ namespace Dorc.TerraformRunner.CodeSources
                 ZipFile.ExtractToDirectory(tempZipFile, workingDir, true);
                 
                 _logger.FileLogger.LogInformation($"Extracted artifact to '{workingDir}'");
+
+                return true;
             }
             finally
             {
@@ -165,7 +183,7 @@ namespace Dorc.TerraformRunner.CodeSources
             }
         }
 
-        private async Task DownloadFromUrlAsync(
+        private async Task<bool> DownloadFromUrlAsync(
             string downloadUrl,
             string workingDir,
             string bearerToken,
@@ -193,6 +211,8 @@ namespace Dorc.TerraformRunner.CodeSources
                     }
 
                     ZipFile.ExtractToDirectory(tempZipFile, workingDir, true);
+
+                    return true;
                 }
                 finally
                 {
@@ -210,6 +230,8 @@ namespace Dorc.TerraformRunner.CodeSources
                 
                 using var fileStream = File.Create(destFile);
                 await response.Content.CopyToAsync(fileStream, cancellationToken);
+
+                return true;
             }
         }
     }

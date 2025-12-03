@@ -97,7 +97,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
                 }
             }
             
-            scriptGroup.AzureProject = request.Project;
+            scriptGroup.AzureProjects = project.ArtefactsSubPaths;
             
             // Get bearer token for Azure DevOps
             scriptGroup.AzureBearerToken = GetAzureBearerToken();
