@@ -59,13 +59,14 @@ namespace Dorc.TerraformmRunner.CodeSources
                 }
             }, cancellationToken);
 
+            _logger.FileLogger.LogInformation($"Successfully cloned Git repository to '{workingDir}'");
+
             // If a sub-path is specified, move only that directory to the root
             if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
             {
                 await ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                _logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
             }
-
-            _logger.FileLogger.LogInformation($"Successfully cloned Git repository to '{workingDir}'");
         }
 
         private UsernamePasswordCredentials CreateCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)
@@ -105,13 +106,50 @@ namespace Dorc.TerraformmRunner.CodeSources
                 
                 var subPathInTemp = Path.Combine(tempDir, subPath);
                 await CopyDirectoryAsync(subPathInTemp, workingDir, cancellationToken);
-                
+
                 // Clean up temp directory
-                Directory.Delete(tempDir, true);
+                try
+                {
+                    RemoveReadOnlyAttributes(tempDir);
+                    Directory.Delete(tempDir, true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.FileLogger.LogWarning($"Failed to delete temporary directory '{tempDir}': {ex.Message}");
+                }
             }
             else
             {
                 _logger.FileLogger.LogWarning($"Terraform sub-path '{subPath}' not found in repository.");
+            }
+        }
+
+        private void RemoveReadOnlyAttributes(string directory)
+        {
+            var directoryInfo = new DirectoryInfo(directory);
+
+            // Remove readonly from the directory itself
+            if (directoryInfo.Attributes.HasFlag(FileAttributes.ReadOnly))
+            {
+                directoryInfo.Attributes &= ~FileAttributes.ReadOnly;
+            }
+
+            // Remove readonly from all files
+            foreach (var file in directoryInfo.GetFiles("*", SearchOption.AllDirectories))
+            {
+                if (file.Attributes.HasFlag(FileAttributes.ReadOnly))
+                {
+                    file.Attributes &= ~FileAttributes.ReadOnly;
+                }
+            }
+
+            // Remove readonly from all subdirectories
+            foreach (var dir in directoryInfo.GetDirectories("*", SearchOption.AllDirectories))
+            {
+                if (dir.Attributes.HasFlag(FileAttributes.ReadOnly))
+                {
+                    dir.Attributes &= ~FileAttributes.ReadOnly;
+                }
             }
         }
 
