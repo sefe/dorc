@@ -351,10 +351,13 @@ namespace Dorc.PersistentData.Sources
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
 
-                // Update ComponentType for all updates
-                component.ComponentType = apiComponent.ComponentType;
+                DuplicateComponent(apiComponent, component, context); // if name is changed to existing name, rename existing one
 
-                DuplicateComponent(apiComponent, component, context);
+                component.Name = apiComponent.ComponentName;
+                component.StopOnFailure = apiComponent.StopOnFailure;
+                component.ComponentType = apiComponent.ComponentType;
+                component.TerraformSourceType = apiComponent.TerraformSourceType;
+                component.TerraformGitBranch = apiComponent.TerraformGitBranch;
 
                 if (component.Parent == null && parentId != null)
                     component.Parent = context.Components.First(x => x.Id == parentId);
@@ -448,20 +451,7 @@ namespace Dorc.PersistentData.Sources
                     }
                     else if (apiComponent.ScriptPath == null && oldScript != null)
                     {
-                        // Script is being removed from component
-                        if (isScriptShared)
-                        {
-                            // Script is shared, just remove reference
-                            component.Script = null;
-                            component.ScriptId = null;
-                        }
-                        else
-                        {
-                            // Script is not shared, delete it
-                            component.Script = null;
-                            component.ScriptId = null;
-                            context.Scripts.Remove(oldScript);
-                        }
+                        removeScriptFromComponent(context, component, oldScript);
                     }
                     else if (component.Script != null)
                     {
@@ -471,30 +461,33 @@ namespace Dorc.PersistentData.Sources
                 else if (apiComponent.ComponentType == ComponentType.Terraform)
                 {
                     // For Terraform components, ScriptPath is used for SharedFolder source type
-                    // but we don't create Script entities for Terraform components
-                    // Just ensure no script is associated if one exists
+                    // but we don't create Script entities for Terraform components, just ensure no script is associated if one exists
                     if (component.Script != null)
                     {
-                        var oldScript = component.Script;
-                        var isScriptShared = oldScript.Components.Count > 1;
-                        
-                        if (isScriptShared)
-                        {
-                            // Script is shared, just remove reference from this component
-                            component.Script = null;
-                            component.ScriptId = null;
-                        }
-                        else
-                        {
-                            // Script is not shared, delete it as Terraform components don't use scripts
-                            component.Script = null;
-                            component.ScriptId = null;
-                            context.Scripts.Remove(oldScript);
-                        }
+                        removeScriptFromComponent(context, component, component.Script);
                     }
                 }
 
                 context.SaveChanges();
+            }
+        }
+
+        private static void removeScriptFromComponent(IDeploymentContext context, Component component, Script oldScript)
+        {
+            var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
+
+            if (isScriptShared)
+            {
+                // Script is shared, just remove reference
+                component.Script = null;
+                component.ScriptId = null;
+            }
+            else
+            {
+                // Script is not shared, delete it
+                component.Script = null;
+                component.ScriptId = null;
+                context.Scripts.Remove(oldScript);
             }
         }
 
@@ -512,12 +505,6 @@ namespace Dorc.PersistentData.Sources
                 duplicateComponent.Name = Guid.NewGuid().ToString();
                 context.SaveChanges();
             }
-
-            component.Name = apiComponent.ComponentName;
-            component.StopOnFailure = apiComponent.StopOnFailure;
-            component.ComponentType = apiComponent.ComponentType;
-            component.TerraformSourceType = apiComponent.TerraformSourceType;
-            component.TerraformGitBranch = apiComponent.TerraformGitBranch;
         }
 
         public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
