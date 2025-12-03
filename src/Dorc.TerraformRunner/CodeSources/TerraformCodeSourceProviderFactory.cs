@@ -1,7 +1,7 @@
 using Dorc.ApiModel;
 using Dorc.Runner.Logger;
 
-namespace Dorc.TerraformmRunner.CodeSources
+namespace Dorc.TerraformRunner.CodeSources
 {
     /// <summary>
     /// Factory for creating Terraform code source providers

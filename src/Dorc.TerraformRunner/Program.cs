@@ -5,12 +5,12 @@ using System.Threading;
 using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.Runner.Logger;
-using Dorc.TerraformmRunner.Pipes;
+using Dorc.TerraformRunner.Pipes;
 using Dorc.TerraformRunner;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     internal class Program
     {

@@ -6,7 +6,7 @@ using Org.OpenAPITools.Client;
 using System.IO.Compression;
 using System.Net.Http.Headers;
 
-namespace Dorc.TerraformmRunner.CodeSources
+namespace Dorc.TerraformRunner.CodeSources
 {
     /// <summary>
     /// Provider for downloading Terraform code from Azure DevOps build artifacts

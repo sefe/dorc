@@ -1,4 +1,4 @@
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     internal interface ITerraformProcessor
     {

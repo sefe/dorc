@@ -2,7 +2,7 @@ using Dorc.ApiModel;
 using Dorc.Runner.Logger;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.TerraformmRunner.CodeSources
+namespace Dorc.TerraformRunner.CodeSources
 {
     /// <summary>
     /// Provider for copying Terraform code from a shared folder

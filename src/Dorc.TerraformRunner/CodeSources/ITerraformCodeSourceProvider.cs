@@ -1,6 +1,6 @@
 using Dorc.ApiModel;
 
-namespace Dorc.TerraformmRunner.CodeSources
+namespace Dorc.TerraformRunner.CodeSources
 {
     /// <summary>
     /// Interface for Terraform code source providers

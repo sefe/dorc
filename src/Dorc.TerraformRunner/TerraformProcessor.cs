@@ -1,13 +1,13 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
-using Dorc.TerraformmRunner.CodeSources;
-using Dorc.TerraformmRunner.Pipes;
+using Dorc.TerraformRunner.CodeSources;
+using Dorc.TerraformRunner.Pipes;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     internal class TerraformProcessor : ITerraformProcessor
     {
