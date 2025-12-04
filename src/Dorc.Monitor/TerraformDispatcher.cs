@@ -52,10 +52,7 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
-            
-            var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings");
-            this._sourceConfigurator = new TerraformSourceConfigurator(logger, appSettings);
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine);
         }
 
         public bool Dispatch(

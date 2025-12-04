@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Client.Auth;
@@ -14,12 +15,12 @@ namespace Dorc.Monitor.TerraformSourceConfig
         private const string TerraformGitPatPropertyName = "Terraform_AzureDevOps_PAT";
         
         private readonly ILogger _logger;
-        private readonly IConfigurationSection _appSettings;
+        private readonly IConfigurationSettings _configurationSettings;
 
-        public TerraformSourceConfigurator(ILogger logger, IConfigurationSection appSettings)
+        public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings)
         {
             _logger = logger;
-            _appSettings = appSettings;
+            _configurationSettings = configurationSettings;
         }
 
         public void ConfigureScriptGroup(
@@ -119,13 +120,12 @@ namespace Dorc.Monitor.TerraformSourceConfig
 
         private string GetAzureBearerToken()
         {
-            // Use the same authentication mechanism as AzureDevOpsServerWebClient
-            var aadInstance = _appSettings["AadInstance"];
-            var tenant = _appSettings["AadTenant"];
-            var clientId = _appSettings["AadClientId"];
-            var secret = _appSettings["AadSecret"];
-            var azureDevOpsOrganizationUrl = _appSettings["AadAdosOrgUrl"];
-            var scopes = new[] { _appSettings["AadScopes"] };
+            var aadInstance = _configurationSettings.GetAzureAadInstance();
+            var tenant = _configurationSettings.GetAzureEntraTenantId();
+            var clientId = _configurationSettings.GetAzureEntraClientId();
+            var secret = _configurationSettings.GetAzureEntraClientSecret();
+            var azureDevOpsOrganizationUrl = _configurationSettings.GetAzureEntraTenantId();
+            var scopes = new[] { _configurationSettings.GetAzureAadScopes() };
             
             try
             {

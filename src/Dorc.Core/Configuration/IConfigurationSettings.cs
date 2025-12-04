@@ -22,6 +22,9 @@
         bool GetIsUseAdAsSearcher();
         bool GetIsUseAdSidsForAccessControl();
 
+        string GetAzureAadAdosOrgUrl();
+        string GetAzureAadInstance();
+        string GetAzureAadScopes();
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();
         string GetAzureEntraClientSecret();

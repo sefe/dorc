@@ -41,7 +41,7 @@ namespace Dorc.TerraformRunner.CodeSources
             var projectNames = scriptGroup.AzureProjects.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
             // Configure the Azure DevOps API client
-            var basePath = $"https://dev.azure.com/{scriptGroup.AzureOrganization}";
+            var basePath = $"https://dev.azure.com";
             var config = new Configuration
             {
                 BasePath = basePath,

@@ -92,6 +92,21 @@ namespace Dorc.Core.Configuration
             return _configuration.GetSection("AppSettings:OnePassword")["ItemId"];
         }
 
+        public string GetAzureAadAdosOrgUrl()
+        {
+            return _configuration.GetSection("AppSettings")["AadAdosOrgUrl"];
+        }
+
+        public string GetAzureAadInstance()
+        {
+            return _configuration.GetSection("AppSettings")["AadInstance"];
+        }
+
+        public string GetAzureAadScopes()
+        {
+            return _configuration.GetSection("AppSettings")["AadScopes"];
+        }
+
         public string GetAzureEntraTenantId()
         {
             return _configuration.GetSection("AppSettings")["AadTenant"];
