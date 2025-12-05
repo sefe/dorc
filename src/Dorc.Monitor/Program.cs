@@ -6,6 +6,7 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -81,6 +82,9 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 #endregion
 
 builder.Services.AddTransient<ScriptDispatcher>();
+
+// Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
+builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
 
 PersistentSourcesRegistry.Register(builder.Services);
 
