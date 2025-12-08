@@ -36,26 +36,33 @@
             }
         }
 
-        private static async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+        public static async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            // Create destination directory if it doesn't exist
+            if (!Directory.Exists(destDir))
             {
-                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
+                Directory.CreateDirectory(destDir);
+            }
 
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
-                    var destFileDir = Path.GetDirectoryName(destFile);
+            // Copy all files
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-                    if (!string.IsNullOrEmpty(destFileDir))
-                    {
-                        Directory.CreateDirectory(destFileDir);
-                    }
+                var fileName = Path.GetFileName(file);
+                var destFile = Path.Combine(destDir, fileName);
+                File.Copy(file, destFile, true);
+            }
 
-                    File.Copy(file, destFile, true);
-                }
-            }, cancellationToken);
+            // Copy all subdirectories recursively
+            foreach (var directory in Directory.GetDirectories(sourceDir))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var dirName = Path.GetFileName(directory);
+                var destSubDir = Path.Combine(destDir, dirName);
+                await CopyDirectoryAsync(directory, destSubDir, cancellationToken);
+            }
         }
 
         public static void RemoveReadOnlyAttributes(string directory)

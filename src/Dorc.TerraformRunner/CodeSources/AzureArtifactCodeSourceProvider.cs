@@ -25,9 +25,36 @@ namespace Dorc.TerraformRunner.CodeSources
 
         public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string scriptPath, string workingDir, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(scriptGroup.AzureOrganization) || 
-                string.IsNullOrEmpty(scriptGroup.AzureProjects) ||
-                string.IsNullOrEmpty(scriptGroup.AzureBuildId))
+            var downloaded = false;
+
+            if (!string.IsNullOrEmpty(scriptGroup.ScriptsLocation) && scriptGroup.ScriptsLocation.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+            {
+                downloaded = await DownloadFromFileAsync(new Uri(scriptGroup.ScriptsLocation), workingDir, cancellationToken);
+            }
+            else
+            {
+                downloaded = await DownloadFromAzure(scriptGroup, workingDir, cancellationToken);
+            }
+
+            if (!downloaded)
+            {
+                throw new InvalidOperationException("Failed to download Azure DevOps artifact from all specified projects.");
+            }
+
+            // If a sub-path is specified, move only that directory to the root
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
+            {
+                await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                _logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
+            }
+        }
+
+        private async Task<bool> DownloadFromAzure(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
+        {
+            var downloaded = false;
+            if (string.IsNullOrEmpty(scriptGroup.AzureOrganization) ||
+                            string.IsNullOrEmpty(scriptGroup.AzureProjects) ||
+                            string.IsNullOrEmpty(scriptGroup.AzureBuildId))
             {
                 throw new InvalidOperationException("Azure DevOps artifact information is not configured.");
             }
@@ -50,7 +77,7 @@ namespace Dorc.TerraformRunner.CodeSources
 
             var artifactsApi = new ArtifactsApi(config);
             var apiVersion = "6.0";
-            var downloaded = false;
+
             foreach (var projName in projectNames)
             {
                 _logger.FileLogger.LogInformation($"Processing project '{projName}'");
@@ -76,20 +103,7 @@ namespace Dorc.TerraformRunner.CodeSources
                     foreach (var artifact in artifacts)
                     {
                         // Download the artifact
-                        if (artifact.Resource?.Type.ToLower() == "container")
-                        {
-                            // For container artifacts, download as ZIP
-                            downloaded = await DownloadContainerArtifactAsync(
-                                scriptGroup.AzureOrganization,
-                                projName,
-                                scriptGroup.AzureBuildId,
-                                artifact.Name,
-                                workingDir,
-                                scriptGroup.AzureBearerToken,
-                                cancellationToken
-                            );
-                        }
-                        else if (artifact.Resource?.Type.ToLower() == "filepath")
+                        if (artifact.Resource?.Type.ToLower() == "filepath" || artifact.Resource?.Type.ToLower() == "container")
                         {
                             // For file path artifacts, use the download URL
                             if (!string.IsNullOrEmpty(artifact.Resource?.DownloadUrl))
@@ -113,18 +127,6 @@ namespace Dorc.TerraformRunner.CodeSources
                             continue;
                         }
                     }
-
-                    if (downloaded)
-                    {
-                        // If a sub-path is specified, extract only that directory
-                        if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
-                        {
-                            await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
-                        }
-
-                        _logger.FileLogger.LogInformation($"Successfully downloaded artifact to '{workingDir}' from project '{projName}'");
-                        break;
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -133,64 +135,89 @@ namespace Dorc.TerraformRunner.CodeSources
                 }
             }
 
-            if (!downloaded)
-            {
-                throw new InvalidOperationException("Failed to download Azure DevOps artifact from all specified projects.");
-            }
+            return downloaded;
         }
 
-        private async Task<bool> DownloadContainerArtifactAsync(
-            string organization,
-            string project,
-            string buildId,
-            string artifactName,
+        private async Task<bool> DownloadFromUrlAsync(
+            string downloadUrl,
             string workingDir,
             string bearerToken,
             CancellationToken cancellationToken)
         {
-            // Container artifacts are downloaded as ZIP files
-            var downloadUrl = $"{azureBaseUrl}/{organization}/{project}/_apis/build/builds/{buildId}/artifacts?artifactName={Uri.EscapeDataString(artifactName)}&api-version=6.0&$format=zip";
+            _logger.FileLogger.LogInformation($"Downloading artifact from Url {downloadUrl}");
 
-            _logger.FileLogger.LogInformation($"Downloading artifact '{artifactName}' (Type: Container) from project '{project}'");
-
-            using var httpClient = new HttpClient();
-            if (!string.IsNullOrEmpty(bearerToken))
-            {
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-            }
-
-            var response = await httpClient.GetAsync(downloadUrl, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var tempZipFile = Path.Combine(Path.GetTempPath(), $"artifact-{Guid.NewGuid()}.zip");
+            // Parse the URL to determine the scheme
+            Uri uri;
             try
             {
-                // Download to temp file
-                using (var fileStream = File.Create(tempZipFile))
-                {
-                    await response.Content.CopyToAsync(fileStream, cancellationToken);
-                }
-
-                _logger.FileLogger.LogInformation($"Downloaded artifact ZIP to '{tempZipFile}'");
-
-                // Extract to working directory
-                ZipFile.ExtractToDirectory(tempZipFile, workingDir, true);
-                
-                _logger.FileLogger.LogInformation($"Extracted artifact to '{workingDir}'");
-
-                return true;
+                uri = new Uri(downloadUrl);
             }
-            finally
+            catch (UriFormatException ex)
             {
-                // Clean up temp file
-                if (File.Exists(tempZipFile))
-                {
-                    File.Delete(tempZipFile);
-                }
+                _logger.FileLogger.LogError(ex, $"Invalid URL format: {downloadUrl}");
+                throw new ArgumentException($"Invalid URL format: {downloadUrl}", nameof(downloadUrl), ex);
             }
+
+            // Handle file:// URLs
+            if (uri.Scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
+            {
+                return await DownloadFromFileAsync(uri, workingDir, cancellationToken);
+            }
+
+            // Handle http:// and https:// URLs
+            if (uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) || 
+                uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+            {
+                return await DownloadFromHttpAsync(downloadUrl, workingDir, bearerToken, cancellationToken);
+            }
+
+            throw new NotSupportedException($"The '{uri.Scheme}' scheme is not supported. Only 'file', 'http', and 'https' schemes are allowed.");
         }
 
-        private async Task<bool> DownloadFromUrlAsync(
+        private async Task<bool> DownloadFromFileAsync(
+            Uri fileUri,
+            string workingDir,
+            CancellationToken cancellationToken)
+        {
+            var sourcePath = fileUri.LocalPath;
+            
+            _logger.FileLogger.LogInformation($"Copying artifact from local path: {sourcePath}");
+
+            if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
+            {
+                throw new FileNotFoundException($"File or directory not found: {sourcePath}");
+            }
+
+            // Check if source is a file or directory
+            var fileAttributes = File.GetAttributes(sourcePath);
+            if (fileAttributes.HasFlag(FileAttributes.Directory))
+            {
+                // Copy entire directory
+                _logger.FileLogger.LogInformation($"Copying directory from {sourcePath} to {workingDir}");
+                await DirectoryHelper.CopyDirectoryAsync(sourcePath, workingDir, cancellationToken);
+            }
+            else
+            {
+                // Check if it's a ZIP file
+                if (sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.FileLogger.LogInformation($"Extracting ZIP file from {sourcePath} to {workingDir}");
+                    ZipFile.ExtractToDirectory(sourcePath, workingDir, true);
+                }
+                else
+                {
+                    // Copy single file
+                    var fileName = Path.GetFileName(sourcePath);
+                    var destFile = Path.Combine(workingDir, fileName);
+                    _logger.FileLogger.LogInformation($"Copying file from {sourcePath} to {destFile}");
+                    File.Copy(sourcePath, destFile, true);
+                }
+            }
+
+            return true;
+        }
+
+        private async Task<bool> DownloadFromHttpAsync(
             string downloadUrl,
             string workingDir,
             string bearerToken,
@@ -202,7 +229,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
             }
 
-            _logger.FileLogger.LogInformation($"Downloading artifact from Url {downloadUrl}");
+            _logger.FileLogger.LogInformation($"Downloading artifact from HTTP(S) URL: {downloadUrl}");
 
             var response = await httpClient.GetAsync(downloadUrl, cancellationToken);
             response.EnsureSuccessStatusCode();

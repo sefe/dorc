@@ -97,7 +97,8 @@ namespace Dorc.Monitor.TerraformSourceConfig
                     _logger.LogWarning(ex, $"Failed to parse BuildUri: {request.BuildUri}");
                 }
             }
-            
+
+            scriptGroup.ScriptsLocation = request.DropLocation;
             scriptGroup.AzureProjects = project.ArtefactsSubPaths;
             
             // Get bearer token for Azure DevOps
