@@ -23,7 +23,7 @@
 
 					<Json:JsonFile Id="SetServiceNameNonProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceNonProd" File="[#NonProdDeployMonitorExeConfig]" />
 
-					<Json:JsonFile Id="SetDbConnectionString1NonProd" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetDbConnectionString1NonProd" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetRefDataApiUrlNonProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#NonProdDeployMonitorExeConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 
@@ -47,7 +47,7 @@
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">
 					<Component Id="DeployMonitorServiceDorcRunnerNonProd.exe" Guid="{E97FFF42-7346-4934-8E63-11FEC7BD8426}">
-						<Json:JsonFile Id="DorcRunnerNonProdExeConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DorcRunnerNonProdExeConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="DorcRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="DorcRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="DorcRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
@@ -59,7 +59,7 @@
 
 				<Directory Id="INSTALLLOCATIONDEPLOYRUNNERNONPROD" Name="DeployRunner">
 					<Component Id="DeployMonitorServiceDeployRunnerNonProd.exe" Guid="{E96FFF42-7346-4934-8E63-11FEC7BD8426}">
-						<Json:JsonFile Id="DeployRunnerNonProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
@@ -71,7 +71,7 @@
 
 				<Directory Id="INSTALLLOCATIONTERRAFROMRUNNERNONPROD" Name="TerraformRunner">
 					<Component Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" Guid="{3DD759A3-E0CB-45D3-8AB7-A8C2E229DA87}">
-						<Json:JsonFile Id="TerraformRunnerNonProdExeConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />

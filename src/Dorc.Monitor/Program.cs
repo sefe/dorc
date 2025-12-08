@@ -71,7 +71,7 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
                 ["deployment.environment"] = monitorConfiguration.Environment,
                 ["host.name"] = Environment.MachineName
             }));
-        
+
         logging.AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri(otlpEndpoint);
@@ -113,9 +113,16 @@ builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 var connectionString = monitorConfiguration.DOrcConnectionString;
 
 builder.Services.AddTransient<IDeploymentContextFactory>(provider => new DeploymentContextFactory(connectionString));
-builder.Services.AddDbContext<DeploymentContext>(
-    options =>
-        options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<DeploymentContext>(options =>
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.CommandTimeout(60);
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(2),
+            errorNumbersToAdd: null);
+    }));
+
 
 builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
 {
