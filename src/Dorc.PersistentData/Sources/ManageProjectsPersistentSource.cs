@@ -307,7 +307,8 @@ namespace Dorc.PersistentData.Sources
                         IsEnabled = apiComponent.IsEnabled,
                         ComponentType = apiComponent.ComponentType,
                         TerraformSourceType = apiComponent.TerraformSourceType,
-                        TerraformGitBranch = apiComponent.TerraformGitBranch
+                        TerraformGitBranch = apiComponent.TerraformGitBranch,
+                        TerraformSubPath = apiComponent.TerraformSubPath,
                     };
 
                     // Only create Script entity for PowerShell components
@@ -358,6 +359,7 @@ namespace Dorc.PersistentData.Sources
                 component.ComponentType = apiComponent.ComponentType;
                 component.TerraformSourceType = apiComponent.TerraformSourceType;
                 component.TerraformGitBranch = apiComponent.TerraformGitBranch;
+                component.TerraformSubPath = apiComponent.TerraformSubPath;
 
                 if (component.Parent == null && parentId != null)
                     component.Parent = context.Components.First(x => x.Id == parentId);
@@ -613,6 +615,7 @@ namespace Dorc.PersistentData.Sources
                     ComponentType = comp.ComponentType,
                     TerraformSourceType = comp.TerraformSourceType,
                     TerraformGitBranch = comp.TerraformGitBranch,
+                    TerraformSubPath = comp.TerraformSubPath,
                     PSVersion = script.PowerShellVersionNumber
                 };
 
@@ -627,7 +630,8 @@ namespace Dorc.PersistentData.Sources
                 ParentId = comp.Parent != null ? comp.Parent.Id : 0,
                 ComponentType = comp.ComponentType,
                 TerraformSourceType = comp.TerraformSourceType,
-                TerraformGitBranch = comp.TerraformGitBranch
+                TerraformGitBranch = comp.TerraformGitBranch,
+                TerraformSubPath = comp.TerraformSubPath,
             };
         }
 

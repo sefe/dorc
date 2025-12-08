@@ -26,6 +26,10 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .Property(x => x.TerraformGitBranch)
                 .HasMaxLength(256);
+            
+            builder
+                .Property(e => e.TerraformSubPath)
+                .HasMaxLength(512);
 
             builder
                 .HasOne(x => x.Parent)

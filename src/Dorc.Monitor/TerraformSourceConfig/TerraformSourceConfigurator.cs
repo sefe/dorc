@@ -32,6 +32,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
         {
             scriptGroup.TerraformSourceType = component.TerraformSourceType;
             scriptGroup.TerraformGitBranch = component.TerraformGitBranch ?? "main";
+            scriptGroup.TerraformSubPath = component.TerraformSubPath ?? string.Empty;
 
             switch (component.TerraformSourceType)
             {
@@ -65,7 +66,6 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
 
             scriptGroup.TerraformGitRepoUrl = project.TerraformGitRepoUrl;
-            scriptGroup.TerraformSubPath = project.TerraformSubPath;
             
             // Get PAT token from environment properties
             if (properties.TryGetValue(TerraformGitPatPropertyName, out var patValue))
@@ -115,8 +115,6 @@ namespace Dorc.Monitor.TerraformSourceConfig
                     scriptGroup.AzureOrganization = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
                 }
             }
-            
-            scriptGroup.TerraformSubPath = project?.TerraformSubPath;
         }
 
         private string GetAzureBearerToken()

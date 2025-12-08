@@ -11,7 +11,8 @@
     [ScriptId]             INT                                                NULl,
     [ComponentType]        INT                                                NOT NULL DEFAULT 0,
     [TerraformSourceType]  INT                                                NOT NULL DEFAULT 0,
-    [TerraformGitBranch]   NVARCHAR(256)                                      NULL
+    [TerraformGitBranch]   NVARCHAR(256)                                      NULL,
+    [TerraformSubPath]     NVARCHAR (512)                                     NULL,
     CONSTRAINT [PK_Component] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 

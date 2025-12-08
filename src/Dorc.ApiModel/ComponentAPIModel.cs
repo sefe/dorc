@@ -18,5 +18,6 @@ namespace Dorc.ApiModel
         public ComponentType ComponentType { get; set; } = ComponentType.PowerShell;
         public TerraformSourceType TerraformSourceType { get; set; } = TerraformSourceType.SharedFolder;
         public string TerraformGitBranch { get; set; }
+        public string TerraformSubPath { get; set; }
     }
 }

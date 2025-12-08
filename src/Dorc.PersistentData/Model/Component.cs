@@ -15,6 +15,7 @@ namespace Dorc.PersistentData.Model
         public ComponentType ComponentType { get; set; } = ComponentType.PowerShell;
         public TerraformSourceType TerraformSourceType { get; set; } = TerraformSourceType.SharedFolder;
         public string? TerraformGitBranch { get; set; }
+        public string? TerraformSubPath { get; set; }
         public ICollection<Component> Children { get; set; } = new List<Component>();
         public ICollection<Project> Projects { get; set; } = new List<Project>();
     }

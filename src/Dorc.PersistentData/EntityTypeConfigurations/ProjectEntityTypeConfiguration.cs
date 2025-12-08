@@ -33,10 +33,6 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(512);
 
             builder
-                .Property(e => e.TerraformSubPath)
-                .HasMaxLength(512);
-
-            builder
                 .Property(x => x.SourceDatabaseId);
 
             builder

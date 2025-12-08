@@ -75,4 +75,9 @@ export interface ComponentApiModel {
      * @memberof ComponentApiModel
      */
     TerraformGitBranch?: string | null;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    TerraformSubPath?: string | null;
 }

@@ -119,7 +119,8 @@ namespace Dorc.PersistentData.Sources
                 IsEnabled = component.IsEnabled,
                 ComponentType = component.ComponentType,
                 TerraformSourceType = component.TerraformSourceType,
-                TerraformGitBranch = component.TerraformGitBranch
+                TerraformGitBranch = component.TerraformGitBranch,
+                TerraformSubPath = component.TerraformSubPath,
             };
 
             context.Entry(component)

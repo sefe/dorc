@@ -56,11 +56,6 @@ export interface ProjectApiModel {
      */
     TerraformGitRepoUrl?: string | null;
     /**
-     * @type {string}
-     * @memberof ProjectApiModel
-     */
-    TerraformSubPath?: string | null;
-    /**
      * @type {DatabaseApiModel}
      * @memberof ProjectApiModel
      */
