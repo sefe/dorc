@@ -66,7 +66,15 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
 
             scriptGroup.TerraformGitRepoUrl = project.TerraformGitRepoUrl;
-            
+
+            // Determine if this is GitHub or Azure DevOps
+            bool isAzureDevOpsRepo = scriptGroup.TerraformGitRepoUrl.Contains("dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
+                                 scriptGroup.TerraformGitRepoUrl.Contains("visualstudio.com", StringComparison.OrdinalIgnoreCase);
+            if (isAzureDevOpsRepo)
+            {
+                scriptGroup.AzureBearerToken = GetAzureBearerToken();
+            }
+
             // Get PAT token from environment properties
             if (properties.TryGetValue(TerraformGitPatPropertyName, out var patValue))
             {
