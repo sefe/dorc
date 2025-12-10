@@ -40,7 +40,7 @@ namespace Dorc.TerraformRunner
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
 
-            logger.FileLogger.LogInformation($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
+            logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
             var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroupProperties, cancellationToken);
 
@@ -49,12 +49,12 @@ namespace Dorc.TerraformRunner
                 // Create terraform plan
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
-                logger.FileLogger.LogInformation($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
+                logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
                 return true;
             }
             catch (Exception ex)
             {
-                logger.FileLogger.LogError(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
+                logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 return false;
             }
             finally
@@ -80,7 +80,7 @@ namespace Dorc.TerraformRunner
             // Get the appropriate provider for the source type
             var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
             
-            logger.FileLogger.LogInformation($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
+            logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
             
             // Provision the code using the selected provider
             await provider.ProvisionCodeAsync(scriptGroup, scriptPath, workingDir, cancellationToken);
@@ -119,12 +119,12 @@ namespace Dorc.TerraformRunner
                     File.WriteAllText(planContentFilePath, planContent);
                 }
                 
-                logger.FileLogger.LogInformation($"Terraform plan created successfully for request '{requestId}'");
+                logger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
             }
             catch (Exception ex)
             {
-                logger.FileLogger.LogError(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
+                logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 throw;
             }
             finally
@@ -206,7 +206,7 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            logger.FileLogger.LogDebug($"Running Terraform command: terraform {arguments} in {workingDir}");
+            logger.Debug($"Running Terraform command: terraform {arguments} in {workingDir}");
 
             try
             {
@@ -256,7 +256,7 @@ namespace Dorc.TerraformRunner
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
 
-            logger.FileLogger.LogInformation($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
+            logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
             try
             {
@@ -265,18 +265,18 @@ namespace Dorc.TerraformRunner
 
                 if (executionResult.Success)
                 {
-                    logger.FileLogger.LogInformation($"Terraform plan executed successfully for deployment result ID: {deployResultId}");
+                    logger.Information($"Terraform plan executed successfully for deployment result ID: {deployResultId}");
                     return true;
                 }
                 else
                 {
-                    logger.FileLogger.LogError($"Terraform plan execution failed for deployment result ID {deployResultId}: {executionResult.ErrorMessage}");
+                    logger.Error($"Terraform plan execution failed for deployment result ID {deployResultId}: {executionResult.ErrorMessage}");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                logger.FileLogger.LogError(ex, $"Failed to execute Terraform plan for deployment result ID {deployResultId}: {ex.Message}");
+                logger.Error(ex, $"Failed to execute Terraform plan for deployment result ID {deployResultId}: {ex.Message}");
                 return false;
             }
         }
@@ -300,11 +300,11 @@ namespace Dorc.TerraformRunner
 
                 // Execute terraform apply using the stored plan
                 var applyArgs = $"apply -auto-approve {planFile}  -no-color";
-                logger.FileLogger.LogInformation($"Executing Terraform apply for request ID: {requestId}");
+                logger.Information($"Executing Terraform apply for request ID: {requestId}");
                 
                 var applyOutput = await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
 
-                logger.FileLogger.LogInformation($"Terraform apply completed successfully for request ID: {requestId}");
+                logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
                 
                 return new TerraformExecutionResult 
                 { 
@@ -314,7 +314,7 @@ namespace Dorc.TerraformRunner
             }
             catch (Exception ex)
             {
-                logger.FileLogger.LogError(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
+                logger.Error(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
                 return new TerraformExecutionResult 
                 { 
                     Success = false, 
