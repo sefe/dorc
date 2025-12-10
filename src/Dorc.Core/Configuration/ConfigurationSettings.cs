@@ -166,5 +166,10 @@ namespace Dorc.Core.Configuration
             return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"];
         }
         #endregion
+
+        public string GetWindowsApiUrl()
+        {
+            return _configuration.GetSection("AppSettings")["WindowsApiUrl"] ?? "https://localhost:5002";
+        }
     }
 }

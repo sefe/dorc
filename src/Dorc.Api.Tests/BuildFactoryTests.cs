@@ -1,5 +1,5 @@
+using Dorc.Api.Build;
 using Dorc.Api.Interfaces;
-using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -20,7 +20,7 @@ namespace Dorc.Api.Tests
             var project = new ProjectApiModel { ProjectName = "myProject", ArtefactsUrl = "https://tfs/tfs/org/" };
 
             mockedProjectsPds.GetProject(Arg.Any<string>()).Returns(project);
-            var mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
+            var mockedFileSystemHelper = Substitute.For<IFileOperations>();
             var request = new RequestDto { BuildUrl = "file://some_path", Project = "myProject" };
 
             ILoggerFactory mockedLoggerFactory = Substitute.For<ILoggerFactory>();
