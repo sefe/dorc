@@ -162,7 +162,7 @@ namespace Dorc.PersistentData.Sources
             {
                 foreach (var component in script.Components)
                 {
-                    isEnabled = component.IsEnabled ?? true;
+                    isEnabled = component.IsEnabled == true;
                 }
             }
 
