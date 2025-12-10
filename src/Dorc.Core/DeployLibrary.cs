@@ -287,7 +287,7 @@ namespace Dorc.Core
 
         private void AddComponent(ICollection<string> componentNames, ComponentApiModel component)
         {
-            if (component.IsEnabled.HasValue && component.IsEnabled == false)
+            if (!component.IsEnabled)
             {
                 return;
             }
