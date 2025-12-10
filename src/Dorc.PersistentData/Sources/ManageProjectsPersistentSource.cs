@@ -4,8 +4,6 @@ using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SqlServer.Management.Smo.Agent;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -311,9 +309,10 @@ namespace Dorc.PersistentData.Sources
                         TerraformSubPath = apiComponent.TerraformSubPath,
                     };
 
-                    // Only create Script entity for PowerShell components
+                    // Only create Script entity for PowerShell components and Terraform with SharedFolder type
                     // Terraform components may have ScriptPath (for SharedFolder type) but don't use Script entities
-                    if (apiComponent.ComponentType == ComponentType.PowerShell && apiComponent.ScriptPath != null)
+                    if ((apiComponent.ComponentType == ComponentType.PowerShell || (apiComponent.ComponentType == ComponentType.Terraform && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder))
+                        && apiComponent.ScriptPath != null)
                     {
                         var script = new Script
                         {
@@ -369,9 +368,9 @@ namespace Dorc.PersistentData.Sources
                     if (component.Parent.Id != parentId)
                         component.Parent = context.Components.First(x => x.Id == parentId);
 
-                // Handle script updates for PowerShell components only
-                // Terraform components use ScriptPath differently and don't have traditional scripts
-                if (apiComponent.ComponentType == ComponentType.PowerShell)
+                // Handle script updates for PowerShell components and Terraform components with SharedFolder type
+                // Terraform components use ScriptPath as shared folder path
+                if (apiComponent.ComponentType == ComponentType.PowerShell || (apiComponent.ComponentType == ComponentType.Terraform && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder))
                 {
                     var oldScript = component.Script;
                     var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
