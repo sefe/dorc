@@ -2,6 +2,7 @@ using Dorc.Api.Controllers;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
+using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
