@@ -37,9 +37,9 @@
 					<Json:JsonFile Id="DorcApiClientSecretProd" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
 					<Json:JsonFile Id="DorcApiScopeProd" ElementPath="$.AppSettings.DorcApi.Scope" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />
 
-					<Json:JsonFile Id="CurrentAadClientIdProd" ElementPath="$.AppSettings.AadClientId" File="[#ProdDeployMonitorExeConfig]" Value="[AADCLIENTID]" />
-					<Json:JsonFile Id="CurrentAadSecretProd" ElementPath="$.AppSettings.AadSecret" File="[#ProdDeployMonitorExeConfig]" Value="[AADSECRET]" />
-					<Json:JsonFile Id="CurrentAadTenantProd" ElementPath="$.AppSettings.AadTenant" File="[#ProdDeployMonitorExeConfig]" Value="[AADTENANT]" />
+					<Json:JsonFile Id="MonitorAadClientIdProd" ElementPath="$.AppSettings.AadClientId" File="[#ProdDeployMonitorExeConfig]" Value="[AADCLIENTID]" />
+					<Json:JsonFile Id="MonitorAadSecretProd" ElementPath="$.AppSettings.AadSecret" File="[#ProdDeployMonitorExeConfig]" Value="[AADSECRET]" />
+					<Json:JsonFile Id="MonitorAadTenantProd" ElementPath="$.AppSettings.AadTenant" File="[#ProdDeployMonitorExeConfig]" Value="[AADTENANT]" />
 
 					<Json:JsonFile Id="AzureStorageAccountTenantIdProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
 					<Json:JsonFile Id="AzureStorageAccountClientIdProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
