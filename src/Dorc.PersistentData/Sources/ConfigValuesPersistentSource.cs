@@ -1,9 +1,7 @@
 ﻿using Dorc.ApiModel;
-using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -65,20 +63,49 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        /// Only one property changes per request (Secure OR IsForProd OR Value).
         public ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel model)
         {
             using var context = _contextFactory.GetContext();
             var configValue = context.ConfigValues
-                .First(pv => pv.Id == model.Id);
+                .FirstOrDefault(pv => pv.Id == model.Id)
+                ?? throw new KeyNotFoundException($"Config value with Id={model.Id} not found.");
 
-            configValue.Value = model.Value;
-            configValue.Secure = model.Secure;
-            configValue.Key = model.Key;
-            configValue.IsForProd = model.IsForProd;
+            // Get current value in plain text (decrypt if Secure) for comparison and restoring when Secure is toggled off
+            string oldPlain = configValue.Secure && !string.IsNullOrEmpty(configValue.Value)
+                ? _propertyEncrypt.DecryptValue(configValue.Value)
+                  ?? throw new ApplicationException($"Failed to decrypt secure value for Id={configValue.Id}")
+                : configValue.Value ?? string.Empty;
 
-            if (configValue.Secure)
+            // 1) If Secure changed encrypt/decrypt value
+            if (configValue.Secure != model.Secure)
             {
-                configValue.Value = _propertyEncrypt.EncryptValue(configValue.Value);
+                configValue.Secure = model.Secure;
+                if (model.Secure)
+                {
+                    if (model.Value == null)
+                        throw new ArgumentException("Value required when Secure=true.");
+                    configValue.Value = _propertyEncrypt.EncryptValue(model.Value);
+                }
+
+                else
+                {
+                    configValue.Value = oldPlain;
+                }
+            }
+
+            // 2) Else if IsForProd changed update the flag
+            else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
+            {
+                configValue.IsForProd = model.IsForProd;
+            }
+
+            // 3) Else if Value changed update (encrypt if Secure)
+            else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
+            {
+                configValue.Value = configValue.Secure
+                    ? _propertyEncrypt.EncryptValue(model.Value)
+                    : model.Value;
             }
 
             context.SaveChanges();

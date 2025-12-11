@@ -211,42 +211,46 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
     });
 }
 
-static void AddSwaggerGen(IServiceCollection services, string? authenticationScheme)
+static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
-    if (authenticationScheme is not ConfigAuthScheme.OAuth)
+    string? authority = configurationSettings.GetOAuthAuthority();
+    string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
+    
+    services.AddSwaggerGen(options =>
     {
-        services.AddSwaggerGen();
-    }
-    else
-    {
-        services.AddSwaggerGen(options =>
+        // Always configure OAuth2 for Swagger UI regardless of auth scheme
+        options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
         {
-            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            Type = SecuritySchemeType.OAuth2,
+            Flows = new OpenApiOAuthFlows
             {
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                Scheme = "Bearer",
-                BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Description = "Enter 'Bearer {your JWT token}' to authenticate."
-            });
-
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                AuthorizationCode = new OpenApiOAuthFlow
                 {
+                    AuthorizationUrl = new Uri($"{authority}/connect/authorize"),
+                    TokenUrl = new Uri($"{authority}/connect/token"),
+                    Scopes = new Dictionary<string, string>
                     {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        new string[] { }
+                        { dorcApiGlobalScope, "Access to DORC API" }
                     }
-                });
+                }
+            }
         });
-    }
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "oauth2"
+                    }
+                },
+                new[] { dorcApiGlobalScope }
+            }
+        });
+    });
 }
 
 builder.Services
@@ -266,7 +270,7 @@ builder.Services
     });
 
 builder.Services.AddEndpointsApiExplorer();
-AddSwaggerGen(builder.Services, authenticationScheme);
+AddSwaggerGen(builder.Services, configurationSettings);
 builder.Services.AddExceptionHandler<DefaultExceptionHandler>()
     .ConfigureHttpJsonOptions(opts => opts.SerializerOptions.PropertyNamingPolicy = null);
 
@@ -331,7 +335,13 @@ var app = builder.Build();
 app.UseIpRateLimiting();
 
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.OAuthClientId(configurationSettings.GetOAuthUiClientId());
+    c.OAuthAppName("DORC API");
+    c.OAuthUsePkce();
+    c.OAuthScopes(configurationSettings.GetOAuthApiGlobalScope());
+});
 app.UseExceptionHandler(_ => { }); // empty lambda is required until https://github.com/dotnet/aspnetcore/issues/51888 is fixed
 app.UseCors(dorcCorsRefDataPolicy);
 
