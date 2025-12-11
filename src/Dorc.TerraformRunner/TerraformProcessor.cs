@@ -4,6 +4,7 @@ using Dorc.Runner.Logger;
 using Dorc.TerraformRunner.CodeSources;
 using Dorc.TerraformRunner.Pipes;
 using Microsoft.Extensions.Logging;
+using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -208,7 +209,7 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            logger.Debug($"Running Terraform command: terraform {arguments} in {workingDir}");
+            logger.FileLogger.LogDebug($"Running Terraform command: terraform {arguments} in {workingDir}");
 
             try
             {
@@ -222,6 +223,24 @@ namespace Dorc.TerraformRunner
                     cancellationToken.ThrowIfCancellationRequested();
                     await Task.Delay(100, cancellationToken);
                 }
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
+            {
+                var errorMessage = "Terraform executable not found. Please ensure Terraform is installed and available in the system PATH.";
+                logger.Error(errorMessage, ex);
+                throw new InvalidOperationException(errorMessage, ex);
+            }
+            catch (Win32Exception ex)
+            {
+                var errorMessage = $"Failed to start Terraform process. Win32 error code: {ex.NativeErrorCode}. " +
+                                   "Please ensure Terraform is properly installed and the user has necessary permissions.";
+                logger.Error(errorMessage, ex);
+                throw new InvalidOperationException(errorMessage, ex);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.Warning($"Terraform command was cancelled.");
+                throw;
             }
             catch (Exception e)
             {

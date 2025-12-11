@@ -27,7 +27,9 @@ namespace Dorc.TerraformRunner.CodeSources
         {
             var downloaded = false;
 
-            if (!string.IsNullOrEmpty(scriptGroup.ScriptsLocation) && scriptGroup.ScriptsLocation.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+            var isFilePathSpecified = !string.IsNullOrEmpty(scriptGroup.ScriptsLocation) && scriptGroup.ScriptsLocation.StartsWith("file://", StringComparison.OrdinalIgnoreCase);
+
+            if (isFilePathSpecified)
             {
                 downloaded = await DownloadFromFileAsync(new Uri(scriptGroup.ScriptsLocation), workingDir, cancellationToken);
             }
@@ -38,7 +40,10 @@ namespace Dorc.TerraformRunner.CodeSources
 
             if (!downloaded)
             {
-                throw new InvalidOperationException("Failed to download Azure DevOps artifact from all specified projects.");
+                var errMsg = isFilePathSpecified ?
+                    $"file path {scriptGroup.ScriptsLocation}" :
+                    $"Azure DevOps projects '{scriptGroup.AzureProjects}', buildId {scriptGroup.AzureBuildId}";
+                throw new InvalidOperationException($"Failed to download Azure DevOps artifact from {errMsg}");
             }
         }
 
