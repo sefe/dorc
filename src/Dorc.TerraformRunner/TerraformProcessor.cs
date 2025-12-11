@@ -27,7 +27,6 @@ namespace Dorc.TerraformRunner
         public async Task<bool> PreparePlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string resultFilePath,
             string planContentFilePath,
             CancellationToken cancellationToken)
@@ -42,7 +41,7 @@ namespace Dorc.TerraformRunner
 
             logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroupProperties, cancellationToken);
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroupProperties, cancellationToken);
 
             try
             {
@@ -65,7 +64,6 @@ namespace Dorc.TerraformRunner
 
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
             int requestId,
-            string scriptPath,
             ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
@@ -83,7 +81,14 @@ namespace Dorc.TerraformRunner
             logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
             
             // Provision the code using the selected provider
-            await provider.ProvisionCodeAsync(scriptGroup, scriptPath, workingDir, cancellationToken);
+            await provider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken);
+
+            // If a sub-path is specified, move only that directory to the root
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
+            {
+                await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
+            }
 
             return workingDir;
         }
@@ -121,11 +126,6 @@ namespace Dorc.TerraformRunner
                 
                 logger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
-                throw;
             }
             finally
             {
@@ -244,7 +244,6 @@ namespace Dorc.TerraformRunner
         public async Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string planFile,
             CancellationToken cancellationToken)
         {
@@ -261,7 +260,7 @@ namespace Dorc.TerraformRunner
             try
             {
                 // Execute the actual Terraform plan
-                var executionResult = await ExecuteTerraformPlanAsync(requestId, scriptPath, planFile, scriptGroupProperties, cancellationToken);
+                var executionResult = await ExecuteTerraformPlanAsync(requestId, planFile, scriptGroupProperties, cancellationToken);
 
                 if (executionResult.Success)
                 {
@@ -283,7 +282,6 @@ namespace Dorc.TerraformRunner
 
         private async Task<TerraformExecutionResult> ExecuteTerraformPlanAsync(
             int requestId,
-            string scriptPath,
             string planFile,
             ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
@@ -293,7 +291,7 @@ namespace Dorc.TerraformRunner
             var terraformWorkingDir = string.Empty;
             try
             {
-                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, scriptGroup, cancellationToken);
+                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroup, cancellationToken);
 
                 // Initialize Terraform if needed
                 await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);

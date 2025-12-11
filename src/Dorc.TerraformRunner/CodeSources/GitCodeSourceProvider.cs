@@ -20,7 +20,7 @@ namespace Dorc.TerraformRunner.CodeSources
             _logger = logger;
         }
 
-        public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string scriptPath, string workingDir, CancellationToken cancellationToken)
+        public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(scriptGroup.TerraformGitRepoUrl))
             {
@@ -60,13 +60,6 @@ namespace Dorc.TerraformRunner.CodeSources
             }, cancellationToken);
 
             _logger.FileLogger.LogInformation($"Successfully cloned Git repository to '{workingDir}'");
-
-            // If a sub-path is specified, move only that directory to the root
-            if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
-            {
-                await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
-                _logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
-            }
         }
 
         private UsernamePasswordCredentials CreateCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)

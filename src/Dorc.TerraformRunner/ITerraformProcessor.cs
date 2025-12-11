@@ -5,7 +5,6 @@ namespace Dorc.TerraformRunner
         Task<bool> PreparePlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string resultFilePath,
             string planContentFilePath,
             CancellationToken cancellationToken);
@@ -13,7 +12,6 @@ namespace Dorc.TerraformRunner
         Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string planFile,
             CancellationToken cancellationToken);
     }

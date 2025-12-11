@@ -18,17 +18,17 @@ namespace Dorc.TerraformRunner.CodeSources
             _logger = logger;
         }
 
-        public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string scriptPath, string workingDir, CancellationToken cancellationToken)
+        public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
         {
             // Copy Terraform files from component script path to working directory
-            if (!string.IsNullOrEmpty(scriptPath) && Directory.Exists(scriptPath))
+            if (!string.IsNullOrEmpty(scriptGroup.ScriptsLocation) && Directory.Exists(scriptGroup.ScriptsLocation))
             {
-                _logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptPath}' to working directory '{workingDir}'");
-                await CopyDirectoryAsync(scriptPath, workingDir, cancellationToken);
+                _logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptGroup.ScriptsLocation}' to working directory '{workingDir}'");
+                await CopyDirectoryAsync(scriptGroup.ScriptsLocation, workingDir, cancellationToken);
             }
             else
             {
-                throw new InvalidOperationException($"Terraform script path '{scriptPath}' does not exist.");
+                throw new InvalidOperationException($"Terraform script path '{scriptGroup.ScriptsLocation}' does not exist.");
             }
         }
 
