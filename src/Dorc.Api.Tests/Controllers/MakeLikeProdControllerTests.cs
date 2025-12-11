@@ -93,9 +93,9 @@ namespace Dorc.Api.Tests.Controllers
                 RequestProperties = new List<RequestProperty>()
             };
 
-            var bundledRequests = new List<BundledRequestDto>
+            var bundledRequests = new List<BundledRequestsApiModel>
             {
-                new BundledRequestDto
+                new BundledRequestsApiModel
                 {
                     Type = BundledRequestType.JobRequest,
                     Request = System.Text.Json.JsonSerializer.Serialize(jobRequest),
@@ -159,21 +159,21 @@ namespace Dorc.Api.Tests.Controllers
                 Components = new List<int> { 100, 101 }
             };
 
-            var bundledRequests = new List<BundledRequestDto>
+            var bundledRequests = new List<BundledRequestsApiModel>
             {
-                new BundledRequestDto
+                new BundledRequestsApiModel
                 {
                     Type = BundledRequestType.JobRequest,
                     Request = System.Text.Json.JsonSerializer.Serialize(jobRequest1),
                     Sequence = 1
                 },
-                new BundledRequestDto
+                new BundledRequestsApiModel
                 {
                     Type = BundledRequestType.JobRequest,
                     Request = System.Text.Json.JsonSerializer.Serialize(jobRequest2),
                     Sequence = 2
                 },
-                new BundledRequestDto
+                new BundledRequestsApiModel
                 {
                     Type = BundledRequestType.CopyEnvBuild,
                     Request = System.Text.Json.JsonSerializer.Serialize(copyEnvBuildRequest),
@@ -225,7 +225,7 @@ namespace Dorc.Api.Tests.Controllers
                 BundleProperties = new List<RequestProperty>()
             };
 
-            var bundledRequests = new List<BundledRequestDto>(); // Empty list
+            var bundledRequests = new List<BundledRequestsApiModel>(); // Empty list
 
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
             _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
