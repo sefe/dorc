@@ -162,7 +162,6 @@ namespace Dorc.Monitor
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
                     RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
-                    ScriptPath = fullScriptPath,
                     ScriptGroupPipeName = startedScriptGroupPipeName,
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
