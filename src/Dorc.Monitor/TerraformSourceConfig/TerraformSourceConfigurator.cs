@@ -127,17 +127,14 @@ namespace Dorc.Monitor.TerraformSourceConfig
 
         private string GetAzureBearerToken()
         {
-            var aadInstance = _configurationSettings.GetAzureAadInstance();
             var tenant = _configurationSettings.GetAzureEntraTenantId();
             var clientId = _configurationSettings.GetAzureEntraClientId();
             var secret = _configurationSettings.GetAzureEntraClientSecret();
-            var azureDevOpsOrganizationUrl = _configurationSettings.GetAzureEntraTenantId();
-            var scopes = new[] { _configurationSettings.GetAzureAadScopes() };
             
             try
             {
                 var aadConnectionSettings = new AadConnectionSettings(
-                    clientId, aadInstance, azureDevOpsOrganizationUrl, scopes, secret, tenant);
+                    clientId, new string[] { }, secret, tenant);
                 var authTokenGenerator = AuthTokenGeneratorFactory
                     .GetAuthTokenGenerator(aadConnectionSettings);
                 return authTokenGenerator.GetToken();
