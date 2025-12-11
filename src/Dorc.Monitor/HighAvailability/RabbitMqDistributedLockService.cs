@@ -96,7 +96,22 @@ namespace Dorc.Monitor.HighAvailability
                             routingKey: queueName,
                             cancellationToken: cancellationToken);
 
+                        // Check if lock queue already has a message (lock is held by another monitor)
+                        // Use passive queue inspection to check message count
+                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
+                        
+                        // If queue has messages, another monitor holds the lock
+                        if (queueInfo.MessageCount > 0)
+                        {
+                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
+                                resourceKey, queueInfo.MessageCount);
+                            await channel.CloseAsync(cancellationToken: cancellationToken);
+                            await channel.DisposeAsync();
+                            return null;
+                        }
+
                         // Publish a lock message that the consumer will hold
+                        // This message represents the lock token for this environment
                         var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
                         await channel.BasicPublishAsync(
                             exchange: exchangeName,
@@ -106,12 +121,14 @@ namespace Dorc.Monitor.HighAvailability
 
                         // Start consuming - single-active consumer ensures only one monitor processes this
                         var consumer = new AsyncEventingBasicConsumer(channel);
+                        var lockAcquired = new TaskCompletionSource<bool>();
                         
                         // Attach event handler to receive and hold the message
                         consumer.ReceivedAsync += async (model, ea) =>
                         {
                             // Message received - lock is held by NOT acknowledging
                             // The lock will be released when consumer is cancelled (in Dispose)
+                            lockAcquired.TrySetResult(true);
                             await Task.CompletedTask;
                         };
                         
@@ -120,6 +137,24 @@ namespace Dorc.Monitor.HighAvailability
                             autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
                             consumer: consumer,
                             cancellationToken: cancellationToken);
+
+                        // Wait for lock message to be delivered (with timeout)
+                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                        using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
+                        {
+                            try
+                            {
+                                await lockAcquired.Task.WaitAsync(linkedCts.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                logger.LogWarning("Timeout waiting for lock message on '{ResourceKey}'. Another consumer may have claimed it.", resourceKey);
+                                await channel.BasicCancelAsync(consumerTag, cancellationToken: CancellationToken.None);
+                                await channel.CloseAsync(cancellationToken: CancellationToken.None);
+                                await channel.DisposeAsync();
+                                return null;
+                            }
+                        }
 
                         logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
                             resourceKey);
@@ -479,6 +514,29 @@ namespace Dorc.Monitor.HighAvailability
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Error cancelling consumer for lock '{ResourceKey}'", resourceKey);
+            }
+
+            try
+            {
+                // Purge all messages from the queue to clean up lock tokens
+                await channel.QueuePurgeAsync(queueName);
+                logger.LogDebug("Purged messages from lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error purging lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+            }
+
+            try
+            {
+                // Delete the queue to clean up after deployment completes
+                // This prevents accumulation of unused lock queues
+                await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false);
+                logger.LogInformation("Deleted lock queue '{QueueName}' for resource '{ResourceKey}' after deployment completed", queueName, resourceKey);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error deleting lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
             }
 
             try
