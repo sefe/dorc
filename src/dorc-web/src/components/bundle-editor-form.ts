@@ -174,14 +174,11 @@ export class BundleEditorForm extends LitElement {
         'bundleType'
       ) as ComboBox;
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
-        if (typeComboBox.value)
-        {
-          const typeOption = this._typeOptions.find(
-            option => option.value === this.bundleRequest.Type
-          );
-          if (typeOption) {
-            typeComboBox.selectedItem = typeOption;
-          }
+        const typeOption = this._typeOptions.find(
+          option => option.value === this.bundleRequest.Type
+        );
+        if (typeOption) {
+          typeComboBox.selectedItem = typeOption;
         }
       }
     }, 10);
