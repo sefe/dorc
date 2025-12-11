@@ -54,10 +54,10 @@ namespace Dorc.TerraformRunner.CodeSources
 
             if (string.IsNullOrEmpty(scriptGroup.AzureBearerToken))
             {
-                throw new ArgumentException("No Azure DevOps bearer token provided by Monitor, check its logs. Cannot download artifact");
+                throw new ArgumentException("Cannot download artifact as no Azure DevOps bearer token provided by Monitor service, check its logs.");
             }
 
-            _logger.FileLogger.LogInformation($"Downloading Azure artifact from build '{scriptGroup.AzureBuildId}' in projects '{scriptGroup.AzureProjects}'");
+            _logger.Information($"Downloading Azure artifact from build '{scriptGroup.AzureBuildId}' in projects '{scriptGroup.AzureProjects}'");
 
             var projectNames = scriptGroup.AzureProjects.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -107,6 +107,8 @@ namespace Dorc.TerraformRunner.CodeSources
                                     scriptGroup.AzureBearerToken,
                                     cancellationToken
                                 );
+
+                                break;
                             }
                             else
                             {
@@ -174,12 +176,12 @@ namespace Dorc.TerraformRunner.CodeSources
         {
             var sourcePath = fileUri.LocalPath;
             
-            _logger.FileLogger.LogInformation($"Copying artifact from local path: {sourcePath}");
-
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
             {
                 throw new FileNotFoundException($"File or directory not found: {sourcePath}");
             }
+
+            _logger.Information($"Copying artifact from local path: {sourcePath}");
 
             // Check if source is a file or directory
             var fileAttributes = File.GetAttributes(sourcePath);
@@ -222,7 +224,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
             }
 
-            _logger.FileLogger.LogInformation($"Downloading artifact from HTTP(S) URL: {downloadUrl}");
+            _logger.Information($"Downloading artifact from URL: {downloadUrl}");
 
             var response = await httpClient.GetAsync(downloadUrl, cancellationToken);
             response.EnsureSuccessStatusCode();

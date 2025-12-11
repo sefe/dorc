@@ -23,7 +23,7 @@ namespace Dorc.TerraformRunner.CodeSources
             // Copy Terraform files from component script path to working directory
             if (!string.IsNullOrEmpty(scriptGroup.ScriptsLocation) && Directory.Exists(scriptGroup.ScriptsLocation))
             {
-                _logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptGroup.ScriptsLocation}' to working directory '{workingDir}'");
+                _logger.Information($"Copying files from '{scriptGroup.ScriptsLocation}' to working directory");
                 await CopyDirectoryAsync(scriptGroup.ScriptsLocation, workingDir, cancellationToken);
             }
             else

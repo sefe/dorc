@@ -90,6 +90,8 @@ namespace Dorc.TerraformRunner
                 logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
             }
 
+            logger.Information($"Terraform working directory has been set up at: {workingDir}");
+
             return workingDir;
         }
 

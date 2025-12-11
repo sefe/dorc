@@ -130,6 +130,7 @@ namespace Dorc.TerraformRunner
             Thread.Sleep(10000);
 
             runnerLogger?.FileLogger.LogInformation(RunnerConstants.StandardStreamEndString);
+            runnerLogger?.FlushLogMessages();
         }
 
         static void Exit(int exitCode)

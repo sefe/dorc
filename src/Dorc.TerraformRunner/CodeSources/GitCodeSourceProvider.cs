@@ -30,7 +30,7 @@ namespace Dorc.TerraformRunner.CodeSources
             // Validate and sanitize branch name to prevent command injection
             var branchName = SanitizeGitParameter(scriptGroup.TerraformGitBranch ?? "main");
             
-            _logger.FileLogger.LogInformation($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{branchName}'");
+            _logger.Information($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{branchName}'");
 
             // Determine if this is GitHub or Azure DevOps
             bool isGitHub = scriptGroup.TerraformGitRepoUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
@@ -58,8 +58,6 @@ namespace Dorc.TerraformRunner.CodeSources
                     throw new InvalidOperationException($"Failed to clone Git repository: {ex.Message}", ex);
                 }
             }, cancellationToken);
-
-            _logger.FileLogger.LogInformation($"Successfully cloned Git repository to '{workingDir}'");
         }
 
         private UsernamePasswordCredentials CreateCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)
