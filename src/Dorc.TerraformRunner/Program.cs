@@ -15,7 +15,7 @@ namespace Dorc.TerraformRunner
     internal class Program
     {
         private static Options options;
-        private static ILogger contextLogger;
+        private static IRunnerLogger runnerLogger;
 
         static Program()
         {
@@ -67,23 +67,23 @@ namespace Dorc.TerraformRunner
                     .AddJsonFile("loggerSettings.json", optional: false)
                     .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
+                runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
-                contextLogger = runnerLogger.FileLogger;
+                var fileLogger = runnerLogger.FileLogger;
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var dorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                contextLogger.LogInformation($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
+                fileLogger.LogInformation($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    contextLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
+                    fileLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
                 }
 
                 var idx = 0;
                 foreach (var s in args)
                 {
-                    contextLogger.LogInformation("args[{0}]: {1}", idx++, s);
+                    fileLogger.LogInformation("args[{0}]: {1}", idx++, s);
                 }
 
                 Debug.Assert(arguments != null);
@@ -94,11 +94,11 @@ namespace Dorc.TerraformRunner
 
                     if (options.UseFile)
                     {
-                        contextLogger.LogDebug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(contextLogger);
+                        fileLogger.LogDebug("Using file instead of pipes");
+                        scriptGroupReader = new ScriptGroupFileReader(fileLogger);
                     }
                     else
-                        scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
+                        scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
 
                     var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
 
@@ -114,7 +114,7 @@ namespace Dorc.TerraformRunner
                 }
                 catch (Exception ex)
                 {
-                    contextLogger?.LogError(ex, $"Exception occured {ex.Message}");
+                    runnerLogger?.Error(ex, $"Exception occured {ex.Message}");
                     Exit(-1);
                 }
                 Exit(0);
@@ -129,13 +129,13 @@ namespace Dorc.TerraformRunner
         {
             Thread.Sleep(10000);
 
-            contextLogger?.LogInformation(RunnerConstants.StandardStreamEndString);
+            runnerLogger?.FileLogger.LogInformation(RunnerConstants.StandardStreamEndString);
         }
 
         static void Exit(int exitCode)
         {
             FinalizeProgram();
-            contextLogger?.LogInformation("Program Exiting with code {0}", exitCode);
+            runnerLogger?.FileLogger.LogInformation("Program Exiting with code {0}", exitCode);
             Environment.Exit(exitCode);
         }
 
