@@ -64,6 +64,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   @state() noResults = false;
 
+  @state() private isOffline = false;
+
+  // Track active notification so we can close it
+  private reconnectingNotification?: ReturnType<typeof Notification.show>;
+
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
@@ -229,6 +234,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
               callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
 
+              // Mark as online if we were offline
+              if (this.isOffline) {
+                this.isOffline = false;
+              }
+
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
                   detail: data,
@@ -238,15 +248,27 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
             },
             error: (err: any) => {
-              const errMessage = retrieveErrorMessage(err);
-              const notification = new ErrorNotification();
-              notification.setAttribute(
-                'errorMessage',
-                errMessage
-              );
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-              console.error(errMessage, err);
+              // Check if this is a network disconnection error
+              const isNetworkError = err.status === 0 || 
+                                     err.name === 'AjaxError' ||
+                                     err.message?.includes('ERR_INTERNET_DISCONNECTED');
+              
+              if (isNetworkError) {
+                // Mark as offline but don't show error notification
+                if (!this.isOffline) {
+                  this.isOffline = true;
+                  console.debug('Network error during data fetch, waiting for reconnection');
+                }
+              } else {
+                // Only show notification for non-network errors
+                const errMessage = retrieveErrorMessage(err);
+                const notification = new ErrorNotification();
+                notification.setAttribute('errorMessage', errMessage);
+                this.shadowRoot?.appendChild(notification);
+                notification.open();
+                console.error(errMessage, err);
+              }
+              
               callback([], 0);
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
@@ -369,6 +391,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         console.error('Error stopping SignalR connection:', err);
       });
     }
+    // Clean up notification if component is removed
+    this.reconnectingNotification?.close();
   }
 
   private async initializeSignalR() {
@@ -379,30 +403,51 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
     this.hubConnection.onclose(async () => {
       this.hubConnectionState = this.hubConnection?.state;
-      Notification.show('Real-time updates disconnected. Will attempt to reconnect automatically...', {
-        theme: 'error',
-        position: 'top-center',
-        duration: 0
-      });
+      // Close any existing notification and show new one
+      this.reconnectingNotification?.close();
+      this.reconnectingNotification = Notification.show(
+        'Real-time updates disconnected. Will attempt to reconnect automatically...', 
+        {
+          theme: 'error',
+          position: 'bottom-start',
+          duration: 0
+        }
+      );
     });
 
     this.hubConnection.onreconnecting(() => {
       this.hubConnectionState = this.hubConnection?.state;
-      Notification.show('Network disconnected. Reconnecting...', {
-        theme: 'warning',
-        position: 'top-center',
-        duration: 0
-      });
+      // Update notification
+      this.reconnectingNotification?.close();
+      this.reconnectingNotification = Notification.show(
+        'Network disconnected. Reconnecting...', 
+        {
+          theme: 'warning',
+          position: 'bottom-start',
+          duration: 0
+        }
+      );
     });
 
     this.hubConnection.onreconnected(() => {
       this.hubConnectionState = this.hubConnection?.state;
+      
+      // Close the persistent reconnecting notification
+      this.reconnectingNotification?.close();
+      this.reconnectingNotification = undefined;
+      
+      // Show success notification (temporary)
       Notification.show('Successfully reconnected! Real-time updates restored.', {
         theme: 'success',
-        position: 'top-center',
+        position: 'bottom-start',
         duration: 5000
       });
-      this.refreshGrid();
+      
+      // Auto-retry: Refresh grid when connection is restored
+      if (this.isOffline) {
+        console.log('Connection restored, refreshing grid data');
+        this.refreshGrid();
+      }
     });
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
@@ -415,8 +460,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         this.hubConnectionState = errorMessage;
         Notification.show('Failed to connect to real-time updates. Check your network connection.', {
           theme: 'error',
-          position: 'top-center',
-          duration: 0
+          position: 'bottom-start',
+          duration: 10000
         });
       }
     }
@@ -670,6 +715,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
           item.Status === 'Restarting')}
+
         .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root
@@ -677,8 +723,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   }
 
   idHeaderRenderer = (root: HTMLElement) => {
-  // Store root for future manual re-renders
-  this._idHeaderRoot = root;
+    // Store root for future manual re-renders
+    this._idHeaderRoot = root;
     render(
       html`
       <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
