@@ -1,6 +1,6 @@
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
 import AppConfig, { appConfig } from "../../app-config";
-import { OAUTH_SCHEME, oauthServiceContainer } from="../../services/Account/OAuthService";
+import { OAUTH_SCHEME, oauthServiceContainer } from "../../services/Account/OAuthService";
 
 export class DeploymentHub {
   private static hubConnection: HubConnection;
