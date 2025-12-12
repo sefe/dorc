@@ -5,34 +5,74 @@
         public static async Task ExtractSubPathAsync(string workingDir, string subPath, CancellationToken cancellationToken)
         {
             var subPathDir = Path.Combine(workingDir, subPath);
-            if (Directory.Exists(subPathDir))
-            {
-                var tempDir = Path.Combine(Path.GetTempPath(), $"terraform-temp-{Guid.NewGuid()}");
-                Directory.Move(workingDir, tempDir);
-                Directory.CreateDirectory(workingDir);
-
-                var subPathInTemp = Path.Combine(tempDir, subPath);
-                await CopyDirectoryAsync(subPathInTemp, workingDir, cancellationToken);
-
-                // Clean up temp directory
-                SafeRemoveDirectory(tempDir);
-            }
-            else
+            if (!Directory.Exists(subPathDir))
             {
                 throw new ArgumentException($"Terraform sub-path '{subPath}' not found in repository.");
             }
-        }
 
-        public static void SafeRemoveDirectory(string tempDir)
-        {
+            // Create a new temp directory to hold the extracted subpath contents
+            var tempExtractDir = Path.Combine(Path.GetTempPath(), $"terraform-extract-{Guid.NewGuid()}");
+            Directory.CreateDirectory(tempExtractDir);
+
             try
             {
-                RemoveReadOnlyAttributes(tempDir);
-                Directory.Delete(tempDir, true);
+                // Copy the subpath contents to the temp directory
+                await CopyDirectoryAsync(subPathDir, tempExtractDir, cancellationToken);
+
+                // Delete the original working directory
+                SafeRemoveDirectory(workingDir);
+
+                // Move the temp directory to replace the working directory
+                Directory.Move(tempExtractDir, workingDir);
+            }
+            catch
+            {
+                // Clean up temp directory if something went wrong
+                if (Directory.Exists(tempExtractDir))
+                {
+                    SafeRemoveDirectory(tempExtractDir);
+                }
+                throw;
+            }
+        }
+
+        public static void SafeRemoveDirectory(string directory)
+        {
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+                return;
+
+            const int maxRetries = 3;
+            const int delayMs = 100;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    RemoveReadOnlyAttributes(directory);
+                    Directory.Delete(directory, true);
+                    return; // Success
+                }
+                catch (UnauthorizedAccessException) when (attempt < maxRetries)
+                {
+                    // Wait and retry - files might be temporarily locked
+                    Thread.Sleep(delayMs * attempt);
+                }
+                catch (IOException) when (attempt < maxRetries)
+                {
+                    // Wait and retry - directory might be in use
+                    Thread.Sleep(delayMs * attempt);
+                }
+            }
+
+            // Last attempt without catching
+            try
+            {
+                RemoveReadOnlyAttributes(directory);
+                Directory.Delete(directory, true);
             }
             catch (Exception ex)
             {
-                throw new ApplicationException($"Failed to delete directory '{tempDir}'", ex);
+                throw new IOException($"Failed to delete directory '{directory}' after {maxRetries} attempts.", ex);
             }
         }
 
