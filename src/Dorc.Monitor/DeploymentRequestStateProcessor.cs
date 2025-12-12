@@ -260,6 +260,7 @@ namespace Dorc.Monitor
                 // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
                 // Other usages of Task.Run in this codebase may be synchronous, but here async is required for proper lock handling.
                 var task = Task.Run(async () =>
+                {
                     // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method
                     // and to prevent closure over loop variable
                     IDistributedLock? envLock = null;
@@ -310,8 +311,7 @@ namespace Dorc.Monitor
                             this.logger.LogDebug($"Released distributed lock for environment '{requestGroup.Key}'");
                         }
                     }
-                },
-                monitorCancellationToken);
+                }, monitorCancellationToken);
                 environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
                 task.ConfigureAwait(false);
                 requestGroupExecutionTasks.Add(task);
