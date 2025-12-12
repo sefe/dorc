@@ -377,23 +377,47 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    this.hubConnection.onclose(async () => {
+    this.hubConnection.onclose(async (error) => {
       this.hubConnectionState = this.hubConnection?.state;
+      Notification.show('Real-time updates disconnected. Will attempt to reconnect automatically...', {
+        theme: 'error',
+        position: 'top-center',
+        duration: 0
+      });
     });
-    this.hubConnection.onreconnecting(() => {
+
+    this.hubConnection.onreconnecting((error) => {
       this.hubConnectionState = this.hubConnection?.state;
+      Notification.show('Network disconnected. Reconnecting...', {
+        theme: 'warning',
+        position: 'top-center',
+        duration: 0
+      });
     });
+
     this.hubConnection.onreconnected(() => {
       this.hubConnectionState = this.hubConnection?.state;
+      Notification.show('Successfully reconnected! Real-time updates restored.', {
+        theme: 'success',
+        position: 'top-center',
+        duration: 5000
+      });
+      this.refreshGrid();
     });
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      await this.hubConnection.start().then(() => {
+      try {
+        await this.hubConnection.start();
         this.hubConnectionState = this.hubConnection?.state;
-      }).catch((err) => {
+      } catch (err) {
         console.error('Error starting SignalR connection:', err);
         this.hubConnectionState = err.toString();
-      });
+        Notification.show('Failed to connect to real-time updates. Check your network connection.', {
+          theme: 'error',
+          position: 'top-center',
+          duration: 0
+        });
+      }
     }
   }
 
