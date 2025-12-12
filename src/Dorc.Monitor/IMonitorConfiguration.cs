@@ -1,4 +1,4 @@
-﻿namespace Dorc.Monitor
+namespace Dorc.Monitor
 {
     public interface IMonitorConfiguration
     {
@@ -14,5 +14,21 @@
         string DorcApiClientId { get; }
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
+
+        // High Availability settings
+        bool HighAvailabilityEnabled { get; }
+        string RabbitMqHostName { get; }
+        int RabbitMqPort { get; }
+        string? RabbitMqVirtualHost { get; }
+        
+        // RabbitMQ OAuth settings (client credentials flow)
+        string RabbitMqOAuthClientId { get; }
+        string RabbitMqOAuthClientSecret { get; }
+        string RabbitMqOAuthTokenEndpoint { get; }
+        string RabbitMqOAuthScope { get; }
+        // RabbitMQ SSL/TLS settings
+        bool RabbitMqSslEnabled { get; }
+        string? RabbitMqSslServerName { get; }
+        string? RabbitMqSslVersion { get; }
     }
 }
