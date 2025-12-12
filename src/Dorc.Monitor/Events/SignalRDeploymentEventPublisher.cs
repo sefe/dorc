@@ -16,6 +16,10 @@ namespace Dorc.Monitor.Events
         private IDeploymentEventsHub? _hubProxy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
         private bool _isConnectionBecomeLost;
+        private Timer? _tokenRefreshTimer;
+        private const int TokenRefreshBufferMinutes = 2;
+        private DateTime? _lastDisconnectTime;
+        private bool _wasConnectedBefore;
 
         public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILogger<SignalRDeploymentEventPublisher> logger)
         {
@@ -39,6 +43,7 @@ namespace Dorc.Monitor.Events
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
+                _logger.LogWarning("Cannot publish {Operation} - SignalR connection is not available", operationName);
                 return;
             }
 
@@ -48,7 +53,7 @@ namespace Dorc.Monitor.Events
             }
             catch (Exception exc)
             {
-                _logger.LogError(exc, $"Failed to invoke {operationName} via SignalR hub at {_hubUrl}");
+                _logger.LogError(exc, "Failed to invoke {Operation} via SignalR hub at {HubUrl}", operationName, _hubUrl);
                 throw;
             }
         }
@@ -62,6 +67,14 @@ namespace Dorc.Monitor.Events
 
             if (_connection is { State: HubConnectionState.Connected })
             {
+                var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
+                if (timeUntilExpiration < TimeSpan.FromMinutes(TokenRefreshBufferMinutes))
+                {
+                    _logger.LogInformation(
+                        "Token expires in {TimeRemaining:F1} minutes, proactively reconnecting SignalR",
+                        timeUntilExpiration.TotalMinutes);
+                    await ReconnectAsync(ct);
+                }
                 return true;
             }
 
@@ -77,22 +90,42 @@ namespace Dorc.Monitor.Events
                             {
                                 try
                                 {
-                                    return await _tokenProvider.GetTokenAsync();
+                                    var token = await _tokenProvider.GetTokenAsync();
+
+                                    ScheduleTokenRefresh();
+
+                                    var expiresAt = _tokenProvider.TokenExpiresAtUtc;
+                                    _logger.LogDebug("SignalR token acquired, expires at {ExpiresAt:u}", expiresAt);
+
+                                    return token;
                                 }
                                 catch (Exception ex)
                                 {
-                                    if (!_isConnectionBecomeLost)
-                                        _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection.");
+                                    _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection");
                                     return string.Empty;
                                 }
                             };
                         })
-                        .WithAutomaticReconnect();
+                        .WithAutomaticReconnect(new[] 
+                        {
+                            TimeSpan.Zero,
+                            TimeSpan.FromSeconds(2),
+                            TimeSpan.FromSeconds(5),
+                            TimeSpan.FromSeconds(10),
+                            TimeSpan.FromSeconds(30),
+                            TimeSpan.FromMinutes(1),
+                            TimeSpan.FromMinutes(2)
+                        });
+
                     _connection = builder.Build();
+
+                    // Register connection event handlers
+                    RegisterConnectionHandlers();
                 }
 
                 if (_connection.State == HubConnectionState.Disconnected)
                 {
+                    _logger.LogInformation("Starting SignalR connection to {HubUrl}...", _hubUrl);
                     await _connection.StartAsync(ct);
                 }
 
@@ -106,7 +139,18 @@ namespace Dorc.Monitor.Events
 
                 if (_connection.State == HubConnectionState.Connected)
                 {
+                    if (_isConnectionBecomeLost)
+                    {
+                        var downtime = _lastDisconnectTime.HasValue 
+                            ? DateTime.UtcNow - _lastDisconnectTime.Value 
+                            : TimeSpan.Zero;
+                        _logger.LogInformation(
+                            "SignalR connection restored successfully after {Downtime:F1} seconds",
+                            downtime.TotalSeconds);
+                    }
                     _isConnectionBecomeLost = false;
+                    _wasConnectedBefore = true;
+                    _lastDisconnectTime = null;
                     return true;
                 }
 
@@ -116,8 +160,9 @@ namespace Dorc.Monitor.Events
             {
                 if (!_isConnectionBecomeLost)
                 {
-                    _logger.LogError(exc, $"Error connecting to SignalR hub at {_hubUrl}");
+                    _logger.LogError(exc, "Network error: Failed to connect to SignalR hub at {HubUrl}. Will retry automatically...", _hubUrl);
                     _isConnectionBecomeLost = true;
+                    _lastDisconnectTime = DateTime.UtcNow;
                 }
                 return false;
             }
@@ -127,8 +172,145 @@ namespace Dorc.Monitor.Events
             }
         }
 
+        private void RegisterConnectionHandlers()
+        {
+            if (_connection == null) return;
+
+            _connection.Closed += async (error) =>
+            {
+                if (error != null)
+                {
+                    _logger.LogWarning("SignalR connection closed due to error: {ErrorMessage}. Automatic reconnection will be attempted...", 
+                        error.Message);
+                }
+                else
+                {
+                    _logger.LogInformation("SignalR connection closed");
+                }
+                
+                if (!_isConnectionBecomeLost)
+                {
+                    _isConnectionBecomeLost = true;
+                    _lastDisconnectTime = DateTime.UtcNow;
+                }
+
+                await Task.CompletedTask;
+            };
+
+            _connection.Reconnecting += (error) =>
+            {
+                if (error != null)
+                {
+                    _logger.LogWarning("Network disconnected. Attempting to reconnect to SignalR hub... (Error: {ErrorMessage})", 
+                        error.Message);
+                }
+                else
+                {
+                    _logger.LogInformation("SignalR connection lost. Attempting to reconnect...");
+                }
+
+                if (!_isConnectionBecomeLost)
+                {
+                    _isConnectionBecomeLost = true;
+                    _lastDisconnectTime = DateTime.UtcNow;
+                }
+
+                return Task.CompletedTask;
+            };
+
+            _connection.Reconnected += (connectionId) =>
+            {
+                var downtime = _lastDisconnectTime.HasValue 
+                    ? DateTime.UtcNow - _lastDisconnectTime.Value 
+                    : TimeSpan.Zero;
+
+                _logger.LogInformation(
+                    "Successfully reconnected to SignalR hub after {Downtime:F1} seconds. Connection ID: {ConnectionId}",
+                    downtime.TotalSeconds,
+                    connectionId ?? "N/A");
+
+                _isConnectionBecomeLost = false;
+                _lastDisconnectTime = null;
+
+                return Task.CompletedTask;
+            };
+        }
+
+        private void ScheduleTokenRefresh()
+        {
+            var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
+            if (timeUntilExpiration <= TimeSpan.Zero)
+                return;
+
+            var refreshTime = timeUntilExpiration - TimeSpan.FromMinutes(TokenRefreshBufferMinutes);
+
+            if (refreshTime.TotalSeconds > 0)
+            {
+                _tokenRefreshTimer?.Dispose();
+                _tokenRefreshTimer = new Timer(
+                    async _ => await RefreshConnectionAsync(),
+                    null,
+                    refreshTime,
+                    Timeout.InfiniteTimeSpan);
+
+                _logger.LogDebug(
+                    "Scheduled SignalR token refresh in {RefreshMinutes:F1} minutes (token expires in {ExpiresMinutes:F1} minutes)",
+                    refreshTime.TotalMinutes,
+                    timeUntilExpiration.TotalMinutes);
+            }
+            else
+            {
+                _tokenRefreshTimer?.Dispose();
+                _tokenRefreshTimer = new Timer(
+                    async _ => await RefreshConnectionAsync(),
+                    null,
+                    TimeSpan.FromSeconds(10),
+                    Timeout.InfiniteTimeSpan);
+
+                _logger.LogWarning(
+                    "Token expires in {ExpiresMinutes:F1} minutes, scheduling immediate refresh",
+                    timeUntilExpiration.TotalMinutes);
+            }
+        }
+
+        private async Task RefreshConnectionAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Proactively refreshing SignalR connection before token expires");
+                await ReconnectAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to refresh SignalR connection");
+            }
+        }
+
+        private async Task ReconnectAsync(CancellationToken ct)
+        {
+            await _connectionLock.WaitAsync(ct);
+            try
+            {
+                if (_connection != null)
+                {
+                    _logger.LogInformation("Stopping existing SignalR connection for token refresh");
+                    await _connection.StopAsync(ct);
+                    await _connection.DisposeAsync();
+                    _connection = null;
+                    _hubProxy = null;
+                }
+
+                _logger.LogInformation("SignalR connection disposed, reconnecting with fresh token");
+            }
+            finally
+            {
+                _connectionLock.Release();
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
+            _tokenRefreshTimer?.Dispose();
             if (_connection != null)
             {
                 await _connection.DisposeAsync();

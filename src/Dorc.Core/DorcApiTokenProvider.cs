@@ -21,6 +21,11 @@ namespace Dorc.Core
             _http = new HttpClient();
         }
 
+        public DateTime TokenExpiresAtUtc => _expiresAtUtc;
+        public TimeSpan TimeUntilExpiration => _expiresAtUtc > DateTime.UtcNow
+            ? _expiresAtUtc - DateTime.UtcNow
+            : TimeSpan.Zero;
+
         public async Task<string> GetTokenAsync()
         {
             if (_accessToken != null && DateTime.UtcNow < _expiresAtUtc)

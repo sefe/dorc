@@ -64,6 +64,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   @state() noResults = false;
 
+  @state() private isOffline = false;
+
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
@@ -229,6 +231,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
               callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
 
+              // Mark as online if we were offline
+              if (this.isOffline) {
+                this.isOffline = false;
+              }
+
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
                   detail: data,
@@ -238,15 +245,27 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
             },
             error: (err: any) => {
-              const errMessage = retrieveErrorMessage(err);
-              const notification = new ErrorNotification();
-              notification.setAttribute(
-                'errorMessage',
-                errMessage
-              );
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-              console.error(errMessage, err);
+              // Check if this is a network disconnection error
+              const isNetworkError = err.status === 0 || 
+                                     err.name === 'AjaxError' ||
+                                     err.message?.includes('ERR_INTERNET_DISCONNECTED');
+              
+              if (isNetworkError) {
+                // Mark as offline but don't show error notification
+                if (!this.isOffline) {
+                  this.isOffline = true;
+                  console.debug('Network error during data fetch, waiting for reconnection');
+                }
+              } else {
+                // Only show notification for non-network errors
+                const errMessage = retrieveErrorMessage(err);
+                const notification = new ErrorNotification();
+                notification.setAttribute('errorMessage', errMessage);
+                this.shadowRoot?.appendChild(notification);
+                notification.open();
+                console.error(errMessage, err);
+              }
+              
               callback([], 0);
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
@@ -364,11 +383,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.hubConnection) {
-      this.hubConnection.stop().catch((err) => {
-        console.error('Error stopping SignalR connection:', err);
-      });
-    }
+    // Release the connection (only stops if no other pages are using it)
+    DeploymentHub.releaseConnection();
   }
 
   private async initializeSignalR() {
@@ -377,23 +393,69 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    this.hubConnection.onclose(async () => {
-      this.hubConnectionState = this.hubConnection?.state;
-    });
-    this.hubConnection.onreconnecting(() => {
-      this.hubConnectionState = this.hubConnection?.state;
-    });
-    this.hubConnection.onreconnected(() => {
-      this.hubConnectionState = this.hubConnection?.state;
-    });
+    // Only register global connection event handlers once for the shared connection
+    if (!DeploymentHub.areHandlersRegistered()) {
+      this.hubConnection.onclose(async () => {
+        // Don't show error notification if this was an intentional disconnect
+        if (!DeploymentHub.isExpectedDisconnect()) {
+          Notification.show(
+            'Real-time updates disconnected. Will attempt to reconnect automatically...', 
+            {
+              theme: 'error',
+              position: 'top-center',
+              duration: 0
+            }
+          );
+        }
+      });
+
+      this.hubConnection.onreconnecting(() => {
+        Notification.show(
+          'Network disconnected. Reconnecting...', 
+          {
+            theme: 'warning',
+            position: 'bottom-start',
+            duration: 0
+          }
+        );
+      });
+
+      this.hubConnection.onreconnected(() => {
+        // Close any persistent notifications
+        Notification.show('Successfully reconnected! Real-time updates restored.', {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        
+        // Auto-retry: Refresh grid when connection is restored
+        if (this.isOffline) {
+          console.log('Connection restored, refreshing grid data');
+          this.refreshGrid();
+        }
+      });
+
+      // Mark that we've registered the global handlers
+      DeploymentHub.markHandlersRegistered();
+    }
+
+    // Update local state whenever we initialize
+    this.hubConnectionState = this.hubConnection.state;
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      await this.hubConnection.start().then(() => {
+      try {
+        await this.hubConnection.start();
         this.hubConnectionState = this.hubConnection?.state;
-      }).catch((err) => {
+      } catch (err) {
         console.error('Error starting SignalR connection:', err);
-        this.hubConnectionState = err.toString();
-      });
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.hubConnectionState = errorMessage;
+        Notification.show('Failed to connect to real-time updates. Check your network connection.', {
+          theme: 'error',
+          position: 'bottom-start',
+          duration: 10000
+        });
+      }
     }
   }
 
@@ -645,6 +707,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
           item.Status === 'Restarting')}
+
         .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root
@@ -652,8 +715,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   }
 
   idHeaderRenderer = (root: HTMLElement) => {
-  // Store root for future manual re-renders
-  this._idHeaderRoot = root;
+    // Store root for future manual re-renders
+    this._idHeaderRoot = root;
     render(
       html`
       <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
