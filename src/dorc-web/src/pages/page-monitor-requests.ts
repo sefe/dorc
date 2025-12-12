@@ -377,7 +377,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    this.hubConnection.onclose(async (error) => {
+    this.hubConnection.onclose(async () => {
       this.hubConnectionState = this.hubConnection?.state;
       Notification.show('Real-time updates disconnected. Will attempt to reconnect automatically...', {
         theme: 'error',
@@ -386,7 +386,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
     });
 
-    this.hubConnection.onreconnecting((error) => {
+    this.hubConnection.onreconnecting(() => {
       this.hubConnectionState = this.hubConnection?.state;
       Notification.show('Network disconnected. Reconnecting...', {
         theme: 'warning',
@@ -411,7 +411,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         this.hubConnectionState = this.hubConnection?.state;
       } catch (err) {
         console.error('Error starting SignalR connection:', err);
-        this.hubConnectionState = err.toString();
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.hubConnectionState = errorMessage;
         Notification.show('Failed to connect to real-time updates. Check your network connection.', {
           theme: 'error',
           position: 'top-center',
