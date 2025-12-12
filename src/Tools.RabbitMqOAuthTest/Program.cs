@@ -219,13 +219,16 @@ class Program
 
         // Create and test connection
         await using (var connection = await factory.CreateConnectionAsync())
-        await using (var channel = await connection.CreateChannelAsync())
         {
-            Console.WriteLine("[SUCCESS] ✓ Successfully connected to RabbitMQ with OAuth!");
-            Console.WriteLine($"[SUCCESS] ✓ Connection State: {connection.IsOpen}");
-            Console.WriteLine($"[SUCCESS] ✓ Channel State: {channel.IsOpen}");
+            await using (var channel = await connection.CreateChannelAsync())
+            {
+                Console.WriteLine("[SUCCESS] ✓ Successfully connected to RabbitMQ with OAuth!");
+                Console.WriteLine($"[SUCCESS] ✓ Connection State: {connection.IsOpen}");
+                Console.WriteLine($"[SUCCESS] ✓ Channel State: {channel.IsOpen}");
 
-            await channel.CloseAsync();
-            await connection.CloseAsync();
+                await channel.CloseAsync();
+                await connection.CloseAsync();
+            }
         }
+    }
 }
