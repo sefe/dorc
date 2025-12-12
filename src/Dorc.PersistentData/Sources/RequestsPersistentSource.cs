@@ -192,8 +192,7 @@ namespace Dorc.PersistentData.Sources
                     Status = DeploymentResultStatus.Pending.ToString()
                 };
 
-                if (deploymentResult.Component.IsEnabled.HasValue
-                    && !deploymentResult.Component.IsEnabled.Value)
+                if (!deploymentResult.Component.IsEnabled)
                 {
                     deploymentResult.Status = DeploymentResultStatus.Disabled.ToString();
                 }
