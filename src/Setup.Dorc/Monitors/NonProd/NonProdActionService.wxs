@@ -23,7 +23,7 @@
 
 					<Json:JsonFile Id="SetServiceNameNonProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceNonProd" File="[#NonProdDeployMonitorExeConfig]" />
 
-					<Json:JsonFile Id="SetDbConnectionString1NonProd" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetDbConnectionString1NonProd" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetRefDataApiUrlNonProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#NonProdDeployMonitorExeConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 
@@ -43,11 +43,26 @@
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameNonProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 
 					<Json:JsonFile Id="SetOtelUrlNonProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#NonProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability Configuration -->
+					<Json:JsonFile Id="HAEnabledNonProd" ElementPath="$.AppSettings.HighAvailability.Enabled" Value="[HA.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQHostNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.HostName" Value="[HA.RABBITMQ.HOSTNAME]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQPortNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Port" Value="[HA.RABBITMQ.PORT]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQVirtualHostNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.VirtualHost" Value="[HA.RABBITMQ.VIRTUALHOST]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthClientIdNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientId" Value="[HA.RABBITMQ.OAUTH.CLIENTID]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthClientSecretNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientSecret" Value="[HA.RABBITMQ.OAUTH.CLIENTSECRET]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthTokenEndpointNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.TokenEndpoint" Value="[HA.RABBITMQ.OAUTH.TOKENENDPOINT]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthScopeNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.Scope" Value="[HA.RABBITMQ.OAUTH.SCOPE]" File="[#NonProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability SSL/TLS Configuration -->
+					<Json:JsonFile Id="HARabbitMQSslEnabledNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Enabled" Value="[HA.RABBITMQ.SSL.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslServerNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.ServerName" Value="[HA.RABBITMQ.SSL.SERVERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">
 					<Component Id="DeployMonitorServiceDorcRunnerNonProd.exe" Guid="{E97FFF42-7346-4934-8E63-11FEC7BD8426}">
-						<Json:JsonFile Id="DorcRunnerNonProdExeConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DorcRunnerNonProdExeConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="DorcRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="DorcRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="DorcRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
@@ -59,7 +74,7 @@
 
 				<Directory Id="INSTALLLOCATIONDEPLOYRUNNERNONPROD" Name="DeployRunner">
 					<Component Id="DeployMonitorServiceDeployRunnerNonProd.exe" Guid="{E96FFF42-7346-4934-8E63-11FEC7BD8426}">
-						<Json:JsonFile Id="DeployRunnerNonProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DeployRunnerNonProdExeConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="DeployRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
@@ -71,7 +86,7 @@
 
 				<Directory Id="INSTALLLOCATIONTERRAFROMRUNNERNONPROD" Name="TerraformRunner">
 					<Component Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" Guid="{3DD759A3-E0CB-45D3-8AB7-A8C2E229DA87}">
-						<Json:JsonFile Id="TerraformRunnerNonProdExeConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUriConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsUserNameConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsPasswordConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />

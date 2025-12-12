@@ -220,6 +220,50 @@
     {
       "MSIParameter": "OTEL.COLLECTOR.URL",
       "DeployProperty": "OTEL_COLLECTOR_URL"
+    },
+    {
+      "MSIParameter": "HA.ENABLED",
+      "DeployProperty": "HA_ENABLED"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.HOSTNAME",
+      "DeployProperty": "HA_RABBITMQ_HOSTNAME"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.PORT",
+      "DeployProperty": "HA_RABBITMQ_PORT"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.VIRTUALHOST",
+      "DeployProperty": "HA_RABBITMQ_VIRTUALHOST"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTID",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTID"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTSECRET",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.OAUTH.TOKENENDPOINT",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_TOKENENDPOINT"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.OAUTH.SCOPE",
+      "DeployProperty": "HA_RABBITMQ_OAUTH_SCOPE"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.SSL.ENABLED",
+      "DeployProperty": "HA_RABBITMQ_SSL_ENABLED"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.SSL.SERVERNAME",
+      "DeployProperty": "HA_RABBITMQ_SSL_SERVERNAME"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.SSL.VERSION",
+      "DeployProperty": "HA_RABBITMQ_SSL_VERSION"
     }
   ]
 }

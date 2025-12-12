@@ -2,6 +2,7 @@ using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ namespace Dorc.Monitor
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
+        private readonly IDistributedLockService distributedLockService;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -34,13 +36,15 @@ namespace Dorc.Monitor
             IServiceProvider serviceProvider,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
-            IDeploymentEventsPublisher eventPublisher)
+            IDeploymentEventsPublisher eventPublisher,
+            IDistributedLockService distributedLockService)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
             this.processesPersistentSource = processesPersistentSource;
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
+            this.distributedLockService = distributedLockService;
         }
 
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
@@ -249,11 +253,36 @@ namespace Dorc.Monitor
                     this.logger.LogDebug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
                     continue;
                 }
-                var task = Task.Run(() =>
+
+                // Try to acquire distributed lock for this environment BEFORE creating the task
+                // This ensures only one monitor instance processes this environment at a time
+                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
+                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
+                // Other usages of Task.Run in this codebase may be synchronous, but here async is required for proper lock handling.
+                var task = Task.Run(async () =>
                 {
+                    // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method
+                    // and to prevent closure over loop variable
+                    IDistributedLock? envLock = null;
                     try
                     {
                         monitorCancellationToken.ThrowIfCancellationRequested();
+
+                        if (distributedLockService.IsEnabled)
+                        {
+                            var lockKey = $"env:{requestGroup.Key}";
+                            // Lock lease time is longer than typical request duration to handle long deployments
+                            // The lock will auto-release if the monitor crashes
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
+                            
+                            if (envLock == null)
+                            {
+                                this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
+                                return; // Skip this environment - another monitor is processing it
+                            }
+
+                            this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
+                        }
 
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
                         requestCancellationSources!.AddOrUpdate(
@@ -274,9 +303,15 @@ namespace Dorc.Monitor
                     {
                         this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
                         environmentRequestIdRunning.TryRemove(requestGroup.Key, out runningRequestId);
+                        
+                        // Release the distributed lock
+                        if (envLock != null)
+                        {
+                            await envLock.DisposeAsync();
+                            this.logger.LogDebug($"Released distributed lock for environment '{requestGroup.Key}'");
+                        }
                     }
-                },
-                monitorCancellationToken);
+                }, monitorCancellationToken);
                 environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
                 task.ConfigureAwait(false);
                 requestGroupExecutionTasks.Add(task);
