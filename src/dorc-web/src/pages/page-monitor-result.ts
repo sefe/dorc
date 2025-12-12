@@ -171,9 +171,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
-      this.hubConnection.stop().catch(() => {});
-    }
+    DeploymentHub.releaseConnection();
   }
 
   updated(_changedProperties: PropertyValues) {

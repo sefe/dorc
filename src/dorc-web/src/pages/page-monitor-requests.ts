@@ -386,13 +386,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.hubConnection) {
-      this.hubConnection.stop().catch((err) => {
-        console.error('Error stopping SignalR connection:', err);
-      });
-    }
-    // Clean up notification if component is removed
     this.reconnectingNotification?.close();
+    DeploymentHub.releaseConnection();
+
   }
 
   private async initializeSignalR() {
@@ -403,16 +399,19 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
     this.hubConnection.onclose(async () => {
       this.hubConnectionState = this.hubConnection?.state;
-      // Close any existing notification and show new one
-      this.reconnectingNotification?.close();
-      this.reconnectingNotification = Notification.show(
-        'Real-time updates disconnected. Will attempt to reconnect automatically...', 
-        {
-          theme: 'error',
-          position: 'bottom-start',
-          duration: 0
-        }
-      );
+      
+      // Don't show error notification if this was an intentional disconnect
+      if (!DeploymentHub.isExpectedDisconnect()) {
+        this.reconnectingNotification?.close();
+        this.reconnectingNotification = Notification.show(
+          'Real-time updates disconnected. Will attempt to reconnect automatically...', 
+          {
+            theme: 'error',
+            position: 'bottom-start',
+            duration: 0
+          }
+        );
+      }
     });
 
     this.hubConnection.onreconnecting(() => {

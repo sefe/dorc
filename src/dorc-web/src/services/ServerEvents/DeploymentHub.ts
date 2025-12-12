@@ -1,9 +1,11 @@
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
 import AppConfig, { appConfig } from "../../app-config";
-import { OAUTH_SCHEME, oauthServiceContainer } from "../../services/Account/OAuthService";
+import { OAUTH_SCHEME, oauthServiceContainer } from="../../services/Account/OAuthService";
 
 export class DeploymentHub {
   private static hubConnection: HubConnection;
+  private static activePageCount = 0;
+  private static isIntentionalDisconnect = false;
 
   private static initializeConnection(): HubConnection {
     const baseUrl = new AppConfig().dorcApi;
@@ -40,6 +42,27 @@ export class DeploymentHub {
     if (DeploymentHub.hubConnection === undefined) {
       DeploymentHub.initializeConnection();
     }
+    // Track that a page is using this connection
+    DeploymentHub.activePageCount++;
+    DeploymentHub.isIntentionalDisconnect = false;
     return DeploymentHub.hubConnection;
+  }
+
+  static releaseConnection(): void {
+    DeploymentHub.activePageCount--;
+    // Only stop the connection when no pages are using it
+    if (DeploymentHub.activePageCount <= 0) {
+      DeploymentHub.activePageCount = 0;
+      DeploymentHub.isIntentionalDisconnect = true; // Mark as intentional
+      if (DeploymentHub.hubConnection) {
+        DeploymentHub.hubConnection.stop().catch(() => {
+          // Silently ignore errors during intentional disconnect
+        });
+      }
+    }
+  }
+
+  static isExpectedDisconnect(): boolean {
+    return DeploymentHub.isIntentionalDisconnect;
   }
 }
