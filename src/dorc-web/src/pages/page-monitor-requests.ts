@@ -66,9 +66,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   @state() private isOffline = false;
 
-  // Track active notification so we can close it
-  private reconnectingNotification?: ReturnType<typeof Notification.show>;
-
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
@@ -386,9 +383,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.reconnectingNotification?.close();
+    // Release the connection (only stops if no other pages are using it)
     DeploymentHub.releaseConnection();
-
   }
 
   private async initializeSignalR() {
@@ -397,57 +393,54 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    this.hubConnection.onclose(async () => {
-      this.hubConnectionState = this.hubConnection?.state;
-      
-      // Don't show error notification if this was an intentional disconnect
-      if (!DeploymentHub.isExpectedDisconnect()) {
-        this.reconnectingNotification?.close();
-        this.reconnectingNotification = Notification.show(
-          'Real-time updates disconnected. Will attempt to reconnect automatically...', 
+    // Only register global connection event handlers once for the shared connection
+    if (!DeploymentHub.areHandlersRegistered()) {
+      this.hubConnection.onclose(async () => {
+        // Don't show error notification if this was an intentional disconnect
+        if (!DeploymentHub.isExpectedDisconnect()) {
+          Notification.show(
+            'Real-time updates disconnected. Will attempt to reconnect automatically...', 
+            {
+              theme: 'error',
+              position: 'top-center',
+              duration: 0
+            }
+          );
+        }
+      });
+
+      this.hubConnection.onreconnecting(() => {
+        Notification.show(
+          'Network disconnected. Reconnecting...', 
           {
-            theme: 'error',
+            theme: 'warning',
             position: 'bottom-start',
             duration: 0
           }
         );
-      }
-    });
-
-    this.hubConnection.onreconnecting(() => {
-      this.hubConnectionState = this.hubConnection?.state;
-      // Update notification
-      this.reconnectingNotification?.close();
-      this.reconnectingNotification = Notification.show(
-        'Network disconnected. Reconnecting...', 
-        {
-          theme: 'warning',
-          position: 'bottom-start',
-          duration: 0
-        }
-      );
-    });
-
-    this.hubConnection.onreconnected(() => {
-      this.hubConnectionState = this.hubConnection?.state;
-      
-      // Close the persistent reconnecting notification
-      this.reconnectingNotification?.close();
-      this.reconnectingNotification = undefined;
-      
-      // Show success notification (temporary)
-      Notification.show('Successfully reconnected! Real-time updates restored.', {
-        theme: 'success',
-        position: 'bottom-start',
-        duration: 5000
       });
-      
-      // Auto-retry: Refresh grid when connection is restored
-      if (this.isOffline) {
-        console.log('Connection restored, refreshing grid data');
-        this.refreshGrid();
-      }
-    });
+
+      this.hubConnection.onreconnected(() => {
+        // Close any persistent notifications
+        Notification.show('Successfully reconnected! Real-time updates restored.', {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        
+        // Auto-retry: Refresh grid when connection is restored
+        if (this.isOffline) {
+          console.log('Connection restored, refreshing grid data');
+          this.refreshGrid();
+        }
+      });
+
+      // Mark that we've registered the global handlers
+      DeploymentHub.markHandlersRegistered();
+    }
+
+    // Update local state whenever we initialize
+    this.hubConnectionState = this.hubConnection.state;
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
       try {
