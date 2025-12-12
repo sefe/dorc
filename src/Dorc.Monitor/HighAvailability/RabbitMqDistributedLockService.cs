@@ -16,6 +16,7 @@ namespace Dorc.Monitor.HighAvailability
     {
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
+        // HttpClient instance is managed by IHttpClientFactory and must NOT be disposed manually.
         private IConnection? connection;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
