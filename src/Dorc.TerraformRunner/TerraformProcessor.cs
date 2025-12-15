@@ -207,7 +207,9 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            logger.FileLogger.LogDebug($"Running Terraform command: terraform {arguments} in {workingDir}");
+            var tfCommand = arguments.Split(' ')[0];
+
+            logger.Debug($"Running Terraform command: terraform {tfCommand}");
 
             try
             {
@@ -237,7 +239,7 @@ namespace Dorc.TerraformRunner
             }
             catch (OperationCanceledException)
             {
-                logger.Warning($"Terraform command was cancelled.");
+                logger.Warning($"Terraform command {tfCommand} was cancelled.");
                 throw;
             }
             catch (Exception e)
@@ -251,12 +253,12 @@ namespace Dorc.TerraformRunner
 
             if (process.ExitCode == 1)
             {
-                var errorMessage = $"Terraform command failed with exit code {process.ExitCode}. Error: {error}";
-                logger.Error(errorMessage);
+                var errorMessage = $"Terraform command {tfCommand} failed with exit code {process.ExitCode}";
+                logger.Error($"{errorMessage}. Error: {error}");
                 throw new InvalidOperationException(errorMessage);
             }
 
-            logger.Information($"Terraform command completed successfully. Output:{Environment.NewLine}{output}");
+            logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
             return output;
         }
 
@@ -298,8 +300,6 @@ namespace Dorc.TerraformRunner
 
                 // Execute terraform apply using the stored plan
                 var applyArgs = $"apply -auto-approve {planFile}  -no-color";
-                logger.Information($"Executing Terraform apply for request ID: {requestId}");
-                
                 await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
