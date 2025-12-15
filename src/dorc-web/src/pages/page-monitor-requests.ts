@@ -53,6 +53,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   maxCountBeforeRefresh: number | undefined;
 
   private hubConnection: HubConnection | undefined;
+  
+  // Store notification as instance property to avoid closure issues
+  private reconnectingNotification: Notification | null = null;
 
   @property({ type: Boolean }) isLoading = true;
 
@@ -383,6 +386,13 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    
+    // Clean up any active notification before disconnecting
+    if (this.reconnectingNotification) {
+      this.reconnectingNotification.close();
+      this.reconnectingNotification = null;
+    }
+    
     DeploymentHub.releaseConnection();
   }
 
@@ -392,9 +402,16 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    let reconnectingNotification: Notification | null = null;
     if (!DeploymentHub.areHandlersRegistered()) {
       this.hubConnection.onclose(async () => {
+        this.hubConnectionState = this.hubConnection?.state;
+        
+        // Clean up any existing notification when connection closes
+        if (this.reconnectingNotification) {
+          this.reconnectingNotification.close();
+          this.reconnectingNotification = null;
+        }
+        
         if (!DeploymentHub.isExpectedDisconnect()) {
           Notification.show(
             'Real-time updates disconnected. Reconnecting...', 
@@ -408,7 +425,14 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
 
       this.hubConnection.onreconnecting(() => {
-        reconnectingNotification = Notification.show(
+        this.hubConnectionState = this.hubConnection?.state;
+        
+        // Close any existing notification before creating a new one
+        if (this.reconnectingNotification) {
+          this.reconnectingNotification.close();
+        }
+        
+        this.reconnectingNotification = Notification.show(
           'Network disconnected. Reconnecting...',
           {
             theme: 'error',
@@ -419,9 +443,12 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
 
       this.hubConnection.onreconnected(() => {
-        if (reconnectingNotification) {
-          reconnectingNotification.close();
-          reconnectingNotification = null;
+        this.hubConnectionState = this.hubConnection?.state;
+        
+        // Close the notification if it exists
+        if (this.reconnectingNotification) {
+          this.reconnectingNotification.close();
+          this.reconnectingNotification = null;
         }
         
         Notification.show('Successfully reconnected! Real-time updates restored.', {

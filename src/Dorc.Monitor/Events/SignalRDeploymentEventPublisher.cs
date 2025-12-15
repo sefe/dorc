@@ -89,6 +89,12 @@ namespace Dorc.Monitor.Events
                 {
                     _logger.LogInformation("Starting SignalR connection to {HubUrl}...", _hubUrl);
                     await _connection.StartAsync(ct);
+                    
+                    // Schedule token refresh after successful connection
+                    if (_connection.State == HubConnectionState.Connected)
+                    {
+                        ScheduleTokenRefresh();
+                    }
                 }
 
                 if (_hubProxy == null)
@@ -140,7 +146,6 @@ namespace Dorc.Monitor.Events
                         try
                         {
                             var token = await _tokenProvider.GetTokenAsync();
-                            ScheduleTokenRefresh();
                             _logger.LogDebug("SignalR token acquired, expires at {ExpiresAt:u}", _tokenProvider.TokenExpiresAtUtc);
                             return token;
                         }
@@ -179,6 +184,10 @@ namespace Dorc.Monitor.Events
                     _isConnectionBecomeLost = true;
                     _lastDisconnectTime = DateTime.UtcNow;
                 }
+                
+                // Cancel token refresh when connection is closed
+                _tokenRefreshTimer?.Dispose();
+                _tokenRefreshTimer = null;
 
                 await Task.CompletedTask;
             };
@@ -191,6 +200,11 @@ namespace Dorc.Monitor.Events
                     _isConnectionBecomeLost = true;
                     _lastDisconnectTime = DateTime.UtcNow;
                 }
+                
+                // Cancel token refresh during reconnection
+                _tokenRefreshTimer?.Dispose();
+                _tokenRefreshTimer = null;
+                
                 return Task.CompletedTask;
             };
 
@@ -199,6 +213,10 @@ namespace Dorc.Monitor.Events
                 _logger.LogInformation("SignalR reconnected. Connection ID: {ConnectionId}", connectionId ?? "N/A");
                 _isConnectionBecomeLost = false;
                 _lastDisconnectTime = null;
+                
+                // Schedule token refresh after successful reconnection
+                ScheduleTokenRefresh();
+                
                 return Task.CompletedTask;
             };
         }
@@ -207,7 +225,10 @@ namespace Dorc.Monitor.Events
         {
             var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
             if (timeUntilExpiration <= TimeSpan.Zero)
+            {
+                _logger.LogWarning("Token already expired, cannot schedule refresh");
                 return;
+            }
 
             var refreshTime = timeUntilExpiration - TimeSpan.FromMinutes(TokenRefreshBufferMinutes);
             if (refreshTime.TotalSeconds < 10)
@@ -215,7 +236,7 @@ namespace Dorc.Monitor.Events
 
             _tokenRefreshTimer?.Dispose();
             _tokenRefreshTimer = new Timer(
-                async _ => await RecreateConnectionAsync(CancellationToken.None),
+                OnTokenRefreshTimerCallback,
                 null,
                 refreshTime,
                 Timeout.InfiniteTimeSpan);
@@ -223,11 +244,30 @@ namespace Dorc.Monitor.Events
             _logger.LogDebug("Token refresh scheduled in {Minutes:F1} minutes", refreshTime.TotalMinutes);
         }
 
+        private void OnTokenRefreshTimerCallback(object? state)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await RecreateConnectionAsync(CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during scheduled token refresh and connection recreation");
+                }
+            });
+        }
+
         private async Task RecreateConnectionAsync(CancellationToken ct)
         {
             await _connectionLock.WaitAsync(ct);
             try
             {
+                // Cancel any pending token refresh
+                _tokenRefreshTimer?.Dispose();
+                _tokenRefreshTimer = null;
+                
                 if (_connection != null)
                 {
                     _logger.LogInformation("Recreating SignalR connection with fresh token");
