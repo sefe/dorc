@@ -393,6 +393,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
+    // Store reference to the reconnecting notification so we can close it later
+    let reconnectingNotification: Notification | null = null;
+
     // Only register global connection event handlers once for the shared connection
     if (!DeploymentHub.areHandlersRegistered()) {
       this.hubConnection.onclose(async () => {
@@ -402,7 +405,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
             'Real-time updates disconnected. Will attempt to reconnect automatically...', 
             {
               theme: 'error',
-              position: 'top-center',
+              position: 'bottom-start',
               duration: 0
             }
           );
@@ -410,8 +413,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
 
       this.hubConnection.onreconnecting(() => {
-        Notification.show(
-          'Network disconnected. Reconnecting...', 
+        // Store reference to close it later
+        reconnectingNotification = Notification.show(
+          'Network disconnected. Reconnecting...',
           {
             theme: 'warning',
             position: 'bottom-start',
@@ -421,7 +425,13 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
 
       this.hubConnection.onreconnected(() => {
-        // Close any persistent notifications
+        // Close the persistent reconnecting notification
+        if (reconnectingNotification) {
+          reconnectingNotification.close();
+          reconnectingNotification = null;
+        }
+        
+        // Show success notification
         Notification.show('Successfully reconnected! Real-time updates restored.', {
           theme: 'success',
           position: 'bottom-start',

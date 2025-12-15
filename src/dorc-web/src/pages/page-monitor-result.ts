@@ -264,7 +264,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
        
        Notification.show('Connection restored! Real-time updates resumed.', {
          theme: 'success',
-         position: 'top-center',
+         position: 'bottom-start',
          duration: 5000
        });
      });
@@ -281,7 +281,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         
         Notification.show('Failed to connect to real-time updates', {
           theme: 'error',
-          position: 'top-center',
+          position: 'bottom-start',
           duration: 0
         });
       }

@@ -19,7 +19,6 @@ namespace Dorc.Monitor.Events
         private Timer? _tokenRefreshTimer;
         private const int TokenRefreshBufferMinutes = 2;
         private DateTime? _lastDisconnectTime;
-        private bool _wasConnectedBefore;
 
         public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILogger<SignalRDeploymentEventPublisher> logger)
         {
@@ -62,19 +61,19 @@ namespace Dorc.Monitor.Events
         {
             if (string.IsNullOrWhiteSpace(_hubUrl))
             {
-                return false; // disabled
+                return false;
+            }
+
+            // Check if token is expired or about to expire
+            var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
+            if (timeUntilExpiration < TimeSpan.FromMinutes(TokenRefreshBufferMinutes))
+            {
+                _logger.LogInformation("Token expires soon, recreating connection");
+                await RecreateConnectionAsync(ct);
             }
 
             if (_connection is { State: HubConnectionState.Connected })
             {
-                var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
-                if (timeUntilExpiration < TimeSpan.FromMinutes(TokenRefreshBufferMinutes))
-                {
-                    _logger.LogInformation(
-                        "Token expires in {TimeRemaining:F1} minutes, proactively reconnecting SignalR",
-                        timeUntilExpiration.TotalMinutes);
-                    await ReconnectAsync(ct);
-                }
                 return true;
             }
 
@@ -83,47 +82,10 @@ namespace Dorc.Monitor.Events
             {
                 if (_connection == null)
                 {
-                    var builder = new HubConnectionBuilder()
-                        .WithUrl(_hubUrl, options =>
-                        {
-                            options.AccessTokenProvider = async () =>
-                            {
-                                try
-                                {
-                                    var token = await _tokenProvider.GetTokenAsync();
-
-                                    ScheduleTokenRefresh();
-
-                                    var expiresAt = _tokenProvider.TokenExpiresAtUtc;
-                                    _logger.LogDebug("SignalR token acquired, expires at {ExpiresAt:u}", expiresAt);
-
-                                    return token;
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection");
-                                    return string.Empty;
-                                }
-                            };
-                        })
-                        .WithAutomaticReconnect(new[] 
-                        {
-                            TimeSpan.Zero,
-                            TimeSpan.FromSeconds(2),
-                            TimeSpan.FromSeconds(5),
-                            TimeSpan.FromSeconds(10),
-                            TimeSpan.FromSeconds(30),
-                            TimeSpan.FromMinutes(1),
-                            TimeSpan.FromMinutes(2)
-                        });
-
-                    _connection = builder.Build();
-
-                    // Register connection event handlers
-                    RegisterConnectionHandlers();
+                    CreateConnection();
                 }
 
-                if (_connection.State == HubConnectionState.Disconnected)
+                if (_connection!.State == HubConnectionState.Disconnected)
                 {
                     _logger.LogInformation("Starting SignalR connection to {HubUrl}...", _hubUrl);
                     await _connection.StartAsync(ct);
@@ -134,7 +96,6 @@ namespace Dorc.Monitor.Events
                     _hubProxy = _connection.CreateHubProxy<IDeploymentEventsHub>(ct);
                 }
 
-                // we have to register also client for hub in order to eliminate signalR errors when event is broadcasted to all clients
                 _connection.Register<IDeploymentsEventsClient>(new NullDeploymentsEventsClient());
 
                 if (_connection.State == HubConnectionState.Connected)
@@ -144,12 +105,9 @@ namespace Dorc.Monitor.Events
                         var downtime = _lastDisconnectTime.HasValue 
                             ? DateTime.UtcNow - _lastDisconnectTime.Value 
                             : TimeSpan.Zero;
-                        _logger.LogInformation(
-                            "SignalR connection restored successfully after {Downtime:F1} seconds",
-                            downtime.TotalSeconds);
+                        _logger.LogInformation("SignalR connection restored after {Downtime:F1} seconds", downtime.TotalSeconds);
                     }
                     _isConnectionBecomeLost = false;
-                    _wasConnectedBefore = true;
                     _lastDisconnectTime = null;
                     return true;
                 }
@@ -160,7 +118,7 @@ namespace Dorc.Monitor.Events
             {
                 if (!_isConnectionBecomeLost)
                 {
-                    _logger.LogError(exc, "Network error: Failed to connect to SignalR hub at {HubUrl}. Will retry automatically...", _hubUrl);
+                    _logger.LogError(exc, "Failed to connect to SignalR hub at {HubUrl}", _hubUrl);
                     _isConnectionBecomeLost = true;
                     _lastDisconnectTime = DateTime.UtcNow;
                 }
@@ -172,6 +130,39 @@ namespace Dorc.Monitor.Events
             }
         }
 
+        private void CreateConnection()
+        {
+            var builder = new HubConnectionBuilder()
+                .WithUrl(_hubUrl!, options =>
+                {
+                    options.AccessTokenProvider = async () =>
+                    {
+                        try
+                        {
+                            var token = await _tokenProvider.GetTokenAsync();
+                            ScheduleTokenRefresh();
+                            _logger.LogDebug("SignalR token acquired, expires at {ExpiresAt:u}", _tokenProvider.TokenExpiresAtUtc);
+                            return token;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to acquire OAuth token");
+                            return string.Empty;
+                        }
+                    };
+                })
+                .WithAutomaticReconnect(new[] 
+                {
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(10)
+                });
+
+            _connection = builder.Build();
+            RegisterConnectionHandlers();
+        }
+
         private void RegisterConnectionHandlers()
         {
             if (_connection == null) return;
@@ -180,12 +171,7 @@ namespace Dorc.Monitor.Events
             {
                 if (error != null)
                 {
-                    _logger.LogWarning("SignalR connection closed due to error: {ErrorMessage}. Automatic reconnection will be attempted...", 
-                        error.Message);
-                }
-                else
-                {
-                    _logger.LogInformation("SignalR connection closed");
+                    _logger.LogWarning("SignalR connection closed: {ErrorMessage}", error.Message);
                 }
                 
                 if (!_isConnectionBecomeLost)
@@ -199,39 +185,20 @@ namespace Dorc.Monitor.Events
 
             _connection.Reconnecting += (error) =>
             {
-                if (error != null)
-                {
-                    _logger.LogWarning("Network disconnected. Attempting to reconnect to SignalR hub... (Error: {ErrorMessage})", 
-                        error.Message);
-                }
-                else
-                {
-                    _logger.LogInformation("SignalR connection lost. Attempting to reconnect...");
-                }
-
+                _logger.LogWarning("SignalR reconnecting...");
                 if (!_isConnectionBecomeLost)
                 {
                     _isConnectionBecomeLost = true;
                     _lastDisconnectTime = DateTime.UtcNow;
                 }
-
                 return Task.CompletedTask;
             };
 
             _connection.Reconnected += (connectionId) =>
             {
-                var downtime = _lastDisconnectTime.HasValue 
-                    ? DateTime.UtcNow - _lastDisconnectTime.Value 
-                    : TimeSpan.Zero;
-
-                _logger.LogInformation(
-                    "Successfully reconnected to SignalR hub after {Downtime:F1} seconds. Connection ID: {ConnectionId}",
-                    downtime.TotalSeconds,
-                    connectionId ?? "N/A");
-
+                _logger.LogInformation("SignalR reconnected. Connection ID: {ConnectionId}", connectionId ?? "N/A");
                 _isConnectionBecomeLost = false;
                 _lastDisconnectTime = null;
-
                 return Task.CompletedTask;
             };
         }
@@ -243,64 +210,32 @@ namespace Dorc.Monitor.Events
                 return;
 
             var refreshTime = timeUntilExpiration - TimeSpan.FromMinutes(TokenRefreshBufferMinutes);
+            if (refreshTime.TotalSeconds < 10)
+                refreshTime = TimeSpan.FromSeconds(10);
 
-            if (refreshTime.TotalSeconds > 0)
-            {
-                _tokenRefreshTimer?.Dispose();
-                _tokenRefreshTimer = new Timer(
-                    async _ => await RefreshConnectionAsync(),
-                    null,
-                    refreshTime,
-                    Timeout.InfiniteTimeSpan);
+            _tokenRefreshTimer?.Dispose();
+            _tokenRefreshTimer = new Timer(
+                async _ => await RecreateConnectionAsync(CancellationToken.None),
+                null,
+                refreshTime,
+                Timeout.InfiniteTimeSpan);
 
-                _logger.LogDebug(
-                    "Scheduled SignalR token refresh in {RefreshMinutes:F1} minutes (token expires in {ExpiresMinutes:F1} minutes)",
-                    refreshTime.TotalMinutes,
-                    timeUntilExpiration.TotalMinutes);
-            }
-            else
-            {
-                _tokenRefreshTimer?.Dispose();
-                _tokenRefreshTimer = new Timer(
-                    async _ => await RefreshConnectionAsync(),
-                    null,
-                    TimeSpan.FromSeconds(10),
-                    Timeout.InfiniteTimeSpan);
-
-                _logger.LogWarning(
-                    "Token expires in {ExpiresMinutes:F1} minutes, scheduling immediate refresh",
-                    timeUntilExpiration.TotalMinutes);
-            }
+            _logger.LogDebug("Token refresh scheduled in {Minutes:F1} minutes", refreshTime.TotalMinutes);
         }
 
-        private async Task RefreshConnectionAsync()
-        {
-            try
-            {
-                _logger.LogInformation("Proactively refreshing SignalR connection before token expires");
-                await ReconnectAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to refresh SignalR connection");
-            }
-        }
-
-        private async Task ReconnectAsync(CancellationToken ct)
+        private async Task RecreateConnectionAsync(CancellationToken ct)
         {
             await _connectionLock.WaitAsync(ct);
             try
             {
                 if (_connection != null)
                 {
-                    _logger.LogInformation("Stopping existing SignalR connection for token refresh");
+                    _logger.LogInformation("Recreating SignalR connection with fresh token");
                     await _connection.StopAsync(ct);
                     await _connection.DisposeAsync();
                     _connection = null;
                     _hubProxy = null;
                 }
-
-                _logger.LogInformation("SignalR connection disposed, reconnecting with fresh token");
             }
             finally
             {
