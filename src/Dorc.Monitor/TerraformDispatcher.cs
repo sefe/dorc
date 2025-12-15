@@ -227,7 +227,6 @@ namespace Dorc.Monitor
                             logger.LogError("Waiting the process to exit was not successful.");
                             throw new Win32Exception(Marshal.GetLastWin32Error());
                         }
-                        logger.LogInformation("Runner process has been created.");
                     }
                     finally
                     {
@@ -243,6 +242,7 @@ namespace Dorc.Monitor
                     throw;
                 }
                 
+                if (isScriptExecutionSuccessful)
                 switch (terreformOperation)
                 {
                     case TerraformRunnerOperations.CreatePlan:
@@ -271,7 +271,7 @@ namespace Dorc.Monitor
 
             }
 
-            return true;
+            return isScriptExecutionSuccessful;
         }
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
