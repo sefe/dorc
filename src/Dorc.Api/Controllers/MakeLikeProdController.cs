@@ -8,7 +8,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -21,7 +21,7 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class MakeLikeProdController : ControllerBase
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
@@ -32,7 +32,7 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public MakeLikeProdController(ILog logger,
+        public MakeLikeProdController(ILogger<MakeLikeProdController> logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
@@ -83,7 +83,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "An error occurred while retrieving data backups for project {ProjectId}", projectId);
                 return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
@@ -104,7 +104,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "An error occurred while retrieving the notify email address");
                 return Results.Problem(e.Message, statusCode: StatusCodes.Status500InternalServerError);
             }
         }
@@ -137,6 +137,7 @@ namespace Dorc.Api.Controllers
                 }
 
                 var initialRequestIdNotSet = true;
+                var allRequestIds = new List<int>();
 
                 foreach (var req in requestsForBundle)
                 {
@@ -183,18 +184,25 @@ namespace Dorc.Api.Controllers
                             break;
                     }
 
-                    if (initialRequestIdNotSet)
+                    allRequestIds.AddRange(reqIds);
+
+                    if (initialRequestIdNotSet && reqIds.Any())
                     {
                         _variableResolver.SetPropertyValue("StartingRequestId", reqIds.First().ToString());
                         initialRequestIdNotSet = false;
                     }
                 }
 
+                if (allRequestIds.Any())
+                {
+                    _variableResolver.SetPropertyValue("AllRequestIds", string.Join(",", allRequestIds));
+                }
+
                 return Ok("The requests have been passed to DOrc");
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}", mlpRequest?.TargetEnv, mlpRequest);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }

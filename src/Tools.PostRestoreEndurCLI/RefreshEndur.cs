@@ -3,19 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 
 namespace Tools.PostRestoreEndurCLI
 {
     public class RefreshEndur
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly ISqlPortsPersistentSource _sqlPortsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
 
-        public RefreshEndur(ILog logger, ISqlPortsPersistentSource sqlPortsPersistentSource, IDatabasesPersistentSource databasesPersistentSource, IServersPersistentSource serversPersistentSource)
+        public RefreshEndur(ILogger logger, ISqlPortsPersistentSource sqlPortsPersistentSource, IDatabasesPersistentSource databasesPersistentSource, IServersPersistentSource serversPersistentSource)
         {
             _serversPersistentSource = serversPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
@@ -666,7 +666,7 @@ namespace Tools.PostRestoreEndurCLI
         private void Output(string strText)
         {
             Console.WriteLine(DateTime.Now + " - " + strText);
-            _logger.Info(strText);
+            _logger?.LogInformation(strText);
         }
     }
 }

@@ -8,6 +8,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
+
 import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -25,9 +26,18 @@ import '../components/request-status-card';
 
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { updateMetadata } from '../helpers/html-meta-manager';
+import { HubConnection, HubConnectionState } from '@microsoft/signalr';
+import {
+  DeploymentHub,
+  getReceiverRegister,
+  IDeploymentsEventsClient,
+  DeploymentRequestEventData,
+  DeploymentResultEventData,
+  getHubProxyFactory
+ } from '../services/ServerEvents';
 
 @customElement('page-monitor-result')
-export class PageMonitorResult extends PageElement {
+export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Array })
@@ -43,6 +53,9 @@ export class PageMonitorResult extends PageElement {
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
+  
+  private hubConnection: HubConnection | undefined;
 
   static get styles() {
     return css`
@@ -137,7 +150,7 @@ export class PageMonitorResult extends PageElement {
     `;
   }
 
-  protected firstUpdated(_changedProperties: PropertyValues) {
+  protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
     const resultId = location.pathname.substring(
@@ -147,10 +160,20 @@ export class PageMonitorResult extends PageElement {
 
     this.refreshData();
 
+    // Initialize SignalR connection for real-time updates scoped to this request
+    await this.initializeSignalR();
+
     this.addEventListener(
       'refresh-monitor-result',
       this.refreshPage as EventListener
     );
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
+      this.hubConnection.stop().catch(() => {});
+    }
   }
 
   updated(_changedProperties: PropertyValues) {
@@ -184,36 +207,112 @@ export class PageMonitorResult extends PageElement {
 
   private refreshData() {
     this.resultsLoading = true;
-    const api = new ResultStatusesApi();
-    api.resultStatusesGet({ requestId: this.requestId }).subscribe({
-      next: (data: Array<DeploymentResultApiModel>) => {
-        this.resultItems = data;
-        this.resultsLoading = false;
-      },
-      error: (err: any) => {
-        console.error(err);
-        this.resultsLoading = false;
-      },
-      complete: () => console.log('done loading result Statuses')
-    });
-
     const apiRequests = new RequestStatusesApi();
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
         this.selectedProject = data.Project ?? '';
         this.deployRequest = data;
-        this.loading = false;
       },
       error: (err: any) => {
         const notification = new ErrorNotification();
         notification.setAttribute('errorMessage', err.response);
         this.shadowRoot?.appendChild(notification);
         notification.open();
-        console.error(err);
-        this.loading = false;
+        console.error(err);        
       },
-      complete: () => console.log('done loading request')
+      complete: () => {
+        console.log('done loading request');
+        this.loading = false;
+        this.resultsLoading = false;
+      }
     });
+
+    this.refreshResultItems();
+  }
+
+  refreshResultItems = () => {
+    this.resultsLoading = true;
+
+    const api = new ResultStatusesApi();
+    api.resultStatusesGet({ requestId: this.requestId }).subscribe({
+      next: (data: Array<DeploymentResultApiModel>) => {
+        this.resultItems = data;
+      },
+      error: (err: any) => {
+        console.error(err);
+      },
+      complete: () => {
+        console.log('done loading result Statuses');
+        this.loading = false;
+        this.resultsLoading = false;
+      }
+    });    
+  }
+
+  private async initializeSignalR() {
+    if (!this.hubConnection)
+      this.hubConnection = DeploymentHub.getConnection();
+
+    getReceiverRegister('IDeploymentsEventsClient')
+      .register(this.hubConnection, this);
+
+    const hubProxy = getHubProxyFactory('IDeploymentEventsHub')
+        .createHubProxy(this.hubConnection);
+
+    this.hubConnection.onreconnected(async () => {
+       await hubProxy.joinRequestGroup(this.requestId);
+       this.refreshData();
+       this.hubConnectionState = this.hubConnection!.state;
+     });
+
+    if (this.hubConnection.state === HubConnectionState.Disconnected) {
+      try
+      {
+        await this.hubConnection.start();
+        await hubProxy.joinRequestGroup(this.requestId);
+        this.hubConnectionState = this.hubConnection.state;
+      }
+      catch (err)
+      {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.hubConnectionState = errorMessage;
+        console.error(err);
+      }
+    }
+  }
+
+  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
+    if (data?.requestId === this.requestId) {
+      const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
+      const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
+
+      this.deployRequest = {
+        ...this.deployRequest,
+        Status: data.status,
+        StartedTime: startedTime ?? this.deployRequest?.StartedTime,
+        CompletedTime: completedTime ?? this.deployRequest?.CompletedTime
+      };
+    }
+    return Promise.resolve();
+  }
+  
+  onDeploymentRequestStarted(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void> {
+    if (this.isEventForRequest(data, this.requestId)) {
+      this.refreshResultItems();
+    }
+    return Promise.resolve();
+  }
+
+  isEventForRequest(event: DeploymentResultEventData, requestId: number): boolean {
+    if (!event || typeof event !== 'object') {
+      return false;
+    }
+    const eventRequestId = Number(event.requestId);
+    return eventRequestId === requestId;
   }
 
   render() {
@@ -232,6 +331,7 @@ export class PageMonitorResult extends PageElement {
             <request-status-card
               .deployRequest="${this.deployRequest}"
               .selectedProject="${this.selectedProject}"
+              .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
             ${this.resultsLoading
               ? html` <div class="small-loader"></div>`

@@ -2,7 +2,6 @@
 using Dorc.PowerShell;
 using Dorc.Runner.Logger;
 using Dorc.Runner.Pipes;
-using Serilog.Context;
 
 namespace Dorc.Runner
 {
@@ -34,22 +33,18 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
-            using (LogContext.PushProperty("RequestId", requestId))
-            using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
+            var scriptRunner = new PowerShellScriptRunner(this.logger);
+            int sumResult = 0;
+            foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
             {
-                var scriptRunner = new PowerShellScriptRunner(this.logger);
-                int sumResult = 0;
-                foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
-                {
-                    sumResult += scriptRunner.Run(
-                        scriptGroupProperties.ScriptsLocation,
-                        scriptProps.ScriptPath,
-                        scriptProps.Properties,
-                        scriptGroupProperties.CommonProperties);
-                }
+                sumResult += scriptRunner.Run(
+                    scriptGroupProperties.ScriptsLocation,
+                    scriptProps.ScriptPath,
+                    scriptProps.Properties,
+                    scriptGroupProperties.CommonProperties);
+            }
 
-                return sumResult;
-            }            
+            return sumResult;            
         }
     }
 }

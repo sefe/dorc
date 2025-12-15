@@ -183,7 +183,6 @@ export class PageProjectBundles extends PageElement {
       >
         <vaadin-button
           theme="primary small"
-          .disabled="${true}"
           @click=${this._openAddBundleDialog}
         >
           Add
@@ -308,9 +307,7 @@ export class PageProjectBundles extends PageElement {
     model: GridItemModel<BundledRequestsApiModel>
   ) {
     render(
-      html` <bundle-request-controls .value="${model.item}"
-      .disabled="${true}"
-      >
+      html` <bundle-request-controls .value="${model.item}">
       </bundle-request-controls>`,
       root
     );

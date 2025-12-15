@@ -22,6 +22,9 @@ import { ProjectAuditData } from '../components/project-audit-data';
 import '../components/confirm-dialog';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
+import { ErrorNotification } from '../components/notifications/error-notification';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { SuccessNotification } from '../components/notifications/success-notification';
 
 @customElement('page-projects-list')
 export class PageProjectsList extends PageElement {
@@ -79,7 +82,8 @@ export class PageProjectsList extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser =
+      this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -105,10 +109,6 @@ export class PageProjectsList extends PageElement {
     this.addEventListener(
       'delete-project',
       this.deleteProject as EventListener
-    );
-    this.addEventListener(
-      'confirm-dialog-confirm',
-      this.confirmDeleteProject as EventListener
     );
   }
 
@@ -208,16 +208,9 @@ export class PageProjectsList extends PageElement {
 
       <project-audit-data
         id="open-project-audit-control"
-        .project="${this.selectedProject}">
+        .project="${this.selectedProject}"
+      >
       </project-audit-data>
-
-      <confirm-dialog
-        id="confirm-delete-dialog"
-        title="Delete Project"
-        message="Are you sure you want to delete this project? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel">
-      </confirm-dialog>
 
       ${this.loading
         ? html`
@@ -300,7 +293,10 @@ export class PageProjectsList extends PageElement {
     // @ts-ignore
     const altThis = _column.attachedPPLControl as PageProjectsList;
     render(
-      html` <project-controls .project="${project}" .deleteHidden="${!altThis.isAdmin}"></project-controls>`,
+      html` <project-controls
+        .project="${project}"
+        .deleteHidden="${!altThis.isAdmin}"
+      ></project-controls>`,
       root
     );
   }
@@ -325,7 +321,12 @@ export class PageProjectsList extends PageElement {
       .map(filter => new RegExp(filter, 'i'));
 
     this.filteredProjects = this.projects.filter(
-      ({ ProjectName, ProjectDescription, ArtefactsBuildRegex, ArtefactsSubPaths }) =>
+      ({
+        ProjectName,
+        ProjectDescription,
+        ArtefactsBuildRegex,
+        ArtefactsSubPaths
+      }) =>
         filters.some(
           filter =>
             filter.test(ProjectName || '') ||
@@ -384,44 +385,68 @@ export class PageProjectsList extends PageElement {
     this.addEditProject.close();
   }
 
+  private showSuccess(message: string) {
+    const n = new SuccessNotification();
+    n.setAttribute('successMessage', message);
+    this.shadowRoot?.appendChild(n);
+    n.open();
+  }
+
+  private showError(message: string) {
+    const n = new ErrorNotification();
+    n.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(n);
+    n.open();
+  }
+
   private deleteProject(e: CustomEvent) {
     const project = e.detail.Project as ProjectApiModel;
     this.selectedProject = project;
-    this.confirmDeleteDialog.open();
-  }
 
-  private confirmDeleteProject() {
-    if (!this.selectedProject || !this.selectedProject.ProjectId) {
+    if (
+      !confirm(
+        `Are you sure you want to delete project "${project.ProjectName}"? This action cannot be undone.`
+      )
+    ) {
+      this.selectedProject = this.getEmptyProj();
       return;
     }
+    const id = project.ProjectId;
+    if (typeof id !== 'number') {
+      console.warn('Delete aborted: ProjectId is missing');
+      this.selectedProject = this.getEmptyProj();
+      return;
+    }
+    this.performDelete(id);
+  }
 
+  private performDelete(projectId: number) {
     const api = new RefDataProjectsApi();
-    const projectId = this.selectedProject.ProjectId;
-    const projectName = this.selectedProject.ProjectName;
-
-    api.refDataProjectsDelete({ projectId }).subscribe({
-      next: () => {
-        this.getProjects();
-        Notification.show(`Project ${projectName} deleted successfully`, {
-          theme: 'success',
-          position: 'bottom-start',
-          duration: 5000
-        });
+    api.refDataProjectsProjectIdDelete({ projectId }).subscribe(
+      (response: any) => {
+        const backendMessage = retrieveErrorMessage(response);
+        if (backendMessage) {
+          this.showSuccess(backendMessage);
+          this.getProjects();
+        } else {
+          console.error('Delete succeeded (no backend message)', response);
+        }
       },
-      error: (error: any) => {
-        console.error('Error deleting project:', error);
-        const errorMessage = error.response?.text || error.message || 'Failed to delete project';
-        Notification.show(`Error deleting project: ${errorMessage}`, {
-          theme: 'error',
-          position: 'bottom-start',
-          duration: 10000
-        });
+      (err: any) => {
+        console.error(err);
+        const backendMessage = retrieveErrorMessage(err);
+        if (backendMessage) {
+          this.showError(backendMessage);
+        } else {
+          console.error('Delete failed (no backend message)', err);
+        }
       },
-      complete: () => {
-        console.log('Delete operation completed');
+      () => {
+        console.log(
+          `Delete operation completed for ${this.selectedProject.ProjectName}`
+        );
       }
-    });
-
+    );
     this.selectedProject = this.getEmptyProj();
   }
 }

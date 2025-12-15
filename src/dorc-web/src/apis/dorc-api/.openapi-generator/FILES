@@ -12,6 +12,7 @@ apis/DeploymentV2Api.ts
 apis/DirectorySearchApi.ts
 apis/MakeLikeProdApi.ts
 apis/MetadataApi.ts
+apis/PowerShellVersionsApi.ts
 apis/PropertiesApi.ts
 apis/PropertyValuesApi.ts
 apis/PropertyValuesAuditApi.ts
@@ -92,6 +93,7 @@ models/PagedDataFilter.ts
 models/PagedDataOperators.ts
 models/PagedDataSorting.ts
 models/PermissionDto.ts
+models/PowerShellVersionDto.ts
 models/ProjectApiModel.ts
 models/Property.ts
 models/PropertyApiModel.ts
@@ -114,6 +116,7 @@ models/ServiceStatusApiModel.ts
 models/SqlPortApiModel.ts
 models/UserAccountType.ts
 models/UserApiModel.ts
+models/UserDbPermissionApiModel.ts
 models/UserElementApiModel.ts
 models/UserPermDto.ts
 models/UserSearchResult.ts

@@ -358,6 +358,18 @@
     <Build Include="deploy\Stored Procedures\ArchiveDeploymentRequests.sql" />
     <Build Include="Schema Objects\Schemas\archive\Tables\EnvironmentComponentStatus.table.sql" />
     <None Include="Scripts\Post-Deployment\Environment_AccessControl_Populate.sql" />
+    <Build Include="deploy\Stored Procedures\get_property_values_for_user.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsComponentUsage.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsDuration.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsEnvironmentUsage.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsTimePattern.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsUserActivity.sql" />
+    <Build Include="deploy\Tables\AnalyticsComponentUsage.sql" />
+    <Build Include="deploy\Tables\AnalyticsDuration.sql" />
+    <Build Include="deploy\Tables\AnalyticsEnvironmentUsage.sql" />
+    <Build Include="deploy\Tables\AnalyticsTimePattern.sql" />
+    <Build Include="deploy\Tables\AnalyticsUserActivity.sql" />
+    <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">
@@ -366,6 +378,7 @@
     <Build Include="Schema Objects\Database Level Objects\Security\Schemas\archive.schema.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValueFilter_PropertyValueId.index.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValue_PropertyId.index.sql" />
+    <None Include="Scripts\Post-Deployment\Props-to-Configuration.sql" />
   </ItemGroup>
   <ItemGroup>
     <PreDeploy Include="Scripts\Pre-Deployment\Script.PreDeployment.sql" />

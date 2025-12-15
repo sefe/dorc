@@ -4,7 +4,7 @@
   <Fragment>
     <DirectoryRef Id="PropertyValueCreationDir">
       <Component Id="PropertyValueCreationConfigSetup" DiskId="1" KeyPath="yes" Guid="{5124BF8F-EE70-40B1-8D00-0AE183C202A8}">
-        <Json:JsonFile Id="PVCDeployment" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" File="[#PropertyValueCreationConfig]" />
+        <Json:JsonFile Id="PVCDeployment" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" File="[#PropertyValueCreationConfig]" />
       </Component>
     </DirectoryRef>
   </Fragment>

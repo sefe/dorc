@@ -7,7 +7,9 @@
 			<Directory Id="INSTALLLOCATIONPROD" Name="ActionServiceProd">
 				<Component Id="DeployMonitorServiceProd.exe" Guid="{1578E477-0315-4495-B0C3-EAEEEDC9AF38}">
 
-					<ServiceInstall Id="DeployActionServiceProd" Type="ownProcess" Vital="yes" Name="DeploymentActionServiceProd" DisplayName="DOrc Monitor Production" Start="demand" ErrorControl="ignore" Interactive="no" Account="[SVC.ACCOUNTPROD]" Password="[SVC.PASSWORDPROD]" />
+					<ServiceInstall Id="DeployActionServiceProd" Type="ownProcess" Vital="yes" Name="DeploymentActionServiceProd" DisplayName="DOrc Monitor Production" Start="demand" ErrorControl="ignore" Interactive="no" Account="[SVC.ACCOUNTPROD]" Password="[SVC.PASSWORDPROD]" >
+						<util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" />
+					</ServiceInstall>
 
 					<ServiceControl Id="DeployMonitorServiceProdStartService" Wait="yes" Stop="both" Remove="uninstall" Name="DeployMonitorServiceProd" />
 
@@ -15,26 +17,53 @@
 
 					<Json:JsonFile Id="SetCoreRunnerPathProd" ElementPath="$.AppSettings.DotNetCoreDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdDorcRunnerExe]" />
 					<Json:JsonFile Id="SetFrameworkRunnerPathProd" ElementPath="$.AppSettings.DotNetFrameworkDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdDeployRunnerExe]" />
+					<Json:JsonFile Id="SetTerraformRunnerPathProd" ElementPath="$.AppSettings.TerraformDeploymentRunnerPath" File="[#ProdDeployMonitorExeConfig]" Value="[#ProdTerraformRunnerExe]" />
 
 					<Json:JsonFile Id="SetIsProductionProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetEnvironmentProd" ElementPath="$.AppSettings.Environment" Value="[ENVIRONMENT]" File="[#ProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetServiceNameProd" ElementPath="$.AppSettings.ServiceName" Value="DeploymentActionServiceProd" File="[#ProdDeployMonitorExeConfig]" />
 
-					<Json:JsonFile Id="SetDbConnectionString1Prod" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="SetDbConnectionString1Prod" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" File="[#ProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="SetRefDataApiUrlProd" ElementPath="$.AppSettings.RefDataApiUrl" File="[#ProdDeployMonitorExeConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
-
-					<util:XmlFile Id="ProdXmlLog" Action="setValue" ElementPath="/log4net/appender/file/@value" File="[#ProdLog4NetConfig]" Value="c:\\Log\\DOrc\\Deploy\\Services\\MonitorProd.log" />
 
 					<Json:JsonFile Id="DomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#ProdDeployMonitorExeConfig]" Value="[DOMAINNAMEINTRA]" />
 					<Json:JsonFile Id="SMTPHostProd" ElementPath="$.AppSettings.SMTPHost" File="[#ProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
-					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#ProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+
+					<Json:JsonFile Id="DorcApiClientIdProd" ElementPath="$.AppSettings.DorcApi.ClientId" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTID]" />
+					<Json:JsonFile Id="DorcApiClientSecretProd" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
+					<Json:JsonFile Id="DorcApiScopeProd" ElementPath="$.AppSettings.DorcApi.Scope" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />
+
+					<Json:JsonFile Id="AzureStorageAccountTenantIdProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
+					<Json:JsonFile Id="AzureStorageAccountClientIdProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
+					<Json:JsonFile Id="AzureStorageAccountClientSecretProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
+					<Json:JsonFile Id="AzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
+					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+					
+					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability Configuration -->
+					<Json:JsonFile Id="HAEnabledProd" ElementPath="$.AppSettings.HighAvailability.Enabled" Value="[HA.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQHostNameProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.HostName" Value="[HA.RABBITMQ.HOSTNAME]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQPortProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Port" Value="[HA.RABBITMQ.PORT]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQVirtualHostProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.VirtualHost" Value="[HA.RABBITMQ.VIRTUALHOST]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthClientIdProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientId" Value="[HA.RABBITMQ.OAUTH.CLIENTID]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthClientSecretProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientSecret" Value="[HA.RABBITMQ.OAUTH.CLIENTSECRET]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthTokenEndpointProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.TokenEndpoint" Value="[HA.RABBITMQ.OAUTH.TOKENENDPOINT]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthScopeProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.Scope" Value="[HA.RABBITMQ.OAUTH.SCOPE]" File="[#ProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability SSL/TLS Configuration -->
+					<Json:JsonFile Id="HARabbitMQSslEnabledProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Enabled" Value="[HA.RABBITMQ.SSL.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslServerNameProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.ServerName" Value="[HA.RABBITMQ.SSL.SERVERNAME]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslVersionProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
 					<Component Id="DeployMonitorServiceDorcRunnerProd.exe" Guid="{E97FFF42-7346-4934-8E63-11FEC7BD8425}">
-						<Json:JsonFile Id="DorcRunnerProdExeConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DorcRunnerProdExeConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="DorcRunnerProdExeOpenSearchSettingsUriConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="DorcRunnerProdExeOpenSearchSettingsUserNameConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="DorcRunnerProdExeOpenSearchSettingsPasswordConfig" File="[#ProdDorcRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
@@ -46,13 +75,25 @@
 
 				<Directory Id="INSTALLLOCATIONDEPLOYRUNNERPROD" Name="DeployRunner">
 					<Component Id="DeployMonitorServiceDeployRunnerProd.exe" Guid="{E96FFF42-7346-4934-8E63-11FEC7BD8425}">
-						<Json:JsonFile Id="DeployRunnerProdExeConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true"  />
+						<Json:JsonFile Id="DeployRunnerProdExeConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsUriConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsUserNameConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsPasswordConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsEnvironmentConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
 						<Json:JsonFile Id="DeployRunnerProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#ProdDeployRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
+					</Component>
+				</Directory>
+
+				<Directory Id="INSTALLLOCATIONTERRAFORMRUNNERPROD" Name="TerraformRunner">
+					<Component Id="DeployMonitorServiceTerraformRunnerProd.exe" Guid="{81B77E98-85D9-4A9D-83EC-C6392D562951}">
+						<Json:JsonFile Id="TerraformRunnerProdExeConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsUriConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsUserNameConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsPasswordConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsEnvironmentConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
+						<Json:JsonFile Id="TerraformRunnerProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#ProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
 					</Component>
 				</Directory>
 			</Directory>

@@ -4,7 +4,7 @@ using Dorc.ApiModel;
 using Dorc.NetFramework.PowerShell;
 using Dorc.NetFramework.Runner.Pipes;
 using Dorc.Runner.Logger;
-using Serilog.Context;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.NetFramework.Runner
 {
@@ -28,38 +28,32 @@ namespace Dorc.NetFramework.Runner
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deploymentResultId);
 
-            using (LogContext.PushProperty("RequestId", requestId)) 
-            using (LogContext.PushProperty("DeploymentResultId", deploymentResultId))
+            logger.FileLogger.LogInformation($"Request Id :{requestId}, Deployment Result Id :{deploymentResultId}");
+            try
             {
-                logger.FileLogger.Information($"Request Id :{requestId}");
-                logger.FileLogger.Information($"Deployment Result Id :{deploymentResultId}");
-                try
+                if (scriptGroupProperties == null
+                    || scriptGroupProperties.CommonProperties == null
+                    || !scriptGroupProperties.CommonProperties.Any()
+                    || string.IsNullOrEmpty(scriptGroupProperties.ScriptsLocation))
                 {
-                    if (scriptGroupProperties == null
-                        || scriptGroupProperties.CommonProperties == null
-                        || !scriptGroupProperties.CommonProperties.Any()
-                        || string.IsNullOrEmpty(scriptGroupProperties.ScriptsLocation))
-                    {
-                        throw new Exception("ScriptGroup is not initialized.");
-                    }
-
-                    logger.FileLogger.Information("ScriptGroup is received.");
-
-                    var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
-
-                    scriptRunner.Run(
-                        scriptGroupProperties.ScriptsLocation,
-                        scriptGroupProperties.ScriptProperties.Select(p => (p.ScriptPath, p.Properties)),
-                       scriptGroupProperties.CommonProperties);
-
+                    throw new Exception("ScriptGroup is not initialized.");
                 }
-                catch (Exception e)
-                {
-                    logger.Error($"An Exception Occured running the deployment: {e.Message}");
-                    throw;
-                }
+
+                logger.FileLogger.LogDebug("ScriptGroup is received.");
+
+                var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
+
+                scriptRunner.Run(
+                    scriptGroupProperties.ScriptsLocation,
+                    scriptGroupProperties.ScriptProperties.Select(p => (p.ScriptPath, p.Properties)),
+                   scriptGroupProperties.CommonProperties);
+
             }
-
+            catch (Exception e)
+            {
+                logger.Error($"An Exception Occured running the deployment: {e.Message}");
+                throw;
+            }
         }
     }
 }

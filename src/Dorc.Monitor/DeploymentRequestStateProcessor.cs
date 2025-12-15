@@ -1,18 +1,24 @@
-using log4net;
-using System.Collections.Concurrent;
 using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Events;
+using Dorc.Core.Interfaces;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.Graph.Models.Security;
+using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
 {
     internal class DeploymentRequestStateProcessor : IDeploymentRequestStateProcessor
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
         private readonly IServiceProvider serviceProvider;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IDeploymentEventsPublisher eventPublisher;
+        private readonly IDistributedLockService distributedLockService;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -26,15 +32,19 @@ namespace Dorc.Monitor
         }
 
         public DeploymentRequestStateProcessor(
-            ILog logger,
+            ILogger<DeploymentRequestStateProcessor> logger,
             IServiceProvider serviceProvider,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IDeploymentEventsPublisher eventPublisher,
+            IDistributedLockService distributedLockService)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
             this.processesPersistentSource = processesPersistentSource;
             this.requestsPersistentSource = requestsPersistentSource;
+            this.eventPublisher = eventPublisher;
+            this.distributedLockService = distributedLockService;
         }
 
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
@@ -90,11 +100,11 @@ namespace Dorc.Monitor
                 var ids = requests.Select(r => r.Id).ToArray();
                 var idsString = string.Join(',', ids);
 
-                this.logger.Info($"Going to {methodName} the requests: [{idsString}]");
+                this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
                 if (requests.Any(r => r.IsProd))
                 {
-                    this.logger.Error($"Cannot {methodName} the request with id '{requests.First(r => r.IsProd).Id}' because request is running on PR environment");
+                    this.logger.LogError($"Cannot {methodName} the request with id '{requests.First(r => r.IsProd).Id}' because request is running on PR environment");
                     return;
                 }
 
@@ -114,13 +124,21 @@ namespace Dorc.Monitor
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
+                        // publish request status change
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: toStatus.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
                     }
 
-                    this.logger.Info($"Requests with ids [{idsString}] are {methodName}ed.");
+                    this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
                 }
                 else
                 {
-                    this.logger.Error($"{requestToSwitchCount - cancelledRequestCount} request from {requestToSwitchCount} are NOT {methodName}ed. IDs [{idsString}]");
+                    this.logger.LogError($"{requestToSwitchCount - cancelledRequestCount} request from {requestToSwitchCount} are NOT {methodName}ed. IDs [{idsString}]");
                 }
             }
         }
@@ -135,14 +153,14 @@ namespace Dorc.Monitor
                 var ids = requests.Select(r => r.Id).ToArray();
                 var idsString = string.Join(',', ids);
 
-                this.logger.Info($"Going to {methodName} the deployment results for the requests: [{idsString}]");
+                this.logger.LogInformation($"Going to {methodName} the deployment results for the requests: [{idsString}]");
 
                 int cancelledDeploymentResultsCount = this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
                     requests,
                     fromStatus,
                     toStatus);
 
-                this.logger.Info($"Deployment results for requests with ids [{idsString}] are {methodName}ed.");
+                this.logger.LogInformation($"Deployment results for requests with ids [{idsString}] are {methodName}ed.");
             }
         }
 
@@ -157,26 +175,26 @@ namespace Dorc.Monitor
             int requestToRestartCount = requestsToRestart.Count();
             if (requestToRestartCount > 0)
             {
-                this.logger.Info($"Going to restart {requestToRestartCount} requests");
+                this.logger.LogInformation($"Going to restart {requestToRestartCount} requests");
 
                 var ids = requestsToRestart.Select(c => c.Id).ToList();
                 var idsString = string.Join(',', ids);
                 try
                 {
-                    this.logger.Debug($"Removing All results for IDs [{idsString}].");
+                    this.logger.LogDebug($"Removing All results for IDs [{idsString}].");
 
                     this.requestsPersistentSource.ClearAllDeploymentResults(ids);
 
-                    this.logger.Debug($"Finish removing All results for IDs [{idsString}].");
+                    this.logger.LogDebug($"Finish removing All results for IDs [{idsString}].");
                 }
                 catch (Exception exception)
                 {
-                    this.logger.Error($"Removing All Results for IDs [{idsString}] has failed. Exception: {exception}");
+                    this.logger.LogError($"Removing All Results for IDs [{idsString}] has failed. Exception: {exception}");
                 }
 
                 monitorCancellationToken.ThrowIfCancellationRequested();
 
-                this.logger.Info($"Restarting All requests, IDs [{idsString}]");
+                this.logger.LogInformation($"Restarting All requests, IDs [{idsString}]");
 
                 var pendingRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(requestsToRestart, DeploymentRequestStatus.Restarting, DeploymentRequestStatus.Pending);
 
@@ -186,22 +204,30 @@ namespace Dorc.Monitor
                     {
                         TerminateRequestExecution(id, requestCancellationSources);
                         TerminateRunnerProcesses(id);
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
                     });
 
-                    this.logger.Info($"Requests IDs [{idsString}] have been restarted.");
+                    this.logger.LogInformation($"Requests IDs [{idsString}] have been restarted.");
                 }
                 else
-                    this.logger.Error($"{requestToRestartCount - pendingRequestCount} requests from {requestToRestartCount} have NOT been restarted. IDs [{idsString}]");
+                    this.logger.LogError($"{requestToRestartCount - pendingRequestCount} requests from {requestToRestartCount} have NOT been restarted. IDs [{idsString}]");
             }
         }
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
-            // Select only Pending requests for each of environments that do not have any Running requests.
+            // Select only Pending and Confirmed requests for each of environments that do not have any Running requests.
             var environmentRequestGroupsToExecute = this.requestsPersistentSource
                 .GetRequestsWithStatus(
                         DeploymentRequestStatus.Pending,
                         DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Confirmed,
                         isProduction)
                 .OrderBy(pendingOrRunningRequest => pendingOrRunningRequest.Id)
                 .GroupBy(
@@ -224,14 +250,39 @@ namespace Dorc.Monitor
                 // if some request is already running for that env, just skip (that should not happen if DB would be quick enough)
                 if (environmentRequestIdRunning.TryGetValue(requestGroup.Key, out runningRequestId))
                 {
-                    this.logger.Debug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
+                    this.logger.LogDebug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
                     continue;
                 }
-                var task = Task.Run(() =>
+
+                // Try to acquire distributed lock for this environment BEFORE creating the task
+                // This ensures only one monitor instance processes this environment at a time
+                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
+                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
+                // Other usages of Task.Run in this codebase may be synchronous, but here async is required for proper lock handling.
+                var task = Task.Run(async () =>
                 {
+                    // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method
+                    // and to prevent closure over loop variable
+                    IDistributedLock? envLock = null;
                     try
                     {
                         monitorCancellationToken.ThrowIfCancellationRequested();
+
+                        if (distributedLockService.IsEnabled)
+                        {
+                            var lockKey = $"env:{requestGroup.Key}";
+                            // Lock lease time is longer than typical request duration to handle long deployments
+                            // The lock will auto-release if the monitor crashes
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
+                            
+                            if (envLock == null)
+                            {
+                                this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
+                                return; // Skip this environment - another monitor is processing it
+                            }
+
+                            this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
+                        }
 
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
                         requestCancellationSources!.AddOrUpdate(
@@ -242,19 +293,25 @@ namespace Dorc.Monitor
                     }
                     catch (OperationCanceledException)
                     {
-                        this.logger.Error($"Canceled processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}");
+                        this.logger.LogError($"Canceled processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}");
                     }
                     catch (Exception exc)
                     {
-                        this.logger.Error($"Error while processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}, exception: {exc}");
+                        this.logger.LogError($"Error while processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}, exception: {exc}");
                     }
                     finally
                     {
                         this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
                         environmentRequestIdRunning.TryRemove(requestGroup.Key, out runningRequestId);
+                        
+                        // Release the distributed lock
+                        if (envLock != null)
+                        {
+                            await envLock.DisposeAsync();
+                            this.logger.LogDebug($"Released distributed lock for environment '{requestGroup.Key}'");
+                        }
                     }
-                },
-                monitorCancellationToken);
+                }, monitorCancellationToken);
                 environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
                 task.ConfigureAwait(false);
                 requestGroupExecutionTasks.Add(task);
@@ -265,7 +322,7 @@ namespace Dorc.Monitor
 
         private void ExecuteRequest(RequestToProcessDto requestToExecute, CancellationToken requestCancellationToken)
         {
-            this.logger.Debug($"---------------begin execution of request {requestToExecute.Request.Id}---------------");
+            this.logger.LogDebug($"---------------begin execution of request {requestToExecute.Request.Id}---------------");
 
             int upratedRequestCount = this.requestsPersistentSource.UpdateNonProcessedRequest(
                     requestToExecute.Request,
@@ -274,9 +331,14 @@ namespace Dorc.Monitor
 
             if (upratedRequestCount == 0)
             {
-                this.logger.InfoFormat("The request with ID {0} can NOT be processed.", requestToExecute.Request.Id);
+                this.logger.LogInformation("The request with ID {RequestId} can NOT be processed.", requestToExecute.Request.Id);
                 return;
             }
+
+            _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+            {
+                Status = DeploymentRequestStatus.Requesting.ToString(),
+            });
 
             try
             {
@@ -288,10 +350,10 @@ namespace Dorc.Monitor
             }
             catch (Exception exception)
             {
-                this.logger.Error($"Execution of the request with id '{requestToExecute.Request.Id}' has failed. Exception: {exception}");
+                this.logger.LogError($"Execution of the request with id '{requestToExecute.Request.Id}' has failed. Exception: {exception}");
             }
 
-            this.logger.Debug($"---------------end execution of request {requestToExecute.Request.Id}---------------");
+            this.logger.LogDebug($"---------------end execution of request {requestToExecute.Request.Id}---------------");
         }
 
         private void TerminateRequestExecution(int requestId, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources)
@@ -315,10 +377,17 @@ namespace Dorc.Monitor
         {
             if (requestCancellationSources!.TryRemove(requestId, out CancellationTokenSource? removedCancellationTokenSource))
             {
-                this.logger.ErrorFormat("Removal of CancellationTokenSource for the request '{0}' failed.", requestId);
+                this.logger.LogError("Removal of CancellationTokenSource for the request '{RequestId}' failed.", requestId);
             }
 
-            removedCancellationTokenSource?.Dispose();
+            if (removedCancellationTokenSource is not null)
+            {
+                try
+                {
+                    removedCancellationTokenSource?.Dispose();
+                }
+                catch { } // safe dispose as it may be already disposed
+            }
         }
 
         /// <summary>
@@ -329,7 +398,7 @@ namespace Dorc.Monitor
         private void TerminateRunnerProcesses(int requestId)
         {
             var processIds = this.processesPersistentSource.GetAssociatedRunnerProcessIds(requestId);
-            this.logger.Info($"Processes for the {requestId} that should be killed {String.Join(",", processIds)}");
+            this.logger.LogInformation($"Processes for the {requestId} that should be killed {String.Join(",", processIds)}");
 
             if (processIds == null
                 || !processIds.Any())
@@ -345,11 +414,11 @@ namespace Dorc.Monitor
                     try
                     {
                         procById.Kill();
-                        this.logger.Info($"Process {processId} is killed");
+                        this.logger.LogInformation($"Process {processId} is killed");
                     }
                     catch (Exception exception)
                     {
-                        this.logger.ErrorFormat($"Termination of the process with id '{processId}' failed. Exception: {exception}");
+                        this.logger.LogError(exception, "Termination of the process with id '{ProcessId}' failed.", processId);
                     }
                 }
                 this.processesPersistentSource.RemoveProcess(processId);

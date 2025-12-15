@@ -12,7 +12,7 @@ import { html } from 'lit/html.js';
 import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi,
-  RefDataGroupsApi, type ServerApiModel
+  RefDataGroupsApi
 } from '../apis/dorc-api';
 import {
   ApiBoolResult,
@@ -130,7 +130,6 @@ export class AddEditDatabase extends LitElement {
       <div style="padding: 10px; width:500px">
         <vaadin-vertical-layout>
           <vaadin-text-field
-            id="database-name"
             class="block"
             label="Database"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
@@ -150,7 +149,7 @@ export class AddEditDatabase extends LitElement {
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
-            pattern="^[a-zA-Z0-9_]{1,128}(\\\\[a-zA-Z0-9_]{1,128})?$"
+            pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
             label="Instance"
             required
             auto-validate
@@ -160,8 +159,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Array Name (leave blank if unknown)"
-            auto-validate
             @input="${this._dbaArrayNameValueChanged}"
+            auto-validate
             .value="${this.ArrayName}"
           ></vaadin-text-field>
           <vaadin-combo-box
@@ -241,17 +240,18 @@ export class AddEditDatabase extends LitElement {
           AdGroup: this.AdGroup,
           ArrayName: this.ArrayName
         }
-    })
-  .subscribe({
-      next: (data: ServerApiModel) => {
-        this.fireDatabaseChangedEvent(data);
-      },
-      error: (err: any) => {
-        console.error(err.response);
-        this.ErrorMessage = err.response;
-      },
-      complete: () => console.log('done updating server')
-    });
+      })
+      .subscribe({
+        next: (data: DatabaseApiModel) => {
+          this.fireDatabaseChangedEvent(data);
+          this._reset();
+        },
+        error: (err: any) => {
+          console.error(err.response);
+          this.ErrorMessage = err.response;
+        },
+        complete: () => console.log('done adding DB')
+      });
     }
     else {
       const api = new RefDataDatabasesApi();
@@ -270,7 +270,8 @@ export class AddEditDatabase extends LitElement {
             this.attachDb(data);
             const id = data.Id || 0;
             if (id > 0) {
-              this.databaseAddComplete();
+              this.databaseAddComplete(data);
+              this._reset();
             }
           },
           error: (err: any) => {
@@ -348,10 +349,11 @@ export class AddEditDatabase extends LitElement {
     }
   }
 
-  databaseAddComplete() {
+  databaseAddComplete(data: DatabaseApiModel) {
     const event = new CustomEvent('database-created', {
       detail: {
-        message: 'Database created successfully!'
+        message: 'Database created successfully!',
+        data: data
       },
       bubbles: true,
       composed: true
@@ -421,25 +423,29 @@ export class AddEditDatabase extends LitElement {
 
   private checkDbValid(dbs: DatabaseApiModel[]) {
     const foundDatabase = dbs?.[0];
+        
     if (
       foundDatabase &&
-      /* editing */ foundDatabase.Id === this._database.Id &&
+      foundDatabase.Id === this._database.Id &&
       this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
+
     } else if (foundDatabase && foundDatabase.Id !== this._database.Id) {
       this.isNameValid = false;
-      this.infoMessage = 'Database Name already exists';
+      this.infoMessage = 'Database already exists';
+
     } else if (
       !foundDatabase &&
       this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
+
     } else {
       this.isNameValid = false;
-      // Clear the "Database Name already exists" message if the database doesn't exist
+      // Clear the "Database already exists" message if the database doesn't exist
       if (!foundDatabase) {
         this.infoMessage = '';
       }

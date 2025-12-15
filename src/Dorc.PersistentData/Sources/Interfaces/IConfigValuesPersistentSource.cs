@@ -8,6 +8,6 @@ public interface IConfigValuesPersistentSource
     string GetConfigValue(string key, string defaultValue = null);
     IEnumerable<ConfigValueApiModel> GetAllConfigValues(bool decryptSecure);
     bool RemoveConfigValue(int configValueId);
-    ConfigValueApiModel UpdateConfigValue(ConfigValue newValue);
+    ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel newValue);
     ConfigValueApiModel? Add(ConfigValueApiModel model);
 }

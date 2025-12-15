@@ -1,13 +1,13 @@
-﻿using log4net;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
 {
     public sealed class MonitorService : BackgroundService
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         private bool isProduction;
         private readonly IServiceProvider serviceProvider;
@@ -19,7 +19,7 @@ namespace Dorc.Monitor
         private int requestProcessingIterationDelayMs;
 
         public MonitorService(
-            ILog logger,
+            ILogger<MonitorService> logger,
             IServiceProvider serviceProvider,
             IMonitorConfiguration configuration
             )
@@ -39,31 +39,40 @@ namespace Dorc.Monitor
 
         protected override async Task ExecuteAsync(CancellationToken monitorCancellationToken)
         {
-            logger.Info("Deployment Monitor service is started.");
+            logger.LogInformation("Deployment Monitor service is started.");
 
-            try
+            var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
+            if (deploymentEngine == null)
             {
-                var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
-                if (deploymentEngine == null)
+                throw new NullReferenceException("DeploymentEngine was not issued and equals null");
+            }
+
+            while (!monitorCancellationToken.IsCancellationRequested)
+            {
+                try
                 {
-                    throw new NullReferenceException("DeploymentEngine was not issued and equals null");
+                    await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
                 }
+                catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
+                }
+                catch (SqlException sqlException)
+                {
+                    logger.LogWarning("Transient SQL failure, retrying in 10s. Exception: " + sqlException);
+                    await Task.Delay(TimeSpan.FromSeconds(10), monitorCancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    logger.LogError("Monitor process is failed. Exception: " + exception);
+                    throw;
+                }
+            }
 
-                await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
-            }
-            catch (OperationCanceledException operationCanceledException)
-            {
-                logger.Warn("Monitor process is cancelled. Exception: " + operationCanceledException);
-                Environment.Exit(1);
-            }
-            catch (Exception exception)
-            {
-                logger.Error("Monitor process is failed. Exception: " + exception);
-                Environment.Exit(1);
-            }
+            logger.LogInformation("Deployment Monitor service is stopping.");
         }
 
-        protected new void Dispose()
+        public override void Dispose()
         {
             if (!disposedValue)
             {
