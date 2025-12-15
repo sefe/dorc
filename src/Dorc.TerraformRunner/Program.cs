@@ -31,6 +31,8 @@ namespace Dorc.TerraformRunner
 
         private static async Task Main(string[] args)
         {
+            bool result = false;
+
             try
             {
 #if LoggingForDebugging
@@ -88,40 +90,35 @@ namespace Dorc.TerraformRunner
 
                 Debug.Assert(arguments != null);
 
-                try
+                IScriptGroupPipeClient scriptGroupReader;
+
+                if (options.UseFile)
                 {
-                    IScriptGroupPipeClient scriptGroupReader;
-
-                    if (options.UseFile)
-                    {
-                        fileLogger.LogDebug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(fileLogger);
-                    }
-                    else
-                        scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
-
-                    var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
-
-                    switch (options.TerrafromRunnerOperation)
-                    {
-                        case TerrafromRunnerOperations.CreatePlan:
-                            await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
-                            break;
-                        case TerrafromRunnerOperations.ApplyPlan:
-                            await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
-                            break;
-                    }
+                    fileLogger.LogDebug("Using file instead of pipes");
+                    scriptGroupReader = new ScriptGroupFileReader(fileLogger);
                 }
-                catch (Exception ex)
+                else
+                    scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
+
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
+                switch (options.TerrafromRunnerOperation)
                 {
-                    runnerLogger?.Error(ex, $"Exception occured {ex.Message}");
-                    Exit(-1);
+                    case TerrafromRunnerOperations.CreatePlan:
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
+                        break;
+                    case TerrafromRunnerOperations.ApplyPlan:
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
+                        break;
                 }
-                Exit(0);
+            }
+            catch (Exception ex)
+            {
+                runnerLogger?.Error(ex, $"Exception occured {ex.Message}");
+                Exit(-1);
             }
             finally
             {
-                FinalizeProgram();
+                Exit(result ? 0 : 1);
             }
         }
 

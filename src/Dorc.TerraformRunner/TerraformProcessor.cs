@@ -278,30 +278,11 @@ namespace Dorc.TerraformRunner
 
             logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
-            try
-            {
-                // Execute the actual Terraform plan
-                var executionResult = await ExecuteTerraformPlanAsync(requestId, planFile, scriptGroupProperties, cancellationToken);
-
-                if (executionResult.Success)
-                {
-                    logger.Information($"Terraform plan executed successfully for deployment result ID: {deployResultId}");
-                    return true;
-                }
-                else
-                {
-                    logger.Error($"Terraform plan execution failed for deployment result ID {deployResultId}: {executionResult.ErrorMessage}");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, $"Failed to execute Terraform plan for deployment result ID {deployResultId}: {ex.Message}");
-                return false;
-            }
+            // Execute the actual Terraform plan
+            return await ExecuteTerraformPlanAsync(requestId, planFile, scriptGroupProperties, cancellationToken);
         }
 
-        private async Task<TerraformExecutionResult> ExecuteTerraformPlanAsync(
+        private async Task<bool> ExecuteTerraformPlanAsync(
             int requestId,
             string planFile,
             ScriptGroup scriptGroup,
@@ -321,25 +302,16 @@ namespace Dorc.TerraformRunner
                 var applyArgs = $"apply -auto-approve {planFile}  -no-color";
                 logger.Information($"Executing Terraform apply for request ID: {requestId}");
                 
-                var applyOutput = await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
+                await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
-                
-                return new TerraformExecutionResult 
-                { 
-                    Success = true, 
-                    Output = applyOutput 
-                };
+
+                return true;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
-                return new TerraformExecutionResult 
-                { 
-                    Success = false, 
-                    ErrorMessage = ex.Message,
-                    Output = ex.StackTrace 
-                };
+                return false;
             }
             finally
             {
