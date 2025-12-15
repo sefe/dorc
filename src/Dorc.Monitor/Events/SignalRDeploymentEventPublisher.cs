@@ -42,7 +42,7 @@ namespace Dorc.Monitor.Events
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
-                _logger.LogWarning("Cannot publish {Operation} - SignalR connection is not available", operationName);
+                _logger.LogWarning($"Cannot publish {operationName} - SignalR connection is not available");
                 return;
             }
 
@@ -52,7 +52,7 @@ namespace Dorc.Monitor.Events
             }
             catch (Exception exc)
             {
-                _logger.LogError(exc, "Failed to invoke {Operation} via SignalR hub at {HubUrl}", operationName, _hubUrl);
+                _logger.LogError(exc, $"Failed to invoke {operationName} via SignalR hub at {_hubUrl}");
                 throw;
             }
         }
@@ -61,14 +61,14 @@ namespace Dorc.Monitor.Events
         {
             if (string.IsNullOrWhiteSpace(_hubUrl))
             {
-                return false;
+                return false; // disabled
             }
 
-            // Check if token is expired or about to expire
+            // Check token expiration
             var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
             if (timeUntilExpiration < TimeSpan.FromMinutes(TokenRefreshBufferMinutes))
             {
-                _logger.LogInformation("Token expires soon, recreating connection");
+                _logger.LogInformation("Token expiring, recreating connection");
                 await RecreateConnectionAsync(ct);
             }
 
@@ -118,7 +118,7 @@ namespace Dorc.Monitor.Events
             {
                 if (!_isConnectionBecomeLost)
                 {
-                    _logger.LogError(exc, "Failed to connect to SignalR hub at {HubUrl}", _hubUrl);
+                    _logger.LogError(exc, $"Error connecting to SignalR hub at {_hubUrl}");
                     _isConnectionBecomeLost = true;
                     _lastDisconnectTime = DateTime.UtcNow;
                 }

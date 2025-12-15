@@ -383,7 +383,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    // Release the connection (only stops if no other pages are using it)
     DeploymentHub.releaseConnection();
   }
 
@@ -393,16 +392,12 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    // Store reference to the reconnecting notification so we can close it later
     let reconnectingNotification: Notification | null = null;
-
-    // Only register global connection event handlers once for the shared connection
     if (!DeploymentHub.areHandlersRegistered()) {
       this.hubConnection.onclose(async () => {
-        // Don't show error notification if this was an intentional disconnect
         if (!DeploymentHub.isExpectedDisconnect()) {
           Notification.show(
-            'Real-time updates disconnected. Will attempt to reconnect automatically...', 
+            'Real-time updates disconnected. Reconnecting...', 
             {
               theme: 'error',
               position: 'bottom-start',
@@ -413,11 +408,10 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
 
       this.hubConnection.onreconnecting(() => {
-        // Store reference to close it later
         reconnectingNotification = Notification.show(
           'Network disconnected. Reconnecting...',
           {
-            theme: 'warning',
+            theme: 'error',
             position: 'bottom-start',
             duration: 0
           }
@@ -425,31 +419,26 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       });
 
       this.hubConnection.onreconnected(() => {
-        // Close the persistent reconnecting notification
         if (reconnectingNotification) {
           reconnectingNotification.close();
           reconnectingNotification = null;
         }
         
-        // Show success notification
         Notification.show('Successfully reconnected! Real-time updates restored.', {
           theme: 'success',
           position: 'bottom-start',
           duration: 5000
         });
         
-        // Auto-retry: Refresh grid when connection is restored
         if (this.isOffline) {
           console.log('Connection restored, refreshing grid data');
           this.refreshGrid();
         }
       });
 
-      // Mark that we've registered the global handlers
       DeploymentHub.markHandlersRegistered();
     }
 
-    // Update local state whenever we initialize
     this.hubConnectionState = this.hubConnection.state;
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
@@ -460,7 +449,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         console.error('Error starting SignalR connection:', err);
         const errorMessage = err instanceof Error ? err.message : String(err);
         this.hubConnectionState = errorMessage;
-        Notification.show('Failed to connect to real-time updates. Check your network connection.', {
+        Notification.show('Failed to connect to real-time updates.', {
           theme: 'error',
           position: 'bottom-start',
           duration: 10000
@@ -717,7 +706,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
           item.Status === 'Restarting')}
-
         .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root

@@ -261,7 +261,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
        await hubProxy.joinRequestGroup(this.requestId);
        this.refreshData();
        this.hubConnectionState = this.hubConnection!.state;
-       
+    
        Notification.show('Connection restored! Real-time updates resumed.', {
          theme: 'success',
          position: 'bottom-start',
@@ -270,11 +270,14 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
      });
 
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      try {
+      try
+      {
         await this.hubConnection.start();
         await hubProxy.joinRequestGroup(this.requestId);
         this.hubConnectionState = this.hubConnection.state;
-      } catch (err) {
+      }
+      catch (err) 
+      {
         const errorMessage = err instanceof Error ? err.message : String(err);
         this.hubConnectionState = errorMessage;
         console.error(err);
