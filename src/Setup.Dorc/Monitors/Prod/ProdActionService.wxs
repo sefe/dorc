@@ -48,6 +48,21 @@
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 					
 					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability Configuration -->
+					<Json:JsonFile Id="HAEnabledProd" ElementPath="$.AppSettings.HighAvailability.Enabled" Value="[HA.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQHostNameProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.HostName" Value="[HA.RABBITMQ.HOSTNAME]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQPortProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Port" Value="[HA.RABBITMQ.PORT]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQVirtualHostProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.VirtualHost" Value="[HA.RABBITMQ.VIRTUALHOST]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthClientIdProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientId" Value="[HA.RABBITMQ.OAUTH.CLIENTID]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthClientSecretProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientSecret" Value="[HA.RABBITMQ.OAUTH.CLIENTSECRET]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthTokenEndpointProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.TokenEndpoint" Value="[HA.RABBITMQ.OAUTH.TOKENENDPOINT]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQOAuthScopeProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.Scope" Value="[HA.RABBITMQ.OAUTH.SCOPE]" File="[#ProdDeployMonitorExeConfig]" />
+					
+					<!-- High Availability SSL/TLS Configuration -->
+					<Json:JsonFile Id="HARabbitMQSslEnabledProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Enabled" Value="[HA.RABBITMQ.SSL.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslServerNameProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.ServerName" Value="[HA.RABBITMQ.SSL.SERVERNAME]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslVersionProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
