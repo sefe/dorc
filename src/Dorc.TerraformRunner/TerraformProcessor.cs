@@ -50,16 +50,14 @@ namespace Dorc.TerraformRunner
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
+                DeleteTempTerraformFolder(terraformWorkingDir);
+
                 return true;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 return false;
-            }
-            finally
-            {
-                DeleteTempTerraformFolder(terraformWorkingDir);
             }
         }
 
@@ -306,16 +304,14 @@ namespace Dorc.TerraformRunner
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
+                DeleteTempTerraformFolder(terraformWorkingDir);
+
                 return true;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
                 return false;
-            }
-            finally
-            {
-                DeleteTempTerraformFolder(terraformWorkingDir);
             }
         }
 
