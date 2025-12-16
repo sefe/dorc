@@ -100,30 +100,21 @@ namespace Dorc.TerraformRunner.CodeSources
 
                     foreach (var artifact in artifacts)
                     {
-                        // Download the artifact
-                        if (artifact.Resource?.Type.ToLower() == "filepath" || artifact.Resource?.Type.ToLower() == "container")
+                        // For file path artifacts, use the download URL
+                        if (!string.IsNullOrEmpty(artifact.Resource?.DownloadUrl))
                         {
-                            // For file path artifacts, use the download URL
-                            if (!string.IsNullOrEmpty(artifact.Resource?.DownloadUrl))
-                            {
-                                downloaded = await DownloadFromUrlAsync(
-                                    artifact.Resource.DownloadUrl,
-                                    workingDir,
-                                    scriptGroup.AzureBearerToken,
-                                    cancellationToken
-                                );
+                            downloaded = await DownloadFromUrlAsync(
+                                artifact.Resource.DownloadUrl,
+                                workingDir,
+                                scriptGroup.AzureBearerToken,
+                                cancellationToken
+                            );
 
-                                break;
-                            }
-                            else
-                            {
-                                _logger.FileLogger.LogInformation($"No download URL found for artifact '{artifact.Name}' in project '{projName}'");
-                                continue;
-                            }
+                            break;
                         }
                         else
                         {
-                            _logger.FileLogger.LogDebug($"Unsupported artifact type: {artifact.Resource?.Type} in project '{projName}'");
+                            _logger.FileLogger.LogInformation($"No download URL found for artifact '{artifact.Name}' of type {artifact.Resource?.Type} in project '{projName}'");
                             continue;
                         }
                     }
