@@ -287,17 +287,24 @@ namespace Dorc.Core
 
         private void AddComponent(ICollection<string> componentNames, ComponentApiModel component)
         {
+            if (!component.IsEnabled)
+            {
+                return;
+            }
+            
             if (!string.IsNullOrEmpty(component.ScriptPath)
                 && !componentNames.Contains(component.ComponentName))
             {
                 componentNames.Add(component.ComponentName);
             }
-
+            
             _componentsPersistentSource.LoadChildren(component);
-
             foreach (var child in component.Children)
             {
-                AddComponent(componentNames, child);
+                if (child.IsEnabled != false)
+                {
+                    AddComponent(componentNames, child);
+                }
             }
         }
 
