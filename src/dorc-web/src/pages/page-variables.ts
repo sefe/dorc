@@ -8,6 +8,8 @@ import '@vaadin/grid';
 import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column.js';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/grid/vaadin-grid-sorter';
+import '@vaadin/horizontal-layout';
 import '@vaadin/item';
 import '@vaadin/list-box';
 import { Notification } from '@vaadin/notification';
@@ -428,18 +430,21 @@ export class PageVariables extends PageElement {
   scopeHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-text-field
-          placeholder="Scope"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
-            this.scopeFilterValue = textField?.value ?? '';
-            this.applyFilters();
-          }}"
-        ></vaadin-text-field>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="PropertyValueFilter"></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Scope"
+            clear-button-visible
+            focus-target
+            style="width: 100px"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.scopeFilterValue = textField?.value ?? '';
+              this.applyFilters();
+            }}"
+          ></vaadin-text-field>
+        </vaadin-horizontal-layout>
       `,
       root
     );
@@ -448,18 +453,21 @@ export class PageVariables extends PageElement {
   valueHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-text-field
-          placeholder="Value"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
-            this.valueFilterValue = textField?.value ?? '';
-            this.applyFilters();
-          }}"
-        ></vaadin-text-field>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="Value"></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Value"
+            clear-button-visible
+            focus-target
+            style="width: 100px"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.valueFilterValue = textField?.value ?? '';
+              this.applyFilters();
+            }}"
+          ></vaadin-text-field>
+        </vaadin-horizontal-layout>
       `,
       root
     );

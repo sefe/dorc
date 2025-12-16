@@ -10,6 +10,7 @@ import {
 import '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
@@ -306,18 +307,21 @@ export class PageVariablesAudit extends PageElement {
   nameHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-text-field
-          placeholder="Name"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
-            this.nameFilterValue = textField?.value ?? '';
-            this.refreshGrid();
-          }}"
-        ></vaadin-text-field>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="PropertyName"></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Name"
+            clear-button-visible
+            focus-target
+            style="width: 100px"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.nameFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
+          ></vaadin-text-field>
+        </vaadin-horizontal-layout>
       `,
       root
     );
@@ -326,18 +330,21 @@ export class PageVariablesAudit extends PageElement {
   environmentHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-text-field
-          placeholder="Environment"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
-            this.environmentFilterValue = textField?.value ?? '';
-            this.refreshGrid();
-          }}"
-        ></vaadin-text-field>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="EnvironmentName"></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Environment"
+            clear-button-visible
+            focus-target
+            style="width: 100px"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.environmentFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
+          ></vaadin-text-field>
+        </vaadin-horizontal-layout>
       `,
       root
     );
@@ -346,18 +353,21 @@ export class PageVariablesAudit extends PageElement {
   userHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-text-field
-          placeholder="User"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
-            this.userFilterValue = textField?.value ?? '';
-            this.refreshGrid();
-          }}"
-        ></vaadin-text-field>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="User"
+            clear-button-visible
+            focus-target
+            style="width: 100px"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.userFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
+          ></vaadin-text-field>
+        </vaadin-horizontal-layout>
       `,
       root
     );
@@ -368,7 +378,7 @@ export class PageVariablesAudit extends PageElement {
 
     render(
       html`
-        <vaadin-horizontal-layout style="align-items: center; gap: 4px;">
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-text-field
             placeholder="Value"
             clear-button-visible
