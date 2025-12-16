@@ -12,7 +12,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
     /// </summary>
     public class TerraformSourceConfigurator
     {
-        private const string TerraformGitPatPropertyName = "Terraform_AzureDevOps_PAT";
+        private const string TerraformGitPatPropertyName = "Terraform_Git_PAT";
         
         private readonly ILogger _logger;
         private readonly IConfigurationSettings _configurationSettings;

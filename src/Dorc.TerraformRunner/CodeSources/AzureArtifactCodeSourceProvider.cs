@@ -3,6 +3,7 @@ using Dorc.Runner.Logger;
 using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Client;
+using Org.OpenAPITools.Model;
 using System.IO.Compression;
 using System.Net.Http.Headers;
 
@@ -15,6 +16,7 @@ namespace Dorc.TerraformRunner.CodeSources
     {
         private readonly string azureBaseUrl = "https://dev.azure.com";
         private readonly IRunnerLogger _logger;
+        private const string DefaultArtifactTypePriority = "filepath,Container,PipelineArtifact";
 
         public TerraformSourceType SourceType => TerraformSourceType.AzureArtifact;
 
@@ -66,6 +68,10 @@ namespace Dorc.TerraformRunner.CodeSources
 
             var projectNames = scriptGroup.AzureProjects.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
+            var artifactTypePriorities = DefaultArtifactTypePriority.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .ToList();
+            
             // Configure the Azure DevOps API client
             var config = new Configuration
             {
@@ -98,25 +104,41 @@ namespace Dorc.TerraformRunner.CodeSources
 
                     _logger.FileLogger.LogInformation($"Found {artifacts.Count} artifact(s) for build '{scriptGroup.AzureBuildId}' in project '{projName}'");
 
-                    foreach (var artifact in artifacts)
+                    var prioritizedArtifacts = artifactTypePriorities
+                        .Select(priority => artifacts.FirstOrDefault(a => a.Resource?.Type == priority))
+                        .Where(artifact => artifact != null)
+                        .ToList();
+
+                    if (!prioritizedArtifacts.Any())
                     {
-                        // For file path artifacts, use the download URL
-                        if (!string.IsNullOrEmpty(artifact.Resource?.DownloadUrl))
+                        _logger.FileLogger.LogInformation($"No artifacts matched the priority types: {string.Join(", ", artifactTypePriorities)}");
+                        prioritizedArtifacts = artifacts;
+                    }
+
+                    // Try to find and download artifacts based on priority
+                    foreach (var artifact in prioritizedArtifacts)
+                    {
+                        if (artifact.Resource != null && !string.IsNullOrEmpty(artifact.Resource.DownloadUrl))
                         {
+                            _logger.FileLogger.LogDebug($"Found artifact '{artifact.Name}' of type '{artifact.Resource?.Type}'");
+
                             downloaded = await DownloadFromUrlAsync(
                                 artifact.Resource.DownloadUrl,
                                 workingDir,
                                 scriptGroup.AzureBearerToken,
                                 cancellationToken
                             );
-
-                            break;
                         }
                         else
                         {
-                            _logger.FileLogger.LogInformation($"No download URL found for artifact '{artifact.Name}' of type {artifact.Resource?.Type} in project '{projName}'");
-                            continue;
+                            _logger.FileLogger.LogWarning($"Artifact '{artifact.Name}' does not have a valid download URL.");
                         }
+
+                        if (downloaded)
+                        {
+                            _logger.Information($"Successfully downloaded artifact of type '{artifact.Resource.Type}' from project '{projName}'");
+                            break;
+                        }                       
                     }
                 }
                 catch (Exception ex)
