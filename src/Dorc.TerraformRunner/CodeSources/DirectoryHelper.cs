@@ -4,7 +4,9 @@
     {
         public static async Task ExtractSubPathAsync(string workingDir, string subPath, CancellationToken cancellationToken)
         {
-            var subPathDir = Path.Combine(workingDir, subPath);
+            var normalizedSubPath = ValidateAndNormalizeSubPath(subPath);
+
+            var subPathDir = Path.Combine(workingDir, normalizedSubPath);
             if (!Directory.Exists(subPathDir))
             {
                 throw new ArgumentException($"Terraform sub-path '{subPath}' not found in repository.");
@@ -132,6 +134,56 @@
                     dir.Attributes &= ~FileAttributes.ReadOnly;
                 }
             }
+        }
+
+        public static string ValidateAndNormalizeSubPath(string subPath)
+        {
+            if (string.IsNullOrWhiteSpace(subPath))
+            {
+                throw new ArgumentException("Sub-path cannot be null or empty.", nameof(subPath));
+            }
+
+            // Trim leading/trailing slashes and backslashes
+            subPath = subPath.Trim('/', '\\', ' ');
+
+            // Reject paths that contain directory traversal sequences
+            if (subPath.Contains(".."))
+            {
+                throw new ArgumentException(
+                    $"Invalid sub-path '{subPath}'. Parent directory references (..) are not allowed.",
+                    nameof(subPath));
+            }
+
+            // Reject absolute paths (drive letters on Windows or root on Unix)
+            if (Path.IsPathRooted(subPath))
+            {
+                throw new ArgumentException(
+                    $"Invalid sub-path '{subPath}'. Absolute paths are not allowed.",
+                    nameof(subPath));
+            }
+
+            // Split on both types of separators and remove empty entries
+            var parts = subPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 0)
+            {
+                throw new ArgumentException("Sub-path cannot be empty after normalization.", nameof(subPath));
+            }
+
+            // Validate each path component doesn't contain invalid characters
+            var invalidChars = Path.GetInvalidFileNameChars();
+            foreach (var part in parts)
+            {
+                if (part.IndexOfAny(invalidChars) >= 0)
+                {
+                    throw new ArgumentException(
+                        $"Invalid sub-path '{subPath}'. Path contains invalid characters.",
+                        nameof(subPath));
+                }
+            }
+
+            // Recombine using Path.Combine for OS-correct separators
+            return Path.Combine(parts);
         }
     }
 }
