@@ -16,9 +16,6 @@ namespace Dorc.Monitor.Events
         private IDeploymentEventsHub? _hubProxy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
         private bool _isConnectionBecomeLost;
-        private Timer? _tokenRefreshTimer;
-        private const int TokenRefreshBufferMinutes = 2;
-        private DateTime? _lastDisconnectTime;
 
         public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILogger<SignalRDeploymentEventPublisher> logger)
         {
@@ -42,7 +39,6 @@ namespace Dorc.Monitor.Events
         {
             if (!await EnsureConnectionAsync(CancellationToken.None))
             {
-                _logger.LogWarning($"Cannot publish {operationName} - SignalR connection is not available");
                 return;
             }
 
@@ -64,14 +60,6 @@ namespace Dorc.Monitor.Events
                 return false; // disabled
             }
 
-            // Check token expiration
-            var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
-            if (timeUntilExpiration < TimeSpan.FromMinutes(TokenRefreshBufferMinutes))
-            {
-                _logger.LogInformation("Token expiring, recreating connection");
-                await RecreateConnectionAsync(ct);
-            }
-
             if (_connection is { State: HubConnectionState.Connected })
             {
                 return true;
@@ -82,19 +70,30 @@ namespace Dorc.Monitor.Events
             {
                 if (_connection == null)
                 {
-                    CreateConnection();
+                    var builder = new HubConnectionBuilder()
+                        .WithUrl(_hubUrl, options =>
+                        {
+                            options.AccessTokenProvider = async () =>
+                            {
+                                try
+                                {
+                                    return await _tokenProvider.GetTokenAsync();
+                                }
+                                catch (Exception ex)
+                                {
+                                    if (!_isConnectionBecomeLost)
+                                        _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection.");
+                                    return string.Empty;
+                                }
+                            };
+                        })
+                        .WithAutomaticReconnect();
+                    _connection = builder.Build();
                 }
 
-                if (_connection!.State == HubConnectionState.Disconnected)
+                if (_connection.State == HubConnectionState.Disconnected)
                 {
-                    _logger.LogInformation("Starting SignalR connection to {HubUrl}...", _hubUrl);
                     await _connection.StartAsync(ct);
-                    
-                    // Schedule token refresh after successful connection
-                    if (_connection.State == HubConnectionState.Connected)
-                    {
-                        ScheduleTokenRefresh();
-                    }
                 }
 
                 if (_hubProxy == null)
@@ -102,19 +101,12 @@ namespace Dorc.Monitor.Events
                     _hubProxy = _connection.CreateHubProxy<IDeploymentEventsHub>(ct);
                 }
 
+                // we have to register also client for hub in order to eliminate signalR errors when event is broadcasted to all clients
                 _connection.Register<IDeploymentsEventsClient>(new NullDeploymentsEventsClient());
 
                 if (_connection.State == HubConnectionState.Connected)
                 {
-                    if (_isConnectionBecomeLost)
-                    {
-                        var downtime = _lastDisconnectTime.HasValue 
-                            ? DateTime.UtcNow - _lastDisconnectTime.Value 
-                            : TimeSpan.Zero;
-                        _logger.LogInformation("SignalR connection restored after {Downtime:F1} seconds", downtime.TotalSeconds);
-                    }
                     _isConnectionBecomeLost = false;
-                    _lastDisconnectTime = null;
                     return true;
                 }
 
@@ -126,7 +118,6 @@ namespace Dorc.Monitor.Events
                 {
                     _logger.LogError(exc, $"Error connecting to SignalR hub at {_hubUrl}");
                     _isConnectionBecomeLost = true;
-                    _lastDisconnectTime = DateTime.UtcNow;
                 }
                 return false;
             }
@@ -136,156 +127,8 @@ namespace Dorc.Monitor.Events
             }
         }
 
-        private void CreateConnection()
-        {
-            var builder = new HubConnectionBuilder()
-                .WithUrl(_hubUrl!, options =>
-                {
-                    options.AccessTokenProvider = async () =>
-                    {
-                        try
-                        {
-                            var token = await _tokenProvider.GetTokenAsync();
-                            _logger.LogDebug("SignalR token acquired, expires at {ExpiresAt:u}", _tokenProvider.TokenExpiresAtUtc);
-                            return token;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to acquire OAuth token");
-                            return string.Empty;
-                        }
-                    };
-                })
-                .WithAutomaticReconnect(new[] 
-                {
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
-                    TimeSpan.FromSeconds(5),
-                    TimeSpan.FromSeconds(10)
-                });
-
-            _connection = builder.Build();
-            RegisterConnectionHandlers();
-        }
-
-        private void RegisterConnectionHandlers()
-        {
-            if (_connection == null) return;
-
-            _connection.Closed += async (error) =>
-            {
-                if (error != null)
-                {
-                    _logger.LogWarning("SignalR connection closed: {ErrorMessage}", error.Message);
-                }
-                
-                if (!_isConnectionBecomeLost)
-                {
-                    _isConnectionBecomeLost = true;
-                    _lastDisconnectTime = DateTime.UtcNow;
-                }
-                
-                // Cancel token refresh when connection is closed
-                _tokenRefreshTimer?.Dispose();
-                _tokenRefreshTimer = null;
-
-                await Task.CompletedTask;
-            };
-
-            _connection.Reconnecting += (error) =>
-            {
-                _logger.LogWarning("SignalR reconnecting...");
-                if (!_isConnectionBecomeLost)
-                {
-                    _isConnectionBecomeLost = true;
-                    _lastDisconnectTime = DateTime.UtcNow;
-                }
-                
-                // Cancel token refresh during reconnection
-                _tokenRefreshTimer?.Dispose();
-                _tokenRefreshTimer = null;
-                
-                return Task.CompletedTask;
-            };
-
-            _connection.Reconnected += (connectionId) =>
-            {
-                _logger.LogInformation("SignalR reconnected. Connection ID: {ConnectionId}", connectionId ?? "N/A");
-                _isConnectionBecomeLost = false;
-                _lastDisconnectTime = null;
-                
-                // Schedule token refresh after successful reconnection
-                ScheduleTokenRefresh();
-                
-                return Task.CompletedTask;
-            };
-        }
-
-        private void ScheduleTokenRefresh()
-        {
-            var timeUntilExpiration = _tokenProvider.TimeUntilExpiration;
-            if (timeUntilExpiration <= TimeSpan.Zero)
-            {
-                _logger.LogWarning("Token already expired, cannot schedule refresh");
-                return;
-            }
-
-            var refreshTime = timeUntilExpiration - TimeSpan.FromMinutes(TokenRefreshBufferMinutes);
-            if (refreshTime.TotalSeconds < 10)
-                refreshTime = TimeSpan.FromSeconds(10);
-
-            _tokenRefreshTimer?.Dispose();
-            _tokenRefreshTimer = new Timer(
-                OnTokenRefreshTimerCallback,
-                null,
-                refreshTime,
-                Timeout.InfiniteTimeSpan);
-
-            _logger.LogDebug("Token refresh scheduled in {Minutes:F1} minutes", refreshTime.TotalMinutes);
-        }
-
-        private void OnTokenRefreshTimerCallback(object? state)
-        {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await RecreateConnectionAsync(CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error during scheduled token refresh and connection recreation");
-                }
-            });
-        }
-
-        private async Task RecreateConnectionAsync(CancellationToken ct)
-        {
-            await _connectionLock.WaitAsync(ct);
-            try
-            {
-                // Cancel any pending token refresh
-                _tokenRefreshTimer?.Dispose();
-                _tokenRefreshTimer = null;
-                
-                if (_connection != null)
-                {
-                    _logger.LogInformation("Recreating SignalR connection with fresh token");
-                    await _connection.StopAsync(ct);
-                    await _connection.DisposeAsync();
-                    _connection = null;
-                    _hubProxy = null;
-                }
-            }
-            finally
-            {
-                _connectionLock.Release();
-            }
-        }
-
         public async ValueTask DisposeAsync()
         {
-            _tokenRefreshTimer?.Dispose();
             if (_connection != null)
             {
                 await _connection.DisposeAsync();

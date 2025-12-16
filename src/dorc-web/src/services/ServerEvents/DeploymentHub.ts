@@ -4,9 +4,6 @@ import { OAUTH_SCHEME, oauthServiceContainer } from "../../services/Account/OAut
 
 export class DeploymentHub {
   private static hubConnection: HubConnection;
-  private static activePageCount = 0;
-  private static isIntentionalDisconnect = false;
-  private static handlersRegistered = false;
 
   private static initializeConnection(): HubConnection {
     const baseUrl = new AppConfig().dorcApi;
@@ -43,34 +40,6 @@ export class DeploymentHub {
     if (DeploymentHub.hubConnection === undefined) {
       DeploymentHub.initializeConnection();
     }
-    DeploymentHub.activePageCount++;
-    DeploymentHub.isIntentionalDisconnect = false;
     return DeploymentHub.hubConnection;
-  }
-
-  static releaseConnection(): void {
-    DeploymentHub.activePageCount--;
-    if (DeploymentHub.activePageCount <= 0) {
-      DeploymentHub.activePageCount = 0;
-      DeploymentHub.isIntentionalDisconnect = true;
-      if (DeploymentHub.hubConnection) {
-        DeploymentHub.hubConnection.stop().catch(() => {
-          // Silently ignore errors during intentional disconnect
-        });
-        DeploymentHub.handlersRegistered = false;
-      }
-    }
-  }
-
-  static isExpectedDisconnect(): boolean {
-    return DeploymentHub.isIntentionalDisconnect;
-  }
-
-  static areHandlersRegistered(): boolean {
-    return DeploymentHub.handlersRegistered;
-  }
-
-  static markHandlersRegistered(): void {
-    DeploymentHub.handlersRegistered = true;
   }
 }

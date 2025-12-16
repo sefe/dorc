@@ -54,7 +54,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
   private hubConnection: HubConnection | undefined;
   
-  // Store notification as instance property to avoid closure issues
   private reconnectingNotification: Notification | null = null;
 
   @property({ type: Boolean }) isLoading = true;
@@ -66,8 +65,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state() noResults = false;
-
-  @state() private isOffline = false;
 
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
@@ -234,11 +231,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
               callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
 
-              // Mark as online if we were offline
-              if (this.isOffline) {
-                this.isOffline = false;
-              }
-
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
                   detail: data,
@@ -248,27 +240,15 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
               );
             },
             error: (err: any) => {
-              // Check if this is a network disconnection error
-              const isNetworkError = err.status === 0 || 
-                                     err.name === 'AjaxError' ||
-                                     err.message?.includes('ERR_INTERNET_DISCONNECTED');
-              
-              if (isNetworkError) {
-                // Mark as offline but don't show error notification
-                if (!this.isOffline) {
-                  this.isOffline = true;
-                  console.debug('Network error during data fetch, waiting for reconnection');
-                }
-              } else {
-                // Only show notification for non-network errors
-                const errMessage = retrieveErrorMessage(err);
-                const notification = new ErrorNotification();
-                notification.setAttribute('errorMessage', errMessage);
-                this.shadowRoot?.appendChild(notification);
-                notification.open();
-                console.error(errMessage, err);
-              }
-              
+              const errMessage = retrieveErrorMessage(err);
+              const notification = new ErrorNotification();
+              notification.setAttribute(
+                'errorMessage',
+                errMessage
+              );
+              this.shadowRoot?.appendChild(notification);
+              notification.open();
+              console.error(errMessage, err);
               callback([], 0);
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
@@ -387,13 +367,10 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   disconnectedCallback(): void {
     super.disconnectedCallback();
     
-    // Clean up any active notification before disconnecting
     if (this.reconnectingNotification) {
       this.reconnectingNotification.close();
       this.reconnectingNotification = null;
     }
-    
-    DeploymentHub.releaseConnection();
   }
 
   private async initializeSignalR() {
@@ -402,33 +379,18 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    if (!DeploymentHub.areHandlersRegistered()) {
       this.hubConnection.onclose(async () => {
         this.hubConnectionState = this.hubConnection?.state;
         
-        // Clean up any existing notification when connection closes
         if (this.reconnectingNotification) {
           this.reconnectingNotification.close();
           this.reconnectingNotification = null;
         }
-        
-        if (!DeploymentHub.isExpectedDisconnect()) {
-          Notification.show(
-            'Real-time updates disconnected. Reconnecting...', 
-            {
-              theme: 'error',
-              position: 'bottom-start',
-              duration: 0
-            }
-          );
-        }
-      });
+        });
 
       this.hubConnection.onreconnecting(() => {
         this.hubConnectionState = this.hubConnection?.state;
-        
-        // Close any existing notification before creating a new one
-        if (this.reconnectingNotification) {
+                if (this.reconnectingNotification) {
           this.reconnectingNotification.close();
         }
         
@@ -444,44 +406,31 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
 
       this.hubConnection.onreconnected(() => {
         this.hubConnectionState = this.hubConnection?.state;
-        
-        // Close the notification if it exists
         if (this.reconnectingNotification) {
           this.reconnectingNotification.close();
           this.reconnectingNotification = null;
         }
         
-        Notification.show('Successfully reconnected! Real-time updates restored.', {
+        Notification.show('Connection restored, refreshing grid data.', {
           theme: 'success',
           position: 'bottom-start',
           duration: 5000
         });
-        
-        if (this.isOffline) {
-          console.log('Connection restored, refreshing grid data');
-          this.refreshGrid();
-        }
-      });
 
-      DeploymentHub.markHandlersRegistered();
-    }
+        this.refreshGrid();
+        
+      });
+    
 
     this.hubConnectionState = this.hubConnection.state;
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      try {
-        await this.hubConnection.start();
+      await this.hubConnection.start().then(() => {
         this.hubConnectionState = this.hubConnection?.state;
-      } catch (err) {
+      }).catch((err) => {
         console.error('Error starting SignalR connection:', err);
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        this.hubConnectionState = errorMessage;
-        Notification.show('Failed to connect to real-time updates.', {
-          theme: 'error',
-          position: 'bottom-start',
-          duration: 10000
-        });
-      }
+        this.hubConnectionState = err.toString();
+      });
     }
   }
 
