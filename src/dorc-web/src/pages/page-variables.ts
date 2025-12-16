@@ -5,10 +5,8 @@ import '@vaadin/checkbox';
 import { ComboBox, ComboBoxRenderer } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column.js';
-import '@vaadin/grid/vaadin-grid-filter';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/item';
 import '@vaadin/list-box';
@@ -69,6 +67,12 @@ export class PageVariables extends PageElement {
     | PropertyValueDtoExtended[]
     | undefined;
 
+  private allPropertyValues: PropertyValueDtoExtended[] | undefined;
+
+  private scopeFilterValue = '';
+
+  private valueFilterValue = '';
+
   @property({ type: Number })
   searchId = 0;
 
@@ -117,6 +121,9 @@ export class PageVariables extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 390px);
+      }
+      vaadin-grid#grid::part(variable-value-error) {
+        background-color: #ffddb7;
       }
       vaadin-text-field {
         padding: 0px;
@@ -309,7 +316,7 @@ export class PageVariables extends PageElement {
                   all-rows-visible
                   ?disabled="${this.deletingVariable ||
                   !this.existingPropertySelected}"
-                  .cellClassNameGenerator="${this.cellClassNameGenerator}"
+                  .cellPartNameGenerator="${this.cellPartNameGenerator}"
                 >
                   <vaadin-grid-column
                     header="Scope"
@@ -404,73 +411,58 @@ export class PageVariables extends PageElement {
     this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
-  cellClassNameGenerator(
-    _: GridColumn,
-    model: GridItemModel<PropertyValueDtoExtended>
-  ) {
+  cellPartNameGenerator: GridCellPartNameGenerator<PropertyValueDtoExtended> = (
+    _column,
+    model
+  ) => {
     const { item } = model;
-    let classes = '';
+    let parts = '';
 
     if (item.IsDuplicate) {
-      classes += ' variable-value-error';
+      parts += ' variable-value-error';
     }
 
-    return classes;
-  }
+    return parts;
+  };
 
-  scopeHeaderRenderer(root: HTMLElement) {
+  scopeHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-grid-sorter path="PropertyValueFilter" direction="asc"
-          >Scope</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="PropertyValueFilter">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100px"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
+        <vaadin-text-field
+          placeholder="Scope"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.scopeFilterValue = textField?.value ?? '';
+            this.applyFilters();
+          }}"
+        ></vaadin-text-field>
       `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-      });
   }
 
-  valueHeaderRenderer(root: HTMLElement) {
+  valueHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-grid-sorter path="Value">Value</vaadin-grid-sorter>
-        <vaadin-grid-filter path="Value">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>
+        <vaadin-text-field
+          placeholder="Value"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.valueFilterValue = textField?.value ?? '';
+            this.applyFilters();
+          }}"
+        ></vaadin-text-field>
       `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-      });
   }
 
   private comboboxRenderer: ComboBoxRenderer<PropertyValueScopeOptionApiModel> =
@@ -813,15 +805,31 @@ export class PageVariables extends PageElement {
   }
 
   private setVariableValues(data: PropertyValueDto[]) {
-    this.propertyValues = data;
-    this.propertyValues.forEach(pv => {
+    this.allPropertyValues = data;
+    this.allPropertyValues.forEach(pv => {
       pv.IsDuplicate =
-        (this.propertyValues?.filter(
+        (this.allPropertyValues?.filter(
           x => pv.PropertyValueFilter === x.PropertyValueFilter
         ).length ?? 0) > 1;
     });
+    this.applyFilters();
     this.getEnvironments();
     this.loadingPropertyValues = false;
+  }
+
+  private applyFilters() {
+    if (!this.allPropertyValues) {
+      this.propertyValues = undefined;
+      return;
+    }
+
+    this.propertyValues = this.allPropertyValues.filter(pv => {
+      const scopeMatch = !this.scopeFilterValue ||
+        (pv.PropertyValueFilter?.toLowerCase().includes(this.scopeFilterValue.toLowerCase()) ?? false);
+      const valueMatch = !this.valueFilterValue ||
+        (pv.Value?.toLowerCase().includes(this.valueFilterValue.toLowerCase()) ?? false);
+      return scopeMatch && valueMatch;
+    });
   }
 
   private removeExistingScopesFromSelectable() {
