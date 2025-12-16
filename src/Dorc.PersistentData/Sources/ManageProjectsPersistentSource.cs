@@ -572,8 +572,7 @@ namespace Dorc.PersistentData.Sources
         private Component GetTopLevelEnabledParentComponent(Component component)
         {
             return component.Parent == null
-                || component.Parent.IsEnabled == null
-                || component.Parent.IsEnabled == false
+                || !component.Parent.IsEnabled
                 ? component
                 : GetTopLevelEnabledParentComponent(component.Parent);
         }

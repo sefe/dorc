@@ -155,8 +155,7 @@ namespace Dorc.Monitor.RequestProcessors
                     }
 
                     var orderedEnabledNonSkippedComponents = orderedNonSkippedComponents
-                        .Where(component => !component.IsEnabled.HasValue
-                            || component.IsEnabled == true);
+                        .Where(component => component.IsEnabled);
 
                     if (!orderedEnabledNonSkippedComponents.Any())
                     {
