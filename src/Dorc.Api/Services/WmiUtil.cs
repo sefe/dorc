@@ -1,7 +1,9 @@
 ﻿using System.Management;
+using System.Runtime.Versioning;
 
 namespace Dorc.Api.Services
 {
+    [SupportedOSPlatform("windows")]
     public class WmiUtil
     {
         private string _path;

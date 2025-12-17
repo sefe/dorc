@@ -47,7 +47,7 @@ namespace Dorc.Core.Tests
             InvokeAddComponent(componentNames, component);
 
             // Assert
-            Assert.AreEqual(0, componentNames.Count, "Component with IsEnabled=false should be excluded");
+            Assert.IsEmpty(componentNames, "Component with IsEnabled=false should be excluded");
         }
 
         [TestMethod]
@@ -68,7 +68,7 @@ namespace Dorc.Core.Tests
             InvokeAddComponent(componentNames, component);
 
             // Assert
-            Assert.AreEqual(1, componentNames.Count, "Component with IsEnabled=true should be included");
+            Assert.HasCount(1, componentNames, "Component with IsEnabled=true should be included");
             Assert.AreEqual("EnabledComponent", componentNames[0]);
         }
 
@@ -122,11 +122,11 @@ namespace Dorc.Core.Tests
             InvokeAddComponent(componentNames, parentContainer);
 
             // Assert
-            Assert.AreEqual(2, componentNames.Count, "Should only include enabled leaf components");
-            Assert.IsTrue(componentNames.Contains("EnabledLeaf1"), "EnabledLeaf1 should be included");
-            Assert.IsTrue(componentNames.Contains("EnabledLeaf2"), "EnabledLeaf2 should be included");
-            Assert.IsFalse(componentNames.Contains("DisabledLeaf"), "DisabledLeaf should be excluded");
-            Assert.IsFalse(componentNames.Contains("ParentContainer"), "ParentContainer should never be deployed");
+            Assert.HasCount(2, componentNames, "Should only include enabled leaf components");
+            Assert.Contains("EnabledLeaf1", componentNames, "EnabledLeaf1 should be included");
+            Assert.Contains("EnabledLeaf2", componentNames, "EnabledLeaf2 should be included");
+            Assert.DoesNotContain("DisabledLeaf", componentNames, "DisabledLeaf should be excluded");
+            Assert.DoesNotContain("ParentContainer", componentNames, "ParentContainer should never be deployed");
         }
 
         private void InvokeAddComponent(List<string> componentNames, ComponentApiModel component)
