@@ -61,7 +61,7 @@ namespace Tests.Acceptance.StepDefinitions
                 if (DorcSystemProperties.Contains(property.Property.Name, StringComparer.OrdinalIgnoreCase))
                     returnedDorcSystemProperties.Add(property.Property.Name);
             }
-            Assert.IsTrue(returnedDorcSystemProperties.Count == 0, $"Returned list contains DOrc system properties: {String.Join(", ", returnedDorcSystemProperties)}");
+            Assert.IsEmpty(returnedDorcSystemProperties, $"Returned list contains DOrc system properties: {String.Join(", ", returnedDorcSystemProperties)}");
         }
     }
 }

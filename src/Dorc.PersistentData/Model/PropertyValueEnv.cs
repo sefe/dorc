@@ -4,8 +4,8 @@
     {
         public virtual long PropertyValueId { get; set; }
 
-        public virtual string PropertyValue { get; set; }
+        public virtual string PropertyValue { get; set; } = default!;
 
-        public virtual string EnvironmentName { get; set; }
+        public virtual string EnvironmentName { get; set; } = default!;
     }
 }

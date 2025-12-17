@@ -33,7 +33,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsNotNull(getServerResults, "Request failed");
             var model = getServerResults.Model as List<ServerApiModel>;
             Assert.IsNotNull(model, getServerResults.Message);
-            Assert.AreNotSame(0, model.Count);
+            Assert.AreNotEqual(0, model.Count);
         }
 
         [Given(@"I have created POST request on RefDataServers with data below in body")]
@@ -54,7 +54,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsNotNull(postServerResult, "Request failed");
             var model = postServerResult.Model as ServerApiModel;
             Assert.IsNotNull(model, postServerResult.Message);
-            Assert.AreNotSame(lowestServerId, model.ServerId);
+            Assert.AreNotEqual(lowestServerId, model.ServerId);
         }
 
         [Given(@"I have created GET request on RefDataServers with '(.*)' as '(.*)'")]

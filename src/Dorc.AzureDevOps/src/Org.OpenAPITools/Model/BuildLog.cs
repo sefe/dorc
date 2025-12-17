@@ -142,16 +142,8 @@ namespace Org.OpenAPITools.Model
                 return false;
             }
             return 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.LastChangedOn == input.LastChangedOn ||
-                    (this.LastChangedOn != null &&
-                    this.LastChangedOn.Equals(input.LastChangedOn))
-                ) && 
+                this.CreatedOn.Equals(input.CreatedOn) && 
+                this.LastChangedOn.Equals(input.LastChangedOn) && 
                 (
                     this.LineCount == input.LineCount ||
                     this.LineCount.Equals(input.LineCount)
@@ -181,14 +173,8 @@ namespace Org.OpenAPITools.Model
             unchecked // Overflow is fine, just wrap
             {
                 int hashCode = 41;
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                if (this.LastChangedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
                 hashCode = (hashCode * 59) + this.LineCount.GetHashCode();
                 hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.Type != null)

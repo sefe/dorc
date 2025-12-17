@@ -445,16 +445,8 @@ namespace Org.OpenAPITools.Model
                     this.ErrorCount == input.ErrorCount ||
                     this.ErrorCount.Equals(input.ErrorCount)
                 ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
+                this.FinishTime.Equals(input.FinishTime) && 
+                this.Id.Equals(input.Id) && 
                 (
                     this.Identifier == input.Identifier ||
                     (this.Identifier != null &&
@@ -466,11 +458,7 @@ namespace Org.OpenAPITools.Model
                     input.Issues != null &&
                     this.Issues.SequenceEqual(input.Issues)
                 ) && 
-                (
-                    this.LastModified == input.LastModified ||
-                    (this.LastModified != null &&
-                    this.LastModified.Equals(input.LastModified))
-                ) && 
+                this.LastModified.Equals(input.LastModified) && 
                 (
                     this.Log == input.Log ||
                     (this.Log != null &&
@@ -485,11 +473,7 @@ namespace Org.OpenAPITools.Model
                     this.Order == input.Order ||
                     this.Order.Equals(input.Order)
                 ) && 
-                (
-                    this.ParentId == input.ParentId ||
-                    (this.ParentId != null &&
-                    this.ParentId.Equals(input.ParentId))
-                ) && 
+                this.ParentId.Equals(input.ParentId) && 
                 (
                     this.PercentComplete == input.PercentComplete ||
                     this.PercentComplete.Equals(input.PercentComplete)
@@ -513,11 +497,7 @@ namespace Org.OpenAPITools.Model
                     (this.ResultCode != null &&
                     this.ResultCode.Equals(input.ResultCode))
                 ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
+                this.StartTime.Equals(input.StartTime) && 
                 (
                     this.State == input.State ||
                     this.State.Equals(input.State)
@@ -572,14 +552,8 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.Details.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.ErrorCount.GetHashCode();
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.Identifier != null)
                 {
                     hashCode = (hashCode * 59) + this.Identifier.GetHashCode();
@@ -588,10 +562,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Issues.GetHashCode();
                 }
-                if (this.LastModified != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModified.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.LastModified.GetHashCode();
                 if (this.Log != null)
                 {
                     hashCode = (hashCode * 59) + this.Log.GetHashCode();
@@ -601,10 +572,7 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.Name.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.Order.GetHashCode();
-                if (this.ParentId != null)
-                {
-                    hashCode = (hashCode * 59) + this.ParentId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.ParentId.GetHashCode();
                 hashCode = (hashCode * 59) + this.PercentComplete.GetHashCode();
                 if (this.PreviousAttempts != null)
                 {
@@ -616,10 +584,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.ResultCode.GetHashCode();
                 }
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
                 hashCode = (hashCode * 59) + this.State.GetHashCode();
                 if (this.Task != null)
                 {

@@ -188,11 +188,7 @@ namespace Org.OpenAPITools.Model
                     input.Icons != null &&
                     this.Icons.SequenceEqual(input.Icons)
                 ) && 
-                (
-                    this.IconTaskId == input.IconTaskId ||
-                    (this.IconTaskId != null &&
-                    this.IconTaskId.Equals(input.IconTaskId))
-                ) && 
+                this.IconTaskId.Equals(input.IconTaskId) && 
                 (
                     this.Id == input.Id ||
                     (this.Id != null &&
@@ -236,10 +232,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Icons.GetHashCode();
                 }
-                if (this.IconTaskId != null)
-                {
-                    hashCode = (hashCode * 59) + this.IconTaskId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.IconTaskId.GetHashCode();
                 if (this.Id != null)
                 {
                     hashCode = (hashCode * 59) + this.Id.GetHashCode();

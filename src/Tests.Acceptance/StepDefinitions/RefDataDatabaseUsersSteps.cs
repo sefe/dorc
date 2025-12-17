@@ -39,7 +39,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsTrue(result.IsModelValid, result.Message);
             var model = result.Model as List<UserApiModel>;
             Assert.IsNotNull(model);
-            Assert.AreEqual(userCount, model.Count);
+            Assert.HasCount(userCount, model);
         }
     }
 }

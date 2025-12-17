@@ -52,7 +52,7 @@ namespace Tests.Acceptance.StepDefinitions
                     Method.Get,
                     queryParameters: urlQueryParameters);
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 new DataAccessor().DeleteEnvironmentComponentStatus(this.existingEnvironmentComponentStatusId);
                 new DataAccessor().DeleteEnvironment(this.existingEnvironmentId);

@@ -127,7 +127,7 @@ namespace Tests.Acceptance.StepDefinitions
             var model = dbAddApiResult.Model as DatabaseApiModel;
             Assert.IsNotNull(model);
             Assert.AreEqual(name, model.Name);
-            Assert.IsTrue(model.Id > 0);
+            Assert.IsGreaterThan(0, model.Id);
         }
         #endregion
 
@@ -152,7 +152,8 @@ namespace Tests.Acceptance.StepDefinitions
         {
             Assert.IsNotNull(dbAddApiResult, "Api request should have been made!");
             Assert.IsFalse(dbAddApiResult.IsModelValid, "Request should have failed!");
-            Assert.IsTrue(dbAddApiResult.Message.Contains(expectedError), 
+            Assert.IsNotNull(dbAddApiResult.Message, "Message should not be null");
+            Assert.Contains(dbAddApiResult.Message, expectedError,
                 $"Expected error message '{expectedError}' but got '{dbAddApiResult.Message}'");
         }
         #endregion

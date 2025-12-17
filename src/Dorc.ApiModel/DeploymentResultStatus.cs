@@ -34,22 +34,29 @@ namespace Dorc.ApiModel
 
         public bool Equals(DeploymentResultStatus other)
         {
-            if (Value == other.Value)
-            {
-                return true;
-            }
+            if (other is null) return false;
+            return Value == other.Value;
+        }
 
-            return false;
+        public override bool Equals(object obj)
+        {
+            return obj is DeploymentResultStatus other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return Value?.GetHashCode() ?? 0;
         }
 
         public static bool operator ==(DeploymentResultStatus status1, DeploymentResultStatus status2)
         {
+            if (status1 is null) return status2 is null;
             return status1.Equals(status2);
         }
 
         public static bool operator !=(DeploymentResultStatus status1, DeploymentResultStatus status2)
         {
-            return !status1.Equals(status2);
+            return !(status1 == status2);
         }
     }
 }

@@ -527,11 +527,7 @@ namespace Org.OpenAPITools.Model
                     input.Variables != null &&
                     this.Variables.SequenceEqual(input.Variables)
                 ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
+                this.CreatedDate.Equals(input.CreatedDate) && 
                 (
                     this.Id == input.Id ||
                     this.Id.Equals(input.Id)
@@ -648,10 +644,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Variables.GetHashCode();
                 }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
                 hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.Name != null)
                 {

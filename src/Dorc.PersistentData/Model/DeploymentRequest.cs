@@ -1,11 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Xml.Linq;
 
 namespace Dorc.PersistentData.Model
 {
     public class DeploymentRequest
     {
-        private XElement _xml;
+        private XElement? _xml;
 
         public DeploymentRequest()
         {
@@ -13,9 +13,9 @@ namespace Dorc.PersistentData.Model
         }
 
         public int Id { get; set; }
-        public string RequestDetails { get; set; }
+        public string RequestDetails { get; set; } = default!;
 
-        [StringLength(128)] public string UserName { get; set; }
+        [StringLength(128)] public string UserName { get; set; } = default!;
 
         public DateTimeOffset? RequestedTime { get; set; }
 
@@ -23,7 +23,7 @@ namespace Dorc.PersistentData.Model
 
         public DateTimeOffset? CompletedTime { get; set; }
 
-        public string Status { get; set; }
+        public string Status { get; set; } = default!;
 
         public ICollection<DeploymentResult>? DeploymentResults { get; set; }
 
@@ -40,7 +40,7 @@ namespace Dorc.PersistentData.Model
         public string? Components { get; set; }
         public string? UncLogPath { get; set; }
 
-        public string DropLocation
+        public string? DropLocation
         {
             get
             {
@@ -49,7 +49,7 @@ namespace Dorc.PersistentData.Model
             }
         }
 
-        public string BuildUri
+        public string? BuildUri
         {
             get
             {

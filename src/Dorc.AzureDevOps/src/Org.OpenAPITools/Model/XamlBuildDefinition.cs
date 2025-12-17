@@ -523,11 +523,7 @@ namespace Org.OpenAPITools.Model
                     (this.Controller != null &&
                     this.Controller.Equals(input.Controller))
                 ) && 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
+                this.CreatedOn.Equals(input.CreatedOn) && 
                 (
                     this.DefaultDropLocation == input.DefaultDropLocation ||
                     (this.DefaultDropLocation != null &&
@@ -556,11 +552,7 @@ namespace Org.OpenAPITools.Model
                     this.TriggerType == input.TriggerType ||
                     this.TriggerType.Equals(input.TriggerType)
                 ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
+                this.CreatedDate.Equals(input.CreatedDate) && 
                 (
                     this.Id == input.Id ||
                     this.Id.Equals(input.Id)
@@ -627,10 +619,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Controller.GetHashCode();
                 }
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
                 if (this.DefaultDropLocation != null)
                 {
                     hashCode = (hashCode * 59) + this.DefaultDropLocation.GetHashCode();
@@ -649,10 +638,7 @@ namespace Org.OpenAPITools.Model
                 }
                 hashCode = (hashCode * 59) + this.SupportedReasons.GetHashCode();
                 hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
                 hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.Name != null)
                 {

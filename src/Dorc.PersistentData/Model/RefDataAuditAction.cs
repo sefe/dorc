@@ -9,7 +9,7 @@ namespace Dorc.PersistentData.Model
 
         public ActionType Action { get; set; }
 
-        public virtual ICollection<RefDataAudit> RefDataAudits { get; set; }
+        public virtual ICollection<RefDataAudit> RefDataAudits { get; set; } = default!;
     }
     public enum ActionType
     {

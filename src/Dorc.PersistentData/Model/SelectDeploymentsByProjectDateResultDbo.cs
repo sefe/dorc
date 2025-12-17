@@ -1,4 +1,4 @@
-﻿namespace Dorc.PersistentData.Model
+namespace Dorc.PersistentData.Model
 {
     public class SelectDeploymentsByProjectDateResultDbo
     {
@@ -8,7 +8,7 @@
 
         public int Day { get; set; }
 
-        public string ProjectName { get; set; }
+        public string ProjectName { get; set; } = default!;
 
         public int CountofDeployments { get; set; }
 

@@ -269,16 +269,8 @@ namespace Org.OpenAPITools.Model
                     (this.Description != null &&
                     this.Description.Equals(input.Description))
                 ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.LastUpdateTime == input.LastUpdateTime ||
-                    (this.LastUpdateTime != null &&
-                    this.LastUpdateTime.Equals(input.LastUpdateTime))
-                ) && 
+                this.Id.Equals(input.Id) && 
+                this.LastUpdateTime.Equals(input.LastUpdateTime) && 
                 (
                     this.Name == input.Name ||
                     (this.Name != null &&
@@ -324,14 +316,8 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Description.GetHashCode();
                 }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.LastUpdateTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastUpdateTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.LastUpdateTime.GetHashCode();
                 if (this.Name != null)
                 {
                     hashCode = (hashCode * 59) + this.Name.GetHashCode();

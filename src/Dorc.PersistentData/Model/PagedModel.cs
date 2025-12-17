@@ -1,4 +1,4 @@
-﻿namespace Dorc.PersistentData.Model
+namespace Dorc.PersistentData.Model
 {
     public class PagedModel<TModel>
     {
@@ -13,7 +13,7 @@
         public int CurrentPage { get; set; }
         public int TotalItems { get; set; }
         public int TotalPages { get; set; }
-        public IList<TModel> Items { get; set; }
+        public IList<TModel> Items { get; set; } = default!;
 
         public PagedModel()
         {

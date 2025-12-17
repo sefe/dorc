@@ -116,11 +116,7 @@ namespace Org.OpenAPITools.Model
                     this.ChangeId == input.ChangeId ||
                     this.ChangeId.Equals(input.ChangeId)
                 ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
+                this.Id.Equals(input.Id) && 
                 (
                     this.Url == input.Url ||
                     (this.Url != null &&
@@ -138,10 +134,7 @@ namespace Org.OpenAPITools.Model
             {
                 int hashCode = 41;
                 hashCode = (hashCode * 59) + this.ChangeId.GetHashCode();
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.Url != null)
                 {
                     hashCode = (hashCode * 59) + this.Url.GetHashCode();

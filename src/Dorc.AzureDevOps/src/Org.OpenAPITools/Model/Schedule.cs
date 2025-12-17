@@ -224,11 +224,7 @@ namespace Org.OpenAPITools.Model
                     this.DaysToBuild == input.DaysToBuild ||
                     this.DaysToBuild.Equals(input.DaysToBuild)
                 ) && 
-                (
-                    this.ScheduleJobId == input.ScheduleJobId ||
-                    (this.ScheduleJobId != null &&
-                    this.ScheduleJobId.Equals(input.ScheduleJobId))
-                ) && 
+                this.ScheduleJobId.Equals(input.ScheduleJobId) && 
                 (
                     this.ScheduleOnlyWithChanges == input.ScheduleOnlyWithChanges ||
                     this.ScheduleOnlyWithChanges.Equals(input.ScheduleOnlyWithChanges)
@@ -262,10 +258,7 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.BranchFilters.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.DaysToBuild.GetHashCode();
-                if (this.ScheduleJobId != null)
-                {
-                    hashCode = (hashCode * 59) + this.ScheduleJobId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.ScheduleJobId.GetHashCode();
                 hashCode = (hashCode * 59) + this.ScheduleOnlyWithChanges.GetHashCode();
                 hashCode = (hashCode * 59) + this.StartHours.GetHashCode();
                 hashCode = (hashCode * 59) + this.StartMinutes.GetHashCode();

@@ -23,7 +23,6 @@ namespace Tests.Acceptance.StepDefinitions
             _scenarioContext = scenarioContext;
         }
 
-        [Ignore("The endpoint requested in this scenario exists only in the previous version of DOrc.")]
         [Given(@"I have created GET request to RefDataEnvironmentsDetails with query '(.*)'='(.*)'")]
         public void GivenIHaveCreatedGETRequestToRefDataEnvironmentsDetailsWithQuery(string idParameterName, string id)
         {
@@ -42,14 +41,13 @@ namespace Tests.Acceptance.StepDefinitions
             }
         }
 
-        [Ignore("The endpoint requested in this scenario exists only in the previous version of DOrc.")]
         [Then(@"The result should be json with project equals '(.*)' and list of environments whose names should contain '(.*)'")]
         public void ThenTheResultShouldBeJsonWithProjectEqualsAndListOfEnvironmentsWhoseNamesShouldContain(string projectName, string environmentName)
         {
             using (new AssertionScope())
             {
                 Assert.IsNotNull(projectApiResult, "Api request failed!");
-                Assert.AreEqual(true, projectApiResult.IsModelValid, projectApiResult.Message);
+                Assert.IsTrue(projectApiResult.IsModelValid, projectApiResult.Message);
 
                 var model = projectApiResult.Model as TemplateApiModel<EnvironmentApiModel>;
 
@@ -57,7 +55,7 @@ namespace Tests.Acceptance.StepDefinitions
                 Assert.AreEqual(projectName, model.Project.ProjectName);
                 var rgx = new Regex($"^{environmentName}*");
                 var result = model.Items.All(i => rgx.IsMatch(i.EnvironmentName));
-                Assert.AreEqual(true, result);
+                Assert.IsTrue(result);
             }
         }
 
@@ -138,7 +136,7 @@ namespace Tests.Acceptance.StepDefinitions
                         Assert.IsTrue(databasesApiResult.IsModelValid, databasesApiResult.Message);
                         var model = databasesApiResult.Model as EnvironmentComponentsDto<DatabaseApiModel>;
                         Assert.IsNotNull(model, "Model is not valid!");
-                        Assert.AreEqual(count, model.Result.Count);
+                        Assert.HasCount(count, model.Result);
                         break;
                     }
                 case 1:
@@ -147,7 +145,7 @@ namespace Tests.Acceptance.StepDefinitions
                         Assert.IsTrue(serversApiResult.IsModelValid, serversApiResult.Message);
                         var model = serversApiResult.Model as EnvironmentComponentsDto<ServerApiModel>;
                         Assert.IsNotNull(model, "Model is not valid!");
-                        Assert.AreEqual(count, model.Result.Count);
+                        Assert.HasCount(count, model.Result);
                         break;
                     }
             }
@@ -223,7 +221,9 @@ namespace Tests.Acceptance.StepDefinitions
 
                 if (childEnvApiResponse.IsModelValid)
                 {
-                    var model = (childEnvApiResponse.Model as IList<EnvironmentApiModel>).FirstOrDefault();
+                    var models = childEnvApiResponse.Model as IList<EnvironmentApiModel>;
+                    var model = models?.FirstOrDefault();
+                    if (model == null) throw new InvalidOperationException("Model is null");
                     var segments = new List<string> { "SetParentForEnvironment" };
                     var query = new Dictionary<string, string> { { "parentEnvId", parentEnvironmentId.ToString() }, { "childEnvId", model.EnvironmentId.ToString() } };
                     _scenarioContext["setParentApiResult"] = caller.Call<ApiBoolResult>(
@@ -243,9 +243,11 @@ namespace Tests.Acceptance.StepDefinitions
             {
                 var setParentApiResult = _scenarioContext["setParentApiResult"] as ApiResult<ApiBoolResult>;
                 Assert.IsNotNull(setParentApiResult, "Api request failed");
-                Assert.IsTrue(setParentApiResult.IsModelValid);
+                Assert.IsTrue(setParentApiResult!.IsModelValid);
 
-                Assert.AreEqual(expectedResult, (setParentApiResult.Model as ApiBoolResult).Result);
+                var boolResult = setParentApiResult.Model as ApiBoolResult;
+                Assert.IsNotNull(boolResult, "Model is null");
+                Assert.AreEqual(expectedResult, boolResult!.Result);
 
                 using (var caller = new ApiCaller())
                 {
@@ -282,7 +284,9 @@ namespace Tests.Acceptance.StepDefinitions
                 {
                     if (key.EndsWith("_id"))
                     {
-                        new DataAccessor().DeleteEnvironment(int.Parse(_scenarioContext[key].ToString()));
+                        var idStr = _scenarioContext[key]?.ToString();
+                        if (!string.IsNullOrEmpty(idStr))
+                            new DataAccessor().DeleteEnvironment(int.Parse(idStr));
                     }
                 }
             }

@@ -117,11 +117,7 @@ namespace Org.OpenAPITools.Model
                     (this.DefinitionType != null &&
                     this.DefinitionType.Equals(input.DefinitionType))
                 ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
+                this.Id.Equals(input.Id) && 
                 (
                     this.VersionSpec == input.VersionSpec ||
                     (this.VersionSpec != null &&
@@ -142,10 +138,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.DefinitionType.GetHashCode();
                 }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.VersionSpec != null)
                 {
                     hashCode = (hashCode * 59) + this.VersionSpec.GetHashCode();

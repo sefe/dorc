@@ -253,11 +253,7 @@ namespace Org.OpenAPITools.Model
                     (this.Controller != null &&
                     this.Controller.Equals(input.Controller))
                 ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
+                this.CreatedDate.Equals(input.CreatedDate) && 
                 (
                     this.Description == input.Description ||
                     (this.Description != null &&
@@ -300,11 +296,7 @@ namespace Org.OpenAPITools.Model
                     (this.StatusMessage != null &&
                     this.StatusMessage.Equals(input.StatusMessage))
                 ) && 
-                (
-                    this.UpdatedDate == input.UpdatedDate ||
-                    (this.UpdatedDate != null &&
-                    this.UpdatedDate.Equals(input.UpdatedDate))
-                ) && 
+                this.UpdatedDate.Equals(input.UpdatedDate) && 
                 (
                     this.Uri == input.Uri ||
                     (this.Uri != null &&
@@ -334,10 +326,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Controller.GetHashCode();
                 }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
                 if (this.Description != null)
                 {
                     hashCode = (hashCode * 59) + this.Description.GetHashCode();
@@ -365,10 +354,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.StatusMessage.GetHashCode();
                 }
-                if (this.UpdatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.UpdatedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.UpdatedDate.GetHashCode();
                 if (this.Uri != null)
                 {
                     hashCode = (hashCode * 59) + this.Uri.GetHashCode();

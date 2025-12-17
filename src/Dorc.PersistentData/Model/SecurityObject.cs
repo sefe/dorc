@@ -6,16 +6,16 @@ namespace Dorc.PersistentData.Model
     {
         [ScaffoldColumn(false)] public virtual Guid ObjectId { get; set; }
 
-        public virtual string Name { get; set; }
+        public virtual string Name { get; set; } = default!;
 
-        public bool Equals(SecurityObject other)
+        public bool Equals(SecurityObject? other)
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
             return string.Equals(Name, other.Name);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;

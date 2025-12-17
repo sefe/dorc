@@ -205,11 +205,7 @@ namespace Org.OpenAPITools.Model
                     (this.Pusher != null &&
                     this.Pusher.Equals(input.Pusher))
                 ) && 
-                (
-                    this.Timestamp == input.Timestamp ||
-                    (this.Timestamp != null &&
-                    this.Timestamp.Equals(input.Timestamp))
-                ) && 
+                this.Timestamp.Equals(input.Timestamp) && 
                 (
                     this.Type == input.Type ||
                     (this.Type != null &&
@@ -251,10 +247,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Pusher.GetHashCode();
                 }
-                if (this.Timestamp != null)
-                {
-                    hashCode = (hashCode * 59) + this.Timestamp.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Timestamp.GetHashCode();
                 if (this.Type != null)
                 {
                     hashCode = (hashCode * 59) + this.Type.GetHashCode();

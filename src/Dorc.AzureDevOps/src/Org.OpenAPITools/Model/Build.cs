@@ -786,11 +786,7 @@ namespace Org.OpenAPITools.Model
                     (this.DeletedBy != null &&
                     this.DeletedBy.Equals(input.DeletedBy))
                 ) && 
-                (
-                    this.DeletedDate == input.DeletedDate ||
-                    (this.DeletedDate != null &&
-                    this.DeletedDate.Equals(input.DeletedDate))
-                ) && 
+                this.DeletedDate.Equals(input.DeletedDate) && 
                 (
                     this.DeletedReason == input.DeletedReason ||
                     (this.DeletedReason != null &&
@@ -802,11 +798,7 @@ namespace Org.OpenAPITools.Model
                     input.Demands != null &&
                     this.Demands.SequenceEqual(input.Demands)
                 ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
+                this.FinishTime.Equals(input.FinishTime) && 
                 (
                     this.Id == input.Id ||
                     this.Id.Equals(input.Id)
@@ -820,11 +812,7 @@ namespace Org.OpenAPITools.Model
                     (this.LastChangedBy != null &&
                     this.LastChangedBy.Equals(input.LastChangedBy))
                 ) && 
-                (
-                    this.LastChangedDate == input.LastChangedDate ||
-                    (this.LastChangedDate != null &&
-                    this.LastChangedDate.Equals(input.LastChangedDate))
-                ) && 
+                this.LastChangedDate.Equals(input.LastChangedDate) && 
                 (
                     this.Logs == input.Logs ||
                     (this.Logs != null &&
@@ -878,11 +866,7 @@ namespace Org.OpenAPITools.Model
                     this.QueuePosition == input.QueuePosition ||
                     this.QueuePosition.Equals(input.QueuePosition)
                 ) && 
-                (
-                    this.QueueTime == input.QueueTime ||
-                    (this.QueueTime != null &&
-                    this.QueueTime.Equals(input.QueueTime))
-                ) && 
+                this.QueueTime.Equals(input.QueueTime) && 
                 (
                     this.Reason == input.Reason ||
                     this.Reason.Equals(input.Reason)
@@ -920,11 +904,7 @@ namespace Org.OpenAPITools.Model
                     (this.SourceVersion != null &&
                     this.SourceVersion.Equals(input.SourceVersion))
                 ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
+                this.StartTime.Equals(input.StartTime) && 
                 (
                     this.Status == input.Status ||
                     this.Status.Equals(input.Status)
@@ -999,10 +979,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.DeletedBy.GetHashCode();
                 }
-                if (this.DeletedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.DeletedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.DeletedDate.GetHashCode();
                 if (this.DeletedReason != null)
                 {
                     hashCode = (hashCode * 59) + this.DeletedReason.GetHashCode();
@@ -1011,20 +988,14 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Demands.GetHashCode();
                 }
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
                 hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 hashCode = (hashCode * 59) + this.KeepForever.GetHashCode();
                 if (this.LastChangedBy != null)
                 {
                     hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
                 }
-                if (this.LastChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.LastChangedDate.GetHashCode();
                 if (this.Logs != null)
                 {
                     hashCode = (hashCode * 59) + this.Logs.GetHashCode();
@@ -1060,10 +1031,7 @@ namespace Org.OpenAPITools.Model
                 }
                 hashCode = (hashCode * 59) + this.QueueOptions.GetHashCode();
                 hashCode = (hashCode * 59) + this.QueuePosition.GetHashCode();
-                if (this.QueueTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.QueueTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.QueueTime.GetHashCode();
                 hashCode = (hashCode * 59) + this.Reason.GetHashCode();
                 if (this.Repository != null)
                 {
@@ -1087,10 +1055,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.SourceVersion.GetHashCode();
                 }
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
                 hashCode = (hashCode * 59) + this.Status.GetHashCode();
                 if (this.Tags != null)
                 {

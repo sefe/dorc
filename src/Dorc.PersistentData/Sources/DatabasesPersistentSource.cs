@@ -44,8 +44,8 @@ namespace Dorc.PersistentData.Sources
                 return context.Databases
                     .Include(d => d.Group)
                     .Include(d => d.Environments)
-                    .Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
-                    .Select(MapToDatabaseApiModel).ToList();
+                    .Where(d => d.Name != null && d.Name.Equals(name) && d.ServerName != null && d.ServerName.Equals(server)).ToList()
+                    .Select(MapToDatabaseApiModel).Where(d => d != null).Cast<DatabaseApiModel>().ToList();
             }
         }
 
@@ -54,7 +54,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return context.Databases.Include(d => d.Group).Where(d => d.Name != null).ToList()
-                    .Select(MapToDatabaseApiModel).ToList();
+                    .Select(MapToDatabaseApiModel).Where(d => d != null).Cast<DatabaseApiModel>().ToList();
 
             }
         }
@@ -74,8 +74,9 @@ namespace Dorc.PersistentData.Sources
 
                 foreach (var envName in envDetailNames)
                 {
+                    if (envName == null) continue;
                     var environment = EnvironmentUnifier.GetEnvironment(context, envName);
-                    if (environment != null)
+                    if (environment != null && environment.Name != null)
                         output.Add(environment.Name);
                 }
 
@@ -99,7 +100,7 @@ namespace Dorc.PersistentData.Sources
                 var adGroup = context.AdGroups
                     .FirstOrDefault(g => g.Name == db.AdGroup);
 
-                newDatabase.Group = adGroup;
+                newDatabase.Group = adGroup!;
 
                 context.Databases.Add(newDatabase);
 
@@ -125,9 +126,9 @@ namespace Dorc.PersistentData.Sources
         {
             var database =
                 MapToDatabaseApiModel(
-                context.Databases.SingleOrDefault(d => d.Name.Equals(db.Name)
+                context.Databases.SingleOrDefault(d => d.Name != null && d.Name.Equals(db.Name)
                                                        &&
-                                                       d.ServerName.Equals(db.ServerName)));
+                                                       d.ServerName != null && d.ServerName.Equals(db.ServerName)));
 
             return database;
         }
@@ -146,7 +147,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel GetDatabaseByType(EnvironmentApiModel environment, string type)
+        public DatabaseApiModel? GetDatabaseByType(EnvironmentApiModel environment, string type)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -155,7 +156,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(d => d.Group)
                     .SingleOrDefault(d =>
                         d.Type == type
-                        && d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
+                        && d.Environments.Any(e => e.Name == environment.EnvironmentName));
                 return endurDb != null ? MapToDatabaseApiModel(endurDb) : null;
             }
         }
@@ -170,7 +171,7 @@ namespace Dorc.PersistentData.Sources
                     return new List<DatabaseApiModel>();
                 }
 
-                return GetDatabasesForEnvironmentName(env.Name);
+                return GetDatabasesForEnvironmentName(env.Name!);
             }
         }
 
@@ -183,7 +184,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(database => database.Environments
                         .Any(env => env.Name == environmentName))
                     .OrderBy(database => database.Name).ToList();
-                return result.Select(MapToDatabaseApiModel).ToList();
+                return result.Select(MapToDatabaseApiModel).Where(d => d != null).Cast<DatabaseApiModel>().ToList();
             }
         }
 
@@ -191,7 +192,7 @@ namespace Dorc.PersistentData.Sources
         public GetDatabaseApiModelListResponseDto GetDatabaseApiModelByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user)
         {
-            PagedModel<Database> output = null;
+            PagedModel<Database>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
@@ -230,7 +231,7 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
                 {
-                    IOrderedQueryable<Database> orderedQuery = null;
+                    IOrderedQueryable<Database>? orderedQuery = null;
 
                     for (var i = 0; i < operators.SortOrders.Count; i++)
                     {

@@ -16,7 +16,7 @@ namespace Dorc.PersistentData.Model
         public string? ArrayName { get; set; }
         public int? GroupId { get; set; }
 
-        public virtual AdGroup Group { get; set; }
+        public virtual AdGroup Group { get; set; } = default!;
 
         public ICollection<Environment> Environments { get; set; } = null!;
 

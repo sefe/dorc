@@ -153,11 +153,7 @@ namespace Org.OpenAPITools.Model
                     (this.LastModifiedBy != null &&
                     this.LastModifiedBy.Equals(input.LastModifiedBy))
                 ) && 
-                (
-                    this.LastModifiedDate == input.LastModifiedDate ||
-                    (this.LastModifiedDate != null &&
-                    this.LastModifiedDate.Equals(input.LastModifiedDate))
-                ) && 
+                this.LastModifiedDate.Equals(input.LastModifiedDate) && 
                 (
                     this.NodeId == input.NodeId ||
                     this.NodeId.Equals(input.NodeId)
@@ -190,10 +186,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.LastModifiedBy.GetHashCode();
                 }
-                if (this.LastModifiedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModifiedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.LastModifiedDate.GetHashCode();
                 hashCode = (hashCode * 59) + this.NodeId.GetHashCode();
                 hashCode = (hashCode * 59) + this.ParentId.GetHashCode();
                 if (this.Type != null)

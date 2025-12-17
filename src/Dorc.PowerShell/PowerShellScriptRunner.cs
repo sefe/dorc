@@ -49,7 +49,7 @@ namespace Dorc.PowerShell
                         outputCollection.DataAdded += (sender, e) =>
                         {
                             var data = sender as PSDataCollection<string>;
-                            var msg = data[e.Index]?.ToString();
+                            var msg = data?[e.Index]?.ToString();
                             logMessage(msg, MessageType.None);
                         };
 
@@ -143,37 +143,37 @@ namespace Dorc.PowerShell
             }
         }
 
-        void Powershell_Information_DataAdded(object sender, DataAddedEventArgs e)
+        void Powershell_Information_DataAdded(object? sender, DataAddedEventArgs e)
         {
-            var data = (PSDataCollection<InformationRecord>)sender;
+            var data = (PSDataCollection<InformationRecord>)sender!;
             var msg = data[e.Index]?.MessageData?.ToString();
             logMessage(msg, MessageType.Info);
         }
 
-        void Powershell_Verbose_DataAdded(object sender, DataAddedEventArgs e)
+        void Powershell_Verbose_DataAdded(object? sender, DataAddedEventArgs e)
         {
-            var data = (PSDataCollection<VerboseRecord>)sender;
+            var data = (PSDataCollection<VerboseRecord>)sender!;
             var msg = data[e.Index]?.Message;
             logMessage(msg, MessageType.Verbose);
         }
 
-        void Powershell_Debug_DataAdded(object sender, DataAddedEventArgs e)
+        void Powershell_Debug_DataAdded(object? sender, DataAddedEventArgs e)
         {
-            var data = (PSDataCollection<DebugRecord>)sender;
+            var data = (PSDataCollection<DebugRecord>)sender!;
             var msg = data[e.Index]?.Message;
             logMessage(msg, MessageType.Debug);
         }
 
-        void Powershell_Warning_DataAdded(object sender, DataAddedEventArgs e)
+        void Powershell_Warning_DataAdded(object? sender, DataAddedEventArgs e)
         {
-            var data = (PSDataCollection<WarningRecord>)sender;
+            var data = (PSDataCollection<WarningRecord>)sender!;
             var msg = data[e.Index].Message;
             logMessage(msg, MessageType.Warning);
         }
 
-        void Powershell_Error_DataAdded(object sender, DataAddedEventArgs e)
+        void Powershell_Error_DataAdded(object? sender, DataAddedEventArgs e)
         {
-            var data = (PSDataCollection<ErrorRecord>)sender;
+            var data = (PSDataCollection<ErrorRecord>)sender!;
             var msg = GetErrorRecordData(data[e.Index]);
             logMessage(msg, MessageType.Error);
         }
@@ -304,7 +304,7 @@ namespace Dorc.PowerShell
                 {
                     continue;
                 }
-                string message = messageData.ToString();
+                string? message = messageData.ToString();
 
                 if (string.IsNullOrEmpty(message))
                 {

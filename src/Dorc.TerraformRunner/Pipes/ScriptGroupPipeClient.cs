@@ -45,7 +45,7 @@ namespace Dorc.TerraformmRunner.Pipes
                     }
                     catch (Exception e)
                     {
-                        logger.LogError(e, "Exception is thrown while trying to connect to named pipe sever: {0} ");
+                        logger.LogError(e, "Exception is thrown while trying to connect to named pipe server");
                         throw;
                     }
 
@@ -59,7 +59,10 @@ namespace Dorc.TerraformmRunner.Pipes
                         }
                     };
 
-                    ScriptGroup scriptGroup = JsonSerializer.Deserialize<ScriptGroup>(pipeClient, options);
+                    ScriptGroup? scriptGroup = JsonSerializer.Deserialize<ScriptGroup>(pipeClient, options);
+
+                    if (scriptGroup == null)
+                        throw new InvalidOperationException("Failed to deserialize ScriptGroup from pipe");
 
                     var guid = scriptGroup.ID.ToString();
                     var list = scriptGroup.ScriptProperties.ToList();

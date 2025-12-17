@@ -220,11 +220,7 @@ namespace Org.OpenAPITools.Model
                     this.Id == input.Id ||
                     this.Id.Equals(input.Id)
                 ) && 
-                (
-                    this.LastModified == input.LastModified ||
-                    (this.LastModified != null &&
-                    this.LastModified.Equals(input.LastModified))
-                ) && 
+                this.LastModified.Equals(input.LastModified) && 
                 (
                     this.Name == input.Name ||
                     (this.Name != null &&
@@ -254,10 +250,7 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.Fields.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.LastModified != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModified.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.LastModified.GetHashCode();
                 if (this.Name != null)
                 {
                     hashCode = (hashCode * 59) + this.Name.GetHashCode();

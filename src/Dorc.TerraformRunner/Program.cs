@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Management;
+using System.Runtime.Versioning;
 using System.Threading;
 using CommandLine;
 using Dorc.ApiModel.Constants;
@@ -14,8 +15,8 @@ namespace Dorc.TerraformmRunner
 {
     internal class Program
     {
-        private static Options options;
-        private static ILogger contextLogger;
+        private static Options options = default!;
+        private static ILogger contextLogger = default!;
 
         static Program()
         {
@@ -76,8 +77,11 @@ namespace Dorc.TerraformmRunner
 
                 using (Process process = Process.GetCurrentProcess())
                 {
-                    string owner = GetProcessOwner(process.Id);
-                    contextLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
+                    if (OperatingSystem.IsWindows())
+                    {
+                        string owner = GetProcessOwner(process.Id);
+                        contextLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
+                    }
                 }
 
                 var idx = 0;
@@ -139,6 +143,7 @@ namespace Dorc.TerraformmRunner
             Environment.Exit(exitCode);
         }
 
+        [SupportedOSPlatform("windows")]
         public static string GetProcessOwner(int processId)
         {
             string query = "Select * From Win32_Process Where ProcessID = " + processId;

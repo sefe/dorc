@@ -107,11 +107,7 @@ namespace Org.OpenAPITools.Model
                     (this.PlanGroup != null &&
                     this.PlanGroup.Equals(input.PlanGroup))
                 ) && 
-                (
-                    this.ProjectId == input.ProjectId ||
-                    (this.ProjectId != null &&
-                    this.ProjectId.Equals(input.ProjectId))
-                );
+                this.ProjectId.Equals(input.ProjectId);
         }
 
         /// <summary>
@@ -127,10 +123,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.PlanGroup.GetHashCode();
                 }
-                if (this.ProjectId != null)
-                {
-                    hashCode = (hashCode * 59) + this.ProjectId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.ProjectId.GetHashCode();
                 return hashCode;
             }
         }

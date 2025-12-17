@@ -106,11 +106,7 @@ namespace Org.OpenAPITools.Model
                     this.OrchestrationType == input.OrchestrationType ||
                     this.OrchestrationType.Equals(input.OrchestrationType)
                 ) && 
-                (
-                    this.PlanId == input.PlanId ||
-                    (this.PlanId != null &&
-                    this.PlanId.Equals(input.PlanId))
-                );
+                this.PlanId.Equals(input.PlanId);
         }
 
         /// <summary>
@@ -123,10 +119,7 @@ namespace Org.OpenAPITools.Model
             {
                 int hashCode = 41;
                 hashCode = (hashCode * 59) + this.OrchestrationType.GetHashCode();
-                if (this.PlanId != null)
-                {
-                    hashCode = (hashCode * 59) + this.PlanId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.PlanId.GetHashCode();
                 return hashCode;
             }
         }

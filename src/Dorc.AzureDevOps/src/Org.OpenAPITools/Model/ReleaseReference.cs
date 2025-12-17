@@ -186,20 +186,12 @@ namespace Org.OpenAPITools.Model
                     this.Attempt == input.Attempt ||
                     this.Attempt.Equals(input.Attempt)
                 ) && 
-                (
-                    this.CreationDate == input.CreationDate ||
-                    (this.CreationDate != null &&
-                    this.CreationDate.Equals(input.CreationDate))
-                ) && 
+                this.CreationDate.Equals(input.CreationDate) && 
                 (
                     this.DefinitionId == input.DefinitionId ||
                     this.DefinitionId.Equals(input.DefinitionId)
                 ) && 
-                (
-                    this.EnvironmentCreationDate == input.EnvironmentCreationDate ||
-                    (this.EnvironmentCreationDate != null &&
-                    this.EnvironmentCreationDate.Equals(input.EnvironmentCreationDate))
-                ) && 
+                this.EnvironmentCreationDate.Equals(input.EnvironmentCreationDate) && 
                 (
                     this.EnvironmentDefinitionId == input.EnvironmentDefinitionId ||
                     this.EnvironmentDefinitionId.Equals(input.EnvironmentDefinitionId)
@@ -239,15 +231,9 @@ namespace Org.OpenAPITools.Model
             {
                 int hashCode = 41;
                 hashCode = (hashCode * 59) + this.Attempt.GetHashCode();
-                if (this.CreationDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreationDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreationDate.GetHashCode();
                 hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
-                if (this.EnvironmentCreationDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.EnvironmentCreationDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.EnvironmentCreationDate.GetHashCode();
                 hashCode = (hashCode * 59) + this.EnvironmentDefinitionId.GetHashCode();
                 if (this.EnvironmentDefinitionName != null)
                 {

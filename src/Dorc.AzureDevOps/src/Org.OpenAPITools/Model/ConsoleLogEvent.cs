@@ -133,21 +133,9 @@ namespace Org.OpenAPITools.Model
                     input.Lines != null &&
                     this.Lines.SequenceEqual(input.Lines)
                 ) && 
-                (
-                    this.StepRecordId == input.StepRecordId ||
-                    (this.StepRecordId != null &&
-                    this.StepRecordId.Equals(input.StepRecordId))
-                ) && 
-                (
-                    this.TimelineId == input.TimelineId ||
-                    (this.TimelineId != null &&
-                    this.TimelineId.Equals(input.TimelineId))
-                ) && 
-                (
-                    this.TimelineRecordId == input.TimelineRecordId ||
-                    (this.TimelineRecordId != null &&
-                    this.TimelineRecordId.Equals(input.TimelineRecordId))
-                ) && 
+                this.StepRecordId.Equals(input.StepRecordId) && 
+                this.TimelineId.Equals(input.TimelineId) && 
+                this.TimelineRecordId.Equals(input.TimelineRecordId) && 
                 (
                     this.BuildId == input.BuildId ||
                     this.BuildId.Equals(input.BuildId)
@@ -167,18 +155,9 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.Lines.GetHashCode();
                 }
-                if (this.StepRecordId != null)
-                {
-                    hashCode = (hashCode * 59) + this.StepRecordId.GetHashCode();
-                }
-                if (this.TimelineId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineId.GetHashCode();
-                }
-                if (this.TimelineRecordId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineRecordId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.StepRecordId.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.TimelineId.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.TimelineRecordId.GetHashCode();
                 hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
                 return hashCode;
             }

@@ -246,11 +246,7 @@ namespace Org.OpenAPITools.Model
                     this.PollingInterval == input.PollingInterval ||
                     this.PollingInterval.Equals(input.PollingInterval)
                 ) && 
-                (
-                    this.PollingJobId == input.PollingJobId ||
-                    (this.PollingJobId != null &&
-                    this.PollingJobId.Equals(input.PollingJobId))
-                ) && 
+                this.PollingJobId.Equals(input.PollingJobId) && 
                 (
                     this.SettingsSourceType == input.SettingsSourceType ||
                     this.SettingsSourceType.Equals(input.SettingsSourceType)
@@ -281,10 +277,7 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.PathFilters.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.PollingInterval.GetHashCode();
-                if (this.PollingJobId != null)
-                {
-                    hashCode = (hashCode * 59) + this.PollingJobId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.PollingJobId.GetHashCode();
                 hashCode = (hashCode * 59) + this.SettingsSourceType.GetHashCode();
                 hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
                 return hashCode;

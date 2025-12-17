@@ -64,7 +64,7 @@ namespace Dorc.Api.Tests
             public DbSet<EnvironmentHistory> EnvironmentHistoriesDbSet { get; set; }
         }
 
-        private TestEnvironment SetupTestEnvironment(int envId, string oldOwnerSid, AccessLevel oldOwnerAccessLevel, string newOwnerSid = null, AccessLevel? newOwnerAccessLevel = null)
+        private TestEnvironment SetupTestEnvironment(int envId, string oldOwnerSid, AccessLevel oldOwnerAccessLevel, string? newOwnerSid = null, AccessLevel? newOwnerAccessLevel = null)
         {
             var environment = new Environment { Id = envId, ObjectId = Guid.NewGuid() };
             var accessControls = new List<AccessControl>();

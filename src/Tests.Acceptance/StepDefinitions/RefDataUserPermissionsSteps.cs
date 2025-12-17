@@ -66,7 +66,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsTrue(userPermissionsApiResult.IsModelValid, userPermissionsApiResult.Message);
             var model = userPermissionsApiResult.Model as List<UserPermDto>;
             Assert.IsNotNull(model, $"Model not valid, raw data: {userPermissionsApiResult.RawJson}");
-            Assert.AreEqual(userPermissionCount, model.Count);
+            Assert.HasCount(userPermissionCount, model);
             var permission = model.First(p => p.Role == permissionName);
             Assert.IsNotNull(permission, $"Permission {permissionName} not found in result collection!");
         }

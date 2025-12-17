@@ -141,16 +141,8 @@ namespace Org.OpenAPITools.Model
                 return false;
             }
             return 
-                (
-                    this.LastChangedBy == input.LastChangedBy ||
-                    (this.LastChangedBy != null &&
-                    this.LastChangedBy.Equals(input.LastChangedBy))
-                ) && 
-                (
-                    this.LastChangedOn == input.LastChangedOn ||
-                    (this.LastChangedOn != null &&
-                    this.LastChangedOn.Equals(input.LastChangedOn))
-                ) && 
+                this.LastChangedBy.Equals(input.LastChangedBy) && 
+                this.LastChangedOn.Equals(input.LastChangedOn) && 
                 (
                     this.Records == input.Records ||
                     this.Records != null &&
@@ -161,11 +153,7 @@ namespace Org.OpenAPITools.Model
                     this.ChangeId == input.ChangeId ||
                     this.ChangeId.Equals(input.ChangeId)
                 ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
+                this.Id.Equals(input.Id) && 
                 (
                     this.Url == input.Url ||
                     (this.Url != null &&
@@ -182,23 +170,14 @@ namespace Org.OpenAPITools.Model
             unchecked // Overflow is fine, just wrap
             {
                 int hashCode = 41;
-                if (this.LastChangedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
-                }
-                if (this.LastChangedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
                 if (this.Records != null)
                 {
                     hashCode = (hashCode * 59) + this.Records.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.ChangeId.GetHashCode();
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 if (this.Url != null)
                 {
                     hashCode = (hashCode * 59) + this.Url.GetHashCode();

@@ -11,7 +11,7 @@ namespace Dorc.Runner
 {
     internal class Program
     {
-        private static Options options;
+        private static Options options = default!;
         private static IRunnerLogger? _runnerLogger;
 
         static Program()

@@ -122,11 +122,7 @@ namespace Org.OpenAPITools.Model
                 return false;
             }
             return 
-                (
-                    this.Date == input.Date ||
-                    (this.Date != null &&
-                    this.Date.Equals(input.Date))
-                ) && 
+                this.Date.Equals(input.Date) && 
                 (
                     this.IntValue == input.IntValue ||
                     this.IntValue.Equals(input.IntValue)
@@ -152,10 +148,7 @@ namespace Org.OpenAPITools.Model
             unchecked // Overflow is fine, just wrap
             {
                 int hashCode = 41;
-                if (this.Date != null)
-                {
-                    hashCode = (hashCode * 59) + this.Date.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Date.GetHashCode();
                 hashCode = (hashCode * 59) + this.IntValue.GetHashCode();
                 if (this.Name != null)
                 {

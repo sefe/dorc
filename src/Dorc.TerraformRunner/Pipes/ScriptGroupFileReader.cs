@@ -29,11 +29,14 @@ namespace Dorc.TerraformmRunner.Pipes
                             new VariableValueJsonConverter(),
                         }
                 };
-                ScriptGroup scriptGroup;
+                ScriptGroup? scriptGroup;
                 using (FileStream readStream = File.OpenRead(filename))
                 {
                     scriptGroup = JsonSerializer.Deserialize<ScriptGroup>(readStream, options);
                 }
+
+                if (scriptGroup == null)
+                    throw new InvalidOperationException($"Failed to deserialize ScriptGroup from file: {filename}");
 
                 var guid = scriptGroup.ID.ToString();
                 var list = scriptGroup.ScriptProperties.ToList();

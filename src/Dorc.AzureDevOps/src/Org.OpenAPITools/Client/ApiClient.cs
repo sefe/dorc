@@ -467,7 +467,7 @@ namespace Org.OpenAPITools.Client
             {
                 ClientCertificates = configuration.ClientCertificates,
                 CookieContainer = cookies,
-                MaxTimeout = configuration.Timeout,
+                Timeout = TimeSpan.FromMilliseconds(configuration.Timeout),
                 Proxy = configuration.Proxy,
                 UseDefaultCredentials = configuration.UseDefaultCredentials,
                 UserAgent = configuration.UserAgent,
@@ -497,12 +497,16 @@ namespace Org.OpenAPITools.Client
             {
                 var policy = RetryConfiguration.RetryPolicy;
                 var policyResult = policy.ExecuteAndCapture(() => client.Execute(req));
-                response = (policyResult.Outcome == OutcomeType.Successful)
-                    ? client.Deserialize<T>(policyResult.Result)
-                    : new RestResponse<T>(req)
-                    {
-                        ErrorException = policyResult.FinalException
-                    };
+                RestResponse baseResponse;
+                if (policyResult.Outcome == OutcomeType.Successful)
+                {
+                    baseResponse = policyResult.Result;
+                }
+                else
+                {
+                    baseResponse = new RestResponse(req) { ErrorException = policyResult.FinalException };
+                }
+                response = ConvertToTypedResponse<T>(req, baseResponse, SerializerSettings, configuration);
             }
             else
             {
@@ -578,7 +582,7 @@ namespace Org.OpenAPITools.Client
             var clientOptions = new RestClientOptions(baseUrl)
             {
                 ClientCertificates = configuration.ClientCertificates,
-                MaxTimeout = configuration.Timeout,
+                Timeout = TimeSpan.FromMilliseconds(configuration.Timeout),
                 Proxy = configuration.Proxy,
                 UserAgent = configuration.UserAgent
             };
@@ -607,12 +611,16 @@ namespace Org.OpenAPITools.Client
             {
                 var policy = RetryConfiguration.AsyncRetryPolicy;
                 var policyResult = await policy.ExecuteAndCaptureAsync((ct) => client.ExecuteAsync(req, ct), cancellationToken).ConfigureAwait(false);
-                response = (policyResult.Outcome == OutcomeType.Successful)
-                    ? client.Deserialize<T>(policyResult.Result)
-                    : new RestResponse<T>(req)
-                    {
-                        ErrorException = policyResult.FinalException
-                    };
+                RestResponse baseResponse;
+                if (policyResult.Outcome == OutcomeType.Successful)
+                {
+                    baseResponse = policyResult.Result;
+                }
+                else
+                {
+                    baseResponse = new RestResponse(req) { ErrorException = policyResult.FinalException };
+                }
+                response = ConvertToTypedResponse<T>(req, baseResponse, SerializerSettings, configuration);
             }
             else
             {
@@ -876,5 +884,44 @@ namespace Org.OpenAPITools.Client
             return Exec<T>(NewRequest(HttpMethod.Patch, path, options, config), options, config);
         }
         #endregion ISynchronousClient
+
+        /// <summary>
+        /// Converts a non-generic RestResponse to a typed RestResponse&lt;T&gt;
+        /// </summary>
+        private static RestResponse<T> ConvertToTypedResponse<T>(RestRequest req, RestResponse baseResponse, JsonSerializerSettings serializerSettings, IReadableConfiguration configuration)
+        {
+            var response = new RestResponse<T>(req)
+            {
+                Content = baseResponse.Content,
+                ContentEncoding = baseResponse.ContentEncoding,
+                ContentLength = baseResponse.ContentLength,
+                ContentType = baseResponse.ContentType,
+                ErrorException = baseResponse.ErrorException,
+                ErrorMessage = baseResponse.ErrorMessage,
+                IsSuccessStatusCode = baseResponse.IsSuccessStatusCode,
+                RawBytes = baseResponse.RawBytes,
+                ResponseStatus = baseResponse.ResponseStatus,
+                ResponseUri = baseResponse.ResponseUri,
+                Server = baseResponse.Server,
+                StatusCode = baseResponse.StatusCode,
+                StatusDescription = baseResponse.StatusDescription
+            };
+
+            // Deserialize the data if successful and content exists
+            if (baseResponse.IsSuccessStatusCode && !string.IsNullOrEmpty(baseResponse.Content))
+            {
+                try
+                {
+                    var serializer = new CustomJsonCodec(serializerSettings, configuration);
+                    response.Data = serializer.Deserialize<T>(baseResponse);
+                }
+                catch
+                {
+                    // Ignore deserialization errors here; they'll be handled later for special types
+                }
+            }
+
+            return response;
+        }
     }
 }

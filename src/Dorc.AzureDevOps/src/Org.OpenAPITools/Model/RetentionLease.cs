@@ -142,11 +142,7 @@ namespace Org.OpenAPITools.Model
                 return false;
             }
             return 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
+                this.CreatedOn.Equals(input.CreatedOn) && 
                 (
                     this.DefinitionId == input.DefinitionId ||
                     this.DefinitionId.Equals(input.DefinitionId)
@@ -164,11 +160,7 @@ namespace Org.OpenAPITools.Model
                     this.RunId == input.RunId ||
                     this.RunId.Equals(input.RunId)
                 ) && 
-                (
-                    this.ValidUntil == input.ValidUntil ||
-                    (this.ValidUntil != null &&
-                    this.ValidUntil.Equals(input.ValidUntil))
-                );
+                this.ValidUntil.Equals(input.ValidUntil);
         }
 
         /// <summary>
@@ -180,10 +172,7 @@ namespace Org.OpenAPITools.Model
             unchecked // Overflow is fine, just wrap
             {
                 int hashCode = 41;
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
                 hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
                 hashCode = (hashCode * 59) + this.LeaseId.GetHashCode();
                 if (this.OwnerId != null)
@@ -191,10 +180,7 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.OwnerId.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.RunId.GetHashCode();
-                if (this.ValidUntil != null)
-                {
-                    hashCode = (hashCode * 59) + this.ValidUntil.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.ValidUntil.GetHashCode();
                 return hashCode;
             }
         }

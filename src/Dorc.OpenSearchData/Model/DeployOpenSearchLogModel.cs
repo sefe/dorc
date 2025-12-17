@@ -12,13 +12,13 @@ namespace Dorc.OpenSearchData.Model
         [JsonProperty("message")]
         public string message { get; set; }
         [JsonProperty("exception")]
-        public Exception exception { get; set; }
+        public Exception? exception { get; set; }
         [JsonProperty("level")]
         public LogLevel level { get; set; }
         [JsonProperty("@timestamp")]
         public DateTime @timestamp { get; set; }
 
-        public DeployOpenSearchLogModel(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null)
+        public DeployOpenSearchLogModel(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception? exception = null)
         {
             request_id = requestId;
             deployment_result_id = deploymentResultId;

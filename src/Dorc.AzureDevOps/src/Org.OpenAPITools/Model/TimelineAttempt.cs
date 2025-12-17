@@ -116,16 +116,8 @@ namespace Org.OpenAPITools.Model
                     this.Attempt == input.Attempt ||
                     this.Attempt.Equals(input.Attempt)
                 ) && 
-                (
-                    this.RecordId == input.RecordId ||
-                    (this.RecordId != null &&
-                    this.RecordId.Equals(input.RecordId))
-                ) && 
-                (
-                    this.TimelineId == input.TimelineId ||
-                    (this.TimelineId != null &&
-                    this.TimelineId.Equals(input.TimelineId))
-                );
+                this.RecordId.Equals(input.RecordId) && 
+                this.TimelineId.Equals(input.TimelineId);
         }
 
         /// <summary>
@@ -138,14 +130,8 @@ namespace Org.OpenAPITools.Model
             {
                 int hashCode = 41;
                 hashCode = (hashCode * 59) + this.Attempt.GetHashCode();
-                if (this.RecordId != null)
-                {
-                    hashCode = (hashCode * 59) + this.RecordId.GetHashCode();
-                }
-                if (this.TimelineId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineId.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.RecordId.GetHashCode();
+                                    hashCode = (hashCode * 59) + this.TimelineId.GetHashCode();
                 return hashCode;
             }
         }

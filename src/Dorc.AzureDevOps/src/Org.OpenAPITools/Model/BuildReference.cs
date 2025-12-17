@@ -284,20 +284,12 @@ namespace Org.OpenAPITools.Model
                     this.Deleted == input.Deleted ||
                     this.Deleted.Equals(input.Deleted)
                 ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
+                this.FinishTime.Equals(input.FinishTime) && 
                 (
                     this.Id == input.Id ||
                     this.Id.Equals(input.Id)
                 ) && 
-                (
-                    this.QueueTime == input.QueueTime ||
-                    (this.QueueTime != null &&
-                    this.QueueTime.Equals(input.QueueTime))
-                ) && 
+                this.QueueTime.Equals(input.QueueTime) && 
                 (
                     this.RequestedFor == input.RequestedFor ||
                     (this.RequestedFor != null &&
@@ -307,11 +299,7 @@ namespace Org.OpenAPITools.Model
                     this.Result == input.Result ||
                     this.Result.Equals(input.Result)
                 ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
+                this.StartTime.Equals(input.StartTime) && 
                 (
                     this.Status == input.Status ||
                     this.Status.Equals(input.Status)
@@ -336,24 +324,15 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.BuildNumber.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.Deleted.GetHashCode();
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
                 hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.QueueTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.QueueTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.QueueTime.GetHashCode();
                 if (this.RequestedFor != null)
                 {
                     hashCode = (hashCode * 59) + this.RequestedFor.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.Result.GetHashCode();
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
                 hashCode = (hashCode * 59) + this.Status.GetHashCode();
                 return hashCode;
             }

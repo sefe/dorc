@@ -154,11 +154,7 @@ namespace Org.OpenAPITools.Model
                     (this.CreatedBy != null &&
                     this.CreatedBy.Equals(input.CreatedBy))
                 ) && 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
+                this.CreatedOn.Equals(input.CreatedOn) && 
                 (
                     this.Description == input.Description ||
                     (this.Description != null &&
@@ -169,11 +165,7 @@ namespace Org.OpenAPITools.Model
                     (this.LastChangedBy != null &&
                     this.LastChangedBy.Equals(input.LastChangedBy))
                 ) && 
-                (
-                    this.LastChangedDate == input.LastChangedDate ||
-                    (this.LastChangedDate != null &&
-                    this.LastChangedDate.Equals(input.LastChangedDate))
-                ) && 
+                this.LastChangedDate.Equals(input.LastChangedDate) && 
                 (
                     this.Path == input.Path ||
                     (this.Path != null &&
@@ -199,10 +191,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.CreatedBy.GetHashCode();
                 }
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
                 if (this.Description != null)
                 {
                     hashCode = (hashCode * 59) + this.Description.GetHashCode();
@@ -211,10 +200,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
                 }
-                if (this.LastChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.LastChangedDate.GetHashCode();
                 if (this.Path != null)
                 {
                     hashCode = (hashCode * 59) + this.Path.GetHashCode();

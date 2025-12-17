@@ -30,6 +30,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsNotNull(_environmentsApiResult, "Api request failed");
             Assert.IsTrue(_environmentsApiResult.IsModelValid, _environmentsApiResult.Message);
             var model = _environmentsApiResult.Model as List<EnvironmentShortApiModel>;
+            Assert.IsNotNull(model, "Model is null");
             Assert.AreNotEqual(0, model.Count);
         }
 
@@ -62,7 +63,7 @@ namespace Tests.Acceptance.StepDefinitions
                     Method.Get,
                     queryParameters: urlQueryParameters);
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 new DataAccessor().DeleteEnvironment(this.existingEnvironmentId);
                 throw;
@@ -124,7 +125,9 @@ namespace Tests.Acceptance.StepDefinitions
 
                 if (childEnvApiResponse.IsModelValid)
                 {
-                    var model = (childEnvApiResponse.Model as IList<EnvironmentApiModel>).FirstOrDefault();
+                    var models = childEnvApiResponse.Model as IList<EnvironmentApiModel>;
+                    var model = models?.FirstOrDefault();
+                    if (model == null) throw new InvalidOperationException("Model is null");
                     model.ParentId = parentEnvironmentId;
 
                     addEnvironmentApiResult = caller.Call<EnvironmentApiModel>(

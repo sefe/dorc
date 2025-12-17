@@ -44,7 +44,7 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsTrue(endurUsersApiResult.IsModelValid, endurUsersApiResult.Message);
             var model = endurUsersApiResult.Model as List<UserApiModel>;
             Assert.IsNotNull(model, $"Model not valid, raw data: {endurUsersApiResult.RawJson}");
-            Assert.AreEqual(userCount, model.Count);
+            Assert.HasCount(userCount, model);
         }
         #endregion
 

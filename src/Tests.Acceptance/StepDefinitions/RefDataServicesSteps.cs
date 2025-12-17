@@ -11,7 +11,6 @@ namespace Tests.Acceptance.StepDefinitions
     {
         private ApiResult<ServiceStatusApiModel> serviceStatusResult = default!;
 
-        [Ignore]
         [Given(@"I have created PUT request to RefDataServices with body contains json with '(.*)' '(.*)' '(.*)'")]
         public void GivenIHaveCreatedPUTRequestToRefDataServicesWithBodyContainsJsonWith(string p0, string p1, string p2)
         {
@@ -29,7 +28,6 @@ namespace Tests.Acceptance.StepDefinitions
             }
         }
 
-        [Ignore]
         [Then(@"The '(.*)' should be equal ServiceStatusApiModel ServiceStatus")]
         public void ThenTheShouldBeEqualServiceStatusApiModelServiceStatus(string p0)
         {

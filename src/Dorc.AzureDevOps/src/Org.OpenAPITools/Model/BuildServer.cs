@@ -247,11 +247,7 @@ namespace Org.OpenAPITools.Model
                     this.Status == input.Status ||
                     this.Status.Equals(input.Status)
                 ) && 
-                (
-                    this.StatusChangedDate == input.StatusChangedDate ||
-                    (this.StatusChangedDate != null &&
-                    this.StatusChangedDate.Equals(input.StatusChangedDate))
-                ) && 
+                this.StatusChangedDate.Equals(input.StatusChangedDate) && 
                 (
                     this.Uri == input.Uri ||
                     (this.Uri != null &&
@@ -297,10 +293,7 @@ namespace Org.OpenAPITools.Model
                 }
                 hashCode = (hashCode * 59) + this.RequireClientCertificates.GetHashCode();
                 hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                if (this.StatusChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.StatusChangedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.StatusChangedDate.GetHashCode();
                 if (this.Uri != null)
                 {
                     hashCode = (hashCode * 59) + this.Uri.GetHashCode();

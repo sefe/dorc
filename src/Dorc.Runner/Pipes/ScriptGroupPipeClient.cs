@@ -49,11 +49,11 @@ namespace Dorc.Runner.Pipes
 
                     this.logger.FileLogger.LogInformation("Deserializing received ScriptGroup.");
 
-                    ScriptGroup scriptGroup = JsonSerializer.Deserialize<ScriptGroup>(pipeClient, JsonSerializerOptions.Default);
+                    ScriptGroup? scriptGroup = JsonSerializer.Deserialize<ScriptGroup>(pipeClient, JsonSerializerOptions.Default);
 
                     this.logger.FileLogger.LogInformation("Deserialization of ScriptGroup is completed.");
 
-                    return scriptGroup;
+                    return scriptGroup ?? throw new InvalidOperationException("Failed to deserialize ScriptGroup from pipe");
                 }
             }
             catch (Exception ex)

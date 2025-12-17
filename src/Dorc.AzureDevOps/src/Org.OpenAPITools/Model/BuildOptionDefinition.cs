@@ -168,11 +168,7 @@ namespace Org.OpenAPITools.Model
                     this.Ordinal == input.Ordinal ||
                     this.Ordinal.Equals(input.Ordinal)
                 ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                );
+                this.Id.Equals(input.Id);
         }
 
         /// <summary>
@@ -201,10 +197,7 @@ namespace Org.OpenAPITools.Model
                     hashCode = (hashCode * 59) + this.Name.GetHashCode();
                 }
                 hashCode = (hashCode * 59) + this.Ordinal.GetHashCode();
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
                 return hashCode;
             }
         }

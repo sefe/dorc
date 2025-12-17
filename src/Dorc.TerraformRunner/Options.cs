@@ -6,19 +6,19 @@ namespace Dorc.TerraformmRunner
     public class Options
     {
         [Option('p', "pipeName", Required = true, HelpText = "NamedPipeName to request paramters.")]
-        public string PipeName { get; set; }
+        public string PipeName { get; set; } = default!;
 
         [Option('l', "logPath", Required = true, HelpText = "Path to log file for the runner.")]
-        public string LogPath { get; set; }
+        public string LogPath { get; set; } = default!;
 
         [Option('s', "scriptPath", Required = false, HelpText = "Path to the scripts folder.")]
-        public string ScriptPath { get; set; }
+        public string ScriptPath { get; set; } = default!;
 
         [Option('t', "planFilePath", Required = true, HelpText = "Terraform plan file path")]
-        public string PlanFilePath { get; set; }
+        public string PlanFilePath { get; set; } = default!;
 
         [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan constant file path")]
-        public string PlanContentFilePath { get; set; }
+        public string PlanContentFilePath { get; set; } = default!;
 
         [Option('o', "operation", Required = false, HelpText = "Selected operation")]
         public int Operation { get; set; }

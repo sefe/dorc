@@ -132,21 +132,21 @@ namespace Dorc.PersistentData.Sources
             if (predicates.Length == 0) return source.Where(x => false); // no matches!
             if (predicates.Length == 1) return source.Where(predicates[0]); // simple
 
-            Expression<Func<T, bool>> pred = null;
+            Expression<Func<T, bool>>? pred = null;
             for (var i = 0; i < predicates.Length; i++)
             {
                 pred = pred == null
                     ? predicates[i]
                     : pred.And(predicates[i]);
             }
-            return source.Where(pred);
+            return source.Where(pred!);
         }
 
-        protected static IOrderedQueryable<T> OrderScripts<T, R>(PagedDataOperators operators, int i, IOrderedQueryable<T> orderedQuery,
+        protected static IOrderedQueryable<T>? OrderScripts<T, R>(PagedDataOperators operators, int i, IOrderedQueryable<T>? orderedQuery,
             IQueryable<T> scriptsQuery, Expression<Func<T, R>> expr)
         {
             if (i == 0)
-                switch (operators.SortOrders[i].Direction)
+                switch (operators.SortOrders![i]!.Direction)
                 {
                     case "asc":
                         orderedQuery = scriptsQuery.OrderBy(expr);
@@ -157,7 +157,7 @@ namespace Dorc.PersistentData.Sources
                         break;
                 }
             else
-                switch (operators.SortOrders[i].Direction)
+                switch (operators.SortOrders![i]!.Direction)
                 {
                     case "asc":
                         orderedQuery = orderedQuery?.ThenBy(expr);

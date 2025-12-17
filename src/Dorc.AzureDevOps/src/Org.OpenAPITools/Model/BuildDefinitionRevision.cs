@@ -183,11 +183,7 @@ namespace Org.OpenAPITools.Model
                     (this.ChangedBy != null &&
                     this.ChangedBy.Equals(input.ChangedBy))
                 ) && 
-                (
-                    this.ChangedDate == input.ChangedDate ||
-                    (this.ChangedDate != null &&
-                    this.ChangedDate.Equals(input.ChangedDate))
-                ) && 
+                this.ChangedDate.Equals(input.ChangedDate) && 
                 (
                     this.ChangeType == input.ChangeType ||
                     this.ChangeType.Equals(input.ChangeType)
@@ -226,10 +222,7 @@ namespace Org.OpenAPITools.Model
                 {
                     hashCode = (hashCode * 59) + this.ChangedBy.GetHashCode();
                 }
-                if (this.ChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.ChangedDate.GetHashCode();
-                }
+                                    hashCode = (hashCode * 59) + this.ChangedDate.GetHashCode();
                 hashCode = (hashCode * 59) + this.ChangeType.GetHashCode();
                 if (this.Comment != null)
                 {
