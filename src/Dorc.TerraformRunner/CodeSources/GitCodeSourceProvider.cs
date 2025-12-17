@@ -90,16 +90,16 @@ namespace Dorc.TerraformRunner.CodeSources
         {
             // Only allow alphanumeric characters, hyphens, underscores, forward slashes, and dots
             // This prevents command injection while allowing valid branch names
-            if (string.IsNullOrEmpty(parameter))
+            if (string.IsNullOrWhiteSpace(parameter))
             {
                 return "main";
             }
 
             var sanitized = Regex.Replace(parameter, @"[^a-zA-Z0-9\-_/\.]", "");
-            
+
             if (string.IsNullOrEmpty(sanitized))
             {
-                throw new InvalidOperationException($"Invalid branch name: '{parameter}'");
+                throw new InvalidOperationException($"Invalid branch name: '{parameter}'. The sanitized branch name is empty.");
             }
 
             return sanitized;
