@@ -91,14 +91,6 @@ namespace Dorc.Monitor
                 return isScriptExecutionSuccessful;
             }
 
-            // Get the script root from configuration
-            var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
-
-            // Resolve the full script path by combining script root with component script path
-            var fullScriptPath = string.IsNullOrEmpty(scriptRoot)
-                ? component.ScriptPath
-                : Path.Combine(scriptRoot, component.ScriptPath);
-
             // Get request and project information for Terraform source configuration
             var request = _requestsPersistentSource.GetRequest(requestId);
             ProjectApiModel? project = null;
@@ -115,7 +107,7 @@ namespace Dorc.Monitor
             }
 
             var scriptGroup = GetScriptGroup(
-                fullScriptPath,
+                component.ScriptPath,
                 properties,
                 deploymentResult.Id,
                 component,
