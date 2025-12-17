@@ -190,10 +190,10 @@ namespace Dorc.Api.Tests.Controllers
                         var failedObjectResult = failedUsers as ObjectResult;
 
                         Assert.IsNotNull(failedObjectResult);
-                        Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
+                        Assert.AreEqual(StatusCodes.Status500InternalServerError, failedObjectResult.StatusCode);
                         var responseMsg = failedObjectResult.Value as HttpResponseMessage;
 
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
+                        Assert.AreEqual(expectedExceptionMessage, responseMsg?.Content.ReadAsStringAsync().Result);
                         return;
                     }
 
@@ -338,10 +338,10 @@ namespace Dorc.Api.Tests.Controllers
                         var failedObjectResult = failedUsers as ObjectResult;
 
                         Assert.IsNotNull(failedObjectResult);
-                        Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
+                        Assert.AreEqual(StatusCodes.Status500InternalServerError, failedObjectResult.StatusCode);
                         var responseMsg = failedObjectResult.Value as HttpResponseMessage;
 
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
+                        Assert.AreEqual(expectedExceptionMessage, responseMsg?.Content.ReadAsStringAsync().Result);
 
                         return;
                     }

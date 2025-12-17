@@ -304,7 +304,7 @@ namespace Dorc.Api.Tests
 
             // Assert
             var resultsList = results.ToList();
-            Assert.AreEqual(1, resultsList.Count);
+            Assert.HasCount(1, resultsList);
             Assert.AreEqual("success", resultsList[0].Status);
 
             // Verify encryption workflow was triggered
@@ -363,7 +363,7 @@ namespace Dorc.Api.Tests
 
             // Assert
             var resultsList = results.ToList();
-            Assert.AreEqual(1, resultsList.Count);
+            Assert.HasCount(1, resultsList);
             Assert.AreEqual("success", resultsList[0].Status);
 
             // Verify encryption workflow was NOT triggered

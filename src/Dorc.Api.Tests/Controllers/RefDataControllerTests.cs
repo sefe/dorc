@@ -70,7 +70,7 @@ namespace Dorc.Api.Tests.Controllers
             var refData = result.Value as RefDataApiModel;
             Assert.IsNotNull(refData);
             Assert.AreEqual(project.ProjectId, refData.Project.ProjectId);
-            Assert.AreEqual(components.Count, refData.Components.Count);
+            Assert.HasCount(components.Count, refData.Components);
         }
 
         [TestMethod]

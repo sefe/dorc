@@ -71,18 +71,18 @@ namespace Dorc.Api.Tests.Controllers
                     var failedObjectResult = exists as ObjectResult;
 
                     Assert.IsNotNull(failedObjectResult);
-                    Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
+                    Assert.AreEqual(StatusCodes.Status500InternalServerError, failedObjectResult.StatusCode);
                     var responseMsg = failedObjectResult.Value as HttpResponseMessage;
 
                     if (isExpectedExceptionMessageCustom)
                     {
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
+                        Assert.AreEqual(expectedExceptionMessage, responseMsg?.Content.ReadAsStringAsync().Result);
                     }
 
                     return;
                 }
 
-                bool actualResult = (bool)(accountController.UserExists(userLanId, accountType) as OkObjectResult).Value;
+                bool actualResult = (bool)(accountController.UserExists(userLanId, accountType) as OkObjectResult)!.Value!;
 
                 accountExistenceCheckerMock.Received().UserExists(userLanId, accountTypeEnum);
 
@@ -128,17 +128,17 @@ namespace Dorc.Api.Tests.Controllers
                     var failedObjectResult = groupExists as ObjectResult;
 
                     Assert.IsNotNull(failedObjectResult);
-                    Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
+                    Assert.AreEqual(StatusCodes.Status500InternalServerError, failedObjectResult.StatusCode);
                     var responseMsg = failedObjectResult.Value as HttpResponseMessage;
                     if (isExpectedExceptionMessageCustom)
                     {
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
+                        Assert.AreEqual(expectedExceptionMessage, responseMsg?.Content.ReadAsStringAsync().Result);
                     }
 
                     return;
                 }
 
-                bool actualResult = (bool)(accountController.GroupExists(groupLanId, accountType) as OkObjectResult).Value;
+                bool actualResult = (bool)(accountController.GroupExists(groupLanId, accountType) as OkObjectResult)!.Value!;
 
                 accountExistenceCheckerMock.Received().GroupExists(groupLanId, accountTypeEnum);
 

@@ -222,7 +222,7 @@ namespace Dorc.Api.Tests.Sources
             _source.FlattenApiComponents(components, flattened);
 
             // Assert
-            Assert.AreEqual(4, flattened.Count);
+            Assert.HasCount(4, flattened);
             Assert.IsTrue(flattened.Any(c => c.ComponentName == "Parent"));
             Assert.IsTrue(flattened.Any(c => c.ComponentName == "Child1"));
             Assert.IsTrue(flattened.Any(c => c.ComponentName == "Child2"));

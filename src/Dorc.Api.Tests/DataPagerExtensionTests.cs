@@ -19,7 +19,7 @@ namespace Dorc.Api.Tests
             // Assert
             Assert.AreEqual(page, result.CurrentPage);
             Assert.AreEqual(limit, result.PageSize);
-            Assert.AreEqual(9, result.Items.Count);
+            Assert.HasCount(9, result.Items);
             Assert.AreEqual(9, result.TotalItems);
             Assert.AreEqual(1, result.TotalPages);
         }
@@ -38,7 +38,7 @@ namespace Dorc.Api.Tests
             // Assert
             Assert.AreEqual(page, result.CurrentPage);
             Assert.AreEqual(limit, result.PageSize);
-            Assert.AreEqual(8, result.Items.Count);
+            Assert.HasCount(8, result.Items);
             Assert.AreEqual(18, result.TotalItems);
             Assert.AreEqual(2, result.TotalPages);
         }
@@ -57,7 +57,7 @@ namespace Dorc.Api.Tests
             // Assert
             Assert.AreEqual(page, result.CurrentPage);
             Assert.AreEqual(limit, result.PageSize);
-            Assert.AreEqual(limit, result.Items.Count);
+            Assert.HasCount(limit, result.Items);
             Assert.AreEqual(page * limit + 1, result.TotalItems);
             Assert.AreEqual(3, result.TotalPages);
         }

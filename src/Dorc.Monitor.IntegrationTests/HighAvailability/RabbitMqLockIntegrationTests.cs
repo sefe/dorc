@@ -152,7 +152,7 @@ namespace Dorc.Monitor.IntegrationTests.HighAvailability
 
             // Assert
             var acquiredLocks = locks.Where(l => l != null).ToList();
-            Assert.AreEqual(1, acquiredLocks.Count, "Only ONE monitor should acquire the lock");
+            Assert.HasCount(1, acquiredLocks, "Only ONE monitor should acquire the lock");
             
             var failedCount = locks.Count(l => l == null);
             Assert.AreEqual(4, failedCount, "Four monitors should fail to acquire the lock");
