@@ -128,7 +128,6 @@ export class PageProjectBundles extends PageElement {
       }
     });
     this.uniqueBundleNames = Array.from(names).sort();
-    console.log('uniqueBundleNames:', this.uniqueBundleNames);
   }
 
   private applyBundleNameFilter() {
