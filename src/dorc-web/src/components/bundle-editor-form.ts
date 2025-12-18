@@ -78,7 +78,6 @@ export class BundleEditorForm extends LitElement {
   };
 
   render() {
-    console.log('Rendering form, Type:', this.bundleRequest.Type, 'typeOptions:', this._typeOptions);
     return html`
       <vaadin-vertical-layout>
         <div class="field-container">
