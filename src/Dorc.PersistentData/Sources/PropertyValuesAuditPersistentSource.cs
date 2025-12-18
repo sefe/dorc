@@ -75,7 +75,7 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
                 {
-                    IOrderedQueryable<Audit> orderedQuery = null;
+                    IOrderedQueryable<Audit>? orderedQuery = null;
 
                     for (var i = 0; i < operators.SortOrders.Count; i++)
                     {
@@ -149,7 +149,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static IOrderedQueryable<Audit> OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<Audit> orderedQuery,
+        private static IOrderedQueryable<Audit>? OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<Audit>? orderedQuery,
             IQueryable<Audit> scriptsQuery, Expression<Func<Audit, T>> expr)
         {
             if (i == 0)
@@ -163,15 +163,15 @@ namespace Dorc.PersistentData.Sources
                         orderedQuery = scriptsQuery.OrderByDescending(expr);
                         break;
                 }
-            else
+            else if (orderedQuery != null)
                 switch (operators.SortOrders[i].Direction)
                 {
                     case "asc":
-                        orderedQuery = orderedQuery?.ThenBy(expr);
+                        orderedQuery = orderedQuery.ThenBy(expr);
                         break;
 
                     case "desc":
-                        orderedQuery = orderedQuery?.ThenByDescending(expr);
+                        orderedQuery = orderedQuery.ThenByDescending(expr);
                         break;
                 }
 

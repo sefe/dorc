@@ -62,7 +62,7 @@ namespace Dorc.PersistentData.Sources
 
         public GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators)
         {
-            PagedModel<RefDataAudit> output = null;
+            PagedModel<RefDataAudit>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var reqStatusesQueryable = context.RefDataAudits
@@ -91,7 +91,7 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
                 {
-                    IOrderedQueryable<RefDataAudit> orderedQuery = null;
+                    IOrderedQueryable<RefDataAudit>? orderedQuery = null;
 
                     for (var i = 0; i < operators.SortOrders.Count; i++)
                     {
@@ -183,8 +183,9 @@ namespace Dorc.PersistentData.Sources
                     .ThenInclude(p => p.Script)
                     .FirstOrDefault(p => p.Id == projectId)?.Components;
 
-                foreach (var component in components)
-                    topLevelParentComponents.Add(GetTopLevelParentComponent(component));
+                if (components != null)
+                    foreach (var component in components)
+                        topLevelParentComponents.Add(GetTopLevelParentComponent(component));
 
                 topLevelParentComponents = topLevelParentComponents.Distinct().OrderBy(c => c.Name)
                     .Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
@@ -290,7 +291,8 @@ namespace Dorc.PersistentData.Sources
                         duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
                         duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
                         var script = duplicateComponent.Script;
-                        script.Name = $"{script.Name} {duplicateComponent.Name}";
+                        if (script != null)
+                            script.Name = $"{script.Name} {duplicateComponent.Name}";
 
                         context.SaveChanges();
                     }
@@ -341,8 +343,11 @@ namespace Dorc.PersistentData.Sources
                     .First(x => x.Id == apiComponent.ComponentId);
 
                 if (component.Projects.Count == 0)
-                    component.Projects.Add(
-                        context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
+                {
+                    var projectToAdd = context.Projects.FirstOrDefault(x => x.Id == projectId);
+                    if (projectToAdd != null)
+                        component.Projects.Add(projectToAdd);
+                }
 
                 // Update ComponentType for all updates
                 component.ComponentType = apiComponent.ComponentType;
@@ -353,9 +358,8 @@ namespace Dorc.PersistentData.Sources
                     component.Parent = context.Components.First(x => x.Id == parentId);
                 else if (component.Parent != null && parentId == null)
                     component.Parent = null;
-                else if (component.Parent != null && parentId != null)
-                    if (component.Parent.Id != parentId)
-                        component.Parent = context.Components.First(x => x.Id == parentId);
+                else if (component.Parent != null && parentId != null && component.Parent.Id != parentId)
+                    component.Parent = context.Components.First(x => x.Id == parentId);
 
                 // Handle script updates
                 var oldScript = component.Script;
@@ -471,7 +475,7 @@ namespace Dorc.PersistentData.Sources
                 context.Components.FirstOrDefault(x =>
                     EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation) ==
                     EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
-            if (duplicateComponent != null)
+            if (duplicateComponent is not null)
             {
                 duplicateComponent.Name = Guid.NewGuid().ToString();
                 context.SaveChanges();
@@ -532,7 +536,7 @@ namespace Dorc.PersistentData.Sources
                 using (var context = _contextFactory.GetContext())
                 {
                     loadedChildren = context.Components
-                        .Where(c => c.Parent.Id == component.Id)
+                        .Where(c => c.Parent != null && c.Parent.Id == component.Id)
                         .ToList();
 
                     component.Children = loadedChildren;
@@ -545,7 +549,7 @@ namespace Dorc.PersistentData.Sources
 
         private Component GetTopLevelEnabledParentComponent(Component component)
         {
-            return component.Parent == null
+            return component.Parent is null
                 || !component.Parent.IsEnabled
                 ? component
                 : GetTopLevelEnabledParentComponent(component.Parent);
@@ -553,7 +557,7 @@ namespace Dorc.PersistentData.Sources
 
         private static Component GetTopLevelParentComponent(Component component)
         {
-            return component.Parent == null ? component : GetTopLevelParentComponent(component.Parent);
+            return component.Parent is null ? component : GetTopLevelParentComponent(component.Parent);
         }
 
         private static void GetChildComponentsInOrder(IList<Component> efComponents, IList<ComponentApiModel> apiComponents,
@@ -583,7 +587,7 @@ namespace Dorc.PersistentData.Sources
                     NonProdOnly = script.NonProdOnly,
                     StopOnFailure = comp.StopOnFailure,
                     IsEnabled = comp.IsEnabled,
-                    ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                    ParentId = comp.Parent?.Id ?? 0,
                     ComponentType = comp.ComponentType,
                     PSVersion = script.PowerShellVersionNumber
                 };
@@ -596,7 +600,7 @@ namespace Dorc.PersistentData.Sources
                 NonProdOnly = true,
                 StopOnFailure = comp.StopOnFailure,
                 IsEnabled = comp.IsEnabled,
-                ParentId = comp.Parent != null ? comp.Parent.Id : 0,
+                ParentId = comp.Parent?.Id ?? 0,
                 ComponentType = comp.ComponentType
             };
         }
@@ -634,7 +638,7 @@ namespace Dorc.PersistentData.Sources
                         EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation) ==
                         EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
 
-                if (component == null)
+                if (component is null)
                     return;
 
                 if (component.Projects.Count == 0)
@@ -675,11 +679,12 @@ namespace Dorc.PersistentData.Sources
 
             using (var context = _contextFactory.GetContext())
             {
+                var componentId = apiComponent.ComponentId ?? 0;
                 var component = context.Components
                     .Include(c => c.Projects)
-                    .FirstOrDefault(x => x.Id.Equals((int)apiComponent.ComponentId));
+                    .FirstOrDefault(x => x.Id.Equals(componentId));
 
-                if (component != null)
+                if (component is not null)
                     if (component.Projects.Count == 0 && component.Description != null)
                     {
                         if (!component.Description.Equals("ProjectId:" + projectId,
@@ -715,7 +720,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static IOrderedQueryable<RefDataAudit> OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<RefDataAudit> orderedQuery,
+        private static IOrderedQueryable<RefDataAudit>? OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<RefDataAudit>? orderedQuery,
             IQueryable<RefDataAudit> scriptsQuery, Expression<Func<RefDataAudit, T>> expr)
         {
             if (i == 0)
@@ -729,15 +734,15 @@ namespace Dorc.PersistentData.Sources
                         orderedQuery = scriptsQuery.OrderByDescending(expr);
                         break;
                 }
-            else
+            else if (orderedQuery != null)
                 switch (operators.SortOrders[i].Direction)
                 {
                     case "asc":
-                        orderedQuery = orderedQuery?.ThenBy(expr);
+                        orderedQuery = orderedQuery.ThenBy(expr);
                         break;
 
                     case "desc":
-                        orderedQuery = orderedQuery?.ThenByDescending(expr);
+                        orderedQuery = orderedQuery.ThenByDescending(expr);
                         break;
                 }
 
@@ -758,14 +763,14 @@ namespace Dorc.PersistentData.Sources
             if (predicates.Length == 0) return source.Where(x => false); // no matches!
             if (predicates.Length == 1) return source.Where(predicates[0]); // simple
 
-            Expression<Func<T, bool>> pred = null;
+            Expression<Func<T, bool>>? pred = null;
             for (var i = 0; i < predicates.Length; i++)
             {
-                pred = pred == null
+                pred = pred is null
                     ? predicates[i]
                     : pred.And(predicates[i]);
             }
-            return source.Where(pred);
+            return source.Where(pred!);
         }
     }
 }

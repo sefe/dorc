@@ -120,7 +120,7 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
                 {
-                    IOrderedQueryable<Server> orderedQuery = null;
+                    IOrderedQueryable<Server>? orderedQuery = null;
 
                     for (var i = 0; i < operators.SortOrders.Count; i++)
                     {

@@ -135,7 +135,7 @@ namespace Dorc.PersistentData.Sources
             Expression<Func<T, bool>>? pred = null;
             for (var i = 0; i < predicates.Length; i++)
             {
-                pred = pred == null
+                pred = pred is null
                     ? predicates[i]
                     : pred.And(predicates[i]);
             }
@@ -156,15 +156,15 @@ namespace Dorc.PersistentData.Sources
                         orderedQuery = scriptsQuery.OrderByDescending(expr);
                         break;
                 }
-            else
+            else if (orderedQuery != null)
                 switch (operators.SortOrders![i]!.Direction)
                 {
                     case "asc":
-                        orderedQuery = orderedQuery?.ThenBy(expr);
+                        orderedQuery = orderedQuery.ThenBy(expr);
                         break;
 
                     case "desc":
-                        orderedQuery = orderedQuery?.ThenByDescending(expr);
+                        orderedQuery = orderedQuery.ThenByDescending(expr);
                         break;
                 }
 

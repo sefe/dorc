@@ -71,7 +71,7 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
                 {
-                    IOrderedQueryable<DeploymentRequestApiModel> orderedQuery = null;
+                    IOrderedQueryable<DeploymentRequestApiModel>? orderedQuery = null;
 
                     for (var i = 0; i < operators.SortOrders.Count; i++)
                     {
@@ -184,7 +184,7 @@ namespace Dorc.PersistentData.Sources
             return reqStatusesQueryable;
         }
 
-        private static IOrderedQueryable<DeploymentRequestApiModel> OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<DeploymentRequestApiModel> orderedQuery,
+        private static IOrderedQueryable<DeploymentRequestApiModel>? OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<DeploymentRequestApiModel>? orderedQuery,
             IQueryable<DeploymentRequestApiModel> scriptsQuery, Expression<Func<DeploymentRequestApiModel, T>> expr)
         {
             if (i == 0)
@@ -198,15 +198,15 @@ namespace Dorc.PersistentData.Sources
                         orderedQuery = scriptsQuery.OrderByDescending(expr);
                         break;
                 }
-            else
+            else if (orderedQuery != null)
                 switch (operators.SortOrders[i].Direction)
                 {
                     case "asc":
-                        orderedQuery = orderedQuery?.ThenBy(expr);
+                        orderedQuery = orderedQuery.ThenBy(expr);
                         break;
 
                     case "desc":
-                        orderedQuery = orderedQuery?.ThenByDescending(expr);
+                        orderedQuery = orderedQuery.ThenByDescending(expr);
                         break;
                 }
 
