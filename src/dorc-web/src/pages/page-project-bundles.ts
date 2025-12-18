@@ -298,7 +298,7 @@ export class PageProjectBundles extends PageElement {
     this.bundleEditorDialog.openNew(projects, this.uniqueBundleNames);
   }
 
-  private _handleBundleSaved(_e: CustomEvent) {
+  private _handleBundleSaved() {
     this.fetchBundledRequests();
   }
 
