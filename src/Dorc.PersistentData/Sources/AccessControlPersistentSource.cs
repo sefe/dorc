@@ -45,7 +45,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public AccessControlApiModel UpdateAccessControl(AccessControlApiModel accessControl)
+        public AccessControlApiModel? UpdateAccessControl(AccessControlApiModel accessControl)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -61,7 +61,8 @@ namespace Dorc.PersistentData.Sources
 
                 context.SaveChanges();
 
-                return MapToAccessControlApiModel(context.AccessControls.Find(accessControl.Id));
+                var updated = context.AccessControls.Find(accessControl.Id);
+                return updated != null ? MapToAccessControlApiModel(updated) : null;
             }
         }
 

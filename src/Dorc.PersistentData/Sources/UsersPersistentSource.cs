@@ -27,7 +27,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var first = context.Users.First(u => u.LanId != null && u.LanId.Equals(lanId));
-                return MapToUserApiModel(first);
+                return MapToUserApiModel(first)!;
             }
         }
 
@@ -37,7 +37,7 @@ namespace Dorc.PersistentData.Sources
             {
                 context.Users.Add(MapToUser(user));
                 context.SaveChanges();
-                return MapToUserApiModel(context.Users.First(u => u.LanId == user.LanId));
+                return MapToUserApiModel(context.Users.First(u => u.LanId == user.LanId))!;
             }
         }
 
@@ -46,11 +46,13 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envId);
+                if (env == null)
+                    return new List<UserApiModel>();
 
                 var result = context.Users
                     .Where(e => e.Environments.Any(en => en.Id == env.Id))
                     .Select(u => u);
-                return result.ToList().Select(MapToUserApiModel).ToList();
+                return result.ToList().Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
             }
         }
 
@@ -76,7 +78,7 @@ namespace Dorc.PersistentData.Sources
                                          select user;
                             var users = result.ToList();
 
-                            return users.Select(MapToUserApiModel).ToList();
+                            return users.Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
                         }
                     default:
                         {
@@ -91,6 +93,8 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envId);
+                if (env == null)
+                    return false;
 
                 var users = context.Users
                     .Where(e => e.Environments.Any(en => en.Id == env.Id))
@@ -117,7 +121,7 @@ namespace Dorc.PersistentData.Sources
                         users.Add(user);
                 }
 
-                return users.Select(MapToUserApiModel).ToList();
+                return users.Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
             }
         }
 
@@ -132,7 +136,7 @@ namespace Dorc.PersistentData.Sources
                             == EF.Functions.Collate("user", DeploymentContext.CaseInsensitiveCollation))
                     .OrderBy(u => u.DisplayName);
 
-                return result.Select(MapToUserApiModel).ToList();
+                return result.Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
             }
         }
 
@@ -143,7 +147,7 @@ namespace Dorc.PersistentData.Sources
                 var result = context.Users
                     .OrderBy(u => u.DisplayName);
 
-                return result.Select(MapToUserApiModel).ToList();
+                return result.Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
             }
         }
 
@@ -157,7 +161,7 @@ namespace Dorc.PersistentData.Sources
                             == EF.Functions.Collate("Group", DeploymentContext.CaseInsensitiveCollation))
                     .OrderBy(u => u.DisplayName);
 
-                return result.Select(MapToUserApiModel).ToList();
+                return result.Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
             }
         }
 
@@ -175,7 +179,7 @@ namespace Dorc.PersistentData.Sources
                             orderby user.DisplayName
                             select user;
 
-                return users.ToList().Select(MapToUserApiModel).ToList();
+                return users.ToList().Select(MapToUserApiModel).Where(u => u != null).Cast<UserApiModel>().ToList();
             }
         }
 

@@ -170,7 +170,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     Items = accessibleEnvironmentsAccessLevel.ToList().Select(data =>
                         _environmentsPersistentSource.MapToEnvironmentApiModel(data.Environment, data.UserEditable,
-                            data.IsOwner)).ToList(),
+                            data.IsOwner)).Where(e => e != null).Cast<EnvironmentApiModel>().ToList(),
                     Project = MapToProjectApiModel(project),
                 };
             }

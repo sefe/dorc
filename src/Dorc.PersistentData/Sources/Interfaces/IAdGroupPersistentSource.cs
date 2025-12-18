@@ -6,6 +6,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IAdGroupPersistentSource
     {
         IEnumerable<GroupApiModel> GetAdGroups();
-        AdGroup GetAdGroup(string name);
+        AdGroup? GetAdGroup(string name);
     }
 }

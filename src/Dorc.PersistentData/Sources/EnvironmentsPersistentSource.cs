@@ -95,7 +95,7 @@ namespace Dorc.PersistentData.Sources
                 return accessibleEnvironments
                     .Where(e => envsFilteredByDb.Contains(e.Environment.Id))
                     .ToList()
-                    .Select(e => MapToEnvironmentApiModel(e)).ToList();
+                    .Select(e => MapToEnvironmentApiModel(e)).Where(e => e != null).Cast<EnvironmentApiModel>().ToList();
             }
         }
 

@@ -92,7 +92,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto Get(long? propertyValueId)
+        public PropertyValueDto? Get(long? propertyValueId)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -101,7 +101,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto UpdatePropertyValue(long? propertyValueId, string newValue)
+        public PropertyValueDto? UpdatePropertyValue(long? propertyValueId, string newValue)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -149,7 +149,7 @@ namespace Dorc.PersistentData.Sources
                     }
 
                     var res = values.Where(x => !x.Filters.Any());
-                    return res.Select(x => MapToPropertyValueDto(x, decryptProperty)).ToList();                    
+                    return res.Select(x => MapToPropertyValueDto(x, decryptProperty)).Where(x => x != null).Cast<PropertyValueDto>().ToList();                    
                 }
             }
         }
@@ -164,7 +164,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto AddPropertyValue(PropertyValueDto propertyValueDto)
+        public PropertyValueDto? AddPropertyValue(PropertyValueDto propertyValueDto)
         {
             using (var context = _contextFactory.GetContext())
             {

@@ -37,7 +37,7 @@ namespace Dorc.PersistentData.Sources
                 var newServer = MapToServer(server, oldServer);
                 context.SaveChanges();
 
-                var apiServer = MapToServerApiModel(newServer);
+                var apiServer = MapToServerApiModel(newServer)!;
                 apiServer.UserEditable = server.UserEditable;
                 return apiServer;
             }
@@ -287,7 +287,7 @@ namespace Dorc.PersistentData.Sources
                 svr = context.Servers.Add(svr).Entity;
                 context.SaveChanges();
             }
-            return GetServer(svr.Id, user);
+            return GetServer(svr.Id, user)!;
         }
 
         public IEnumerable<string> GetEnvironmentNamesForServerId(int serverId)
@@ -301,12 +301,12 @@ namespace Dorc.PersistentData.Sources
                 if (server == null)
                     return output;
 
-                var envDetailNames = server.Environments.Select(s => s.Name);
+                var envDetailNames = server.Environments.Select(s => s.Name).Where(n => n != null);
 
                 foreach (var envName in envDetailNames)
                 {
-                    var environment = EnvironmentUnifier.GetEnvironment(context, envName);
-                    if (environment != null)
+                    var environment = EnvironmentUnifier.GetEnvironment(context, envName!);
+                    if (environment?.Name != null)
                         output.Add(environment.Name);
                 }
 

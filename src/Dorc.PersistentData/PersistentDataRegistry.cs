@@ -17,7 +17,7 @@ namespace Dorc.PersistentData
             For<IDeploymentContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
 
             var connectionString = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetConnectionString("DOrcConnectionString");
+                .GetConnectionString("DOrcConnectionString") ?? throw new InvalidOperationException("DOrcConnectionString connection string not found");
             For<IDeploymentContextFactory>().Use(new DeploymentContextFactory(connectionString));
 
             For<IAccessControlPersistentSource>().Use<AccessControlPersistentSource>().Scoped();

@@ -10,7 +10,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
             ServerApiModel server, IPrincipal user);
         IEnumerable<ServerApiModel> GetServers(IPrincipal user);
         ServerApiModel? GetServer(string serverName, IPrincipal user);
-        ServerApiModel GetServer(int serverId, IPrincipal user);
+        ServerApiModel? GetServer(int serverId, IPrincipal user);
         ServerApiModel AddServer(ServerApiModel server, IPrincipal user);
         IEnumerable<ServerApiModel> GetServersForEnvId(int environmentId);
         IEnumerable<ServerApiModel> GetEnvContentAppServersForEnvId(int environmentId);

@@ -8,6 +8,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<DaemonApiModel> GetDaemons();
         DaemonApiModel Add(DaemonApiModel daemonApiModel);
         bool Delete(int daemonApiModelId);
-        DaemonApiModel Update(DaemonApiModel env);
+        DaemonApiModel? Update(DaemonApiModel env);
     }
 }

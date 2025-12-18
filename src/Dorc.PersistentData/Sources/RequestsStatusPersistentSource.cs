@@ -32,7 +32,7 @@ namespace Dorc.PersistentData.Sources
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
-            PagedModel<DeploymentRequestApiModel> output = null;
+            PagedModel<DeploymentRequestApiModel>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var reqStatusesQueryable = GetDeploymentRequestApiModels(context, username, userSids);

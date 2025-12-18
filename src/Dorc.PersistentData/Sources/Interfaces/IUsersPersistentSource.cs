@@ -14,7 +14,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<UserApiModel> GetAllGroups();
         IEnumerable<UserApiModel> GetAll();
         IEnumerable<UserApiModel> GetUnallocatedUsers(string envName);
-        UserApiModel AddDelegatedUser(int userId, string envName, IPrincipal principal);
+        UserApiModel? AddDelegatedUser(int userId, string envName, IPrincipal principal);
         bool DeleteDelegatedUser(int userId, string envName, IPrincipal principal);
         bool IsDelegatedUser(int envId, IPrincipal user);
     }

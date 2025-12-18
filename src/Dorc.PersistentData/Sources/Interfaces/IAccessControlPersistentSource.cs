@@ -9,7 +9,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<AccessControlApiModel> GetAccessControls();
         IEnumerable<AccessControlApiModel> GetAccessControls(Guid objectId);
         AccessControlApiModel AddAccessControl(AccessControlApiModel accessControl, Guid objectId);
-        AccessControlApiModel UpdateAccessControl(AccessControlApiModel accessControl);
+        AccessControlApiModel? UpdateAccessControl(AccessControlApiModel accessControl);
         Guid DeleteAccessControl(int id);
         IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(ClaimsPrincipal user, string accessControlName) where TEntity : SecurityObject;
         IEnumerable<SecurityObject> GetSecurableObjects<TEntity>(Type type, ClaimsPrincipal user) where TEntity : SecurityObject;

@@ -70,7 +70,8 @@ namespace Dorc.Api.Services
             {
                 foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
                 {
-                    propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                    if (propertyValueDto.Value != null)
+                        propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
                 }
             }
 
