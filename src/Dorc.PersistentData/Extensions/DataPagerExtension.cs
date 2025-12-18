@@ -31,7 +31,7 @@ namespace Dorc.PersistentData.Extensions
             return paged;
         }
 
-        public static Expression<Func<T, bool>> ContainsExpression<T>(this IQueryable<T> source, string propertyName,
+        public static Expression<Func<T, bool>>? ContainsExpression<T>(this IQueryable<T> source, string propertyName,
             string propertyValue)
         {
             var parameterExp = Expression.Parameter(typeof(T), "type");
@@ -42,10 +42,12 @@ namespace Dorc.PersistentData.Extensions
             }
 
             var propertyExp = Expression.Property(parameterExp, propertyName);
-            
+
             if (propertyExp.Type == typeof(string))
             {
                 var method = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+                if (method is null)
+                    throw new InvalidOperationException("String.Contains method not found");
 
                 var containsMethodExp = Expression.Call(propertyExp, method, Expression.Invoke(() => propertyValue));
 
@@ -58,6 +60,8 @@ namespace Dorc.PersistentData.Extensions
                     throw new ArgumentException($"Invalid value detected for column '{propertyName}', must be integer");
 
                 var method = typeof(int).GetMethod("Equals", new[] { typeof(int) });
+                if (method is null)
+                    throw new InvalidOperationException("Int32.Equals method not found");
 
                 var containsMethodExp = Expression.Call(propertyExp, method, Expression.Invoke(() => intPropVal));
 

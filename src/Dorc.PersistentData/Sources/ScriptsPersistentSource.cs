@@ -29,7 +29,7 @@ namespace Dorc.PersistentData.Sources
 
         public GetScriptsListResponseDto GetScriptsByPage(int limit, int page, PagedDataOperators operators)
         {
-            PagedModel<Script> output = null;
+            PagedModel<Script>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var scriptsQuery = context.Scripts.Include(s => s.Components).ThenInclude(x => x.Projects).AsQueryable();
@@ -114,7 +114,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public ScriptApiModel GetScript(int id)
+        public ScriptApiModel? GetScript(int id)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -222,12 +222,10 @@ namespace Dorc.PersistentData.Sources
             if (predicates.Length == 0) return source; // no filters, return unfiltered
             if (predicates.Length == 1) return source.Where(predicates[0]); // simple
 
-            Expression<Func<T, bool>> pred = null;
-            for (var i = 0; i < predicates.Length; i++)
+            var pred = predicates[0];
+            for (var i = 1; i < predicates.Length; i++)
             {
-                pred = pred == null
-                    ? predicates[i]
-                    : pred.And(predicates[i]);
+                pred = pred.And(predicates[i]);
             }
             return source.Where(pred);
         }

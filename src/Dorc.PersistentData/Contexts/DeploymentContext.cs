@@ -322,10 +322,10 @@ namespace Dorc.PersistentData.Contexts
                 {
                     Id = Convert.ToInt32(row["Id"]),
                     ParentId = row["ParentId"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["ParentId"]),
-                    Name = row["Name"].ToString(),
+                    Name = row["Name"].ToString() ?? string.Empty,
                     IsProd = Convert.ToBoolean(row["IsProd"]),
                     Secure = Convert.ToBoolean(row["Secure"]),
-                    Owner = row["Owner"].ToString(),
+                    Owner = row["Owner"].ToString() ?? string.Empty,
                     ObjectId = Guid.Parse(row["ObjectId"].ToString() ?? string.Empty)
                 };
                 result.Add(env);

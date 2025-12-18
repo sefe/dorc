@@ -340,9 +340,9 @@ namespace Dorc.PersistentData.Sources
         }
 
 
-        private Server MapToServer(ServerApiModel server, Server s = null)
+        private Server MapToServer(ServerApiModel server, Server? s = null)
         {
-            if (s == null)
+            if (s is null)
             {
                 return new Server
                 {
@@ -360,9 +360,9 @@ namespace Dorc.PersistentData.Sources
             return s;
         }
 
-        private ServerApiModel MapToServerApiModel(Server server)
+        private ServerApiModel? MapToServerApiModel(Server? server)
         {
-            if (server == null) return null;
+            if (server is null) return null;
 
             return new ServerApiModel
             {
@@ -374,9 +374,9 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        private ServerApiModel MapToServerApiModel(ServerData serverData)
+        private ServerApiModel? MapToServerApiModel(ServerData? serverData)
         {
-            if (serverData == null) return null;
+            if (serverData is null) return null;
 
             return new ServerApiModel
             {

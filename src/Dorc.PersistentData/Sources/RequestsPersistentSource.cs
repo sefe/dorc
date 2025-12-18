@@ -24,7 +24,7 @@ namespace Dorc.PersistentData.Sources
             _claimsPrincipalReader = claimsPrincipalReader;
         }
 
-        public DeploymentRequestApiModel GetRequest(int requestId)
+        public DeploymentRequestApiModel? GetRequest(int requestId)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -46,7 +46,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public RequestStatusDto GetRequestStatus(int requestId)
+        public RequestStatusDto? GetRequestStatus(int requestId)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -63,7 +63,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(r => status.ToString() == r.Status
                         && r.IsProd == isProd)
                     .ToList().Select(MapToDeploymentRequestApiModel)
-                    .Where(r => r != null) // Filter out failed mappings
+                    .Where(r => r != null).Cast<DeploymentRequestApiModel>()
                     .ToList();
             }
         }
@@ -76,7 +76,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status)
                         && r.IsProd == isProd)
                     .ToList().Select(MapToDeploymentRequestApiModel)
-                    .Where(r => r != null) // Filter out failed mappings
+                    .Where(r => r != null).Cast<DeploymentRequestApiModel>()
                     .ToList();
             }
         }
@@ -89,7 +89,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status || status3.ToString() == r.Status)
                         && r.IsProd == isProd)
                     .ToList().Select(MapToDeploymentRequestApiModel)
-                    .Where(r => r != null) // Filter out failed mappings
+                    .Where(r => r != null).Cast<DeploymentRequestApiModel>()
                     .ToList();
             }
         }
@@ -142,7 +142,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DeploymentResultApiModel GetDeploymentResults(int resultId)
+        public DeploymentResultApiModel? GetDeploymentResults(int resultId)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -205,7 +205,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public string GetRequestLog(int id)
+        public string? GetRequestLog(int id)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -529,7 +529,7 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        private static string GetSafeProperty(Func<string> getter)
+        private static string? GetSafeProperty(Func<string?> getter)
         {
             try
             {

@@ -15,7 +15,7 @@ namespace Dorc.PersistentData.Sources
             _contextFactory = contextFactory;
         }
 
-        public ComponentApiModel GetComponentByName(string componentName)
+        public ComponentApiModel? GetComponentByName(string componentName)
         {
             using (var context = _contextFactory.GetContext())
             {

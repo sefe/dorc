@@ -177,25 +177,30 @@ namespace Dorc.PersistentData.Sources
                     if (property.IsArray)
                     {
                         var encrypted = JsonSerializer.Deserialize<string[]>(propertyValueDto.Value)
-                            ?.Select(s => _encrypt.EncryptValue(propertyValue.Value)).ToList();
+                            ?.Select(s => _encrypt.EncryptValue(propertyValue.Value ?? string.Empty)).ToList();
 
                         propertyValue.Value = JsonSerializer.Serialize(encrypted);
                     }
                     else
                     {
-                        propertyValue.Value = _encrypt.EncryptValue(propertyValue.Value);
+                        propertyValue.Value = _encrypt.EncryptValue(propertyValue.Value ?? string.Empty);
                     }
                 }
                 context.PropertyValues.Add(propertyValue);
 
                 if (!string.IsNullOrWhiteSpace(propertyValueDto.PropertyValueFilter))
-                    context.PropertyValueFilters.Add(new PropertyValueFilter
+                {
+                    var envFilter = context.PropertyFilters.Find(1);
+                    if (envFilter != null)
                     {
-                        PropertyValue = propertyValue,
-                        PropertyFilter = context.PropertyFilters.Find(1),
-                        Value = propertyValueDto.PropertyValueFilter,
-
-                    });
+                        context.PropertyValueFilters.Add(new PropertyValueFilter
+                        {
+                            PropertyValue = propertyValue,
+                            PropertyFilter = envFilter,
+                            Value = propertyValueDto.PropertyValueFilter,
+                        });
+                    }
+                }
                 context.SaveChanges();
                 return MapToPropertyValueDto(propertyValue);
             }
@@ -227,7 +232,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyValueDto GetCachedPropertyValue(string propertyName)
+        public PropertyValueDto? GetCachedPropertyValue(string propertyName)
         {
             if (_cachedProperties.ContainsKey(propertyName))
                 return _cachedProperties[propertyName];
@@ -327,7 +332,7 @@ namespace Dorc.PersistentData.Sources
 
                 var globalPropertiesAsync = GetGlobalPropertiesAsync(environmentSecure);
 
-                var propertiesForEnvironmentAsync = Task.FromResult<IDictionary<string, PropertyValueDto>>(null);
+                var propertiesForEnvironmentAsync = Task.FromResult<IDictionary<string, PropertyValueDto>?>(null);
                 if (!string.IsNullOrEmpty(envName))
                 {
                     propertiesForEnvironmentAsync = GetPropertiesForEnvironmentAsync();
@@ -359,7 +364,7 @@ namespace Dorc.PersistentData.Sources
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
-            PagedModel<FlatPropertyValueApiModel> output = null;
+            PagedModel<FlatPropertyValueApiModel>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var envProps = from propertyValue in context.PropertyValues
@@ -377,7 +382,7 @@ namespace Dorc.PersistentData.Sources
                                let permissions =
                                    (from env in context.Environments
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                    where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                                    where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!))
                                     select ac.Allow).ToList()
                                let hasPermission =
                                    permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -534,7 +539,7 @@ namespace Dorc.PersistentData.Sources
             string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
-            PagedModel<FlatPropertyValueApiModel> output = null;
+            PagedModel<FlatPropertyValueApiModel>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 IQueryable<FlatPropertyValueApiModel> scopedPropertyValuesQuery;
@@ -554,7 +559,7 @@ namespace Dorc.PersistentData.Sources
                                    let permissions =
                                        (from env in context.Environments
                                         join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                        where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                                        where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!))
                                         select ac.Allow).ToList()
                                    let hasPermission =
                                        permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -752,12 +757,12 @@ namespace Dorc.PersistentData.Sources
             return properties;
         }
 
-        private PropertyValueDto MapToPropertyValueDto(PropertyValue pv, bool decryptProperty = false)
+        private PropertyValueDto? MapToPropertyValueDto(PropertyValue? pv, bool decryptProperty = false)
         {
-            if (pv == null)
+            if (pv is null)
                 return null;
 
-            PropertyValueFilter propFilter = null;
+            PropertyValueFilter? propFilter = null;
             if (pv.Filters != null)
             {
                 propFilter = pv.Filters.FirstOrDefault();

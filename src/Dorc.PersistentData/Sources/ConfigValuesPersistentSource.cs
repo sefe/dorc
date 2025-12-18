@@ -17,7 +17,7 @@ namespace Dorc.PersistentData.Sources
             _contextFactory = contextFactory;
         }
 
-        public string GetConfigValue(string key, string defaultValue = null)
+        public string? GetConfigValue(string key, string? defaultValue = null)
         {
             using var context = _contextFactory.GetContext();
             var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);

@@ -10,7 +10,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool Remove(long? propertyValueId);
         PropertyValueDto Get(long? propertyValueId);
         PropertyValueDto[] GetPropertyValuesByName(string propertyName);
-        PropertyValueDto GetCachedPropertyValue(string propertyName);
+        PropertyValueDto? GetCachedPropertyValue(string propertyName);
         void AddEnvironmentFilter(string envName);
         PropertyValueDto[] GetGlobalProperties(string? propertyName = null);
         PropertyValueDto[] GetEnvironmentProperties(string environmentName, string? propertyName);

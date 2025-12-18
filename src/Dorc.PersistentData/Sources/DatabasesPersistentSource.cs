@@ -341,8 +341,8 @@ namespace Dorc.PersistentData.Sources
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
                         eu.Database != null && dbIds.Contains(eu.Database.Id) &&
-                        eu.User != null && eu.User.LoginId.Equals(username) &&
-                        eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
+                        eu.User != null && eu.User.LoginId != null && eu.User.LoginId.Equals(username) &&
+                        eu.User.LoginType != null && eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
             }

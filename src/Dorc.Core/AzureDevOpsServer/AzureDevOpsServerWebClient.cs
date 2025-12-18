@@ -22,13 +22,13 @@ namespace Dorc.Core.AzureDevOpsServer
         // The Authority is the sign-in URL of the tenant.
         // The Scopes are roles set within the App registration.
 
-        private static string aadInstance = AppSettings["AadInstance"];
-        private static string tenant = AppSettings["AadTenant"];
-        private static string clientId = AppSettings["AadClientId"];
-        private static string secret = AppSettings["AadSecret"];
-        private static string azureDevOpsOrganizationUrl = AppSettings["AadAdosOrgUrl"];
-        private static string[] scopes = { AppSettings["AadScopes"] };
-        private static string azureEndpointUrl = AppSettings["AzureEndpoint"];
+        private static string? aadInstance = AppSettings["AadInstance"];
+        private static string? tenant = AppSettings["AadTenant"];
+        private static string? clientId = AppSettings["AadClientId"];
+        private static string? secret = AppSettings["AadSecret"];
+        private static string? azureDevOpsOrganizationUrl = AppSettings["AadAdosOrgUrl"];
+        private static string?[] scopes = { AppSettings["AadScopes"] };
+        private static string? azureEndpointUrl = AppSettings["AzureEndpoint"];
         
 
         public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)

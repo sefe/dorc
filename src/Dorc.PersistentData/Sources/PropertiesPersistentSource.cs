@@ -18,7 +18,7 @@ namespace Dorc.PersistentData.Sources
             _log = logger;
         }
 
-        public PropertyApiModel CreateProperty(string propertyName, bool secure, string updatedBy)
+        public PropertyApiModel? CreateProperty(string propertyName, bool secure, string updatedBy)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -60,7 +60,11 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return context.Properties
-                    .Select(MapToPropertyApiModel).ToList();
+                    .ToList()
+                    .Select(MapToPropertyApiModel)
+                    .Where(p => p != null)
+                    .Cast<PropertyApiModel>()
+                    .ToList();
             }
         }
 
@@ -68,7 +72,12 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Properties.Select(MapToPropertyApiModel).AsQueryable();
+                return context.Properties
+                    .ToList()
+                    .Select(MapToPropertyApiModel)
+                    .Where(p => p != null)
+                    .Cast<PropertyApiModel>()
+                    .AsQueryable();
             }
         }
 
@@ -97,20 +106,20 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyApiModel CreateProperty(PropertyApiModel property, string updatedBy)
+        public PropertyApiModel? CreateProperty(PropertyApiModel property, string updatedBy)
         {
             using (var context = _contextFactory.GetContext())
             {
                 var foundProperty = context.Properties.FirstOrDefault(p => p.Name.Equals(property.Name));
                 if (foundProperty != null)
-                    return MapToPropertyApiModel(context.Properties.FirstOrDefault(p => p.Name.Equals(property.Name)));
+                    return MapToPropertyApiModel(foundProperty);
 
                 context.Properties.Add(MapToProperty(property));
                 context.SaveChanges();
 
                 var prop = context.Properties.FirstOrDefault(p => p.Name.Equals(property.Name));
 
-                if (prop == null)
+                if (prop is null)
                     return null;
 
                 context.AuditProperties.Add(new AuditProperty
@@ -146,7 +155,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyApiModel GetProperty(string propertyName)
+        public PropertyApiModel? GetProperty(string propertyName)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -154,7 +163,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public PropertyApiModel GetProperty(int propertyId)
+        public PropertyApiModel? GetProperty(int propertyId)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -166,8 +175,12 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Properties.Where(p => TestForPropertyNameContaining(p, containingText)
-                ).ToList().Select(MapToPropertyApiModel).ToList();
+                return context.Properties.Where(p => TestForPropertyNameContaining(p, containingText))
+                    .ToList()
+                    .Select(MapToPropertyApiModel)
+                    .Where(p => p != null)
+                    .Cast<PropertyApiModel>()
+                    .ToList();
             }
         }
 
@@ -194,7 +207,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public string GetConfigurationFilePath(EnvironmentApiModel environment)
+        public string? GetConfigurationFilePath(EnvironmentApiModel environment)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -204,12 +217,13 @@ namespace Dorc.PersistentData.Sources
                 if (env != null)
                 {
                     var database = env.Databases.SingleOrDefault(d => d.Type == "Endur");
-                    if (database == null) return null;
+                    if (database is null || string.IsNullOrEmpty(database.Name))
+                        return null;
 
                     var shortName = GetEnvironmentShortNameFromDatabaseName(database.Name);
                     var cfgFilename = $"ENDUR_{shortName}.cfg";
 
-                    return Path.Combine(environment.Details.FileShare, "Resources", cfgFilename);
+                    return Path.Combine(environment.Details.FileShare ?? string.Empty, "Resources", cfgFilename);
                 }
             }
 

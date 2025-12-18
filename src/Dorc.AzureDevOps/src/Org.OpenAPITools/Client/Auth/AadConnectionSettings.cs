@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Linq;
 
 namespace Org.OpenAPITools.Client.Auth
 {
@@ -29,9 +30,9 @@ namespace Org.OpenAPITools.Client.Auth
         /// <param name="clientSecret"></param>
         /// <param name="tenantId"></param>
         /// <exception cref="ArgumentNullException"></exception>
-        public AadConnectionSettings(string clientId, string aadInstance, 
-            string azureDevOpsOrganizationalUrl, string[] scopes = null, string clientSecret=null, 
-            string tenantId= "213c2807-792f-48e1-924a-eac984ef3354")
+        public AadConnectionSettings(string? clientId, string? aadInstance,
+            string? azureDevOpsOrganizationalUrl, string?[]? scopes = null, string? clientSecret=null,
+            string? tenantId= "213c2807-792f-48e1-924a-eac984ef3354")
         {
             #region Validation
 
@@ -54,12 +55,12 @@ namespace Org.OpenAPITools.Client.Auth
 
             #endregion
 
-            this.Scopes = scopes ?? new[] { ".default" };
-            this.ClientId = clientId;
-            this.AadInstance = aadInstance;
-            this.AzureDevOpsOrganizationalUrl = azureDevOpsOrganizationalUrl;
-            this.ClientSecret = clientSecret;
-            this.TenantId = tenantId;
+            this.Scopes = scopes?.Where(s => s != null).Cast<string>().ToArray() ?? new[] { ".default" };
+            this.ClientId = clientId!;
+            this.AadInstance = aadInstance!;
+            this.AzureDevOpsOrganizationalUrl = azureDevOpsOrganizationalUrl!;
+            this.ClientSecret = clientSecret!;
+            this.TenantId = tenantId ?? "213c2807-792f-48e1-924a-eac984ef3354";
             this.Authority = string.Format(CultureInfo.InvariantCulture, this.AadInstance, this.TenantId);
         }
 

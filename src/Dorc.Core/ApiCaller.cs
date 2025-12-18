@@ -13,7 +13,7 @@ namespace Dorc.Core
 
     public interface IApiCaller
     {
-        ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string> segments = null, string body = null) where T : class;
+        ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string>? segments = null, string? body = null) where T : class;
     }
 
     public class ApiCaller : IApiCaller
@@ -24,7 +24,7 @@ namespace Dorc.Core
         {
             var apiRoot =
                     new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
-                        "ApiRoot"];
+                        "ApiRoot"] ?? throw new InvalidOperationException("ApiRoot configuration is required");
             var options = new RestClientOptions
             {
                 BaseUrl = new Uri(apiRoot),

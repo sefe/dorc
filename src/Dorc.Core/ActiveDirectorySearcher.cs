@@ -62,11 +62,14 @@ namespace Dorc.Core
 
                         if (de.Properties["objectClass"]?.Contains("user") == true)
                         {
-                            var flags = (int)de.Properties["userAccountControl"].Value;
-
-                            var enabled = !Convert.ToBoolean(flags & 0x0002);
-                            if (enabled)
-                                output.Add(GetModelFromDirectoryEntry(de));
+                            var userAccountControlValue = de.Properties["userAccountControl"].Value;
+                            if (userAccountControlValue != null)
+                            {
+                                var flags = (int)userAccountControlValue;
+                                var enabled = !Convert.ToBoolean(flags & 0x0002);
+                                if (enabled)
+                                    output.Add(GetModelFromDirectoryEntry(de));
+                            }
                         }
                         if (de.Properties["objectClass"]?.Contains("group") == true)
                         {
@@ -122,11 +125,12 @@ namespace Dorc.Core
                 displayName = GetSafeString(de.Properties, "cn");
             }
 
+            var objectSidValue = de.Properties["objectSid"].Value as byte[];
             return new UserElementApiModel()
             {
                 Username = GetSafeString(de.Properties, "SAMAccountName"),
                 DisplayName = displayName,
-                Sid = GetSidString((byte[])de.Properties["objectSid"].Value),
+                Sid = objectSidValue != null ? GetSidString(objectSidValue) : null,
                 IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
                 Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
             };
@@ -254,15 +258,22 @@ namespace Dorc.Core
             DirectorySearcher ds = new DirectorySearcher();
 
             ds.Filter = $"(&(objectClass=user)(sAMAccountName={name}))";
-            SearchResult sr = ds.FindOne();
+            SearchResult? sr = ds.FindOne();
 
-            DirectoryEntry user = sr.GetDirectoryEntry();
-            user.RefreshCache(new string[] { "tokenGroups" });
-
-            for (int i = 0; i < user.Properties["tokenGroups"].Count; i++)
+            if (sr != null)
             {
-                SecurityIdentifier sid = new SecurityIdentifier((byte[])user.Properties["tokenGroups"][i], 0);
-                result.Add(sid.ToString());
+                DirectoryEntry user = sr.GetDirectoryEntry();
+                user.RefreshCache(new string[] { "tokenGroups" });
+
+                for (int i = 0; i < user.Properties["tokenGroups"].Count; i++)
+                {
+                    var tokenGroupBytes = user.Properties["tokenGroups"][i] as byte[];
+                    if (tokenGroupBytes != null)
+                    {
+                        SecurityIdentifier sid = new SecurityIdentifier(tokenGroupBytes, 0);
+                        result.Add(sid.ToString());
+                    }
+                }
             }
 
             var f = new NTAccount(samAccountName);
@@ -307,8 +318,10 @@ namespace Dorc.Core
         {
             if (de.NativeGuid == null) return false;
 
-            var flags = (int)de.Properties["userAccountControl"].Value;
+            var userAccountControlValue = de.Properties["userAccountControl"].Value;
+            if (userAccountControlValue == null) return false;
 
+            var flags = (int)userAccountControlValue;
             return !Convert.ToBoolean(flags & 0x0002);
         }
 

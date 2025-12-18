@@ -7,13 +7,13 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IRequestsPersistentSource
     {
         DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal principal);
-        RequestStatusDto GetRequestStatus(int requestId);
+        RequestStatusDto? GetRequestStatus(int requestId);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, bool isProd);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId, int componentId);
-        string GetRequestLog(int id);
+        string? GetRequestLog(int id);
 
         bool SetRequestStartStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status, DateTimeOffset startedTime);
         void SetRequestCompletionStatus(
@@ -32,7 +32,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime);
         int SwitchDeploymentResultsStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentResultStatus fromStatus, DeploymentResultStatus toStatus);
 
-        DeploymentResultApiModel GetDeploymentResults(int resultId);
+        DeploymentResultApiModel? GetDeploymentResults(int resultId);
         void SaveDeploymentResults(IEnumerable<ComponentApiModel> components, int requestId);
         public DeploymentResultApiModel CreateDeploymentResult(int componentId, int requestId);
         void ClearAllDeploymentResults(DeploymentRequestApiModel deploymentRequest);
@@ -41,7 +41,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool UpdateResultLog(DeploymentResultApiModel deploymentResultModel, string log);
         bool UpdateUncLogPath(DeploymentRequestApiModel deploymentRequest, string uncLogPath);
         bool UpdateUncLogPath(int requestId, string uncLogPath);
-        DeploymentRequestApiModel GetRequest(int requestId);
+        DeploymentRequestApiModel? GetRequest(int requestId);
         int SubmitRequest(DeploymentRequest deploymentRequest);
     }
 }

@@ -9,7 +9,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
 {
     public interface IEnvironmentsPersistentSource
     {
-        EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user);
+        EnvironmentApiModel? GetEnvironment(string environmentName, IPrincipal user);
         bool EnvironmentExists(string rowEnvironment);
         string GetEnvironmentOwnerId(int envId);
         bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, UserElementApiModel user);
@@ -17,19 +17,19 @@ namespace Dorc.PersistentData.Sources.Interfaces
         EnvironmentApiModel DetachServerFromEnv(int envId, int serverId, ClaimsPrincipal user);
         EnvironmentApiModel AttachDatabaseToEnv(int envId, int databaseId, ClaimsPrincipal user);
         EnvironmentApiModel DetachDatabaseFromEnv(int envId, int databaseId, ClaimsPrincipal user);
-        Environment GetSecurityObject(string environmentName);
+        Environment? GetSecurityObject(string environmentName);
         EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal principal);
         IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user);
-        EnvironmentApiModel GetEnvironment(int environmentId, ClaimsPrincipal user);
+        EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user);
         IEnumerable<EnvironmentComponentStatusModel> GetEnvironmentComponentStatuses(int environmentId);
         IEnumerable<EnvironmentContentBuildsApiModel> GetEnvironmentComponentStatuses(string environmentName,
             DateTime cutoffDate);
         bool IsEnvironmentOwner(string envName, ClaimsPrincipal user);
         bool DeleteEnvironment(EnvironmentApiModel env, IPrincipal principal);
-        EnvironmentApiModel UpdateEnvironment(EnvironmentApiModel env, IPrincipal user);
+        EnvironmentApiModel? UpdateEnvironment(EnvironmentApiModel env, IPrincipal user);
         IEnumerable<string> GetEnvironmentNames(IPrincipal principal);
         IEnumerable<EnvironmentApiModel> GetEnvironmentsForDatabase(string databaseName, string serverName, IPrincipal user);
-        EnvironmentApiModel GetEnvironment(string environmentName);
+        EnvironmentApiModel? GetEnvironment(string environmentName);
         IEnumerable<ProjectApiModel> GetMappedProjects(string envName);
         IEnumerable<EnvironmentData> AccessibleEnvironmentsAccessLevel(IDeploymentContext context,
             string projectName, IPrincipal user, AccessLevel accessLevel);
@@ -37,6 +37,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool EnvironmentIsSecure(string envName);
         IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
         void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user);
-        EnvironmentApiModel MapToEnvironmentApiModel(Environment env, bool userEditable, bool isOwner);
+        EnvironmentApiModel? MapToEnvironmentApiModel(Environment? env, bool userEditable, bool isOwner);
     }
 }
