@@ -199,6 +199,10 @@ namespace Dorc.Api.Controllers
             try
             {
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest is null)
+                {
+                    return NotFound($"Request {requestId} not found");
+                }
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
@@ -247,6 +251,10 @@ namespace Dorc.Api.Controllers
             try
             {
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest is null)
+                {
+                    return NotFound($"Request {requestId} not found");
+                }
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)

@@ -7,7 +7,7 @@ namespace Dorc.Monitor.RunnerProcess
 {
     internal class RunnerProcessStarter
     {
-        private readonly ILogger logger;
+        private readonly ILogger logger = null!;
 
         public string RunnerExecutableFullName { get; set; } = string.Empty;
         public string ScriptGroupPipeName { get; set; } = string.Empty;

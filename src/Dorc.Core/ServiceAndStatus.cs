@@ -2,28 +2,12 @@
 {
     public class ServicesAndStatus
     {
-        public string EnvName
-        {
-            get;
-            set;
-        }
+        public string EnvName { get; set; } = string.Empty;
 
-        public string ServerName
-        {
-            get;
-            set;
-        }
+        public string ServerName { get; set; } = string.Empty;
 
-        public string ServiceName
-        {
-            get;
-            set;
-        }
+        public string ServiceName { get; set; } = string.Empty;
 
-        public string ServiceStatus
-        {
-            get;
-            set;
-        }
+        public string ServiceStatus { get; set; } = string.Empty;
     }
 }

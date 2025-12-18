@@ -13,8 +13,8 @@ namespace Dorc.Monitor.RequestProcessors
 {
     internal class PendingRequestProcessor : IPendingRequestProcessor
     {
-        private readonly ILogger logger;
-        private IVariableResolver _variableResolver;
+        private readonly ILogger logger = null!;
+        private IVariableResolver _variableResolver = null!;
         private readonly IComponentProcessor componentProcessor;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
         private readonly IRequestsPersistentSource requestsPersistentSource;

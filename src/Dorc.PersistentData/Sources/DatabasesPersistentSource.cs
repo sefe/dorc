@@ -340,7 +340,8 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
+                        eu.Database != null && dbIds.Contains(eu.Database.Id) &&
+                        eu.User != null && eu.User.LoginId.Equals(username) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
@@ -357,9 +358,9 @@ namespace Dorc.PersistentData.Sources
                     return null;
 
                 // Check if another database already exists with the same name and server (excluding current database)
-                var duplicateExists = context.Databases.Any(d => 
-                    d.Name.Equals(database.Name) && 
-                    d.ServerName.Equals(database.ServerName) && 
+                var duplicateExists = context.Databases.Any(d =>
+                    d.Name != null && d.Name.Equals(database.Name) &&
+                    d.ServerName != null && d.ServerName.Equals(database.ServerName) &&
                     d.Id != database.Id);
 
                 if (duplicateExists)
@@ -401,9 +402,9 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        public static DatabaseApiModel? MapToDatabaseApiModel(Database db)
+        public static DatabaseApiModel? MapToDatabaseApiModel(Database? db)
         {
-            if (db == null)
+            if (db is null)
                 return null;
 
             return new DatabaseApiModel

@@ -246,13 +246,13 @@ namespace Dorc.Monitor
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration
     {
-        public string BaseUrl { get; set; }
+        public string BaseUrl { get; set; } = string.Empty;
 
-        public string ClientId { get; set; }
+        public string ClientId { get; set; } = string.Empty;
 
-        public string ClientSecret { get; set; }
+        public string ClientSecret { get; set; } = string.Empty;
 
-        public string Scope { get; set; }
+        public string Scope { get; set; } = string.Empty;
 
         public static IOAuthClientConfiguration FromMonitorConfiguration(IMonitorConfiguration config)
         {

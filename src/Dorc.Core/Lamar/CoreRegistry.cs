@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
@@ -6,6 +7,7 @@ using Lamar;
 
 namespace Dorc.Core.Lamar
 {
+    [SupportedOSPlatform("windows")]
     public class CoreRegistry : ServiceRegistry
     {
         public CoreRegistry()

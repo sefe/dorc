@@ -26,7 +26,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var first = context.Users.First(u => u.LanId.Equals(lanId));
+                var first = context.Users.First(u => u.LanId != null && u.LanId.Equals(lanId));
                 return MapToUserApiModel(first);
             }
         }

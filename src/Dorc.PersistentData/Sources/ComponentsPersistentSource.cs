@@ -84,7 +84,7 @@ namespace Dorc.PersistentData.Sources
 
                 var script = firstComponentWithSpecifiedId.Script;
 
-                return MapToScriptApiModel(script);
+                return script is null ? null : MapToScriptApiModel(script);
             }
         }
 

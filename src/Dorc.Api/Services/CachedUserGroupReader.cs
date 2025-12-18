@@ -13,7 +13,7 @@ namespace Dorc.Api.Services
 
         private class CacheEntry
         {
-            public List<string> Sids { get; set; }
+            public List<string> Sids { get; set; } = new();
             public DateTime Timestamp { get; set; }
         }
 

@@ -338,7 +338,7 @@ namespace Dorc.PersistentData.Sources
                 var component = context.Components
                     .Include(c => c.Projects)
                     .Include(s => s.Script)
-                    .ThenInclude(s => s.Components)
+                    .ThenInclude(s => s!.Components)
                     .Include(c => c.Parent)
                     .First(x => x.Id == apiComponent.ComponentId);
 

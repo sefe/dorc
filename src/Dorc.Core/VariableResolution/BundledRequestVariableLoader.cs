@@ -4,7 +4,7 @@ namespace Dorc.Core.VariableResolution
 {
     public class BundledRequestVariableLoader : IBundledRequestVariableLoader
     {
-        private List<RequestProperty> _variables;
+        private List<RequestProperty> _variables = new();
 
         public void SetVariables(List<RequestProperty> variables)
         {

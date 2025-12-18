@@ -12,7 +12,7 @@ namespace Dorc.Monitor.RunnerProcess
 
         private static readonly HandleRef NullHandleRef = new HandleRef(null, nint.Zero);
 
-        private readonly ILogger logger;
+        private readonly ILogger logger = null!;
 
         private ProcessStartupInfoBuilder() { }
 

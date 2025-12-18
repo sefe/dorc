@@ -2,7 +2,7 @@
 {
     public class ProjectComponentPair
     {
-        public string Project { get; set; }
-        public string Component { get; set; }
+        public string Project { get; set; } = string.Empty;
+        public string Component { get; set; } = string.Empty;
     }
 }

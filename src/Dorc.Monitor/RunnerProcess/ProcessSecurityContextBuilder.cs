@@ -6,7 +6,7 @@ namespace Dorc.Monitor.RunnerProcess
 {
     internal partial class ProcessSecurityContextBuilder
     {
-        private readonly ILogger logger;
+        private readonly ILogger logger = null!;
 
         private const uint SECURITY_DESCRIPTOR_REVISION = 1;
 

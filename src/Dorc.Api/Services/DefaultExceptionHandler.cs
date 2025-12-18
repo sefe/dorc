@@ -35,7 +35,10 @@ namespace Dorc.Api.Services
 
             _log.LogError(exception, logMessage);
 
-            await httpContext.Response.WriteAsJsonAsync(result, cancellationToken: cancellationToken);
+            if (httpContext is not null)
+            {
+                await httpContext.Response.WriteAsJsonAsync(result, cancellationToken: cancellationToken);
+            }
             return true;
         }
 

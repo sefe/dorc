@@ -16,7 +16,7 @@ namespace Dorc.Monitor.RunnerProcess
         private readonly IntPtr primaryThreadHandle;
         private uint processId;
 
-        private ProcessWaitHandle completeEvent;
+        private ProcessWaitHandle completeEvent = null!;
 
         public uint Id
         {

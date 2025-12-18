@@ -81,7 +81,7 @@ namespace Dorc.Api.Events
 
         public async Task BroadcastNewRequestAsync(DeploymentRequestEventData eventData)
         {
-            if (!Context.User.IsInRole("Admin"))
+            if (Context.User is null || !Context.User.IsInRole("Admin"))
             {
                 throw new HubException("Not authorized");
             }
@@ -91,7 +91,7 @@ namespace Dorc.Api.Events
 
         public async Task BroadcastRequestStatusChangedAsync(DeploymentRequestEventData eventData)
         {
-            if (!this.Context.User.IsInRole("Admin"))
+            if (this.Context.User is null || !this.Context.User.IsInRole("Admin"))
             {
                 throw new HubException("Not authorized");
             }
@@ -120,7 +120,7 @@ namespace Dorc.Api.Events
 
         public async Task BroadcastResultStatusChangedAsync(DeploymentResultEventData eventData)
         {
-            if (!this.Context.User.IsInRole("Admin"))
+            if (this.Context.User is null || !this.Context.User.IsInRole("Admin"))
             {
                 throw new HubException("Not authorized");
             }

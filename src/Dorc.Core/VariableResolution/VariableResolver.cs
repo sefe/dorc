@@ -77,6 +77,9 @@ namespace Dorc.Core.VariableResolution
                     propertyValue = EvaluatePropertyValue(variableValue);
                 }
 
+                if (propertyValue is null)
+                    return null;
+
                 var o = _expressionEvaluator.Evaluate(propertyValue.Value);
                 return new VariableValue { Value = o, Type = o.GetType() };
             }
@@ -107,7 +110,7 @@ namespace Dorc.Core.VariableResolution
 
         private VariableValue? EvaluatePropertyValue(VariableValue? value)
         {
-            if (!(value.Value is string s)) return value;
+            if (value is null || !(value.Value is string s)) return value;
 
             return _propertyEvaluator.Evaluate(this, s);
         }

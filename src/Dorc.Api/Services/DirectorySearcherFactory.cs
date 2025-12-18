@@ -1,4 +1,5 @@
-﻿using Dorc.Core;
+﻿using System.Runtime.Versioning;
+using Dorc.Core;
 using Dorc.Core.Configuration;
 using Dorc.Core.IdentityServer;
 using Dorc.Core.Interfaces;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
 {
+    [SupportedOSPlatform("windows")]
     public class DirectorySearcherFactory : IDirectorySearcherFactory
     {
         private readonly ActiveDirectorySearcher _adSearcher;

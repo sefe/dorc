@@ -2,17 +2,17 @@
 {
     public abstract class Token
     {
-        public string Value { get; set; }
+        public string Value { get; set; } = string.Empty;
 
         public override int GetHashCode()
         {
             return GetType().GetHashCode() + Value.GetHashCode();
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             var other = obj as Token;
-            if (other == null) return false;
+            if (other is null) return false;
             return GetType().Equals(other.GetType()) && Value.Equals(other.Value);
         }
 

@@ -10,7 +10,7 @@ namespace Dorc.Api.Services
     public class FileShareDeployableBuild : IDeployableBuild
     {
         private readonly IFileSystemHelper _helper;
-        private string _validationMessage;
+        private string _validationMessage = string.Empty;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
 

@@ -141,7 +141,7 @@ namespace Dorc.PersistentData.Sources
                         .Include(pv => pv.Filters)
                         .ThenInclude(f => f.PropertyFilter)
                         .Include(pv => pv.Property)
-                        .Where(pv => pv.Property.Name == propertyName).ToList();
+                        .Where(pv => pv.Property != null && pv.Property.Name == propertyName).ToList();
 
                     if (!values.Any())
                     {
@@ -363,10 +363,10 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var envProps = from propertyValue in context.PropertyValues
-                               join property in context.Properties on propertyValue.Property.Id equals property.Id
+                               join property in context.Properties on propertyValue.Property!.Id equals property.Id
                                join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                   propertyValueFilter.PropertyValue.Id
-                               join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                                   propertyValueFilter.PropertyValue!.Id
+                               join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter!.Id equals
                                    propertyFilter.Id
                                join environment in context.Environments on propertyValueFilter.Value equals
                                    environment.Name
@@ -405,8 +405,8 @@ namespace Dorc.PersistentData.Sources
                 else
                 {
                     var global = from propertyValue in context.PropertyValues
-                                 join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                 join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
+                                 join property in context.Properties on propertyValue.Property!.Id equals property.Id
+                                 join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue!.Id into tmp
                                  from final in tmp.DefaultIfEmpty()
                                  where final == null
                                  select new FlatPropertyValueApiModel
@@ -426,10 +426,10 @@ namespace Dorc.PersistentData.Sources
                     if (parentEnv is not null)
                     {
                         var envParentProps = from propertyValue in context.PropertyValues
-                                             join property in context.Properties on propertyValue.Property.Id equals property.Id
+                                             join property in context.Properties on propertyValue.Property!.Id equals property.Id
                                              join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                                 propertyValueFilter.PropertyValue.Id
-                                             join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                                                 propertyValueFilter.PropertyValue!.Id
+                                             join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter!.Id equals
                                                  propertyFilter.Id
                                              join environment in context.Environments on propertyValueFilter.Value equals
                                                  environment.Name
@@ -540,10 +540,10 @@ namespace Dorc.PersistentData.Sources
                 IQueryable<FlatPropertyValueApiModel> scopedPropertyValuesQuery;
                 {
                     var envProps = from propertyValue in context.PropertyValues
-                                   join property in context.Properties on propertyValue.Property.Id equals property.Id
+                                   join property in context.Properties on propertyValue.Property!.Id equals property.Id
                                    join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                       propertyValueFilter.PropertyValue.Id
-                                   join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                                       propertyValueFilter.PropertyValue!.Id
+                                   join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter!.Id equals
                                        propertyFilter.Id
                                    join environment in context.Environments on propertyValueFilter.Value equals
                                        environment.Name
@@ -574,8 +574,8 @@ namespace Dorc.PersistentData.Sources
                                    };
 
                     var global = from propertyValue in context.PropertyValues
-                                 join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                 join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
+                                 join property in context.Properties on propertyValue.Property!.Id equals property.Id
+                                 join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue!.Id into tmp
                                  from final in tmp.DefaultIfEmpty()
                                  where final == null
                                  select new FlatPropertyValueApiModel
@@ -739,7 +739,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     case true:
                         {
-                            t.Value = _encrypt.DecryptValue(t.Value.ToString());
+                            t.Value = _encrypt.DecryptValue(t.Value?.ToString() ?? string.Empty);
                             AddKeyPair(properties, t.Property.Name, t);
                             break;
                         }
@@ -769,7 +769,7 @@ namespace Dorc.PersistentData.Sources
                 Value = decryptProperty ? GetPropertyValue(pv) : pv.Value,
                 Property = new PropertyApiModel
                 {
-                    Id = pv.Property.Id,
+                    Id = pv.Property!.Id,
                     Name = pv.Property.Name,
                     Secure = pv.Property.Secure,
                     IsArray = pv.Property.IsArray

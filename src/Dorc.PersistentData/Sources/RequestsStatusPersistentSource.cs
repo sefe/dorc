@@ -238,9 +238,12 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                context.DeploymentRequests.FirstOrDefault(dr => dr.Id == requestId).UncLogPath = uncLogPath;
-
-                context.SaveChanges();
+                var request = context.DeploymentRequests.FirstOrDefault(dr => dr.Id == requestId);
+                if (request != null)
+                {
+                    request.UncLogPath = uncLogPath;
+                    context.SaveChanges();
+                }
             }
         }
     }

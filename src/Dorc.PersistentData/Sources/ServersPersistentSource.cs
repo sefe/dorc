@@ -51,16 +51,16 @@ namespace Dorc.PersistentData.Sources
                     .Include(s => s.Environments)
                     .FirstOrDefault(s => s.Id == serverId);
 
-                if (server != null)
+                if (server is null)
+                    return false;
+
+                foreach (var environmentDetail in server.Environments.ToList())
                 {
-                    foreach (var environmentDetail in server.Environments.ToList())
-                    {
-                        server.Environments.Remove(environmentDetail);   
-                    }
-                    foreach (var daemon in server.Services.ToList())
-                    {
-                        server.Services.Remove(daemon);   
-                    }
+                    server.Environments.Remove(environmentDetail);
+                }
+                foreach (var daemon in server.Services.ToList())
+                {
+                    server.Services.Remove(daemon);
                 }
 
                 context.Servers.Remove(server);
@@ -75,7 +75,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetails = context.Environments.Include(aps => aps.Servers).Single(x => x.Name == envName);
                 var endurAppServers =
-                    envDetails.Servers.Where(x => x.ApplicationTags.Contains("appserv")).ToList();
+                    envDetails.Servers.Where(x => x.ApplicationTags != null && x.ApplicationTags.Contains("appserv")).ToList();
                 return endurAppServers;
             }
         }

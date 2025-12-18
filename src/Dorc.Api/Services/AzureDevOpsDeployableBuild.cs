@@ -14,14 +14,14 @@ namespace Dorc.Api.Services
     public class AzureDevOpsDeployableBuild : IDeployableBuild
     {
         public string AzureDevOpsBuildUrl = "";
-        private string _azureDevOpsProject;
-        private string _azureDevOpsBuildDefinitionName;
+        private string _azureDevOpsProject = string.Empty;
+        private string _azureDevOpsBuildDefinitionName = string.Empty;
         private readonly IAzureDevOpsServerWebClient _azureDevOpsServerWebClient;
         private readonly ILogger _log;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
-        private string _validationMessage;
+        private string _validationMessage = string.Empty;
 
         public AzureDevOpsDeployableBuild(IAzureDevOpsServerWebClient azureDevOpsServerWebClient, ILogger<AzureDevOpsDeployableBuild> log,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
@@ -52,6 +52,12 @@ namespace Dorc.Api.Services
             }
 
             var project = _projectsPersistentSource.GetProject(dorcBuild.Project);
+            if (project is null)
+            {
+                _validationMessage = $"Project '{dorcBuild.Project}' not found";
+                _log.LogWarning(_validationMessage);
+                return false;
+            }
             var builds = new List<Build>();
 
             var buildDefsForProject = _azureDevOpsServerWebClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,

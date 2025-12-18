@@ -1,4 +1,5 @@
-﻿using Dorc.ApiModel;
+﻿using System.Runtime.Versioning;
+using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -132,6 +133,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ServerOperatingSystemApiModel))]
         [Route("GetServerOperatingFromTarget")]
+        [SupportedOSPlatform("windows")]
         public IActionResult GetServerOperatingFromTarget(string serverName)
         {
             var output = new ServerOperatingSystemApiModel();
@@ -141,8 +143,8 @@ namespace Dorc.Api.Controllers
                 if (key == null)
                     return BadRequest("Unable to open the target machine");
 
-                output.ProductName = key.GetValue("ProductName").ToString();
-                output.CurrentVersion = key.GetValue("CurrentVersion").ToString();
+                output.ProductName = key.GetValue("ProductName")?.ToString() ?? string.Empty;
+                output.CurrentVersion = key.GetValue("CurrentVersion")?.ToString() ?? string.Empty;
             }
             return Ok(output);
         }

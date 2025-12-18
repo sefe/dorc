@@ -2,7 +2,7 @@
 
 public class CopyEnvBuildRequest
 {
-    public string SourceEnvironmentName { get; set; }
-    public string ProjectName { get; set; }
-    public List<int> Components { get; set; }
+    public string SourceEnvironmentName { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public List<int> Components { get; set; } = new();
 }

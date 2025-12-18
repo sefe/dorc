@@ -1,3 +1,7 @@
+using System.Runtime.Versioning;
+
+[assembly: SupportedOSPlatform("windows")]
+
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
@@ -107,6 +111,7 @@ switch (authenticationScheme)
         break;
 }
 
+[SupportedOSPlatform("windows")]
 static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
 {
     if (registerOwnReader)
@@ -125,7 +130,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
 {
     if (registerOwnReader)
     {
-        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupsReaderFactory>().GetOAuthUserGroupsReader());
+        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupsReaderFactory>()!.GetOAuthUserGroupsReader());
         builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
     }
 

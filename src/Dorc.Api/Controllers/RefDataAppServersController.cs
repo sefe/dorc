@@ -1,4 +1,5 @@
-﻿using Dorc.Api.Services;
+﻿using System.Runtime.Versioning;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -42,6 +43,7 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
         [HttpPut]
+        [SupportedOSPlatform("windows")]
         public IActionResult PutServerReboot(string server)
         {
             if (!string.IsNullOrWhiteSpace(server))

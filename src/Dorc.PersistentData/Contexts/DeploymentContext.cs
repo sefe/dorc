@@ -326,7 +326,7 @@ namespace Dorc.PersistentData.Contexts
                     IsProd = Convert.ToBoolean(row["IsProd"]),
                     Secure = Convert.ToBoolean(row["Secure"]),
                     Owner = row["Owner"].ToString(),
-                    ObjectId = Guid.Parse(row["ObjectId"].ToString())
+                    ObjectId = Guid.Parse(row["ObjectId"].ToString() ?? string.Empty)
                 };
                 result.Add(env);
             }

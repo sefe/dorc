@@ -147,6 +147,8 @@ namespace Dorc.Api.Controllers
                     {
                         case BundledRequestType.JobRequest:
                             var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
+                            if (job is null)
+                                continue;
 
                             _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
                             _variableResolver.LoadProperties();

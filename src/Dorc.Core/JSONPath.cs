@@ -2,8 +2,8 @@
 {
     public class JSONPath
     {
-        public string ScriptPath { get; set; }
+        public string ScriptPath { get; set; } = string.Empty;
 
-        public IEnumerable<IDictionary<string, string>> GenericArguments { get; set; }
+        public IEnumerable<IDictionary<string, string>> GenericArguments { get; set; } = Enumerable.Empty<IDictionary<string, string>>();
     }
 }

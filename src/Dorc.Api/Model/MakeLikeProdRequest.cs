@@ -4,9 +4,9 @@ namespace Dorc.Api.Model
 {
     public class MakeLikeProdRequest
     {
-        public string TargetEnv { get; set; }
-        public string DataBackup { get; set; }
-        public string BundleName { get; set; }
-        public ICollection<RequestProperty> BundleProperties { set; get; }
+        public string TargetEnv { get; set; } = string.Empty;
+        public string DataBackup { get; set; } = string.Empty;
+        public string BundleName { get; set; } = string.Empty;
+        public ICollection<RequestProperty> BundleProperties { set; get; } = new List<RequestProperty>();
     }
 }

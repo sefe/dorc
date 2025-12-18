@@ -501,9 +501,9 @@ namespace Dorc.PersistentData.Sources
             };
         }
 
-        public static DeploymentRequestApiModel MapToDeploymentRequestApiModel(DeploymentRequest req)
+        public static DeploymentRequestApiModel? MapToDeploymentRequestApiModel(DeploymentRequest? req)
         {
-            if (req == null)
+            if (req is null)
                 return null;
 
             var status = (DeploymentRequestStatus)Enum.Parse(typeof(DeploymentRequestStatus), req.Status, true);
@@ -542,8 +542,11 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static RequestStatusDto MapToRequestStatusDto(DeploymentRequest req)
+        private static RequestStatusDto? MapToRequestStatusDto(DeploymentRequest? req)
         {
+            if (req is null)
+                return null;
+
             return new RequestStatusDto
             {
                 Id = req.Id,

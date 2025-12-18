@@ -24,7 +24,7 @@ namespace Dorc.PersistentData.Sources
 
             if (configValue != null)
             {
-                return configValue.Secure ? _propertyEncrypt.DecryptValue(configValue.Value) : configValue.Value;
+                return configValue.Secure ? _propertyEncrypt.DecryptValue(configValue.Value ?? string.Empty) : configValue.Value;
             }
 
             return defaultValue;
@@ -39,7 +39,7 @@ namespace Dorc.PersistentData.Sources
             {
                 if (configValue.Secure && decryptSecure)
                 {
-                    configValue.Value = _propertyEncrypt.DecryptValue(configValue.Value);
+                    configValue.Value = _propertyEncrypt.DecryptValue(configValue.Value ?? string.Empty);
                 }
             }
             return allConfigValues.Select(MapToConfigValueApiModel);

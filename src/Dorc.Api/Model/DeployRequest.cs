@@ -2,6 +2,6 @@
 
 public class DeployRequest
 {
-    public string StageName { set; get; }
-    public string RequestId { set; get; }
+    public string StageName { set; get; } = string.Empty;
+    public string RequestId { set; get; } = string.Empty;
 }

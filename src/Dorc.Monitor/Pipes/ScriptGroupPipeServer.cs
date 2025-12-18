@@ -10,7 +10,7 @@ namespace Dorc.Monitor.Pipes
 {
     internal class ScriptGroupPipeServer : IScriptGroupPipeServer
     {
-        private readonly ILogger logger;
+        private readonly ILogger logger = null!;
 
         private ScriptGroupPipeServer() { }
 

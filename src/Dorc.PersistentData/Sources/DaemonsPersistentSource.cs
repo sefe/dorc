@@ -19,7 +19,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var server = GetServer(serverId, context);
-                result = server == null
+                result = server != null
                     ? server.Services.Select(daemon => Map(daemon, server)).ToList()
                     : new List<DaemonApiModel>();
             }

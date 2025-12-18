@@ -48,7 +48,7 @@ namespace Dorc.PersistentData.Sources
             IDeploymentContext context)
         {
             var firstEnvHistory = context.EnvironmentHistories.Include(h => h.Environment)
-                .Where(h => h.Environment.Name == environment.Name)
+                .Where(h => h.Environment != null && h.Environment.Name == environment.Name)
                 .OrderByDescending(h => h.Id).FirstOrDefault();
 
             var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
@@ -72,7 +72,7 @@ namespace Dorc.PersistentData.Sources
             IDeploymentContext context)
         {
             var firstEnvHistory = context.EnvironmentHistories.Include(h => h.Environment)
-                .Where(h => h.Environment.Name == envName)
+                .Where(h => h.Environment != null && h.Environment.Name == envName)
                 .OrderByDescending(h => h.Id).FirstOrDefault();
 
             var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;

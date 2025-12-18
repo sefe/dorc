@@ -40,7 +40,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyName} failed: {e.Message}");
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod()?.Name} with argument: {propertyName} failed: {e.Message}");
                 return null;
             }
         }
@@ -53,7 +53,7 @@ namespace Dorc.Api.Services
             }
             catch (Exception e)
             {
-                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod()?.Name} failed: {e.Message}");
                 return new List<PropertyApiModel>();
             }
         }
@@ -79,7 +79,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod()?.Name} failed: {e.Message}");
                     result.Add(UnrollException(e, property));
                 }
             }
@@ -114,7 +114,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod()?.Name} failed: {e.Message}");
                     result.Add(UnrollException(e, property));
                 }
             }
@@ -170,7 +170,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod()?.Name} failed: {e.Message}");
                     result.Add(UnrollException(e, propertyUpdateEntry));
                 }
             }

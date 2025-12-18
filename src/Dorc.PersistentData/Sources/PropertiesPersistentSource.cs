@@ -221,9 +221,9 @@ namespace Dorc.PersistentData.Sources
             return databaseName.Replace("_DB", "");
         }
 
-        PropertyApiModel MapToPropertyApiModel(Property prop)
+        PropertyApiModel? MapToPropertyApiModel(Property? prop)
         {
-            if (prop == null) return null;
+            if (prop is null) return null;
 
             return new PropertyApiModel
             {

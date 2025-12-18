@@ -152,9 +152,9 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static ScriptApiModel MapToScriptApiModel(Script script)
+        private static ScriptApiModel? MapToScriptApiModel(Script? script)
         {
-            if (script == null) return null;
+            if (script is null) return null;
 
             var isEnabled = false;
 

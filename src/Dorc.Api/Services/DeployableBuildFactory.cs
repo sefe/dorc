@@ -37,6 +37,8 @@ namespace Dorc.Api.Services
                 case BuildType.TfsBuild:
                     {
                         var project = _projectsPersistentSource.GetProject(request.Project);
+                        if (project is null)
+                            return null;
                         var tfsUrl = project.ArtefactsUrl;
                         var webClientLogger = _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>();
                         var buildLogger = _loggerFactory.CreateLogger<AzureDevOpsDeployableBuild>();

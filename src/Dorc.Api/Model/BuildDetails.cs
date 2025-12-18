@@ -19,11 +19,11 @@ namespace Dorc.Api.Model
         }
 
         public BuildType Type => GetBuildType(BuildUrl);
-        public string BuildUrl { set; get; }
-        public string BuildText { set; get; }
-        public string BuildNum { set; get; }
-        public string? VstsUrl { set; get; } = default!;
-        public string Project { set; get; }
+        public string BuildUrl { set; get; } = string.Empty;
+        public string BuildText { set; get; } = string.Empty;
+        public string BuildNum { set; get; } = string.Empty;
+        public string? VstsUrl { set; get; }
+        public string Project { set; get; } = string.Empty;
         public bool? Pinned { set; get; }
 
         private BuildType GetBuildType(string url)

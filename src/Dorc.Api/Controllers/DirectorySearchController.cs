@@ -43,11 +43,11 @@ namespace Dorc.Api.Controllers
         internal const string IncorrectCharactersInGroupSearchCriteriaMessage = "Incorrect characters in group search criteria.";
         internal const string IncorrectCharactersInGroupSearchCriteriaExplanationFormat = "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: {0}";
 
-        internal readonly string _domainName;
+        internal readonly string _domainName = null!;
 
         private const int ADS_UF_ACCOUNTDISABLE = 0x0002;
 
-        private DirectorySearcher directorySearcher { get; set; }
+        private DirectorySearcher directorySearcher { get; set; } = null!;
 
         // Default parameterless constructor is intentionally hidden
         // in order to make the controller instantiation possible
