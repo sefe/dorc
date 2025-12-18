@@ -8,17 +8,17 @@ namespace Dorc.Monitor.RunnerProcess.StandardStreamRedirection
     {
         internal const int MaxByteBufferSize = 1024 * 10;
 
-        private readonly Stream sourceStream;
-        private readonly Decoder sourceStreamDecoder;
-        private readonly byte[] readBytes;
-        private readonly char[] readChars;
+        private readonly Stream sourceStream = null!;
+        private readonly Decoder sourceStreamDecoder = null!;
+        private readonly byte[] readBytes = null!;
+        private readonly char[] readChars = null!;
 
-        private readonly Action<string?> messageReadCallback;
+        private readonly Action<string?> messageReadCallback = null!;
 
         private CancellationTokenSource? readerCancellationTokenSource;
         private Task? readToBufferTask;
 
-        private readonly Queue<string?> messageQueue;
+        private readonly Queue<string?> messageQueue = null!;
 
         private StringBuilder? messageStringBuilder;
         private bool isLastCarriageReturn;

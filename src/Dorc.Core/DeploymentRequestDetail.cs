@@ -9,10 +9,10 @@
             ComponentsToSkip = new List<string>();
         }
 
-        public string EnvironmentName { get; set; }
-        public List<string> Components { get; set; }
+        public string EnvironmentName { get; set; } = string.Empty;
+        public List<string> Components { get; set; } = new();
         public List<string> ComponentsToSkip { get; set; }
-        public BuildDetail BuildDetail { get; set; }
+        public BuildDetail BuildDetail { get; set; } = new();
         public List<PropertyPair> Properties { get; set; }
 
         public object Clone()

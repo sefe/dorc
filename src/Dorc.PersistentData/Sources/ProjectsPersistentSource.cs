@@ -41,19 +41,19 @@ namespace Dorc.PersistentData.Sources
                         .Where(project => !project.Name.Contains("Deprecated"))
                         .OrderBy(project => project.Name).ToList();
 
-                    return projects.Select(MapToProjectApiModel).ToList();
+                    return projects.Select(MapToProjectApiModel).Where(p => p != null).Cast<ProjectApiModel>().ToList();
                 }
                 else
                 {
                     var projects = context.Projects
                         .OrderBy(p => p.Name).ToList();
 
-                    return projects.Select(MapToProjectApiModel).ToList();
+                    return projects.Select(MapToProjectApiModel).Where(p => p != null).Cast<ProjectApiModel>().ToList();
                 }
             }
         }
 
-        public ProjectApiModel GetProject(string projectName)
+        public ProjectApiModel? GetProject(string projectName)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -62,7 +62,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     single.SourceDatabase = context.Databases.FirstOrDefault(d => d.Id == single.SourceDatabaseId);
                 }
-                return MapToProjectApiModel(single);
+                return single != null ? MapToProjectApiModel(single) : null;
             }
         }
 
@@ -72,7 +72,7 @@ namespace Dorc.PersistentData.Sources
                 return new List<ComponentApiModel>();
 
             var projectApiModel = GetProject(projectId);
-            return GetComponentsForProject(projectApiModel.ProjectName);
+            return projectApiModel != null ? GetComponentsForProject(projectApiModel.ProjectName) : new List<ComponentApiModel>();
 
         }
         public IEnumerable<ComponentApiModel> GetComponentsForProject(string projectName)
@@ -85,12 +85,9 @@ namespace Dorc.PersistentData.Sources
                     .Include(component => component.Script)
                     .Where(component => component.Projects.Any(project => project.Name.Equals(projectName))).ToList()
                     .Select(component => ComponentsPersistentSource.MapToComponentApiModel(component, context))
-                    .Where(componentApiModel => componentApiModel != null).ToList();
-
-                if (components.Any())
-                {
-                    return components;
-                }
+                    .Where(componentApiModel => componentApiModel != null)
+                    .Cast<ComponentApiModel>()
+                    .ToList();
 
                 return components;
             }

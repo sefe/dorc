@@ -7,7 +7,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IProjectsPersistentSource
     {
         IEnumerable<ProjectApiModel> GetProjects(IPrincipal user, int deprecated = 0);
-        ProjectApiModel GetProject(string projectName);
+        ProjectApiModel? GetProject(string projectName);
         ProjectApiModel? GetProject(int projectId);
         IEnumerable<EnvironmentApiModel> GetProjectEnvironments(int projectId, IPrincipal user);
         Project GetSecurityObject(string projectName);

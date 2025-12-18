@@ -61,9 +61,13 @@ namespace Dorc.PersistentData.Sources
                     .SingleOrDefault(environment =>
                     EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation));
-                return env?.Projects
+                if (env is null)
+                    return Enumerable.Empty<ProjectApiModel>();
+                return env.Projects
                     .OrderBy(p => p.Name)
                     .Select(ProjectsPersistentSource.MapToProjectApiModel)
+                    .Where(p => p != null)
+                    .Cast<ProjectApiModel>()
                     .ToList();
             }
         }
@@ -114,14 +118,14 @@ namespace Dorc.PersistentData.Sources
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envId);
 
-                if (env == null) return string.Empty;
+                if (env is null) return string.Empty;
 
                 var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
                 var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
 
                 var owner = ownerAccess?.Pid ?? ownerAccess?.Sid;
 
-                return owner;
+                return owner ?? string.Empty;
             }
         }
 
@@ -130,7 +134,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envName);
-                if (env == null) return false;
+                if (env is null) return false;
 
                 var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
                 var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
@@ -152,7 +156,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
 
-                if (envDetail == null)
+                if (envDetail is null)
                     return false;
                 var existingAccessControl = getOwnerAccessControl(envDetail);
 
@@ -510,7 +514,7 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentName);
-                if (environment == null)
+                if (environment is null)
                 {
                     var e = new Environment()
                     {

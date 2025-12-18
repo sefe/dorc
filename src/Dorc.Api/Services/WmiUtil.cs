@@ -6,9 +6,9 @@ namespace Dorc.Api.Services
     [SupportedOSPlatform("windows")]
     public class WmiUtil
     {
-        private string _path;
-        private ManagementScope _scope;
-        private string _serverName;
+        private string _path = null!;
+        private ManagementScope _scope = null!;
+        private string _serverName = null!;
 
         public WmiUtil(string server)
         {

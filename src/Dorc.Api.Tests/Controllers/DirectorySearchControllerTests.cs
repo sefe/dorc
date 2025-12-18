@@ -16,14 +16,14 @@ namespace Dorc.Api.Tests.Controllers
     [TestClass]
     public partial class DirectorySearchControllerTests
     {
-        public static IEnumerable<object[]> SearchUsersData
+        public static IEnumerable<object?[]> SearchUsersData
         {
             get
             {
                 return new[]
                 {
-                    new object[] { "te", null, null, null, null, null, null, false, "User search criteria length should be not less then 3 characters. Actual length : 2." },
-                    new object[] { "0123456789"
+                    new object?[] { "te", null, null, null, null, null, null, false, "User search criteria length should be not less then 3 characters. Actual length : 2." },
+                    new object?[] { "0123456789"
                     + "0123456789"
                     + "0123456789"
                     + "0123456789"
@@ -33,34 +33,34 @@ namespace Dorc.Api.Tests.Controllers
                     + "0123456789"
                     + "0123456789"
                     + "0123456789" + "1", null, null, null, null, null, null, false, "User search criteria length should be not greater then 100 characters. Actual length : 101."},
-                    new object[] { "test!", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test@", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test#", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test$", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test%", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test^", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test*", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test+", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test*", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test/", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test[", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test]", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test{", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test}", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test|", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test:", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test?", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test<", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test>", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test;", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test,", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test/", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test\\", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test", null, null, null, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", null, 0x0002, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", null, 0x1112, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", "testSAMAccountName", 0x0001, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
-                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testSAMAccountName", 0, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
+                    new object?[] { "test!", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test@", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test#", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test$", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test%", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test^", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test*", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test+", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test*", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test/", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test[", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test]", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test{", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test}", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test|", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test:", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test?", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test<", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test>", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test;", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test,", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test/", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test\\", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
+                    new object?[] { "test", null, null, null, null, null, null, false, null },
+                    new object?[] { "test", "testNativeGuid", null, 0x0002, null, null, null, false, null },
+                    new object?[] { "test", "testNativeGuid", null, 0x1112, null, null, null, false, null },
+                    new object?[] { "test", "testNativeGuid", "testSAMAccountName", 0x0001, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
+                    new object?[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testSAMAccountName", 0, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
                 };
             }
         }
