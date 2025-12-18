@@ -45,7 +45,8 @@ namespace Dorc.Api.Controllers
         [Route("ScopeOptions")]
         public IActionResult GetScopeOptions(string? propertyValueScope)
         {
-            _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, propertyValueScope);
+            if (propertyValueScope != null)
+                _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, propertyValueScope);
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, propertyValueScope);
             var environment = _environmentsPersistentSource.GetEnvironment(propertyValueScope, User);
             if (environment is not null)
@@ -90,7 +91,7 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [Produces(typeof(IQueryable<PropertyValueDto>))]
         [HttpGet]
-        public IActionResult GetPropertyValues(string propertyName = null, string environmentName = null)
+        public IActionResult GetPropertyValues(string? propertyName = null, string? environmentName = null)
         {
             try
             {

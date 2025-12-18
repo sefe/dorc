@@ -23,7 +23,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public AdGroup GetAdGroup(string name)
+        public AdGroup? GetAdGroup(string name)
         {
             using (var context = _contextFactory.GetContext())
             {

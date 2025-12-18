@@ -134,8 +134,8 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     }
 
     string? authority = configurationSettings.GetOAuthAuthority();
-    string dorcApiResourceName = configurationSettings.GetOAuthApiResourceName();
-    string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
+    string? dorcApiResourceName = configurationSettings.GetOAuthApiResourceName();
+    string? dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
     
     // Get DORC API secret from secrets manager
     string dorcApiSecret = secretsReader.GetDorcApiSecret();
@@ -190,7 +190,8 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
         options.AddPolicy(apiScopeAuthorizationPolicy, policy =>
         {
             policy.RequireAuthenticatedUser();
-            policy.RequireClaim("scope", dorcApiGlobalScope);
+            if (!string.IsNullOrEmpty(dorcApiGlobalScope))
+                policy.RequireClaim("scope", dorcApiGlobalScope);
         });
     });
 }
@@ -218,8 +219,12 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
 static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
     string? authority = configurationSettings.GetOAuthAuthority();
-    string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
-    
+    string? dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
+
+    var scopes = new Dictionary<string, string>();
+    if (!string.IsNullOrEmpty(dorcApiGlobalScope))
+        scopes.Add(dorcApiGlobalScope, "Access to DORC API");
+
     services.AddSwaggerGen(options =>
     {
         // Always configure OAuth2 for Swagger UI regardless of auth scheme
@@ -232,10 +237,7 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
                 {
                     AuthorizationUrl = new Uri($"{authority}/connect/authorize"),
                     TokenUrl = new Uri($"{authority}/connect/token"),
-                    Scopes = new Dictionary<string, string>
-                    {
-                        { dorcApiGlobalScope, "Access to DORC API" }
-                    }
+                    Scopes = scopes
                 }
             }
         });

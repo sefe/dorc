@@ -25,9 +25,8 @@ namespace Dorc.Api.Services
         {
             var buildTypeOk = dorcBuild.Type == BuildType.FileShareBuild;
 
-            if (Uri.IsWellFormedUriString(Uri.EscapeUriString(dorcBuild.BuildUrl), UriKind.RelativeOrAbsolute))
+            if (Uri.TryCreate(dorcBuild.BuildUrl, UriKind.RelativeOrAbsolute, out var uri))
             {
-                Uri uri = new Uri(dorcBuild.BuildUrl);
                 return _helper.DirectoryExists(uri.LocalPath) && buildTypeOk;
             }
             _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";

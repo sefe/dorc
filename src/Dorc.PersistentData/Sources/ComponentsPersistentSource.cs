@@ -40,7 +40,8 @@ namespace Dorc.PersistentData.Sources
                     .Where(component =>
                         component.Parent != null
                         && component.Parent.Id == componentApiModel.ComponentId)
-                    .Select(component => MapToComponentApiModel(component, context)).ToList();
+                    .Select(component => MapToComponentApiModel(component, context))
+                    .Where(c => c != null).Cast<ComponentApiModel>().ToList();
 
                 componentApiModel.Children = componentChildren;
             }
@@ -73,7 +74,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public ScriptApiModel GetScripts(int componentId)
+        public ScriptApiModel? GetScripts(int componentId)
         {
             using (var context = _contextFactory.GetContext())
             {

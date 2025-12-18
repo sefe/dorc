@@ -37,13 +37,13 @@ namespace Dorc.Api.Services
                 .ToList();
         }
 
-        public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
+        public Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
         {
             var httpContext = _httpContextAccessor.HttpContext;
             var scheme = httpContext.GetAuthenticationScheme();
             if (scheme == JwtBearerDefaults.AuthenticationScheme)
             {
-                return principal; // Do not transform OAuth principals
+                return Task.FromResult(principal); // Do not transform OAuth principals
             }
 
             var claims = new List<Claim>();
@@ -82,7 +82,7 @@ namespace Dorc.Api.Services
 
             // Build and return the new principal
             var newClaimsIdentity = new ClaimsIdentity(claims, authenticationType);
-            return new ClaimsPrincipal(newClaimsIdentity);
+            return Task.FromResult(new ClaimsPrincipal(newClaimsIdentity));
         }
     }
 }

@@ -26,7 +26,7 @@ namespace Dorc.PersistentData.Sources
             return result;
         }
 
-        private static Server GetServer(int serverId, IDeploymentContext context) => context
+        private static Server? GetServer(int serverId, IDeploymentContext context) => context
                             .Servers
                             .Include(d => d.Services)
                             .FirstOrDefault(s => s.Id == serverId);
@@ -104,9 +104,9 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DaemonApiModel Update(DaemonApiModel model)
+        public DaemonApiModel? Update(DaemonApiModel model)
         {
-            DaemonApiModel result = null;
+            DaemonApiModel? result = null;
             using (var context = _contextFactory.GetContext())
             {
                 var updatedDaemon = Map(model);

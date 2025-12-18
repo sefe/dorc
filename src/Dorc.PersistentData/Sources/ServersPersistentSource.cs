@@ -83,7 +83,7 @@ namespace Dorc.PersistentData.Sources
         public GetServerApiModelListResponseDto GetServerApiModelByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user)
         {
-            PagedModel<Server> output = null;
+            PagedModel<Server>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
@@ -109,8 +109,10 @@ namespace Dorc.PersistentData.Sources
                             }
                             else
                             {
-                                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
+                                var expr = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
+                                    pagedDataFilter.FilterValue);
+                                if (expr != null)
+                                    filterLambdas.Add(expr);
                             }
                         }
                     }
@@ -244,7 +246,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public ServerApiModel GetServer(int serverId, IPrincipal user)
+        public ServerApiModel? GetServer(int serverId, IPrincipal user)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -321,7 +323,7 @@ namespace Dorc.PersistentData.Sources
                 var result = context.Servers
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .Select(s => s);
-                return result.ToList().Select(MapToServerApiModel).ToList();
+                return result.ToList().Select(MapToServerApiModel).Where(s => s != null).Cast<ServerApiModel>().ToList();
             }
         }
 
@@ -335,7 +337,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .OrderBy(s => s.Name)
                     .Select(s => s);
-                return result.ToList().Select(MapToServerApiModel).ToList();
+                return result.ToList().Select(MapToServerApiModel).Where(s => s != null).Cast<ServerApiModel>().ToList();
             }
         }
 

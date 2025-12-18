@@ -198,7 +198,7 @@ namespace Dorc.Core
 
         private static string CheckForPinnedBuild(Build b)
         {
-            if (b.KeepForever != null && b.KeepForever)
+            if (b.KeepForever == true)
                 return b.BuildNumber += " [PINNED]";
             return b.BuildNumber;
         }

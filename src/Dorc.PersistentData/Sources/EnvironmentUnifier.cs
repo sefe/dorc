@@ -6,16 +6,16 @@ namespace Dorc.PersistentData.Sources
 {
     public class EnvironmentUnifier
     {
-        public static Environment GetEnvironment(IDeploymentContext context, string envName)
+        public static Environment? GetEnvironment(IDeploymentContext context, string envName)
         {
             return context.Environments
                 .Include(e => e.AccessControls)
                 .SingleOrDefault(
                 x => EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation)
-                    == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation))!;
+                    == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation));
         }
 
-        public static Environment GetEnvironmentWithParentChild(IDeploymentContext context, string envName)
+        public static Environment? GetEnvironmentWithParentChild(IDeploymentContext context, string envName)
         {
             return context.Environments
                 .Include(e => e.AccessControls)
@@ -23,10 +23,10 @@ namespace Dorc.PersistentData.Sources
                 .Include(e => e.ChildEnvironments)
                 .SingleOrDefault(
                 x => EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation)
-                    == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation))!;
+                    == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation));
         }
 
-        public static Environment GetEnvironment(IDeploymentContext context, int envId)
+        public static Environment? GetEnvironment(IDeploymentContext context, int envId)
         {
             return context.Environments
                 .Include(e => e.AccessControls)

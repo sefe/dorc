@@ -113,7 +113,7 @@ namespace Dorc.PersistentData.Sources
                 foreach (var databaseUser in dbUsers)
                 {
                     var user = context.Users.Find(databaseUser.UserId);
-                    if (!users.Contains(user))
+                    if (user != null && !users.Contains(user))
                         users.Add(user);
                 }
 
@@ -179,7 +179,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public UserApiModel AddDelegatedUser(int userId, string envName, IPrincipal principal)
+        public UserApiModel? AddDelegatedUser(int userId, string envName, IPrincipal principal)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -224,7 +224,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private UserApiModel MapToUserApiModel(User user)
+        private UserApiModel? MapToUserApiModel(User? user)
         {
             if (user == null) return null;
 
