@@ -544,7 +544,7 @@ namespace Dorc.PersistentData.Sources
                 using (var context = _contextFactory.GetContext())
                 {
                     loadedChildren = context.Components
-                        .Where(c => c.ParentId != null && c.Parent!.Id == component.Id)
+                        .Where(c => c.Parent != null && c.Parent.Id == component.Id)
                         .ToList();
 
                     component.Children = loadedChildren;
