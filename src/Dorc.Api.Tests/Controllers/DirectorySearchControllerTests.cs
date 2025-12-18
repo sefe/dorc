@@ -100,14 +100,14 @@ namespace Dorc.Api.Tests.Controllers
         [DynamicData(nameof(SearchUsersData), DynamicDataDisplayName = nameof(GetTestName))]
         public void TestSearchUsers(
             string testUserSearchCriteria,
-            string testNativeGuid,
-            string testSAMAccountName,
+            string? testNativeGuid,
+            string? testSAMAccountName,
             int testUserAccountControlValue,
-            string testDisplayName,
-            string expectedDisplayName,
-            string expectedFullLogonName,
+            string? testDisplayName,
+            string? expectedDisplayName,
+            string? expectedFullLogonName,
             bool searchResultsExpected,
-            string expectedExceptionMessage)
+            string? expectedExceptionMessage)
         {
             using (ShimsContext.Create())
             {
@@ -269,12 +269,12 @@ namespace Dorc.Api.Tests.Controllers
         [DynamicData(nameof(SearchGroupsData), DynamicDataDisplayName = nameof(GetTestName))]
         public void TestSearchGroups(
             string testGroupSearchCriteria,
-            string testNativeGuid,
-            string testName,
-            string expectedDisplayName,
-            string expectedFullLogonName,
+            string? testNativeGuid,
+            string? testName,
+            string? expectedDisplayName,
+            string? expectedFullLogonName,
             bool searchResultsExpected,
-            string expectedExceptionMessage)
+            string? expectedExceptionMessage)
         {
             using (ShimsContext.Create())
             {

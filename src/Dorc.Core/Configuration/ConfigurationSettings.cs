@@ -13,22 +13,22 @@ namespace Dorc.Core.Configuration
 
         public string GetConfigurationDomainName()
         {
-            return _configuration.GetSection("AppSettings")["DomainName"];
+            return _configuration.GetSection("AppSettings")["DomainName"] ?? string.Empty;
         }
 
         public string GetConfigurationDomainNameIntra()
         {
-            return _configuration.GetSection("AppSettings")["DomainNameIntra"];
+            return _configuration.GetSection("AppSettings")["DomainNameIntra"] ?? string.Empty;
         }
 
         public string[] GetAllowedCorsLocations()
         {
-            return _configuration.GetSection("AppSettings")["AllowedCORSLocations"]?.Split(",");
+            return _configuration.GetSection("AppSettings")["AllowedCORSLocations"]?.Split(",") ?? Array.Empty<string>();
         }
 
         public string GetDorcConnectionString()
         {
-            return _configuration.GetConnectionString("DOrcConnectionString");
+            return _configuration.GetConnectionString("DOrcConnectionString") ?? string.Empty;
         }
 
         public TimeSpan? GetADUserCacheTimeSpan()
@@ -94,17 +94,17 @@ namespace Dorc.Core.Configuration
 
         public string GetAzureEntraTenantId()
         {
-            return _configuration.GetSection("AppSettings")["AadTenant"];
+            return _configuration.GetSection("AppSettings")["AadTenant"] ?? string.Empty;
         }
 
         public string GetAzureEntraClientId()
         {
-            return _configuration.GetSection("AppSettings")["AadClientId"];
+            return _configuration.GetSection("AppSettings")["AadClientId"] ?? string.Empty;
         }
 
         public string GetAzureEntraClientSecret()
         {
-            return _configuration.GetSection("AppSettings")["AadSecret"];
+            return _configuration.GetSection("AppSettings")["AadSecret"] ?? string.Empty;
         }
 
         public string? GetIdentityServerClientId()
@@ -143,27 +143,27 @@ namespace Dorc.Core.Configuration
         #region Azure Storage Account
         public string GetAzureStorageAccountTenantId()
         {
-            return _configuration.GetSection("AzureStorageAccount")["TenantId"];
+            return _configuration.GetSection("AzureStorageAccount")["TenantId"] ?? string.Empty;
         }
 
         public string GetAzureStorageAccountClientId()
         {
-            return _configuration.GetSection("AzureStorageAccount")["ClientId"];
+            return _configuration.GetSection("AzureStorageAccount")["ClientId"] ?? string.Empty;
         }
 
         public string GetAzureStorageAccountClientSecret()
         {
-            return _configuration.GetSection("AzureStorageAccount")["ClientSecret"];
+            return _configuration.GetSection("AzureStorageAccount")["ClientSecret"] ?? string.Empty;
         }
 
         public string GetAzureStorageAccounUri()
         {
-            return _configuration.GetSection("AzureStorageAccount")["StorageAccountUri"];
+            return _configuration.GetSection("AzureStorageAccount")["StorageAccountUri"] ?? string.Empty;
         }
 
         public string GetAzureStorageAccountTerraformBlobsContainerName()
         {
-            return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"];
+            return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"] ?? string.Empty;
         }
         #endregion
     }

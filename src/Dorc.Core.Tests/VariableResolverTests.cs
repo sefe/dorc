@@ -10,9 +10,9 @@ namespace Dorc.Core.Tests
     [TestClass]
     public class VariableResolverTests
     {
-        private IPropertyValuesPersistentSource _propertyValuesPersistentSource;
-        private ILoggerFactory _loggerFactory;
-        private VariableResolver _resolver;
+        private IPropertyValuesPersistentSource _propertyValuesPersistentSource = null!;
+        private ILoggerFactory _loggerFactory = null!;
+        private VariableResolver _resolver = null!;
 
         [TestInitialize]
         public void Setup()

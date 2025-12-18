@@ -16,16 +16,16 @@ namespace Dorc.Api.Tests
     [TestClass]
     public class EnvironmentsPersistentSourceTests
     {
-        private IDeploymentContextFactory _contextFactory;
-        private ISecurityObjectFilter _objectFilter;
-        private IRolePrivilegesChecker _rolePrivilegesChecker;
-        private IPropertyValuesPersistentSource _propertyValuesPersistentSource;
-        private ILogger<EnvironmentsPersistentSource> _logger;
-        private IClaimsPrincipalReader _claimsPrincipalReader;
-        private IAccessControlPersistentSource _accessControlPersistentSource;
-        private EnvironmentsPersistentSource _environmentsPersistentSource;
-        private IPrincipal _user;
-        private IDeploymentContext _context;
+        private IDeploymentContextFactory _contextFactory = null!;
+        private ISecurityObjectFilter _objectFilter = null!;
+        private IRolePrivilegesChecker _rolePrivilegesChecker = null!;
+        private IPropertyValuesPersistentSource _propertyValuesPersistentSource = null!;
+        private ILogger<EnvironmentsPersistentSource> _logger = null!;
+        private IClaimsPrincipalReader _claimsPrincipalReader = null!;
+        private IAccessControlPersistentSource _accessControlPersistentSource = null!;
+        private EnvironmentsPersistentSource _environmentsPersistentSource = null!;
+        private IPrincipal _user = null!;
+        private IDeploymentContext _context = null!;
 
         [TestInitialize]
         public void Setup()

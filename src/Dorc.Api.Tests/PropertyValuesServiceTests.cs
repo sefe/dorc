@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Runtime.Versioning;
+using System.Security.Claims;
 using System.Security.Principal;
 using Dorc.Api.Services;
 using Dorc.Api.Tests.Mocks;
@@ -14,6 +15,7 @@ using NSubstitute;
 namespace Dorc.Api.Tests
 {
     [TestClass]
+    [SupportedOSPlatform("windows")]
     public class PropertyValuesServiceTests
     {
         [TestMethod]
