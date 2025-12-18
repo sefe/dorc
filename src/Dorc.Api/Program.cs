@@ -1,7 +1,4 @@
 using System.Runtime.Versioning;
-
-[assembly: SupportedOSPlatform("windows")]
-
 using AspNetCoreRateLimit;
 using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
@@ -28,6 +25,8 @@ using Serilog;
 using Serilog.Extensions.Logging;
 using System.Reflection;
 using System.Text.Json.Serialization;
+
+[assembly: SupportedOSPlatform("windows")]
 
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
