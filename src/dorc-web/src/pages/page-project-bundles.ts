@@ -13,7 +13,6 @@ import '@vaadin/horizontal-layout';
 import {
   BundledRequestsApi,
   BundledRequestsApiModel,
-  
   RefDataProjectEnvironmentMappingsApi,
   EnvironmentApiModelTemplateApiModel
 } from '../apis/dorc-api';

@@ -9,7 +9,6 @@ import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import {
   BundledRequestsApiModel,
-  
   BundledRequestsApi,
   ProjectApiModel
 } from '../apis/dorc-api';
