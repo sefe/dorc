@@ -17,6 +17,9 @@ export class BundleEditorDialog extends LitElement {
   @property({ type: Array})
   projects: ProjectApiModel[] | null  = [];
 
+  @property({ type: Array })
+  existingBundleNames: string[] = [];
+
   @property({ type: Boolean })
   open = false;
 
@@ -38,6 +41,7 @@ export class BundleEditorDialog extends LitElement {
         id="bundle-form"
         .bundleRequest="${this.bundleRequest}"
         .projects="${this.projects}"
+        .existingBundleNames="${this.existingBundleNames}"
         .isEdit="${this.isEdit}"
         .dialog="${this}"
         @bundle-saved="${(e: CustomEvent) => {
@@ -93,9 +97,10 @@ export class BundleEditorDialog extends LitElement {
   /**
    * Open the dialog to create a new bundle request
    */
-  public openNew(projects: ProjectApiModel[] | null = null) {
+  public openNew(projects: ProjectApiModel[] | null = null, existingBundleNames: string[] = []) {
     this.isEdit = false;
     this.projects = projects;
+    this.existingBundleNames = existingBundleNames;
     this.bundleRequest = {
       BundleName: '',
       ProjectId: 0,
@@ -110,8 +115,10 @@ export class BundleEditorDialog extends LitElement {
   /**
    * Open the dialog to edit an existing bundle request
    */
-  public openEdit(bundle: BundledRequestsApiModel) {
+  public openEdit(bundle: BundledRequestsApiModel, projects: ProjectApiModel[] | null = null, existingBundleNames: string[] = []) {
     this.isEdit = true;
+    this.projects = projects;
+    this.existingBundleNames = existingBundleNames;
     this.bundleRequest = { ...bundle };
     this.open = true;
   }

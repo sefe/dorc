@@ -5,7 +5,7 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/icon';
 import '@vaadin/icons';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import '@vaadin/details';
@@ -13,7 +13,7 @@ import '@vaadin/horizontal-layout';
 import {
   BundledRequestsApi,
   BundledRequestsApiModel,
-  BundledRequestType,
+  
   RefDataProjectEnvironmentMappingsApi,
   EnvironmentApiModelTemplateApiModel
 } from '../apis/dorc-api';
@@ -108,12 +108,18 @@ export class PageProjectBundles extends PageElement {
   private bundledRequests: Array<BundledRequestsApiModel> = [];
   private filteredBundledRequests: Array<BundledRequestsApiModel> = [];
   private projectData: EnvironmentApiModelTemplateApiModel | undefined;
+
+  @state()
   private uniqueBundleNames: string[] = [];
 
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
 
   @query('#grid') grid: Grid | undefined;
+
+  // Bound header renderer to avoid creating new function references on each render
+  private _boundBundleNameHeaderRenderer = this.bundleNameHeaderRenderer.bind(this);
+  private _boundHandleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
 
   private updateUniqueBundleNames() {
     const names = new Set<string>();
@@ -123,6 +129,7 @@ export class PageProjectBundles extends PageElement {
       }
     });
     this.uniqueBundleNames = Array.from(names).sort();
+    console.log('uniqueBundleNames:', this.uniqueBundleNames);
   }
 
   private applyBundleNameFilter() {
@@ -142,10 +149,11 @@ export class PageProjectBundles extends PageElement {
   }
 
   bundleNameHeaderRenderer(root: HTMLElement) {
+    console.log('Header renderer, uniqueBundleNames:', this.uniqueBundleNames);
     render(
       html`
         <vaadin-grid-sorter
-          path="BundleName" 
+          path="BundleName"
           direction="asc"
           style="align-items: normal"
         >Bundle Name</vaadin-grid-sorter>
@@ -157,7 +165,7 @@ export class PageProjectBundles extends PageElement {
           style="width: 200px"
           theme="small"
           .value="${this.bundleNameFilter}"
-          @value-changed="${this.handleBundleNameFilterChange}"
+          @value-changed="${this._boundHandleBundleNameFilterChange}"
         ></vaadin-combo-box>
       `,
       root
@@ -203,7 +211,7 @@ export class PageProjectBundles extends PageElement {
           auto-width
           flex-grow="0"
           resizable
-          .headerRenderer="${this.bundleNameHeaderRenderer.bind(this)}"
+          .headerRenderer="${this._boundBundleNameHeaderRenderer}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._typeRenderer}"
@@ -258,9 +266,6 @@ export class PageProjectBundles extends PageElement {
       this._handleDeleteBundle as EventListener
     );
 
-    // Bind the filter change handler to this component's context
-    this.handleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
-
     // Get project name from URL
     const projectName = location.pathname.split('/')[2];
     this.project = decodeURIComponent(projectName);
@@ -293,7 +298,7 @@ export class PageProjectBundles extends PageElement {
 
   private _openAddBundleDialog() {
     const projects = this.projectData?.Project ? [this.projectData.Project] : [];
-    this.bundleEditorDialog.openNew(projects);
+    this.bundleEditorDialog.openNew(projects, this.uniqueBundleNames);
   }
 
   private _handleBundleSaved(e: CustomEvent) {
@@ -314,7 +319,8 @@ export class PageProjectBundles extends PageElement {
   }
 
   private _handleEditBundle(e: CustomEvent) {
-    this.bundleEditorDialog.openEdit(e.detail.value);
+    const projects = this.projectData?.Project ? [this.projectData.Project] : [];
+    this.bundleEditorDialog.openEdit(e.detail.value, projects, this.uniqueBundleNames);
   }
 
   private _handleDeleteBundle(e: CustomEvent) {
@@ -366,15 +372,8 @@ export class PageProjectBundles extends PageElement {
   ) {
     const bundle = model.item as BundledRequestsApiModel;
 
-    let typeString: string;
-
-    if (bundle.Type === BundledRequestType.NUMBER_1) {
-      typeString = 'JobRequest';
-    } else if (bundle.Type === BundledRequestType.NUMBER_2) {
-      typeString = 'CopyEnvBuild';
-    } else {
-      typeString = 'Unknown';
-    }
+    // API returns Type as string name ("JobRequest", "CopyEnvBuild") not number
+    const typeString = (bundle.Type as unknown as string) || 'Unknown';
 
     root.innerHTML = `<span>${typeString}</span>`;
   }
@@ -404,6 +403,7 @@ export class PageProjectBundles extends PageElement {
 
         if (this.grid) {
           this.grid.clearCache();
+          this.grid.requestContentUpdate();
         }
 
         this.loading = false;
