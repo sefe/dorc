@@ -48,7 +48,7 @@ namespace Dorc.PersistentData.Sources
             IDeploymentContext context)
         {
             var firstEnvHistory = context.EnvironmentHistories.Include(h => h.Environment)
-                .Where(h => h.Environment != null && h.Environment.Name == environment.Name)
+                .Where(h => h.EnvId != null && h.Environment!.Name == environment.Name)
                 .OrderByDescending(h => h.Id).FirstOrDefault();
 
             var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
@@ -72,12 +72,15 @@ namespace Dorc.PersistentData.Sources
             IDeploymentContext context)
         {
             var firstEnvHistory = context.EnvironmentHistories.Include(h => h.Environment)
-                .Where(h => h.Environment != null && h.Environment.Name == envName)
+                .Where(h => h.EnvId != null && h.Environment!.Name == envName)
                 .OrderByDescending(h => h.Id).FirstOrDefault();
 
             var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
             var newBackupFile = backupFile != string.Empty ? backupFile : oldBackupFile;
             var envDetails = EnvironmentUnifier.GetEnvironment(context, envName);
+            if (envDetails is null)
+                return;
+
             var newHistory = new EnvironmentHistory
             {
                 Environment = envDetails,
@@ -114,7 +117,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var result = context.EnvironmentHistories
                     .Include(h => h.Environment)
-                    .Where(e => e.EnvId == envId || (e.Environment != null && e.Environment.Id == envId))
+                    .Where(e => e.EnvId == envId || (e.EnvId != null && e.Environment!.Id == envId))
                     .Select(MapToEnvironmentHistoryApiModel).ToList();
                 return result;
             }

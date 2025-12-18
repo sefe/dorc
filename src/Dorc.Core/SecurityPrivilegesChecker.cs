@@ -53,6 +53,9 @@ namespace Dorc.Core
         public bool IsEnvironmentOwnerOrDelegate(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetEnvironment(environmentName);
+            if (env is null)
+                return false;
+
             var userApiModels = _usersPersistentSource.GetEnvironmentUsers(env.EnvironmentId, UserAccountType.NotSet);
             string username = _claimsPrincipalReader.GetUserLogin(user);
             return _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user) || userApiModels.Any(u => u.LanId == username);
@@ -61,13 +64,13 @@ namespace Dorc.Core
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
-            return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets | AccessLevel.Owner);
+            return env is not null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets | AccessLevel.Owner);
         }
 
         public bool CanModifyProject(ClaimsPrincipal user, string projectName)
         {
             var project = _projectsPersistentSource.GetSecurityObject(projectName);
-            if (project == null) throw new ApplicationException($"Unable to locate an project called {projectName}");
+            if (project is null) throw new ApplicationException($"Unable to locate an project called {projectName}");
             return string.IsNullOrEmpty(projectName)
                 ? CanModifyProperty(user)
                 : _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Write);
@@ -76,14 +79,14 @@ namespace Dorc.Core
         public bool CanModifyProject(ClaimsPrincipal user, int projectId)
         {
             var project = _projectsPersistentSource.GetSecurityObject(projectId);
-            if (project == null) throw new ApplicationException($"Unable to locate an project with ID {projectId}");
+            if (project is null) throw new ApplicationException($"Unable to locate an project with ID {projectId}");
             return _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Write);
         }
 
         public bool CanModifyEnvironment(ClaimsPrincipal user, string envName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(envName);
-            if (env == null)
+            if (env is null)
             {
                 return _rolePrivilegesChecker.IsAdmin(user);
             }

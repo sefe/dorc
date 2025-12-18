@@ -30,7 +30,7 @@ namespace Dorc.Core.VariableResolution
             }
 
             var dictionary = localProperties.Keys.AsParallel()
-                .ToDictionary(x => x, GetPropertyValue);
+                .ToDictionary(x => x, x => GetPropertyValue(x)!);
 
             return dictionary;
         }
@@ -80,7 +80,7 @@ namespace Dorc.Core.VariableResolution
         public IDictionary<string, VariableValue> LocalProperties()
         {
             return localProperties.Keys.AsParallel()
-                .ToDictionary(x => x, GetPropertyValue);
+                .ToDictionary(x => x, x => GetPropertyValue(x)!);
         }
 
         private VariableValue? EvaluatePropertyValue(VariableValue? value)

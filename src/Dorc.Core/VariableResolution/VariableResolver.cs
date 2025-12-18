@@ -31,7 +31,7 @@ namespace Dorc.Core.VariableResolution
         public IDictionary<string, VariableValue> LocalProperties()
         {
             return localProperties.Keys.AsParallel()
-                .ToDictionary(x => x, GetPropertyValue);
+                .ToDictionary(x => x, x => GetPropertyValue(x)!);
         }
 
         public IDictionary<string, VariableValue> LoadProperties()

@@ -319,7 +319,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
-                if (envDetail == null) return new List<ServerApiModel>();
+                if (envDetail is null) return new List<ServerApiModel>();
                 var result = context.Servers
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .Select(s => s);
@@ -332,7 +332,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
-                if (envDetail == null) return new List<ServerApiModel>();
+                if (envDetail is null) return new List<ServerApiModel>();
                 var result = context.Servers
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .OrderBy(s => s.Name)

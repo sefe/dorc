@@ -46,7 +46,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
             Org.OpenAPITools.Client.Configuration config;
 
-            if (azureEndpoint.Contains(azureEndpointUrl))
+            if (azureEndpointUrl != null && azureEndpoint.Contains(azureEndpointUrl))
             {
                 config = new Org.OpenAPITools.Client.Configuration
                 {
@@ -127,7 +127,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
             Org.OpenAPITools.Client.Configuration config;
 
-            if (azureEndpoint.Contains(azureEndpointUrl))
+            if (azureEndpointUrl != null && azureEndpoint.Contains(azureEndpointUrl))
             {
                 config = new Org.OpenAPITools.Client.Configuration
                 {
@@ -185,7 +185,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
             Org.OpenAPITools.Client.Configuration config;
 
-            if (azureEndpoint.Contains(azureEndpointUrl))
+            if (azureEndpointUrl != null && azureEndpoint.Contains(azureEndpointUrl))
             {
                 config = new Org.OpenAPITools.Client.Configuration
                 {

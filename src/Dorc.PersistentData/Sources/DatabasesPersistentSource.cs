@@ -166,7 +166,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, environmentId);
-                if (env == null)
+                if (env is null)
                 {
                     return new List<DatabaseApiModel>();
                 }
@@ -220,8 +220,10 @@ namespace Dorc.PersistentData.Sources
                             }
                             else
                             {
-                                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
+                                var expr = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
+                                    pagedDataFilter.FilterValue);
+                                if (expr != null)
+                                    filterLambdas.Add(expr);
                             }
                         }
                     }

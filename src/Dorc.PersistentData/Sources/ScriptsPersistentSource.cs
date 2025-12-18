@@ -53,12 +53,14 @@ namespace Dorc.PersistentData.Sources
                             }
                             else
                             {
-                                filterLambdas.Add(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
+                                var expr = scriptsQuery.ContainsExpression(pagedDataFilter.Path,
+                                    pagedDataFilter.FilterValue);
+                                if (expr != null)
+                                    filterLambdas.Add(expr);
                             }
                         }
                     }
-                    
+
                     scriptsQuery = WhereAll(scriptsQuery, filterLambdas.ToArray());
                 }
 

@@ -215,6 +215,9 @@ namespace Dorc.PersistentData.Sources
                 try
                 {
                     var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
+                    if (envDetail is null)
+                        throw new ArgumentOutOfRangeException(nameof(envId), "Invalid or unknown environment Id specified.");
+
                     var server = context.Servers
                         .Include(s => s.Environments)
                         .FirstOrDefault(s => s.Id == serverId);
@@ -230,7 +233,7 @@ namespace Dorc.PersistentData.Sources
                         username, "Attach Server To Env", context);
 
                     context.SaveChanges();
-                    return GetEnvironment(envId, user);
+                    return GetEnvironment(envId, user)!;
                 }
                 catch
                 {
@@ -246,6 +249,9 @@ namespace Dorc.PersistentData.Sources
                 try
                 {
                     var envDetail = EnvironmentUnifier.GetEnvironment(context, envId);
+                    if (envDetail is null)
+                        throw new ArgumentOutOfRangeException(nameof(envId), "Invalid or unknown environment Id specified.");
+
                     var server = context.Servers
                         .Include(s => s.Environments)
                         .FirstOrDefault(s => s.Id == serverId);
@@ -261,7 +267,7 @@ namespace Dorc.PersistentData.Sources
                         username, "Detach Server From Env", context);
 
                     context.SaveChanges();
-                    return GetEnvironment(envId, user);
+                    return GetEnvironment(envId, user)!;
                 }
                 catch
                 {
@@ -288,7 +294,7 @@ namespace Dorc.PersistentData.Sources
                     username, "Attach Database To Env", context);
 
                 context.SaveChanges();
-                return GetEnvironment(envId, user);
+                return GetEnvironment(envId, user)!;
             }
         }
 
@@ -312,7 +318,7 @@ namespace Dorc.PersistentData.Sources
                     username, "Detach Database From Env", context);
 
                 context.SaveChanges();
-                return GetEnvironment(envId, user);
+                return GetEnvironment(envId, user)!;
             }
         }
 
@@ -330,7 +336,7 @@ namespace Dorc.PersistentData.Sources
                         .Select(x => x.FirstOrDefault())
                                    select MapToEnvironmentApiModel(environment);
 
-                return environments.OrderBy(env => env.EnvironmentName).ToList();
+                return environments.Where(e => e != null).Cast<EnvironmentApiModel>().OrderBy(env => env.EnvironmentName).ToList();
             }
         }
 
@@ -536,7 +542,7 @@ namespace Dorc.PersistentData.Sources
                     context.SaveChanges();
                 }
 
-                return GetEnvironment(env.EnvironmentName, user);
+                return GetEnvironment(env.EnvironmentName, user)!;
             }
         }
 
@@ -767,7 +773,7 @@ namespace Dorc.PersistentData.Sources
 
         private EnvironmentApiModel? MapToEnvironmentApiModel(EnvironmentData? ed)
         {
-            if (ed?.Environment == null)
+            if (ed?.Environment is null)
                 return null;
 
             return MapToEnvironmentApiModel(ed.Environment, ed.UserEditable, ed.IsOwner);
@@ -899,7 +905,7 @@ namespace Dorc.PersistentData.Sources
 
                 mappedEnvironments = mappedEnvironments.Where(e => !envChain.Any(ec => ec.Id == e.Id)).ToList().DistinctBy(e => e.Id).ToList(); // filter all envs already in chain
 
-                var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel);
+                var possibleChildren = mappedEnvironments.Select(MapToEnvironmentApiModel).Where(e => e != null).Cast<EnvironmentApiModel>();
                 return possibleChildren;
             }
         }

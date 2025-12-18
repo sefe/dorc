@@ -96,8 +96,9 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return MapToPropertyValueDto(context.PropertyValues.Include(i => i.Property).Include(i => i.Filters)
-                    .First(q => q.Id == propertyValueId));
+                var pv = context.PropertyValues.Include(i => i.Property).Include(i => i.Filters)
+                    .FirstOrDefault(q => q.Id == propertyValueId);
+                return pv != null ? MapToPropertyValueDto(pv) : null;
             }
         }
 
@@ -108,9 +109,11 @@ namespace Dorc.PersistentData.Sources
                 var propertyValue = context.PropertyValues
                     .Include(pv => pv.Filters)
                     .Include(pv => pv.Property)
-                    .First(pv => pv.Id == propertyValueId);
-                propertyValue.Value = newValue;
+                    .FirstOrDefault(pv => pv.Id == propertyValueId);
+                if (propertyValue == null)
+                    return null;
 
+                propertyValue.Value = newValue;
                 context.SaveChanges();
                 return MapToPropertyValueDto(propertyValue);
             }
@@ -202,7 +205,7 @@ namespace Dorc.PersistentData.Sources
                     }
                 }
                 context.SaveChanges();
-                return MapToPropertyValueDto(propertyValue);
+                return MapToPropertyValueDto(propertyValue)!;
             }
         }
 
@@ -332,24 +335,27 @@ namespace Dorc.PersistentData.Sources
 
                 var globalPropertiesAsync = GetGlobalPropertiesAsync(environmentSecure);
 
-                var propertiesForEnvironmentAsync = Task.FromResult<IDictionary<string, PropertyValueDto>?>(null);
+                Task<IDictionary<string, PropertyValueDto>>? propertiesForEnvironmentAsync = null;
                 if (!string.IsNullOrEmpty(envName))
                 {
                     propertiesForEnvironmentAsync = GetPropertiesForEnvironmentAsync();
                 }
 
-                Task.WaitAll(globalPropertiesAsync, propertiesForEnvironmentAsync);
+                if (propertiesForEnvironmentAsync != null)
+                    Task.WaitAll(globalPropertiesAsync, propertiesForEnvironmentAsync);
+                else
+                    Task.WaitAll(globalPropertiesAsync);
 
                 foreach (var kvp in globalPropertiesAsync.Result)
                 {
                     AddKeyPair(_cachedProperties, kvp.Key, kvp.Value);
                 }
 
-                var envProps = propertiesForEnvironmentAsync.Result;
-                if (envProps == null)
+                if (propertiesForEnvironmentAsync == null)
                     return _cachedProperties;
 
-                foreach (var kvp in propertiesForEnvironmentAsync.Result)
+                var envProps = propertiesForEnvironmentAsync.Result;
+                foreach (var kvp in envProps)
                 {
                     AddKeyPair(_cachedProperties, kvp.Key, kvp.Value);
                 }
@@ -474,9 +480,10 @@ namespace Dorc.PersistentData.Sources
                             string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                             continue;
 
-                        scopedPropertyValuesQuery =
-                            scopedPropertyValuesQuery.Where(scopedPropertyValuesQuery.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue));
+                        var expr = scopedPropertyValuesQuery.ContainsExpression(pagedDataFilter.Path,
+                            pagedDataFilter.FilterValue);
+                        if (expr != null)
+                            scopedPropertyValuesQuery = scopedPropertyValuesQuery.Where(expr);
                     }
                 }
 
@@ -609,9 +616,10 @@ namespace Dorc.PersistentData.Sources
                             string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                             continue;
 
-                        scopedPropertyValuesQuery =
-                            scopedPropertyValuesQuery.Where(scopedPropertyValuesQuery.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue));
+                        var expr = scopedPropertyValuesQuery.ContainsExpression(pagedDataFilter.Path,
+                            pagedDataFilter.FilterValue);
+                        if (expr != null)
+                            scopedPropertyValuesQuery = scopedPropertyValuesQuery.Where(expr);
                     }
                 }
 

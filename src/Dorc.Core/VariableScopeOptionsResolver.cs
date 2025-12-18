@@ -62,8 +62,9 @@ namespace Dorc.Core
 
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EndurFileShare, environment.Details.FileShare);
 
-            variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EndurConfigurationFile,
-                _propertiesPersistentSource.GetConfigurationFilePath(environment));
+            var configFilePath = _propertiesPersistentSource.GetConfigurationFilePath(environment);
+            if (configFilePath != null)
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EndurConfigurationFile, configFilePath);
             var endurDatabase = _databasesPersistentSource.GetDatabaseByType(environment, "Endur");
             if (endurDatabase != null)
             {

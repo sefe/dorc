@@ -61,7 +61,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var environmentDetail = EnvironmentUnifier.GetEnvironment(context, envId);
-                if (environmentDetail == null)
+                if (environmentDetail is null)
                     return new List<UserApiModel>();
 
                 switch (type)

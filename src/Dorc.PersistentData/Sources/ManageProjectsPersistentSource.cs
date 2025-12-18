@@ -72,8 +72,10 @@ namespace Dorc.PersistentData.Sources
 
                 var filterLambdas =
                     new List<Expression<Func<RefDataAudit, bool>>>();
-                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(nameof(RefDataAudit.ProjectId),
-                                projectId.ToString()));
+                var projectIdExpr = reqStatusesQueryable.ContainsExpression(nameof(RefDataAudit.ProjectId),
+                                projectId.ToString());
+                if (projectIdExpr != null)
+                    filterLambdas.Add(projectIdExpr);
                 if (operators.Filters != null && operators.Filters.Any())
                 {
                     foreach (var pagedDataFilter in operators.Filters)
@@ -82,8 +84,10 @@ namespace Dorc.PersistentData.Sources
                             continue;
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                         {
-                            filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
+                            var filterExpr = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
+                                    pagedDataFilter.FilterValue);
+                            if (filterExpr != null)
+                                filterLambdas.Add(filterExpr);
                         }
                     }
                 }
@@ -354,11 +358,11 @@ namespace Dorc.PersistentData.Sources
 
                 DuplicateComponent(apiComponent, component, context);
 
-                if (component.Parent == null && parentId != null)
+                if (component.Parent is null && parentId != null)
                     component.Parent = context.Components.First(x => x.Id == parentId);
-                else if (component.Parent != null && parentId == null)
+                else if (component.Parent is not null && parentId == null)
                     component.Parent = null;
-                else if (component.Parent != null && parentId != null && component.Parent.Id != parentId)
+                else if (component.Parent is not null && parentId != null && component.Parent.Id != parentId)
                     component.Parent = context.Components.First(x => x.Id == parentId);
 
                 // Handle script updates
@@ -511,10 +515,13 @@ namespace Dorc.PersistentData.Sources
         public ReleaseInformationApiModel GetRequestDetails(int requestId)
         {
             var deploymentRequest = _requestsPersistentSource.GetRequest(requestId);
+            if (deploymentRequest == null)
+                return new ReleaseInformationApiModel();
+
             var releaseInfo = new ReleaseInformationApiModel
             {
                 Build = deploymentRequest.BuildNumber,
-                Components = deploymentRequest.Components.Split('|'),
+                Components = deploymentRequest.Components?.Split('|') ?? Array.Empty<string>(),
                 Project = deploymentRequest.Project
             };
             return releaseInfo;
@@ -522,7 +529,8 @@ namespace Dorc.PersistentData.Sources
 
         public bool GetStatusOfRequest(int requestId)
         {
-            return _requestsPersistentSource.GetRequest(requestId).Status.Equals("Complete");
+            var request = _requestsPersistentSource.GetRequest(requestId);
+            return request?.Status?.Equals("Complete") ?? false;
         }
 
         private void GetChildComponentsInOrder(IEnumerable<Component> components,
@@ -536,7 +544,7 @@ namespace Dorc.PersistentData.Sources
                 using (var context = _contextFactory.GetContext())
                 {
                     loadedChildren = context.Components
-                        .Where(c => c.Parent != null && c.Parent.Id == component.Id)
+                        .Where(c => c.ParentId != null && c.Parent!.Id == component.Id)
                         .ToList();
 
                     component.Children = loadedChildren;

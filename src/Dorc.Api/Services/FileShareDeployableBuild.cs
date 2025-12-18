@@ -25,7 +25,7 @@ namespace Dorc.Api.Services
         {
             var buildTypeOk = dorcBuild.Type == BuildType.FileShareBuild;
 
-            if (Uri.TryCreate(dorcBuild.BuildUrl, UriKind.RelativeOrAbsolute, out var uri))
+            if (Uri.TryCreate(dorcBuild.BuildUrl, UriKind.Absolute, out var uri))
             {
                 return _helper.DirectoryExists(uri.LocalPath) && buildTypeOk;
             }
