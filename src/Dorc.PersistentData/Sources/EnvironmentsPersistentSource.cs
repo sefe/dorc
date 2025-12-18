@@ -579,7 +579,7 @@ namespace Dorc.PersistentData.Sources
                         EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
 
-                if (environment == null) return false;
+                if (environment is null) return false;
 
                 // Add environment history record for deletion
                 string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
