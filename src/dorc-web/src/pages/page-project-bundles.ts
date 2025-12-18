@@ -129,7 +129,6 @@ export class PageProjectBundles extends PageElement {
       }
     });
     this.uniqueBundleNames = Array.from(names).sort();
-    console.log('uniqueBundleNames:', this.uniqueBundleNames);
   }
 
   private applyBundleNameFilter() {
@@ -149,7 +148,6 @@ export class PageProjectBundles extends PageElement {
   }
 
   bundleNameHeaderRenderer(root: HTMLElement) {
-    console.log('Header renderer, uniqueBundleNames:', this.uniqueBundleNames);
     render(
       html`
         <vaadin-grid-sorter
@@ -301,8 +299,7 @@ export class PageProjectBundles extends PageElement {
     this.bundleEditorDialog.openNew(projects, this.uniqueBundleNames);
   }
 
-  private _handleBundleSaved(e: CustomEvent) {
-    console.log('Bundle saved event received in page-project-bundles', e.detail);
+  private _handleBundleSaved(_e: CustomEvent) {
     this.fetchBundledRequests();
   }
 

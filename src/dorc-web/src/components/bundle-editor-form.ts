@@ -79,7 +79,6 @@ export class BundleEditorForm extends LitElement {
   };
 
   render() {
-    console.log('Rendering form, Type:', this.bundleRequest.Type, 'typeOptions:', this._typeOptions);
     return html`
       <vaadin-vertical-layout>
         <div class="field-container">
@@ -110,7 +109,7 @@ export class BundleEditorForm extends LitElement {
             .items="${this._typeOptions}"
             item-label-path="label"
             item-value-path="value"
-            .value="${(this.bundleRequest.Type as unknown as string) || ''}"
+            .value="${this.bundleRequest.Type || ''}"
             @value-changed="${(e: CustomEvent) => {
               if (e.detail.value) {
                 this._handleTypeChange(e.detail.value);
@@ -218,10 +217,8 @@ export class BundleEditorForm extends LitElement {
         'bundleType'
       ) as ComboBox;
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
-        // API returns Type as string ("JobRequest", "CopyEnvBuild")
-        const typeValue = this.bundleRequest.Type as unknown as string;
         const typeOption = this._typeOptions.find(
-          option => option.value === typeValue
+          option => option.value === this.bundleRequest.Type
         );
         if (typeOption) {
           typeComboBox.selectedItem = typeOption;
@@ -252,10 +249,8 @@ export class BundleEditorForm extends LitElement {
   }
 
   private _handleTypeChange(newType: string) {
-    const currentType = this.bundleRequest.Type as unknown as string;
-
     // Skip if the type hasn't changed
-    if (currentType === newType) {
+    if (this.bundleRequest.Type === newType) {
       return;
     }
 
@@ -304,7 +299,7 @@ export class BundleEditorForm extends LitElement {
     }
 
     // Skip if the value hasn't actually changed
-    if (this.bundleRequest[property] == value) {
+    if (this.bundleRequest[property] === value) {
       return;
     }
 
@@ -324,16 +319,12 @@ export class BundleEditorForm extends LitElement {
 
   private _handleSave() {
     this._synchronizeEditorWithBundleRequest();
-    
-    console.log('Updated Request before save:', this.bundleRequest.Request);
-  
+
     if (!this._validateBundle()) {
       return;
     }
-  
+
     const api = new BundledRequestsApi();
-    
-    console.log('Submitting bundle with Request:', this.bundleRequest.Request);
 
     const loadingChangeEvent = 'loading-changed';
     this.dispatchEvent(
@@ -361,14 +352,12 @@ export class BundleEditorForm extends LitElement {
         );
     
         this.dialog.closeDialog();
-        console.log('Dispatching bundle-saved event from form');
         const savedEvent = new CustomEvent('bundle-saved', {
           detail: { bundleRequest: this.bundleRequest },
           bubbles: true,
           composed: true
         });
         this.dispatchEvent(savedEvent);
-        console.log('Bundle-saved event dispatched');
       },
       error: (error) => {
         console.error('Error saving bundle request:', error);

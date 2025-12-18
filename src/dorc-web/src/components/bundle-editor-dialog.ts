@@ -26,7 +26,7 @@ export class BundleEditorDialog extends LitElement {
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {
     BundleName: '',
-    Type: BundledRequestType.NUMBER_1,
+    Type: BundledRequestType.JobRequest,
     RequestName: '',
     Sequence: 0,
     Request: '{}'
@@ -49,10 +49,9 @@ export class BundleEditorDialog extends LitElement {
             new CustomEvent('bundle-saved', {
               bubbles: true,
               composed: true,
-              detail: (e as CustomEvent).detail
+              detail: e.detail
             })
           );
-          console.log('Bundle saved event forwarded');
         }}"
             
       ></bundle-editor-form>
@@ -96,6 +95,8 @@ export class BundleEditorDialog extends LitElement {
 
   /**
    * Open the dialog to create a new bundle request
+   * @param projects - List of available projects for the bundle request
+   * @param existingBundleNames - List of existing bundle names for autocomplete suggestions
    */
   public openNew(projects: ProjectApiModel[] | null = null, existingBundleNames: string[] = []) {
     this.isEdit = false;
@@ -104,7 +105,7 @@ export class BundleEditorDialog extends LitElement {
     this.bundleRequest = {
       BundleName: '',
       ProjectId: 0,
-      Type: BundledRequestType.NUMBER_1,
+      Type: BundledRequestType.JobRequest,
       RequestName: '',
       Sequence: 0,
       Request: '{}'
@@ -114,6 +115,9 @@ export class BundleEditorDialog extends LitElement {
 
   /**
    * Open the dialog to edit an existing bundle request
+   * @param bundle - The bundle request to edit
+   * @param projects - List of available projects for the bundle request
+   * @param existingBundleNames - List of existing bundle names for autocomplete suggestions
    */
   public openEdit(bundle: BundledRequestsApiModel, projects: ProjectApiModel[] | null = null, existingBundleNames: string[] = []) {
     this.isEdit = true;
