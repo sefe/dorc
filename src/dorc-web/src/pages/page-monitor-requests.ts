@@ -27,7 +27,6 @@ import {
 import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
 import '../icons/custom-icons.js';
-import { ErrorNotification } from '../components/notifications/error-notification';
 import { getShortLogonName } from '../helpers/user-extensions.js';
 import '../components/connection-status-indicator';
 import {
