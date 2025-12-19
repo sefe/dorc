@@ -230,7 +230,7 @@ namespace Dorc.Core
                     if (artifacts.Count > 1)
                     {
                         var drop = artifacts.FirstOrDefault(v => v.Name.ToLower().Equals("drop"));
-                        buildDetail.DropLocation = drop?.Resource.DownloadUrl;
+                        buildDetail.DropLocation = drop?.Resource.DownloadUrl ?? string.Empty;
                     }
                     else
                     {

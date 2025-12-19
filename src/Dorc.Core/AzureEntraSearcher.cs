@@ -263,7 +263,7 @@ namespace Dorc.Core
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
 
-                var activeUser = users.Value?.FirstOrDefault(u => u.AccountEnabled == true);
+                var activeUser = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (activeUser != null)
                 {
                     return new UserElementApiModel()
@@ -349,7 +349,7 @@ namespace Dorc.Core
                         requestConfiguration.QueryParameters.Select = new[] { "id" };
                     }).Result;
 
-                var targetGroup = group.Value?.FirstOrDefault();
+                var targetGroup = group?.Value?.FirstOrDefault();
                 if (targetGroup == null || targetGroup.Id == null)
                 {
                     return string.Empty;

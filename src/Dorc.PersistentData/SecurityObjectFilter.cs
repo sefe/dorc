@@ -21,8 +21,13 @@ namespace Dorc.PersistentData
 
         #region Implementation of ISecurityObjectFilter
 
-        public bool HasPrivilege<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject
+        public bool HasPrivilege<T>(T securityObject, IPrincipal? user, AccessLevel accessLevel) where T : SecurityObject
         {
+            if (user is null)
+            {
+                return false;
+            }
+
             if (user.IsInRole("Admin"))
             {
                 return true;

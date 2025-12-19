@@ -51,7 +51,7 @@ namespace Dorc.Api.Services
                 }
         }
 
-        public string GetComputerName()
+        public string? GetComputerName()
         {
             var name = "";
             try

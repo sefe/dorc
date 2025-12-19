@@ -10,9 +10,9 @@
         /// </summary>
         /// <param name="introspectionScheme">Scheme name of the introspection handler</param>
         /// <returns></returns>
-        public static Func<HttpContext, string> ForwardReferenceToken(string introspectionScheme = "introspection")
+        public static Func<HttpContext, string?> ForwardReferenceToken(string introspectionScheme = "introspection")
         {
-            string Select(HttpContext context)
+            string? Select(HttpContext context)
             {
                 var (scheme, credential) = GetSchemeAndCredential(context);
 

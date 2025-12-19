@@ -14,6 +14,6 @@ namespace Dorc.PersistentData
 
     public interface ISecurityObjectFilter
     {
-        bool HasPrivilege<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject;
+        bool HasPrivilege<T>(T securityObject, IPrincipal? user, AccessLevel accessLevel) where T : SecurityObject;
     }
 }

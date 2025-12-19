@@ -26,7 +26,7 @@ namespace Dorc.Api.Services
             _loggerFactory = loggerFactory;
             _fileSystemHelper = fileSystemHelper;
         }
-        public IDeployableBuild CreateInstance(RequestDto request)
+        public IDeployableBuild? CreateInstance(RequestDto request)
         {
             var buildDetail = new BuildDetails(request);
             switch (buildDetail.Type)

@@ -189,7 +189,7 @@ namespace Dorc.Core
                                 var resultItem = new ServicesAndStatus
                                 {
                                     EnvName = sa.EnvName,
-                                    ServerName = sa.ServerName,
+                                    ServerName = sa.ServerName ?? string.Empty,
                                     ServiceName = sa.ServiceName,
                                     ServiceStatus = serviceController.Status.ToString()
                                 };

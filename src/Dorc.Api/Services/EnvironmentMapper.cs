@@ -17,7 +17,7 @@ namespace Dorc.Api.Services
             _environmentsPersistentSource = environmentsPersistentSource;
         }
 
-        public EnvironmentApiModel GetEnvironmentByDatabase(int envId, int databaseId, ClaimsPrincipal user)
+        public EnvironmentApiModel? GetEnvironmentByDatabase(int envId, int databaseId, ClaimsPrincipal user)
         {
             if (envId == 0)
                 return null;
