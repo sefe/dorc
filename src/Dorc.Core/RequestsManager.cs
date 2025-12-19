@@ -124,6 +124,8 @@ namespace Dorc.Core
                 if (string.IsNullOrEmpty(buildDefinitionName)) return Enumerable.Empty<DeployableArtefact>();
 
                 var project = _projectsPersistentSource.GetProject(projectId.Value);
+                if (project is null || string.IsNullOrEmpty(project.ArtefactsUrl))
+                    return Enumerable.Empty<DeployableArtefact>();
 
                 if (project.ArtefactsUrl.StartsWith("http"))
                 {
@@ -206,6 +208,8 @@ namespace Dorc.Core
         public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
+            if (project is null || string.IsNullOrEmpty(project.ArtefactsUrl))
+                return new List<DeploymentRequestDetail>();
             var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
             var result = new List<DeploymentRequestDetail>();
             var bundleJson = new StreamReader(createRequest.BuildUrl).ReadToEnd();
@@ -275,6 +279,8 @@ namespace Dorc.Core
         public DeploymentRequestDetail RequestDetail(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
+            if (project is null)
+                throw new InvalidOperationException($"Cannot find project named '{createRequest.Project}'");
             var buildDetail = new BuildDetail();
             if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
@@ -317,6 +323,8 @@ namespace Dorc.Core
         {
             var buildDetail = new BuildDetail();
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
+            if (project is null || string.IsNullOrEmpty(project.ArtefactsUrl) || string.IsNullOrEmpty(project.ArtefactsSubPaths))
+                return buildDetail;
             var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
 
             var tfsProjects = project.ArtefactsSubPaths.Split(';');
@@ -343,11 +351,11 @@ namespace Dorc.Core
                     continue;
 
                 var tfsBuildArtifactResponse =
-                    tfsClient.GetBuildArtifacts(project.ArtefactsUrl, tfsProject, createRequest.BuildUrl);
+                    tfsClient.GetBuildArtifacts(project.ArtefactsUrl!, tfsProject, createRequest.BuildUrl);
                 if (tfsBuildArtifactResponse.Count > 1)
                 {
                     var drop = tfsBuildArtifactResponse.FirstOrDefault(v => v.Name.Equals("drop"));
-                    buildDetail.DropLocation = drop?.Resource.DownloadUrl;
+                    buildDetail.DropLocation = drop?.Resource.DownloadUrl ?? string.Empty;
                 }
                 else
                 {

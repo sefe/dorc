@@ -60,7 +60,7 @@ namespace Dorc.Monitor.RequestProcessors
 
             try
             {
-                var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
+                var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot") ?? string.Empty;
                 SetUpScriptRootAsProperty(scriptRoot);
 
                 if (string.IsNullOrEmpty(requestToExecute.Request.RequestDetails))
@@ -80,7 +80,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                     var environment = environmentsPersistentSource.GetEnvironment(environmentName);
 
-                    if (environment.EnvironmentSecure)
+                    if (environment?.EnvironmentSecure == true)
                     {
                         logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
                     }
@@ -210,7 +210,8 @@ namespace Dorc.Monitor.RequestProcessors
                         }
                         catch (OperationCanceledException)
                         {
-                            var currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id).Status;
+                            var currentDbRequest = requestsPersistentSource.GetRequest(requestToExecute.Request.Id);
+                            var currentDbRequestStatus = currentDbRequest?.Status;
                             deploymentRequestStatus = currentDbRequestStatus != DeploymentRequestStatus.Pending.ToString()
                                 ? DeploymentRequestStatus.Cancelled
                                 : DeploymentRequestStatus.Pending;
@@ -415,7 +416,7 @@ namespace Dorc.Monitor.RequestProcessors
         {
             var deploymentLogDir = _configValuesPersistentSource.GetConfigValue(
                 "DeploymentLogDir",
-                Environment.CurrentDirectory);
+                Environment.CurrentDirectory) ?? Environment.CurrentDirectory;
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DeploymentLogDir, deploymentLogDir);
         }

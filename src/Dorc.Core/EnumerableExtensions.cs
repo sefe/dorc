@@ -16,9 +16,9 @@ namespace Dorc.Core
             {
                 var key = keySelector(item);
 
-                if (!key.Equals(currentKey))
+                if (!Equals(key, currentKey))
                 {
-                    if (hasKey) yield return new BatchGroup<TKey, TSource>(currentKey, currentBatch);
+                    if (hasKey) yield return new BatchGroup<TKey, TSource>(currentKey!, currentBatch);
 
                     hasKey = true;
                     currentKey = key;
@@ -28,7 +28,7 @@ namespace Dorc.Core
                 currentBatch.Add(item);
             }
 
-            if (hasKey && currentBatch.Count > 0) yield return new BatchGroup<TKey, TSource>(currentKey, currentBatch);
+            if (hasKey && currentBatch.Count > 0) yield return new BatchGroup<TKey, TSource>(currentKey!, currentBatch);
         }
     }
 

@@ -146,13 +146,16 @@ namespace Dorc.Api.Services
                         }
                     }
 
-                    var propertyApiModel = _propertiesPersistentSource.GetProperty(filteredPropertyValues?.Property.Name);
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     if (filteredPropertyValues != null)
-                        _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                            filteredPropertyValues.Id, filteredPropertyValues.Property.Name,
-                            filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
-                            username, "Delete");
+                    {
+                        var propertyApiModel = _propertiesPersistentSource.GetProperty(filteredPropertyValues.Property.Name);
+                        string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                        if (propertyApiModel != null)
+                            _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
+                                filteredPropertyValues.Id, filteredPropertyValues.Property.Name,
+                                filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
+                                username, "Delete");
+                    }
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }
@@ -222,10 +225,11 @@ namespace Dorc.Api.Services
 
                     var propertyApiModel = _propertiesPersistentSource.GetProperty(newVariableValue.Property.Name);
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                        newVariableValue.Id, newVariableValue.Property.Name,
-                        newVariableValue.PropertyValueFilter, string.Empty, newVariableValue.Value,
-                        username, "Insert");
+                    if (propertyApiModel != null)
+                        _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
+                            newVariableValue.Id, newVariableValue.Property.Name,
+                            newVariableValue.PropertyValueFilter, string.Empty, newVariableValue.Value,
+                            username, "Insert");
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }
@@ -300,10 +304,11 @@ namespace Dorc.Api.Services
 
                     var propertyApiModel = _propertiesPersistentSource.GetProperty(dbPropertyValueModel.Property.Name);
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                        dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
-                        dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
-                        username, "Update");
+                    if (propertyApiModel != null)
+                        _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
+                            dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
+                            dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
+                            username, "Update");
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }

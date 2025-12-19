@@ -32,7 +32,7 @@ namespace Dorc.Api.Services
             _propertyEncryptor = propertyEncryptor;
         }
 
-        public PropertyApiModel GetProperty(string propertyName)
+        public PropertyApiModel? GetProperty(string propertyName)
         {
             try
             {
@@ -65,7 +65,7 @@ namespace Dorc.Api.Services
             {
                 try
                 {
-                    var propValues = _propertyValuesService.GetPropertyValues(property, null, User);
+                    var propValues = _propertyValuesService.GetPropertyValues(property, string.Empty, User);
                     result.AddRange(_propertyValuesService.DeletePropertyValues(propValues, User));
 
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
@@ -89,7 +89,7 @@ namespace Dorc.Api.Services
 
         private static Response UnrollException(Exception e, object property)
         {
-            return e.Message.Contains("inner exception for details")
+            return e.Message.Contains("inner exception for details") && e.InnerException != null
                 ? UnrollException(e.InnerException, property)
                 : new Response { Item = property, Status = e.Message };
         }

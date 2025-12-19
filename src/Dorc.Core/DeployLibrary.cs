@@ -181,14 +181,15 @@ namespace Dorc.Core
             {
                 if (ae.InnerException != null)
                     throw ae.InnerException;
+                throw;
             }
-
-            return null;
         }
 
         private async Task<CreateResponse> CreateRequestAsync(CreateRequest createRequest, ClaimsPrincipal user)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
+            if (project is null)
+                throw new InvalidOperationException($"Cannot find project named '{createRequest.Project}'");
 
             var buildDetail = new BuildDetail
             {
@@ -313,6 +314,8 @@ namespace Dorc.Core
         {
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(strProjectName);
+            if (project is null)
+                throw new InvalidOperationException($"Cannot find project named '{strProjectName}'");
             var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
                 .Where(x => !x.Children.Any())
                 .Where(x => doDeploy.Any(i => i == x.ComponentId))
@@ -329,6 +332,8 @@ namespace Dorc.Core
             var dontDeploy = new[] { "" };
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(projectName);
+            if (project is null)
+                throw new InvalidOperationException($"Cannot find project named '{projectName}'");
             var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
                 .Where(x => !x.Children.Any())
                 .Where(x => !dontDeploy.Contains(x.ComponentName))
