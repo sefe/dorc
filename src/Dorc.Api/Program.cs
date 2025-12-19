@@ -250,6 +250,9 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
                 new[] { dorcApiGlobalScope }
             }
         });
+
+        // Ensure enums are serialized as strings in OpenAPI spec to match JsonStringEnumConverter behavior
+        options.SchemaFilter<EnumSchemaFilter>();
     });
 }
 
