@@ -164,8 +164,11 @@ namespace Dorc.Api.Controllers
                                 });
                             }
 
-                            reqIds.Add(_deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
-                                job.BuildText, job.Components.ToList(), variables, User));
+                            var jobRequestId = _deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
+                                job.BuildText, job.Components.ToList(), variables, User);
+                            reqIds.Add(jobRequestId);
+                            _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: JobRequest for project '{Project}' created request ID {RequestId}",
+                                mlpRequest.BundleName, req.Sequence, job.Project, jobRequestId);
                             break;
                         case BundledRequestType.CopyEnvBuild:
                             var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
@@ -173,15 +176,21 @@ namespace Dorc.Api.Controllers
                             {
                                 if (copyEnvBuildRequest.Components.Any())
                                 {
-                                    reqIds.AddRange(_deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
-                                        copyEnvBuildRequest.Components.ToArray(), User));
+                                        copyEnvBuildRequest.Components.ToArray(), User);
+                                    reqIds.AddRange(copyIds);
+                                    _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuild for project '{Project}' created request IDs [{RequestIds}]",
+                                        mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
                                 }
                                 else
                                 {
-                                    reqIds.AddRange(_deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
-                                        User));
+                                        User);
+                                    reqIds.AddRange(copyIds);
+                                    _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuildAllComponents for project '{Project}' created request IDs [{RequestIds}]",
+                                        mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
                                 }
                             }
                             break;
@@ -199,6 +208,8 @@ namespace Dorc.Api.Controllers
                 if (allRequestIds.Any())
                 {
                     var allRequestIdsValue = string.Join(",", allRequestIds);
+                    _logger.LogInformation("Bundle '{BundleName}' completed with {Count} total request IDs: [{AllRequestIds}]",
+                        mlpRequest.BundleName, allRequestIds.Count, allRequestIdsValue);
                     _variableResolver.SetPropertyValue("AllRequestIds", allRequestIdsValue);
 
                     // Update any request details that contain unresolved $AllRequestIds$ references
@@ -222,6 +233,7 @@ namespace Dorc.Api.Controllers
         private void ResolveAllRequestIdsInRequests(List<int> requestIds, string allRequestIdsValue)
         {
             const string allRequestIdsPlaceholder = "$AllRequestIds$";
+            const string allRequestIdsPropertyName = "AllRequestIds";
             var serializer = new DeploymentRequestDetailSerializer();
 
             foreach (var requestId in requestIds)
@@ -229,7 +241,7 @@ namespace Dorc.Api.Controllers
                 try
                 {
                     var request = _requestsPersistentSource.GetRequest(requestId);
-                    if (request?.RequestDetails == null || !request.RequestDetails.Contains(allRequestIdsPlaceholder))
+                    if (request?.RequestDetails == null)
                     {
                         continue;
                     }
@@ -237,6 +249,7 @@ namespace Dorc.Api.Controllers
                     var requestDetail = serializer.Deserialize(request.RequestDetails);
                     var hasChanges = false;
 
+                    // 1. Replace $AllRequestIds$ placeholders in existing property values
                     foreach (var property in requestDetail.Properties)
                     {
                         if (property.Value != null && property.Value.Contains(allRequestIdsPlaceholder))
@@ -246,11 +259,18 @@ namespace Dorc.Api.Controllers
                         }
                     }
 
+                    // 2. Add AllRequestIds as a standalone property (so $AllRequestIds works in PowerShell)
+                    if (!requestDetail.Properties.Any(p => p.Name == allRequestIdsPropertyName))
+                    {
+                        requestDetail.Properties.Add(new PropertyPair(allRequestIdsPropertyName, allRequestIdsValue));
+                        hasChanges = true;
+                    }
+
                     if (hasChanges)
                     {
                         var updatedRequestDetails = serializer.Serialize(requestDetail);
                         _requestsPersistentSource.UpdateRequestDetails(requestId, updatedRequestDetails);
-                        _logger.LogInformation("Updated request {RequestId} with resolved AllRequestIds: {AllRequestIds}", requestId, allRequestIdsValue);
+                        _logger.LogInformation("Updated request {RequestId} with AllRequestIds: {AllRequestIds}", requestId, allRequestIdsValue);
                     }
                 }
                 catch (Exception ex)

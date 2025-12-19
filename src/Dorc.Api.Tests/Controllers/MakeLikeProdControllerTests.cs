@@ -320,7 +320,7 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void Put_DoesNotUpdateRequestDetails_WhenNoPlaceholderPresent()
+        public void Put_AddsAllRequestIdsProperty_EvenWhenNoPlaceholderPresent()
         {
             // Arrange
             var targetEnv = "TestEnv";
@@ -383,7 +383,181 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.Put(mlpRequest);
 
             // Assert
-            // Verify that UpdateRequestDetails was NOT called since there's no placeholder to resolve
+            // Verify that UpdateRequestDetails WAS called to add AllRequestIds property
+            _requestsPersistentSource.Received(1).UpdateRequestDetails(12345, Arg.Is<string>(s =>
+                s.Contains("<Name>AllRequestIds</Name>") && s.Contains("<Value>12345</Value>")));
+        }
+
+        [TestMethod]
+        public void Put_AddsAllRequestIdsProperty_ToAllRequestsInBundle()
+        {
+            // Arrange
+            var targetEnv = "TestEnv";
+            var bundleName = "TestBundle";
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = targetEnv,
+                DataBackup = "Live Snap",
+                BundleName = bundleName,
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            var jobRequest1 = new RequestDto
+            {
+                Project = "TestProject1",
+                BuildUrl = "http://build.url/1",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Component1" },
+                RequestProperties = new List<RequestProperty>()
+            };
+
+            var jobRequest2 = new RequestDto
+            {
+                Project = "TestProject2",
+                BuildUrl = "http://build.url/2",
+                BuildText = "Build 2.0",
+                Components = new List<string> { "Component2" },
+                RequestProperties = new List<RequestProperty>()
+            };
+
+            var bundledRequests = new List<BundledRequestsApiModel>
+            {
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest1),
+                    Sequence = 1
+                },
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest2),
+                    Sequence = 2
+                }
+            };
+
+            // Create request details without $AllRequestIds$ placeholder for both requests
+            var serializer = new DeploymentRequestDetailSerializer();
+            var requestDetail1 = new DeploymentRequestDetail
+            {
+                EnvironmentName = targetEnv,
+                Components = new List<string> { "Component1" },
+                BuildDetail = new BuildDetail { Project = "TestProject1", BuildNumber = "1.0" },
+                Properties = new List<PropertyPair>()
+            };
+            var requestDetail2 = new DeploymentRequestDetail
+            {
+                EnvironmentName = targetEnv,
+                Components = new List<string> { "Component2" },
+                BuildDetail = new BuildDetail { Project = "TestProject2", BuildNumber = "2.0" },
+                Properties = new List<PropertyPair>()
+            };
+
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
+            _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
+            _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
+
+            _deployLibrary.SubmitRequest("TestProject1", Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(12345);
+            _deployLibrary.SubmitRequest("TestProject2", Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(12346);
+
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+            _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
+
+            // Mock both requests
+            _requestsPersistentSource.GetRequest(12345).Returns(new DeploymentRequestApiModel
+            {
+                Id = 12345,
+                RequestDetails = serializer.Serialize(requestDetail1)
+            });
+            _requestsPersistentSource.GetRequest(12346).Returns(new DeploymentRequestApiModel
+            {
+                Id = 12346,
+                RequestDetails = serializer.Serialize(requestDetail2)
+            });
+
+            // Act
+            var result = _controller.Put(mlpRequest);
+
+            // Assert
+            // Verify that UpdateRequestDetails was called for BOTH requests with AllRequestIds containing both IDs
+            _requestsPersistentSource.Received(1).UpdateRequestDetails(12345, Arg.Is<string>(s =>
+                s.Contains("<Name>AllRequestIds</Name>") && s.Contains("<Value>12345,12346</Value>")));
+            _requestsPersistentSource.Received(1).UpdateRequestDetails(12346, Arg.Is<string>(s =>
+                s.Contains("<Name>AllRequestIds</Name>") && s.Contains("<Value>12345,12346</Value>")));
+        }
+
+        [TestMethod]
+        public void Put_DoesNotDuplicateAllRequestIdsProperty_WhenAlreadyPresent()
+        {
+            // Arrange
+            var targetEnv = "TestEnv";
+            var bundleName = "TestBundle";
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = targetEnv,
+                DataBackup = "Live Snap",
+                BundleName = bundleName,
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            var jobRequest = new RequestDto
+            {
+                Project = "TestProject",
+                BuildUrl = "http://build.url",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Component1" },
+                RequestProperties = new List<RequestProperty>()
+            };
+
+            var bundledRequests = new List<BundledRequestsApiModel>
+            {
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest),
+                    Sequence = 1
+                }
+            };
+
+            // Create request details that already has AllRequestIds property
+            var serializer = new DeploymentRequestDetailSerializer();
+            var requestDetail = new DeploymentRequestDetail
+            {
+                EnvironmentName = targetEnv,
+                Components = new List<string> { "Component1" },
+                BuildDetail = new BuildDetail { Project = "TestProject", BuildNumber = "1.0" },
+                Properties = new List<PropertyPair>
+                {
+                    new PropertyPair("AllRequestIds", "existing-value")
+                }
+            };
+            var requestDetailsXml = serializer.Serialize(requestDetail);
+
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
+            _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
+            _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
+            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(12345);
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+            _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
+
+            // Mock the request with existing AllRequestIds property
+            _requestsPersistentSource.GetRequest(12345).Returns(new DeploymentRequestApiModel
+            {
+                Id = 12345,
+                RequestDetails = requestDetailsXml
+            });
+
+            // Act
+            var result = _controller.Put(mlpRequest);
+
+            // Assert
+            // Verify that UpdateRequestDetails was NOT called since AllRequestIds property already exists
             _requestsPersistentSource.DidNotReceive().UpdateRequestDetails(Arg.Any<int>(), Arg.Any<string>());
         }
     }
