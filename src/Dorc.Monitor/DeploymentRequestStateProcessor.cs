@@ -22,7 +22,6 @@ namespace Dorc.Monitor
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
-        private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
 
         private enum Methods

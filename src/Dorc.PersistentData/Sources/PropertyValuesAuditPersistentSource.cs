@@ -47,7 +47,7 @@ namespace Dorc.PersistentData.Sources
 
         public GetPropertyValuesAuditListResponseDto GetPropertyValueAuditsByPage(int limit, int page, PagedDataOperators operators, bool useAndLogic)
         {
-            PagedModel<Audit> output = null;
+            PagedModel<Audit>? output = null;
             using (var context = _contextFactory.GetContext())
             {
                 var reqStatusesQueryable = context.Audits.AsQueryable();
@@ -62,8 +62,10 @@ namespace Dorc.PersistentData.Sources
                             continue;
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                         {
-                            filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
+                            var filterExpr = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
+                                    pagedDataFilter.FilterValue);
+                            if (filterExpr != null)
+                                filterLambdas.Add(filterExpr);
                         }
                     }
 
@@ -192,14 +194,14 @@ namespace Dorc.PersistentData.Sources
             if (predicates.Length == 0) return source.Where(x => false); // no matches!
             if (predicates.Length == 1) return source.Where(predicates[0]); // simple
 
-            Expression<Func<T, bool>> pred = null;
+            Expression<Func<T, bool>>? pred = null;
             for (var i = 0; i < predicates.Length; i++)
             {
                 pred = pred == null
                     ? predicates[i]
                     : pred.And(predicates[i]);
             }
-            return source.Where(pred);
+            return source.Where(pred!);
         }
         private IQueryable<T> WhereAny<T>(
             IQueryable<T> source,
@@ -210,14 +212,14 @@ namespace Dorc.PersistentData.Sources
             if (predicates.Length == 0) return source.Where(x => false);
             if (predicates.Length == 1) return source.Where(predicates[0]);
 
-            Expression<Func<T, bool>> pred = null;
+            Expression<Func<T, bool>>? pred = null;
             for (var i = 0; i < predicates.Length; i++)
             {
                 pred = pred == null
                     ? predicates[i]
                     : pred.Or(predicates[i]);
             }
-            return source.Where(pred);
+            return source.Where(pred!);
         }
     }
 }

@@ -8,7 +8,6 @@ namespace Dorc.Monitor.RunnerProcess
     internal partial class ProcessStartupInfoBuilder
     {
         private const int STD_INPUT_HANDLE = -10;
-        private static readonly nint INVALID_HANDLE_VALUE = -1;
 
         private static readonly HandleRef NullHandleRef = new HandleRef(null, nint.Zero);
 

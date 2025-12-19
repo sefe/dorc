@@ -140,7 +140,9 @@ namespace Dorc.Api.Controllers
                         continue;
                     }
 
-                    var userAccountFlags = (int)foundUser.Properties[userAccountControlPropertyName].Value;
+                    var userAccountFlagsValue = foundUser.Properties[userAccountControlPropertyName].Value;
+                    if (userAccountFlagsValue is null) continue;
+                    var userAccountFlags = (int)userAccountFlagsValue;
                     var isFoundUserAccountDisabled = Convert.ToBoolean(userAccountFlags & ADS_UF_ACCOUNTDISABLE);
                     if (isFoundUserAccountDisabled)
                     {
@@ -148,11 +150,11 @@ namespace Dorc.Api.Controllers
                     }
 
                     var foundUserLogonName = foundUser.Properties.Contains(samAccountNamePropertyName)
-                        ? foundUser.Properties[samAccountNamePropertyName][0].ToString()
+                        ? foundUser.Properties[samAccountNamePropertyName][0].ToString() ?? DefaultLogonName
                         : DefaultLogonName;
 
                     var foundUserDisplayName = foundUser.Properties.Contains(displayNamePropertyName)
-                        ? foundUser.Properties[displayNamePropertyName][0].ToString()
+                        ? foundUser.Properties[displayNamePropertyName][0].ToString() ?? DefaultDisplayName
                         : foundUserLogonName.Equals(DefaultLogonName)
                             ? DefaultDisplayName
                             : foundUserLogonName;
@@ -239,7 +241,7 @@ namespace Dorc.Api.Controllers
                     }
 
                     var foundGroupName = foundGroup.Properties.Contains(namePropertyName)
-                        ? foundGroup.Properties[namePropertyName][0].ToString()
+                        ? foundGroup.Properties[namePropertyName][0].ToString() ?? DefaultDisplayName
                         : DefaultDisplayName;
 
                     output.Add(new GroupSearchResult

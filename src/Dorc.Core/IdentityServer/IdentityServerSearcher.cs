@@ -17,7 +17,7 @@ namespace Dorc.Core.IdentityServer
             var clientId = config.GetIdentityServerClientId();
             var clientSecret = secretsReader.GetIdentityServerApiSecret();
 
-            _client = new IdentityServerClient(authority, clientId, clientSecret, loggerFactory.CreateLogger<IdentityServerClient>());
+            _client = new IdentityServerClient(authority ?? string.Empty, clientId ?? string.Empty, clientSecret ?? string.Empty, loggerFactory.CreateLogger<IdentityServerClient>());
         }
 
         public List<UserElementApiModel> Search(string objectName)

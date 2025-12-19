@@ -69,7 +69,7 @@ namespace Dorc.Core
             return _graphClient;
         }
 
-        private static string EscapeODataString(string s) => s?.Replace("'", "''");
+        private static string EscapeODataString(string s) => s?.Replace("'", "''") ?? string.Empty;
 
         public List<UserElementApiModel> Search(string objectName)
         {
@@ -263,7 +263,7 @@ namespace Dorc.Core
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
 
-                var activeUser = users.Value.FirstOrDefault(u => u.AccountEnabled == true);
+                var activeUser = users.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (activeUser != null)
                 {
                     return new UserElementApiModel()
@@ -349,13 +349,13 @@ namespace Dorc.Core
                         requestConfiguration.QueryParameters.Select = new[] { "id" };
                     }).Result;
 
-                var targetGroup = group.Value.FirstOrDefault();
-                if (targetGroup == null)
+                var targetGroup = group.Value?.FirstOrDefault();
+                if (targetGroup == null || targetGroup.Id == null)
                 {
                     return string.Empty;
                 }
 
-                // Check if user is a member of the group (including transitive memberships)  
+                // Check if user is a member of the group (including transitive memberships)
                 var requestBody = new CheckMemberGroupsPostRequestBody
                 {
                     GroupIds = new List<string> { targetGroup.Id }

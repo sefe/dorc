@@ -100,7 +100,8 @@ namespace Dorc.Monitor
                             {
                                 TerraformRunnerOperations.CreatePlan => DeploymentResultStatus.WaitingConfirmation,
                                 TerraformRunnerOperations.ApplyPlan => DeploymentResultStatus.Complete,
-                                TerraformRunnerOperations.None => throw new NotImplementedException()
+                                TerraformRunnerOperations.None => throw new NotImplementedException(),
+                                _ => throw new ArgumentOutOfRangeException(nameof(terreformOperation), terreformOperation, "Unknown Terraform operation")
                             };
                             _logger.LogInformation($"Terraform component '{component.ComponentName}' plan created, waiting for confirmation.");
                         }

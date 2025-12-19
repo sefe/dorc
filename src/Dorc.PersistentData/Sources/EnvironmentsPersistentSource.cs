@@ -360,7 +360,7 @@ namespace Dorc.PersistentData.Sources
                      select environment.Name).Any()
                 let permissions = (from env in context.Environments
                                    join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                   where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!)) &&
+                                   where env.Name == environment.Name && (ac.Sid != null && EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!)) &&
                                  ac.Allow != 0
                                    select ac.Allow).ToList()
                 let hasPermission = permissions.Any(a => (a & (int)accessLevel) != 0)
@@ -405,15 +405,20 @@ namespace Dorc.PersistentData.Sources
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetEnvironmentWithParentChild(context, environmentName);
+                if (environment is null)
+                    return null;
+
                 var result = MapToEnvironmentApiModel(environment);
+                if (result is null)
+                    return null;
 
                 var envPermissions = context.AccessControls
-                    .Where(ac => ac.ObjectId == environment.ObjectId && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!)))
+                    .Where(ac => ac.ObjectId == environment.ObjectId && (ac.Sid != null && EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!)))
                     .ToList();
 
                 var isOwner = envPermissions
                     .Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
-                
+
                 result.IsOwner = isOwner;
 
                 if (_rolePrivilegesChecker.IsAdmin(user))
@@ -421,7 +426,7 @@ namespace Dorc.PersistentData.Sources
                     result.UserEditable = true;
                 }
                 else
-                {                    
+                {
                     var isDelegate = context.Environments
                         .Where(env => env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username))
                         .Select(env => env.Name).Any();
@@ -689,7 +694,7 @@ namespace Dorc.PersistentData.Sources
                                select env.Name).Any()
                           let permissions = (from env in context.Environments
                                              join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                             where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!))
+                                             where env.Name == environment.Name && (ac.Sid != null && EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid!))
                                              select ac.Allow).ToList()
                           let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                           let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
@@ -896,7 +901,7 @@ namespace Dorc.PersistentData.Sources
                           environment => environment.ObjectId,
                           ac => ac.ObjectId,
                           (environment, ac) => new { environment, ac })
-                    .Where(joined => (EF.Constant(userSids).Contains(joined.ac.Sid) || joined.ac.Pid != null && EF.Constant(userSids).Contains(joined.ac.Pid!)) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
+                    .Where(joined => (joined.ac.Sid != null && EF.Constant(userSids).Contains(joined.ac.Sid) || joined.ac.Pid != null && EF.Constant(userSids).Contains(joined.ac.Pid!)) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
                     .Select(joined => joined.environment);
 
                 var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();

@@ -98,9 +98,9 @@ namespace Dorc.Core
             return sas;
         }
 
-        private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
+        private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string? user, out string? pwd)
         {
-            if (environment.EnvironmentIsProd)
+            if (environment?.EnvironmentIsProd == true)
             {
                 user = _configValuesPersistentSource.GetConfigValue(DORCProdDeployUsername);
                 pwd = _configValuesPersistentSource.GetConfigValue(DORCProdDeployPassword);
@@ -117,6 +117,8 @@ namespace Dorc.Core
         private List<ServicesAndStatus> GetServicesEnvironment(EnvironmentApiModel? environment)
         {
             var iResults = new List<ServicesAndStatus>();
+            if (environment is null)
+                return iResults;
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId);
             var daemons = _daemonsPersistentSource.GetDaemons();

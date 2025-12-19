@@ -169,7 +169,7 @@ namespace Dorc.PersistentData.Sources
                         DeploymentRequest = context.DeploymentRequests.First(dr => dr.Id == requestId),
                         Status = DeploymentResultStatus.Pending.ToString()
                     };
-                    if (deploymentResult.Component.IsEnabled != null && deploymentResult.Component.IsEnabled == false)
+                    if (deploymentResult.Component.IsEnabled == false)
                     {
                         deploymentResult.Status = DeploymentResultStatus.Disabled.ToString();
                     }

@@ -49,7 +49,6 @@ namespace Dorc.Api.Tests.Sources
         public void CreateComponent_WithScriptPath_Success()
         {
             // Arrange
-            var projectId = 1;
             var apiComponent = new ComponentApiModel
             {
                 ComponentId = 0, // New component

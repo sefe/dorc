@@ -36,7 +36,7 @@ namespace Dorc.PersistentData.Sources
                 let permissions = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
+                    where env.Name == environment.Name && (ac.Sid != null && EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
                           (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                     select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -88,7 +88,7 @@ namespace Dorc.PersistentData.Sources
                 let permissions = (from envDetail in context.Environments
                                 join env in context.Environments on envDetail.Name equals env.Name
                                 join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
+                                where env.Name == environment.Name && (ac.Sid != null && EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
                                         (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                                 select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
