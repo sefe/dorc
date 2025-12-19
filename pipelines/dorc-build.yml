@@ -80,7 +80,7 @@ steps:
       nugetConfigPath: 'pipelines\NuGet.config'
       noCache: true
 
-- task: sonarsource.sonarqube.15B84CA1-B62F-4A2A-A403-89B77A063157.SonarQubePrepare@6.3.2
+- task: SonarQubePrepare@7
   displayName: 'Prepare the SonarQube analysis'
   inputs:
     SonarQube: SonarQube
@@ -120,7 +120,7 @@ steps:
       diagnosticsEnabled: True
   continueOnError: true
   
-- task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2
+- task: SonarQubeAnalyze@7
   displayName: 'Complete the SonarQube analysis'
   continueOnError: true
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'),eq(variables['Build.Reason'], 'PullRequest')))
