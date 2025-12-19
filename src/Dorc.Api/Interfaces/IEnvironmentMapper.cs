@@ -5,5 +5,5 @@ namespace Dorc.Api.Interfaces;
 
 public interface IEnvironmentMapper
 {
-    EnvironmentApiModel GetEnvironmentByDatabase(int envId, int databaseId, ClaimsPrincipal user);
+    EnvironmentApiModel? GetEnvironmentByDatabase(int envId, int databaseId, ClaimsPrincipal user);
 }

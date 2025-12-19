@@ -47,14 +47,14 @@ namespace Dorc.Api.Services
             return sid;
         }
 
-        public string GetUserMail(string userName)
+        public string? GetUserMail(string userName)
         {
             var data = this.GetUserData(userName);
 
-            return data.Email;
+            return data?.Email;
         }
 
-        public UserElementApiModel GetUserData(string userName)
+        public UserElementApiModel? GetUserData(string userName)
         {
             var cacheKey = $"{userName}";
             if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out UserElementApiModel? cachedData))

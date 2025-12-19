@@ -67,9 +67,10 @@ namespace Dorc.Api.Services
             return _serviceStatus.GetServicesAndStatus(envId).Select(MapToServiceStatusApiModel).ToList();
         }
 
-        public ServiceStatusApiModel ChangeServiceState(ServiceStatusApiModel daemon, ClaimsPrincipal principal)
+        public ServiceStatusApiModel? ChangeServiceState(ServiceStatusApiModel daemon, ClaimsPrincipal principal)
         {
-            return MapToServiceStatusApiModel(_serviceStatus.ChangeServiceState(MapToServicesAndStatus(daemon), principal));
+            var result = _serviceStatus.ChangeServiceState(MapToServicesAndStatus(daemon), principal);
+            return result is null ? null : MapToServiceStatusApiModel(result);
         }
 
         private ServicesAndStatus MapToServicesAndStatus(ServiceStatusApiModel ss)
