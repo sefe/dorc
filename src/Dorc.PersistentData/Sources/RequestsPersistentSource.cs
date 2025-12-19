@@ -476,6 +476,17 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestDetails(int requestId, string requestDetails)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.RequestDetails, requestDetails));
+            }
+        }
+
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
         {
             DeploymentResultStatus status;

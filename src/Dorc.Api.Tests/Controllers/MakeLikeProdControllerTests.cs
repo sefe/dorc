@@ -29,6 +29,7 @@ namespace Dorc.Api.Tests.Controllers
         private IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private IProjectsPersistentSource _projectsPersistentSource;
         private IClaimsPrincipalReader _claimsPrincipalReader;
+        private IRequestsPersistentSource _requestsPersistentSource;
         private MakeLikeProdController _controller;
         private ClaimsPrincipal _user;
 
@@ -45,6 +46,7 @@ namespace Dorc.Api.Tests.Controllers
             _bundledRequestVariableLoader = Substitute.For<IBundledRequestVariableLoader>();
             _projectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
 
             _controller = new MakeLikeProdController(
                 _logger,
@@ -56,7 +58,8 @@ namespace Dorc.Api.Tests.Controllers
                 _variableResolver,
                 _bundledRequestVariableLoader,
                 _projectsPersistentSource,
-                _claimsPrincipalReader)
+                _claimsPrincipalReader,
+                _requestsPersistentSource)
             {
                 ControllerContext = new ControllerContext()
                 {
@@ -239,6 +242,149 @@ namespace Dorc.Api.Tests.Controllers
             // Assert
             _variableResolver.DidNotReceive().SetPropertyValue("StartingRequestId", Arg.Any<string>());
             _variableResolver.DidNotReceive().SetPropertyValue("AllRequestIds", Arg.Any<string>());
+        }
+
+        [TestMethod]
+        public void Put_ResolvesAllRequestIdsPlaceholder_InRequestDetails()
+        {
+            // Arrange
+            var targetEnv = "TestEnv";
+            var bundleName = "TestBundle";
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = targetEnv,
+                DataBackup = "Live Snap",
+                BundleName = bundleName,
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            var jobRequest = new RequestDto
+            {
+                Project = "TestProject",
+                BuildUrl = "http://build.url",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Component1" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new RequestProperty { PropertyName = "NotifyRequestIds", PropertyValue = "$AllRequestIds$" }
+                }
+            };
+
+            var bundledRequests = new List<BundledRequestsApiModel>
+            {
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest),
+                    Sequence = 1
+                }
+            };
+
+            // Create request details with unresolved $AllRequestIds$
+            var serializer = new DeploymentRequestDetailSerializer();
+            var requestDetail = new DeploymentRequestDetail
+            {
+                EnvironmentName = targetEnv,
+                Components = new List<string> { "Component1" },
+                BuildDetail = new BuildDetail { Project = "TestProject", BuildNumber = "1.0" },
+                Properties = new List<PropertyPair>
+                {
+                    new PropertyPair("NotifyRequestIds", "$AllRequestIds$")
+                }
+            };
+            var requestDetailsXml = serializer.Serialize(requestDetail);
+
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
+            _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
+            _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
+            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(12345);
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+            // Return the literal $AllRequestIds$ since it's not resolved yet
+            _variableResolver.GetPropertyValue("NotifyRequestIds").Returns(new VariableValue { Value = "$AllRequestIds$", Type = typeof(string) });
+
+            // Mock the request that contains $AllRequestIds$ placeholder
+            _requestsPersistentSource.GetRequest(12345).Returns(new DeploymentRequestApiModel
+            {
+                Id = 12345,
+                RequestDetails = requestDetailsXml
+            });
+
+            // Act
+            var result = _controller.Put(mlpRequest);
+
+            // Assert
+            // Verify that UpdateRequestDetails was called with the resolved value
+            _requestsPersistentSource.Received(1).UpdateRequestDetails(12345, Arg.Is<string>(s => s.Contains("12345") && !s.Contains("$AllRequestIds$")));
+        }
+
+        [TestMethod]
+        public void Put_DoesNotUpdateRequestDetails_WhenNoPlaceholderPresent()
+        {
+            // Arrange
+            var targetEnv = "TestEnv";
+            var bundleName = "TestBundle";
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = targetEnv,
+                DataBackup = "Live Snap",
+                BundleName = bundleName,
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            var jobRequest = new RequestDto
+            {
+                Project = "TestProject",
+                BuildUrl = "http://build.url",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Component1" },
+                RequestProperties = new List<RequestProperty>()
+            };
+
+            var bundledRequests = new List<BundledRequestsApiModel>
+            {
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest),
+                    Sequence = 1
+                }
+            };
+
+            // Create request details without $AllRequestIds$ placeholder
+            var serializer = new DeploymentRequestDetailSerializer();
+            var requestDetail = new DeploymentRequestDetail
+            {
+                EnvironmentName = targetEnv,
+                Components = new List<string> { "Component1" },
+                BuildDetail = new BuildDetail { Project = "TestProject", BuildNumber = "1.0" },
+                Properties = new List<PropertyPair>()
+            };
+            var requestDetailsXml = serializer.Serialize(requestDetail);
+
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
+            _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
+            _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
+            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(12345);
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+            _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
+
+            // Mock the request without $AllRequestIds$ placeholder
+            _requestsPersistentSource.GetRequest(12345).Returns(new DeploymentRequestApiModel
+            {
+                Id = 12345,
+                RequestDetails = requestDetailsXml
+            });
+
+            // Act
+            var result = _controller.Put(mlpRequest);
+
+            // Assert
+            // Verify that UpdateRequestDetails was NOT called since there's no placeholder to resolve
+            _requestsPersistentSource.DidNotReceive().UpdateRequestDetails(Arg.Any<int>(), Arg.Any<string>());
         }
     }
 }

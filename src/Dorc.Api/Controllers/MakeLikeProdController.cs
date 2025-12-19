@@ -31,6 +31,7 @@ namespace Dorc.Api.Controllers
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IRequestsPersistentSource _requestsPersistentSource;
 
         public MakeLikeProdController(ILogger<MakeLikeProdController> logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
@@ -38,7 +39,8 @@ namespace Dorc.Api.Controllers
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IRequestsPersistentSource requestsPersistentSource)
         {
             _projectsPersistentSource = projectsPersistentSource;
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
@@ -50,6 +52,7 @@ namespace Dorc.Api.Controllers
             _deployLibrary = deployLibrary;
             _logger = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _requestsPersistentSource = requestsPersistentSource;
         }
 
         /// <summary>
@@ -195,7 +198,11 @@ namespace Dorc.Api.Controllers
 
                 if (allRequestIds.Any())
                 {
-                    _variableResolver.SetPropertyValue("AllRequestIds", string.Join(",", allRequestIds));
+                    var allRequestIdsValue = string.Join(",", allRequestIds);
+                    _variableResolver.SetPropertyValue("AllRequestIds", allRequestIdsValue);
+
+                    // Update any request details that contain unresolved $AllRequestIds$ references
+                    ResolveAllRequestIdsInRequests(allRequestIds, allRequestIdsValue);
                 }
 
                 return Ok("The requests have been passed to DOrc");
@@ -210,6 +217,47 @@ namespace Dorc.Api.Controllers
         private string GetUserEmail(ClaimsPrincipal user)
         {
             return _claimsPrincipalReader.GetUserEmail(user);
+        }
+
+        private void ResolveAllRequestIdsInRequests(List<int> requestIds, string allRequestIdsValue)
+        {
+            const string allRequestIdsPlaceholder = "$AllRequestIds$";
+            var serializer = new DeploymentRequestDetailSerializer();
+
+            foreach (var requestId in requestIds)
+            {
+                try
+                {
+                    var request = _requestsPersistentSource.GetRequest(requestId);
+                    if (request?.RequestDetails == null || !request.RequestDetails.Contains(allRequestIdsPlaceholder))
+                    {
+                        continue;
+                    }
+
+                    var requestDetail = serializer.Deserialize(request.RequestDetails);
+                    var hasChanges = false;
+
+                    foreach (var property in requestDetail.Properties)
+                    {
+                        if (property.Value != null && property.Value.Contains(allRequestIdsPlaceholder))
+                        {
+                            property.Value = property.Value.Replace(allRequestIdsPlaceholder, allRequestIdsValue);
+                            hasChanges = true;
+                        }
+                    }
+
+                    if (hasChanges)
+                    {
+                        var updatedRequestDetails = serializer.Serialize(requestDetail);
+                        _requestsPersistentSource.UpdateRequestDetails(requestId, updatedRequestDetails);
+                        _logger.LogInformation("Updated request {RequestId} with resolved AllRequestIds: {AllRequestIds}", requestId, allRequestIdsValue);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to resolve AllRequestIds in request {RequestId}", requestId);
+                }
+            }
         }
     }
 }
