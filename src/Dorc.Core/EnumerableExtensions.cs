@@ -36,9 +36,9 @@ namespace Dorc.Core
     {
         private readonly IEnumerable<TSource> _items;
 
-        public BatchGroup(TKey key, IEnumerable<TSource> items)
+        public BatchGroup(TKey? key, IEnumerable<TSource> items)
         {
-            Key = key;
+            Key = key!;
             _items = items;
         }
 

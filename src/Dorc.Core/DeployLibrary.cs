@@ -67,7 +67,7 @@ namespace Dorc.Core
                 }).ToArray();
             var properties = requestProperties
                 ?.Select(x => new KeyValuePair<string, string>(x.PropertyName, x.PropertyValue))
-                .ToArray();
+                .ToArray() ?? Array.Empty<KeyValuePair<string, string>>();
             return CreateRequest(project, environment, uri, buildDefinitionName, components, properties, user)
                 .RequestId;
         }
@@ -114,7 +114,7 @@ namespace Dorc.Core
                             : Enumerable.Empty<string>()).ToList(),
                     EnvironmentName = toEnvironment,
                     Properties =
-                        properties?.Select(x => new PropertyPair(x.PropertyName, x.PropertyValue)).ToList()
+                        properties?.Select(x => new PropertyPair(x.PropertyName, x.PropertyValue)).ToList() ?? new List<PropertyPair>()
                 };
 
                 Trace.WriteLine($"Creating Req: build:{requestDetail.BuildDetail.BuildNumber} Comp:{string.Join("|", requestDetail.Components)}");

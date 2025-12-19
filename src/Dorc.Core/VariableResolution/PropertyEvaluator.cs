@@ -46,7 +46,7 @@ namespace Dorc.Core.VariableResolution
 
             var evaluated = new StringBuilder();
 
-            foreach (var item in list) evaluated.Append(item.Value);
+            foreach (var item in list) evaluated.Append(item?.Value);
 
             return new VariableValue { Value = evaluated.ToString(), Type = value.GetType() };
         }

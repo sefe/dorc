@@ -184,7 +184,7 @@ namespace Dorc.Core
                         {
                             _logger.LogDebug("Server is alive: " + sa.ServerName);
 
-                            using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName))
+                            using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName ?? string.Empty))
                             {
                                 var resultItem = new ServicesAndStatus
                                 {
@@ -234,11 +234,16 @@ namespace Dorc.Core
 
             GetUsernameAndPassword(environment, out var user, out var pwd);
 
+            if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pwd))
+            {
+                throw new InvalidOperationException("Username or password not configured for environment.");
+            }
+
             var domainName = _domainName;
 
 
             const int logon32ProviderDefault = 0;
-            //This parameter causes LogonUser to create a primary token.   
+            //This parameter causes LogonUser to create a primary token.
             const int logon32LogonInteractive = 2;
 
             bool returnValue = LogonUser(user, domainName, pwd,

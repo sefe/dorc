@@ -442,7 +442,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user)
+        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal? user)
         {
             using (var context = contextFactory.GetContext())
             {

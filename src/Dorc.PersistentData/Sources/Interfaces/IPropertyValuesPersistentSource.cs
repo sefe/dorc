@@ -8,15 +8,15 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IPropertyValuesPersistentSource
     {
         bool Remove(long? propertyValueId);
-        PropertyValueDto Get(long? propertyValueId);
+        PropertyValueDto? Get(long? propertyValueId);
         PropertyValueDto[] GetPropertyValuesByName(string propertyName);
         PropertyValueDto? GetCachedPropertyValue(string propertyName);
         void AddEnvironmentFilter(string envName);
         PropertyValueDto[] GetGlobalProperties(string? propertyName = null);
         PropertyValueDto[] GetEnvironmentProperties(string environmentName, string? propertyName);
         IDictionary<string, PropertyValueDto> LoadAllPropertiesIntoCache();
-        PropertyValueDto UpdatePropertyValue(long? propertyValueId, string newValue);
-        PropertyValueDto AddPropertyValue(PropertyValueDto propertyValueDto);
+        PropertyValueDto? UpdatePropertyValue(long? propertyValueId, string newValue);
+        PropertyValueDto? AddPropertyValue(PropertyValueDto propertyValueDto);
         void AddFilter(string filterName, string value);
         List<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName, bool decryptProperty = false);
         bool IsCachedPropertySecure(string propertyName);

@@ -21,11 +21,11 @@ namespace Dorc.Core
             }
         }
 
-        public DeploymentRequestDetail Deserialize(string xml)
+        public DeploymentRequestDetail? Deserialize(string xml)
         {
             using (var reader = new StringReader(xml))
             {
-                return (DeploymentRequestDetail)_serializer.Deserialize(reader);
+                return _serializer.Deserialize(reader) as DeploymentRequestDetail;
             }
         }
     }

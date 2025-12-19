@@ -28,12 +28,12 @@ namespace Dorc.PersistentData.Model
             return Name != null ? Name.GetHashCode() : 0;
         }
 
-        public static bool operator ==(SecurityObject left, SecurityObject right)
+        public static bool operator ==(SecurityObject? left, SecurityObject? right)
         {
             return Equals(left, right);
         }
 
-        public static bool operator !=(SecurityObject? left, SecurityObject right)
+        public static bool operator !=(SecurityObject? left, SecurityObject? right)
         {
             return !Equals(left, right);
         }

@@ -20,7 +20,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         Environment? GetSecurityObject(string environmentName);
         EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal principal);
         IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user);
-        EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user);
+        EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal? user);
         IEnumerable<EnvironmentComponentStatusModel> GetEnvironmentComponentStatuses(int environmentId);
         IEnumerable<EnvironmentContentBuildsApiModel> GetEnvironmentComponentStatuses(string environmentName,
             DateTime cutoffDate);
