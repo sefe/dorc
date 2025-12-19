@@ -1,5 +1,5 @@
-﻿using System.Linq;
-using System.Security.Principal;
+﻿using System;
+using System.Linq;
 using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -47,7 +47,7 @@ namespace Tools.PropertyValueCreationCLI
                 });
                 
                 _propertyValuesAuditPersistentSource.AddRecord(newValue.Property.Id, newValue.Id, newValue.Property.Name, envName,
-                    "", newValue.Value, WindowsIdentity.GetCurrent().Name, "Insert");
+                    "", newValue.Value, Environment.UserName, "Insert");
                 
             }
         }

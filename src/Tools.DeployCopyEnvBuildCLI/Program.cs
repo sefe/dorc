@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Linq;
-using System.Security.Principal;
+using System.Security.Claims;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
@@ -50,7 +50,7 @@ namespace Tools.DeployCopyEnvBuildCLI
                 {
                     var result = deployLibrary.DeployCopyEnvBuildWithComponentNames(arguments.SourceEnv,
                         arguments.TargetEnv, arguments.Project,
-                        arguments.Components, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+                        arguments.Components, CreateClaimsPrincipal());
                     intReturnCode = 0;
                     Output(intReturnCode==0 ? "Request was created!" : "Request wasn't created!");
                 }
@@ -68,7 +68,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             }
             else
             {
-                deployLibrary.CopyEnvBuildAllComponents(arguments.SourceEnv, arguments.TargetEnv, arguments.Project, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+                deployLibrary.CopyEnvBuildAllComponents(arguments.SourceEnv, arguments.TargetEnv, arguments.Project, CreateClaimsPrincipal());
             }
 
             return intReturnCode;
@@ -105,6 +105,13 @@ namespace Tools.DeployCopyEnvBuildCLI
         private static void Output(string strText)
         {
             Console.WriteLine(DateTime.Now + " - " + strText);
+        }
+
+        private static ClaimsPrincipal CreateClaimsPrincipal()
+        {
+            var claims = new[] { new Claim(ClaimTypes.Name, Environment.UserName) };
+            var identity = new ClaimsIdentity(claims, "CLI");
+            return new ClaimsPrincipal(identity);
         }
     }
 

@@ -302,6 +302,7 @@ builder.Host.UseLamar((context, registry) =>
     registry.IncludeRegistry<OpenSearchDataRegistry>();
     registry.IncludeRegistry<PersistentDataRegistry>();
     registry.IncludeRegistry<CoreRegistry>();
+    registry.IncludeRegistry<WindowsServicesRegistry>();
     registry.IncludeRegistry<ApiRegistry>();
 
     registry.AddScoped<IBundledRequestVariableLoader, BundledRequestVariableLoader>();

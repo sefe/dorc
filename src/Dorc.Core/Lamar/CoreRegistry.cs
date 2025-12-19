@@ -1,4 +1,3 @@
-using System.Runtime.Versioning;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
@@ -7,13 +6,10 @@ using Lamar;
 
 namespace Dorc.Core.Lamar
 {
-    [SupportedOSPlatform("windows")]
     public class CoreRegistry : ServiceRegistry
     {
         public CoreRegistry()
         {
-            For<IServiceStatus>().Use<ServiceStatus>();
-
             For<IDeployLibrary>().Use<DeployLibrary>();
 
             For<IPropertyEncryptor>().Use(x =>
