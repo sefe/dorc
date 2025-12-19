@@ -91,16 +91,14 @@ namespace Dorc.OpenSearchData.Sources
                 var deploymentResultLogs = logs.Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)?.OrderBy(d => d.timestamp);
                 if (deploymentResultLogs != null && deploymentResultLogs.Any())
                 {
-                    deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}] {GetLogLevelString(d)}   {d.message}"));
+                    deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}] {GetLogLevelString(d)} {d.message}"));
                 }
             }
         }
 
         private string GetLogLevelString(DeployOpenSearchLogModel logModel)
         {
-            return (logModel.level == OpenSearch.Client.LogLevel.Error || logModel.level == OpenSearch.Client.LogLevel.Warn)
-                ? "[" + logModel.level.ToString().ToUpper() + "]"
-                : string.Empty;
+            return "[" + logModel.level.ToString().ToUpper() + "]";
         }
 
         public string GetLogsForSingleResult(int requestId, int deploymentResultId)

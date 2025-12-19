@@ -4,7 +4,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace Dorc.TerraformmRunner.Pipes
+namespace Dorc.TerraformRunner.Pipes
 {
     internal class ScriptGroupFileReader: IScriptGroupPipeClient
     {

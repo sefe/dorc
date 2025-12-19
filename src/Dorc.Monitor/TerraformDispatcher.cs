@@ -5,6 +5,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,8 @@ namespace Dorc.Monitor
         private readonly IDeploymentRequestProcessesPersistentSource _processesPersistentSource;
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
+        private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly TerraformSourceConfigurator _sourceConfigurator;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -38,7 +41,8 @@ namespace Dorc.Monitor
             IConfigurationSettings configurationSettingsEngine,
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IScriptGroupPipeServer scriptGroupPipeServer,
-            IAzureStorageAccountWorker azureStorageAccountWorker)
+            IAzureStorageAccountWorker azureStorageAccountWorker,
+            IProjectsPersistentSource projectsPersistentSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -47,6 +51,8 @@ namespace Dorc.Monitor
             this._processesPersistentSource = processesPersistentSource;
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
+            this._projectsPersistentSource = projectsPersistentSource;
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine);
         }
 
         public bool Dispatch(
@@ -85,18 +91,28 @@ namespace Dorc.Monitor
                 return isScriptExecutionSuccessful;
             }
 
-            // Get the script root from configuration
-            var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
-
-            // Resolve the full script path by combining script root with component script path
-            var fullScriptPath = string.IsNullOrEmpty(scriptRoot)
-                ? component.ScriptPath
-                : Path.Combine(scriptRoot, component.ScriptPath);
+            // Get request and project information for Terraform source configuration
+            var request = _requestsPersistentSource.GetRequest(requestId);
+            ProjectApiModel? project = null;
+            if (!string.IsNullOrEmpty(request?.Project))
+            {
+                try
+                {
+                    project = _projectsPersistentSource.GetProject(request.Project);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, $"Could not retrieve project '{request.Project}' for request {requestId}");
+                }
+            }
 
             var scriptGroup = GetScriptGroup(
-                fullScriptPath,
+                component.ScriptPath,
                 properties,
-                deploymentResult.Id);
+                deploymentResult.Id,
+                component,
+                request,
+                project);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
@@ -138,7 +154,6 @@ namespace Dorc.Monitor
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
                     RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
-                    ScriptPath = fullScriptPath,
                     ScriptGroupPipeName = startedScriptGroupPipeName,
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
@@ -204,7 +219,6 @@ namespace Dorc.Monitor
                             logger.LogError("Waiting the process to exit was not successful.");
                             throw new Win32Exception(Marshal.GetLastWin32Error());
                         }
-                        logger.LogInformation("Runner process has been created.");
                     }
                     finally
                     {
@@ -220,6 +234,7 @@ namespace Dorc.Monitor
                     throw;
                 }
                 
+                if (isScriptExecutionSuccessful)
                 switch (terreformOperation)
                 {
                     case TerraformRunnerOperations.CreatePlan:
@@ -248,7 +263,7 @@ namespace Dorc.Monitor
 
             }
 
-            return true;
+            return isScriptExecutionSuccessful;
         }
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
@@ -273,9 +288,12 @@ namespace Dorc.Monitor
         private ScriptGroup GetScriptGroup(
             string scriptsLocation,
             IDictionary<string, VariableValue> properties,
-            int deploymentResultId)
+            int deploymentResultId,
+            ComponentApiModel component,
+            DeploymentRequestApiModel request,
+            ProjectApiModel? project)
         {
-            return new ScriptGroup()
+            var scriptGroup = new ScriptGroup()
             {
                 ID = Guid.NewGuid(),
                 DeployResultId = deploymentResultId,
@@ -283,6 +301,11 @@ namespace Dorc.Monitor
                 CommonProperties = properties,
                 ScriptProperties = new List<ScriptProperties>()
             };
+
+            // Use the configurator to set Terraform-specific fields based on source type
+            _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
+
+            return scriptGroup;
         }
 
         private class TerraformExecutionResult

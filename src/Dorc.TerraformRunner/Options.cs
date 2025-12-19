@@ -1,7 +1,7 @@
 ﻿using CommandLine;
 using Dorc.TerraformRunner;
 
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     public class Options
     {

@@ -67,8 +67,8 @@ namespace Dorc.Runner.Logger
 
         public void Verbose(string message)
         {
-            this.FileLogger.LogDebug(message);
-            EnqueueLog(message, OpenSearch.Client.LogLevel.Info);
+            this.FileLogger.LogTrace(message);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Trace);
         }
 
         public void Warning(string message)

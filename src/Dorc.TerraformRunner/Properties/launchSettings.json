@@ -2,7 +2,7 @@
   "profiles": {
     "Dorc.TerraformRunner": {
       "commandName": "Project",
-      "commandLineArgs": "-p \"DOrcMonitor-1672542\" -l \"test.log\" -s \"terraform-project\" -t \"plan-3065320.tfplan\" -c \"plan-3065320.txt\" -o 1 -f true"
+      "commandLineArgs": "-p \"DOrcMonitor-1727548\" -l \"test.log\" -t \"plan-1727548.tfplan\" -c \"plan-1727548.txt\" -o 1 -f true"
     }
   }
 }

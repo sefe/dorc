@@ -32,6 +32,7 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-url', this._project.ArtefactsUrl ?? '');
     this.setTextField('proj-azure', this._project.ArtefactsSubPaths ?? '');
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
+    this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
     this.requestUpdate('project', oldVal);
   }
@@ -175,6 +176,14 @@ export class AddEditProject extends LitElement {
             value="${this._project?.ArtefactsBuildRegex ?? ''}"
             @value-changed="${this._buildDefinitionRegexChanged}"
           ></vaadin-text-field>
+          <vaadin-text-field
+            id="proj-terraform-git-url"
+            style="width: 490px;"
+            label="Terraform Git Repository URL"
+            value="${this._project?.TerraformGitRepoUrl ?? ''}"
+            @value-changed="${this._terraformGitRepoUrlChanged}"
+            helper-text="Git repository URL for Terraform code (e.g., https://github.com/org/repo.git)"
+          ></vaadin-text-field>
           <div style="color: #FF3131">${this.ErrorMessage}</div>
           <vaadin-horizontal-layout style="margin-right: 30px">
             <vaadin-button
@@ -260,6 +269,16 @@ export class AddEditProject extends LitElement {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 
       model.ArtefactsSubPaths = data.target.value;
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
+  _terraformGitRepoUrlChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+
+      model.TerraformGitRepoUrl = data.target.value;
       this._project = model;
       this._inputValueChanged();
     }

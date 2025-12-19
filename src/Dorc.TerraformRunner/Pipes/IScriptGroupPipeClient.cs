@@ -1,6 +1,6 @@
 ﻿using Dorc.ApiModel;
 
-namespace Dorc.TerraformmRunner.Pipes
+namespace Dorc.TerraformRunner.Pipes
 {
     internal interface IScriptGroupPipeClient
     {

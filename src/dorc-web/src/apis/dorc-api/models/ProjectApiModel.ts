@@ -51,6 +51,11 @@ export interface ProjectApiModel {
      */
     ArtefactsBuildRegex?: string | null;
     /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    TerraformGitRepoUrl?: string | null;
+    /**
      * @type {DatabaseApiModel}
      * @memberof ProjectApiModel
      */

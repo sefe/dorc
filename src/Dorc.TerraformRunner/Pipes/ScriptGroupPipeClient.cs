@@ -6,7 +6,7 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.TerraformmRunner.Pipes
+namespace Dorc.TerraformRunner.Pipes
 {
     internal class ScriptGroupPipeClient : IScriptGroupPipeClient
     {
