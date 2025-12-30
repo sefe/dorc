@@ -451,7 +451,7 @@ namespace Dorc.PersistentData.Sources
                             component.Script = script;
                         }
                     }
-                    else if (oldScript != null) // new script path is empty, removing script record
+                    else if (oldScript != null) // new script path is null, removing script record
                     {
                         removeScriptFromComponent(context, component, oldScript);
                     }
