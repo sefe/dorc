@@ -375,7 +375,8 @@ namespace Dorc.PersistentData.Sources
                     var oldScript = component.Script;
                     var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
 
-                    if (!string.IsNullOrEmpty(apiComponent.ScriptPath))
+                    // if new script path is not null - update script properties
+                    if (apiComponent.ScriptPath != null)
                     {
                         // Component has a script path
                         if (oldScript != null)
@@ -450,13 +451,9 @@ namespace Dorc.PersistentData.Sources
                             component.Script = script;
                         }
                     }
-                    else if (apiComponent.ScriptPath == null && oldScript != null)
+                    else if (oldScript != null) // new script path is null, removing script record
                     {
                         removeScriptFromComponent(context, component, oldScript);
-                    }
-                    else if (component.Script != null)
-                    {
-                        component.Script.PowerShellVersionNumber = null; // it is just a container for other components, no sense to have PS version for it
                     }
                 }
                 else if (apiComponent.ComponentType == ComponentType.Terraform)
