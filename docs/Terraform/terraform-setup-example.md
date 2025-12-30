@@ -11,18 +11,19 @@ DOrc's Terraform Runner provides a complete workflow for deploying Terraform inf
 3. **Execution**: Approved plans are executed with full logging
 4. **Monitoring**: Status tracking throughout the deployment process
 
+Terraform code for a component can be loaded from different sources:
+
+- A **shared folder** (file system) under a configured ScriptRoot
+- A **Git repository** configured on the project (Azure or Github)
+- **Azure DevOps build artifacts** produced by your CI pipeline
+
+This document walks through a basic setup that uses a shared folder. For a deeper overview of all source types and how they are configured, see `terraform-source-configuration.md`.
+
 ## Prerequisites
 
-### Configure ScriptRoot
+### Configure SharedFolder source
 
-Before setting up Terraform projects, ensure the `ScriptRoot` configuration value is set in DOrc. This determines the base directory where DOrc looks for component scripts.
-
-**Example**: If your Terraform projects are stored in `C:\DOrc\Scripts\`, set the ScriptRoot configuration value to `C:\DOrc\Scripts\`.
-
-The component's `ScriptPath` will be resolved relative to this ScriptRoot:
-- ScriptRoot: `C:\DOrc\Scripts\`
-- Component ScriptPath: `0001-Terraform\terraform-project`  
-- Full resolved path: `C:\DOrc\Scripts\0001-Terraform\terraform-project`
+For SharedFolder components, the component's `ScriptPath` defines where your Terraform source files are stored. The component's `TerraformSubPath` points at the root of the Terraform project inside that source.
 
 ## Project Structure
 
@@ -220,26 +221,47 @@ resource "azurerm_mssql_firewall_rule" "main" {
 2. Navigate to **Projects** section
 3. Click **Add New Project**
 4. Fill in project details:
-   - **Name**: "MyApp Terraform Infrastructure"
-   - **Description**: "Terraform infrastructure for MyApp"
+  - **Name**: "MyApp Terraform Infrastructure"
+  - **Description**: "Terraform infrastructure for MyApp"
+
+If you plan to use **Git** as the source for Terraform code:
+
+- Set **Terraform Git Repository URL** to your repository, for example:
+  - `https://github.com/example-org/infra-terraform.git`, or
+  - `https://example-org@dev.azure.com/example-org/Infra%20Project/_git/infra-terraform`.
+
+If you plan to use **AzureArtifact** as the source:
+
+- Ensure **Artefacts Url** and **Artefacts Sub Paths** are configured so DOrc can locate the Azure DevOps project and artifacts for this project.
 
 ### 2. Create Components
 
 Create components for each Terraform module:
 
-#### Component 1: SQL Database Infrastructure
+#### Component 1: SQL Database Infrastructure (SharedFolder example)
 - **Component Name**: "SQL Database Infrastructure"
 - **Component Type**: **Terraform** (Important!)
-- **Script Path**: Path to your Terraform files (e.g., `/path/to/terraform/sql-database`)
+- **Terraform Source Type**: **SharedFolder** (default)
+- **Script Path**: Path to TF source (e.g., `\\sharedServer\prod\0001-Terraform\terraform-project`)
+- **Terraform Sub Path** (optional): Subfolder in that path (e.g., `sql-database`)
 - **Stop on Failure**: Yes
 - **Enabled**: Yes
 
-#### Component 2: SQL Managed Instance Infrastructure  
+#### Component 2: SQL Managed Instance Infrastructure (SharedFolder example) 
 - **Component Name**: "SQL MI Infrastructure"
 - **Component Type**: **Terraform** (Important!)
-- **Script Path**: Path to your Terraform files (e.g., `/path/to/terraform/sql-mi`)
+- **Terraform Source Type**: **SharedFolder**
+- **Script Path**: Path to TF source (e.g., `0001-Terraform/terraform-project`)
+- **Terraform Sub Path** (optional): Subfolder in that path (e.g., `sql-managed-instance`)
 - **Stop on Failure**: Yes
 - **Enabled**: Yes
+
+> **Git and AzureArtifact components**
+>
+> - For **Git** components, set **Terraform Source Type** to `Git`, configure **Terraform Git Branch** (optional, defaults to `main`), and **Terraform Sub Path** to the directory inside the repo that contains this Terraform project.
+> - For **AzureArtifact** components, set **Terraform Source Type** to `AzureArtifact` and use **Terraform Sub Path** to point to the Terraform root inside the build artifact.
+>
+> In both cases, `Script Path` can typically be left empty because the code is taken from the repository or artifact.
 
 ### 3. Set Up Environments
 
@@ -352,37 +374,77 @@ DOrc properties are automatically converted to Terraform variables:
 
 ## Complete Project Reference Data Example
 
-Here's a complete example of the JSON format for project reference data with Terraform components:
+Here's a complete example of the JSON format for project reference data with Terraform components using all three source types:
 
 ```json
 {
   "Project": {
-    "ProjectId": 230,
-    "ProjectName": "Terraform Testing",
-    "ProjectDescription": "Terraform infrastructure project",
-    "ArtefactsUrl": "https://dev.azure.com/sefe/",
-    "ArtefactsSubPaths": "Deployment Orchestrator",
+    "ProjectId": 100,
+    "ProjectName": "Terraform infrastructure",
+    "ProjectDescription": "",
+    "ArtefactsUrl": "https://dev.azure.com/example-org/",
+    "ArtefactsSubPaths": "Infra Project",
     "ArtefactsBuildRegex": "",
+    "TerraformGitRepoUrl": "https://example-org@dev.azure.com/example-org/Infra%20Project/_git/infra-terraform",
     "SourceDatabase": null
   },
-  "Components": [{
-    "ComponentName": "SQL Database Infrastructure",
-    "ScriptPath": "0001-Terraform\\terraform-project",
-    "NonProdOnly": false,
-    "StopOnFailure": false,
-    "ParentId": 0,
-    "IsEnabled": true,
-    "ComponentType": "Terraform",
-    "Children": []
-  }]
+  "Components": [
+    {
+      "ComponentId": 1,
+      "ComponentName": "TF AzureArtifact example",
+      "ScriptPath": "",
+      "NonProdOnly": true,
+      "StopOnFailure": false,
+      "ParentId": 0,
+      "IsEnabled": true,
+      "PSVersion": null,
+      "ComponentType": "Terraform",
+      "TerraformSourceType": "AzureArtifact",
+      "TerraformGitBranch": null,
+      "TerraformSubPath": "",
+      "Children": []
+    },
+    {
+      "ComponentId": 2,
+      "ComponentName": "TF Git example",
+      "ScriptPath": "",
+      "NonProdOnly": true,
+      "StopOnFailure": false,
+      "ParentId": 0,
+      "IsEnabled": true,
+      "PSVersion": null,
+      "ComponentType": "Terraform",
+      "TerraformSourceType": "Git",
+      "TerraformGitBranch": null,
+      "TerraformSubPath": "terraform-project",
+      "Children": []
+    },
+    {
+      "ComponentId": 3,
+      "ComponentName": "TF SharedFolder example",
+      "ScriptPath": "\\\\share\\Terraform\\0001-Terraform",
+      "NonProdOnly": true,
+      "StopOnFailure": false,
+      "ParentId": 0,
+      "IsEnabled": true,
+      "PSVersion": "v7",
+      "ComponentType": "Terraform",
+      "TerraformSourceType": "SharedFolder",
+      "TerraformGitBranch": null,
+      "TerraformSubPath": "terraform-project",
+      "Children": []
+    }
+  ]
 }
 ```
 
 ### Important Notes:
 
-1. **ComponentType**: Must be the string `"Terraform"` (case-sensitive)
-2. **ScriptPath**: Must be a simple string path, not a JSON object
-3. **Path Separators**: Use double backslashes `\\` for Windows paths or forward slashes `/` for Unix paths
+1. **ComponentType**: Must be the string `"Terraform"` (case-sensitive).
+2. **ScriptPath**: For SharedFolder, must be a simple string path; for Git and AzureArtifact it can be empty.
+3. **Path Separators**: Use double backslashes `\\` for Windows paths or forward slashes `/` for Unix paths.
+4. **TerraformSourceType**: Controls which backend is used to fetch code (`SharedFolder`, `Git`, `AzureArtifact`).
+5. **TerraformSubPath**: Always a relative subdirectory within the fetched source (repo, artifact, or shared folder).
 
 ## Troubleshooting
 

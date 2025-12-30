@@ -13,7 +13,6 @@ namespace Dorc.Monitor.RunnerProcess
         public string RunnerExecutableFullName { get; set; } = string.Empty;
         public string ScriptGroupPipeName { get; set; } = string.Empty;
         public string RunnerLogPath { get; set; } = string.Empty;
-        public string ScriptPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
         public TerraformRunnerOperations TerrafromRunnerOperation { get; set; } = TerraformRunnerOperations.None;
@@ -44,10 +43,6 @@ namespace Dorc.Monitor.RunnerProcess
             {
                 throw new FileNotFoundException($"Runner executable file is not found. Specified path: '{this.RunnerExecutableFullName}'.");
             }
-            if (string.IsNullOrEmpty(this.ScriptPath))
-            {
-                throw new Exception($"ScriptPath is not specified for Runner process.");
-            }
             if (string.IsNullOrEmpty(this.ScriptGroupPipeName))
             {
                 throw new Exception($"ScriptGroup pipe name is not specified for Runner process.");
@@ -62,7 +57,6 @@ namespace Dorc.Monitor.RunnerProcess
             string commandLine = runnerFileInfo.Name
                 +" -p " + this.ScriptGroupPipeName
                 +" -l " + this.RunnerLogPath
-                +" -s " + this.ScriptPath
                 +" -t " + this.PlanFilePath
                 +" -c " + this.PlanContentFilePath
                 +" -o " + (int)this.TerrafromRunnerOperation;
