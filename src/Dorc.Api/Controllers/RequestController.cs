@@ -187,7 +187,7 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Restarts an existing request
+        /// Restarts an existing request by cloning it
         /// </summary>
         /// <param name="requestId"></param>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
@@ -209,21 +209,17 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
-                if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
-                    || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
-                    _requestsPersistentSource.UpdateRequestStatus(
-                        requestId,
-                        DeploymentRequestStatus.Restarting,
-                        username);
+                // Clone the request instead of modifying the existing one
+                var newRequestId = _requestsPersistentSource.CloneRequest(requestId, username);
 
-                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                _log.Info($"Request {requestId} cloned as new request {newRequestId} by {username}");
 
                 // Broadcast restart -> Restarting
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
                     new DeploymentRequestEventData(updated));
 
                 return StatusCode(StatusCodes.Status200OK,
-                    new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+                    new RequestStatusDto { Id = newRequestId, Status = "Pending" });
             }
             catch (Exception e)
             {
