@@ -81,7 +81,9 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(this.getEnvDetailPath(env));
 
-    setCookie(this.envDetailTabs, JSON.stringify(this.dorcNavbar?.openEnvTabs));
+    if (this.dorcNavbar?.openEnvTabs) {
+      setCookie(this.envDetailTabs, JSON.stringify(this.dorcNavbar.openEnvTabs));
+    }
   }
 
   private openMonitorResult(e: CustomEvent) {
@@ -105,7 +107,9 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(path);
 
-    setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
+    if (this.openResultTabs.length > 0) {
+      setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
+    }
 
     console.log(path);
     window.open(path);
@@ -126,7 +130,6 @@ export class ShortcutsStore extends LitElement {
     );
     let path = '';
     if (existingProjs === undefined) {
-      project.ArtefactsSubPaths = ''; // This field can occasionally contain ';' which breaks the cookies
       this.openProjTabs.push(project);
       path = this.dorcNavbar?.insertProjTab(project) ?? '';
     } else {
@@ -137,7 +140,9 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(path);
 
-    setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
+    if (this.openProjTabs.length > 0) {
+      setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
+    }
   }
 
   private getProjectEnvsPath(projectAPIModel: ProjectApiModel) {
