@@ -12,12 +12,11 @@
  */
 
 /**
- * 
  * @export
  * @enum {string}
  */
-export enum BundledRequestType {
-    JobRequest = "JobRequest",
-    CopyEnvBuild = "CopyEnvBuild"
+export enum TerraformSourceType {
+    SharedFolder = 0,
+    Git = 1,
+    AzureArtifact = 2
 }
-
