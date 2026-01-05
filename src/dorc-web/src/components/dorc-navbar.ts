@@ -277,10 +277,19 @@ export class DorcNavbar extends LitElement {
     if (envTabs !== undefined) {
       if (envTabs === '') return;
       try {
-        this.openEnvTabs = JSON.parse(envTabs) as EnvironmentApiModel[];
+        const parsed = JSON.parse(envTabs) as EnvironmentApiModel[];
+        // Filter out invalid entries missing required fields
+        this.openEnvTabs = parsed.filter(env => {
+          if (!env.EnvironmentName || !env.EnvironmentId) {
+            console.warn('Skipping invalid environment tab entry:', env);
+            return false;
+          }
+          return true;
+        });
 
         this.openEnvTabs.forEach(value => this.insertEnvTab(value));
-      } catch {
+      } catch (e) {
+        console.warn('Environment tabs cookie was corrupted and has been cleared:', e);
         deleteCookie(this.envDetailTabs);
       }
     }
@@ -291,10 +300,19 @@ export class DorcNavbar extends LitElement {
     if (projTabs !== undefined) {
       if (projTabs === '') return;
       try {
-        this.openProjTabs = JSON.parse(projTabs) as ProjectApiModel[];
+        const parsed = JSON.parse(projTabs) as ProjectApiModel[];
+        // Filter out invalid entries missing required fields
+        this.openProjTabs = parsed.filter(proj => {
+          if (!proj.ProjectName || !proj.ProjectId) {
+            console.warn('Skipping invalid project tab entry:', proj);
+            return false;
+          }
+          return true;
+        });
 
         this.openProjTabs.forEach(value => this.insertProjTab(value));
-      } catch {
+      } catch (e) {
+        console.warn('Project tabs cookie was corrupted and has been cleared:', e);
         deleteCookie(this.projectEnvsTabs);
       }
     }
@@ -305,12 +323,19 @@ export class DorcNavbar extends LitElement {
     if (resultTabs !== undefined) {
       if (resultTabs === '') return;
       try {
-        this.openResultTabs = JSON.parse(
-          resultTabs
-        ) as DeploymentRequestApiModel[];
+        const parsed = JSON.parse(resultTabs) as DeploymentRequestApiModel[];
+        // Filter out invalid entries missing required fields
+        this.openResultTabs = parsed.filter(result => {
+          if (!result.Id) {
+            console.warn('Skipping invalid monitor result tab entry:', result);
+            return false;
+          }
+          return true;
+        });
 
         this.openResultTabs.forEach(value => this.insertResultTab(value));
-      } catch {
+      } catch (e) {
+        console.warn('Monitor result tabs cookie was corrupted and has been cleared:', e);
         deleteCookie(this.monitorResultTabs);
       }
     }
@@ -345,11 +370,19 @@ export class DorcNavbar extends LitElement {
     }
 
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const path = this.getProjectEnvsPath(proj);
-    const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
-    setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
+    if (tabs) {
+      const path = this.getProjectEnvsPath(proj);
+      const idx = this.getIndexOfPath(tabs, path);
+      if (idx >= 0) {
+        const tabsArray = [].slice.call(tabs.children) as Tab[];
+        tabs.removeChild(tabsArray[idx]);
+      }
+    }
+    if (this.openProjTabs.length === 0) {
+      deleteCookie(this.projectEnvsTabs);
+    } else {
+      setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
+    }
   }
 
   public closeMonitorResult(e: CustomEvent) {
@@ -361,11 +394,19 @@ export class DorcNavbar extends LitElement {
     }
 
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const path = this.getMonitorResultPath(req);
-    const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
-    setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
+    if (tabs) {
+      const path = this.getMonitorResultPath(req);
+      const idx = this.getIndexOfPath(tabs, path);
+      if (idx >= 0) {
+        const tabsArray = [].slice.call(tabs.children) as Tab[];
+        tabs.removeChild(tabsArray[idx]);
+      }
+    }
+    if (this.openResultTabs.length === 0) {
+      deleteCookie(this.monitorResultTabs);
+    } else {
+      setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
+    }
   }
 
   public closeEnvDetail(e: CustomEvent) {
@@ -377,15 +418,27 @@ export class DorcNavbar extends LitElement {
     }
 
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const path = this.getEnvDetailPath(env);
-    const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
-    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+    if (tabs) {
+      const path = this.getEnvDetailPath(env);
+      const idx = this.getIndexOfPath(tabs, path);
+      if (idx >= 0) {
+        const tabsArray = [].slice.call(tabs.children) as Tab[];
+        tabs.removeChild(tabsArray[idx]);
+      }
+    }
+    if (this.openEnvTabs.length === 0) {
+      deleteCookie(this.envDetailTabs);
+    } else {
+      setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+    }
   }
 
   public insertProjTab(projectAPIModel: ProjectApiModel) {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
+    if (!tabs) {
+      console.warn('Cannot insert project tab: tabs element not found');
+      return this.getProjectEnvsPath(projectAPIModel);
+    }
 
     const tab = new Tab();
     render(
@@ -396,10 +449,12 @@ export class DorcNavbar extends LitElement {
     );
 
     const path = this.getProjectEnvsPath(projectAPIModel);
-    tabs.insertBefore(
-      tab,
-      tabs.children[this.getIndexOfPath(tabs, '/environments')]
-    );
+    const insertIndex = this.getIndexOfPath(tabs, '/environments');
+    if (insertIndex >= 0) {
+      tabs.insertBefore(tab, tabs.children[insertIndex]);
+    } else {
+      tabs.appendChild(tab);
+    }
     return path;
   }
 
@@ -409,6 +464,10 @@ export class DorcNavbar extends LitElement {
 
   public insertResultTab(requestStatus: DeploymentRequestApiModel) {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
+    if (!tabs) {
+      console.warn('Cannot insert result tab: tabs element not found');
+      return this.getMonitorResultPath(requestStatus);
+    }
 
     const tab = new Tab();
     render(
@@ -419,23 +478,31 @@ export class DorcNavbar extends LitElement {
     );
 
     const path = this.getMonitorResultPath(requestStatus);
-    tabs.insertBefore(
-      tab,
-      tabs.children[this.getIndexOfPath(tabs, '/projects')]
-    );
+    const insertIndex = this.getIndexOfPath(tabs, '/projects');
+    if (insertIndex >= 0) {
+      tabs.insertBefore(tab, tabs.children[insertIndex]);
+    } else {
+      tabs.appendChild(tab);
+    }
     return path;
   }
 
   public insertEnvTab(env: EnvironmentApiModel) {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
+    if (!tabs) {
+      console.warn('Cannot insert environment tab: tabs element not found');
+      return;
+    }
 
     const tab = new Tab();
     render(html` <env-detail-tab .env="${env}"></env-detail-tab>`, tab);
 
-    tabs.insertBefore(
-      tab,
-      tabs.children[this.getIndexOfPath(tabs, '/servers')]
-    );
+    const insertIndex = this.getIndexOfPath(tabs, '/servers');
+    if (insertIndex >= 0) {
+      tabs.insertBefore(tab, tabs.children[insertIndex]);
+    } else {
+      tabs.appendChild(tab);
+    }
   }
 
   private getMonitorResultPath(result: DeploymentRequestApiModel) {
