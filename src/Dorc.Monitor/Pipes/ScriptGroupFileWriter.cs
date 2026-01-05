@@ -15,7 +15,7 @@ namespace Dorc.Monitor.Pipes
             this.logger = logger;
         }
 
-        public async Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
+        public Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
         {
             string filesPath = RunnerConstants.ScriptGroupFilesPath;
             string filename = $"{filesPath}{pipeName}.json";
@@ -35,8 +35,11 @@ namespace Dorc.Monitor.Pipes
                                 }
                 };
 
-                await using FileStream createStream = File.Create(filename);
-                await JsonSerializer.SerializeAsync(createStream, scriptGroup, serializeOptions, cancellationToken);
+                using FileStream createStream = File.Create(filename);
+
+                JsonSerializer.Serialize(createStream, scriptGroup, serializeOptions);
+                
+                return Task.CompletedTask;
             }
             catch (Exception ex)
             {

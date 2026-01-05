@@ -6911,11 +6911,10 @@
       },
       "BundledRequestType": {
         "enum": [
-          1,
-          2
+          "JobRequest",
+          "CopyEnvBuild"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "BundledRequestsApiModel": {
         "type": "object",
