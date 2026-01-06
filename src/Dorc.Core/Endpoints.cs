@@ -4,6 +4,7 @@
     {
         Properties,
         PropertyValues,
-        Request
+        Request,
+        CopyEnvBuild
     }
 }

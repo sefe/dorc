@@ -1,12 +1,11 @@
-﻿using System;
+﻿using Dorc.ApiModel;
+using Dorc.Core;
+using Dorc.Core.Configuration;
+using Microsoft.Extensions.Configuration;
+using RestSharp;
+using System;
 using System.Linq;
-using System.Security.Principal;
-using Dorc.Core.Exceptions;
-using Dorc.Core.Interfaces;
-using Dorc.Core.Lamar;
-using Dorc.PersistentData;
-using Dorc.PersistentData.Sources.Interfaces;
-using Lamar;
+using System.Text.Json;
 
 namespace Tools.DeployCopyEnvBuildCLI
 {
@@ -16,27 +15,19 @@ namespace Tools.DeployCopyEnvBuildCLI
 
         private static int Main(string[] args)
         {
-            var registry = new ServiceRegistry();
-            registry.IncludeRegistry<PersistentDataRegistry>();
-            registry.IncludeRegistry<CoreRegistry>();
-            registry.IncludeRegistry<AppRegistry>();
 
-            var container = new Container(registry);
-            //Console.WriteLine(container.WhatDidIScan());
-            //Console.WriteLine(container.WhatDoIHave());
+            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+            var arguments = ParseArguments(args);
+            var whiteList = config[CopyEnvBuildTargetWhitelistPropertyName];
+            int intReturnCode = 0;
 
-            var deployLibrary = container.GetInstance<IDeployLibrary>();
-            var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
-            var intReturnCode = 0;
-            
-            var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
             if (string.IsNullOrWhiteSpace(whiteList))
             {
                 Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
                 return 1;
             }
-            
-            var arguments = ParseArguments(args);
+
 
             if (!whiteList.Contains(arguments.TargetEnv))
             {
@@ -44,31 +35,38 @@ namespace Tools.DeployCopyEnvBuildCLI
                 return intReturnCode;
             }
 
-            if (!string.IsNullOrEmpty(arguments.Components))
+            try
             {
-                try
+                var copyEnvBuildDto = new CopyEnvBuildDto
                 {
-                    var result = deployLibrary.DeployCopyEnvBuildWithComponentNames(arguments.SourceEnv,
-                        arguments.TargetEnv, arguments.Project,
-                        arguments.Components, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
-                    intReturnCode = 0;
-                    Output(intReturnCode==0 ? "Request was created!" : "Request wasn't created!");
-                }
-                catch (WrongComponentsException e)
+                    SourceEnv = arguments.SourceEnv,
+                    TargetEnv = arguments.TargetEnv,
+                    Project = arguments.Project,
+                    Components = arguments.Components
+                };
+
+                var requestBody = JsonSerializer.Serialize(copyEnvBuildDto);
+                var result = api.Call<CopyEnvBuildResponseDto>(Endpoints.CopyEnvBuild, Method.Post, null, requestBody);
+
+                if (!result.IsModelValid || result.Value == null || !result.Value.Success)
                 {
-                    Output(e.Message);
-                    intReturnCode = 1;
-                }
-                catch (Exception e)
-                {
-                    Output(e.Message);
-                    intReturnCode = 1;
+                    Output("Error creating requests");
+                    Output(result.ErrorMessage ?? result.Value?.Message ?? "Unknown error");
+                    return 1;
                 }
 
+                Output($"Successfully created {result.Value.RequestIds.Count} request(s):");
+                foreach (var id in result.Value.RequestIds)
+                {
+                    Output($"  - Request ID: {id}");
+                }
+
+                intReturnCode = 0;
             }
-            else
+            catch (Exception e)
             {
-                deployLibrary.CopyEnvBuildAllComponents(arguments.SourceEnv, arguments.TargetEnv, arguments.Project, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+                Output(e.Message);
+                intReturnCode = 1;
             }
 
             return intReturnCode;
@@ -98,7 +96,6 @@ namespace Tools.DeployCopyEnvBuildCLI
                     .ToList()
                     .ForEach(c => Output($"                         {c}"));
             }
-            
             Output("==========================================================");
             return arguments;
         }

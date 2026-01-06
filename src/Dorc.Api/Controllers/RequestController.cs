@@ -1,12 +1,13 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Dorc.Api.Controllers
@@ -24,12 +25,14 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IDeployLibrary _deployLibrary;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeploymentEventsPublisher deploymentEventsPublisher
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IDeployLibrary deployLibrary
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -40,6 +43,7 @@ namespace Dorc.Api.Controllers
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _deployLibrary = deployLibrary;
         }
 
         /// <summary>
@@ -331,6 +335,69 @@ namespace Dorc.Api.Controllers
                 _log.LogError(e, "api/Request/post");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
+            }
+        }
+
+        /// <summary>
+        /// Copy Environment Build
+        /// </summary>
+        /// <param name="copyEnvBuildDto"></param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CopyEnvBuildResponseDto))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("CopyEnvBuild")]
+        [HttpPost]
+        public IActionResult CopyEnvBuild([FromBody] CopyEnvBuildDto copyEnvBuildDto)
+        {
+            try
+            {
+                var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, copyEnvBuildDto.TargetEnv);
+                if (!canModifyEnv)
+                {
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _log.LogInformation($"Forbidden CopyEnvBuild request to {copyEnvBuildDto.TargetEnv} from {username}");
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Forbidden request to {copyEnvBuildDto.TargetEnv} from {username}");
+                }
+
+                List<int> requestIds;
+
+                if (!string.IsNullOrEmpty(copyEnvBuildDto.Components))
+                {
+                    requestIds = _deployLibrary.DeployCopyEnvBuildWithComponentNames(
+                        copyEnvBuildDto.SourceEnv,
+                        copyEnvBuildDto.TargetEnv,
+                        copyEnvBuildDto.Project,
+                        copyEnvBuildDto.Components,
+                        User);
+                }
+                else
+                {
+                    requestIds = _deployLibrary.CopyEnvBuildAllComponents(
+                        copyEnvBuildDto.SourceEnv,
+                        copyEnvBuildDto.TargetEnv,
+                        copyEnvBuildDto.Project,
+                        User);
+                }
+
+                _log.LogInformation($"CopyEnvBuild created {requestIds.Count} request(s) from {copyEnvBuildDto.SourceEnv} to {copyEnvBuildDto.TargetEnv}");
+
+                return Ok(new CopyEnvBuildResponseDto
+                {
+                    RequestIds = requestIds,
+                    Success = true,
+                    Message = $"Successfully created {requestIds.Count} request(s)"
+                });
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/CopyEnvBuild");
+                return BadRequest(new CopyEnvBuildResponseDto
+                {
+                    RequestIds = new List<int>(),
+                    Success = false,
+                    Message = e.Message
+                });
             }
         }
     }

@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
 using System;
