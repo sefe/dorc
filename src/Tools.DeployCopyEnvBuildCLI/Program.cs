@@ -1,6 +1,11 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Configuration;
+using Dorc.Core.Lamar;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Sources;
+using Dorc.PersistentData.Sources.Interfaces;
+using Lamar;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
 using System;
@@ -15,11 +20,19 @@ namespace Tools.DeployCopyEnvBuildCLI
 
         private static int Main(string[] args)
         {
+            var registry = new ServiceRegistry();
+            registry.IncludeRegistry<PersistentDataRegistry>();
+            registry.IncludeRegistry<CoreRegistry>();
+            registry.IncludeRegistry<AppRegistry>();
+
+            var container = new Container(registry);
+
+            var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
 
             var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
             var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
             var arguments = ParseArguments(args);
-            var whiteList = config[CopyEnvBuildTargetWhitelistPropertyName];
+            var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
             int intReturnCode = 0;
 
             if (string.IsNullOrWhiteSpace(whiteList))
