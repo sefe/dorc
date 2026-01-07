@@ -30,26 +30,29 @@ namespace Tools.DeployCopyEnvBuildCLI
             var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
 
             var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-            var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+            
             var arguments = ParseArguments(args);
-            var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
-            int intReturnCode = 0;
-
-            if (string.IsNullOrWhiteSpace(whiteList))
-            {
-                Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
-                return 1;
-            }
-
-
-            if (!whiteList.Contains(arguments.TargetEnv))
-            {
-                Output(arguments.TargetEnv + " is not a supported target env...");
-                return intReturnCode;
-            }
-
+            
             try
             {
+                var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+                
+                var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
+                int intReturnCode = 0;
+
+                if (string.IsNullOrWhiteSpace(whiteList))
+                {
+                    Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
+                    return 1;
+                }
+
+
+                if (!whiteList.Contains(arguments.TargetEnv))
+                {
+                    Output(arguments.TargetEnv + " is not a supported target env...");
+                    return intReturnCode;
+                }
+
                 var copyEnvBuildDto = new CopyEnvBuildDto
                 {
                     SourceEnv = arguments.SourceEnv,
@@ -64,7 +67,18 @@ namespace Tools.DeployCopyEnvBuildCLI
                 if (!result.IsModelValid || result.Value == null || !result.Value.Success)
                 {
                     Output("Error creating requests");
-                    Output(result.ErrorMessage ?? result.Value?.Message ?? "Unknown error");
+                    
+                    string errorMessage = "Unknown error";
+                    if (!string.IsNullOrEmpty(result.ErrorMessage))
+                    {
+                        errorMessage = result.ErrorMessage;
+                    }
+                    else if (result.Value != null && !string.IsNullOrEmpty(result.Value.Message))
+                    {
+                        errorMessage = result.Value.Message;
+                    }
+                    
+                    Output(errorMessage);
                     return 1;
                 }
 
@@ -75,14 +89,23 @@ namespace Tools.DeployCopyEnvBuildCLI
                 }
 
                 intReturnCode = 0;
+                return intReturnCode;
+            }
+            catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
+            {
+                Output("Configuration Error: " + configEx.Message);
+                Output("appsettings error");
+                return 1;
             }
             catch (Exception e)
             {
-                Output(e.Message);
-                intReturnCode = 1;
+                Output("Error: " + e.Message);
+                if (e.InnerException != null)
+                {
+                    Output("Inner Error: " + e.InnerException.Message);
+                }
+                return 1;
             }
-
-            return intReturnCode;
         }
 
         private static Arguments ParseArguments(string[] args)
