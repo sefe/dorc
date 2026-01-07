@@ -1,6 +1,8 @@
 ﻿using Dorc.ApiModel;
+using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -17,17 +19,23 @@ namespace Dorc.Api.Controllers
         private readonly ILogger<CopyEnvBuildController> _log;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IRequestsPersistentSource _requestsPersistentSource;
 
         public CopyEnvBuildController(
             ISecurityPrivilegesChecker apiSecurityService,
             ILogger<CopyEnvBuildController> log,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeployLibrary deployLibrary)
+            IDeployLibrary deployLibrary,
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IRequestsPersistentSource requestsPersistentSource)
         {
             _apiSecurityService = apiSecurityService;
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deployLibrary = deployLibrary;
+            _deploymentEventsPublisher = deploymentEventsPublisher;
+            _requestsPersistentSource = requestsPersistentSource;
         }
 
         /// <summary>
@@ -38,7 +46,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [HttpPost]
-        public IActionResult Post([FromBody] CopyEnvBuildDto copyEnvBuildDto)
+        public async Task<IActionResult> Post([FromBody] CopyEnvBuildDto copyEnvBuildDto)
         {
             try
             {
@@ -72,6 +80,16 @@ namespace Dorc.Api.Controllers
                 }
 
                 _log.LogInformation($"CopyEnvBuild created {requestIds.Count} request(s) from {copyEnvBuildDto.SourceEnv} to {copyEnvBuildDto.TargetEnv}");
+
+                foreach (var requestId in requestIds)
+                {
+                    var request = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                    if (request != null)
+                    {
+                        _ = _deploymentEventsPublisher.PublishNewRequestAsync(
+                            new DeploymentRequestEventData(request));
+                    }
+                }
 
                 return Ok(new CopyEnvBuildResponseDto
                 {
