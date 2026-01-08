@@ -19,9 +19,7 @@ namespace Dorc.Api.Controllers
         private readonly ILogger<CopyEnvBuildController> _log;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeployLibrary _deployLibrary;
-        private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
-        private readonly IRequestsPersistentSource _requestsPersistentSource;
-
+        
         public CopyEnvBuildController(
             ISecurityPrivilegesChecker apiSecurityService,
             ILogger<CopyEnvBuildController> log,
