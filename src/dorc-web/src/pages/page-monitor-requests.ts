@@ -329,6 +329,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     _changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
   ): Promise<void> {
     super.firstUpdated(_changedProperties);
+    
+    document.title = 'Monitor';
 
     // Initialize SignalR connection for real-time updates
     await this.initializeSignalR();
