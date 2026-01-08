@@ -329,10 +329,10 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     `;
   }
 
-    protected async firstUpdated(
-    _changedProperties: PropertyValues
-    ): Promise<void> {
-        super.firstUpdated(_changedProperties);
+  protected async firstUpdated(
+  _changedProperties: PropertyValues
+  ): Promise<void> {
+      super.firstUpdated(_changedProperties);
 
     // Initialize SignalR connection for real-time updates
     await this.initializeSignalR();
@@ -356,7 +356,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     );
   }
 
-  protected updated(changed: PropertyValueMap<any>) {
+  updated(changed: PropertyValueMap<any>) {
     super.updated(changed);
     if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
       if (this._idHeaderRoot) {
