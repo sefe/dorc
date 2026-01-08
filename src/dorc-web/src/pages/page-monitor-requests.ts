@@ -42,8 +42,6 @@ import type { RouterLocation } from '@vaadin/router';
 import { PageElement } from '../helpers/page-element';
 import type { RouteMeta } from '../router/routes';
 
-
-
 const username = 'Username';
 const status = 'Status';
 const components = 'Components';
