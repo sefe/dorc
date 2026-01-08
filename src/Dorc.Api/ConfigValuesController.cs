@@ -22,7 +22,7 @@ namespace Dorc.Api.Controllers
         /// Get configuration values
         /// </summary>
         /// <param name="name">The name of the configuration value to retrieve</param>
-        [HttpGet("{name}")]
+        [HttpGet]
         public IActionResult GetConfigValue([FromQuery] string name)
         {
             var value = _configValuesPersistentSource.GetConfigValue(name);
