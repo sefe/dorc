@@ -1,16 +1,12 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Configuration;
-using Dorc.Core.Lamar;
-using Dorc.PersistentData;
-using Dorc.PersistentData.Sources;
-using Dorc.PersistentData.Sources.Interfaces;
-using Lamar;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace Tools.DeployCopyEnvBuildCLI
 {
@@ -20,14 +16,6 @@ namespace Tools.DeployCopyEnvBuildCLI
 
         private static int Main(string[] args)
         {
-            var registry = new ServiceRegistry();
-            registry.IncludeRegistry<PersistentDataRegistry>();
-            registry.IncludeRegistry<CoreRegistry>();
-            registry.IncludeRegistry<AppRegistry>();
-
-            var container = new Container(registry);
-
-            var configValuesPersistentSource = container.GetInstance<IConfigValuesPersistentSource>();
 
             var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
             
@@ -35,17 +23,10 @@ namespace Tools.DeployCopyEnvBuildCLI
             
             try
             {
+                int intReturnCode = 0;
                 var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
                 
-                var whiteList = configValuesPersistentSource.GetConfigValue(CopyEnvBuildTargetWhitelistPropertyName);
-                int intReturnCode = 0;
-
-                if (string.IsNullOrWhiteSpace(whiteList))
-                {
-                    Output("DORC_CopyEnvBuildTargetWhitelist does not have a valid value, should be a semi colon separated list of DOrc environment names");
-                    return 1;
-                }
-
+                var whiteList = api.Call<string>(Endpoints.ConfigValues, Method.Get, new Dictionary<string, string> { { "name", CopyEnvBuildTargetWhitelistPropertyName } }).Value;
 
                 if (!whiteList.Contains(arguments.TargetEnv))
                 {
@@ -132,6 +113,7 @@ namespace Tools.DeployCopyEnvBuildCLI
                     .ToList()
                     .ForEach(c => Output($"                         {c}"));
             }
+            
             Output("==========================================================");
             return arguments;
         }
