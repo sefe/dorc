@@ -19,7 +19,7 @@ namespace Dorc.Api.Controllers
         private readonly ILogger<CopyEnvBuildController> _log;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeployLibrary _deployLibrary;
-        
+
         public CopyEnvBuildController(
             ISecurityPrivilegesChecker apiSecurityService,
             ILogger<CopyEnvBuildController> log,
@@ -84,7 +84,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.LogError(e, "api/CopyEnvBuild");
+                _log.LogError(e, "CopyEnvBuild");
                 return BadRequest(new CopyEnvBuildResponseDto
                 {
                     RequestIds = new List<int>(),
