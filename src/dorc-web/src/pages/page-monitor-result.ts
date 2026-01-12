@@ -288,7 +288,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   private isTerminal(status: string | null | undefined) {
     return ['Completed', 'Failed', 'Cancelled', 'Skipped'].includes(status ?? '');
   }
-
+ 
   onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
     if (!data || data.requestId !== this.requestId) return Promise.resolve();
       const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
