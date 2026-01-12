@@ -210,8 +210,12 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     const apiRequests = new RequestStatusesApi();
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
-        this.selectedProject = data.Project ?? '';
-        this.deployRequest = data;
+        this.selectedProject = data.Project ?? '';  
+        const normalised: DeploymentRequestApiModel = {
+          ...data,
+          CompletedTime: this.isTerminal(data.Status) ? data.CompletedTime : null
+        };
+        this.deployRequest = normalised;
       },
       error: (err: any) => {
         const notification = new ErrorNotification();
@@ -281,20 +285,25 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     }
   }
 
+  private isTerminal(status: string | null | undefined) {
+    return ['Completed', 'Failed', 'Cancelled', 'Skipped'].includes(status ?? '');
+  }
+
   onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
-    if (data?.requestId === this.requestId) {
+    if (!data || data.requestId !== this.requestId) return Promise.resolve();
       const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
       const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
 
       this.deployRequest = {
         ...this.deployRequest,
         Status: data.status,
-        StartedTime: startedTime ?? this.deployRequest?.StartedTime,
-        CompletedTime: completedTime ?? this.deployRequest?.CompletedTime
-      };
-    }
-    return Promise.resolve();
-  }
+        StartedTime: startedTime !== undefined ? startedTime : this.deployRequest?.StartedTime,
+        CompletedTime: this.isTerminal(data.status)
+      ? (completedTime !== undefined ? completedTime : this.deployRequest?.CompletedTime)
+      : undefined
+    };
+  return Promise.resolve();
+}
   
   onDeploymentRequestStarted(): Promise<void> {
     return Promise.resolve();
