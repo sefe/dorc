@@ -25,11 +25,6 @@ export interface ResetAppPasswordForUserPutRequest {
     username?: string;
 }
 
-export interface ResetAppPasswordPutRequest {
-    envFilter?: string;
-    envName?: string;
-}
-
 /**
  * no description
  */

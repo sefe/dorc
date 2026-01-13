@@ -1,6 +1,6 @@
 ﻿using Dorc.Runner.Logger.Model;
 using OpenSearch.Client;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -48,58 +48,58 @@ namespace Dorc.Runner.Logger
 
         public void UpdateLog(int deploymentResultId, string log)
         {
-            EnqueueLog(log, LogLevel.Info);
+            EnqueueLog(log, OpenSearch.Client.LogLevel.Info);
         }
 
         public void Information(string message)
         {
-            this.FileLogger.Information(message);
-            EnqueueLog(message, LogLevel.Info);
+            this.FileLogger.LogInformation(message);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Info);
         }
         public void Information(string message, params object[] values)
         {
-            this.FileLogger.Information(message, values);
+            this.FileLogger.LogInformation(message, values);
             if (values != null && values.Length > 0)
-                EnqueueLog(string.Format(message, values), LogLevel.Info);
+                EnqueueLog(string.Format(message, values), OpenSearch.Client.LogLevel.Info);
             else
-                EnqueueLog(message, LogLevel.Info);
+                EnqueueLog(message, OpenSearch.Client.LogLevel.Info);
         }
 
         public void Verbose(string message)
         {
-            this.FileLogger.Verbose(message);
-            EnqueueLog(message, LogLevel.Info);
+            this.FileLogger.LogTrace(message);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Trace);
         }
 
         public void Warning(string message)
         {
-            this.FileLogger.Warning(message);
-            EnqueueLog(message, LogLevel.Warn);
+            this.FileLogger.LogWarning(message);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Warn);
         }
 
         public void Error(string message)
         {
-            this.FileLogger.Error(message);
-            EnqueueLog(message, LogLevel.Error);
+            this.FileLogger.LogError(message);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Error);
         }
         public void Error(string message, Exception exception)
         {
-            this.FileLogger.Error(message, exception);
-            EnqueueLog(message, LogLevel.Error, exception);
+            this.FileLogger.LogError(message, exception);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Error, exception);
         }
         public void Error(Exception exception, string message, params object[] values)
         {
-            this.FileLogger.Error(exception, message, values);
+            this.FileLogger.LogError(exception, message, values);
             if (values != null && values.Length > 0)
-                EnqueueLog(string.Format(message, values), LogLevel.Error, exception);
+                EnqueueLog(string.Format(message, values), OpenSearch.Client.LogLevel.Error, exception);
             else
-                EnqueueLog(message, LogLevel.Error, exception);
+                EnqueueLog(message, OpenSearch.Client.LogLevel.Error, exception);
         }
 
         public void Debug(string message)
         {
-            this.FileLogger.Debug(message);
-            EnqueueLog(message, LogLevel.Debug);
+            this.FileLogger.LogDebug(message);
+            EnqueueLog(message, OpenSearch.Client.LogLevel.Debug);
         }
 
         private void OnLogTimerElapsed(object state)
@@ -107,7 +107,7 @@ namespace Dorc.Runner.Logger
             FlushLogMessages();
         }
 
-        private void EnqueueLog(string message, LogLevel type = LogLevel.Info, Exception exception = null)
+        private void EnqueueLog(string message, OpenSearch.Client.LogLevel type = OpenSearch.Client.LogLevel.Info, Exception exception = null)
         {
             _logMessages.Enqueue(
                 new DeployOpenSearchLogModel(
@@ -140,13 +140,13 @@ namespace Dorc.Runner.Logger
                             .Document(document)));
                     if (!res.IsValid)
                     {
-                        this.FileLogger.Warning($"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed." +
-                            res.ServerError != null ? res.ServerError.ToString() : "");
+                        this.FileLogger.LogWarning($"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed." +
+                            (res.ServerError != null ? res.ServerError.ToString() : ""));
                     }
                 }
                 catch (Exception e)
                 {
-                    this.FileLogger.Error(e, $"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed.");
+                    this.FileLogger.LogError(e, $"Sending \"{String.Join(Environment.NewLine, logList.Select(log => log.message))}\" to the OpenSearch index ({_deploymentResultIndex}) failed.");
                 }
             }
         }

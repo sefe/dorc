@@ -41,7 +41,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Databases.Include(d => d.Group).Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
+                return context.Databases
+                    .Include(d => d.Group)
+                    .Include(d => d.Environments)
+                    .Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
             }
         }
@@ -321,7 +324,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string envFilter, string envName)
+        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string envFilter, string envName)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -336,7 +339,7 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) &&
+                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
@@ -351,6 +354,17 @@ namespace Dorc.PersistentData.Sources
 
                 if (existingDatabase == null)
                     return null;
+
+                // Check if another database already exists with the same name and server (excluding current database)
+                var duplicateExists = context.Databases.Any(d => 
+                    d.Name.Equals(database.Name) && 
+                    d.ServerName.Equals(database.ServerName) && 
+                    d.Id != database.Id);
+
+                if (duplicateExists)
+                {
+                    throw new ArgumentException($"Database already exists {database.ServerName}:{database.Name}");
+                }
 
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
@@ -398,7 +412,8 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 Type = db.Type,
                 ServerName = db.ServerName,
-                ArrayName = db.ArrayName
+                ArrayName = db.ArrayName,
+                EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };
         }
     }

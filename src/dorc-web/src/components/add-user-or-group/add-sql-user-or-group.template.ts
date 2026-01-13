@@ -39,10 +39,10 @@ export function addSqlUserOrGroupTemplate(this: AddSqlUserOrGroup) {
       </vaadin-text-field>
     </vaadin-vertical-layout>
     <div>
-      <vaadin-button @click="${this.reset}">Clear</vaadin-button>
       <vaadin-button .disabled="${!this.isModelValid}" @click="${this.submit}"
         >Save</vaadin-button
       >
+      <vaadin-button @click="${this.reset}">Clear</vaadin-button>
     </div>
     <span class="acc-filter__span">${this.overlayMessage}</span>
   </div>`;

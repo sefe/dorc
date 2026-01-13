@@ -21,7 +21,6 @@ import { Notification } from '@vaadin/notification';
 import '../icons/notification-icons.js';
 import '../icons/hardware-icons.js';
 import { ErrorNotification } from './notifications/error-notification';
-import { BuildsApi } from '../apis/azure-devops-build';
 import type { DeploymentRequestApiModel } from '../apis/dorc-api';
 import {
   EnvironmentApiModel,
@@ -29,6 +28,8 @@ import {
   RefDataEnvironmentsApi,
   RefDataProjectsApi
 } from '../apis/dorc-api';
+import './connection-status-indicator';
+import { HubConnectionState } from '@microsoft/signalr';
 
 @customElement('request-status-card')
 export class RequestStatusCard extends LitElement {
@@ -37,6 +38,8 @@ export class RequestStatusCard extends LitElement {
 
   @property({ type: String })
   selectedProject = '';
+
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state()
   buildNumberHref = '';
@@ -137,6 +140,12 @@ export class RequestStatusCard extends LitElement {
                   style="color: cornflowerblue"
                 ></vaadin-icon>
               </vaadin-button>
+            </td>
+            <td style="vertical-align: middle">
+              <connection-status-indicator
+                mode="icon"
+                .state="${this.hubConnectionState}"
+              ></connection-status-indicator>
             </td>
             ${this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
               ? html` <td style="vertical-align: middle">
@@ -266,13 +275,13 @@ export class RequestStatusCard extends LitElement {
         </table>
         <request-controls
           style="position: absolute; right: 15px; top: 65px;"
-          .requestId="${this.deployRequest.Id}"
-          .cancelable="${this.deployRequest.UserEditable &&
+          .requestId="${this.deployRequest.Id ?? 0}"
+          .cancelable="${!!this.deployRequest.UserEditable &&
           (this.deployRequest.Status === 'Running' ||
             this.deployRequest.Status === 'Requesting' ||
             this.deployRequest.Status === 'Pending' ||
             this.deployRequest.Status === 'Restarting')}"
-          .canRestart="${this.deployRequest.UserEditable &&
+          .canRestart="${!!this.deployRequest.UserEditable &&
           this.deployRequest.Status !== 'Pending'}"
         ></request-controls>
       </div>
@@ -370,35 +379,12 @@ export class RequestStatusCard extends LitElement {
         next: (project: ProjectApiModel) => {
           const org = project.ArtefactsUrl?.split('/')[3] ?? '';
           const adProject = project.ArtefactsSubPaths?.split(';')[0] ?? '';
-
-          const buildsApi = new BuildsApi();
-          buildsApi
-            .buildsList({
-              organization: org,
-              apiVersion: '6.0',
-              project: adProject,
-              buildNumber:
-                this.deployRequest?.BuildNumber !== null
-                  ? this.deployRequest?.BuildNumber
-                  : undefined
-            })
-            .subscribe({
-              next: (foundBuilds: any) => {
-                if (foundBuilds.count > 0) {
-                  this.buildNumberHref = `https://dev.azure.com/${
-                    org + '/' + adProject
-                  }/_build/results?buildId=${
-                    foundBuilds.value[0].id
-                  }&view=results`;
-                }
-              },
-              error: err => {
-                console.log(err);
-              },
-              complete: () => {
-                console.log('Completed attempting Build ID from Azure DevOps');
-              }
-            });
+          const buildId = this.deployRequest?.BuildUri?.split('/').pop() ?? '';
+          this.buildNumberHref = `https://dev.azure.com/${
+            org + '/' + adProject
+          }/_build/results?buildId=${
+            buildId
+          }&view=results`;
         }
       });
   }

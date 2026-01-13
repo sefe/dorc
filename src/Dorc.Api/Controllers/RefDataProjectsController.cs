@@ -147,5 +147,51 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest, "Project doesn't contain a valid URI!");
             }
         }
+
+        /// <summary>
+        /// Delete Project
+        /// </summary>
+        /// <param name="projectId"></param>
+        /// <returns></returns>
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
+        [HttpDelete("{projectId}")]
+        public IActionResult Delete(int projectId)
+        {
+            string? projectName = null;
+            try
+            {
+                if (!_rolePrivilegesChecker.IsAdmin(User) && !_rolePrivilegesChecker.IsPowerUser(User))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Projects can only be deleted by privileged users or Admins!");
+
+                var projectApiModel = _projectsPersistentSource.GetProject(projectId);
+                if (projectApiModel == null)
+                    return NotFound("Project not found!");
+
+                projectName = projectApiModel.ProjectName;
+
+                if (!(_rolePrivilegesChecker.IsPowerUser(User) && _securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName))
+                    && !_rolePrivilegesChecker.IsAdmin(User))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Projects can only be deleted by privileged users or Admins!");
+
+                _projectsPersistentSource.DeleteProject(projectId);
+                return Ok($"Project {projectName} deleted successfully");
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status409Conflict,
+                    $"The project \"{projectName}\" cannot be deleted because it is linked to other deployment requests. Please remove those links or update the related requests before trying again.");
+            }
+        }
     }
 }

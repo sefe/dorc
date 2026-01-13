@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -10,10 +10,10 @@ namespace Dorc.PersistentData.Sources
 {
     public class EnvironmentHistoryPersistentSource : IEnvironmentHistoryPersistentSource
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IDeploymentContextFactory _contextFactory;
 
-        public EnvironmentHistoryPersistentSource(ILog logger, IDeploymentContextFactory contextFactory)
+        public EnvironmentHistoryPersistentSource(ILogger<EnvironmentHistoryPersistentSource> logger, IDeploymentContextFactory contextFactory)
         {
             _contextFactory = contextFactory;
             _logger = logger;
@@ -24,9 +24,9 @@ namespace Dorc.PersistentData.Sources
         {
             try
             {
-                _logger.Info(
+                _logger.LogInformation(
                     $"Updating the Environment and EnvironmentHistory tables for environment {envName}");
-                _logger.Info("Here...");
+                _logger.LogInformation("Here...");
 
                 using (var context = _contextFactory.GetContext())
                 {
@@ -38,8 +38,8 @@ namespace Dorc.PersistentData.Sources
             }
             catch (Exception ex)
             {
-                _logger.Info($"Error occurred updating the Env Mgt database for environment {envName}");
-                _logger.Info($"Error message:  {ex.Message}. ");
+                _logger.LogInformation($"Error occurred updating the Env Mgt database for environment {envName}");
+                _logger.LogInformation($"Error message:  {ex.Message}. ");
                 return false;
             }
         }
@@ -51,7 +51,7 @@ namespace Dorc.PersistentData.Sources
                 .Where(h => h.Environment.Name == environment.Name)
                 .OrderByDescending(h => h.Id).FirstOrDefault();
 
-            var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.NewVersion : string.Empty;
+            var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
             var newBackupFile = backupFile != string.Empty ? backupFile : oldBackupFile;
             var newHistory = new EnvironmentHistory
             {
@@ -59,9 +59,9 @@ namespace Dorc.PersistentData.Sources
                 UpdateDate = DateTime.Now,
                 UpdateType = updateType,
                 UpdatedBy = updatedBy,
-                OldVersion = oldBackupFile,
-                NewVersion = newBackupFile,
-                Action = newVersion
+                FromValue = oldBackupFile,
+                ToValue = newBackupFile,
+                Details = newVersion
             };
             context.EnvironmentHistories.Add(newHistory);
             environment.RestoredFromBackup = newBackupFile;
@@ -75,7 +75,7 @@ namespace Dorc.PersistentData.Sources
                 .Where(h => h.Environment.Name == envName)
                 .OrderByDescending(h => h.Id).FirstOrDefault();
 
-            var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.NewVersion : string.Empty;
+            var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
             var newBackupFile = backupFile != string.Empty ? backupFile : oldBackupFile;
             var envDetails = EnvironmentUnifier.GetEnvironment(context, envName);
             var newHistory = new EnvironmentHistory
@@ -84,9 +84,9 @@ namespace Dorc.PersistentData.Sources
                 UpdateDate = DateTime.Now,
                 UpdateType = updateType,
                 UpdatedBy = updatedBy,
-                OldVersion = oldBackupFile,
-                NewVersion = newBackupFile,
-                Action = newVersion
+                FromValue = oldBackupFile,
+                ToValue = newBackupFile,
+                Details = newVersion
             };
             context.EnvironmentHistories.Add(newHistory);
             envDetails.RestoredFromBackup = newBackupFile;
@@ -98,11 +98,12 @@ namespace Dorc.PersistentData.Sources
         {
             var newHistory = new EnvironmentHistory
             {
+                EnvId = null, // Explicitly set to null for deletion records
                 Environment = null,
                 UpdateDate = DateTime.Now,
                 UpdateType = updateType,
                 UpdatedBy = updatedBy,
-                NewVersion = newVersion
+                ToValue = newVersion
             };
             context.EnvironmentHistories.Add(newHistory);
         }
@@ -113,7 +114,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var result = context.EnvironmentHistories
                     .Include(h => h.Environment)
-                    .Where(e => e.Environment.Id == envId)
+                    .Where(e => e.EnvId == envId || (e.Environment != null && e.Environment.Id == envId))
                     .Select(MapToEnvironmentHistoryApiModel).ToList();
                 return result;
             }
@@ -138,10 +139,10 @@ namespace Dorc.PersistentData.Sources
             {
                 Comment = h.Comment,
                 Id = h.Id,
-                EnvName = h.Environment.Name,
-                OldVersion = h.OldVersion,
-                NewVersion = h.NewVersion,
-                TfsId = h.Action,
+                EnvName = h.Environment?.Name ?? "DELETED ENVIRONMENT", // Handle deleted environments
+                FromValue = h.FromValue,
+                ToValue = h.ToValue,
+                Details = h.Details,
                 UpdateDate = h.UpdateDate.ToString(),
                 UpdatedBy = h.UpdatedBy,
                 UpdateType = h.UpdateType

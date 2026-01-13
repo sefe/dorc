@@ -1,24 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Security.Principal;
-using log4net;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData.Contexts;
 
 namespace Dorc.PersistentData.Sources
 {
     public class ScriptsPersistentSource : IScriptsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILog logger,
+            ILogger<ScriptsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -32,21 +32,34 @@ namespace Dorc.PersistentData.Sources
             PagedModel<Script> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var scriptsQuery = context.Scripts.Include(s => s.Components).AsQueryable();
+                var scriptsQuery = context.Scripts.Include(s => s.Components).ThenInclude(x => x.Projects).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
+                    var filterLambdas = new List<Expression<Func<Script, bool>>>();
+                    
                     foreach (var pagedDataFilter in operators.Filters)
                     {
                         if (pagedDataFilter == null)
                             continue;
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                         {
-                            scriptsQuery =
-                                scriptsQuery.Where(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
+                            // Special handling for ProjectNames filter
+                            if (pagedDataFilter.Path == "ProjectNames")
+                            {
+                                filterLambdas.Add(s => 
+                                    s.Components.Any(c => 
+                                        c.Projects.Any(p => p.Name.Contains(pagedDataFilter.FilterValue))));
+                            }
+                            else
+                            {
+                                filterLambdas.Add(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
                                     pagedDataFilter.FilterValue));
+                            }
                         }
                     }
+                    
+                    scriptsQuery = WhereAll(scriptsQuery, filterLambdas.ToArray());
                 }
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
@@ -121,14 +134,14 @@ namespace Dorc.PersistentData.Sources
                     return false;
 
                 string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                _logger.Warn(
+                _logger.LogWarning(
                     $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
 
                 foundScript.Name = script.Name;
                 foundScript.Path = script.Path;
                 foundScript.NonProdOnly = script.NonProdOnly;
                 foundScript.IsPathJSON = script.IsPathJSON;
-                foundScript.PowerShellVersionNumber = script.PowerShellVersionNumber;
+                foundScript.PowerShellVersionNumber = script.PowerShellVersionNumber.ToSafePsVersionString();
                 foreach (var scriptComponent in foundScript.Components)
                 {
                     scriptComponent.IsEnabled = script.IsEnabled;
@@ -149,7 +162,7 @@ namespace Dorc.PersistentData.Sources
             {
                 foreach (var component in script.Components)
                 {
-                    isEnabled = component.IsEnabled ?? true;
+                    isEnabled = component.IsEnabled == true;
                 }
             }
 
@@ -161,7 +174,8 @@ namespace Dorc.PersistentData.Sources
                 NonProdOnly = script.NonProdOnly,
                 IsPathJSON = script.IsPathJSON,
                 IsEnabled = isEnabled,
-                PowerShellVersionNumber = script.PowerShellVersionNumber
+                PowerShellVersionNumber = script.PowerShellVersionNumber,
+                ProjectNames = script.Components?.SelectMany(s => s.Projects).Select(p => p.Name).ToList()
             };
         }
 
@@ -197,6 +211,25 @@ namespace Dorc.PersistentData.Sources
         private static Expression<Func<Script, R>> GetExpressionForOrdering<R>(MemberExpression prop, ParameterExpression param)
         {
             return Expression.Lambda<Func<Script, R>>(prop, param);
+        }
+
+        private IQueryable<T> WhereAll<T>(
+            IQueryable<T> source,
+            params Expression<Func<T, bool>>[] predicates)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (predicates == null) throw new ArgumentNullException(nameof(predicates));
+            if (predicates.Length == 0) return source; // no filters, return unfiltered
+            if (predicates.Length == 1) return source.Where(predicates[0]); // simple
+
+            Expression<Func<T, bool>> pred = null;
+            for (var i = 0; i < predicates.Length; i++)
+            {
+                pred = pred == null
+                    ? predicates[i]
+                    : pred.And(predicates[i]);
+            }
+            return source.Where(pred);
         }
     }
 }

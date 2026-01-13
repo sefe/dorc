@@ -116,7 +116,11 @@ namespace Dorc.PersistentData.Sources
                 ComponentName = component.Name,
                 ScriptPath = component.Script?.Path ?? "",
                 ParentId = component.Parent?.Id ?? 0,
-                IsEnabled = component.IsEnabled
+                IsEnabled = component.IsEnabled,
+                ComponentType = component.ComponentType,
+                TerraformSourceType = component.TerraformSourceType,
+                TerraformGitBranch = component.TerraformGitBranch,
+                TerraformSubPath = component.TerraformSubPath,
             };
 
             context.Entry(component)

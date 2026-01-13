@@ -16,6 +16,7 @@ import {
   RefDataEnvironmentsApi,
   RefDataProjectEnvironmentMappingsApi
 } from '../apis/dorc-api';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('attach-environment')
 export class AttachEnvironment extends LitElement {
@@ -223,15 +224,7 @@ export class AttachEnvironment extends LitElement {
         error: (err: any) => {
           const notification = new ErrorNotification();
           
-          // Handle different error response structures
-          let errorMessage = 'An error occurred while attaching environment';
-          if (err.response?.ExceptionMessage) {
-            errorMessage = err.response.ExceptionMessage;
-          } else if (err.response && typeof err.response === 'string') {
-            errorMessage = err.response;
-          } else if (err.message) {
-            errorMessage = err.message;
-          }
+          const errorMessage = retrieveErrorMessage(err);
           
           notification.setAttribute('errorMessage', errorMessage);
           this.shadowRoot?.appendChild(notification);

@@ -1,5 +1,6 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/combo-box';
+import '@vaadin/confirm-dialog';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import '@polymer/paper-dialog';
@@ -12,11 +13,18 @@ import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi
 } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
 
 @customElement('attach-database')
 export class AttachDatabase extends LitElement {
+  @property({ type: Array })
+  public existingDatabases: Array<DatabaseApiModel> | undefined = [];
+
   @property({ type: Object })
   private selectedDatabase: DatabaseApiModel | undefined;
+
+  @property({ type: Array })
+  private filteredDatabases: DatabaseApiModel[] | undefined;
 
   @property({ type: Array })
   private databases: DatabaseApiModel[] | undefined;
@@ -29,6 +37,12 @@ export class AttachDatabase extends LitElement {
 
   @property({ type: Object })
   private databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
+  
+  @property({ type: Boolean })
+  private showSameTagWarning: boolean = false;
+
+  @property({ type: Object })
+  private existingDatabaseWithSameTag: DatabaseApiModel | undefined;
 
   constructor() {
     super();
@@ -44,7 +58,20 @@ export class AttachDatabase extends LitElement {
   }
 
   static get styles() {
-    return css``;
+    return css`
+      .warning-box {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 12px;
+        margin: 10px 0;
+        color: #856404;
+      }
+      .warning-title {
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+    `;
   }
 
   render() {
@@ -57,8 +84,8 @@ export class AttachDatabase extends LitElement {
             item-value-path="Id"
             item-label-path="Name"
             @value-changed="${this.setSelectedDatabase}"
-            .items="${this.databases}"
-            filter-property="Name"
+            .items="${this.filteredDatabases ?? this.databases}"
+            @filter-changed="${(this.filterDatabases)}"
             .renderer="${this._boundDatabasesRenderer}"
             placeholder="Select Database"
             style="width: 300px"
@@ -90,19 +117,54 @@ export class AttachDatabase extends LitElement {
           </h3>
         </div>
 
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this._submit}"
+        ${this.showSameTagWarning ? html`
+          <div class="warning-box">
+            <div class="warning-title">⚠️ Warning - Duplicate Application Tag</div>
+            <div>
+              A database with the tag '<strong>${this.selectedDatabase?.Type}</strong>' is already attached to this environment:
+              <br><strong>${this.existingDatabaseWithSameTag?.Name}</strong> on ${this.existingDatabaseWithSameTag?.ServerName}
+            </div>
+          </div>
+        ` : ''}
+
+        <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
       </div>
     `;
   }
 
+  onAttachClick() {
+    this._submit();
+  }
+
   setSelectedDatabase(data: any) {
     const dbId = data.currentTarget.value as number;
+    if (!dbId) {
+      this.showSameTagWarning = false;
+      this.existingDatabaseWithSameTag = undefined;
+      this.selectedDatabase = undefined;
+      this.updateCanSubmit();
+      return;
+    }
+
     this.selectedDatabase = this.databaseMap?.get(dbId);
     if (this.selectedDatabase) {
       this._displayDb();
     }
+  }
+
+  private checkForSameTagWarning() {
+    if (this.selectedDatabase?.Type) {
+      this.existingDatabaseWithSameTag = this.existingDatabases?.find(
+        db => db.Type === this.selectedDatabase?.Type
+      );
+      this.showSameTagWarning = !!this.existingDatabaseWithSameTag;
+    }
+  }
+
+  private updateCanSubmit() {
+    this.canSubmit = !!this.selectedDatabase?.Id;
   }
 
   _displayDb() {
@@ -121,11 +183,8 @@ export class AttachDatabase extends LitElement {
             this.selectedDatabase = data[0];
           }
 
-          if (this.selectedDatabase.Id) {
-            this.canSubmit = true;
-          } else {
-            this.canSubmit = false;
-          }
+          this.checkForSameTagWarning();
+          this.updateCanSubmit();
         },
         error: (err: any) => console.error(err),
         complete: () => console.log('done loading database')
@@ -137,7 +196,6 @@ export class AttachDatabase extends LitElement {
     _column: GridColumn,
     model: GridItemModel<DatabaseApiModel>
   ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
     const groupApiModel = model.item as DatabaseApiModel;
     root.innerHTML = `<paper-item><span>${groupApiModel.Name} - ${
       groupApiModel.ServerName
@@ -179,6 +237,9 @@ export class AttachDatabase extends LitElement {
       this.selectedDatabase.ServerName = '';
       this.selectedDatabase.AdGroup = '';
     }
+    this.showSameTagWarning = false;
+    this.existingDatabaseWithSameTag = undefined;
+    this.canSubmit = false;
   }
 
   private setDatabases(data: DatabaseApiModel[]) {
@@ -200,15 +261,24 @@ export class AttachDatabase extends LitElement {
   }
 
   private processDbAttachFailure(result: any) {
-    const event = new CustomEvent('error-alert', {
-      detail: {
-        description: 'Unable to attach database',
-        result
-      },
-      bubbles: true,
-      composed: true
+    const errorMessage = 'Unable to attach database' + (result?.Message ? `: ${result.Message}` : '');
+    Notification.show(errorMessage, {
+      theme: 'error',
+      position: 'bottom-start',
+      duration: 3000
     });
-    this.dispatchEvent(event);
     console.log(result);
+  }
+
+  private filterDatabases(e: CustomEvent) {
+    const filterValue = e.detail.value.toLowerCase() ?? '';
+    if (!filterValue) {
+      this.filteredDatabases = this.databases;
+      return;
+    }
+    this.filteredDatabases = this.databases?.filter(db => 
+      db.Name?.toLowerCase().includes(filterValue) ||
+      db.ServerName?.toLowerCase().includes(filterValue)
+    );
   }
 }

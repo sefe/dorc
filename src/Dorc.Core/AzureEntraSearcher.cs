@@ -2,7 +2,7 @@ using Azure.Identity;
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Authentication;
 using Microsoft.Graph.Models;
@@ -18,10 +18,10 @@ namespace Dorc.Core
         private readonly string _tenantId;
         private readonly string _clientId;
         private readonly string _clientSecret;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private GraphServiceClient? _graphClient;
 
-        public AzureEntraSearcher(IConfigurationSettings config, ILog log)
+        public AzureEntraSearcher(IConfigurationSettings config, ILogger<AzureEntraSearcher> log)
         {
             _tenantId = config.GetAzureEntraTenantId();
             _clientId = config.GetAzureEntraClientId();
@@ -62,18 +62,22 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _log.Error("Error initializing GraphServiceClient.", ex);
+                _log.LogError(ex, "Error initializing GraphServiceClient.");
                 throw new InvalidOperationException("Failed to initialize GraphServiceClient.", ex);
             }
 
             return _graphClient;
         }
 
+        private static string EscapeODataString(string s) => s?.Replace("'", "''");
+
         public List<UserElementApiModel> Search(string objectName)
         {
             var output = new List<UserElementApiModel>();
 
             var graphClient = GetGraphClient();
+
+            objectName = EscapeODataString(objectName);
 
             try
             {
@@ -140,16 +144,16 @@ namespace Dorc.Core
             {
                 if (ex.ResponseStatusCode == 401 || ex.ResponseStatusCode == 403)
                 {
-                    _log.Error("Authentication/Authorization error when querying Azure Entra ID.", ex);
+                    _log.LogError(ex, "Authentication/Authorization error when querying Azure Entra ID.");
                     throw new UnauthorizedAccessException("Failed to authenticate or authorize with Azure Entra ID.", ex);
                 }
 
-                _log.Error("Error searching Azure Entra ID.", ex);
+                _log.LogError(ex, "Error searching Azure Entra ID.");
                 throw;
             }
             catch (Exception ex)
             {
-                _log.Error("Unexpected error searching Azure Entra ID.", ex);
+                _log.LogError(ex, "Unexpected error searching Azure Entra ID.");
                 throw;
             }
 
@@ -193,7 +197,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _log.Error("Error getting entity from Azure Entra ID", ex);
+                _log.LogError(ex, "Error getting entity from Azure Entra ID");
                 throw;
             }
 
@@ -225,7 +229,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _log.Error("Error getting entity from Azure Entra ID", ex);
+                _log.LogError(ex, "Error getting entity from Azure Entra ID");
                 throw;
             }
 
@@ -241,6 +245,8 @@ namespace Dorc.Core
             }
 
             var graphClient = GetGraphClient();
+            
+            var safeUsername = EscapeODataString(username);
 
             try
             {
@@ -250,9 +256,9 @@ namespace Dorc.Core
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
                         requestConfiguration.QueryParameters.Count = true; // Enables $count
                         requestConfiguration.QueryParameters.Filter =
-                            $"startsWith(displayName,'{username}') or startsWith(mail,'{username}') or " +
-                            $"startsWith(onPremisesSamAccountName,'{username}') or " +
-                            $"startsWith(userPrincipalName,'{username}')";
+                            $"startsWith(displayName,'{safeUsername}') or startsWith(mail,'{safeUsername}') or " +
+                            $"startsWith(onPremisesSamAccountName,'{safeUsername}') or " +
+                            $"startsWith(userPrincipalName,'{safeUsername}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
                     }).Result;
@@ -276,7 +282,7 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _log.Error("Error getting user from Azure Entra ID", ex);
+                _log.LogError(ex, "Error getting user from Azure Entra ID");
                 throw;
             }
 
@@ -290,36 +296,26 @@ namespace Dorc.Core
                 throw new ArgumentException("User ID cannot be null or empty.");
             }
 
-            var result = new List<string>();
+            var result = new List<string> { userId };
             var graphClient = GetGraphClient();
 
             try
             {
-                result.Add(userId);
+                // Single API call to get ALL group IDs (including transitive)
+                var memberGroupsResult = graphClient.Users[userId].GetMemberGroups.PostAsGetMemberGroupsPostResponseAsync(
+                    new Microsoft.Graph.Users.Item.GetMemberGroups.GetMemberGroupsPostRequestBody
+                    {
+                        SecurityEnabledOnly = false,
+                    }).GetAwaiter().GetResult();
 
-                // Get all groups the user is a member of (including transitive memberships)
-                var memberOf = graphClient.Users[userId].MemberOf
-                    .GetAsync().Result;
-
-                var pageIterator = PageIterator<DirectoryObject, DirectoryObjectCollectionResponse>
-                    .CreatePageIterator(
-                        graphClient,
-                        memberOf,
-                        (directoryObject) =>
-                        {
-                            if (directoryObject is Microsoft.Graph.Models.Group group)
-                            {
-                                result.Add(group.Id);
-                            }
-                            return true;
-                        });
-
-                // Iterate through all pages
-                pageIterator.IterateAsync().Wait();
+                if (memberGroupsResult?.Value != null)
+                {
+                    result.AddRange(memberGroupsResult.Value);
+                }
             }
             catch (Exception ex)
             {
-                _log.Error("Error getting group memberships from Azure Entra ID", ex);
+                _log.LogError(ex, "Error getting group memberships from Azure Entra ID");
                 throw;
             }
 
@@ -375,12 +371,12 @@ namespace Dorc.Core
             }
             catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.Forbidden)
             {
-                _log.Error("Insufficient permissions to check group membership", ex);
+                _log.LogError(ex, "Insufficient permissions to check group membership");
                 throw new System.Configuration.Provider.ProviderException("Insufficient permissions to query Azure Entra ID.", ex);
             }
             catch (Exception ex)
             {
-                _log.Error("Error checking group membership in Azure Entra ID", ex);
+                _log.LogError(ex, "Error checking group membership in Azure Entra ID");
                 throw new System.Configuration.Provider.ProviderException("Unable to query Azure Entra ID.", ex);
             }
 

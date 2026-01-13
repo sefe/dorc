@@ -12,7 +12,7 @@ import { html } from 'lit/html.js';
 import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi,
-  RefDataGroupsApi, type ServerApiModel
+  RefDataGroupsApi
 } from '../apis/dorc-api';
 import {
   ApiBoolResult,
@@ -39,6 +39,10 @@ export class AddEditDatabase extends LitElement {
     this.DbServerName = this._database.ServerName ?? '';
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
+
+    // Clear any previous error messages when setting new database
+    this.ErrorMessage = '';
+    this.infoMessage = '';
 
     const adGroupCombo = this.shadowRoot?.getElementById('active-dir-groups') as ComboBox;
     if (adGroupCombo) {
@@ -104,6 +108,12 @@ export class AddEditDatabase extends LitElement {
     );
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // Reset all validation state when component is connected/shown
+    this._reset();
+  }
+
   static get styles() {
     return css`
       .block {
@@ -120,7 +130,6 @@ export class AddEditDatabase extends LitElement {
       <div style="padding: 10px; width:500px">
         <vaadin-vertical-layout>
           <vaadin-text-field
-            id="database-name"
             class="block"
             label="Database"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
@@ -140,7 +149,7 @@ export class AddEditDatabase extends LitElement {
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
-            pattern="^[a-zA-Z0-9_]{1,128}(\\\\[a-zA-Z0-9_]{1,128})?$"
+            pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
             label="Instance"
             required
             auto-validate
@@ -150,8 +159,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Array Name (leave blank if unknown)"
-            auto-validate
             @input="${this._dbaArrayNameValueChanged}"
+            auto-validate
             .value="${this.ArrayName}"
           ></vaadin-text-field>
           <vaadin-combo-box
@@ -205,11 +214,17 @@ export class AddEditDatabase extends LitElement {
       'active-dir-groups'
     ) as ComboBox;
 
-    activeDirectoryGroups.clear();
+    if (activeDirectoryGroups) activeDirectoryGroups.clear();
 
     this.DatabaseName = '';
     this.DatabaseType = '';
     this.DbServerName = '';
+    this.ArrayName = '';
+    this.AdGroup = '';
+    this.ErrorMessage = '';
+    this.infoMessage = '';
+    this.isNameValid = false;
+    this.canSubmit = false;
   }
 
   saveDatabase() {
@@ -225,17 +240,18 @@ export class AddEditDatabase extends LitElement {
           AdGroup: this.AdGroup,
           ArrayName: this.ArrayName
         }
-    })
-  .subscribe({
-      next: (data: ServerApiModel) => {
-        this.fireDatabaseChangedEvent(data);
-      },
-      error: (err: any) => {
-        console.error(err.response);
-        this.ErrorMessage = err.response;
-      },
-      complete: () => console.log('done updating server')
-    });
+      })
+      .subscribe({
+        next: (data: DatabaseApiModel) => {
+          this.fireDatabaseChangedEvent(data);
+          this._reset();
+        },
+        error: (err: any) => {
+          console.error(err.response);
+          this.ErrorMessage = err.response;
+        },
+        complete: () => console.log('done adding DB')
+      });
     }
     else {
       const api = new RefDataDatabasesApi();
@@ -254,7 +270,8 @@ export class AddEditDatabase extends LitElement {
             this.attachDb(data);
             const id = data.Id || 0;
             if (id > 0) {
-              this.databaseAddComplete();
+              this.databaseAddComplete(data);
+              this._reset();
             }
           },
           error: (err: any) => {
@@ -332,10 +349,11 @@ export class AddEditDatabase extends LitElement {
     }
   }
 
-  databaseAddComplete() {
+  databaseAddComplete(data: DatabaseApiModel) {
     const event = new CustomEvent('database-created', {
       detail: {
-        message: 'Database created successfully!'
+        message: 'Database created successfully!',
+        data: data
       },
       bubbles: true,
       composed: true
@@ -405,36 +423,42 @@ export class AddEditDatabase extends LitElement {
 
   private checkDbValid(dbs: DatabaseApiModel[]) {
     const foundDatabase = dbs?.[0];
+        
     if (
       foundDatabase &&
-      /* editing */ foundDatabase.Id === this._database.Id &&
+      foundDatabase.Id === this._database.Id &&
       this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
+
     } else if (foundDatabase && foundDatabase.Id !== this._database.Id) {
       this.isNameValid = false;
-      this.infoMessage = 'Database Name already exists';
+      this.infoMessage = 'Database already exists';
+
     } else if (
       !foundDatabase &&
       this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
+
     } else {
       this.isNameValid = false;
+      // Clear the "Database already exists" message if the database doesn't exist
+      if (!foundDatabase) {
+        this.infoMessage = '';
+      }
     }
     this.canSubmit = this.isNameValid;
 
     console.log(`isNameValid: ${this.isNameValid}`);
-
-    this.isNameValid = false;
   }
 
   checkDatabaseComplete(db: DatabaseApiModel){
     let nameValid = false;
     let instanceValid = false;
-    let adGroupValid = false;
+    let typeValid = false;
 
     if (
     db.Name &&
@@ -451,13 +475,13 @@ export class AddEditDatabase extends LitElement {
       instanceValid = true;
     }
     if (
-      db.AdGroup &&
-      db.AdGroup?.length > 0)
+      db.Type &&
+      db.Type?.length > 0)
     {
-      adGroupValid = true;
+      typeValid = true;
     }
 
-    return nameValid && instanceValid && adGroupValid;
+    return nameValid && instanceValid && typeValid;
   }
 
   getEmptyDatabase(): DatabaseApiModel {

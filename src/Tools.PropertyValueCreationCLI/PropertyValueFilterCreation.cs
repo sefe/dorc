@@ -3,18 +3,18 @@ using System.Security.Principal;
 using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Tools.PropertyValueCreationCLI
 {
     internal class PropertyValueFilterCreation : IPropertyValueFilterCreation
     {
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IPropertyEncryptor _encryptor;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyValuesAuditPersistentSource _propertyValuesAuditPersistentSource;
 
-        public PropertyValueFilterCreation(ILog log, IPropertyEncryptor propertyEncryptor, IPropertyValuesPersistentSource propertyValuesPersistentSource, IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource)
+        public PropertyValueFilterCreation(ILogger log, IPropertyEncryptor propertyEncryptor, IPropertyValuesPersistentSource propertyValuesPersistentSource, IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource)
         {
             _propertyValuesAuditPersistentSource = propertyValuesAuditPersistentSource;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
@@ -24,14 +24,14 @@ namespace Tools.PropertyValueCreationCLI
 
         public void InsertPropertyValueFilter(string name, string value, string envName)
         {
-            var existingPropertyValues = _propertyValuesPersistentSource.GetPropertyValues(name, value, true)
+            var existingPropertyValues = _propertyValuesPersistentSource.GetPropertyValues(name, envName, true)
                 .FirstOrDefault()?.Value;
-            if (string.IsNullOrEmpty(existingPropertyValues))
+            if (!string.IsNullOrEmpty(existingPropertyValues))
             {
                 if (string.IsNullOrEmpty(envName))
-                    _log.Warn("Default property already configured for property " + name);
+                    _log.LogWarning("Default property already configured for property " + name);
                 else
-                    _log.Warn("Property Value already configured for environment '" + envName + "'");
+                    _log.LogWarning("Property Value already configured for environment '" + envName + "'");
             }
             else
             {

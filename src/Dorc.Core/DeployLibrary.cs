@@ -2,12 +2,13 @@ using System.Diagnostics;
 using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
+using Dorc.Core.Events;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 // ReSharper disable AsyncConverter.AsyncWait
 
@@ -19,26 +20,29 @@ namespace Dorc.Core
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILog _logger;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ILog logger,
+            ILoggerFactory loggerFactory,
             IRequestsPersistentSource requestsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentEventsPublisher deploymentEventsPublisher
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
-            _logger = logger;
+            _loggerFactory = loggerFactory;
             _environmentsPersistentSource = environmentsPersistentSource;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _deploymentEventsPublisher = deploymentEventsPublisher;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -139,6 +143,16 @@ namespace Dorc.Core
 
             var requestId = _requestsPersistentSource.SubmitRequest(deploymentRequest);
 
+            // Fire-and-forget event: new request created (Pending)
+            _ = _deploymentEventsPublisher.PublishNewRequestAsync(
+                new DeploymentRequestEventData(
+                    RequestId: requestId,
+                    Status: deploymentRequest.Status.ToString(),
+                    StartedTime: deploymentRequest.RequestedTime,
+                    CompletedTime: null,
+                    Timestamp: DateTimeOffset.UtcNow
+                ));
+
             return requestId;
         }
 
@@ -184,7 +198,7 @@ namespace Dorc.Core
             if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _logger);
+                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
 
                 var projects = project.ArtefactsSubPaths.Split(';');
 
@@ -273,17 +287,24 @@ namespace Dorc.Core
 
         private void AddComponent(ICollection<string> componentNames, ComponentApiModel component)
         {
-            if (!string.IsNullOrEmpty(component.ScriptPath)
-                && !componentNames.Contains(component.ComponentName))
+            if (!component.IsEnabled)
             {
-                componentNames.Add(component.ComponentName);
+                return;
             }
-
+            
             _componentsPersistentSource.LoadChildren(component);
-
             foreach (var child in component.Children)
             {
-                AddComponent(componentNames, child);
+                if (child.IsEnabled != false)
+                {
+                    AddComponent(componentNames, child);
+                }
+            }
+
+            // adding only leaf components
+            if (component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
+            {
+                componentNames.Add(component.ComponentName);
             }
         }
 
