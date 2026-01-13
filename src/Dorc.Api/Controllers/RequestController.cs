@@ -212,7 +212,8 @@ namespace Dorc.Api.Controllers
                 // Clone the request instead of modifying the existing one
                 var newRequestId = _requestsPersistentSource.CloneRequest(requestId, username);
 
-                _log.Info($"Request {requestId} cloned as new request {newRequestId} by {username}");
+                _log.LogInformation($"Request {requestId} cloned as new request {newRequestId} by {username}");
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
                 // Broadcast restart -> Restarting
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
