@@ -17,7 +17,7 @@ export class RequestControls extends LitElement {
   cancelable = false;
 
   @property({ type: Boolean })
-  canRestart = false;
+  canRedeploy = false;
 
   static get styles() {
     return css`
@@ -52,8 +52,8 @@ export class RequestControls extends LitElement {
     const cancelStyles = {
       color: this.cancelable ? '#FF3131' : 'grey'
     };
-    const restartStyles = {
-      color: this.canRestart ? 'cornflowerblue' : 'grey'
+    const redeployStyles = {
+      color: this.canRedeploy ? 'cornflowerblue' : 'grey'
     };
     return html`
       <table style="height: 36px">
@@ -73,14 +73,14 @@ export class RequestControls extends LitElement {
           </td>
           <td class="table-button">
             <vaadin-button
-              title="Restart Request"
+              title="Redeploy Request"
               theme="icon small"
-              @click="${this.restart}"
-              ?disabled="${!this.canRestart}"
+              @click="${this.redeploy}"
+              ?disabled="${!this.canRedeploy}"
             >
               <vaadin-icon
                 icon="av:repeat"
-                style=${styleMap(restartStyles)}
+                style=${styleMap(redeployStyles)}
               ></vaadin-icon>
             </vaadin-button>
           </td>
@@ -89,15 +89,15 @@ export class RequestControls extends LitElement {
     `;
   }
 
-  restart() {
+  redeploy() {
     const answer = confirm(
-      `Are you sure you want to restart the job with ID ${this.requestId} ? This will create a new request with the same configuration.`
+      `Are you sure you want to redeploy the job with ID ${this.requestId} ? This will create a new request with the same configuration.`
     );
 
     if (answer) {
       const api = new RequestApi();
-      api.requestRestartPost({ requestId: this.requestId }).subscribe((response) => {
-        const event = new CustomEvent('request-restarted', {
+      api.requestRedeployPost({ requestId: this.requestId }).subscribe((response) => {
+        const event = new CustomEvent('request-redeployed', {
           detail: {
             requestId: this.requestId,
             newRequestId: response.Id,
