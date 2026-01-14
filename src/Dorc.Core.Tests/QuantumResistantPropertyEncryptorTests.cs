@@ -137,7 +137,6 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(CryptographicException))]
         public void DecryptValue_ThrowsOnTamperedData()
         {
             var plaintext = "test value";
@@ -145,7 +144,7 @@ namespace Dorc.Core.Tests
 
             var tamperedData = encrypted.Substring(0, encrypted.Length - 5) + "XXXXX";
 
-            _encryptor.DecryptValue(tamperedData);
+            Assert.Throws<CryptographicException>(() => _encryptor.DecryptValue(tamperedData));
         }
 
         [TestMethod]
@@ -253,11 +252,10 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(CryptographicException))]
         public void DecryptValue_ThrowsOnTooShortData()
         {
             var shortData = Convert.ToBase64String(new byte[10]);
-            _encryptor.DecryptValue("v2:" + shortData);
+            Assert.Throws<CryptographicException>(() => _encryptor.DecryptValue("v2:" + shortData));
         }
 
         [TestMethod]

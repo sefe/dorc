@@ -72,10 +72,9 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ApplicationException))]
         public void DecryptValue_ThrowsOnInvalidBase64()
         {
-            _encryptor.DecryptValue("not valid base64!!!");
+            Assert.Throws<ApplicationException>(() => _encryptor.DecryptValue("not valid base64!!!"));
         }
 
         [TestMethod]
