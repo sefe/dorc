@@ -23,6 +23,7 @@ namespace Dorc.Monitor.HighAvailability
         private HttpClientHandler? httpClientHandler;
         private OAuth2ClientCredentialsProvider? credentialsProvider;
         private bool disposed = false;
+        private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
 
         public RabbitMqDistributedLockService(
             ILogger<RabbitMqDistributedLockService> logger,
@@ -46,6 +47,10 @@ namespace Dorc.Monitor.HighAvailability
             const int maxRetries = 2;
             for (int retry = 0; retry < maxRetries; retry++)
             {
+                // Capture current connection generation before attempting lock acquisition
+                // This allows us to detect if another thread already refreshed the connection
+                int currentGeneration = connectionGeneration;
+                
                 try
                 {
                     await EnsureConnectionAsync(cancellationToken);
@@ -172,7 +177,8 @@ namespace Dorc.Monitor.HighAvailability
                         await channel.DisposeAsync();
                         
                         // Force connection recreation to get fresh OAuth token
-                        await ForceConnectionRefreshAsync(cancellationToken);
+                        // Pass the generation we captured before the attempt to prevent redundant refreshes
+                        await ForceConnectionRefreshAsync(currentGeneration, cancellationToken);
                         
                         // Continue to next retry iteration
                         continue;
@@ -196,11 +202,20 @@ namespace Dorc.Monitor.HighAvailability
             return null;
         }
 
-        private async Task ForceConnectionRefreshAsync(CancellationToken cancellationToken)
+        private async Task ForceConnectionRefreshAsync(int expectedGeneration, CancellationToken cancellationToken)
         {
             await connectionSemaphore.WaitAsync(cancellationToken);
             try
             {
+                // Check if another thread already refreshed the connection while we were waiting
+                // If the generation has changed, another thread beat us to the refresh
+                if (connectionGeneration != expectedGeneration)
+                {
+                    logger.LogDebug("Connection was already refreshed by another thread (expected generation {ExpectedGeneration}, current {CurrentGeneration}). Skipping redundant refresh.", 
+                        expectedGeneration, connectionGeneration);
+                    return;
+                }
+                
                 // Close and dispose existing connection if any
                 if (connection != null)
                 {
@@ -220,7 +235,10 @@ namespace Dorc.Monitor.HighAvailability
                 // Clear cached credentials to force new token acquisition
                 credentialsProvider = null;
                 
-                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token");
+                // Increment generation to indicate a new connection cycle
+                connectionGeneration++;
+                
+                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token (generation {Generation})", connectionGeneration);
             }
             finally
             {
