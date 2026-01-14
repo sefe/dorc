@@ -9,9 +9,9 @@
 // using Dorc.PersistentData.Model;
 // using Dorc.PersistentData.Sources;
 // using Dorc.PersistentData.Sources.Interfaces;
-// using log4net;
 // using Microsoft.AspNetCore.Http;
 // using Microsoft.AspNetCore.Mvc;
+// using Microsoft.Extensions.Logging;
 // using NSubstitute;
 
 // namespace Dorc.Api.Tests.Controllers
@@ -28,9 +28,10 @@
 //             var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
 //             var mockRequestService = Substitute.For<IRequestService>();
 //             var mockSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
-//             var mockLog = Substitute.For<ILog>();
+//             var mockLog = Substitute.For<ILogger<RequestController>>();
 //             var mockRequestsManager = Substitute.For<IRequestsManager>();
 //             var mockProjectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
+//             var mockDeploymentEventsPublisher = Substitute.For<IDeploymentEventsPublisher>();
 
 //             int originalRequestId = 1;
 //             int newRequestId = 2;
@@ -86,7 +87,8 @@
 //                 mockRequestsManager,
 //                 requestsPersistentSource,
 //                 mockProjectsPersistentSource,
-//                 mockClaimsPrincipalReader
+//                 mockClaimsPrincipalReader,
+//                 mockDeploymentEventsPublisher
 //             );
 
 //             // Set user context
@@ -110,7 +112,8 @@
 //                 mockRequestsManager,
 //                 mockRequestsPersistentSource,
 //                 mockProjectsPersistentSource,
-//                 mockClaimsPrincipalReader
+//                 mockClaimsPrincipalReader,
+//                 mockDeploymentEventsPublisher
 //             );
 
 //             controllerWithMockedSource.ControllerContext = new ControllerContext
@@ -228,7 +231,7 @@
 //             var requestsPersistentSource = new RequestsPersistentSource(mockContextFactory, mockClaimsPrincipalReader);
 
 //             // Act & Assert
-//             var exception = Assert.ThrowsException<ArgumentException>(() =>
+//             var exception = Assert.Throws<ArgumentException>(() =>
 //                 requestsPersistentSource.CloneRequest(nonExistentRequestId, newUserName));
 
 //             Assert.AreEqual($"Request with ID {nonExistentRequestId} not found.", exception.Message);
