@@ -187,14 +187,14 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Restarts an existing request
+        /// Restarts an existing request by cloning it
         /// </summary>
         /// <param name="requestId"></param>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(RequestStatusDto))]
-        [Route("restart")]
+        [Route("redeploy")]
         [HttpPost]
-        public IActionResult RestartPost(int requestId)
+        public IActionResult RedeployPost(int requestId)
         {
             try
             {
@@ -204,30 +204,27 @@ namespace Dorc.Api.Controllers
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
                 {
-                    _log.LogInformation($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to redeploy {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
-                if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
-                    || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
-                    _requestsPersistentSource.UpdateRequestStatus(
-                        requestId,
-                        DeploymentRequestStatus.Restarting,
-                        username);
+                // Clone the request instead of modifying the existing one
+                var newRequestId = _requestsPersistentSource.CloneRequest(requestId, username);
 
+                _log.LogInformation($"Request {requestId} cloned as new request {newRequestId} by {username}");
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
-                // Broadcast restart -> Restarting
+                // Broadcast redeploy -> Redeploying
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
                     new DeploymentRequestEventData(updated));
 
                 return StatusCode(StatusCodes.Status200OK,
-                    new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+                    new RequestStatusDto { Id = newRequestId, Status = "Pending" });
             }
             catch (Exception e)
             {
-                _log.LogError(e, "api/Request/restart");
+                _log.LogError(e, "api/Request/redeploy");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
