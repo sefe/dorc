@@ -3,7 +3,7 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Security.Principal;
@@ -13,12 +13,12 @@ namespace Dorc.PersistentData.Sources
     public class ScriptsPersistentSource : IScriptsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILog logger,
+            ILogger<ScriptsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -134,7 +134,7 @@ namespace Dorc.PersistentData.Sources
                     return false;
 
                 string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                _logger.Warn(
+                _logger.LogWarning(
                     $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
 
                 foundScript.Name = script.Name;
@@ -162,7 +162,7 @@ namespace Dorc.PersistentData.Sources
             {
                 foreach (var component in script.Components)
                 {
-                    isEnabled = component.IsEnabled ?? true;
+                    isEnabled = component.IsEnabled == true;
                 }
             }
 

@@ -1,28 +1,35 @@
 using Dorc.Core;
+using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
-using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Resources;
+using Serilog;
 using System.Reflection;
 using System.Text;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+var configurationRoot = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+    .Build();
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 
 builder.Services.AddTransient(s => configurationRoot);
@@ -33,21 +40,51 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = monitorConfiguration.ServiceName;
 });
 
-#region log4net logger initialization
+#region Logging Configuration
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-string executingAssemblyLocation = Assembly.GetExecutingAssembly().Location;
-string executingAssemblyDirectoryPath = Path.GetDirectoryName(executingAssemblyLocation)!;
-string log4netFilePath = Path.Combine(executingAssemblyDirectoryPath, "log4net.config");
-FileInfo log4netFileInfo = new FileInfo(log4netFilePath);
-XmlConfigurator.Configure(log4netFileInfo);
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+});
 
-Type loggerType = MethodBase.GetCurrentMethod()?.DeclaringType!;
-var logger = LogManager.GetLogger(loggerType);
+var environmentSuffix = monitorConfiguration.IsProduction ? "Prod" : "NonProd";
+var logConfigPath = "Serilog:WriteTo:0:Args:path";
+configurationRoot[logConfigPath] = configurationRoot[logConfigPath]?.Replace("{env}", environmentSuffix);
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithThreadId()
+    .ReadFrom.Configuration(configurationRoot)
+    .CreateLogger();
+builder.Logging.AddSerilog(Log.Logger);
+
+var otlpEndpoint = configurationRoot.GetValue<string>("OpenTelemetry:OtlpEndpoint");
+if (!string.IsNullOrEmpty(otlpEndpoint))
+{
+    builder.Logging.AddOpenTelemetry(logging =>
+    {
+        logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0")
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["service.namespace"] = "DOrc",
+                ["deployment.environment"] = monitorConfiguration.Environment,
+                ["host.name"] = Environment.MachineName
+            }));
+
+        logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
+}
 #endregion
 
-builder.Services.AddSingleton<ILog>(logger);
-
 builder.Services.AddTransient<ScriptDispatcher>();
+
+// Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
+builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
 
 PersistentSourcesRegistry.Register(builder.Services);
 
@@ -72,15 +109,24 @@ builder.Services.AddTransient<IVariableResolver, VariableResolver>();
 builder.Services.AddTransient<IPropertyEvaluator, PropertyEvaluator>();
 builder.Services.AddTransient<IComponentProcessor, ComponentProcessor>();
 builder.Services.AddTransient<IScriptDispatcher, ScriptDispatcher>();
+builder.Services.AddTransient<ITerraformDispatcher, TerraformDispatcher>();
+builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 
 var connectionString = monitorConfiguration.DOrcConnectionString;
 
 builder.Services.AddTransient<IDeploymentContextFactory>(provider => new DeploymentContextFactory(connectionString));
-builder.Services.AddDbContext<DeploymentContext>(
-    options =>
-        options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<DeploymentContext>(options =>
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.CommandTimeout(60);
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(2),
+            errorNumbersToAdd: null);
+    }));
+
 
 builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
 {

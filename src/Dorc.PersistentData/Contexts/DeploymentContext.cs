@@ -1,16 +1,16 @@
-﻿using System.Data;
-using Dorc.PersistentData.EntityTypeConfigurations;
-using Microsoft.EntityFrameworkCore;
+﻿using Dorc.PersistentData.EntityTypeConfigurations;
+using Dorc.PersistentData.Model;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Data;
 using Audit = Dorc.PersistentData.Model.Audit;
 using Database = Dorc.PersistentData.Model.Database;
 using Environment = Dorc.PersistentData.Model.Environment;
+using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 using Property = Dorc.PersistentData.Model.Property;
 using Server = Dorc.PersistentData.Model.Server;
 using User = Dorc.PersistentData.Model.User;
-using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Contexts
 {
@@ -71,7 +71,14 @@ namespace Dorc.PersistentData.Contexts
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer(nameOrConnectionString);
+            optionsBuilder.UseSqlServer(nameOrConnectionString, sqlOptions =>
+            {
+                sqlOptions.CommandTimeout(60);
+                sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(2),
+                    errorNumbersToAdd: null);
+            });
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -277,8 +284,8 @@ namespace Dorc.PersistentData.Contexts
 
         public DataSet RunSp(string spName, List<SqlParameter> parameters)
         {
-            var connection = new SqlConnection(Database.GetConnectionString());
-            var cmd = new SqlCommand
+            using var connection = new SqlConnection(Database.GetConnectionString());
+            using var cmd = new SqlCommand
             {
                 CommandText = spName,
                 CommandType = CommandType.StoredProcedure,

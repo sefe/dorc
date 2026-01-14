@@ -63,6 +63,8 @@ export * from './ServerApiModel';
 export * from './ServerOperatingSystemApiModel';
 export * from './ServiceStatusApiModel';
 export * from './SqlPortApiModel';
+export * from './TerraformPlanApiModel';
+export * from './TerraformSourceType';
 export * from './UserAccountType';
 export * from './UserApiModel';
 export * from './UserDbPermissionApiModel';

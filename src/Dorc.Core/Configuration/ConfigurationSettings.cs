@@ -139,5 +139,32 @@ namespace Dorc.Core.Configuration
 
             return env;
         }
+
+        #region Azure Storage Account
+        public string GetAzureStorageAccountTenantId()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["TenantId"];
+        }
+
+        public string GetAzureStorageAccountClientId()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["ClientId"];
+        }
+
+        public string GetAzureStorageAccountClientSecret()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["ClientSecret"];
+        }
+
+        public string GetAzureStorageAccounUri()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["StorageAccountUri"];
+        }
+
+        public string GetAzureStorageAccountTerraformBlobsContainerName()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"];
+        }
+        #endregion
     }
 }

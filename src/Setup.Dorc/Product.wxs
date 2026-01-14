@@ -38,6 +38,9 @@
 				<ComponentRef Id="DeployMonitorServiceDeployRunnerNonProd.exe" />
 				<ComponentGroupRef Id="NonProdDeployRunnerComGroup" />
 
+				<ComponentRef Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" />
+				<ComponentGroupRef Id="NonProdTerraformRunnerComGroup" />				
+
 				<ComponentRef Id="DeployMonitorServiceProd.exe" />
 				<ComponentGroupRef Id="ProdDeployMonitorComGroup" />
 
@@ -46,6 +49,9 @@
 
 				<ComponentRef Id="DeployMonitorServiceDeployRunnerProd.exe" />
 				<ComponentGroupRef Id="ProdDeployRunnerComGroup" />
+				
+				<ComponentRef Id="DeployMonitorServiceTerraformRunnerProd.exe" />
+				<ComponentGroupRef Id="ProdTerraformRunnerComGroup" />
 				
 				<ComponentRef Id="LogsShare" />
 			</Feature>

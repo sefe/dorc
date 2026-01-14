@@ -53,7 +53,7 @@ export class AttachServer extends LitElement {
 
   render() {
     return html`
-      <div>
+      <div style="padding: 10px;">
         <div class="inline">
           <vaadin-combo-box
             id="servers"
@@ -69,28 +69,30 @@ export class AttachServer extends LitElement {
             clear-button-visible
           >
           </vaadin-combo-box>
-          <vaadin-button
-            .disabled="${!this.canSubmit}"
-            @click="${this.attachServer}"
-            >Attach</vaadin-button
-          >
           <div>
-            <h3 style="color: cornflowerblue">
+            <h3 style="color: black">
               Server Name:
-              <span style="color: black">${this.selectedServer?.Name}</span>
+              <span style="color: blue">${this.selectedServer?.Name}</span>
             </h3>
-            <h3 style="color: cornflowerblue">
+            <h3 style="color: black">
               Server OS:
-              <span style="color: black">${this.selectedServer?.OsName}</span>
+              <span style="color: blue">${this.selectedServer?.OsName}</span>
             </h3>
-            <h3 style="color: cornflowerblue">
+            <h3 style="color: black">
               Server Applications:
-              <span style="color: black"
+              <span style="color: blue"
                 >${this.selectedServer?.ApplicationTags}</span
               >
             </h3>
           </div>
         </div>
+          <vaadin-horizontal-layout style="margin-right: 30px">
+            <vaadin-button
+              .disabled="${!this.canSubmit}"
+              @click="${this.attachServer}"
+              >Attach</vaadin-button
+            >
+          </vaadin-horizontal-layout>
       </div>
     `;
   }
@@ -107,6 +109,11 @@ export class AttachServer extends LitElement {
 
   setSelectedServer(data: CustomEvent) {
     const server = data.detail.value as number;
+    if (!server) {
+      this.selectedServer = undefined;
+      this.canSubmit = false;
+      return;
+    }
     this.selectedServer = this.serversMap?.get(server);
     this.canSubmit = true;
   }

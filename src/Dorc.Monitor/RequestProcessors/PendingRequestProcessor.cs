@@ -5,7 +5,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Text;
 
@@ -13,7 +13,7 @@ namespace Dorc.Monitor.RequestProcessors
 {
     internal class PendingRequestProcessor : IPendingRequestProcessor
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
         private IVariableResolver _variableResolver;
         private readonly IComponentProcessor componentProcessor;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
@@ -24,9 +24,10 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IDeploymentEventsPublisher eventsPublisher;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
+        private readonly ILoggerFactory _loggerFactory;
 
         public PendingRequestProcessor(
-            ILog logger,
+            ILoggerFactory loggerFactory,
             IComponentProcessor componentProcessor,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
             IRequestsPersistentSource requestsPersistentSource,
@@ -37,9 +38,10 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher)
         {
+            _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
-            this.logger = logger;
+            this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
             this._variableScopeOptionsResolver = variableScopeOptionsResolver;
@@ -52,9 +54,9 @@ namespace Dorc.Monitor.RequestProcessors
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
         {
-            logger.Info($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
+            logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
 
-            _variableResolver = new VariableResolver(propertyValuesPersistentSource, logger, _propertyEvaluator);
+            _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
             try
             {
@@ -68,7 +70,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                 try
                 {
-                    logger.Debug($"Request details:\r\n{requestToExecute.Request.RequestDetails}");
+                    logger.LogDebug($"Request details:\r\n{requestToExecute.Request.RequestDetails}");
 
                     var requestDetail = requestToExecute.Details;
 
@@ -80,7 +82,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                     if (environment.EnvironmentSecure)
                     {
-                        logger.Info($"Environment '{environmentName}' is secure; not using default property values.");
+                        logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
                     }
 
                     SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
@@ -105,9 +107,11 @@ namespace Dorc.Monitor.RequestProcessors
                     var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
                         requestDetail);
 
+                    logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
+
                     if (!orderedNonSkippedComponents.Any())
                     {
-                        logger.Warn($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
+                        logger.LogWarning($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
@@ -123,7 +127,7 @@ namespace Dorc.Monitor.RequestProcessors
                         return;
                     }
 
-                    var deploymentResults = new Dictionary<int, DeploymentResultApiModel>();
+                    var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id).ToDictionary(r => r.ComponentId);
                     foreach (var nonSkippedComponent in orderedNonSkippedComponents)
                     {
                         try
@@ -138,25 +142,24 @@ namespace Dorc.Monitor.RequestProcessors
 
                                 deploymentResults.Add(componentId, deploymentResult);
                             }
-                            else
+                            else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed.ToString()))
                             {
-                                logger.Warn($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
+                                logger.LogWarning($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
                             }
                         }
                         catch (Exception exception)
                         {
-                            logger.Error($"Deployment result cannot be created. Exception: {exception}");
+                            logger.LogError($"Deployment result cannot be created. Exception: {exception}");
                             throw;
                         }
                     }
 
                     var orderedEnabledNonSkippedComponents = orderedNonSkippedComponents
-                        .Where(component => !component.IsEnabled.HasValue
-                            || component.IsEnabled == true);
+                        .Where(component => component.IsEnabled);
 
                     if (!orderedEnabledNonSkippedComponents.Any())
                     {
-                        logger.Warn($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
+                        logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
@@ -200,6 +203,10 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 deploymentRequestStatus = DeploymentRequestStatus.Failed;
                             }
+                            if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                            {
+                                deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
+                            }
                         }
                         catch (OperationCanceledException)
                         {
@@ -208,25 +215,25 @@ namespace Dorc.Monitor.RequestProcessors
                                 ? DeploymentRequestStatus.Cancelled
                                 : DeploymentRequestStatus.Pending;
 
-                            logger.Info("Deployment of remaining components is cancelled.");
+                            logger.LogInformation("Deployment of remaining components is cancelled.");
                             break;
                         }
                         catch (Exception exception)
                         {
                             deploymentRequestStatus = DeploymentRequestStatus.Failed;
 
-                            logger.Error($"Component deployment failed. Exception: {exception}");
+                            logger.LogError($"Component deployment failed. Exception: {exception}");
 
                             while (exception.InnerException != null)
                             {
-                                logger.Error(exception.InnerException.ToString());
+                                logger.LogError(exception.InnerException.ToString());
 
                                 exception = exception.InnerException;
                             }
 
                             if (enabledNonSkippedComponent.StopOnFailure)
                             {
-                                logger.Error("Deployment of remaining components is aborted.");
+                                logger.LogError("Deployment of remaining components is aborted.");
                                 break;
                             }
                         }
@@ -247,7 +254,7 @@ namespace Dorc.Monitor.RequestProcessors
                 {
                     var criticalLogBuilder = new StringBuilder();
 
-                    logger.Error($"Deployment execution failure. Exception: {ex}");
+                    logger.LogError($"Deployment execution failure. Exception: {ex}");
                     criticalLogBuilder.AppendLine($"Deployment execution failure. Exception: {ex}");
 
                     var log = new StringBuilder();
@@ -258,7 +265,7 @@ namespace Dorc.Monitor.RequestProcessors
                         log.AppendLine(ex.StackTrace);
                         ex = ex.InnerException;
                     }
-                    logger.Error(log.ToString());
+                    logger.LogError(log.ToString());
                     criticalLogBuilder.AppendLine(log.ToString());
                     requestsPersistentSource.SetRequestCompletionStatus(
                         requestToExecute.Request.Id,
@@ -277,7 +284,7 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 var criticalLogBuilder = new StringBuilder();
 
-                logger.Error($"Failed while starting runner: {e}");
+                logger.LogError($"Failed while starting runner: {e}");
                 criticalLogBuilder.AppendLine($"Failed while starting runner: {e}");
 
                 requestsPersistentSource.UpdateRequestStatus(
@@ -298,7 +305,7 @@ namespace Dorc.Monitor.RequestProcessors
 
         private void InitializeDeploymentRequest(DeploymentRequestApiModel request)
         {
-            logger.Info("Setting Request to Running state, Id: " + request.Id);
+            logger.LogInformation("Setting Request to Running state, Id: " + request.Id);
 
             requestsPersistentSource.SetRequestStartStatus(
                 request,
@@ -315,7 +322,7 @@ namespace Dorc.Monitor.RequestProcessors
         private IList<ComponentApiModel> GetOrderedNonSkippedComponents(
             DeploymentRequestDetail requestDetails)
         {
-            logger.Debug("Getting ordered non-skipped components.");
+            logger.LogDebug("Getting ordered non-skipped components.");
 
             var orderedComponents =
                 manageProjectsPersistentSource.GetOrderedComponents(requestDetails.Components);
@@ -332,7 +339,7 @@ namespace Dorc.Monitor.RequestProcessors
                 }
                 else
                 {
-                    logger.Info($"Skipping component '{component.ComponentName}'.");
+                    logger.LogInformation($"Skipping component '{component.ComponentName}'.");
                 }
             }
 

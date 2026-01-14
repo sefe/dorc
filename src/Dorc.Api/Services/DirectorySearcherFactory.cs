@@ -2,7 +2,7 @@
 using Dorc.Core.Configuration;
 using Dorc.Core.IdentityServer;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -15,10 +15,10 @@ namespace Dorc.Api.Services
         public DirectorySearcherFactory(IConfigurationSettings config,
             IMemoryCache cache,
             IConfigurationSecretsReader secretsReader,
-            ILog log)
+            ILoggerFactory loggerFactory)
         {
-            _adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
-            var azEntraSearcher = new AzureEntraSearcher(config, log);
+            _adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), loggerFactory.CreateLogger<ActiveDirectorySearcher>());
+            var azEntraSearcher = new AzureEntraSearcher(config, loggerFactory.CreateLogger<AzureEntraSearcher>());
 
             var searchersList = new List<IActiveDirectorySearcher>();
             if (config.GetIsUseAdAsSearcher() == true)
@@ -27,14 +27,14 @@ namespace Dorc.Api.Services
             }
             else
             {
-                var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, log);
+                var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, loggerFactory.CreateLogger<IdentityServerSearcher>(), loggerFactory);
                 searchersList.Add(identityServerSearcher);
                 searchersList.Add(azEntraSearcher);
             }
 
             var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
                     searchersList,
-                    log);
+                    loggerFactory.CreateLogger<CompositeActiveDirectorySearcher>());
 
             _oauthDirectorySearcher = compositeOauthSearcher;
         }
