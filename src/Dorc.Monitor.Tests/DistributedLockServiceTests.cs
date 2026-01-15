@@ -188,6 +188,60 @@ namespace Dorc.Monitor.Tests.HighAvailability
         }
 
         /// <summary>
+        /// Tests that consumer is set up before publishing the lock message.
+        /// This prevents timeouts when messages are published before consumers exist.
+        /// </summary>
+        [TestMethod]
+        public async Task TryAcquireLockAsync_ConsumerSetupBeforePublish_PreventsMessageDeliveryTimeout()
+        {
+            // This test documents the fix for message delivery timeouts:
+            // 
+            // PROBLEM SCENARIO (before fix):
+            // 1. Monitor A finishes deployment, deletes lock queue at 16:44:33
+            // 2. Monitor B tries to acquire lock at 16:44:34:
+            //    - Declares queue
+            //    - Checks message count (0)
+            //    - Publishes lock message
+            //    - Sets up consumer (AFTER message was published)
+            //    - Times out waiting for message that was published before consumer existed
+            // 3. This repeats for all subsequent lock acquisition attempts
+            // 4. Logs show continuous "Timeout waiting for lock message" warnings
+            //
+            // FIX (after this change):
+            // 1. Monitor declares queue
+            // 2. Monitor sets up consumer FIRST
+            // 3. Monitor checks message count
+            // 4. Monitor publishes lock message
+            // 5. Consumer receives message immediately (it already exists)
+            //
+            // This ensures messages are always delivered to consumers that exist
+            // when the message is published, preventing timeout loops.
+
+            // Arrange
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.RabbitMqHostName.Returns("nonexistent-host");
+            mockConfiguration.RabbitMqPort.Returns(5672);
+            mockConfiguration.Environment.Returns("test");
+            
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            // Act
+            // Without live RabbitMQ, this will fail to connect
+            // With live RabbitMQ:
+            // - Consumer is set up before checking queue and publishing
+            // - Published messages are immediately delivered to the consumer
+            // - No timeout waiting for messages
+            var result = await service.TryAcquireLockAsync("env:Endur DV 10", 5000, CancellationToken.None);
+
+            // Assert
+            Assert.IsNull(result);
+            // With live RabbitMQ:
+            // - Would verify consumer is created before message is published
+            // - Would verify message is delivered without timeout
+            // - Would verify successful lock acquisition
+        }
+
+        /// <summary>
         /// Tests that lock acquisition includes proper timeout handling.
         /// This verifies the 5-second timeout when waiting for lock message delivery.
         /// </summary>

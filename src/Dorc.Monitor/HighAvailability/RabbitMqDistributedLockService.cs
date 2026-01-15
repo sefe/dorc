@@ -102,30 +102,8 @@ namespace Dorc.Monitor.HighAvailability
                             routingKey: queueName,
                             cancellationToken: cancellationToken);
 
-                        // Check if lock queue already has a message (lock is held by another monitor)
-                        // Use passive queue inspection to check message count
-                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
-                        
-                        // If queue has messages, another monitor holds the lock
-                        if (queueInfo.MessageCount > 0)
-                        {
-                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
-                                resourceKey, queueInfo.MessageCount);
-                            await channel.CloseAsync(cancellationToken: cancellationToken);
-                            await channel.DisposeAsync();
-                            return null;
-                        }
-
-                        // Publish a lock message that the consumer will hold
-                        // This message represents the lock token for this environment
-                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
-                        await channel.BasicPublishAsync(
-                            exchange: exchangeName,
-                            routingKey: queueName,
-                            body: lockMessage,
-                            cancellationToken: cancellationToken);
-
-                        // Start consuming - single-active consumer ensures only one monitor processes this
+                        // Start consuming BEFORE checking message count and publishing
+                        // This ensures we receive any messages published after we start consuming
                         var consumer = new AsyncEventingBasicConsumer(channel);
                         var lockAcquired = new TaskCompletionSource<bool>();
                         
@@ -142,6 +120,30 @@ namespace Dorc.Monitor.HighAvailability
                             queue: queueName,
                             autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
                             consumer: consumer,
+                            cancellationToken: cancellationToken);
+
+                        // Check if lock queue already has a message (lock is held by another monitor)
+                        // Check AFTER setting up consumer to avoid race where message is published before consumer exists
+                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
+                        
+                        // If queue has messages, another monitor holds the lock
+                        if (queueInfo.MessageCount > 0)
+                        {
+                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
+                                resourceKey, queueInfo.MessageCount);
+                            await channel.BasicCancelAsync(consumerTag, cancellationToken: cancellationToken);
+                            await channel.CloseAsync(cancellationToken: cancellationToken);
+                            await channel.DisposeAsync();
+                            return null;
+                        }
+
+                        // Publish a lock message that the consumer will hold
+                        // Consumer is already set up, so it will receive this message
+                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
+                        await channel.BasicPublishAsync(
+                            exchange: exchangeName,
+                            routingKey: queueName,
+                            body: lockMessage,
                             cancellationToken: cancellationToken);
 
                         // Wait for lock message to be delivered (with timeout)
