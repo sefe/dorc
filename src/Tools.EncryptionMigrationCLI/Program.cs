@@ -41,7 +41,7 @@ namespace Tools.EncryptionMigrationCLI
                 int batchSize = int.TryParse(configuration["Migration:BatchSize"], out int configuredBatchSize) 
                     ? configuredBatchSize 
                     : 100;
-                var migrator = new EncryptionMigration(contextFactory, encryptor, Log, batchSize);
+                var migrator = new EncryptionMigration(contextFactory, encryptor, _log, batchSize);
                 
                 bool dryRun = args.Contains("--dry-run") || args.Contains("-d");
                 bool force = args.Contains("--force") || args.Contains("-f");
