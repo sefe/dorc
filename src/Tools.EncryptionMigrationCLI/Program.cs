@@ -73,7 +73,7 @@ namespace Tools.EncryptionMigrationCLI
         private readonly ILogger _log;
         private readonly int _batchSize;
 
-        public EncryptionMigration(IDeploymentContextFactory contextFactory, QuantumResistantPropertyEncryptor encryptor, ILog log, int batchSize = 100)
+        public EncryptionMigration(IDeploymentContextFactory contextFactory, QuantumResistantPropertyEncryptor encryptor, ILogger log, int batchSize = 100)
         {
             _contextFactory = contextFactory;
             _encryptor = encryptor;
