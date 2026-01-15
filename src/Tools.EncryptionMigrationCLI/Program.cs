@@ -3,22 +3,21 @@ using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+
 
 namespace Tools.EncryptionMigrationCLI
 {
     internal class Program
     {
-        private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
+        private readonly ILogger _log;
 
         static int Main(string[] args)
         {
-            log4net.Config.XmlConfigurator.Configure();
-
             try
             {
-                Log.Info("Starting encryption migration tool...");
+                _log.LogInformation("Starting encryption migration tool...");
 
                 var configuration = new ConfigurationBuilder()
                     .SetBasePath(Directory.GetCurrentDirectory())
@@ -28,7 +27,7 @@ namespace Tools.EncryptionMigrationCLI
                 var connectionString = configuration.GetConnectionString("DOrcConnectionString");
                 if (string.IsNullOrEmpty(connectionString))
                 {
-                    Log.Error("Connection string 'DOrcConnectionString' not found in configuration");
+                    _log.LogError("Connection string 'DOrcConnectionString' not found in configuration");
                     return 1;
                 }
 
@@ -49,19 +48,19 @@ namespace Tools.EncryptionMigrationCLI
 
                 if (dryRun)
                 {
-                    Log.Info("Running in DRY RUN mode - no changes will be made");
+                    _log.LogInformation("Running in DRY RUN mode - no changes will be made");
                 }
 
-                Log.Info($"Using batch size: {batchSize}");
+                _log.LogInformation($"Using batch size: {batchSize}");
                 var result = migrator.MigratePropertyValues(dryRun, force);
 
-                Log.Info($"Migration completed. Total: {result.Total}, Migrated: {result.Migrated}, Skipped: {result.Skipped}, Failed: {result.Failed}");
+                _log.LogInformation($"Migration completed. Total: {result.Total}, Migrated: {result.Migrated}, Skipped: {result.Skipped}, Failed: {result.Failed}");
 
                 return result.Failed > 0 ? 1 : 0;
             }
             catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
             {
-                Log.Error("Migration failed", ex);
+                _log.LogError(ex, "Migration failed");
                 return 1;
             }
         }
@@ -71,7 +70,7 @@ namespace Tools.EncryptionMigrationCLI
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly QuantumResistantPropertyEncryptor _encryptor;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly int _batchSize;
 
         public EncryptionMigration(IDeploymentContextFactory contextFactory, QuantumResistantPropertyEncryptor encryptor, ILog log, int batchSize = 100)
@@ -92,7 +91,7 @@ namespace Tools.EncryptionMigrationCLI
                     .Where(p => p.Secure)
                     .ToList();
 
-                _log.Info($"Found {secureProperties.Count} secure properties");
+                _log.LogInformation($"Found {secureProperties.Count} secure properties");
 
                 foreach (var property in secureProperties)
                 {
@@ -100,7 +99,7 @@ namespace Tools.EncryptionMigrationCLI
                         .Where(pv => pv.Property.Id == property.Id && pv.Value != null)
                         .ToList();
 
-                    _log.Info($"Processing property '{property.Name}' with {propertyValues.Count} values");
+                    _log.LogInformation($"Processing property '{property.Name}' with {propertyValues.Count} values");
 
                     int batchCount = 0;
 
@@ -112,19 +111,19 @@ namespace Tools.EncryptionMigrationCLI
                         {
                             if (propertyValue.Value.StartsWith("v2:"))
                             {
-                                _log.Debug($"Property value {propertyValue.Id} already migrated to v2");
+                                _log.LogDebug($"Property value {propertyValue.Id} already migrated to v2");
                                 result.Skipped++;
                                 continue;
                             }
 
                             if (!force && propertyValue.Value.StartsWith("v1:"))
                             {
-                                _log.Debug($"Property value {propertyValue.Id} is v1 format but not forced");
+                                _log.LogDebug($"Property value {propertyValue.Id} is v1 format but not forced");
                                 result.Skipped++;
                                 continue;
                             }
 
-                            _log.Info($"Migrating property value {propertyValue.Id}");
+                            _log.LogInformation($"Migrating property value {propertyValue.Id}");
 
                             var migratedValue = _encryptor.MigrateFromLegacy(propertyValue.Value);
 
@@ -137,7 +136,7 @@ namespace Tools.EncryptionMigrationCLI
                                 {
                                     context.SaveChanges();
                                     batchCount = 0;
-                                    _log.Info($"Saved batch of {_batchSize} updates");
+                                    _log.LogInformation($"Saved batch of {_batchSize} updates");
                                 }
                             }
 
@@ -145,7 +144,7 @@ namespace Tools.EncryptionMigrationCLI
                         }
                         catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
                         {
-                            _log.Error($"Failed to migrate property value {propertyValue.Id}", ex);
+                            _log.LogError(ex, $"Failed to migrate property value {propertyValue.Id}");
                             result.Failed++;
                         }
                     }
@@ -153,7 +152,7 @@ namespace Tools.EncryptionMigrationCLI
                     if (!dryRun && batchCount > 0)
                     {
                         context.SaveChanges();
-                        _log.Info($"Saved final batch of {batchCount} updates");
+                        _log.LogInformation($"Saved final batch of {batchCount} updates");
                     }
                 }
             }
