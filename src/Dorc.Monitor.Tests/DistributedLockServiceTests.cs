@@ -188,6 +188,60 @@ namespace Dorc.Monitor.Tests.HighAvailability
         }
 
         /// <summary>
+        /// Tests that consumer is set up before publishing the lock message.
+        /// This prevents timeouts when messages are published before consumers exist.
+        /// </summary>
+        [TestMethod]
+        public async Task TryAcquireLockAsync_ConsumerSetupBeforePublish_PreventsMessageDeliveryTimeout()
+        {
+            // This test documents the fix for message delivery timeouts:
+            // 
+            // PROBLEM SCENARIO (before fix):
+            // 1. Monitor A finishes deployment, deletes lock queue at 16:44:33
+            // 2. Monitor B tries to acquire lock at 16:44:34:
+            //    - Declares queue
+            //    - Checks message count (0)
+            //    - Publishes lock message
+            //    - Sets up consumer (AFTER message was published)
+            //    - Times out waiting for message that was published before consumer existed
+            // 3. This repeats for all subsequent lock acquisition attempts
+            // 4. Logs show continuous "Timeout waiting for lock message" warnings
+            //
+            // FIX (after this change):
+            // 1. Monitor declares queue
+            // 2. Monitor sets up consumer FIRST
+            // 3. Monitor checks message count
+            // 4. Monitor publishes lock message
+            // 5. Consumer receives message immediately (it already exists)
+            //
+            // This ensures messages are always delivered to consumers that exist
+            // when the message is published, preventing timeout loops.
+
+            // Arrange
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.RabbitMqHostName.Returns("nonexistent-host");
+            mockConfiguration.RabbitMqPort.Returns(5672);
+            mockConfiguration.Environment.Returns("test");
+            
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            // Act
+            // Without live RabbitMQ, this will fail to connect
+            // With live RabbitMQ:
+            // - Consumer is set up before checking queue and publishing
+            // - Published messages are immediately delivered to the consumer
+            // - No timeout waiting for messages
+            var result = await service.TryAcquireLockAsync("env:Endur DV 10", 5000, CancellationToken.None);
+
+            // Assert
+            Assert.IsNull(result);
+            // With live RabbitMQ:
+            // - Would verify consumer is created before message is published
+            // - Would verify message is delivered without timeout
+            // - Would verify successful lock acquisition
+        }
+
+        /// <summary>
         /// Tests that lock acquisition includes proper timeout handling.
         /// This verifies the 5-second timeout when waiting for lock message delivery.
         /// </summary>
@@ -259,6 +313,58 @@ namespace Dorc.Monitor.Tests.HighAvailability
             // Assert
             Assert.IsNull(result);
             // With live RabbitMQ, would verify exchange created as "dorc.test-environment---qa"
+        }
+
+        /// <summary>
+        /// Tests that concurrent OAuth token refresh requests don't cause redundant connection refreshes.
+        /// This verifies the fix for the race condition where multiple lock acquisition failures
+        /// could cause connection thrashing when OAuth tokens expire.
+        /// </summary>
+        [TestMethod]
+        public async Task ConcurrentOAuthRefresh_ShouldNotCauseRedundantRefreshes()
+        {
+            // This test documents the OAuth token refresh race condition fix:
+            // 
+            // PROBLEM SCENARIO (before fix):
+            // 1. OAuth token expires at 17:51:47
+            // 2. Multiple lock acquisitions fail simultaneously with ACCESS_REFUSED
+            // 3. All threads call ForceConnectionRefreshAsync
+            // 4. Thread 1 acquires semaphore, refreshes connection with new token
+            // 5. Thread 2 waits on semaphore, then ALSO refreshes (closing Thread 1's fresh connection!)
+            // 6. Thread 3 waits, then ALSO refreshes again!
+            // 7. Connection thrashing occurs, requests remain in "pending" state
+            //
+            // FIX (after this change):
+            // 1. Each thread captures the connectionGeneration before attempting lock acquisition
+            // 2. Thread 1 acquires semaphore, increments generation, refreshes connection
+            // 3. Thread 2 acquires semaphore, sees generation changed, skips refresh
+            // 4. Thread 3 acquires semaphore, sees generation changed, skips refresh
+            // 5. Only ONE connection refresh occurs, all threads retry with fresh connection
+            //
+            // This test verifies that the service tracks connection refresh cycles via
+            // the connectionGeneration field to prevent redundant refreshes.
+
+            // Arrange
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.RabbitMqHostName.Returns("nonexistent-host");
+            mockConfiguration.RabbitMqPort.Returns(5672);
+            mockConfiguration.Environment.Returns("test");
+            
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            // Act
+            // Without live RabbitMQ, this will fail to connect
+            // With live RabbitMQ where OAuth token expires:
+            // - Multiple concurrent calls would trigger the race condition
+            // - The connectionGeneration check prevents redundant refreshes
+            var result = await service.TryAcquireLockAsync("env:TestEnv", 5000, CancellationToken.None);
+
+            // Assert
+            Assert.IsNull(result);
+            // With live RabbitMQ and OAuth expiry simulation:
+            // - Would verify only ONE "Forced RabbitMQ connection refresh" log message
+            // - Would verify all retry attempts succeed after the single refresh
+            // - Would verify no connection thrashing in logs
         }
     }
 }

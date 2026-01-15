@@ -23,6 +23,7 @@ namespace Dorc.Monitor.HighAvailability
         private HttpClientHandler? httpClientHandler;
         private OAuth2ClientCredentialsProvider? credentialsProvider;
         private bool disposed = false;
+        private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
 
         public RabbitMqDistributedLockService(
             ILogger<RabbitMqDistributedLockService> logger,
@@ -46,6 +47,10 @@ namespace Dorc.Monitor.HighAvailability
             const int maxRetries = 2;
             for (int retry = 0; retry < maxRetries; retry++)
             {
+                // Capture current connection generation before attempting lock acquisition
+                // This allows us to detect if another thread already refreshed the connection
+                int currentGeneration = connectionGeneration;
+                
                 try
                 {
                     await EnsureConnectionAsync(cancellationToken);
@@ -97,30 +102,8 @@ namespace Dorc.Monitor.HighAvailability
                             routingKey: queueName,
                             cancellationToken: cancellationToken);
 
-                        // Check if lock queue already has a message (lock is held by another monitor)
-                        // Use passive queue inspection to check message count
-                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
-                        
-                        // If queue has messages, another monitor holds the lock
-                        if (queueInfo.MessageCount > 0)
-                        {
-                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
-                                resourceKey, queueInfo.MessageCount);
-                            await channel.CloseAsync(cancellationToken: cancellationToken);
-                            await channel.DisposeAsync();
-                            return null;
-                        }
-
-                        // Publish a lock message that the consumer will hold
-                        // This message represents the lock token for this environment
-                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
-                        await channel.BasicPublishAsync(
-                            exchange: exchangeName,
-                            routingKey: queueName,
-                            body: lockMessage,
-                            cancellationToken: cancellationToken);
-
-                        // Start consuming - single-active consumer ensures only one monitor processes this
+                        // Start consuming BEFORE checking message count and publishing
+                        // This ensures we receive any messages published after we start consuming
                         var consumer = new AsyncEventingBasicConsumer(channel);
                         var lockAcquired = new TaskCompletionSource<bool>();
                         
@@ -137,6 +120,30 @@ namespace Dorc.Monitor.HighAvailability
                             queue: queueName,
                             autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
                             consumer: consumer,
+                            cancellationToken: cancellationToken);
+
+                        // Check if lock queue already has a message (lock is held by another monitor)
+                        // Check AFTER setting up consumer to avoid race where message is published before consumer exists
+                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
+                        
+                        // If queue has messages, another monitor holds the lock
+                        if (queueInfo.MessageCount > 0)
+                        {
+                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
+                                resourceKey, queueInfo.MessageCount);
+                            await channel.BasicCancelAsync(consumerTag, cancellationToken: cancellationToken);
+                            await channel.CloseAsync(cancellationToken: cancellationToken);
+                            await channel.DisposeAsync();
+                            return null;
+                        }
+
+                        // Publish a lock message that the consumer will hold
+                        // Consumer is already set up, so it will receive this message
+                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
+                        await channel.BasicPublishAsync(
+                            exchange: exchangeName,
+                            routingKey: queueName,
+                            body: lockMessage,
                             cancellationToken: cancellationToken);
 
                         // Wait for lock message to be delivered (with timeout)
@@ -172,7 +179,8 @@ namespace Dorc.Monitor.HighAvailability
                         await channel.DisposeAsync();
                         
                         // Force connection recreation to get fresh OAuth token
-                        await ForceConnectionRefreshAsync(cancellationToken);
+                        // Pass the generation we captured before the attempt to prevent redundant refreshes
+                        await ForceConnectionRefreshAsync(currentGeneration, cancellationToken);
                         
                         // Continue to next retry iteration
                         continue;
@@ -196,11 +204,20 @@ namespace Dorc.Monitor.HighAvailability
             return null;
         }
 
-        private async Task ForceConnectionRefreshAsync(CancellationToken cancellationToken)
+        private async Task ForceConnectionRefreshAsync(int expectedGeneration, CancellationToken cancellationToken)
         {
             await connectionSemaphore.WaitAsync(cancellationToken);
             try
             {
+                // Check if another thread already refreshed the connection while we were waiting
+                // If the generation has changed, another thread beat us to the refresh
+                if (connectionGeneration != expectedGeneration)
+                {
+                    logger.LogDebug("Connection was already refreshed by another thread (expected generation {ExpectedGeneration}, current {CurrentGeneration}). Skipping redundant refresh.", 
+                        expectedGeneration, connectionGeneration);
+                    return;
+                }
+                
                 // Close and dispose existing connection if any
                 if (connection != null)
                 {
@@ -220,7 +237,10 @@ namespace Dorc.Monitor.HighAvailability
                 // Clear cached credentials to force new token acquisition
                 credentialsProvider = null;
                 
-                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token");
+                // Increment generation to indicate a new connection cycle
+                connectionGeneration++;
+                
+                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token (generation {Generation})", connectionGeneration);
             }
             finally
             {
