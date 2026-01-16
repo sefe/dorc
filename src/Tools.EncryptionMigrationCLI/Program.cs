@@ -11,12 +11,19 @@ namespace Tools.EncryptionMigrationCLI
 {
     internal class Program
     {
-        private readonly ILogger _log;
+        private static ILogger _log;
 
         static int Main(string[] args)
         {
             try
             {
+                using var loggerFactory = LoggerFactory.Create(builder =>
+                {
+                    builder.AddConsole();
+                    builder.SetMinimumLevel(LogLevel.Information);
+                });
+                _log = loggerFactory.CreateLogger<Program>();
+
                 _log.LogInformation("Starting encryption migration tool...");
 
                 var configuration = new ConfigurationBuilder()
@@ -60,7 +67,7 @@ namespace Tools.EncryptionMigrationCLI
             }
             catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
             {
-                _log.LogError(ex, "Migration failed");
+                _log?.LogError(ex, "Migration failed");
                 return 1;
             }
         }
