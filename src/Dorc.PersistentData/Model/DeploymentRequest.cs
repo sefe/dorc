@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿    using System.ComponentModel.DataAnnotations;
 using System.Xml.Linq;
 
 namespace Dorc.PersistentData.Model
@@ -39,6 +39,7 @@ namespace Dorc.PersistentData.Model
 
         public string? Components { get; set; }
         public string? UncLogPath { get; set; }
+        public int? ParentRequestId { get; set; }
 
         public string DropLocation
         {

@@ -500,7 +500,8 @@ namespace Dorc.PersistentData.Sources
                     BuildNumber = originalRequest.BuildNumber,
                     Components = originalRequest.Components,
                     UncLogPath = null,
-                    IsProd = originalRequest.IsProd
+                    IsProd = originalRequest.IsProd,
+                    ParentRequestId = requestId
                 };
 
                 var request = context.DeploymentRequests.Add(clonedRequest);
@@ -558,7 +559,8 @@ namespace Dorc.PersistentData.Sources
                 StartedTime = req.StartedTime,
                 Status = status.ToString(),
                 UserName = req.UserName,
-                UncLogPath = req.UncLogPath
+                UncLogPath = req.UncLogPath,
+                ParentRequestId = req.ParentRequestId
             };
         }
 
