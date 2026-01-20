@@ -375,9 +375,9 @@ namespace Dorc.Monitor
 
         private void RemoveCancellationTokenSource(int requestId, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources)
         {
-            if (requestCancellationSources!.TryRemove(requestId, out CancellationTokenSource? removedCancellationTokenSource))
+            if (!requestCancellationSources!.TryRemove(requestId, out CancellationTokenSource? removedCancellationTokenSource))
             {
-                this.logger.LogError("Removal of CancellationTokenSource for the request '{RequestId}' failed.", requestId);
+                this.logger.LogDebug("CancellationTokenSource for request '{RequestId}' was not found (may have been removed already).", requestId);
             }
 
             if (removedCancellationTokenSource is not null)

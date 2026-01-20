@@ -24,6 +24,8 @@ namespace Dorc.Monitor.HighAvailability
         private OAuth2ClientCredentialsProvider? credentialsProvider;
         private bool disposed = false;
         private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
+        private DateTime? tokenExpiryTimeUtc; // Tracks when the current OAuth token expires
+        private static readonly TimeSpan TokenRefreshThreshold = TimeSpan.FromMinutes(5); // Refresh token 5 minutes before expiry
 
         public RabbitMqDistributedLockService(
             ILogger<RabbitMqDistributedLockService> logger,
@@ -35,12 +37,34 @@ namespace Dorc.Monitor.HighAvailability
 
         public bool IsEnabled => configuration.HighAvailabilityEnabled;
 
+        /// <summary>
+        /// Checks if the OAuth token is expiring soon (within the refresh threshold).
+        /// </summary>
+        private bool IsTokenExpiringSoon()
+        {
+            if (!tokenExpiryTimeUtc.HasValue)
+                return false;
+
+            var timeUntilExpiry = tokenExpiryTimeUtc.Value - DateTime.UtcNow;
+            return timeUntilExpiry <= TokenRefreshThreshold;
+        }
+
         public async Task<IDistributedLock?> TryAcquireLockAsync(string resourceKey, int leaseTimeMs, CancellationToken cancellationToken)
         {
             if (!IsEnabled)
             {
                 logger.LogDebug("Distributed locking is disabled, returning null lock for resource '{ResourceKey}'", resourceKey);
                 return null;
+            }
+
+            // Proactively refresh token if it's expiring soon (within 5 minutes)
+            // This prevents ACCESS_REFUSED errors during lock acquisition
+            if (IsTokenExpiringSoon())
+            {
+                var timeUntilExpiry = tokenExpiryTimeUtc!.Value - DateTime.UtcNow;
+                logger.LogInformation("OAuth token expiring in {Minutes:F1} minutes - proactively refreshing connection before lock acquisition for '{ResourceKey}'",
+                    timeUntilExpiry.TotalMinutes, resourceKey);
+                await ForceConnectionRefreshAsync(connectionGeneration, cancellationToken);
             }
 
             // Try lock acquisition with retry on token expiry
@@ -234,9 +258,10 @@ namespace Dorc.Monitor.HighAvailability
                     connection = null;
                 }
 
-                // Clear cached credentials to force new token acquisition
+                // Clear cached credentials and token expiry to force new token acquisition
                 credentialsProvider = null;
-                
+                tokenExpiryTimeUtc = null;
+
                 // Increment generation to indicate a new connection cycle
                 connectionGeneration++;
                 
@@ -349,11 +374,19 @@ namespace Dorc.Monitor.HighAvailability
             // Get initial token to ensure credentials are available before first connection attempt
             // This primes the credentials provider so it has a valid token ready
             var initialCredentials = await credentialsProvider.GetCredentialsAsync(cancellationToken);
-            logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds",
+
+            // Track token expiry time for proactive refresh
+            if (initialCredentials.ValidUntil.HasValue)
+            {
+                tokenExpiryTimeUtc = DateTime.UtcNow.Add(initialCredentials.ValidUntil.Value);
+            }
+
+            logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds (expires at {ExpiryTime:O})",
                 initialCredentials.ValidUntil?.Days ?? 0,
                 initialCredentials.ValidUntil?.Hours ?? 0,
                 initialCredentials.ValidUntil?.Minutes ?? 0,
-                initialCredentials.ValidUntil?.Seconds ?? 0);
+                initialCredentials.ValidUntil?.Seconds ?? 0,
+                tokenExpiryTimeUtc);
 
             // Configure connection factory with OAuth credentials provider
             // The CredentialsProvider will be called by RabbitMQ.Client for each connection attempt
