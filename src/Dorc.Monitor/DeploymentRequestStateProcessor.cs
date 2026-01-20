@@ -90,6 +90,18 @@ namespace Dorc.Monitor
                 monitorCancellationToken);
         }
 
+        /// <summary>
+        /// Switches deployment request statuses using optimistic concurrency.
+        ///
+        /// Optimistic Concurrency Pattern:
+        /// The database operation uses a WHERE clause with 'fromStatus' to ensure only requests
+        /// in the expected state are updated. In a multi-monitor environment, if another monitor
+        /// already processed a request (changed its status), the WHERE clause won't match and
+        /// that request won't be updated. This is the expected behavior - these operations are
+        /// idempotent (cancelling/abandoning a request twice has the same effect as once).
+        /// When fewer requests are updated than expected, it typically means another monitor
+        /// instance already processed them, which is not an error condition.
+        /// </summary>
         private void SwitchRequestsStatus(List<DeploymentRequestApiModel> requests, Methods method, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             int requestToSwitchCount = requests.Count();
@@ -113,14 +125,16 @@ namespace Dorc.Monitor
                     TerminateRequestExecution(id, requestCancellationSources);
                 };
 
-                int cancelledRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                // Uses optimistic concurrency: only updates requests still in 'fromStatus'
+                int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
                     requests,
                     fromStatus,
                     toStatus,
                     DateTimeOffset.Now);
 
-                if (cancelledRequestCount > 0)
+                if (updatedRequestCount == requestToSwitchCount)
                 {
+                    // All requests were successfully updated
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
@@ -133,12 +147,32 @@ namespace Dorc.Monitor
                             Timestamp: DateTimeOffset.UtcNow
                         ));
                     }
-
                     this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
+                }
+                else if (updatedRequestCount > 0)
+                {
+                    // Partial success: some requests were already processed by another monitor
+                    foreach (var id in ids)
+                    {
+                        TerminateRunnerProcesses(id);
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: toStatus.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+                    var skippedCount = requestToSwitchCount - updatedRequestCount;
+                    this.logger.LogInformation(
+                        $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
+                        $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
                 }
                 else
                 {
-                    this.logger.LogError($"{requestToSwitchCount - cancelledRequestCount} request from {requestToSwitchCount} are NOT {methodName}ed. IDs [{idsString}]");
+                    // All requests were already processed by another monitor (optimistic concurrency)
+                    this.logger.LogInformation(
+                        $"None of the {requestToSwitchCount} requests were {methodName}ed - likely already processed by another monitor instance. IDs [{idsString}]");
                 }
             }
         }
@@ -257,7 +291,6 @@ namespace Dorc.Monitor
                 // Try to acquire distributed lock for this environment BEFORE creating the task
                 // This ensures only one monitor instance processes this environment at a time
                 // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
-                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
                 // Other usages of Task.Run in this codebase may be synchronous, but here async is required for proper lock handling.
                 var task = Task.Run(async () =>
                 {
@@ -274,7 +307,7 @@ namespace Dorc.Monitor
                             // Lock lease time is longer than typical request duration to handle long deployments
                             // The lock will auto-release if the monitor crashes
                             envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
-                            
+
                             if (envLock == null)
                             {
                                 this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
@@ -282,6 +315,19 @@ namespace Dorc.Monitor
                             }
 
                             this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
+
+                            // Re-validate request status after acquiring lock
+                            // The request status may have changed while waiting for the lock
+                            // (e.g., cancelled by user, or already picked up by another monitor before lock was held)
+                            var currentRequest = this.requestsPersistentSource.GetRequest(requestToExecute.Request.Id);
+                            if (currentRequest == null ||
+                                (currentRequest.Status != DeploymentRequestStatus.Pending.ToString() &&
+                                 currentRequest.Status != DeploymentRequestStatus.Confirmed.ToString()))
+                            {
+                                this.logger.LogInformation(
+                                    $"Request {requestToExecute.Request.Id} status changed to '{currentRequest?.Status ?? "null"}' while waiting for lock. Skipping execution.");
+                                return; // Lock will be released in finally block
+                            }
                         }
 
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);

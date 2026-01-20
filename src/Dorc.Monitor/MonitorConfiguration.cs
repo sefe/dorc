@@ -242,6 +242,19 @@ namespace Dorc.Monitor
                 return configurationRoot.GetSection(appSettings)["Environment"] ?? "unknown";
             }
         }
+
+        public int MaxConcurrentDeployments
+        {
+            get
+            {
+                var maxStr = configurationRoot.GetSection(appSettings)["MaxConcurrentDeployments"];
+                if (int.TryParse(maxStr, out int max) && max > 0)
+                {
+                    return max;
+                }
+                return 0; // 0 means unlimited
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration

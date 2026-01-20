@@ -12,7 +12,7 @@ namespace Dorc.Monitor.HighAvailability
     /// Supports RabbitMQ clusters with automatic failover and ensures only one monitor instance processes deployments per environment.
     /// Uses OAuth 2.0 client credentials flow with automatic token refresh via official RabbitMQ.Client.OAuth2 package.
     /// </summary>
-    public class RabbitMqDistributedLockService : IDistributedLockService, IDisposable
+    public class RabbitMqDistributedLockService : IDistributedLockService, IAsyncDisposable, IDisposable
     {
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
@@ -474,7 +474,7 @@ namespace Dorc.Monitor.HighAvailability
             };
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             if (disposed)
                 return;
@@ -493,7 +493,14 @@ namespace Dorc.Monitor.HighAvailability
             }
 
             IConnection? connToDispose = null;
-            connectionSemaphore.Wait(TimeSpan.FromSeconds(5));
+
+            // Use async semaphore wait to avoid potential deadlocks
+            var semaphoreAcquired = await connectionSemaphore.WaitAsync(TimeSpan.FromSeconds(5));
+            if (!semaphoreAcquired)
+            {
+                logger.LogWarning("Timeout waiting to acquire connection semaphore during disposal");
+            }
+
             try
             {
                 connToDispose = connection;
@@ -501,14 +508,17 @@ namespace Dorc.Monitor.HighAvailability
             }
             finally
             {
-                connectionSemaphore.Release();
+                if (semaphoreAcquired)
+                {
+                    connectionSemaphore.Release();
+                }
             }
 
             if (connToDispose != null)
             {
                 try
                 {
-                    connToDispose.CloseAsync().Wait(TimeSpan.FromSeconds(5));
+                    await connToDispose.CloseAsync();
                     connToDispose.Dispose();
                 }
                 catch (Exception ex)
@@ -527,6 +537,12 @@ namespace Dorc.Monitor.HighAvailability
             }
 
             connectionSemaphore.Dispose();
+        }
+
+        public void Dispose()
+        {
+            // Call async dispose synchronously for IDisposable compatibility
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 

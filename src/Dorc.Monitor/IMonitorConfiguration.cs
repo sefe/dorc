@@ -30,5 +30,11 @@ namespace Dorc.Monitor
         bool RabbitMqSslEnabled { get; }
         string? RabbitMqSslServerName { get; }
         string? RabbitMqSslVersion { get; }
+
+        // Concurrency settings
+        /// <summary>
+        /// Maximum number of concurrent deployments. Set to 0 for unlimited.
+        /// </summary>
+        int MaxConcurrentDeployments { get; }
     }
 }
