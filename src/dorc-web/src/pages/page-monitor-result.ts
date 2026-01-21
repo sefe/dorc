@@ -8,7 +8,6 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
-
 import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -35,6 +34,8 @@ import {
   DeploymentResultEventData,
   getHubProxyFactory
  } from '../services/ServerEvents';
+ 
+const asUndef = (t: string | null | undefined): string | undefined => t ?? undefined;
 
 @customElement('page-monitor-result')
 export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
@@ -210,8 +211,14 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     const apiRequests = new RequestStatusesApi();
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
-        this.selectedProject = data.Project ?? '';
-        this.deployRequest = data;
+        this.selectedProject = data.Project ?? '';  
+        const normalised: DeploymentRequestApiModel = {
+          ...data,
+          CompletedTime: this.isTerminal(data.Status) ? asUndef(data.CompletedTime) : undefined,
+          StartedTime: asUndef((data as any).StartedTime)
+
+        };
+        this.deployRequest = normalised;
       },
       error: (err: any) => {
         const notification = new ErrorNotification();
@@ -281,20 +288,25 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     }
   }
 
-  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
-    if (data?.requestId === this.requestId) {
-      const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
-      const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
-
-      this.deployRequest = {
-        ...this.deployRequest,
-        Status: data.status,
-        StartedTime: startedTime ?? this.deployRequest?.StartedTime,
-        CompletedTime: completedTime ?? this.deployRequest?.CompletedTime
-      };
-    }
-    return Promise.resolve();
+  private isTerminal(status: string | null | undefined) {
+    return ['Completed', 'Failed', 'Cancelled', 'Skipped'].includes(status ?? '');
   }
+ 
+  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
+    if (!data || data.requestId !== this.requestId) return Promise.resolve();
+    const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
+    const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
+
+    this.deployRequest = {
+      ...this.deployRequest,
+      Status: data.status,
+      StartedTime: startedTime !== undefined ? asUndef(startedTime) : this.deployRequest?.StartedTime,
+      CompletedTime: this.isTerminal(data.status)
+    ? (completedTime !== undefined ? asUndef(completedTime) : this.deployRequest?.CompletedTime)
+    : undefined
+  };
+  return Promise.resolve();
+}
   
   onDeploymentRequestStarted(): Promise<void> {
     return Promise.resolve();
