@@ -46,6 +46,10 @@ export interface RequestStatusesRawLogPostRequest {
     uncLogPath?: string;
 }
 
+export interface RequestStatusesRelatedGetRequest {
+    requestId?: number;
+}
+
 /**
  * no description
  */
@@ -57,6 +61,16 @@ export class RequestStatusesApi extends BaseAPI {
     requestStatusesGet({ requestId }: RequestStatusesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DeploymentRequestApiModel>>
     requestStatusesGet({ requestId }: RequestStatusesGetRequest, opts?: OperationOpts): Observable<DeploymentRequestApiModel | AjaxResponse<DeploymentRequestApiModel>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
@@ -64,6 +78,7 @@ export class RequestStatusesApi extends BaseAPI {
         return this.request<DeploymentRequestApiModel>({
             url: '/RequestStatuses',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -74,6 +89,16 @@ export class RequestStatusesApi extends BaseAPI {
     requestStatusesLogGet({ requestId }: RequestStatusesLogGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
     requestStatusesLogGet({ requestId }: RequestStatusesLogGetRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
@@ -81,6 +106,7 @@ export class RequestStatusesApi extends BaseAPI {
         return this.request<string>({
             url: '/RequestStatuses/Log',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -93,6 +119,13 @@ export class RequestStatusesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};
@@ -117,6 +150,13 @@ export class RequestStatusesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};
@@ -139,6 +179,16 @@ export class RequestStatusesApi extends BaseAPI {
     requestStatusesRawLogPost({ requestId, uncLogPath }: RequestStatusesRawLogPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     requestStatusesRawLogPost({ requestId, uncLogPath }: RequestStatusesRawLogPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
@@ -147,6 +197,35 @@ export class RequestStatusesApi extends BaseAPI {
         return this.request<void>({
             url: '/RequestStatuses/RawLog',
             method: 'POST',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    requestStatusesRelatedGet({ requestId }: RequestStatusesRelatedGetRequest): Observable<Array<DeploymentRequestApiModel>>
+    requestStatusesRelatedGet({ requestId }: RequestStatusesRelatedGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DeploymentRequestApiModel>>>
+    requestStatusesRelatedGet({ requestId }: RequestStatusesRelatedGetRequest, opts?: OperationOpts): Observable<Array<DeploymentRequestApiModel> | AjaxResponse<Array<DeploymentRequestApiModel>>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (requestId != null) { query['requestId'] = requestId; }
+
+        return this.request<Array<DeploymentRequestApiModel>>({
+            url: '/RequestStatuses/Related',
+            method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

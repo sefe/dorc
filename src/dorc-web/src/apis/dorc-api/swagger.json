@@ -6596,6 +6596,46 @@
         }
       }
     },
+    "/RequestStatuses/Related": {
+      "get": {
+        "tags": [
+          "RequestStatuses"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ResetAppPassword/ForUser": {
       "put": {
         "tags": [
