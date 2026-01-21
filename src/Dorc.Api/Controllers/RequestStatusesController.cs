@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Collections.Generic;
 
 namespace Dorc.Api.Controllers
 {
@@ -124,6 +125,19 @@ namespace Dorc.Api.Controllers
             _requestsStatusPersistentSource.SetUncLogPathforRequest(requestId, uncLogPath);
 
             return Ok();
+        }
+
+        /// <summary>
+        /// Get all requests related to a parent request (children and siblings)
+        /// </summary>
+        /// <param name="requestId">The parent request ID</param>
+        /// <returns>List of related deployment requests</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DeploymentRequestApiModel>))]
+        [HttpGet("Related")]
+        public IActionResult GetRelatedRequests([FromQuery] int requestId)
+        {
+            var relatedRequests = _requestsPersistentSource.GetRelatedRequests(requestId, User);
+            return StatusCode(StatusCodes.Status200OK, relatedRequests);
         }
     }
 }

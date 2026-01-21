@@ -26,15 +26,28 @@ export class MonitorResultTab extends LitElement {
         height: var(--lumo-icon-size-s);
         font-size: var(--lumo-font-size-s);
       }
+      .restart-badge {
+        background-color: #ff6b35;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: var(--lumo-font-size-xs);
+        margin-left: 4px;
+        font-weight: 500;
+      }
     `;
   }
 
   render() {
+    // Navigate to original request if this is a restart
+    const targetRequestId = this.requestStatus?.ParentRequestId ?? this.requestStatus?.Id;
+    const isRestart = !!this.requestStatus?.ParentRequestId;
+    
     return html` <div style="margin-left: 20px; width: 270px">
       <a
         style="float:left"
         href="${urlForName('monitor-result', {
-          id: String(this.requestStatus?.Id)
+          id: String(targetRequestId)
         })}"
       >
         <vaadin-vertical-layout style="align-items: start;" theme="compact">
@@ -45,10 +58,11 @@ export class MonitorResultTab extends LitElement {
               icon="vaadin:clipboard-pulse"
               theme="small"
             ></vaadin-icon>
-            <span
-              >${this.requestStatus?.Id}
-              ${this.requestStatus?.EnvironmentName}</span
-            >
+            <span>
+              ${this.requestStatus?.Id}
+              ${this.requestStatus?.EnvironmentName}
+              ${isRestart ? html`<span class="restart-badge">↻ RESTART</span>` : ''}
+            </span>
           </vaadin-horizontal-layout>
           <div
             title="${this.requestStatus?.BuildNumber ?? ''}"

@@ -49,7 +49,7 @@ export interface RequestPostRequest {
     requestDto?: RequestDto;
 }
 
-export interface RequestRestartPostRequest {
+export interface RequestRedeployPostRequest {
     requestId?: number;
 }
 
@@ -166,16 +166,16 @@ export class RequestApi extends BaseAPI {
 
     /**
      */
-    requestRestartPost({ requestId }: RequestRestartPostRequest): Observable<RequestStatusDto>
-    requestRestartPost({ requestId }: RequestRestartPostRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
-    requestRestartPost({ requestId }: RequestRestartPostRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
+    requestRedeployPost({ requestId }: RequestRedeployPostRequest): Observable<RequestStatusDto>
+    requestRedeployPost({ requestId }: RequestRedeployPostRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
+    requestRedeployPost({ requestId }: RequestRedeployPostRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
 
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
 
         return this.request<RequestStatusDto>({
-            url: '/Request/restart',
+            url: '/Request/redeploy',
             method: 'POST',
             query,
         }, opts?.responseOpts);

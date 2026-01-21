@@ -101,4 +101,9 @@ export interface DeploymentRequestApiModel {
      * @memberof DeploymentRequestApiModel
      */
     UserEditable?: boolean;
+    /**
+     * @type {number}
+     * @memberof DeploymentRequestApiModel
+     */
+    ParentRequestId?: number | null;
 }

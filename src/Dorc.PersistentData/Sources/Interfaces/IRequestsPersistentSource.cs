@@ -43,5 +43,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool UpdateUncLogPath(int requestId, string uncLogPath);
         DeploymentRequestApiModel GetRequest(int requestId);
         int SubmitRequest(DeploymentRequest deploymentRequest);
+        int CloneRequest(int requestId, string newUserName);
+        IEnumerable<DeploymentRequestApiModel> GetRelatedRequests(int requestId, IPrincipal user);
     }
 }

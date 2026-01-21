@@ -281,7 +281,7 @@ export class RequestStatusCard extends LitElement {
             this.deployRequest.Status === 'Requesting' ||
             this.deployRequest.Status === 'Pending' ||
             this.deployRequest.Status === 'Restarting')}"
-          .canRestart="${!!this.deployRequest.UserEditable &&
+          .canRedeploy="${!!this.deployRequest.UserEditable &&
           this.deployRequest.Status !== 'Pending'}"
         ></request-controls>
       </div>

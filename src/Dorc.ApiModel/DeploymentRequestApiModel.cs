@@ -1,4 +1,4 @@
-﻿using System;
+﻿        using System;
 
 namespace Dorc.ApiModel
 {
@@ -21,5 +21,6 @@ namespace Dorc.ApiModel
         public bool IsProd { get; set; }
         public string UncLogPath { get; set; }
         public bool UserEditable { set; get; }
+        public int? ParentRequestId { get; set; }
     }
 }

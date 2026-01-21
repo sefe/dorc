@@ -476,6 +476,42 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public int CloneRequest(int requestId, string newUserName)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var originalRequest = context.DeploymentRequests.FirstOrDefault(x => x.Id == requestId);
+                if (originalRequest == null)
+                {
+                    throw new ArgumentException($"Request with ID {requestId} not found.");
+                }
+
+                var topLevelParentId = originalRequest.ParentRequestId ?? requestId;
+
+                var clonedRequest = new DeploymentRequest
+                {
+                    RequestDetails = originalRequest.RequestDetails,
+                    UserName = newUserName,
+                    RequestedTime = DateTimeOffset.Now,
+                    StartedTime = null,
+                    CompletedTime = null,
+                    Status = "Pending",
+                    Log = null,
+                    Project = originalRequest.Project,
+                    Environment = originalRequest.Environment,
+                    BuildNumber = originalRequest.BuildNumber,
+                    Components = originalRequest.Components,
+                    UncLogPath = null,
+                    IsProd = originalRequest.IsProd,
+                    ParentRequestId = topLevelParentId
+                };
+
+                var request = context.DeploymentRequests.Add(clonedRequest);
+                context.SaveChanges();
+                return request.Entity.Id;
+            }
+        }
+
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
         {
             DeploymentResultStatus status;
@@ -525,7 +561,8 @@ namespace Dorc.PersistentData.Sources
                 StartedTime = req.StartedTime,
                 Status = status.ToString(),
                 UserName = req.UserName,
-                UncLogPath = req.UncLogPath
+                UncLogPath = req.UncLogPath,
+                ParentRequestId = req.ParentRequestId
             };
         }
 
@@ -549,6 +586,39 @@ namespace Dorc.PersistentData.Sources
                 Id = req.Id,
                 Status = req.Status
             };
+        }
+
+        public IEnumerable<DeploymentRequestApiModel> GetRelatedRequests(int requestId, IPrincipal user)
+        {
+            string username = _claimsPrincipalReader.GetUserLogin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+
+            using (var context = _contextFactory.GetContext())
+            {
+                var currentRequest = context.DeploymentRequests
+                    .AsNoTracking()
+                    .FirstOrDefault(r => r.Id == requestId);
+
+                if (currentRequest == null)
+                    return Enumerable.Empty<DeploymentRequestApiModel>();
+
+                var parentId = currentRequest.ParentRequestId ?? requestId;
+
+                var relatedRequestsQuery = from req in context.DeploymentRequests
+                                            where req.Id == parentId || req.ParentRequestId == parentId
+                                            select req;
+
+                var relatedRequests = relatedRequestsQuery
+                    .AsNoTracking()
+                    .OrderBy(r => r.ParentRequestId.HasValue ? 1 : 0) 
+                    .ThenBy(r => r.RequestedTime)                      
+                    .ToList()
+                    .Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null)
+                    .ToList();
+
+                return relatedRequests;
+            }
         }
     }
 }

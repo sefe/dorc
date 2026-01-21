@@ -12,11 +12,17 @@
     [Environment]    NVARCHAR (64)      NULL,
     [BuildNumber]    NVARCHAR (256)     NULL,
     [Components]     NVARCHAR (MAX)     NULL,
-    [UNCLogPath]     NVARCHAR (1024)    NULL
-    CONSTRAINT [PK_DeploymentRequest] PRIMARY KEY CLUSTERED ([Id] ASC)
+    [UNCLogPath]     NVARCHAR (1024)    NULL,
+    [ParentRequestId] INT               NULL,
+    CONSTRAINT [PK_DeploymentRequest] PRIMARY KEY CLUSTERED ([Id] ASC),
+    CONSTRAINT [FK_DeploymentRequest_ParentRequest] FOREIGN KEY ([ParentRequestId]) REFERENCES [deploy].[DeploymentRequest]([Id])
 );
 
 GO
 CREATE NONCLUSTERED INDEX [IX_Status_IsProd]
     ON [deploy].[DeploymentRequest]([Status] ASC, [IsProd] ASC);
+
+GO
+CREATE NONCLUSTERED INDEX [IX_ParentRequestId]
+    ON [deploy].[DeploymentRequest]([ParentRequestId] ASC);
 
