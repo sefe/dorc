@@ -10,8 +10,9 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 
 import { css, PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import { render } from 'lit';
 import '../components/component-deployment-results';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
@@ -35,6 +36,7 @@ import {
   DeploymentResultEventData,
   getHubProxyFactory
  } from '../services/ServerEvents';
+import type { Grid, GridItemModel } from '@vaadin/grid';
 
 @customElement('page-monitor-result')
 export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
@@ -42,6 +44,9 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
+
+  @property({ type: Array })
+  relatedRequests: DeploymentRequestApiModel[] = [];
 
   @property({ type: Number })
   requestId = 0;
@@ -53,7 +58,10 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
+  @property({ type: Boolean }) relatedRequestsLoading = false;
   @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
+  
+  @query('#relatedRequestsGrid') relatedRequestsGrid: Grid | undefined;
   
   private hubConnection: HubConnection | undefined;
 
@@ -91,8 +99,8 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       }
 
       .small-loader {
-        border: 2px solid #f3f3f3; /* Light grey */
-        border-top: 2px solid #3498db; /* Blue */
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #3498db;
         border-radius: 50%;
         width: 12px;
         height: 12px;
@@ -147,6 +155,10 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       .vaadin-dialog-overlay {
         width: calc(100vw - (4 * var(--lumo-space-m)));
       }
+
+      vaadin-grid {
+        margin-top: 8px;
+      }
     `;
   }
 
@@ -166,6 +178,14 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     this.addEventListener(
       'refresh-monitor-result',
       this.refreshPage as EventListener
+    );
+    this.addEventListener(
+      'request-cancelled',
+      this.requestCancelled as EventListener
+    );
+    this.addEventListener(
+      'request-restarted',
+      this.requestRestarted as EventListener
     );
   }
 
@@ -228,6 +248,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
 
     this.refreshResultItems();
+    this.refreshRelatedRequests();
   }
 
   refreshResultItems = () => {
@@ -247,6 +268,26 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.resultsLoading = false;
       }
     });    
+  }
+
+  private refreshRelatedRequests() {
+    this.relatedRequestsLoading = true;
+    const api = new RequestStatusesApi();
+    
+    (api as any).requestStatusesRelatedGet({ requestId: this.requestId }).subscribe({
+      next: (data: DeploymentRequestApiModel[]) => {
+        // Filter out the current request from related requests
+        this.relatedRequests = data.filter(r => r.Id !== this.requestId);
+      },
+      error: (err: any) => {
+        console.error('Error loading related requests:', err);
+        this.relatedRequests = [];
+      },
+      complete: () => {
+        console.log('done loading related requests');
+        this.relatedRequestsLoading = false;
+      }
+    });
   }
 
   private async initializeSignalR() {
@@ -293,6 +334,22 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         CompletedTime: completedTime ?? this.deployRequest?.CompletedTime
       };
     }
+    
+    // Update related requests if the event is for one of them
+    const relatedIndex = this.relatedRequests.findIndex(r => r.Id === data.requestId);
+    if (relatedIndex !== -1) {
+      const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
+      const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
+      
+      this.relatedRequests[relatedIndex] = {
+        ...this.relatedRequests[relatedIndex],
+        Status: data.status,
+        StartedTime: startedTime ?? this.relatedRequests[relatedIndex].StartedTime,
+        CompletedTime: completedTime ?? this.relatedRequests[relatedIndex].CompletedTime
+      };
+      this.relatedRequests = [...this.relatedRequests]; // Trigger reactivity
+    }
+    
     return Promise.resolve();
   }
   
@@ -315,6 +372,151 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     return eventRequestId === requestId;
   }
 
+  private relatedRequestIdRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    const request = model.item;
+    render(
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
+          <vaadin-button
+            title="View Detailed Results"
+            theme="icon small"
+            @click="${() => {
+              window.location.href = `/monitor/result/${request.Id}`;
+            }}"
+          >
+            <vaadin-icon
+              icon="vaadin:ellipsis-dots-h"
+              style="color: cornflowerblue"
+            ></vaadin-icon>
+          </vaadin-button>
+        </vaadin-horizontal-layout>
+      `,
+      root
+    );
+  };
+
+  private relatedRequestDetailsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    const request = model.item;
+    render(
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <vaadin-vertical-layout>
+            <div>${request.Project} - ${request.EnvironmentName}</div>
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${request.BuildNumber}
+            </div>
+          </vaadin-vertical-layout>
+        </vaadin-horizontal-layout>
+      `,
+      root
+    );
+  };
+
+  private relatedRequestTimingsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    const request = model.item;
+    let sTime = '';
+    let sDate = '';
+    let cTime = '';
+    let cDate = '';
+
+    if (request.StartedTime !== undefined && request.StartedTime !== null) {
+      sTime = new Date(request.StartedTime).toLocaleTimeString('en-GB');
+      sDate = new Date(request.StartedTime).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+    if (request.CompletedTime !== undefined && request.CompletedTime !== null) {
+      cTime = new Date(request.CompletedTime).toLocaleTimeString('en-GB');
+      cDate = new Date(request.CompletedTime).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    render(
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <vaadin-vertical-layout
+            style="line-height: var(--lumo-line-height-s);"
+          >
+            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${sDate} ${sTime}`}</div>
+            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${cDate} ${cTime}`}</div>
+          </vaadin-vertical-layout>
+        </vaadin-horizontal-layout>
+      `,
+      root
+    );
+  };
+
+  private relatedRequestLogRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    const request = model.item;
+    render(
+      html`
+        <vaadin-button
+          theme="small"
+          @click="${() => {
+            if (request.UncLogPath) {
+              window.open(request.UncLogPath, '_blank');
+            } else {
+              Notification.show('Log path not available', {
+                theme: 'error',
+                position: 'bottom-start',
+                duration: 3000
+              });
+            }
+          }}"
+          ?disabled="${!request.UncLogPath}"
+        >
+          <vaadin-icon icon="vaadin:file-text-o"></vaadin-icon>
+          View Log
+        </vaadin-button>
+      `,
+      root
+    );
+  };
+
+  private relatedRequestControlsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    const request = model.item;
+    render(
+      html` <request-controls
+        .requestId=${request.Id ?? 0}
+        .cancelable=${!!request.UserEditable &&
+        (request.Status === 'Running' ||
+          request.Status === 'Requesting' ||
+          request.Status === 'Pending' ||
+          request.Status === 'Restarting')}
+        .canRedeploy=${!!request.UserEditable && request.Status !== 'Pending'}
+      ></request-controls>`,
+      root
+    );
+  };
+
   render() {
     return html`
       ${this.loading
@@ -333,6 +535,71 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
               .selectedProject="${this.selectedProject}"
               .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
+            
+            ${this.relatedRequests.length > 0
+              ? html`
+                  <vaadin-details
+                    opened
+                    summary="Related Requests (${this.relatedRequests.length})"
+                    style="border-top: 6px solid #ff9800; background-color: ghostwhite; padding-left: 4px; margin-top: 8px"
+                  >
+                    ${this.relatedRequestsLoading
+                      ? html` <div class="small-loader"></div>`
+                      : html`
+                          <vaadin-grid
+                            id="relatedRequestsGrid"
+                            .items="${this.relatedRequests}"
+                            theme="compact row-stripes no-row-borders"
+                            style="max-height: 400px"
+                          >
+                            <vaadin-grid-column
+                              header="ID"
+                              .renderer="${this.relatedRequestIdRenderer}"
+                              auto-width
+                              resizable
+                            ></vaadin-grid-column>
+                            <vaadin-grid-column
+                              header="Details"
+                              .renderer="${this.relatedRequestDetailsRenderer}"
+                              auto-width
+                              resizable
+                            ></vaadin-grid-column>
+                            <vaadin-grid-column
+                              header="Timings"
+                              .renderer="${this.relatedRequestTimingsRenderer}"
+                              auto-width
+                              resizable
+                            ></vaadin-grid-column>
+                            <vaadin-grid-sort-column
+                              header="Status"
+                              path="Status"
+                              auto-width
+                              resizable
+                            ></vaadin-grid-sort-column>
+                            <vaadin-grid-column
+                              header="User"
+                              path="UserName"
+                              auto-width
+                              resizable
+                            ></vaadin-grid-column>
+                            <vaadin-grid-column
+                              header="Log"
+                              .renderer="${this.relatedRequestLogRenderer}"
+                              auto-width
+                              resizable
+                            ></vaadin-grid-column>
+                            <vaadin-grid-column
+                              header="Actions"
+                              .renderer="${this.relatedRequestControlsRenderer}"
+                              width="100px"
+                              resizable
+                            ></vaadin-grid-column>
+                          </vaadin-grid>
+                        `}
+                  </vaadin-details>
+                `
+              : ''}
+
             ${this.resultsLoading
               ? html` <div class="small-loader"></div>`
               : html`
