@@ -645,7 +645,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
           item.Status === 'Restarting')}
-        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
+        .canRedeploy=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root
     );
