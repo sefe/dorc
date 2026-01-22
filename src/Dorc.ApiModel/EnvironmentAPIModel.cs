@@ -11,6 +11,7 @@ namespace Dorc.ApiModel
         public bool EnvironmentIsProd { get; set; }
         public bool UserEditable { get; set; }
         public bool IsOwner { get; set; }
+        public bool CanReadSecrets { get; set; }
         public int? ParentId { get; set; }
         public bool IsParent { get; set; }
         public EnvironmentDetailsApiModel Details { get; set; }

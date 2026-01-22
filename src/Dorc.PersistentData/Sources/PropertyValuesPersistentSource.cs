@@ -383,6 +383,8 @@ namespace Dorc.PersistentData.Sources
                                    permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                                let isOwner =
                                    permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
+                               let canReadSecrets =
+                                   permissions.Any(p => (p & (int)AccessLevel.ReadSecrets) != 0)
                                where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
                                select new FlatPropertyValueApiModel
                                {
@@ -394,7 +396,8 @@ namespace Dorc.PersistentData.Sources
                                    PropertyValueId = propertyValue.Id,
                                    Secure = property.Secure,
                                    IsArray = property.IsArray,
-                                   UserEditable = isOwner || isDelegate || hasPermission
+                                   UserEditable = isOwner || isDelegate || hasPermission,
+                                   CanReadSecrets = canReadSecrets
                                };
 
                 IQueryable<FlatPropertyValueApiModel> scopedPropertyValuesQuery;
@@ -419,7 +422,8 @@ namespace Dorc.PersistentData.Sources
                                      PropertyValueId = propertyValue.Id,
                                      Secure = property.Secure,
                                      IsArray = property.IsArray,
-                                     UserEditable = false // admin privileges are set at the calling fn
+                                     UserEditable = false, // admin privileges are set at the calling fn
+                                     CanReadSecrets = false // Global properties don't have environment-level ReadSecrets permission
                                  };
 
                     var parentEnv = context.Environments.FirstOrDefault(e => e.Id == scope.ParentId);
@@ -433,6 +437,13 @@ namespace Dorc.PersistentData.Sources
                                                  propertyFilter.Id
                                              join environment in context.Environments on propertyValueFilter.Value equals
                                                  environment.Name
+                                             let parentPermissions =
+                                                 (from env in context.Environments
+                                                  join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
+                                                  where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                                                  select ac.Allow).ToList()
+                                             let parentCanReadSecrets =
+                                                 parentPermissions.Any(p => (p & (int)AccessLevel.ReadSecrets) != 0)
                                              where propertyFilter.Name == "environment" && (parentEnv.Name == propertyValueFilter.Value)
                                              select new FlatPropertyValueApiModel
                                              {
@@ -444,7 +455,8 @@ namespace Dorc.PersistentData.Sources
                                                  PropertyValueId = propertyValue.Id,
                                                  Secure = property.Secure,
                                                  IsArray = property.IsArray,
-                                                 UserEditable = false // Parent props not allowed to edit
+                                                 UserEditable = false, // Parent props not allowed to edit
+                                                 CanReadSecrets = parentCanReadSecrets
                                              };
 
                         // Union the parent environment properties with the current environment properties and with global
@@ -560,6 +572,8 @@ namespace Dorc.PersistentData.Sources
                                        permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                                    let isOwner =
                                        permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
+                                   let canReadSecrets =
+                                       permissions.Any(p => (p & (int)AccessLevel.ReadSecrets) != 0)
                                    select new FlatPropertyValueApiModel
                                    {
                                        PropertyId = property.Id,
@@ -570,7 +584,8 @@ namespace Dorc.PersistentData.Sources
                                        PropertyValueId = propertyValue.Id,
                                        Secure = property.Secure,
                                        IsArray = property.IsArray,
-                                       UserEditable = isOwner || isDelegate || hasPermission
+                                       UserEditable = isOwner || isDelegate || hasPermission,
+                                       CanReadSecrets = canReadSecrets
                                    };
 
                     var global = from propertyValue in context.PropertyValues
@@ -588,7 +603,8 @@ namespace Dorc.PersistentData.Sources
                                      PropertyValueId = propertyValue.Id,
                                      Secure = property.Secure,
                                      IsArray = property.IsArray,
-                                     UserEditable = false // admin privileges are set at the calling fn
+                                     UserEditable = false, // admin privileges are set at the calling fn
+                                     CanReadSecrets = false // Global properties don't have environment-level ReadSecrets permission
                                  };
 
                     scopedPropertyValuesQuery = envProps.Union(global);

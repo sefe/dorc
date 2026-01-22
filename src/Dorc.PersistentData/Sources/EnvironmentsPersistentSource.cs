@@ -406,6 +406,11 @@ namespace Dorc.PersistentData.Sources
                 
                 result.IsOwner = isOwner;
 
+                // Check if user has ReadSecrets permission (only ReadSecrets flag, no admin/power user/owner bypass)
+                var canReadSecrets = envPermissions
+                    .Any(p => (p.Allow & (int)AccessLevel.ReadSecrets) != 0);
+                result.CanReadSecrets = canReadSecrets;
+
                 if (_rolePrivilegesChecker.IsAdmin(user))
                 {
                     result.UserEditable = true;
@@ -433,8 +438,13 @@ namespace Dorc.PersistentData.Sources
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
 
-                return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
+                var result = MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
                     IsEnvironmentOwner(environment.Name, user));
+                
+                // Check if user has ReadSecrets permission (only ReadSecrets flag, no admin/power user/owner bypass)
+                result.CanReadSecrets = objectFilter.HasPrivilege(environment, user, AccessLevel.ReadSecrets);
+                
+                return result;
             }
         }
 

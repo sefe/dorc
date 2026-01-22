@@ -393,6 +393,7 @@ export class AddEditAccessControl extends LitElement {
         });
       }
     });
+    console.log('ACL payload:', JSON.stringify(ac, null, 2));
   }
 
   sortAccessControls(a: AccessControlApiModel, b: AccessControlApiModel) {

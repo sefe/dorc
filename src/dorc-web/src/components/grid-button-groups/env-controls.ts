@@ -25,7 +25,7 @@ export class EnvControls extends LitElement {
   render() {
     return html`
       <vaadin-button
-        title="Environment Access..."
+        title="Environment Acce..."
         theme="icon"
         @click="${this.openAccessControl}"
       >

@@ -12,5 +12,6 @@
         public bool Secure { get; set; }
         public bool IsArray { get; set; }
         public bool UserEditable { get; set; }
+        public bool CanReadSecrets { get; set; }
     }
 }

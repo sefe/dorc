@@ -66,4 +66,9 @@ export interface FlatPropertyValueApiModel {
      * @memberof FlatPropertyValueApiModel
      */
     UserEditable?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof FlatPropertyValueApiModel
+     */
+    CanReadSecrets?: boolean;
 }

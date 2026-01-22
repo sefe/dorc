@@ -51,6 +51,11 @@ export interface EnvironmentApiModel {
      */
     IsOwner?: boolean;
     /**
+     * @type {boolean}
+     * @memberof EnvironmentApiModel
+     */
+    CanReadSecrets?: boolean;
+    /**
      * @type {number}
      * @memberof EnvironmentApiModel
      */
