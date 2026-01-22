@@ -423,7 +423,7 @@ namespace Dorc.PersistentData.Sources
                                      Secure = property.Secure,
                                      IsArray = property.IsArray,
                                      UserEditable = false, // admin privileges are set at the calling fn
-                                     CanReadSecrets = false // Global properties don't have environment-level ReadSecrets permission
+                                     CanReadSecrets = false // Global properties require explicit ReadSecrets permission per environment
                                  };
 
                     var parentEnv = context.Environments.FirstOrDefault(e => e.Id == scope.ParentId);
@@ -604,7 +604,7 @@ namespace Dorc.PersistentData.Sources
                                      Secure = property.Secure,
                                      IsArray = property.IsArray,
                                      UserEditable = false, // admin privileges are set at the calling fn
-                                     CanReadSecrets = false // Global properties don't have environment-level ReadSecrets permission
+                                     CanReadSecrets = false // Global properties require explicit ReadSecrets permission per environment
                                  };
 
                     scopedPropertyValuesQuery = envProps.Union(global);

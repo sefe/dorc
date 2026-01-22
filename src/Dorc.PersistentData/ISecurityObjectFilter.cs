@@ -15,5 +15,11 @@ namespace Dorc.PersistentData
     public interface ISecurityObjectFilter
     {
         bool HasPrivilege<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject;
+
+        /// <summary>
+        /// Checks if user has read secrets privilege.
+        /// ONLY the ReadSecrets bit allows retrieval. Owner, Admin, Power User do NOT grant access.
+        /// </summary>
+        bool HasReadSecretsPrivilege<T>(T securityObject, IPrincipal user) where T : SecurityObject;
     }
 }

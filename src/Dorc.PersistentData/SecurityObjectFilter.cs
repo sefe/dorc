@@ -43,6 +43,28 @@ namespace Dorc.PersistentData
             return denied <= 0 && allow;
         }
 
+        /// <summary>
+        /// Checks if user has read secrets privilege.
+        /// ONLY the ReadSecrets bit allows retrieval. Owner, Admin, Power User do NOT grant access.
+        /// </summary>
+        public bool HasReadSecretsPrivilege<T>(T securityObject, IPrincipal user) where T : SecurityObject
+        {
+            var userAccessControls = GetUserAccessControls(securityObject, user);
+
+            var allowed = 0;
+            var denied = 0;
+
+            foreach (var accessControl in userAccessControls)
+            {
+                allowed |= accessControl.Allow;
+                denied |= accessControl.Deny;
+            }
+
+            // ONLY ReadSecrets bit allows retrieval - no Owner, no Admin, no Power User
+            var allow = IsBitSet((byte)allowed, (int)AccessLevel.ReadSecrets);
+            return denied <= 0 && allow;
+        }
+
         #endregion
 
         private static bool IsBitSet(byte b, int pos)

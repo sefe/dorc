@@ -49,8 +49,8 @@ namespace Dorc.Api.Controllers
             var getScopedPropertyValuesResponseDto = _propertyValuesPersistentSource.GetPropertyValuesForScopeByPage(limit,
                 page, operators, env, User);
 
-            // Mask secure property values if user doesn't have ReadSecrets permission for the property's environment
-            // Only users with explicit ReadSecrets checkbox can see secrets (not admins/power users by default)
+            // Mask secure property values if user doesn't have ReadSecrets permission
+            // Only users with explicit ReadSecrets checkbox can see secrets (not admins/power users/owners by default)
             foreach (var prop in getScopedPropertyValuesResponseDto.Items.Where(p => p.Secure && !p.CanReadSecrets))
             {
                 prop.PropertyValue = string.Empty;
