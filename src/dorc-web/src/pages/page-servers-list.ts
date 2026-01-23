@@ -39,7 +39,6 @@ import '../components/server-tags';
 import { AttachedServers } from '../components/attached-servers';
 import '../components/grid-button-groups/server-controls';
 import '../components/server-tags';
-import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { splitTags } from '../helpers/tag-parser';
