@@ -141,10 +141,10 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     this.addEventListener(
       'request-cancelled',
       this.requestCancelled as EventListener
-    );
+    );    
     this.addEventListener(
-      'request-restarted',
-      this.requestRestarted as EventListener
+      'request-redeployed',
+      this.requestRedeployed as EventListener
     );
   }
 
@@ -175,13 +175,17 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
   }
 
-  requestRestarted(e: CustomEvent) {
+  requestRedeployed(e: CustomEvent) {
+    const { requestId, newRequestId, message } = e.detail;
     this.refreshData();
-    Notification.show(`Restarted request with ID: ${e.detail.requestId}`, {
-      theme: 'success',
-      position: 'bottom-start',
-      duration: 5000
-    });
+    Notification.show(
+      message || `Request ${requestId} redeployed as request ${newRequestId}`, 
+      {
+        theme: 'success',
+        position: 'bottom-start',
+        duration: 5000
+      }
+    );
   }
 
   private refreshData() {
@@ -270,14 +274,14 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   private loadRelatedRequestsResults() {
     const api = new ResultStatusesApi();
-    this.relatedRequestsResults = new Map();
-
+    
     this.relatedRequests.forEach((request) => {
       if (request.Id) {
         api.resultStatusesGet({ requestId: request.Id }).subscribe({
           next: (data: Array<DeploymentResultApiModel>) => {
-            this.relatedRequestsResults.set(request.Id!, data);
-            this.requestUpdate();
+            const updatedMap = new Map(this.relatedRequestsResults);
+            updatedMap.set(request.Id!, data);
+            this.relatedRequestsResults = updatedMap;
           },
           error: (err: any) => {
             console.error(`Error loading results for request ${request.Id}:`, err);
