@@ -137,6 +137,16 @@ namespace Dorc.Api.Controllers
         public IActionResult GetRelatedRequests([FromQuery] int requestId)
         {
             var relatedRequests = _requestsPersistentSource.GetRelatedRequests(requestId, User);
+            
+            var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
+            if (isAdmin)
+            {
+                foreach (var request in relatedRequests)
+                {
+                    request.UserEditable = true;
+                }
+            }
+            
             return StatusCode(StatusCodes.Status200OK, relatedRequests);
         }
     }

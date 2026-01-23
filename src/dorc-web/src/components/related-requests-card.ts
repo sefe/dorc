@@ -72,50 +72,11 @@ export class RelatedRequestsCard extends LitElement {
         background-color: #f57c00;
       }
 
-      .status-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: var(--lumo-font-size-s);
-        font-weight: 500;
-      }
-
-      .status-badge.complete {
-        background-color: var(--lumo-success-color-10pct);
-        color: var(--lumo-success-text-color);
-      }
-
-      .status-badge.failed,
-      .status-badge.errored {
-        background-color: var(--lumo-error-color-10pct);
-        color: var(--lumo-error-text-color);
-      }
-
-      .status-badge.running {
-        background-color: var(--lumo-primary-color-10pct);
-        color: var(--lumo-primary-text-color);
-      }
-
-      .status-badge.pending {
-        background-color: var(--lumo-contrast-10pct);
-        color: var(--lumo-contrast-90pct);
-      }
-
       .results-section {
         border-top: 2px solid #e0e0e0;
         margin-top: 12px;
       }
     `;
-  }
-
-  private getStatusClass(status: string | null | undefined): string {
-    if (!status) return '';
-    const lowerStatus = status.toLowerCase();
-    if (lowerStatus === 'complete') return 'complete';
-    if (lowerStatus === 'failed' || lowerStatus === 'errored') return 'failed';
-    if (lowerStatus === 'running') return 'running';
-    if (lowerStatus === 'pending') return 'pending';
-    return '';
   }
 
   private formatDateTime(dateVal: string | undefined | null): { date: string; time: string } {
@@ -231,9 +192,9 @@ export class RelatedRequestsCard extends LitElement {
     const request = model.item;
     render(
       html`
-        <span class="status-badge ${this.getStatusClass(request.Status)}">
+        <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">
           ${request.Status}
-        </span>
+        </div>
       `,
       root
     );
@@ -334,7 +295,6 @@ export class RelatedRequestsCard extends LitElement {
                 <vaadin-grid-column
                   .renderer="${this.controlsRenderer}"
                   width="100px"
-                  flex-grow="0"
                 ></vaadin-grid-column>
                 <vaadin-grid-column
                   header="Components"

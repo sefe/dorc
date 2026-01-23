@@ -229,12 +229,12 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
   }
 
-  private refreshRelatedRequests() {
+  private async refreshRelatedRequests() {
     this.relatedRequestsLoading = true;
     const api = new RequestStatusesApi();
 
     (api as any).requestStatusesRelatedGet({ requestId: this.requestId }).subscribe({
-      next: (data: DeploymentRequestApiModel[]) => {
+      next: async (data: DeploymentRequestApiModel[]) => {
         const filtered = data.filter(r => r.Id !== this.requestId);
 
         this.relatedRequests = filtered.sort((a, b) => {
@@ -242,6 +242,18 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
           const idB = b.Id ?? 0;
           return idA - idB;
         });
+
+        // Join SignalR groups for newly loaded related requests
+        if (this.hubConnection && this.hubConnection.state === HubConnectionState.Connected) {
+          const hubProxy = getHubProxyFactory('IDeploymentEventsHub')
+            .createHubProxy(this.hubConnection);
+          
+          for (const relatedRequest of this.relatedRequests) {
+            if (relatedRequest.Id) {
+              await hubProxy.joinRequestGroup(relatedRequest.Id);
+            }
+          }
+        }
 
         this.loadRelatedRequestsResults();
       },
@@ -287,6 +299,12 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
     this.hubConnection.onreconnected(async () => {
       await hubProxy.joinRequestGroup(this.requestId);
+      // Join related request groups on reconnect
+      for (const relatedRequest of this.relatedRequests) {
+        if (relatedRequest.Id) {
+          await hubProxy.joinRequestGroup(relatedRequest.Id);
+        }
+      }
       this.refreshData();
       this.hubConnectionState = this.hubConnection!.state;
     });
@@ -295,6 +313,12 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       try {
         await this.hubConnection.start();
         await hubProxy.joinRequestGroup(this.requestId);
+        // Join related request groups after initial connection
+        for (const relatedRequest of this.relatedRequests) {
+          if (relatedRequest.Id) {
+            await hubProxy.joinRequestGroup(relatedRequest.Id);
+          }
+        }
         this.hubConnectionState = this.hubConnection.state;
       }
       catch (err) {
