@@ -10,11 +10,10 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 
 import { css, PropertyValues } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { render } from 'lit';
 import '../components/component-deployment-results';
-import '../components/grid-button-groups/request-controls';
+import '../components/related-requests-card';
 import { Notification } from '@vaadin/notification';
 import {
   DeploymentResultApiModel,
@@ -35,8 +34,7 @@ import {
   DeploymentRequestEventData,
   DeploymentResultEventData,
   getHubProxyFactory
- } from '../services/ServerEvents';
-import type { Grid, GridItemModel } from '@vaadin/grid';
+} from '../services/ServerEvents';
 
 @customElement('page-monitor-result')
 export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
@@ -47,6 +45,9 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   @property({ type: Array })
   relatedRequests: DeploymentRequestApiModel[] = [];
+
+  @property({ type: Map })
+  relatedRequestsResults: Map<number, DeploymentResultApiModel[]> = new Map();
 
   @property({ type: Number })
   requestId = 0;
@@ -60,9 +61,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   @property({ type: Boolean }) resultsLoading = true;
   @property({ type: Boolean }) relatedRequestsLoading = false;
   @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
-  
-  @query('#relatedRequestsGrid') relatedRequestsGrid: Grid | undefined;
-  
+
   private hubConnection: HubConnection | undefined;
 
   static get styles() {
@@ -116,46 +115,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         }
       }
 
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
-
-      .card-element {
-        padding: 10px;
-        box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        height: calc(100% - 21px);
-      }
-
-      .card-element__heading {
-        color: black;
-      }
-
-      .card-element__text {
-        color: gray;
-        margin: 2px;
-      }
-
-      .statistics-cards {
-        max-width: 500px;
-        display: flex;
-        flex-wrap: wrap;
-      }
-
-      .statistics-cards__item {
-        margin: 5px;
-        flex-shrink: 0;
-      }
-
-      .requested-titles {
-        width: 100px;
-      }
-
-      .vaadin-dialog-overlay {
-        width: calc(100vw - (4 * var(--lumo-space-m)));
-      }
-
       vaadin-grid {
         margin-top: 8px;
       }
@@ -192,7 +151,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
-      this.hubConnection.stop().catch(() => {});
+      this.hubConnection.stop().catch(() => { });
     }
   }
 
@@ -238,7 +197,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         notification.setAttribute('errorMessage', err.response);
         this.shadowRoot?.appendChild(notification);
         notification.open();
-        console.error(err);        
+        console.error(err);
       },
       complete: () => {
         console.log('done loading request');
@@ -267,17 +226,24 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.loading = false;
         this.resultsLoading = false;
       }
-    });    
+    });
   }
 
   private refreshRelatedRequests() {
     this.relatedRequestsLoading = true;
     const api = new RequestStatusesApi();
-    
+
     (api as any).requestStatusesRelatedGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel[]) => {
-        // Filter out the current request from related requests
-        this.relatedRequests = data.filter(r => r.Id !== this.requestId);
+        const filtered = data.filter(r => r.Id !== this.requestId);
+
+        this.relatedRequests = filtered.sort((a, b) => {
+          const idA = a.Id ?? 0;
+          const idB = b.Id ?? 0;
+          return idA - idB;
+        });
+
+        this.loadRelatedRequestsResults();
       },
       error: (err: any) => {
         console.error('Error loading related requests:', err);
@@ -290,6 +256,25 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
   }
 
+  private loadRelatedRequestsResults() {
+    const api = new ResultStatusesApi();
+    this.relatedRequestsResults = new Map();
+
+    this.relatedRequests.forEach((request) => {
+      if (request.Id) {
+        api.resultStatusesGet({ requestId: request.Id }).subscribe({
+          next: (data: Array<DeploymentResultApiModel>) => {
+            this.relatedRequestsResults.set(request.Id!, data);
+            this.requestUpdate();
+          },
+          error: (err: any) => {
+            console.error(`Error loading results for request ${request.Id}:`, err);
+          }
+        });
+      }
+    });
+  }
+
   private async initializeSignalR() {
     if (!this.hubConnection)
       this.hubConnection = DeploymentHub.getConnection();
@@ -298,23 +283,21 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       .register(this.hubConnection, this);
 
     const hubProxy = getHubProxyFactory('IDeploymentEventsHub')
-        .createHubProxy(this.hubConnection);
+      .createHubProxy(this.hubConnection);
 
     this.hubConnection.onreconnected(async () => {
-       await hubProxy.joinRequestGroup(this.requestId);
-       this.refreshData();
-       this.hubConnectionState = this.hubConnection!.state;
-     });
+      await hubProxy.joinRequestGroup(this.requestId);
+      this.refreshData();
+      this.hubConnectionState = this.hubConnection!.state;
+    });
 
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      try
-      {
+      try {
         await this.hubConnection.start();
         await hubProxy.joinRequestGroup(this.requestId);
         this.hubConnectionState = this.hubConnection.state;
       }
-      catch (err)
-      {
+      catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         this.hubConnectionState = errorMessage;
         console.error(err);
@@ -334,25 +317,24 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         CompletedTime: completedTime ?? this.deployRequest?.CompletedTime
       };
     }
-    
-    // Update related requests if the event is for one of them
+
     const relatedIndex = this.relatedRequests.findIndex(r => r.Id === data.requestId);
     if (relatedIndex !== -1) {
       const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
       const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
-      
+
       this.relatedRequests[relatedIndex] = {
         ...this.relatedRequests[relatedIndex],
         Status: data.status,
         StartedTime: startedTime ?? this.relatedRequests[relatedIndex].StartedTime,
         CompletedTime: completedTime ?? this.relatedRequests[relatedIndex].CompletedTime
       };
-      this.relatedRequests = [...this.relatedRequests]; // Trigger reactivity
+      this.relatedRequests = [...this.relatedRequests];
     }
-    
+
     return Promise.resolve();
   }
-  
+
   onDeploymentRequestStarted(): Promise<void> {
     return Promise.resolve();
   }
@@ -361,6 +343,21 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     if (this.isEventForRequest(data, this.requestId)) {
       this.refreshResultItems();
     }
+
+    const relatedRequest = this.relatedRequests.find(r => r.Id === data.requestId);
+    if (relatedRequest && relatedRequest.Id) {
+      const api = new ResultStatusesApi();
+      api.resultStatusesGet({ requestId: relatedRequest.Id }).subscribe({
+        next: (resultData: Array<DeploymentResultApiModel>) => {
+          this.relatedRequestsResults.set(relatedRequest.Id!, resultData);
+          this.requestUpdate();
+        },
+        error: (err: any) => {
+          console.error(`Error refreshing results for request ${relatedRequest.Id}:`, err);
+        }
+      });
+    }
+
     return Promise.resolve();
   }
 
@@ -371,151 +368,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     const eventRequestId = Number(event.requestId);
     return eventRequestId === requestId;
   }
-
-  private relatedRequestIdRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
-          <vaadin-button
-            title="View Detailed Results"
-            theme="icon small"
-            @click="${() => {
-              window.location.href = `/monitor/result/${request.Id}`;
-            }}"
-          >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: cornflowerblue"
-            ></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
-  private relatedRequestDetailsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout>
-            <div>${request.Project} - ${request.EnvironmentName}</div>
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${request.BuildNumber}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
-  private relatedRequestTimingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    let sTime = '';
-    let sDate = '';
-    let cTime = '';
-    let cDate = '';
-
-    if (request.StartedTime !== undefined && request.StartedTime !== null) {
-      sTime = new Date(request.StartedTime).toLocaleTimeString('en-GB');
-      sDate = new Date(request.StartedTime).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-    if (request.CompletedTime !== undefined && request.CompletedTime !== null) {
-      cTime = new Date(request.CompletedTime).toLocaleTimeString('en-GB');
-      cDate = new Date(request.CompletedTime).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
-          >
-            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${sDate} ${sTime}`}</div>
-            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${cDate} ${cTime}`}</div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
-  private relatedRequestLogRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <vaadin-button
-          theme="small"
-          @click="${() => {
-            if (request.UncLogPath) {
-              window.open(request.UncLogPath, '_blank');
-            } else {
-              Notification.show('Log path not available', {
-                theme: 'error',
-                position: 'bottom-start',
-                duration: 3000
-              });
-            }
-          }}"
-          ?disabled="${!request.UncLogPath}"
-        >
-          <vaadin-icon icon="vaadin:file-text-o"></vaadin-icon>
-          View Log
-        </vaadin-button>
-      `,
-      root
-    );
-  };
-
-  private relatedRequestControlsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html` <request-controls
-        .requestId=${request.Id ?? 0}
-        .cancelable=${!!request.UserEditable &&
-        (request.Status === 'Running' ||
-          request.Status === 'Requesting' ||
-          request.Status === 'Pending' ||
-          request.Status === 'Restarting')}
-        .canRedeploy=${!!request.UserEditable && request.Status !== 'Pending'}
-      ></request-controls>`,
-      root
-    );
-  };
 
   render() {
     return html`
@@ -535,70 +387,13 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
               .selectedProject="${this.selectedProject}"
               .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
-            
-            ${this.relatedRequests.length > 0
-              ? html`
-                  <vaadin-details
-                    opened
-                    summary="Related Requests (${this.relatedRequests.length})"
-                    style="border-top: 6px solid #ff9800; background-color: ghostwhite; padding-left: 4px; margin-top: 8px"
-                  >
-                    ${this.relatedRequestsLoading
-                      ? html` <div class="small-loader"></div>`
-                      : html`
-                          <vaadin-grid
-                            id="relatedRequestsGrid"
-                            .items="${this.relatedRequests}"
-                            theme="compact row-stripes no-row-borders"
-                            style="max-height: 400px"
-                          >
-                            <vaadin-grid-column
-                              header="ID"
-                              .renderer="${this.relatedRequestIdRenderer}"
-                              auto-width
-                              resizable
-                            ></vaadin-grid-column>
-                            <vaadin-grid-column
-                              header="Details"
-                              .renderer="${this.relatedRequestDetailsRenderer}"
-                              auto-width
-                              resizable
-                            ></vaadin-grid-column>
-                            <vaadin-grid-column
-                              header="Timings"
-                              .renderer="${this.relatedRequestTimingsRenderer}"
-                              auto-width
-                              resizable
-                            ></vaadin-grid-column>
-                            <vaadin-grid-sort-column
-                              header="Status"
-                              path="Status"
-                              auto-width
-                              resizable
-                            ></vaadin-grid-sort-column>
-                            <vaadin-grid-column
-                              header="User"
-                              path="UserName"
-                              auto-width
-                              resizable
-                            ></vaadin-grid-column>
-                            <vaadin-grid-column
-                              header="Log"
-                              .renderer="${this.relatedRequestLogRenderer}"
-                              auto-width
-                              resizable
-                            ></vaadin-grid-column>
-                            <vaadin-grid-column
-                              header="Actions"
-                              .renderer="${this.relatedRequestControlsRenderer}"
-                              width="100px"
-                              resizable
-                            ></vaadin-grid-column>
-                          </vaadin-grid>
-                        `}
-                  </vaadin-details>
-                `
-              : ''}
+
+            <related-requests-card
+              .relatedRequests="${this.relatedRequests}"
+              .relatedRequestsResults="${this.relatedRequestsResults}"
+              .loading="${this.relatedRequestsLoading}"
+              .currentRequestId="${this.requestId}"
+            ></related-requests-card>
 
             ${this.resultsLoading
               ? html` <div class="small-loader"></div>`

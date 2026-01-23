@@ -22,6 +22,9 @@ export class ComponentDeploymentResults extends LitElement {
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
 
+  @property({ type: Boolean })
+  compact = false;
+
   @state()
   dialogOpened = false;
 
@@ -70,9 +73,18 @@ export class ComponentDeploymentResults extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
-        height: calc(100vh - 410px);
         --divider-color: rgb(223, 232, 239);
       }
+      
+      vaadin-grid#grid.full-height {
+        height: calc(100vh - 410px);
+      }
+      
+      vaadin-grid#grid.compact-height {
+        height: auto;
+        max-height: 400px;
+      }
+
       vaadin-grid-cell-content {
         padding-top: 0px;
         padding-bottom: 0px;
@@ -133,6 +145,7 @@ export class ComponentDeploymentResults extends LitElement {
 
       <vaadin-grid
         id="grid"
+        class="${this.compact ? 'compact-height' : 'full-height'}"
         column-reordering-allowed
         multi-sort
         theme="compact row-stripes no-row-borders no-border"
