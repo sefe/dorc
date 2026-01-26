@@ -250,12 +250,13 @@ export class RelatedRequestsCard extends LitElement {
       return html``;
     }
 
+    const currentAttemptNumber = this.getAttemptNumber(this.currentRequestId);
+    const totalAttempts = this.relatedRequests.length + 1;
+
     return html`
       <vaadin-details
         opened
-        summary="Related Requests (${this.relatedRequests.length} ${this.relatedRequests.length === 1
-          ? 'Attempt'
-          : 'Attempts'})"
+        summary="Viewing Request #${this.currentRequestId} (Attempt ${currentAttemptNumber} of ${totalAttempts}) - ${this.relatedRequests.length} Related ${this.relatedRequests.length === 1 ? 'Attempt' : 'Attempts'}"
         style="border-top: 6px solid #ff9800; background-color: ghostwhite; padding: 8px; margin-top: 8px"
       >
         ${this.loading
