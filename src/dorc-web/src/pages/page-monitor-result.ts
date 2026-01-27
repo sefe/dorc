@@ -118,6 +118,13 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       vaadin-grid {
         margin-top: 8px;
       }
+
+      .results-container {
+        max-height: calc(100vh - 280px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+      }
     `;
   }
 
@@ -277,14 +284,25 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     
     this.relatedRequests.forEach((request) => {
       if (request.Id) {
+        console.log(`Loading results for request ${request.Id} with status: ${request.Status}`);
+        
         api.resultStatusesGet({ requestId: request.Id }).subscribe({
           next: (data: Array<DeploymentResultApiModel>) => {
+            console.log(`Request ${request.Id}: Loaded ${data.length} results:`, data.map(r => ({
+              id: r.Id,
+              component: r.ComponentName,
+              status: r.Status
+            })));
+            
             const updatedMap = new Map(this.relatedRequestsResults);
             updatedMap.set(request.Id!, data);
             this.relatedRequestsResults = updatedMap;
           },
           error: (err: any) => {
             console.error(`Error loading results for request ${request.Id}:`, err);
+            const updatedMap = new Map(this.relatedRequestsResults);
+            updatedMap.set(request.Id!, []);
+            this.relatedRequestsResults = updatedMap;
           }
         });
       }
@@ -416,26 +434,28 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
               .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
 
-            <related-requests-card
-              .relatedRequests="${this.relatedRequests}"
-              .relatedRequestsResults="${this.relatedRequestsResults}"
-              .loading="${this.relatedRequestsLoading}"
-              .currentRequestId="${this.requestId}"
-            ></related-requests-card>
+            <div class="results-container">
+              <related-requests-card
+                .relatedRequests="${this.relatedRequests}"
+                .relatedRequestsResults="${this.relatedRequestsResults}"
+                .loading="${this.relatedRequestsLoading}"
+                .currentRequestId="${this.requestId}"
+              ></related-requests-card>
 
-            ${this.resultsLoading
-              ? html` <div class="small-loader"></div>`
-              : html`
-                  <vaadin-details
-                    opened
-                    summary="Deployment Component Results"
-                    style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
-                  >
-                    <component-deployment-results
-                      .resultItems="${this.resultItems}"
-                    ></component-deployment-results>
-                  </vaadin-details>
-                `}
+              ${this.resultsLoading
+                ? html` <div class="small-loader"></div>`
+                : html`
+                    <vaadin-details
+                      opened
+                      summary="Deployment Component Results"
+                      style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+                    >
+                      <component-deployment-results
+                        .resultItems="${this.resultItems}"
+                      ></component-deployment-results>
+                    </vaadin-details>
+                  `}
+            </div>
           `}
     `;
   }

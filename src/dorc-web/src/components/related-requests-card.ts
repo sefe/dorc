@@ -54,24 +54,6 @@ export class RelatedRequestsCard extends LitElement {
         margin-bottom: 12px;
       }
 
-      .attempt-badge {
-        background-color: #ff9800;
-        color: white;
-        padding: 6px 16px;
-        border-radius: 16px;
-        font-size: var(--lumo-font-size-m);
-        font-weight: bold;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-        transition: background-color 0.2s;
-        white-space: nowrap;
-      }
-
-      .attempt-badge:hover {
-        background-color: #f57c00;
-      }
-
       .results-section {
         border-top: 2px solid #e0e0e0;
         margin-top: 12px;
@@ -113,13 +95,23 @@ export class RelatedRequestsCard extends LitElement {
     const attemptNumber = this.getAttemptNumber(request.Id ?? 0);
     render(
       html`
-        <a
-          href="/monitor-result/${request.Id}"
-          class="attempt-badge"
-          title="View details for Attempt ${attemptNumber}"
-        >
-          Attempt ${attemptNumber} - ${request.Id}
-        </a>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">
+            Attempt ${attemptNumber} - ${request.Id}
+          </span>
+          <vaadin-button
+            title="View Detailed Results for Attempt ${attemptNumber}"
+            theme="icon small"
+            @click="${() => {
+              window.location.href = `/monitor-result/${request.Id}`;
+            }}"
+          >
+            <vaadin-icon
+              icon="vaadin:ellipsis-dots-h"
+              style="color: cornflowerblue"
+            ></vaadin-icon>
+          </vaadin-button>
+        </vaadin-horizontal-layout>
       `,
       root
     );
@@ -255,76 +247,104 @@ export class RelatedRequestsCard extends LitElement {
 
     return html`
       <vaadin-details
-        opened
-        summary="Viewing Request #${this.currentRequestId} (Attempt ${currentAttemptNumber} of ${totalAttempts}) - ${this.relatedRequests.length} Related ${this.relatedRequests.length === 1 ? 'Attempt' : 'Attempts'}"
+        summary="Viewing Request - ${this.currentRequestId} (Attempt ${currentAttemptNumber} of ${totalAttempts})"
         style="border-top: 6px solid #ff9800; background-color: ghostwhite; padding: 8px; margin-top: 8px"
       >
         ${this.loading
           ? html`<div class="small-loader"></div>`
           : html`
-              <vaadin-grid
-                .items="${this.relatedRequests}"
-                theme="compact row-stripes no-row-borders no-border"
-                all-rows-visible
-              >
-                <vaadin-grid-column
-                  header="ID"
-                  .renderer="${this.idRenderer}"
-                  auto-width
-                  flex-grow="0"
-                ></vaadin-grid-column>
-                <vaadin-grid-column
-                  header="Details"
-                  .renderer="${this.detailsRenderer}"
-                  auto-width
-                ></vaadin-grid-column>
-                <vaadin-grid-column
-                  header="Timings"
-                  .renderer="${this.timingsRenderer}"
-                  auto-width
-                ></vaadin-grid-column>
-                <vaadin-grid-column
-                  header="User"
-                  .renderer="${this.usernameRenderer}"
-                  auto-width
-                ></vaadin-grid-column>
-                <vaadin-grid-column
-                  header="Status"
-                  .renderer="${this.statusRenderer}"
-                  auto-width
-                ></vaadin-grid-column>
-                <vaadin-grid-column
-                  .renderer="${this.controlsRenderer}"
-                  width="100px"
-                ></vaadin-grid-column>
-                <vaadin-grid-column
-                  header="Components"
-                  .renderer="${this.componentsRenderer}"
-                  auto-width
-                ></vaadin-grid-column>
-              </vaadin-grid>
+            <vaadin-grid
+              .items="${this.relatedRequests}"
+              theme="compact row-stripes no-row-borders no-border"
+              all-rows-visible
+            >
+              <vaadin-grid-column
+                header="ID"
+                .renderer="${this.idRenderer}"
+                auto-width
+                flex-grow="0"
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                header="Details"
+                .renderer="${this.detailsRenderer}"
+                auto-width
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                header="Timings"
+                .renderer="${this.timingsRenderer}"
+                auto-width
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                header="User"
+                .renderer="${this.usernameRenderer}"
+                auto-width
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                header="Status"
+                .renderer="${this.statusRenderer}"
+                auto-width
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                .renderer="${this.controlsRenderer}"
+                width="100px"
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                header="Components"
+                .renderer="${this.componentsRenderer}"
+                auto-width
+              ></vaadin-grid-column>
+            </vaadin-grid>
 
-              ${this.relatedRequests.map(request => {
-                const results = this.relatedRequestsResults.get(request.Id!) || [];
-                const attemptNumber = this.getAttemptNumber(request.Id ?? 0);
-                return results.length > 0
-                  ? html`
-                      <div class="results-section">
-                        <vaadin-details
-                          opened
-                          summary="Deployment Component Results - Attempt ${attemptNumber} - ${request.Id}"
-                          style="padding: 8px; background-color: #fafafa;"
-                        >
-                          <component-deployment-results
-                            .resultItems="${results}"
-                            .compact="${true}"
-                          ></component-deployment-results>
-                        </vaadin-details>
-                      </div>
-                    `
-                  : html``;
-              })}
-            `}
+            ${this.relatedRequests.map(request => {
+  const results = this.relatedRequestsResults.get(request.Id!) || [];
+  const attemptNumber = this.getAttemptNumber(request.Id ?? 0);
+  
+  const isLoading = !this.relatedRequestsResults.has(request.Id!) && 
+                   ['Cancelled', 'Failed', 'Complete', 'Warning'].includes(request.Status || '');
+  
+  const hasResults = results.length > 0;
+  const isTerminalState = ['Cancelled', 'Failed', 'Complete', 'Warning'].includes(request.Status || '');
+  const shouldShowSection = hasResults || isTerminalState;
+
+  return shouldShowSection
+    ? html`
+        <div class="results-section">
+          <vaadin-details
+            opened
+            summary="Deployment Component Results - Attempt ${attemptNumber} - ${request.Id}"
+            style="padding: 8px; background-color: #fafafa;"
+          >
+            ${hasResults
+              ? html`
+                  <component-deployment-results
+                    .resultItems="${results}"
+                    .compact="${true}"
+                  ></component-deployment-results>
+                `
+              : isLoading
+              ? html`
+                  <div style="display: flex; align-items: center; justify-content: center; padding: 16px; gap: 8px;">
+                    <div class="small-loader"></div>
+                    <span style="color: var(--lumo-secondary-text-color); font-style: italic;">
+                      Loading component results...
+                    </span>
+                  </div>
+                `
+              : html`
+                  <div style="padding: 16px; color: var(--lumo-secondary-text-color); font-style: italic; text-align: center;">
+                    ${request.Status === 'Cancelled' 
+                      ? 'Request was cancelled before component deployments started.'
+                      : request.Status === 'Failed'
+                      ? 'Request failed before component results were created.'
+                      : 'No deployment results available.'}
+                  </div>
+                `}
+          </vaadin-details>
+        </div>
+      `
+    : html``;
+})}
+          `}
       </vaadin-details>
     `;
   }

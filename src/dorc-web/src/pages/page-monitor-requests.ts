@@ -330,7 +330,6 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   ): Promise<void> {
     super.firstUpdated(_changedProperties);
 
-    // Initialize SignalR connection for real-time updates
     await this.initializeSignalR();
 
     this.addEventListener(
@@ -338,8 +337,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       this.requestCancelled as EventListener
     );
     this.addEventListener(
-      'request-restarted',
-      this.requestRestarted as EventListener
+      'request-redeployed',
+      this.requestRedeployed as EventListener
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
     this.addEventListener(
@@ -491,8 +490,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     });
   }
 
-  requestRestarted(e: CustomEvent) {
-    Notification.show(`Restarted request with ID: ${e.detail.requestId}`, {
+  requestRedeployed(e: CustomEvent) {
+    Notification.show(`Redeployed request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
       duration: 5000

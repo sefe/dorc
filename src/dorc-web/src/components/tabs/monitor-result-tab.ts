@@ -26,7 +26,7 @@ export class MonitorResultTab extends LitElement {
         height: var(--lumo-icon-size-s);
         font-size: var(--lumo-font-size-s);
       }
-      .restart-badge {
+      .redeploy-badge {
         background-color: #ff6b35;
         color: white;
         padding: 2px 6px;
@@ -39,9 +39,9 @@ export class MonitorResultTab extends LitElement {
   }
 
   render() {
-    // Navigate to original request if this is a restart
+    // Navigate to original request if this is a redeploy
     const targetRequestId = this.requestStatus?.ParentRequestId ?? this.requestStatus?.Id;
-    const isRestart = !!this.requestStatus?.ParentRequestId;
+    const isRedeploy = !!this.requestStatus?.ParentRequestId;
     
     return html` <div style="margin-left: 20px; width: 270px">
       <a
@@ -61,7 +61,7 @@ export class MonitorResultTab extends LitElement {
             <span>
               ${this.requestStatus?.Id}
               ${this.requestStatus?.EnvironmentName}
-              ${isRestart ? html`<span class="restart-badge">↻ RESTART</span>` : ''}
+              ${isRedeploy ? html`<span class="redeploy-badge">↻ REDEPLOY</span>` : ''}
             </span>
           </vaadin-horizontal-layout>
           <div
