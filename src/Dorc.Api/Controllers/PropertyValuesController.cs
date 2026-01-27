@@ -3,6 +3,7 @@ using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
+using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -22,17 +23,21 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
         public PropertyValuesController(IPropertyValuesService propertyValuesService,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
-            IEnvironmentsPersistentSource environmentsPersistentSource, IVariableScopeOptionsResolver variableScopeOptionsResolver)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IVariableScopeOptionsResolver variableScopeOptionsResolver,
+            ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _environmentsPersistentSource = environmentsPersistentSource;
             _variableResolver = variableResolver;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyValuesService = propertyValuesService;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
         }
 
         /// <summary>
@@ -92,13 +97,37 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IActionResult GetPropertyValues(string propertyName = null, string environmentName = null)
         {
+
             try
             {
+                // Compute environment-scoped privilege once
+                var canReadSecrets = false;
+                if (!string.IsNullOrWhiteSpace(environmentName))
+                {
+                    if (!_environmentsPersistentSource.EnvironmentExists(environmentName))
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            $"'environmentName' must include a valid environment name, '{environmentName}' not located");
+
+                    canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, environmentName);
+                }
+
                 var propertyValues = _propertyValuesService.GetPropertyValues(propertyName, environmentName,
                     User).ToArray();
                 if (!propertyValues.Any())
                 {
                     return NotFound();
+                }
+
+                // Enforce ticket: mask secure values unless caller has "Read Secrets" for this environment
+                if (!canReadSecrets)
+                {
+                    foreach (var pv in propertyValues)
+                    {
+                        if (pv?.Property?.Secure == true)
+                        {
+                            pv.Value = null;
+                        }
+                    }
                 }
 
                 return Ok(propertyValues);
@@ -112,6 +141,7 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
+
 
         /// <summary>
         /// Edit property values
@@ -149,4 +179,5 @@ namespace Dorc.Api.Controllers
             return Ok(_propertyValuesService.DeletePropertyValues(propertyValuesToDelete, User));
         }
     }
+
 }
