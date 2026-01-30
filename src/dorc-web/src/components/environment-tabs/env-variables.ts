@@ -450,6 +450,13 @@ export class EnvVariables extends PageEnvBase {
 
   private variablesLoaded() {
     this.loading = false;
+    const grid = this.grid;
+    if (grid?.shadowRoot && !grid.shadowRoot.querySelector('#scrollbar-fix')) {
+      const style = document.createElement('style');
+      style.id = 'scrollbar-fix';
+      style.textContent = '#items { margin-bottom: 1rem; }';
+      grid.shadowRoot.appendChild(style);
+    }
   }
 
   variableValueDeleted() {
