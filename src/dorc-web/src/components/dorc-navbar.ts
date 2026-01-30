@@ -270,6 +270,82 @@ export class DorcNavbar extends LitElement {
     this.loadFromEnvDetailCookie();
     this.loadFromProjEnvsCookie();
     this.loadFromMonitorResultsCookie();
+
+    // Sync shortcuts when tab becomes visible again
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.syncShortcutsFromCookies();
+      }
+    });
+  }
+
+  private syncShortcutsFromCookies() {
+    this.syncEnvTabsFromCookie();
+    this.syncProjTabsFromCookie();
+    this.syncMonitorTabsFromCookie();
+  }
+
+  private syncEnvTabsFromCookie() {
+    const envTabs = getCookie(this.envDetailTabs) as string;
+    if (envTabs === undefined || envTabs === '') return;
+    
+    try {
+      const cookieEnvs = JSON.parse(envTabs) as EnvironmentApiModel[];
+      // Find new tabs that aren't already displayed
+      cookieEnvs.forEach(env => {
+        const exists = this.openEnvTabs.find(
+          e => e.EnvironmentId === env.EnvironmentId
+        );
+        if (!exists) {
+          this.openEnvTabs.push(env);
+          this.insertEnvTab(env);
+        }
+      });
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  private syncProjTabsFromCookie() {
+    const projTabs = getCookie(this.projectEnvsTabs) as string;
+    if (projTabs === undefined || projTabs === '') return;
+    
+    try {
+      const cookieProjs = JSON.parse(projTabs) as ProjectApiModel[];
+      // Find new tabs that aren't already displayed
+      cookieProjs.forEach(proj => {
+        const exists = this.openProjTabs.find(
+          p => p.ProjectId === proj.ProjectId
+        );
+        if (!exists) {
+          this.openProjTabs.push(proj);
+          this.insertProjTab(proj);
+        }
+      });
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  private syncMonitorTabsFromCookie() {
+    const resultTabs = getCookie(this.monitorResultTabs) as string;
+    if (resultTabs === undefined || resultTabs === '') return;
+    
+    try {
+      const cookieResults = JSON.parse(resultTabs) as DeploymentRequestApiModel[];
+      // Find new tabs that aren't already displayed
+      cookieResults.forEach(result => {
+        const exists = this.openResultTabs.find(
+          r => r.Id === result.Id
+        );
+        if (!exists) {
+          this.openResultTabs.push(result);
+          this.insertResultTab(result);
+        }
+      });
+    } catch {
+      // Ignore parse errors
+    }
   }
 
   loadFromEnvDetailCookie() {
