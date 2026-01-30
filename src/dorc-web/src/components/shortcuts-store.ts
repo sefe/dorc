@@ -12,9 +12,6 @@ import { EnvPageTabNames } from '../pages/page-environment.ts';
 
 @customElement('shortcuts-store')
 export class ShortcutsStore extends LitElement {
-  openProjTabs: ProjectApiModel[] = [];
-  openResultTabs: DeploymentRequestApiModel[] = [];
-
   private monitorResultTabs = 'monitor-result-tabs';
   private envDetailTabs = 'env-detail-tabs';
   private projectEnvsTabs = 'project-envs-tabs';
@@ -81,9 +78,7 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(this.getEnvDetailPath(env));
 
-    if (this.dorcNavbar?.openEnvTabs) {
-      setCookie(this.envDetailTabs, JSON.stringify(this.dorcNavbar.openEnvTabs));
-    }
+    setCookie(this.envDetailTabs, JSON.stringify(this.dorcNavbar?.openEnvTabs));
   }
 
   private openMonitorResult(e: CustomEvent) {
@@ -94,12 +89,12 @@ export class ShortcutsStore extends LitElement {
       BuildNumber: requestOrig.BuildNumber
     };
 
-    const existingResults = this.openResultTabs.find(
+    const existingResults = this.dorcNavbar?.openResultTabs.find(
       value => value.Id === request.Id
     );
     let path = '';
     if (existingResults === undefined) {
-      this.openResultTabs.push(request);
+      this.dorcNavbar?.openResultTabs.push(request);
       path = this.dorcNavbar?.insertResultTab(request) ?? '';
     } else {
       path = this.getMonitorResultPath(request);
@@ -107,9 +102,7 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(path);
 
-    if (this.openResultTabs.length > 0) {
-      setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
-    }
+    setCookie(this.monitorResultTabs, JSON.stringify(this.dorcNavbar?.openResultTabs));
 
     console.log(path);
     window.open(path);
@@ -125,12 +118,13 @@ export class ShortcutsStore extends LitElement {
 
   private openProjectEnvs(e: CustomEvent) {
     const project = e.detail.Project as ProjectApiModel;
-    const existingProjs = this.openProjTabs.find(
+    const existingProjs = this.dorcNavbar?.openProjTabs.find(
       value => value.ProjectName === project.ProjectName
     );
     let path = '';
     if (existingProjs === undefined) {
-      this.openProjTabs.push(project);
+      project.ArtefactsSubPaths = ''; // This field can occasionally contain ';' which breaks the cookies
+      this.dorcNavbar?.openProjTabs.push(project);
       path = this.dorcNavbar?.insertProjTab(project) ?? '';
     } else {
       path = this.getProjectEnvsPath(project);
@@ -140,9 +134,7 @@ export class ShortcutsStore extends LitElement {
 
     this.dorcNavbar?.setSelectedTab(path);
 
-    if (this.openProjTabs.length > 0) {
-      setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
-    }
+    setCookie(this.projectEnvsTabs, JSON.stringify(this.dorcNavbar?.openProjTabs));
   }
 
   private getProjectEnvsPath(projectAPIModel: ProjectApiModel) {
