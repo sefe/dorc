@@ -140,6 +140,18 @@ namespace Dorc.Monitor
                                 }
 
                                 logger.LogDebug("Waiting for process to exit.");
+                                using var killOnCancel = cancellationToken.Register(() =>
+                                {
+                                    try
+                                    {
+                                        logger.LogInformation("Cancellation requested — terminating Runner process for request ID '{RequestId}'.", requestId);
+                                        process.Kill();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        logger.LogDebug(ex, "Failed to terminate Runner process (may have already exited).");
+                                    }
+                                });
                                 var resultCode = process.WaitForExit();
                                 logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
 

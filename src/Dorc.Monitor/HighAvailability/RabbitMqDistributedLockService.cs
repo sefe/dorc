@@ -62,8 +62,9 @@ namespace Dorc.Monitor.HighAvailability
                     {
                         if (IsTokenExpiringSoon())
                         {
-                            logger.LogInformation("Background token refresh timer detected token expiring soon - refreshing connection (generation {Generation})", connectionGeneration);
-                            await ForceConnectionRefreshAsync(connectionGeneration, serviceCts.Token);
+                            var currentGeneration = connectionGeneration;
+                            logger.LogInformation("Background token refresh timer detected token expiring soon - refreshing connection (generation {Generation})", currentGeneration);
+                            await ForceConnectionRefreshAsync(currentGeneration, serviceCts.Token);
                         }
                     }
                     catch (Exception ex)
@@ -511,6 +512,16 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
+                // Cancel service-level operations first so any in-flight timer callback exits quickly
+                serviceCts?.Cancel();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error cancelling service operations during disposal");
+            }
+
+            try
+            {
                 if (tokenRefreshTimer != null)
                 {
                     await tokenRefreshTimer.DisposeAsync();
@@ -524,13 +535,11 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                // Cancel service-level operations
-                serviceCts?.Cancel();
                 serviceCts?.Dispose();
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Error cancelling service operations during disposal");
+                logger.LogWarning(ex, "Error disposing service cancellation token source during disposal");
             }
 
             IConnection? connToDispose = null;
