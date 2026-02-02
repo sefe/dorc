@@ -36,5 +36,15 @@ namespace Dorc.Monitor
         /// Maximum number of concurrent deployments. Set to 0 for unlimited.
         /// </summary>
         int MaxConcurrentDeployments { get; }
+
+        /// <summary>
+        /// Timeout in seconds for acquiring a distributed lock. Default: 5.
+        /// </summary>
+        int LockAcquisitionTimeoutSeconds { get; }
+
+        /// <summary>
+        /// Interval in minutes for background OAuth token refresh checks. Default: 15.
+        /// </summary>
+        int OAuthTokenRefreshCheckIntervalMinutes { get; }
     }
 }

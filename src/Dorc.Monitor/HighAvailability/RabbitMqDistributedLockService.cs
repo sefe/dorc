@@ -23,6 +23,7 @@ namespace Dorc.Monitor.HighAvailability
         private HttpClientHandler? httpClientHandler;
         private OAuth2ClientCredentialsProvider? credentialsProvider;
         private bool disposed = false;
+        private Timer? tokenRefreshTimer;
         private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
         private DateTime? tokenExpiryTimeUtc; // Tracks when the current OAuth token expires
         private static readonly TimeSpan TokenRefreshThreshold = TimeSpan.FromMinutes(5); // Refresh token 5 minutes before expiry
@@ -47,6 +48,28 @@ namespace Dorc.Monitor.HighAvailability
 
             var timeUntilExpiry = tokenExpiryTimeUtc.Value - DateTime.UtcNow;
             return timeUntilExpiry <= TokenRefreshThreshold;
+        }
+
+        private void StartTokenRefreshTimer()
+        {
+            tokenRefreshTimer?.Dispose();
+            var interval = TimeSpan.FromMinutes(configuration.OAuthTokenRefreshCheckIntervalMinutes);
+            tokenRefreshTimer = new Timer(async _ =>
+            {
+                try
+                {
+                    if (IsTokenExpiringSoon())
+                    {
+                        logger.LogInformation("Background token refresh timer detected token expiring soon - refreshing connection (generation {Generation})", connectionGeneration);
+                        await ForceConnectionRefreshAsync(connectionGeneration, serviceCts.Token);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Background token refresh timer encountered an error");
+                }
+            }, null, interval, interval);
+            logger.LogDebug("Background OAuth token refresh timer started with interval {Interval} minutes", configuration.OAuthTokenRefreshCheckIntervalMinutes);
         }
 
         public async Task<IDistributedLock?> TryAcquireLockAsync(string resourceKey, int leaseTimeMs, CancellationToken cancellationToken)
@@ -171,7 +194,7 @@ namespace Dorc.Monitor.HighAvailability
                             cancellationToken: cancellationToken);
 
                         // Wait for lock message to be delivered (with timeout)
-                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(configuration.LockAcquisitionTimeoutSeconds)))
                         using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                         {
                             try
@@ -322,10 +345,12 @@ namespace Dorc.Monitor.HighAvailability
                     }
 
                     connection = await factory.CreateConnectionAsync(cancellationToken);
-                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} with OAuth 2.0 automatic token refresh{SslInfo}", 
-                        configuration.RabbitMqHostName, 
+                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} with OAuth 2.0 automatic token refresh{SslInfo}",
+                        configuration.RabbitMqHostName,
                         configuration.RabbitMqPort,
                         configuration.RabbitMqSslEnabled ? " and SSL/TLS" : "");
+
+                    StartTokenRefreshTimer();
                 }
                 catch (Exception ex)
                 {
@@ -480,6 +505,19 @@ namespace Dorc.Monitor.HighAvailability
                 return;
 
             disposed = true;
+
+            try
+            {
+                if (tokenRefreshTimer != null)
+                {
+                    await tokenRefreshTimer.DisposeAsync();
+                    tokenRefreshTimer = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error disposing token refresh timer during disposal");
+            }
 
             try
             {

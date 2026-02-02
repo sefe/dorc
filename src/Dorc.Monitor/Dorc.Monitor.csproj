@@ -53,6 +53,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.10" />
 	</ItemGroup>
 	<ItemGroup>
+		<InternalsVisibleTo Include="Dorc.Monitor.Tests" />
 		<InternalsVisibleTo Include="Dorc.Monitor.IntegrationTests" />
 		<InternalsVisibleTo Include="ResolverLibrary.Fakes" />
 		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
