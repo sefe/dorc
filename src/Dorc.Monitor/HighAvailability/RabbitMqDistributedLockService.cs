@@ -54,20 +54,23 @@ namespace Dorc.Monitor.HighAvailability
         {
             tokenRefreshTimer?.Dispose();
             var interval = TimeSpan.FromMinutes(configuration.OAuthTokenRefreshCheckIntervalMinutes);
-            tokenRefreshTimer = new Timer(async _ =>
+            tokenRefreshTimer = new Timer(_ =>
             {
-                try
+                _ = Task.Run(async () =>
                 {
-                    if (IsTokenExpiringSoon())
+                    try
                     {
-                        logger.LogInformation("Background token refresh timer detected token expiring soon - refreshing connection (generation {Generation})", connectionGeneration);
-                        await ForceConnectionRefreshAsync(connectionGeneration, serviceCts.Token);
+                        if (IsTokenExpiringSoon())
+                        {
+                            logger.LogInformation("Background token refresh timer detected token expiring soon - refreshing connection (generation {Generation})", connectionGeneration);
+                            await ForceConnectionRefreshAsync(connectionGeneration, serviceCts.Token);
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Background token refresh timer encountered an error");
-                }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Background token refresh timer encountered an error");
+                    }
+                }, serviceCts.Token);
             }, null, interval, interval);
             logger.LogDebug("Background OAuth token refresh timer started with interval {Interval} minutes", configuration.OAuthTokenRefreshCheckIntervalMinutes);
         }

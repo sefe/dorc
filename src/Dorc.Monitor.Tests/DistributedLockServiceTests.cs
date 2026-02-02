@@ -390,6 +390,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration.Environment.Returns("test");
 
             var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            Assert.IsNotNull(service);
 
             // Act - just verify the configuration property is accessible
             // The actual timeout is used internally during lock acquisition
@@ -407,6 +408,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration.OAuthTokenRefreshCheckIntervalMinutes.Returns(30);
 
             var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            Assert.IsNotNull(service);
 
             // Act
             var interval = mockConfiguration.OAuthTokenRefreshCheckIntervalMinutes;
@@ -438,6 +440,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(15);
 
             var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            Assert.IsNotNull(service);
 
             // Assert - the configuration property returns the expected value
             Assert.AreEqual(15, mockConfiguration.LockAcquisitionTimeoutSeconds);
