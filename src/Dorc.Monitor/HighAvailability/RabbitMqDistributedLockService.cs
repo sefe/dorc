@@ -56,6 +56,7 @@ namespace Dorc.Monitor.HighAvailability
             var interval = TimeSpan.FromMinutes(configuration.OAuthTokenRefreshCheckIntervalMinutes);
             tokenRefreshTimer = new Timer(_ =>
             {
+                if (disposed) return;
                 _ = Task.Run(async () =>
                 {
                     try

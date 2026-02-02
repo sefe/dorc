@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using PROCESS_INFORMATION = Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32.Interop.Kernel32.PROCESS_INFORMATION;
 
 namespace Dorc.Monitor.Tests
@@ -8,10 +9,15 @@ namespace Dorc.Monitor.Tests
     /// <summary>
     /// Tests for the CancellationToken.Register + Kill pattern used in ScriptDispatcher
     /// to terminate the Runner process when a deployment is cancelled.
+    /// These tests use real processes and Win32 handles; they only run on Windows.
     /// </summary>
     [TestClass]
+    [SupportedOSPlatform("windows")]
     public class RunnerProcessCancellationTests
     {
+        // OpenProcess is used instead of Process.Handle to obtain an independent handle.
+        // RunnerProcess.Dispose() calls CloseHandle on its handle, which would invalidate
+        // Process.Handle if they shared the same underlying OS handle.
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
 
@@ -64,7 +70,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        [Timeout(10_000)]
+        [Timeout(10_000, CooperativeCancellation = true)]
         public void WaitForExit_WhenCancelledDuringWait_KillsProcessAndReturnsTerminatedExitCode()
         {
             // Arrange: start a long-running process (pings for ~5 minutes)
@@ -77,7 +83,7 @@ namespace Dorc.Monitor.Tests
                 using var killOnCancel = cts.Token.Register(() =>
                 {
                     try { runner.Kill(); }
-                    catch { /* swallow — same as ScriptDispatcher callback */ }
+                    catch (Exception) { /* Best-effort: mirrors ScriptDispatcher callback */ }
                 });
 
                 // Cancel after a short delay to simulate user cancellation
@@ -91,13 +97,13 @@ namespace Dorc.Monitor.Tests
             }
             finally
             {
-                try { systemProcess.Kill(); } catch { }
+                try { systemProcess.Kill(); } catch (Exception) { /* Best-effort cleanup: process may have already exited */ }
                 systemProcess.Dispose();
             }
         }
 
         [TestMethod]
-        [Timeout(15_000)]
+        [Timeout(15_000, CooperativeCancellation = true)]
         public void WaitForExit_WhenProcessExitsNormally_RegistrationDoesNotInterfere()
         {
             // Arrange: start a process that exits on its own after ~2 pings
@@ -125,7 +131,7 @@ namespace Dorc.Monitor.Tests
                 {
                     callbackFired = true;
                     try { runner.Kill(); }
-                    catch { }
+                    catch (Exception) { /* Best-effort: process may have already exited */ }
                 });
 
                 // Act: process exits normally
@@ -138,13 +144,13 @@ namespace Dorc.Monitor.Tests
             }
             finally
             {
-                try { systemProcess.Kill(); } catch { }
+                try { systemProcess.Kill(); } catch (Exception) { /* Best-effort cleanup: process may have already exited */ }
                 systemProcess.Dispose();
             }
         }
 
         [TestMethod]
-        [Timeout(10_000)]
+        [Timeout(10_000, CooperativeCancellation = true)]
         public void CancellationCallback_WhenProcessAlreadyExited_DoesNotThrow()
         {
             // Arrange: start a long process, then kill it via System.Diagnostics.Process
@@ -181,7 +187,7 @@ namespace Dorc.Monitor.Tests
             }
             finally
             {
-                try { systemProcess.Kill(); } catch { }
+                try { systemProcess.Kill(); } catch (Exception) { /* Best-effort cleanup: process may have already exited */ }
                 systemProcess.Dispose();
             }
         }
