@@ -6,8 +6,6 @@ using Dorc.Monitor.Pipes;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Dorc.Monitor.RunnerProcess;
@@ -131,12 +129,6 @@ namespace Dorc.Monitor
                             var process = processStarter.Start(startupInfo, securityContext);
                             try
                             {
-                                if (Marshal.GetLastWin32Error() != 0)
-                                {
-                                    logger.LogError("The process creation was not successful.");
-                                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                                }
-
                                 processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
 
                                 if (cancellationToken.IsCancellationRequested)
@@ -148,6 +140,18 @@ namespace Dorc.Monitor
                                 }
 
                                 logger.LogDebug("Waiting for process to exit.");
+                                using var killOnCancel = cancellationToken.Register(() =>
+                                {
+                                    try
+                                    {
+                                        logger.LogInformation("Cancellation requested — terminating Runner process for request ID '{RequestId}'.", requestId);
+                                        process.Kill();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        logger.LogDebug(ex, "Failed to terminate Runner process (may have already exited).");
+                                    }
+                                });
                                 var resultCode = process.WaitForExit();
                                 logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
 
@@ -161,26 +165,12 @@ namespace Dorc.Monitor
                                 else if (resultCode != 0)
                                 {
                                     isScriptExecutionSuccessful = false;
-                                    Exception? ex = new Win32Exception(Marshal.GetLastWin32Error());
-
-                                    if (ex != null)
-                                    {
-                                        logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
-                                                               + " Message:" + ex.Message
-                                                               + "; Source: " + ex.Source
-                                                               + "; Data: " + ex.Data
-                                                               + "; HelpLink: " + ex.HelpLink
-                                                               + "; InnerException: " + ex.InnerException
-                                                               + "; TargetSite: " + ex.TargetSite + ".");
-                                    }
+                                    logger.LogError($"Runner process for request ID '{requestId}' exited with non-zero exit code {resultCode}.");
                                 }
-
-                                if (Marshal.GetLastWin32Error() != 0)
+                                else
                                 {
-                                    logger.LogError("Waiting the process to exit was not successful.");
-                                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                                    logger.LogInformation($"Runner process for request ID '{requestId}' completed successfully.");
                                 }
-                                logger.LogInformation("Runner process has been created.");
                             }
                             finally
                             {

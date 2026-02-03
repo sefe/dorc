@@ -61,7 +61,7 @@ namespace Dorc.Monitor.RunnerProcess
             SafeProcessHandle? handle = null;
             try
             {
-                handle = new SafeProcessHandle(this.processHandle, true);
+                handle = new SafeProcessHandle(this.processHandle, ownsHandle: false);
                 if (!Interop.Windows.Kernel32.Interop.Kernel32.TerminateProcess(handle, ProcessTerminatedExitCode))
                 {
                     if (Marshal.GetLastWin32Error() != 0)
