@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn, GridItemModel } from '@vaadin/grid';
+import { GridItemModel } from '@vaadin/grid';
 import { TextField } from '@vaadin/text-field';
 import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
@@ -23,6 +23,10 @@ interface ComponentDeploymentInfo extends ComponentApiModel {
   environmentBuilds?: Map<string, EnvironmentContentBuildsApiModel | null>;
   displayName?: string;
   parentPath?: string[];
+}
+
+interface ComponentWithChildren extends ComponentApiModel {
+    Children?: ComponentWithChildren[];
 }
 
 @customElement('page-project-components')
@@ -229,8 +233,8 @@ export class PageProjectComponents extends PageElement {
               <vaadin-grid-column
                 class="env-column"
                 header="${env.EnvironmentName}"
-                resizable
-                .renderer="${(root: HTMLElement, _column: GridColumn, model: GridItemModel<ComponentDeploymentInfo>) =>
+                resizableS
+                .renderer="${(root: HTMLElement, model: GridItemModel<ComponentDeploymentInfo>) =>
                             this.envDeploymentRenderer(root, env.EnvironmentName!, model)}"
               >
               </vaadin-grid-column>
@@ -407,10 +411,10 @@ export class PageProjectComponents extends PageElement {
         );
     }
 
-    private collectAllChildIds(components: ComponentApiModel[]): Set<string> {
+    private collectAllChildIds(components: ComponentWithChildren[]): Set<string> {
         const childIds = new Set<string>();
-        
-        const collectChildren = (comps: ComponentApiModel[]) => {
+
+        const collectChildren = (comps: ComponentWithChildren[]) => {
             comps.forEach(comp => {
                 if (comp.Children && comp.Children.length > 0) {
                     comp.Children.forEach(child => {
@@ -426,7 +430,7 @@ export class PageProjectComponents extends PageElement {
     }
 
     private flattenComponents(
-        components: ComponentApiModel[],
+        components: ComponentWithChildren[],
         parentPath: string[],
         visited: Set<string>,
         childIds: Set<string>
