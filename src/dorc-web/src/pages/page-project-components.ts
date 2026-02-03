@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
+import { GridColumn } from '@vaadin/grid/src/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import { TextField } from '@vaadin/text-field';
 import '../icons/iron-icons';
@@ -20,13 +21,10 @@ import {
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
+  Children?: ComponentDeploymentInfo[];
   environmentBuilds?: Map<string, EnvironmentContentBuildsApiModel | null>;
   displayName?: string;
   parentPath?: string[];
-}
-
-interface ComponentWithChildren extends ComponentApiModel {
-    Children?: ComponentWithChildren[];
 }
 
 @customElement('page-project-components')
@@ -70,7 +68,10 @@ export class PageProjectComponents extends PageElement {
       }
 
       .loader {
-        position: fixed;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         border: 10px solid #f3f3f3;
         border-top: 10px solid #3498db;
         border-radius: 50%;
@@ -78,8 +79,6 @@ export class PageProjectComponents extends PageElement {
         height: 56px;
         animation: spin 2s linear infinite;
         z-index: 998;
-        right: 30px;
-        bottom: 50px;
       }
 
       @keyframes spin {
@@ -153,10 +152,6 @@ export class PageProjectComponents extends PageElement {
         cursor: pointer;
         color: var(--lumo-primary-text-color);
         text-decoration: underline;
-      }
-
-      .request-link:hover {
-        color: var(--lumo-primary-color);
       }
     `;
     }
@@ -233,8 +228,8 @@ export class PageProjectComponents extends PageElement {
               <vaadin-grid-column
                 class="env-column"
                 header="${env.EnvironmentName}"
-                resizableS
-                .renderer="${(root: HTMLElement, model: GridItemModel<ComponentDeploymentInfo>) =>
+                resizable
+                .renderer="${(root: HTMLElement, _column: GridColumn, model: GridItemModel<ComponentDeploymentInfo>) =>
                             this.envDeploymentRenderer(root, env.EnvironmentName!, model)}"
               >
               </vaadin-grid-column>
@@ -411,10 +406,10 @@ export class PageProjectComponents extends PageElement {
         );
     }
 
-    private collectAllChildIds(components: ComponentWithChildren[]): Set<string> {
+    private collectAllChildIds(components: ComponentDeploymentInfo[]): Set<string> {
         const childIds = new Set<string>();
 
-        const collectChildren = (comps: ComponentWithChildren[]) => {
+        const collectChildren = (comps: ComponentDeploymentInfo[]) => {
             comps.forEach(comp => {
                 if (comp.Children && comp.Children.length > 0) {
                     comp.Children.forEach(child => {
@@ -430,7 +425,7 @@ export class PageProjectComponents extends PageElement {
     }
 
     private flattenComponents(
-        components: ComponentWithChildren[],
+        components: ComponentDeploymentInfo[],
         parentPath: string[],
         visited: Set<string>,
         childIds: Set<string>
