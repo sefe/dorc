@@ -99,6 +99,7 @@ export class EnvDaemons extends PageEnvBase {
       <application-daemons
         id="app-daemons"
         .envName="${this.environmentName ?? ''}"
+        .userEditable="${this.environment?.UserEditable ?? false}"
         @daemons-loaded="${this.daemonsLoaded}"
       >
       </application-daemons>

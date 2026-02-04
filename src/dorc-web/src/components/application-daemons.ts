@@ -18,6 +18,9 @@ export class ApplicationDaemons extends LitElement {
   @property({ type: Array })
   private daemonsAndStatuses: ServiceStatusApiModel[] | undefined;
 
+  @property({ type: Boolean })
+  private userEditable = false;
+
   get envName() {
     return this._envName;
   }
@@ -113,7 +116,7 @@ export class ApplicationDaemons extends LitElement {
   ) {
     const daemon = model.item as ServiceStatusApiModel;
     render(
-      html`<daemon-controls .daemonDetails="${daemon}"></daemon-controls>`,
+      html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${this.userEditable}"></daemon-controls>`,
       root
     );
   }
