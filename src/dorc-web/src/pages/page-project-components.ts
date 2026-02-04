@@ -2,12 +2,11 @@ import { css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/combo-box';
-import { ComboBox, ComboBoxSelectedItemChangedEvent } from '@vaadin/combo-box';
+import {  ComboBoxSelectedItemChangedEvent } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { GridColumn } from '@vaadin/grid/src/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
-import { TextField } from '@vaadin/text-field';
 import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
@@ -392,7 +391,7 @@ export class PageProjectComponents extends PageElement {
     }
 
     private handleComponentSelected(e: ComboBoxSelectedItemChangedEvent<ComponentDeploymentInfo>) {
-        this.selectedComponent = e.detail.value;
+        this.selectedComponent = e.detail.value ?? null;
         this.updateDeploymentRows();
     }
 
