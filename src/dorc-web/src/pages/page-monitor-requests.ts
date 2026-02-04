@@ -306,7 +306,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         <vaadin-grid-column
           .renderer="${this._requestControlsRenderer}"
           resizable
-          width="100px"
+          width="160px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -343,6 +343,14 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     this.addEventListener(
       'request-restarted',
       this.requestRestarted as EventListener
+    );
+    this.addEventListener(
+      'request-paused',
+      this.requestPaused as EventListener
+    );
+    this.addEventListener(
+      'request-resumed',
+      this.requestResumed as EventListener
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
     this.addEventListener(
@@ -507,6 +515,22 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     });
   }
 
+  requestPaused(e: CustomEvent) {
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
+  requestResumed(e: CustomEvent) {
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
   private componentsRenderer(root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<DeploymentRequestApiModel>) {
@@ -652,8 +676,11 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting')}
-        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
+          item.Status === 'Restarting' ||
+          item.Status === 'Paused')}
+        .canRestart=${!!item.UserEditable && item.Status !== 'Pending' && item.Status !== 'Paused'}
+        .canPause=${!!item.UserEditable && item.Status === 'Pending'}
+        .canResume=${!!item.UserEditable && item.Status === 'Paused'}
       ></request-controls>`,
       root
     );

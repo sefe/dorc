@@ -276,21 +276,35 @@ namespace Dorc.Monitor
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
-            // Select only Pending and Confirmed requests for each of environments that do not have any Running requests.
-            var environmentRequestGroupsToExecute = this.requestsPersistentSource
+            // Select Pending, Running, Confirmed, and Paused requests for each environment.
+            // Paused requests block subsequent requests from executing.
+            var allRelevantRequests = this.requestsPersistentSource
                 .GetRequestsWithStatus(
                         DeploymentRequestStatus.Pending,
                         DeploymentRequestStatus.Running,
                         DeploymentRequestStatus.Confirmed,
+                        DeploymentRequestStatus.Paused,
                         isProduction)
-                .OrderBy(pendingOrRunningRequest => pendingOrRunningRequest.Id)
+                .OrderBy(request => request.Id)
+                .ToList();
+
+            // Group by environment and filter to only environments without Running requests
+            // and where the first request (by ID) is not Paused.
+            // A Paused request blocks only SUBSEQUENT requests, not earlier ones.
+            var environmentRequestGroupsToExecute = allRelevantRequests
                 .GroupBy(
-                    pendingOrRunningRequest => pendingOrRunningRequest.EnvironmentName,
-                    pendingOrRunningRequest => new RequestToProcessDto(
-                        pendingOrRunningRequest,
-                        this.serializer.Deserialize(pendingOrRunningRequest.RequestDetails)))
-                .Where(environmentRequestGroup => environmentRequestGroup.All(environmentRequest =>
-                    environmentRequest.Request.Status != DeploymentRequestStatus.Running.ToString()));
+                    request => request.EnvironmentName,
+                    request => new RequestToProcessDto(
+                        request,
+                        this.serializer.Deserialize(request.RequestDetails)))
+                .Where(environmentRequestGroup =>
+                    // No Running requests in this environment
+                    environmentRequestGroup.All(envRequest =>
+                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString()) &&
+                    // The first (earliest by ID) request is not Paused.
+                    // If Request 3 is Paused, Requests 4,5 are blocked.
+                    // But if Request 4 is Paused, Request 3 can still run (it's before the pause).
+                    environmentRequestGroup.OrderBy(r => r.Request.Id).First().Request.Status != DeploymentRequestStatus.Paused.ToString());
 
             IList<Task> requestGroupExecutionTasks = new List<Task>();
 

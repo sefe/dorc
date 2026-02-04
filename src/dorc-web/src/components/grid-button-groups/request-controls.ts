@@ -7,6 +7,9 @@ import { html } from 'lit/html.js';
 import '../../icons/av-icons.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { RequestApi } from '../../apis/dorc-api';
+import { ajax } from 'rxjs/ajax';
+import { appConfig } from '../../app-config';
+import { oauthServiceContainer } from '../../services/Account/OAuthService';
 
 @customElement('request-controls')
 export class RequestControls extends LitElement {
@@ -18,6 +21,12 @@ export class RequestControls extends LitElement {
 
   @property({ type: Boolean })
   canRestart = false;
+
+  @property({ type: Boolean })
+  canPause = false;
+
+  @property({ type: Boolean })
+  canResume = false;
 
   static get styles() {
     return css`
@@ -55,6 +64,12 @@ export class RequestControls extends LitElement {
     const restartStyles = {
       color: this.canRestart ? 'cornflowerblue' : 'grey'
     };
+    const pauseStyles = {
+      color: this.canPause ? '#FFA500' : 'grey'
+    };
+    const resumeStyles = {
+      color: this.canResume ? '#28a745' : 'grey'
+    };
     return html`
       <table style="height: 36px">
         <tr>
@@ -81,6 +96,32 @@ export class RequestControls extends LitElement {
               <vaadin-icon
                 icon="av:repeat"
                 style=${styleMap(restartStyles)}
+              ></vaadin-icon>
+            </vaadin-button>
+          </td>
+          <td class="table-button">
+            <vaadin-button
+              title="Pause Request"
+              theme="icon small"
+              @click="${this.pause}"
+              ?disabled="${!this.canPause}"
+            >
+              <vaadin-icon
+                icon="av:pause"
+                style=${styleMap(pauseStyles)}
+              ></vaadin-icon>
+            </vaadin-button>
+          </td>
+          <td class="table-button">
+            <vaadin-button
+              title="Resume Request"
+              theme="icon small"
+              @click="${this.resume}"
+              ?disabled="${!this.canResume}"
+            >
+              <vaadin-icon
+                icon="av:play-arrow"
+                style=${styleMap(resumeStyles)}
               ></vaadin-icon>
             </vaadin-button>
           </td>
@@ -122,6 +163,72 @@ export class RequestControls extends LitElement {
           detail: {
             requestId: this.requestId,
             message: 'Requested deploy has been canceled'
+          },
+          bubbles: true,
+          composed: true
+        });
+        this.dispatchEvent(event);
+      });
+    }
+  }
+
+  pause() {
+    const answer = confirm(
+      `Are you sure you want to pause the job with ID ${this.requestId} ? This will block subsequent deployments to this environment.`
+    );
+
+    if (answer) {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      const accessToken = oauthServiceContainer.service.signedInUser?.access_token;
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      ajax({
+        url: `${appConfig.dorcApi}/Request/pause?requestId=${this.requestId}`,
+        method: 'PUT',
+        headers,
+        withCredentials: true
+      }).subscribe(() => {
+        const event = new CustomEvent('request-paused', {
+          detail: {
+            requestId: this.requestId,
+            message: 'Requested deploy has been paused'
+          },
+          bubbles: true,
+          composed: true
+        });
+        this.dispatchEvent(event);
+      });
+    }
+  }
+
+  resume() {
+    const answer = confirm(
+      `Are you sure you want to resume the job with ID ${this.requestId} ?`
+    );
+
+    if (answer) {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      const accessToken = oauthServiceContainer.service.signedInUser?.access_token;
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      ajax({
+        url: `${appConfig.dorcApi}/Request/resume?requestId=${this.requestId}`,
+        method: 'PUT',
+        headers,
+        withCredentials: true
+      }).subscribe(() => {
+        const event = new CustomEvent('request-resumed', {
+          detail: {
+            requestId: this.requestId,
+            message: 'Requested deploy has been resumed'
           },
           bubbles: true,
           composed: true

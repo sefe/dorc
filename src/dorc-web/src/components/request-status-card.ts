@@ -62,6 +62,14 @@ export class RequestStatusCard extends LitElement {
       this.requestRestarted as EventListener
     );
     this.addEventListener(
+      'request-paused',
+      this.requestPaused as EventListener
+    );
+    this.addEventListener(
+      'request-resumed',
+      this.requestResumed as EventListener
+    );
+    this.addEventListener(
       'log-dialog-closed',
       this.logDialogClosed as EventListener
     );
@@ -280,9 +288,15 @@ export class RequestStatusCard extends LitElement {
           (this.deployRequest.Status === 'Running' ||
             this.deployRequest.Status === 'Requesting' ||
             this.deployRequest.Status === 'Pending' ||
-            this.deployRequest.Status === 'Restarting')}"
+            this.deployRequest.Status === 'Restarting' ||
+            this.deployRequest.Status === 'Paused')}"
           .canRestart="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status !== 'Pending'}"
+          this.deployRequest.Status !== 'Pending' &&
+          this.deployRequest.Status !== 'Paused'}"
+          .canPause="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status === 'Pending'}"
+          .canResume="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status === 'Paused'}"
         ></request-controls>
       </div>
     `;
@@ -355,6 +369,24 @@ export class RequestStatusCard extends LitElement {
 
   requestRestarted(e: CustomEvent) {
     Notification.show(`Restarted request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+    this.refresh();
+  }
+
+  requestPaused(e: CustomEvent) {
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+    this.refresh();
+  }
+
+  requestResumed(e: CustomEvent) {
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
       duration: 5000
