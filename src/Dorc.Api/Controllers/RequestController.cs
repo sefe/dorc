@@ -264,7 +264,8 @@ namespace Dorc.Api.Controllers
                 }
 
                 if (deploymentRequest.Status == DeploymentRequestStatus.Pending.ToString()
-                    || deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString())
+                    || deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString()
+                    || deploymentRequest.Status == DeploymentRequestStatus.Paused.ToString())
                 {
                     _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelled);
                 }
@@ -281,6 +282,106 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/cancel");
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Pause a pending request
+        /// </summary>
+        /// <param name="requestId"></param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("pause")]
+        [HttpPut]
+        public IActionResult PausePut(int requestId)
+        {
+            try
+            {
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                if (!canModifyEnv)
+                {
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _log.LogInformation($"Forbidden request to pause {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
+                }
+
+                // Only Pending requests can be paused
+                if (deploymentRequest.Status != DeploymentRequestStatus.Pending.ToString())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        $"Only Pending requests can be paused. Current status: {deploymentRequest.Status}");
+                }
+
+                _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Paused);
+
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                // Broadcast pause -> Paused
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentRequestEventData(updated));
+
+                return StatusCode(StatusCodes.Status200OK,
+                    new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/pause");
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Resume a paused request
+        /// </summary>
+        /// <param name="requestId"></param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("resume")]
+        [HttpPut]
+        public IActionResult ResumePut(int requestId)
+        {
+            try
+            {
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                if (!canModifyEnv)
+                {
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    _log.LogInformation($"Forbidden request to resume {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
+                }
+
+                // Only Paused requests can be resumed
+                if (deploymentRequest.Status != DeploymentRequestStatus.Paused.ToString())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        $"Only Paused requests can be resumed. Current status: {deploymentRequest.Status}");
+                }
+
+                _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Pending);
+
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                // Broadcast resume -> Pending
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentRequestEventData(updated));
+
+                return StatusCode(StatusCodes.Status200OK,
+                    new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/resume");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
