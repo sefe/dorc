@@ -1,6 +1,8 @@
 import { css, PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import '@vaadin/combo-box';
+import { ComboBox, ComboBoxSelectedItemChangedEvent } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { GridColumn } from '@vaadin/grid/src/vaadin-grid-column';
@@ -27,6 +29,16 @@ interface ComponentDeploymentInfo extends ComponentApiModel {
   parentPath?: string[];
 }
 
+interface EnvironmentDeploymentRow {
+  environmentName: string;
+  buildNumber: string;
+  status: string;
+  updateDate: string;
+  requestId?: number;
+  build?: EnvironmentContentBuildsApiModel | null;
+  componentId?: string;
+}
+
 @customElement('page-project-components')
 export class PageProjectComponents extends PageElement {
     static get styles() {
@@ -36,6 +48,7 @@ export class PageProjectComponents extends PageElement {
         flex-direction: column;
         height: calc(100vh - 50px);
         padding: 16px;
+        box-sizing: border-box;
       }
 
       .header {
@@ -43,6 +56,7 @@ export class PageProjectComponents extends PageElement {
         justify-content: space-between;
         align-items: center;
         margin-bottom: 16px;
+        flex-shrink: 0;
       }
 
       .title {
@@ -55,16 +69,20 @@ export class PageProjectComponents extends PageElement {
         gap: 10px;
         align-items: center;
         margin-bottom: 16px;
+        flex-shrink: 0;
       }
 
       .grid-container {
         flex: 1;
         overflow: auto;
         position: relative;
+        min-height: 0;
+        padding-bottom: 20px;
       }
 
       vaadin-grid {
         height: 100%;
+        width: 100%;
       }
 
       .loader {
@@ -86,18 +104,9 @@ export class PageProjectComponents extends PageElement {
         100% { transform: rotate(360deg); }
       }
 
-      .enabled {
-        color: #4caf50;
-        font-weight: bold;
-      }
-
-      .disabled {
-        color: #f44336;
-      }
-
-      .build-info {
-        font-size: var(--lumo-font-size-s);
-        color: var(--lumo-secondary-text-color);
+      .component-picker {
+        width: 100%;
+        max-width: 600px;
       }
 
       .build-number {
@@ -107,14 +116,17 @@ export class PageProjectComponents extends PageElement {
 
       .status-complete {
         color: #4caf50;
+        font-weight: 500;
       }
 
       .status-failed {
         color: #f44336;
+        font-weight: 500;
       }
 
       .status-cancelled {
         color: #ff9800;
+        font-weight: 500;
       }
 
       .no-deployment {
@@ -122,36 +134,23 @@ export class PageProjectComponents extends PageElement {
         font-style: italic;
       }
 
-      .component-name-container {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        align-items: flex-start;
-      }
-
-      .parent-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: var(--lumo-font-size-xs);
-        font-weight: 500;
-        background-color: var(--lumo-contrast-10pct);
-        color: var(--lumo-secondary-text-color);
-        white-space: nowrap;
-      }
-
-      .component-name {
-        font-size: var(--lumo-font-size-m);
-      }
-
-      .env-column {
-        min-width: 200px;
-      }
-
       .request-link {
         cursor: pointer;
         color: var(--lumo-primary-text-color);
         text-decoration: underline;
+      }
+
+      .request-link:hover {
+        text-decoration: none;
+      }
+
+      .no-selection {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--lumo-secondary-text-color);
+        font-size: var(--lumo-font-size-l);
       }
     `;
     }
@@ -165,6 +164,12 @@ export class PageProjectComponents extends PageElement {
     @property({ type: Array })
     private filteredComponents: ComponentDeploymentInfo[] = [];
 
+    @state()
+    private selectedComponent: ComponentDeploymentInfo | null = null;
+
+    @state()
+    private deploymentRows: EnvironmentDeploymentRow[] = [];
+
     @property({ type: Array })
     private environments: EnvironmentApiModel[] = [];
 
@@ -177,8 +182,9 @@ export class PageProjectComponents extends PageElement {
     @property({ type: Boolean })
     private environmentsLoading = false;
 
-    @property({ type: String })
-    private componentNameFilter = '';
+    private boundBuildNumberRenderer = this.buildNumberRenderer.bind(this);
+    private boundStatusRenderer = this.statusRenderer.bind(this);
+    private boundDateRenderer = this.dateRenderer.bind(this);
 
     render() {
         return html`
@@ -190,52 +196,65 @@ export class PageProjectComponents extends PageElement {
         </div>
       </div>
       <div class="filter-container">
-        <vaadin-text-field
-          placeholder="Filter by component name..."
-          @input="${this.handleComponentNameFilter}"
+        <vaadin-combo-box
+          class="component-picker"
+          label="Select Component"
+          placeholder="Choose a component..."
+          .items="${this.filteredComponents}"
+          .itemLabelPath="${'displayName'}"
+          .filteredItems="${this.filteredComponents}"
+          @selected-item-changed="${this.handleComponentSelected}"
           clear-button-visible
-          helper-text="Use | for multiple search terms"
-          style="min-width: 400px;"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
-        </vaadin-text-field>
+        </vaadin-combo-box>
       </div>
       <div class="grid-container">
-        <vaadin-grid
-          .items="${this.filteredComponents}"
-          theme="compact row-stripes no-row-borders no-border"
-          all-rows-visible
-        >
-          <vaadin-grid-column
-            header="Component Name"
-            frozen
-            resizable
-            auto-width
-            flex-grow="0"
-            .renderer="${this.componentNameRenderer}"
-          >
-          </vaadin-grid-column>
-          <vaadin-grid-sort-column
-            header="Enabled"
-            path="IsEnabled"
-            resizable
-            width="100px"
-            .renderer="${this.enabledRenderer}"
-          >
-          </vaadin-grid-sort-column>
-          ${this.environments.map(
-                    env => html`
-              <vaadin-grid-column
-                class="env-column"
-                header="${env.EnvironmentName}"
-                resizable
-                .renderer="${(root: HTMLElement, _column: GridColumn, model: GridItemModel<ComponentDeploymentInfo>) =>
-                            this.envDeploymentRenderer(root, env.EnvironmentName!, model)}"
+        ${this.selectedComponent
+          ? html`
+              <vaadin-grid
+                .items="${this.deploymentRows}"
+                theme="compact row-stripes no-row-borders"
               >
-              </vaadin-grid-column>
+                <vaadin-grid-sort-column
+                  header="Environment"
+                  path="environmentName"
+                  resizable
+                  auto-width
+                >
+                </vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  header="Build Number"
+                  path="buildNumber"
+                  resizable
+                  auto-width
+                  .renderer="${this.boundBuildNumberRenderer}"
+                >
+                </vaadin-grid-column>
+                <vaadin-grid-sort-column
+                  header="Status"
+                  path="status"
+                  resizable
+                  auto-width
+                  .renderer="${this.boundStatusRenderer}"
+                >
+                </vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  header="Date"
+                  path="updateDate"
+                  resizable
+                  auto-width
+                  .renderer="${this.boundDateRenderer}"
+                >
+                </vaadin-grid-sort-column>
+              </vaadin-grid>
             `
-                )}
-        </vaadin-grid>
+          : !this.refDataLoading && !this.environmentsLoading
+          ? html`
+              <div class="no-selection">
+                Select a component from the dropdown to view deployment information
+              </div>
+            `
+          : ''}
       </div>
       <div class="loader" ?hidden="${!this.refDataLoading && !this.environmentsLoading}"></div>
     `;
@@ -372,38 +391,58 @@ export class PageProjectComponents extends PageElement {
         });
     }
 
-    private handleComponentNameFilter(e: InputEvent) {
-        const textField = e.target as TextField;
-        this.componentNameFilter = textField.value || '';
-        this.applyFilter();
+    private handleComponentSelected(e: ComboBoxSelectedItemChangedEvent<ComponentDeploymentInfo>) {
+        this.selectedComponent = e.detail.value;
+        this.updateDeploymentRows();
     }
 
-    private applyFilter() {
-        // Build a set of all child component IDs first to exclude them from top-level processing
-        const childIds = this.collectAllChildIds(this.components);
-        const flattenedAll = this.flattenComponents(this.components, [], new Set<string>(), childIds);
-
-        if (!this.componentNameFilter) {
-            this.filteredComponents = flattenedAll;
+    private updateDeploymentRows() {
+        if (!this.selectedComponent) {
+            this.deploymentRows = [];
             return;
         }
 
-        const filters = this.componentNameFilter
-            .trim()
-            .split('|')
-            .map(filter => new RegExp(filter, 'i'));
+        const componentId = this.selectedComponent.ComponentId?.toString() || '';
 
-        this.filteredComponents = flattenedAll.filter(component =>
-            filters.some(filter => {
-                if (filter.test(component.displayName || '')) {
-                    return true;
-                }
-                if (component.parentPath) {
-                    return component.parentPath.some(parent => filter.test(parent));
-                }
-                return false;
-            })
-        );
+        this.deploymentRows = this.environments.map(env => {
+            const build = this.selectedComponent!.environmentBuilds?.get(env.EnvironmentName!);
+            
+            if (!build) {
+                return {
+                    environmentName: env.EnvironmentName || '',
+                    buildNumber: 'Not deployed',
+                    status: 'N/A',
+                    updateDate: 'N/A',
+                    build: null,
+                    componentId: componentId
+                };
+            }
+
+            const updateDate = build.UpdateDate 
+                ? new Date(build.UpdateDate).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit'
+                })
+                : 'N/A';
+
+            return {
+                environmentName: env.EnvironmentName || '',
+                buildNumber: build.RequestBuildNum || 'N/A',
+                status: build.State || 'Unknown',
+                updateDate: updateDate,
+                requestId: build.RequestId,
+                build: build,
+                componentId: componentId
+            };
+        });
+
+        this.requestUpdate('deploymentRows');
+    }
+
+    private applyFilter() {
+        const childIds = this.collectAllChildIds(this.components);
+        this.filteredComponents = this.flattenComponents(this.components, [], new Set<string>(), childIds);
     }
 
     private collectAllChildIds(components: ComponentDeploymentInfo[]): Set<string> {
@@ -486,102 +525,66 @@ export class PageProjectComponents extends PageElement {
         return result;
     }
 
-
-  private componentNameRenderer(
-    root: HTMLElement,
-    _column: any,
-    model: GridItemModel<ComponentDeploymentInfo>
-  ) {
-    const component = model.item;
-    
-    if (component.parentPath && component.parentPath.length > 0) {
-      const hierarchyPath = component.parentPath.join(' / ');
-      
-      root.innerHTML = `
-        <div class="component-name-container">
-          <span class="parent-badge">${hierarchyPath}</span>
-          <span class="component-name">${component.displayName}</span>
-        </div>
-      `;
-    } else {
-      root.innerHTML = `<span class="component-name">${component.displayName}</span>`;
-    }
-  }
-
-  private enabledRenderer(
-    root: HTMLElement,
-    _column: any,
-    model: GridItemModel<ComponentDeploymentInfo>
-  ) {
-    const enabled = model.item.IsEnabled;
-    root.innerHTML = `<span class="${enabled ? 'enabled' : 'disabled'}">${
-      enabled ? 'Yes' : 'No'
-    }</span>`;
-  }
-
-  private envDeploymentRenderer(
-    root: HTMLElement,
-    envName: string,
-    model: GridItemModel<ComponentDeploymentInfo>
-  ) {
-    const component = model.item;
-    const build = component.environmentBuilds?.get(envName);
-
-    if (!build) {
-      root.innerHTML = '<span class="no-deployment">Not deployed</span>';
-      return;
+    private buildNumberRenderer(
+        root: HTMLElement,
+        _column: GridColumn,
+        model: GridItemModel<EnvironmentDeploymentRow>
+    ) {
+        const row = model.item;
+        
+        if (row.build && row.requestId) {
+            root.innerHTML = `
+                <span class="request-link build-number" data-request-id="${row.requestId}">
+                    ${row.buildNumber}
+                </span>
+            `;
+            
+            const link = root.querySelector('.request-link');
+            if (link) {
+                link.addEventListener('click', () => {
+                    window.open(`/monitor-result/${row.requestId}`, '_blank');
+                });
+            }
+        } else if (row.buildNumber === 'Not deployed') {
+            root.innerHTML = `<span class="no-deployment">${row.buildNumber}</span>`;
+        } else {
+            root.innerHTML = `<span class="build-number">${row.buildNumber}</span>`;
+        }
     }
 
-    const statusClass = this.getStatusClass(build.State);
-    const buildNumber = build.RequestBuildNum || 'N/A';
-    const status = build.State || 'Unknown';
-    const updateDate = build.UpdateDate 
-      ? new Date(build.UpdateDate).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: '2-digit'
-        })
-      : '';
-
-    root.innerHTML = `
-      <div class="build-info">
-        <div class="build-number">
-          ${build.RequestId ? `
-            <span 
-              class="request-link" 
-              data-request-id="${build.RequestId}"
-            >
-              ${buildNumber}
-            </span>
-          ` : buildNumber}
-        </div>
-        <div class="${statusClass}">${status}</div>
-        ${updateDate ? `<div>${updateDate}</div>` : ''}
-      </div>
-    `;
-
-    const link = root.querySelector('.request-link');
-    if (link && build.RequestId) {
-      link.addEventListener('click', () => {
-        window.open(`/monitor-result/${build.RequestId}`, '_blank');
-      });
+    private dateRenderer(
+        root: HTMLElement,
+        _column: GridColumn,
+        model: GridItemModel<EnvironmentDeploymentRow>
+    ) {
+        const row = model.item;
+        root.textContent = row.updateDate;
     }
-  }
 
-  private getStatusClass(status: string | null | undefined): string {
-    if (!status) return '';
-    
-    const statusLower = status.toLowerCase();
-    if (statusLower === 'complete') return 'status-complete';
-    if (statusLower === 'failed') return 'status-failed';
-    if (statusLower === 'cancelled') return 'status-cancelled';
-    return '';
-  }
+    private statusRenderer(
+        root: HTMLElement,
+        _column: GridColumn,
+        model: GridItemModel<EnvironmentDeploymentRow>
+    ) {
+        const row = model.item;
+        const statusClass = this.getStatusClass(row.status);
+        root.innerHTML = `<span class="${statusClass}">${row.status}</span>`;
+    }
 
-  private errorAlert(err: string) {
-    const notification = new ErrorNotification();
-    notification.setAttribute('errorMessage', err);
-    this.shadowRoot?.appendChild(notification);
-    notification.open();
-  }
+    private getStatusClass(status: string | null | undefined): string {
+        if (!status) return '';
+        
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'complete') return 'status-complete';
+        if (statusLower === 'failed') return 'status-failed';
+        if (statusLower === 'cancelled') return 'status-cancelled';
+        return '';
+    }
+
+    private errorAlert(err: string) {
+        const notification = new ErrorNotification();
+        notification.setAttribute('errorMessage', err);
+        this.shadowRoot?.appendChild(notification);
+        notification.open();
+    }
 }
