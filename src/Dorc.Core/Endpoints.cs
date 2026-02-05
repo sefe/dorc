@@ -4,6 +4,9 @@
     {
         Properties,
         PropertyValues,
-        Request
+        Request,
+        ConfigValues,
+        CopyEnvBuild,
+        RefDataEnvironments
     }
 }
