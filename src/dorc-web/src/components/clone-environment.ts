@@ -14,7 +14,6 @@ import { EnvironmentApiModel } from '../apis/dorc-api';
 import { BASE_PATH } from '../apis/dorc-api/runtime';
 
 // Request interface for cloning environment
-// This will be auto-generated after running `npm run dorc-api-gen` when the API is updated
 interface CloneEnvironmentRequest {
   SourceEnvironmentId: number;
   NewEnvironmentName: string;
