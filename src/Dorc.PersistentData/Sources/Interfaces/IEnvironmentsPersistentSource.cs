@@ -38,5 +38,13 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
         void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user);
         EnvironmentApiModel MapToEnvironmentApiModel(Environment env, bool userEditable, bool isOwner);
+        
+        /// <summary>
+        /// Clones an environment including its properties/variables, server mappings, database mappings, and project mappings
+        /// </summary>
+        /// <param name="request">The clone environment request containing source environment ID and new environment name</param>
+        /// <param name="user">The user performing the clone operation</param>
+        /// <returns>The newly created cloned environment</returns>
+        EnvironmentApiModel CloneEnvironment(CloneEnvironmentRequest request, ClaimsPrincipal user);
     }
 }

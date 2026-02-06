@@ -35,6 +35,16 @@ export class EnvControls extends LitElement {
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
+        title="Clone Environment..."
+        theme="icon"
+        @click="${this.cloneEnvironment}"
+      >
+        <vaadin-icon
+          icon="vaadin:copy-o"
+          style="color: cornflowerblue"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
         title="Environment Details"
         theme="icon"
         @click="${this.openEnvironmentDetails}"
@@ -52,6 +62,17 @@ export class EnvControls extends LitElement {
       detail: {
         Name: this.envDetails?.EnvironmentName,
         Type: AccessControlType.NUMBER_1
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  cloneEnvironment() {
+    const event = new CustomEvent('clone-environment', {
+      detail: {
+        Environment: this.envDetails
       },
       bubbles: true,
       composed: true
