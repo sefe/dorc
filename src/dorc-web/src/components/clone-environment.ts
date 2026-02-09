@@ -186,7 +186,7 @@ export class CloneEnvironment extends LitElement {
               .disabled=${!this.canClone || this.isCloning}
               @click=${this._cloneEnvironment}
             >
-              Save
+              Clone
             </vaadin-button>
             ${this.isCloning ? html`<div class="small-loader"></div>` : html``}
           </div>
