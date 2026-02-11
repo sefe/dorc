@@ -1,12 +1,18 @@
 #Remove-Module DOrc.Cmdlet -Force
-Import-Module .\DOrc.Cmdlet.psm1 -Force
+Import-Module .\DOrc.Cmdlet.psd1 -Force
+
+# Optional: token auth (uncomment if needed)
+# $clientId = "dorc-cli"
+# $clientSecret = "<client-secret>"
+# $scope = "dorc-api.manage"
+# Connect-DOrcWithIdentityServer -ApiUrl $ApiUrl -ClientId $clientId -ClientSecret $clientSecret -Scope $scope
 
 $ApiUrl = "http://localhost:32194/api" 
 $Environment = "Comms Tool DV"
 $CsvFile = "m:\out.csv"
 #Import-DOrcProperties -CsvFile M:\props.csv -ApiUrl $ApiUrl
 #Import-DOrcProperties  -ApiUrl $ApiUrl -CsvFile M:\elasticDorcProperties.csv
-Import-DOrcProperties  -ApiUrl http://depapp02dv:8080/api -CsvFile M:\elasticDorcProperties.csv
+#Import-DOrcProperties  -ApiUrl http://depapp02dv:8080/api -CsvFile M:\elasticDorcProperties.csv
 #Export-DOrcProperties -Environment $Environment  -CsvFile $CsvFile -ApiUrl $ApiUrl
 #Invoke-Pester .\DOrc.Cmdlet.tests.ps1
 # $s = New-PSSession 
