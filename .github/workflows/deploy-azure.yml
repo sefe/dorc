@@ -1,0 +1,152 @@
+name: Deploy to Azure Demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  ACR_NAME: dorcdemoacr
+  ACR_LOGIN_SERVER: dorcdemoacr.azurecr.io
+  RESOURCE_GROUP: rg-dorc-demo
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push dorc-api
+        run: |
+          docker build -f Dockerfile.api -t ${{ env.ACR_LOGIN_SERVER }}/dorc-api:${{ steps.meta.outputs.sha }} .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/dorc-api:${{ steps.meta.outputs.sha }}
+
+      - name: Build and push dorc-monitor
+        run: |
+          docker build -f Dockerfile.monitor -t ${{ env.ACR_LOGIN_SERVER }}/dorc-monitor:${{ steps.meta.outputs.sha }} .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/dorc-monitor:${{ steps.meta.outputs.sha }}
+
+      - name: Build and push dorc-runner
+        run: |
+          docker build -f Dockerfile.runner -t ${{ env.ACR_LOGIN_SERVER }}/dorc-runner:${{ steps.meta.outputs.sha }} .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/dorc-runner:${{ steps.meta.outputs.sha }}
+
+  deploy-database:
+    name: Deploy Database
+    needs: build-and-push
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build dacpac
+        run: msbuild src/Dorc.Database/Dorc.Database.sqlproj /p:Configuration=Release
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Add GitHub runner IP to SQL firewall
+        id: firewall
+        run: |
+          $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+          az sql server firewall-rule create `
+            --resource-group ${{ env.RESOURCE_GROUP }} `
+            --server sql-dorc-demo `
+            --name github-actions-temp `
+            --start-ip-address $ip `
+            --end-ip-address $ip
+          echo "runner_ip=$ip" >> $env:GITHUB_OUTPUT
+
+      - name: Deploy dacpac
+        run: |
+          sqlpackage /Action:Publish `
+            /SourceFile:src/Dorc.Database/bin/Release/Dorc.Database.dacpac `
+            /TargetConnectionString:"${{ secrets.SQL_CONNECTION_STRING }}" `
+            /p:BlockOnPossibleDataLoss=false
+
+      - name: Remove GitHub runner IP from SQL firewall
+        if: always()
+        run: |
+          az sql server firewall-rule delete `
+            --resource-group ${{ env.RESOURCE_GROUP }} `
+            --server sql-dorc-demo `
+            --name github-actions-temp `
+            --yes
+
+  deploy-apps:
+    name: Deploy Container Apps
+    needs: [build-and-push, deploy-database]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy dorc-api
+        run: |
+          az containerapp update \
+            --name ca-dorc-demo-api \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/dorc-api:${{ needs.build-and-push.outputs.image_tag }}
+
+      - name: Deploy dorc-monitor
+        run: |
+          az containerapp update \
+            --name ca-dorc-demo-monitor \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/dorc-monitor:${{ needs.build-and-push.outputs.image_tag }}
+
+      - name: Update runner job image
+        run: |
+          az containerapp job update \
+            --name caj-dorc-demo-runner \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/dorc-runner:${{ needs.build-and-push.outputs.image_tag }}
+
+      - name: Verify API health
+        run: |
+          API_FQDN=$(az containerapp show \
+            --name ca-dorc-demo-api \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "API URL: https://$API_FQDN"
+          # Wait for the new revision to become active
+          sleep 30
+          curl -sf "https://$API_FQDN/healthz" || echo "Warning: Health check did not pass (SQL may be auto-paused)"
