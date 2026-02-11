@@ -76,3 +76,5 @@ export * from './AnalyticsUserActivityApiModel';
 export * from './AnalyticsTimePatternApiModel';
 export * from './AnalyticsComponentUsageApiModel';
 export * from './AnalyticsDurationApiModel';
+export * from './DeploymentRequestAttemptApiModel';
+export * from './DeploymentResultAttemptApiModel';
