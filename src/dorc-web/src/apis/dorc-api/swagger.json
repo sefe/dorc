@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.1",
+  "openapi": "3.0.4",
   "info": {
     "title": "Dorc.Api",
     "version": "1.0"
@@ -2957,10 +2957,45 @@
                 "schema": {
                   "$ref": "#/components/schemas/ApiBoolResult"
                 }
-              },
-              "text/json": {
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -4705,7 +4740,54 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -6230,6 +6312,50 @@
         }
       }
     },
+    "/Request/{requestId}/attempts": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestAttemptApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestAttemptApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/Request/cancel": {
       "put": {
         "tags": [
@@ -6645,6 +6771,96 @@
           }
         }
       }
+    },
+    "/Terraform/plan/{deploymentResultId}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformPlanApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformPlanApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/confirm": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/decline": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6682,11 +6898,10 @@
       },
       "AccessControlType": {
         "enum": [
-          0,
-          1
+          "Project",
+          "Environment"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "AccessSecureApiModel": {
         "type": "object",
@@ -6717,13 +6932,12 @@
       },
       "AccountGranularity": {
         "enum": [
-          0,
-          1,
-          2,
-          -1
+          "UsersAndGroups",
+          "Users",
+          "Groups",
+          "NotSet"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "AnalyticsComponentUsageApiModel": {
         "type": "object",
@@ -6978,10 +7192,23 @@
             "format": "int32"
           },
           "IsEnabled": {
-            "type": "boolean",
-            "nullable": true
+            "type": "boolean"
           },
           "PSVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentType": {
+            "$ref": "#/components/schemas/ComponentType"
+          },
+          "TerraformSourceType": {
+            "$ref": "#/components/schemas/TerraformSourceType"
+          },
+          "TerraformGitBranch": {
+            "type": "string",
+            "nullable": true
+          },
+          "TerraformSubPath": {
             "type": "string",
             "nullable": true
           }
@@ -7003,6 +7230,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "ComponentType": {
+        "enum": [
+          "PowerShell",
+          "Terraform"
+        ],
+        "type": "string"
       },
       "ConfigValueApiModel": {
         "type": "object",
@@ -7152,8 +7386,7 @@
             "nullable": true
           },
           "IsEnabled": {
-            "type": "boolean",
-            "nullable": true
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -7233,6 +7466,53 @@
         },
         "additionalProperties": false
       },
+      "DeploymentRequestAttemptApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DeploymentRequestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AttemptNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "Log": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentResultAttemptApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DeploymentRequestIds": {
         "type": "object",
         "additionalProperties": false
@@ -7272,6 +7552,46 @@
           "CompletedTime": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentResultAttemptApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DeploymentRequestAttemptId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "Log": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -7952,6 +8272,10 @@
             "type": "string",
             "nullable": true
           },
+          "TerraformGitRepoUrl": {
+            "type": "string",
+            "nullable": true
+          },
           "SourceDatabase": {
             "$ref": "#/components/schemas/DatabaseApiModel"
           }
@@ -8457,15 +8781,48 @@
         },
         "additionalProperties": false
       },
+      "TerraformPlanApiModel": {
+        "type": "object",
+        "properties": {
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PlanContent": {
+            "type": "string",
+            "nullable": true
+          },
+          "BlobUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "CreatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformSourceType": {
+        "enum": [
+          "SharedFolder",
+          "Git",
+          "AzureArtifact"
+        ],
+        "type": "string"
+      },
       "UserAccountType": {
         "enum": [
-          0,
-          1,
-          2,
-          -1
+          "Windows",
+          "Endur",
+          "Sql",
+          "NotSet"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "UserApiModel": {
         "type": "object",
@@ -8605,6 +8962,27 @@
         },
         "additionalProperties": false
       }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://identityserver:5200/connect/authorize",
+            "tokenUrl": "https://identityserver:5200/connect/token",
+            "scopes": {
+              "dorc-api-np.manage": "Access to DORC API"
+            }
+          }
+        }
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "oauth2": [
+        "dorc-api-np.manage"
+      ]
+    }
+  ]
 }

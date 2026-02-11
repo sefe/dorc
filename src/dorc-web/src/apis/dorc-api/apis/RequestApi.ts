@@ -13,11 +13,12 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import { BaseAPI } from '../runtime';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     DeployArtefactDto,
     DeployComponentDto,
+    DeploymentRequestAttemptApiModel,
     RequestDto,
     RequestStatusDto,
 } from '../models';
@@ -49,6 +50,10 @@ export interface RequestPostRequest {
     requestDto?: RequestDto;
 }
 
+export interface RequestRequestIdAttemptsGetRequest {
+    requestId: number;
+}
+
 export interface RequestRestartPostRequest {
     requestId?: number;
 }
@@ -64,6 +69,16 @@ export class RequestApi extends BaseAPI {
     requestBuildDefinitionsGet({ projectId }: RequestBuildDefinitionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DeployArtefactDto>>>
     requestBuildDefinitionsGet({ projectId }: RequestBuildDefinitionsGetRequest, opts?: OperationOpts): Observable<Array<DeployArtefactDto> | AjaxResponse<Array<DeployArtefactDto>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (projectId != null) { query['projectId'] = projectId; }
@@ -71,6 +86,7 @@ export class RequestApi extends BaseAPI {
         return this.request<Array<DeployArtefactDto>>({
             url: '/Request/BuildDefinitions',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -81,6 +97,16 @@ export class RequestApi extends BaseAPI {
     requestBuildsGet({ projectId, environment, buildDefinitionName }: RequestBuildsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DeployArtefactDto>>>
     requestBuildsGet({ projectId, environment, buildDefinitionName }: RequestBuildsGetRequest, opts?: OperationOpts): Observable<Array<DeployArtefactDto> | AjaxResponse<Array<DeployArtefactDto>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (projectId != null) { query['projectId'] = projectId; }
@@ -90,6 +116,7 @@ export class RequestApi extends BaseAPI {
         return this.request<Array<DeployArtefactDto>>({
             url: '/Request/Builds',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -100,6 +127,16 @@ export class RequestApi extends BaseAPI {
     requestCancelPut({ requestId }: RequestCancelPutRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
     requestCancelPut({ requestId }: RequestCancelPutRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
@@ -107,6 +144,7 @@ export class RequestApi extends BaseAPI {
         return this.request<RequestStatusDto>({
             url: '/Request/cancel',
             method: 'PUT',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -117,6 +155,16 @@ export class RequestApi extends BaseAPI {
     requestComponentsGet({ projectId, parentId }: RequestComponentsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DeployComponentDto>>>
     requestComponentsGet({ projectId, parentId }: RequestComponentsGetRequest, opts?: OperationOpts): Observable<Array<DeployComponentDto> | AjaxResponse<Array<DeployComponentDto>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (projectId != null) { query['projectId'] = projectId; }
@@ -125,6 +173,7 @@ export class RequestApi extends BaseAPI {
         return this.request<Array<DeployComponentDto>>({
             url: '/Request/Components',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -135,6 +184,16 @@ export class RequestApi extends BaseAPI {
     requestGet({ id }: RequestGetRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
     requestGet({ id }: RequestGetRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -142,6 +201,7 @@ export class RequestApi extends BaseAPI {
         return this.request<RequestStatusDto>({
             url: '/Request',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -154,6 +214,13 @@ export class RequestApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<RequestStatusDto>({
@@ -166,9 +233,43 @@ export class RequestApi extends BaseAPI {
 
     /**
      */
+    requestRequestIdAttemptsGet({ requestId }: RequestRequestIdAttemptsGetRequest): Observable<Array<DeploymentRequestAttemptApiModel>>
+    requestRequestIdAttemptsGet({ requestId }: RequestRequestIdAttemptsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DeploymentRequestAttemptApiModel>>>
+    requestRequestIdAttemptsGet({ requestId }: RequestRequestIdAttemptsGetRequest, opts?: OperationOpts): Observable<Array<DeploymentRequestAttemptApiModel> | AjaxResponse<Array<DeploymentRequestAttemptApiModel>>> {
+        throwIfNullOrUndefined(requestId, 'requestId', 'requestRequestIdAttemptsGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<DeploymentRequestAttemptApiModel>>({
+            url: '/Request/{requestId}/attempts'.replace('{requestId}', encodeURI(requestId)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     requestRestartPost({ requestId }: RequestRestartPostRequest): Observable<RequestStatusDto>
     requestRestartPost({ requestId }: RequestRestartPostRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
     requestRestartPost({ requestId }: RequestRestartPostRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
         const query: HttpQuery = {};
 
@@ -177,6 +278,7 @@ export class RequestApi extends BaseAPI {
         return this.request<RequestStatusDto>({
             url: '/Request/restart',
             method: 'POST',
+            headers,
             query,
         }, opts?.responseOpts);
     };

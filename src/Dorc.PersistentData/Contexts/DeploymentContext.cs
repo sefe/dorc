@@ -68,6 +68,8 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Server> Servers { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
+        public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -161,6 +163,8 @@ namespace Dorc.PersistentData.Contexts
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
             new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
+            new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());
+            new DeploymentResultAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResultAttempt>());
         }
 
         public new DbSet<TEntity> Set<TEntity>() where TEntity : class => base.Set<TEntity>();

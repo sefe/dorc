@@ -12,10 +12,13 @@ import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/component-deployment-results';
+import '../components/component-previous-attempts';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
 import {
+  DeploymentRequestAttemptApiModel,
   DeploymentResultApiModel,
+  RequestApi,
   RequestStatusesApi,
   ResultStatusesApi
 } from '../apis/dorc-api';
@@ -44,6 +47,9 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
 
+  @property({ type: Array })
+  attemptItems: DeploymentRequestAttemptApiModel[] | undefined;
+
   @property({ type: Number })
   requestId = 0;
 
@@ -54,6 +60,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
+  @property({ type: Boolean }) attemptsLoading = true;
   @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
   
   private hubConnection: HubConnection | undefined;
@@ -235,6 +242,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
 
     this.refreshResultItems();
+    this.refreshAttemptItems();
   }
 
   refreshResultItems = () => {
@@ -254,6 +262,25 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.resultsLoading = false;
       }
     });    
+  }
+
+  refreshAttemptItems = () => {
+    this.attemptsLoading = true;
+
+    const api = new RequestApi();
+    api.requestRequestIdAttemptsGet({ requestId: this.requestId }).subscribe({
+      next: (data: Array<DeploymentRequestAttemptApiModel>) => {
+        this.attemptItems = data;
+      },
+      error: (err: any) => {
+        console.error('Failed to load attempts:', err);
+        this.attemptItems = [];
+      },
+      complete: () => {
+        console.log('done loading attempts');
+        this.attemptsLoading = false;
+      }
+    });
   }
 
   private async initializeSignalR() {
@@ -345,13 +372,25 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
               .selectedProject="${this.selectedProject}"
               .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
+            ${!this.attemptsLoading && this.attemptItems && this.attemptItems.length > 0
+              ? html`
+                  <vaadin-details
+                    summary="Previous Attempts (${this.attemptItems.length})"
+                    style="border-top: 6px solid orange; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
+                  >
+                    <component-previous-attempts
+                      .attemptItems="${this.attemptItems}"
+                    ></component-previous-attempts>
+                  </vaadin-details>
+                `
+              : html``}
             ${this.resultsLoading
               ? html` <div class="small-loader"></div>`
               : html`
                   <vaadin-details
                     opened
                     summary="Deployment Component Results"
-                    style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+                    style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
                   >
                     <component-deployment-results
                       .resultItems="${this.resultItems}"

@@ -29,6 +29,8 @@ namespace Dorc.PersistentData.Model
 
         public ICollection<DeploymentRequestProcess>? DeploymentRequestProcesses { get; set; }
 
+        public ICollection<DeploymentRequestAttempt>? DeploymentRequestAttempts { get; set; }
+
         public string? Log { get; set; }
 
         public string? Project { get; set; }

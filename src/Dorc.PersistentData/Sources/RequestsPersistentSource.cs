@@ -476,6 +476,108 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void ArchiveCurrentAttempt(int requestId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var request = context.DeploymentRequests.FirstOrDefault(r => r.Id == requestId);
+                if (request == null)
+                    return;
+
+                // Calculate attempt number within the same context to avoid entity tracking issues
+                var maxAttempt = context.DeploymentRequestAttempts
+                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .Select(a => (int?)a.AttemptNumber)
+                    .Max();
+                var attemptNumber = (maxAttempt ?? 0) + 1;
+
+                var attempt = new DeploymentRequestAttempt
+                {
+                    DeploymentRequest = request,
+                    AttemptNumber = attemptNumber,
+                    StartedTime = request.StartedTime,
+                    CompletedTime = request.CompletedTime,
+                    Status = request.Status,
+                    Log = request.Log,
+                    UserName = request.UserName
+                };
+
+                context.DeploymentRequestAttempts.Add(attempt);
+                context.SaveChanges();
+
+                // Archive the component results for this attempt
+                var componentResults = context.DeploymentResults
+                    .Include(r => r.Component)
+                    .Where(r => r.DeploymentRequest.Id == requestId)
+                    .ToList();
+
+                foreach (var result in componentResults)
+                {
+                    var resultAttempt = new DeploymentResultAttempt
+                    {
+                        DeploymentRequestAttempt = attempt,
+                        ComponentId = result.Component.Id,
+                        ComponentName = result.Component.Name,
+                        StartedTime = result.StartedTime,
+                        CompletedTime = result.CompletedTime,
+                        Status = result.Status ?? "Unknown",
+                        Log = result.Log
+                    };
+                    context.DeploymentResultAttempts.Add(resultAttempt);
+                }
+
+                context.SaveChanges();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestAttemptApiModel> GetAttemptsForRequest(int requestId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequestAttempts
+                    .AsNoTracking()
+                    .Include(a => a.DeploymentResultAttempts)
+                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .OrderBy(a => a.AttemptNumber)
+                    .Select(a => new DeploymentRequestAttemptApiModel
+                    {
+                        Id = a.Id,
+                        DeploymentRequestId = requestId,
+                        AttemptNumber = a.AttemptNumber,
+                        StartedTime = a.StartedTime,
+                        CompletedTime = a.CompletedTime,
+                        Status = a.Status,
+                        Log = a.Log,
+                        UserName = a.UserName,
+                        ComponentResults = a.DeploymentResultAttempts.Select(r => new DeploymentResultAttemptApiModel
+                        {
+                            Id = r.Id,
+                            DeploymentRequestAttemptId = a.Id,
+                            ComponentId = r.ComponentId,
+                            ComponentName = r.ComponentName,
+                            StartedTime = r.StartedTime,
+                            CompletedTime = r.CompletedTime,
+                            Status = r.Status,
+                            Log = r.Log
+                        }).ToList()
+                    })
+                    .ToList();
+            }
+        }
+
+        public int GetNextAttemptNumber(int requestId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var maxAttempt = context.DeploymentRequestAttempts
+                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .Select(a => (int?)a.AttemptNumber)
+                    .Max();
+
+                return (maxAttempt ?? 0) + 1;
+            }
+        }
+
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
         {
             DeploymentResultStatus status;

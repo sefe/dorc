@@ -370,6 +370,8 @@
     <Build Include="deploy\Tables\AnalyticsTimePattern.sql" />
     <Build Include="deploy\Tables\AnalyticsUserActivity.sql" />
     <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
+    <Build Include="DeploymentRequestAttempt.table.sql" />
+    <Build Include="DeploymentResultAttempt.table.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">

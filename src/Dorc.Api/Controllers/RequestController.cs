@@ -210,11 +210,22 @@ namespace Dorc.Api.Controllers
                 }
 
                 if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
-                    || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
+                    && deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
+                {
+                    try
+                    {
+                        _requestsPersistentSource.ArchiveCurrentAttempt(requestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.LogWarning(ex, "Failed to archive attempt for request {RequestId} before restart", requestId);
+                    }
+
                     _requestsPersistentSource.UpdateRequestStatus(
                         requestId,
                         DeploymentRequestStatus.Restarting,
                         username);
+                }
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
@@ -228,6 +239,36 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/restart");
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Gets all attempts for a deployment request
+        /// </summary>
+        /// <param name="requestId"></param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DeploymentRequestAttemptApiModel>))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [Route("{requestId}/attempts")]
+        [HttpGet]
+        public IActionResult GetAttempts(int requestId)
+        {
+            try
+            {
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
+
+                var attempts = _requestsPersistentSource.GetAttemptsForRequest(requestId);
+                return Ok(attempts);
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/{requestId}/attempts");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
