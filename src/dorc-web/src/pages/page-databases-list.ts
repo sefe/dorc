@@ -37,7 +37,6 @@ import { RefDataDatabasesApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { AttachedDatabases } from '../components/attached-databases';
 import '../components/grid-button-groups/database-controls';
-import '@vaadin/vaadin-lumo-styles/typography.js';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 

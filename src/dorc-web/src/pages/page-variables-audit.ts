@@ -1,17 +1,17 @@
 import '@polymer/paper-dialog';
 import '@vaadin/button';
 import {
+  GridCellPartNameGenerator,
   GridDataProviderCallback,
   GridDataProviderParams,
-  GridFilterDefinition,
   GridItemModel,
   GridSorterDefinition
 } from '@vaadin/grid';
 import '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import '@vaadin/grid/vaadin-grid-filter';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/grid/vaadin-grid-sorter';
+import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
@@ -37,7 +37,13 @@ export class PageVariablesAudit extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
-  @property() nameFilterValue = '';
+  private nameFilterValue = '';
+
+  private environmentFilterValue = '';
+
+  private userFilterValue = '';
+
+  private valueFilterValue = '';
 
   @property({ type: Boolean }) loading = true;
 
@@ -51,6 +57,12 @@ export class PageVariablesAudit extends PageElement {
         overflow: hidden;
         height: calc(100vh - 96px);
         --divider-color: rgb(223, 232, 239);
+      }
+      vaadin-grid#grid::part(insert-type) {
+        background-color: #b1ffb7;
+      }
+      vaadin-grid#grid::part(delete-type) {
+        background-color: #ffd9d9;
       }
       .overlay {
         width: 100%;
@@ -120,7 +132,7 @@ export class PageVariablesAudit extends PageElement {
         multi-sort
         theme="compact row-stripes no-row-borders no-border"
         .dataProvider="${this.getPropertyValuesAudit}"
-        .cellClassNameGenerator="${this.cellClassNameGenerator}"
+        .cellPartNameGenerator="${this.cellPartNameGenerator}"
         style="width: 100%; z-index: 1"
         ?hidden="${this.loading}"
       >
@@ -215,22 +227,22 @@ export class PageVariablesAudit extends PageElement {
     render(html` <span>${`${sDate} ${sTime}`}</span> `, root);
   }
 
-  private cellClassNameGenerator(
-    _: GridColumn,
-    model: GridItemModel<PropertyValueAuditApiModel>
-  ) {
+  private cellPartNameGenerator: GridCellPartNameGenerator<PropertyValueAuditApiModel> = (
+    _column,
+    model
+  ) => {
     const { item } = model;
-    let classes = '';
+    let parts = '';
 
     if (item.Type === 'Insert') {
-      classes += ' insert-type';
+      parts += ' insert-type';
     }
 
     if (item.Type === 'Delete') {
-      classes += ' delete-type';
+      parts += ' delete-type';
     }
-    return classes;
-  }
+    return parts;
+  };
 
   valueRenderer(
     root: HTMLElement,
@@ -292,202 +304,150 @@ export class PageVariablesAudit extends PageElement {
     }
   }
 
-  nameHeaderRenderer(root: HTMLElement) {
+  nameHeaderRenderer = (root: HTMLElement) => {
     render(
-      html`<vaadin-grid-sorter path="PropertyName">Name</vaadin-grid-sorter>
-        <vaadin-grid-filter path="PropertyName">
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="PropertyName"></vaadin-grid-sorter>
           <vaadin-text-field
+            placeholder="Name"
             clear-button-visible
-            slot="filter"
             focus-target
-            style="width: 100%"
+            style="width: 100px"
             theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.nameFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+        </vaadin-horizontal-layout>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: CustomEvent) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-audit-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-  environmentHeaderRenderer(root: HTMLElement) {
+  environmentHeaderRenderer = (root: HTMLElement) => {
     render(
-      html`<vaadin-grid-sorter path="EnvironmentName"
-          >Environment</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="EnvironmentName">
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="EnvironmentName"></vaadin-grid-sorter>
           <vaadin-text-field
+            placeholder="Environment"
             clear-button-visible
-            slot="filter"
             focus-target
-            style="width: 100%"
+            style="width: 100px"
             theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.environmentFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+        </vaadin-horizontal-layout>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: CustomEvent) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-audit-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-  userHeaderRenderer(root: HTMLElement) {
+  userHeaderRenderer = (root: HTMLElement) => {
     render(
-      html`<vaadin-grid-sorter path="UpdatedBy">User</vaadin-grid-sorter>
-        <vaadin-grid-filter path="UpdatedBy">
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
           <vaadin-text-field
+            placeholder="User"
             clear-button-visible
-            slot="filter"
             focus-target
-            style="width: 100%"
+            style="width: 100px"
             theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.userFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+        </vaadin-horizontal-layout>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: CustomEvent) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-audit-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-valueHeaderRenderer = (root: HTMLElement) => {
-  const labelText = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-  
-  render(
-    html`Value
-    <div>
-      <vaadin-grid-filter path="Value">
-        <vaadin-text-field
-          clear-button-visible
-          slot="filter"
-          focus-target
-          style="width: 100%"
-          theme="small"
-        ></vaadin-text-field>
-      </vaadin-grid-filter>
-      <vaadin-checkbox
-        id="filter-checkbox"
-        .checked="${!this.useAndFilter}"
-        .label="${labelText}"
-        title="Toggle between AND/OR filter logic"
-        style="--vaadin-checkbox-size: 14px;"
-        @change="${(e: Event) => {
-          this.useAndFilter = !(e.target as HTMLInputElement).checked;
-          const checkbox = root.querySelector('#filter-checkbox') as any;
-          if (checkbox) {
-            checkbox.label = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-          }
-          this.shadowRoot?.querySelector('vaadin-grid')?.clearCache();
-          this.dispatchEvent(
-            new CustomEvent('searching-audit-started', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            })
-          );
-        }}"
-      >
-      </vaadin-checkbox>
-    </div>`,
-    root
-  );
+  valueHeaderRenderer = (root: HTMLElement) => {
+    const labelText = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
 
-  const filter: GridFilter = root.querySelector(
-    'vaadin-grid-filter'
-  ) as GridFilter;
-  root
-    .querySelector('vaadin-text-field')!
-    .addEventListener('value-changed', (e: CustomEvent) => {
-      filter.value = e.detail.value;
-      this.dispatchEvent(
-        new CustomEvent('searching-audit-started', {
-          detail: {},
-          bubbles: true,
-          composed: true
-        })
-      );
-    });
-};
+    render(
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-text-field
+            placeholder="Value"
+            clear-button-visible
+            focus-target
+            style="width: 100px"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.valueFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
+          ></vaadin-text-field>
+          <vaadin-checkbox
+            id="filter-checkbox"
+            .checked="${!this.useAndFilter}"
+            .label="${labelText}"
+            title="Toggle between AND/OR filter logic"
+            style="--vaadin-checkbox-size: 14px;"
+            @change="${(e: Event) => {
+              this.useAndFilter = !(e.target as HTMLInputElement).checked;
+              const checkbox = root.querySelector('#filter-checkbox') as any;
+              if (checkbox) {
+                checkbox.label = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
+              }
+              this.refreshGrid();
+            }}"
+          ></vaadin-checkbox>
+        </vaadin-horizontal-layout>
+      `,
+      root
+    );
+  }
 
-getPropertyValuesAudit = (
+  private refreshGrid() {
+    this.dispatchEvent(
+      new CustomEvent('searching-audit-started', {
+        detail: {},
+        bubbles: true,
+        composed: true
+      })
+    );
+    this.shadowRoot?.querySelector('vaadin-grid')?.clearCache();
+  }
+
+  getPropertyValuesAudit = (
     params: GridDataProviderParams<PropertyValueAuditApiModel>,
     callback: GridDataProviderCallback<PropertyValueAuditApiModel>,
   ) => {
-    const valueIdx = params.filters.findIndex(
-      filter => filter.path === 'Value'
-    );
+    const filters: PagedDataFilter[] = [];
 
-    if (valueIdx !== -1) {
-      const auditToFromValue = params.filters[valueIdx].value;
-      params.filters.splice(valueIdx, 1);
-      if (auditToFromValue !== '') {
-        params.filters.push({ path: 'ToValue', value: auditToFromValue });
-        params.filters.push({ path: 'FromValue', value: auditToFromValue });
-      }
+    if (this.nameFilterValue) {
+      filters.push({ Path: 'PropertyName', FilterValue: this.nameFilterValue });
     }
-
-    const pathNames = ['PropertyName', 'EnvironmentName', 'UpdatedBy'];
-    pathNames.forEach(x => {
-      const idIdx = params.filters.findIndex(filter => filter.path === x);
-      if (idIdx !== -1) {
-        const idValue = params.filters[idIdx].value;
-        params.filters.splice(idIdx, 1);
-        if (idValue !== '') {
-          params.filters.push({ path: x, value: idValue });
-        }
-      }
-    });
+    if (this.environmentFilterValue) {
+      filters.push({ Path: 'EnvironmentName', FilterValue: this.environmentFilterValue });
+    }
+    if (this.userFilterValue) {
+      filters.push({ Path: 'UpdatedBy', FilterValue: this.userFilterValue });
+    }
+    if (this.valueFilterValue) {
+      filters.push({ Path: 'ToValue', FilterValue: this.valueFilterValue });
+      filters.push({ Path: 'FromValue', FilterValue: this.valueFilterValue });
+    }
 
     const api = new PropertyValuesAuditApi();
     api
       .propertyValuesAuditPut({
         pagedDataOperators: {
-          Filters: params.filters.map(
-            (f: GridFilterDefinition): PagedDataFilter => ({
-              Path: f.path,
-              FilterValue: f.value,
-            })
-          ),
+          Filters: filters,
           SortOrders: params.sortOrders.map(
             (s: GridSorterDefinition): PagedDataSorting => ({
               Path: s.path,

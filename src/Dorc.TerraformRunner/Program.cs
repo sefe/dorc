@@ -5,17 +5,17 @@ using System.Threading;
 using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.Runner.Logger;
-using Dorc.TerraformmRunner.Pipes;
+using Dorc.TerraformRunner.Pipes;
 using Dorc.TerraformRunner;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     internal class Program
     {
         private static Options options;
-        private static ILogger contextLogger;
+        private static IRunnerLogger runnerLogger;
 
         static Program()
         {
@@ -31,6 +31,8 @@ namespace Dorc.TerraformmRunner
 
         private static async Task Main(string[] args)
         {
+            bool result = false;
+
             try
             {
 #if LoggingForDebugging
@@ -67,61 +69,56 @@ namespace Dorc.TerraformmRunner
                     .AddJsonFile("loggerSettings.json", optional: false)
                     .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
+                runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
-                contextLogger = runnerLogger.FileLogger;
+                var fileLogger = runnerLogger.FileLogger;
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
                 var dorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                contextLogger.LogInformation($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
+                fileLogger.LogInformation($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    contextLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
+                    fileLogger.LogInformation("Runner process is started on behalf of the user: {0}", owner);
                 }
 
                 var idx = 0;
                 foreach (var s in args)
                 {
-                    contextLogger.LogInformation("args[{0}]: {1}", idx++, s);
+                    fileLogger.LogInformation("args[{0}]: {1}", idx++, s);
                 }
 
                 Debug.Assert(arguments != null);
 
-                try
+                IScriptGroupPipeClient scriptGroupReader;
+
+                if (options.UseFile)
                 {
-                    IScriptGroupPipeClient scriptGroupReader;
-
-                    if (options.UseFile)
-                    {
-                        contextLogger.LogDebug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(contextLogger);
-                    }
-                    else
-                        scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
-
-                    var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
-
-                    switch (options.TerrafromRunnerOperation)
-                    {
-                        case TerrafromRunnerOperations.CreatePlan:
-                            await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
-                            break;
-                        case TerrafromRunnerOperations.ApplyPlan:
-                            await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.ScriptPath, options.PlanFilePath, CancellationToken.None);
-                            break;
-                    }
+                    fileLogger.LogDebug("Using file instead of pipes");
+                    scriptGroupReader = new ScriptGroupFileReader(fileLogger);
                 }
-                catch (Exception ex)
+                else
+                    scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
+
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
+                switch (options.TerrafromRunnerOperation)
                 {
-                    contextLogger?.LogError(ex, $"Exception occured {ex.Message}");
-                    Exit(-1);
+                    case TerrafromRunnerOperations.CreatePlan:
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
+                        break;
+                    case TerrafromRunnerOperations.ApplyPlan:
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
+                        break;
                 }
-                Exit(0);
+            }
+            catch (Exception ex)
+            {
+                runnerLogger?.Error(ex, $"Exception occured {ex.Message}");
+                Exit(-1);
             }
             finally
             {
-                FinalizeProgram();
+                Exit(result ? 0 : 1);
             }
         }
 
@@ -129,13 +126,14 @@ namespace Dorc.TerraformmRunner
         {
             Thread.Sleep(10000);
 
-            contextLogger?.LogInformation(RunnerConstants.StandardStreamEndString);
+            runnerLogger?.FileLogger.LogInformation(RunnerConstants.StandardStreamEndString);
+            runnerLogger?.FlushLogMessages();
         }
 
         static void Exit(int exitCode)
         {
             FinalizeProgram();
-            contextLogger?.LogInformation("Program Exiting with code {0}", exitCode);
+            runnerLogger?.FileLogger.LogInformation("Program Exiting with code {0}", exitCode);
             Environment.Exit(exitCode);
         }
 

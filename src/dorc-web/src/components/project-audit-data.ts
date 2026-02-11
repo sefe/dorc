@@ -10,6 +10,7 @@ import { HegsDialog } from './hegs-dialog';
 import '@vaadin/button';
 import {
   Grid,
+  GridCellPartNameGenerator,
   GridDataProviderCallback,
   GridDataProviderParams,
   GridFilterDefinition,
@@ -65,6 +66,12 @@ export class ProjectAuditData extends LitElement {
         height: calc(100vh - 225px);
         width: calc(100vw - 400px);
         --divider-color: rgb(223, 232, 239);
+      }
+      vaadin-grid#grid::part(insert-type) {
+        background-color: #b1ffb7;
+      }
+      vaadin-grid#grid::part(delete-type) {
+        background-color: #ffd9d9;
       }
 
       .overlay {
@@ -129,7 +136,7 @@ export class ProjectAuditData extends LitElement {
           multi-sort
           theme="compact row-stripes no-row-borders no-border"
           .dataProvider="${this.getProjectValuesAudit}"
-          .cellClassNameGenerator="${this.cellClassNameGenerator}"
+          .cellPartNameGenerator="${this.cellPartNameGenerator}"
           style="z-index: 1"
           ?hidden="${this.loading}"
         >
@@ -185,22 +192,22 @@ export class ProjectAuditData extends LitElement {
   }
   
 
-  private cellClassNameGenerator(
-    _: GridColumn,
-    model: GridItemModel<RefDataAuditApiModel>
-  ) {
+  private cellPartNameGenerator: GridCellPartNameGenerator<RefDataAuditApiModel> = (
+    _column,
+    model
+  ) => {
     const { item } = model;
-    let classes = '';
+    let parts = '';
 
     if (item.Action === 'Create') {
-      classes += ' insert-type';
+      parts += ' insert-type';
     }
 
     if (item.Action === 'Delete') {
-      classes += ' delete-type';
+      parts += ' delete-type';
     }
-    return classes;
-  }
+    return parts;
+  };
 
   userHeaderRenderer(root: HTMLElement) {
     render(

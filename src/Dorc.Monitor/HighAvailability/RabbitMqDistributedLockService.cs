@@ -12,7 +12,7 @@ namespace Dorc.Monitor.HighAvailability
     /// Supports RabbitMQ clusters with automatic failover and ensures only one monitor instance processes deployments per environment.
     /// Uses OAuth 2.0 client credentials flow with automatic token refresh via official RabbitMQ.Client.OAuth2 package.
     /// </summary>
-    public class RabbitMqDistributedLockService : IDistributedLockService, IDisposable
+    public class RabbitMqDistributedLockService : IDistributedLockService, IAsyncDisposable, IDisposable
     {
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
@@ -23,6 +23,10 @@ namespace Dorc.Monitor.HighAvailability
         private HttpClientHandler? httpClientHandler;
         private OAuth2ClientCredentialsProvider? credentialsProvider;
         private bool disposed = false;
+        private Timer? tokenRefreshTimer;
+        private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
+        private DateTime? tokenExpiryTimeUtc; // Tracks when the current OAuth token expires
+        private static readonly TimeSpan TokenRefreshThreshold = TimeSpan.FromMinutes(5); // Refresh token 5 minutes before expiry
 
         public RabbitMqDistributedLockService(
             ILogger<RabbitMqDistributedLockService> logger,
@@ -34,6 +38,45 @@ namespace Dorc.Monitor.HighAvailability
 
         public bool IsEnabled => configuration.HighAvailabilityEnabled;
 
+        /// <summary>
+        /// Checks if the OAuth token is expiring soon (within the refresh threshold).
+        /// </summary>
+        private bool IsTokenExpiringSoon()
+        {
+            if (!tokenExpiryTimeUtc.HasValue)
+                return false;
+
+            var timeUntilExpiry = tokenExpiryTimeUtc.Value - DateTime.UtcNow;
+            return timeUntilExpiry <= TokenRefreshThreshold;
+        }
+
+        private void StartTokenRefreshTimer()
+        {
+            tokenRefreshTimer?.Dispose();
+            var interval = TimeSpan.FromMinutes(configuration.OAuthTokenRefreshCheckIntervalMinutes);
+            tokenRefreshTimer = new Timer(_ =>
+            {
+                if (disposed) return;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (IsTokenExpiringSoon())
+                        {
+                            var currentGeneration = connectionGeneration;
+                            logger.LogInformation("Background token refresh timer detected token expiring soon - refreshing connection (generation {Generation})", currentGeneration);
+                            await ForceConnectionRefreshAsync(currentGeneration, serviceCts.Token);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Background token refresh timer encountered an error");
+                    }
+                }, serviceCts.Token);
+            }, null, interval, interval);
+            logger.LogDebug("Background OAuth token refresh timer started with interval {Interval} minutes", configuration.OAuthTokenRefreshCheckIntervalMinutes);
+        }
+
         public async Task<IDistributedLock?> TryAcquireLockAsync(string resourceKey, int leaseTimeMs, CancellationToken cancellationToken)
         {
             if (!IsEnabled)
@@ -42,10 +85,24 @@ namespace Dorc.Monitor.HighAvailability
                 return null;
             }
 
+            // Proactively refresh token if it's expiring soon (within 5 minutes)
+            // This prevents ACCESS_REFUSED errors during lock acquisition
+            if (IsTokenExpiringSoon())
+            {
+                var timeUntilExpiry = tokenExpiryTimeUtc!.Value - DateTime.UtcNow;
+                logger.LogInformation("OAuth token expiring in {Minutes:F1} minutes - proactively refreshing connection before lock acquisition for '{ResourceKey}'",
+                    timeUntilExpiry.TotalMinutes, resourceKey);
+                await ForceConnectionRefreshAsync(connectionGeneration, cancellationToken);
+            }
+
             // Try lock acquisition with retry on token expiry
             const int maxRetries = 2;
             for (int retry = 0; retry < maxRetries; retry++)
             {
+                // Capture current connection generation before attempting lock acquisition
+                // This allows us to detect if another thread already refreshed the connection
+                int currentGeneration = connectionGeneration;
+                
                 try
                 {
                     await EnsureConnectionAsync(cancellationToken);
@@ -97,30 +154,8 @@ namespace Dorc.Monitor.HighAvailability
                             routingKey: queueName,
                             cancellationToken: cancellationToken);
 
-                        // Check if lock queue already has a message (lock is held by another monitor)
-                        // Use passive queue inspection to check message count
-                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
-                        
-                        // If queue has messages, another monitor holds the lock
-                        if (queueInfo.MessageCount > 0)
-                        {
-                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
-                                resourceKey, queueInfo.MessageCount);
-                            await channel.CloseAsync(cancellationToken: cancellationToken);
-                            await channel.DisposeAsync();
-                            return null;
-                        }
-
-                        // Publish a lock message that the consumer will hold
-                        // This message represents the lock token for this environment
-                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
-                        await channel.BasicPublishAsync(
-                            exchange: exchangeName,
-                            routingKey: queueName,
-                            body: lockMessage,
-                            cancellationToken: cancellationToken);
-
-                        // Start consuming - single-active consumer ensures only one monitor processes this
+                        // Start consuming BEFORE checking message count and publishing
+                        // This ensures we receive any messages published after we start consuming
                         var consumer = new AsyncEventingBasicConsumer(channel);
                         var lockAcquired = new TaskCompletionSource<bool>();
                         
@@ -139,8 +174,32 @@ namespace Dorc.Monitor.HighAvailability
                             consumer: consumer,
                             cancellationToken: cancellationToken);
 
+                        // Check if lock queue already has a message (lock is held by another monitor)
+                        // Check AFTER setting up consumer to avoid race where message is published before consumer exists
+                        var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
+                        
+                        // If queue has messages, another monitor holds the lock
+                        if (queueInfo.MessageCount > 0)
+                        {
+                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
+                                resourceKey, queueInfo.MessageCount);
+                            await channel.BasicCancelAsync(consumerTag, cancellationToken: cancellationToken);
+                            await channel.CloseAsync(cancellationToken: cancellationToken);
+                            await channel.DisposeAsync();
+                            return null;
+                        }
+
+                        // Publish a lock message that the consumer will hold
+                        // Consumer is already set up, so it will receive this message
+                        var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
+                        await channel.BasicPublishAsync(
+                            exchange: exchangeName,
+                            routingKey: queueName,
+                            body: lockMessage,
+                            cancellationToken: cancellationToken);
+
                         // Wait for lock message to be delivered (with timeout)
-                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(configuration.LockAcquisitionTimeoutSeconds)))
                         using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                         {
                             try
@@ -172,7 +231,8 @@ namespace Dorc.Monitor.HighAvailability
                         await channel.DisposeAsync();
                         
                         // Force connection recreation to get fresh OAuth token
-                        await ForceConnectionRefreshAsync(cancellationToken);
+                        // Pass the generation we captured before the attempt to prevent redundant refreshes
+                        await ForceConnectionRefreshAsync(currentGeneration, cancellationToken);
                         
                         // Continue to next retry iteration
                         continue;
@@ -196,11 +256,20 @@ namespace Dorc.Monitor.HighAvailability
             return null;
         }
 
-        private async Task ForceConnectionRefreshAsync(CancellationToken cancellationToken)
+        private async Task ForceConnectionRefreshAsync(int expectedGeneration, CancellationToken cancellationToken)
         {
             await connectionSemaphore.WaitAsync(cancellationToken);
             try
             {
+                // Check if another thread already refreshed the connection while we were waiting
+                // If the generation has changed, another thread beat us to the refresh
+                if (connectionGeneration != expectedGeneration)
+                {
+                    logger.LogDebug("Connection was already refreshed by another thread (expected generation {ExpectedGeneration}, current {CurrentGeneration}). Skipping redundant refresh.", 
+                        expectedGeneration, connectionGeneration);
+                    return;
+                }
+                
                 // Close and dispose existing connection if any
                 if (connection != null)
                 {
@@ -217,10 +286,14 @@ namespace Dorc.Monitor.HighAvailability
                     connection = null;
                 }
 
-                // Clear cached credentials to force new token acquisition
+                // Clear cached credentials and token expiry to force new token acquisition
                 credentialsProvider = null;
+                tokenExpiryTimeUtc = null;
+
+                // Increment generation to indicate a new connection cycle
+                connectionGeneration++;
                 
-                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token");
+                logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token (generation {Generation})", connectionGeneration);
             }
             finally
             {
@@ -277,10 +350,12 @@ namespace Dorc.Monitor.HighAvailability
                     }
 
                     connection = await factory.CreateConnectionAsync(cancellationToken);
-                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} with OAuth 2.0 automatic token refresh{SslInfo}", 
-                        configuration.RabbitMqHostName, 
+                    logger.LogInformation("Established RabbitMQ connection to {HostName}:{Port} with OAuth 2.0 automatic token refresh{SslInfo}",
+                        configuration.RabbitMqHostName,
                         configuration.RabbitMqPort,
                         configuration.RabbitMqSslEnabled ? " and SSL/TLS" : "");
+
+                    StartTokenRefreshTimer();
                 }
                 catch (Exception ex)
                 {
@@ -329,11 +404,19 @@ namespace Dorc.Monitor.HighAvailability
             // Get initial token to ensure credentials are available before first connection attempt
             // This primes the credentials provider so it has a valid token ready
             var initialCredentials = await credentialsProvider.GetCredentialsAsync(cancellationToken);
-            logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds",
+
+            // Track token expiry time for proactive refresh
+            if (initialCredentials.ValidUntil.HasValue)
+            {
+                tokenExpiryTimeUtc = DateTime.UtcNow.Add(initialCredentials.ValidUntil.Value);
+            }
+
+            logger.LogInformation("OAuth 2.0 token automatically refreshed. Valid for {Days} days, {Hours} hours, {Minutes} minutes, {Seconds} seconds (expires at {ExpiryTime:O})",
                 initialCredentials.ValidUntil?.Days ?? 0,
                 initialCredentials.ValidUntil?.Hours ?? 0,
                 initialCredentials.ValidUntil?.Minutes ?? 0,
-                initialCredentials.ValidUntil?.Seconds ?? 0);
+                initialCredentials.ValidUntil?.Seconds ?? 0,
+                tokenExpiryTimeUtc);
 
             // Configure connection factory with OAuth credentials provider
             // The CredentialsProvider will be called by RabbitMQ.Client for each connection attempt
@@ -421,7 +504,7 @@ namespace Dorc.Monitor.HighAvailability
             };
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             if (disposed)
                 return;
@@ -430,17 +513,45 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                // Cancel service-level operations
+                // Cancel service-level operations first so any in-flight timer callback exits quickly
                 serviceCts?.Cancel();
-                serviceCts?.Dispose();
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Error cancelling service operations during disposal");
             }
 
+            try
+            {
+                if (tokenRefreshTimer != null)
+                {
+                    await tokenRefreshTimer.DisposeAsync();
+                    tokenRefreshTimer = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error disposing token refresh timer during disposal");
+            }
+
+            try
+            {
+                serviceCts?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error disposing service cancellation token source during disposal");
+            }
+
             IConnection? connToDispose = null;
-            connectionSemaphore.Wait(TimeSpan.FromSeconds(5));
+
+            // Use async semaphore wait to avoid potential deadlocks
+            var semaphoreAcquired = await connectionSemaphore.WaitAsync(TimeSpan.FromSeconds(5));
+            if (!semaphoreAcquired)
+            {
+                logger.LogWarning("Timeout waiting to acquire connection semaphore during disposal");
+            }
+
             try
             {
                 connToDispose = connection;
@@ -448,14 +559,17 @@ namespace Dorc.Monitor.HighAvailability
             }
             finally
             {
-                connectionSemaphore.Release();
+                if (semaphoreAcquired)
+                {
+                    connectionSemaphore.Release();
+                }
             }
 
             if (connToDispose != null)
             {
                 try
                 {
-                    connToDispose.CloseAsync().Wait(TimeSpan.FromSeconds(5));
+                    await connToDispose.CloseAsync();
                     connToDispose.Dispose();
                 }
                 catch (Exception ex)
@@ -474,6 +588,12 @@ namespace Dorc.Monitor.HighAvailability
             }
 
             connectionSemaphore.Dispose();
+        }
+
+        public void Dispose()
+        {
+            // Call async dispose synchronously for IDisposable compatibility
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 
