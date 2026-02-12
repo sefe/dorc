@@ -27,6 +27,7 @@ import '../pages/page-not-found.ts'
 import '../pages/page-permissions-list.ts'
 import '../pages/page-project-envs.ts'
 import '../pages/page-project-bundles.ts'
+import '../pages/page-project-components.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
@@ -240,6 +241,15 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Project Reference Data',
           description: 'The reference data for this environment'
+        }
+      },
+      {
+        path: '/project-components/:id',
+        name: 'project-components',
+        component: 'page-project-components',
+        metadata: {
+          title: 'Project Components',
+          description: 'View component deployments for a project'
         }
       },
       {
