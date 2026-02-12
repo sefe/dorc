@@ -1,0 +1,35 @@
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY src/Dorc.Monitor/Dorc.Monitor.csproj Dorc.Monitor/
+COPY src/Dorc.ApiModel/Dorc.ApiModel.csproj Dorc.ApiModel/
+COPY src/Dorc.Core/Dorc.Core.csproj Dorc.Core/
+COPY src/Dorc.PersistentData/Dorc.PersistentData.csproj Dorc.PersistentData/
+COPY src/Dorc.OpenSearchData/Dorc.OpenSearchData.csproj Dorc.OpenSearchData/
+COPY src/Dorc.AzureDevOps/src/Org.OpenAPITools/Org.OpenAPITools.csproj Dorc.AzureDevOps/src/Org.OpenAPITools/
+COPY src/Dorc.Api.Client/Dorc.Api.Client.csproj Dorc.Api.Client/
+COPY src/Includes/ Includes/
+RUN dotnet restore Dorc.Monitor/Dorc.Monitor.csproj
+
+COPY src/Dorc.Monitor/ Dorc.Monitor/
+COPY src/Dorc.ApiModel/ Dorc.ApiModel/
+COPY src/Dorc.Core/ Dorc.Core/
+COPY src/Dorc.PersistentData/ Dorc.PersistentData/
+COPY src/Dorc.OpenSearchData/ Dorc.OpenSearchData/
+COPY src/Dorc.AzureDevOps/ Dorc.AzureDevOps/
+COPY src/Dorc.Api.Client/ Dorc.Api.Client/
+RUN dotnet publish Dorc.Monitor/Dorc.Monitor.csproj -c Release -o /app/publish --no-restore
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+
+RUN mkdir -p /var/log/dorc/scriptgroup-files /var/log/dorc/runner
+
+COPY --from=build /app/publish .
+
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+ENV ASPNETCORE_ENVIRONMENT=Azure
+ENV DORC_SCRIPTGROUP_FILES_PATH=/var/log/dorc/scriptgroup-files/
+
+ENTRYPOINT ["dotnet", "Dorc.Monitor.dll"]

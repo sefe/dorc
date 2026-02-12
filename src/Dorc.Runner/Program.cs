@@ -118,6 +118,11 @@ namespace Dorc.Runner
         [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>")]
         public static string GetProcessOwner(int processId)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return Environment.UserName;
+            }
+
             string query = "Select * From Win32_Process Where ProcessID = " + processId;
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
             ManagementObjectCollection processList = searcher.Get();
