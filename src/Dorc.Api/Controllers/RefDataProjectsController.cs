@@ -104,7 +104,7 @@ namespace Dorc.Api.Controllers
                 var adSearch = _activeDirectorySearcher.GetUserData(username);
 
                 _accessControlPersistentSource.AddAccessControl(new AccessControlApiModel
-                { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId);
+                { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId, User);
 
                 return StatusCode(StatusCodes.Status200OK, _projectsPersistentSource.GetProject(project.ProjectName));
             }
