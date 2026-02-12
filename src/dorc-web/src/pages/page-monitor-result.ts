@@ -206,6 +206,24 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
   }
 
+  requestPaused(e: CustomEvent) {
+    this.refreshData();
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
+  requestResumed(e: CustomEvent) {
+    this.refreshData();
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
   private refreshData() {
     this.resultsLoading = true;
     const apiRequests = new RequestStatusesApi();
