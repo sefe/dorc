@@ -59,7 +59,7 @@ namespace Tools.PropertyValueCreationCLI
 
                 For<IPropertyEncryptor>().Use(x => { 
                     var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
-                    return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+                    return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
                         secureKeyPersistentDataSource.GetSymmetricKey());
                 });
                 For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
