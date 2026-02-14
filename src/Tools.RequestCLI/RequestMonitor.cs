@@ -9,7 +9,7 @@ namespace Tools.RequestCLI
     public class RequestMonitor
     {
         private readonly IApiCaller _api;
-        private readonly List<string> _goodStatuses = new() {"Completed"};
+        private readonly List<string> _goodStatuses = new() {"Completed", "CompletedWithDisabledSteps"};
         private readonly List<string> _badStatuses = new() { "Errored", "Cancelled", "Failed" };
         private readonly List<string> _validStatuses = new();
 
