@@ -26,7 +26,6 @@ import {
 } from '../apis/dorc-api';
 import '../icons/iron-icons.js';
 import '../icons/custom-icons.js';
-import { ErrorNotification } from '../components/notifications/error-notification';
 import { getShortLogonName } from '../helpers/user-extensions.js';
 import '../components/connection-status-indicator';
 import {
@@ -56,7 +55,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
   maxCountBeforeRefresh: number | undefined;
 
   private hubConnection: HubConnection | undefined;
-
+  
   @property({ type: Boolean }) isLoading = true;
 
   @property({ type: Boolean }) isSearching = false;
@@ -66,6 +65,8 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
   @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state() noResults = false;
+
+  private reconnectingNotification: boolean = false;
 
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
@@ -242,13 +243,19 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
             },
             error: (err: any) => {
               const errMessage = retrieveErrorMessage(err);
-              const notification = new ErrorNotification();
-              notification.setAttribute(
-                'errorMessage',
-                errMessage
-              );
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
+              if ((errMessage.includes('ajax error')) && (this.reconnectingNotification == false)) {
+                Notification.show(`Network disconnected. Please check your internet connection and try again.`, {
+                  theme: 'error',
+                  position: 'bottom-start',
+                  duration: 5000
+                });
+                this.reconnectingNotification = true;
+              } else if (!errMessage.includes('ajax error')) {  
+                Notification.show(errMessage, {
+                  theme: 'error',
+                  position: 'bottom-start',
+                  duration: 5000
+                });
               console.error(errMessage, err);
               callback([], 0);
               this.dispatchEvent(
@@ -258,9 +265,18 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
                   composed: true
                 })
               );
+            }
             },
             complete: () => {
               this.monitorRequestsLoaded();
+              if (this.reconnectingNotification) {
+                this.reconnectingNotification = false;
+                Notification.show(`Network reconnected successfully.`, {
+                  theme: 'success',
+                  position: 'bottom-start',
+                  duration: 5000
+                });
+              }
             }
           });
   }}
@@ -385,14 +401,14 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     getReceiverRegister('IDeploymentsEventsClient')
       .register(this.hubConnection, this);
 
-    this.hubConnection.onclose(async () => {
-      this.hubConnectionState = this.hubConnection?.state;
-    });
-    this.hubConnection.onreconnecting(() => {
-      this.hubConnectionState = this.hubConnection?.state;
-    });
-    this.hubConnection.onreconnected(() => {
-      this.hubConnectionState = this.hubConnection?.state;
+      this.hubConnection.onclose(async () => {
+        this.hubConnectionState = this.hubConnection?.state;
+        });
+      this.hubConnection.onreconnecting(() => {
+        this.hubConnectionState = this.hubConnection?.state;
+      });
+      this.hubConnection.onreconnected(() => {
+        this.hubConnectionState = this.hubConnection?.state;
     });
     
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
@@ -660,8 +676,8 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
   }
 
   idHeaderRenderer = (root: HTMLElement) => {
-  // Store root for future manual re-renders
-  this._idHeaderRoot = root;
+    // Store root for future manual re-renders
+    this._idHeaderRoot = root;
     render(
       html`
       <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
