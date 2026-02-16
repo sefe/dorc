@@ -42,6 +42,8 @@ export class PageVariablesValueLookup extends PageElement {
   private scopeFilterValue = '';
   private valueFilterValue = '';
 
+  private _editingValueId: number | undefined;
+
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -167,6 +169,14 @@ export class PageVariablesValueLookup extends PageElement {
     );
 
     this.addEventListener('values-loaded', this.valuesLoaded as EventListener);
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+      (this.shadowRoot?.querySelector('vaadin-grid') as any)?.requestContentUpdate?.();
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+      (this.shadowRoot?.querySelector('vaadin-grid') as any)?.requestContentUpdate?.();
+    }) as EventListener);
   }
 
   private searchingValuesStarted() {
@@ -181,11 +191,11 @@ export class PageVariablesValueLookup extends PageElement {
     this.loading = false;
   }
 
-  valueRenderer(
+  valueRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
+  ) => {
     const converted: PropertyValueDto = {
       Id: model.item.PropertyValueId,
       Value: model.item.PropertyValue,
@@ -200,11 +210,14 @@ export class PageVariablesValueLookup extends PageElement {
     };
 
     render(
-      html`<variable-value-controls .value="${converted}">
+      html`<variable-value-controls
+        .value="${converted}"
+        .editing="${converted.Id === this._editingValueId}"
+      >
       </variable-value-controls>`,
       root
     );
-  }
+  };
 
   nameHeaderRenderer = (root: HTMLElement) => {
     render(
