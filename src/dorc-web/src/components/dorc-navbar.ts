@@ -188,6 +188,15 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
+          <a href="${urlForName('scripts-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+              Audit
+            </div>
+          </a>
+        </vaadin-tab>
+
+        <vaadin-tab>
           <a href="${urlForName('variables')}">
             <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
             Variables
