@@ -30,6 +30,7 @@ import '../pages/page-project-bundles.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
+import '../pages/page-scripts-audit.ts'
 import '../pages/page-servers-list.ts'
 import '../pages/page-sql-ports-list.ts'
 import '../pages/page-users-list.ts'
@@ -150,6 +151,15 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Scripts',
           description: 'List of all scripts'
+        }
+      },
+      {
+        path: '/scripts/audit',
+        name: 'scripts-audit',
+        component: 'page-scripts-audit',
+        metadata: {
+          title: 'Scripts Values Audit',
+          description: 'List of all scripts value changes'
         }
       },
       {
