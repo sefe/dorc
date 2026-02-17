@@ -1,5 +1,5 @@
 import '@vaadin/button';
-import { GridItemModel } from '@vaadin/grid';
+import { Grid, GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
@@ -50,6 +50,10 @@ export class PageEnvironmentsList extends PageElement {
   public userRoles!: string[];
 
   @property({ type: Boolean }) public userRolesLoaded = false;
+
+  @property({ type: Boolean }) private isAdmin = false;
+
+  @property({ type: Boolean }) private isPowerUser = false;
 
   @query('#dialog') dialog!: HegsDialog;
 
@@ -236,6 +240,11 @@ export class PageEnvironmentsList extends PageElement {
     refDataRolesApi.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data;
+        this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+        this.isPowerUser =
+          this.userRoles.find(p => p === 'PowerUser') !== undefined;
+        const grid = this.shadowRoot?.getElementById('grid') as Grid;
+        grid?.requestContentUpdate();
       },
       error: (err: string) => console.error(err),
       complete: () => {
@@ -300,17 +309,21 @@ export class PageEnvironmentsList extends PageElement {
     render(checkbox, root);
   }
 
-  _envDetailsButtonsRenderer(
+  _envDetailsButtonsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     { item }: GridItemModel<EnvironmentApiModel>
-  ) {
+  ) => {
     const envDetails = item as EnvironmentApiModel;
     render(
-      html` <env-controls .envDetails="${envDetails}"></env-controls>`,
+      html` <env-controls
+        .envDetails="${envDetails}"
+        .isAdmin="${this.isAdmin}"
+        .isPowerUser="${this.isPowerUser}"
+      ></env-controls>`,
       root
     );
-  }
+  };
 
   closeAddEnv(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;

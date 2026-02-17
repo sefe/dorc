@@ -13,6 +13,10 @@ import { AccessControlType } from '../../apis/dorc-api';
 export class EnvControls extends LitElement {
   @property({ type: Object }) envDetails: EnvironmentApiModel | undefined;
 
+  @property({ type: Boolean }) isAdmin = false;
+
+  @property({ type: Boolean }) isPowerUser = false;
+
   static get styles() {
     return css`
       vaadin-button {
@@ -34,16 +38,18 @@ export class EnvControls extends LitElement {
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
-      <vaadin-button
-        title="Clone Environment..."
-        theme="icon"
-        @click="${this.cloneEnvironment}"
-      >
-        <vaadin-icon
-          icon="vaadin:copy-o"
-          style="color: cornflowerblue"
-        ></vaadin-icon>
-      </vaadin-button>
+      ${this.isAdmin || this.isPowerUser
+        ? html`<vaadin-button
+            title="Clone Environment..."
+            theme="icon"
+            @click="${this.cloneEnvironment}"
+          >
+            <vaadin-icon
+              icon="vaadin:copy-o"
+              style="color: cornflowerblue"
+            ></vaadin-icon>
+          </vaadin-button>`
+        : html``}
       <vaadin-button
         title="Environment Details"
         theme="icon"
