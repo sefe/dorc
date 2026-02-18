@@ -10,8 +10,10 @@ import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
+import { ajax } from 'rxjs/ajax';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { BASE_PATH } from '../apis/dorc-api/runtime';
+import { oauthServiceContainer } from '../services/Account/OAuthService';
 
 // Request interface for cloning environment
 interface CloneEnvironmentRequest {
@@ -238,23 +240,21 @@ export class CloneEnvironment extends LitElement {
       CopyAccessControls: this.copyAccessControls
     };
 
-    // Use direct fetch call until the API client is regenerated
-    fetch(`${BASE_PATH}/RefDataEnvironments/Clone`, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const signedInUser = oauthServiceContainer.service.signedInUser;
+    if (signedInUser?.access_token) {
+      headers['Authorization'] = 'Bearer ' + signedInUser.access_token;
+    }
+
+    ajax<EnvironmentApiModel>({
+      url: `${BASE_PATH}/RefDataEnvironments/Clone`,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify(request)
-    })
-      .then(async response => {
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || `HTTP ${response.status}`);
-        }
-        return response.json() as Promise<EnvironmentApiModel>;
-      })
-      .then((clonedEnv: EnvironmentApiModel) => {
+      headers,
+      body: JSON.stringify(request),
+      withCredentials: true
+    }).subscribe({
+      next: (response) => {
+        const clonedEnv = response.response;
         this.isCloning = false;
 
         Notification.show(
@@ -276,12 +276,14 @@ export class CloneEnvironment extends LitElement {
 
         // Close and reset
         this.close();
-      })
-      .catch((err: Error) => {
+      },
+      error: (err: any) => {
         this.isCloning = false;
         console.error('Error cloning environment:', err);
-        this.errorMessage = err.message || 'Failed to clone environment';
-      });
+        const message = err?.response?.Message || err?.response || err?.message || 'Failed to clone environment';
+        this.errorMessage = typeof message === 'string' ? message : JSON.stringify(message);
+      }
+    });
   }
 
   private _resetForm() {

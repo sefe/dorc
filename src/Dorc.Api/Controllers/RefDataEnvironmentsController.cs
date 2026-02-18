@@ -159,17 +159,18 @@ namespace Dorc.Api.Controllers
             try
             {
                 // Check permissions: only Admin, PowerUser, or Owner of source environment can clone
-                var sourceEnv = environmentsPersistentSource.GetEnvironment(request.SourceEnvironmentId, User);
-                if (sourceEnv == null)
-                    return StatusCode(StatusCodes.Status400BadRequest,
-                        $"Source environment with ID {request.SourceEnvironmentId} not found.");
+                if (!(_rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User)))
+                {
+                    // Not admin/poweruser - check if owner of source environment
+                    var sourceEnv = environmentsPersistentSource.GetEnvironment(request.SourceEnvironmentId, User);
+                    if (sourceEnv == null)
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            $"Source environment with ID {request.SourceEnvironmentId} not found.");
 
-                var isAdminOrPowerUser = _rolePrivilegesChecker.IsAdmin(User) || _rolePrivilegesChecker.IsPowerUser(User);
-                var isOwnerOrAdmin = _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, sourceEnv.EnvironmentName);
-
-                if (!isAdminOrPowerUser && !isOwnerOrAdmin)
-                    return StatusCode(StatusCodes.Status403Forbidden,
-                        "Only Admin, PowerUser, or Environment Owner can clone an environment.");
+                    if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, sourceEnv.EnvironmentName))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "Only Admin, PowerUser, or Environment Owner can clone an environment.");
+                }
 
                 var clonedEnv = environmentsPersistentSource.CloneEnvironment(request, User);
                 return StatusCode(StatusCodes.Status200OK, clonedEnv);
