@@ -129,6 +129,61 @@ namespace Dorc.Core.Tests
             Assert.IsFalse(componentNames.Contains("ParentContainer"), "ParentContainer should never be deployed");
         }
 
+        [TestMethod]
+        public void AddComponent_WhenDisabledParent_DeploysEnabledChildren()
+        {
+            // Arrange
+            var componentNames = new List<string>();
+
+            var enabledLeaf = new ComponentApiModel
+            {
+                ComponentId = 2,
+                ComponentName = "EnabledLeaf",
+                ScriptPath = "deploy.ps1",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel>()
+            };
+
+            var disabledParent = new ComponentApiModel
+            {
+                ComponentId = 1,
+                ComponentName = "DisabledParent",
+                ScriptPath = "",
+                IsEnabled = false,
+                Children = new List<ComponentApiModel> { enabledLeaf }
+            };
+
+            _componentsPersistentSource!.LoadChildren(Arg.Any<ComponentApiModel>());
+
+            // Act
+            InvokeAddComponent(componentNames, disabledParent);
+
+            // Assert
+            Assert.AreEqual(1, componentNames.Count, "Enabled children of disabled parent should be deployed");
+            Assert.AreEqual("EnabledLeaf", componentNames[0]);
+        }
+
+        [TestMethod]
+        public void AddComponent_WhenIsEnabledIsFalse_ExcludesLeafComponent()
+        {
+            // Arrange
+            var componentNames = new List<string>();
+            var component = new ComponentApiModel
+            {
+                ComponentId = 1,
+                ComponentName = "DisabledComponent",
+                ScriptPath = "deploy.ps1",
+                IsEnabled = false,
+                Children = new List<ComponentApiModel>()
+            };
+
+            // Act
+            InvokeAddComponent(componentNames, component);
+
+            // Assert
+            Assert.AreEqual(0, componentNames.Count, "Disabled leaf component should be excluded");
+        }
+
         private void InvokeAddComponent(List<string> componentNames, ComponentApiModel component)
         {
             var addComponentMethod = typeof(DeployLibrary).GetMethod("AddComponent",
