@@ -14,14 +14,11 @@ export enum EnvPageTabNames {
   Metadata = 'metadata',
   ControlCenter = 'control-center',
   Variables = 'variables',
-  Servers = 'servers',
-  Databases = 'databases',
+  Components = 'components',
   Projects = 'projects',
-  Daemons = 'daemons',
   Deployments = 'deployments',
   Tenants = 'tenants',
-  Users = 'users',
-  DelegatedUsers = 'delegated-users'
+  Users = 'users'
 }
 
 @customElement('page-environment')
@@ -149,18 +146,16 @@ export class PageEnvironment extends PageElement {
   handleSlotChange(e: Event) {
     const slot = e.target as HTMLSlotElement;
     const childNodes: Node[] = slot?.assignedNodes({ flatten: true });
-    const envTabs = childNodes as PageEnvBase[];
-    envTabs.forEach(value => {
-      value.slotChangeComplete();
+    childNodes.forEach(node => {
+      if (node instanceof HTMLElement && 'slotChangeComplete' in node) {
+        (node as PageEnvBase).slotChangeComplete();
+      }
     });
   }
 
   convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
     if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
-      if (
-        tabName === EnvPageTabNames.Users ||
-        tabName === EnvPageTabNames.DelegatedUsers
-      )
+      if (tabName === EnvPageTabNames.Users)
         return html``;
     }
 
