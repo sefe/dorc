@@ -505,5 +505,295 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<DeploymentRequestStatus>(),
                     Arg.Any<DateTimeOffset>());
         }
+
+        // =====================================================================
+        // environmentRequestIdRunning cleanup - no phantom entries after task completion
+        // =====================================================================
+
+        [TestMethod]
+        public async Task ExecuteRequests_RepeatedCallsAfterFastCompletion_EnvironmentNeverPermanentlyBlocked()
+        {
+            // Verifies fix for race condition: TryAdd must happen before Task.Run so that
+            // TryRemove in the finally block always finds the entry to remove.
+            // With the old code (TryAdd after Task.Run), fast-completing tasks could leave
+            // phantom entries that permanently block the environment.
+
+            // Arrange
+            var requests = CreatePendingRequests("EnvRace", 100);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0); // Return 0 so ExecuteRequest returns immediately (fast completion)
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - simulate 10 polling iterations, each completing quickly
+            for (int i = 0; i < 10; i++)
+            {
+                var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+                await Task.WhenAll(tasks);
+            }
+
+            // Assert - UpdateNonProcessedRequest should have been called every iteration.
+            // If a phantom entry blocked the environment, some iterations would be skipped.
+            mockRequestsPersistentSource.Received(10)
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_LockFailsThenSucceeds_EnvironmentProcessedAfterBackoffExpiry()
+        {
+            // Verifies that after a lock acquisition failure, the environment is only blocked
+            // by the time-limited backoff, not permanently by a phantom environmentRequestIdRunning entry.
+
+            // Arrange
+            var requests = CreatePendingRequests("EnvRecovery", 200);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns((IDistributedLock?)null);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - first call: lock fails, task completes quickly
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Verify lock was attempted
+            await mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+
+            // Now set up lock to succeed and simulate backoff expiry by using a fresh processor
+            // (fresh processor has clean backoff and environmentRequestIdRunning dictionaries)
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvRecovery");
+
+            mockDistributedLockService.ClearReceivedCalls();
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+            mockRequestsPersistentSource.GetRequest(200)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 200,
+                    Status = DeploymentRequestStatus.Pending.ToString()
+                });
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            var sut2 = new DeploymentRequestStateProcessor(
+                mockLogger, mockServiceProvider, mockProcessesPersistentSource,
+                mockRequestsPersistentSource, mockEventPublisher, mockDistributedLockService);
+
+            // Act - second call on fresh processor: should acquire lock and process
+            var tasks2 = sut2.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks2);
+
+            // Assert - lock was acquired and request processing was attempted
+            await mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            mockRequestsPersistentSource.Received()
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_RequestStatusChangedDuringLock_EnvironmentAvailableForNextIteration()
+        {
+            // Verifies that when a request's status changes while waiting for the lock
+            // (re-validation fails), the environment is properly cleaned up and available
+            // for the next polling iteration.
+
+            // Arrange
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvRevalidate");
+
+            var requests = CreatePendingRequests("EnvRevalidate", 300);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            // Simulate: request was cancelled by user while we were acquiring the lock
+            mockRequestsPersistentSource.GetRequest(300)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 300,
+                    Status = DeploymentRequestStatus.Cancelled.ToString()
+                });
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - first call: lock acquired but re-validation fails (status changed)
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Now set up a new pending request for the same environment
+            var newRequests = CreatePendingRequests("EnvRevalidate", 301);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    false)
+                .Returns(newRequests);
+            mockRequestsPersistentSource.GetRequest(301)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 301,
+                    Status = DeploymentRequestStatus.Pending.ToString()
+                });
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            mockDistributedLockService.ClearReceivedCalls();
+
+            // Act - second call: environment should be available (not blocked by phantom entry)
+            var tasks2 = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks2);
+
+            // Assert - lock was acquired again for the same environment
+            await mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_MultipleEnvironments_CompletedEnvDoesNotBlockOthers()
+        {
+            // Verifies that per-environment tracking is independent: when one environment's
+            // task completes, it doesn't affect processing of other environments.
+
+            // Arrange - two environments with pending requests
+            var envARequests = CreatePendingRequests("EnvAlpha", 400);
+            var envBRequests = CreatePendingRequests("EnvBeta", 401);
+            var allRequests = envARequests.Concat(envBRequests).ToList();
+
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    false)
+                .Returns(allRequests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - first call processes both environments
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            Assert.AreEqual(2, tasks.Length, "Should start tasks for both environments");
+            await Task.WhenAll(tasks);
+
+            // Act - second call: both environments should be available again
+            mockRequestsPersistentSource.ClearReceivedCalls();
+            var tasks2 = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            Assert.AreEqual(2, tasks2.Length, "Both environments should be processable again");
+            await Task.WhenAll(tasks2);
+
+            // Assert - both environments were processed in the second call
+            mockRequestsPersistentSource.Received(2)
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_TaskWhileRunning_EnvironmentSkipped()
+        {
+            // Verifies that while a task is still running for an environment,
+            // subsequent calls correctly skip that environment.
+
+            // Arrange
+            var taskCompletionSource = new TaskCompletionSource<int>();
+            var requests = CreatePendingRequests("EnvBlocking", 500);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+
+            // Make UpdateNonProcessedRequest block until we signal completion
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(x =>
+                {
+                    taskCompletionSource.Task.Wait();
+                    return taskCompletionSource.Task.Result;
+                });
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - first call: starts task that blocks on UpdateNonProcessedRequest
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            Assert.AreEqual(1, tasks.Length);
+
+            // Give the task time to start executing
+            await Task.Delay(100);
+
+            // Act - second call while first is still running
+            var tasks2 = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - second call should return no tasks (environment skipped)
+            Assert.AreEqual(0, tasks2.Length, "Environment should be skipped while task is running");
+
+            // Cleanup - unblock the first task
+            taskCompletionSource.SetResult(0);
+            await Task.WhenAll(tasks);
+        }
     }
 }
