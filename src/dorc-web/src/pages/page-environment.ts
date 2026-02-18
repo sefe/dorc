@@ -146,9 +146,10 @@ export class PageEnvironment extends PageElement {
   handleSlotChange(e: Event) {
     const slot = e.target as HTMLSlotElement;
     const childNodes: Node[] = slot?.assignedNodes({ flatten: true });
-    const envTabs = childNodes as PageEnvBase[];
-    envTabs.forEach(value => {
-      value.slotChangeComplete();
+    childNodes.forEach(node => {
+      if (node instanceof HTMLElement && 'slotChangeComplete' in node) {
+        (node as PageEnvBase).slotChangeComplete();
+      }
     });
   }
 

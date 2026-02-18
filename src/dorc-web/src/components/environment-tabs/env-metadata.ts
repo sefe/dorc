@@ -1,7 +1,6 @@
 import { css, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import '@vaadin/details';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageEnvBase } from './page-env-base';
@@ -74,19 +73,15 @@ export class EnvMetadata extends PageEnvBase {
       ></add-edit-environment>
       
       <!-- Delegated Users Section -->
-      <vaadin-details ?hidden="${this.loading}" ?opened="${true}">
-        <vaadin-details-summary slot="summary">
-          <div style="font-weight: bold;">Delegated Users</div>
-        </vaadin-details-summary>
-        <attached-delegated-users
-          id="delegated-users"
-          .readonly="${!this.environment?.UserEditable}"
-          .envName="${this.envName}"
-          .users="${this.delegatedUsers}"
-          .delegatedUsersLoading="${!this.delegatedUsersLoaded}"
-          style="height: 300px; margin-top: 10px;"
-        ></attached-delegated-users>
-      </vaadin-details>
+      <attached-delegated-users
+        id="delegated-users"
+        ?hidden="${this.loading}"
+        .readonly="${!this.environment?.UserEditable}"
+        .envName="${this.envName}"
+        .users="${this.delegatedUsers}"
+        .delegatedUsersLoading="${!this.delegatedUsersLoaded}"
+        style="height: 300px; margin-top: 10px;"
+      ></attached-delegated-users>
     `;
   }
 

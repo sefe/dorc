@@ -84,12 +84,20 @@ export class PageEnvironmentComponents extends PageElement {
     }
   }
 
+  public slotChangeComplete() {
+    // Required by page-environment's handleSlotChange which calls this
+    // on all slot children. No-op here since this component manages
+    // its own child lifecycle through its own slot.
+  }
+
   handleSlotChange(e: Event) {
     const slot = e.target as HTMLSlotElement;
     const childNodes: Node[] = slot?.assignedNodes({ flatten: true });
     const envTabs = childNodes as PageEnvBase[];
     envTabs.forEach(value => {
-      value.slotChangeComplete();
+      if (typeof value.slotChangeComplete === 'function') {
+        value.slotChangeComplete();
+      }
     });
   }
 
@@ -124,6 +132,5 @@ export class PageEnvironmentComponents extends PageElement {
     }
 
     Router.go(pathStart + tabName);
-    console.log(`Telling router to go to components/${tabName}`);
   }
 }
