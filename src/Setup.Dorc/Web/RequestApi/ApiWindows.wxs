@@ -1,0 +1,84 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util" xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+  <Fragment>
+    <Component Id="ApiWindowsComponent" Guid="{A7E5C8D9-F2B4-4E6A-9C3F-1D8E7A5B9F2C}" Directory="ApiWindowsFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+      <util:User Id="ApiWindowsUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+      
+      <!-- App Pool for Windows API -->
+      <iis:WebAppPool Id="DorcApiWindowsPool" Name="DorcApiWindows" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiWindowsUser">
+        <iis:RecycleTime Value="2:00" />
+      </iis:WebAppPool>
+
+      <!-- Website for Windows API -->
+      <iis:WebSite Id="DOrcApiWindows" SiteId="*" Description="DOrcApiWindows" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="ApiWindowsFolder">
+        <iis:WebDirProperties Id="ApiWindowsSiteDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+        <iis:WebAddress Id="ApiWindowsAllUnassigned" Port="5002" />
+        <iis:WebApplication Id="DOrcApiWindowsWebApp" WebAppPool="DorcApiWindowsPool" Name="DOrcApiWindows" />
+      </iis:WebSite>
+
+      <!-- Configure Database Connection -->
+      <Json:JsonFile Id="ApiWindowsConnectionString" File="[#DorcApiWindowsConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+
+      <!-- Configure CORS -->
+      <Json:JsonFile Id="ApiWindowsCorsLocations" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DorcApiWindowsConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
+
+      <!-- Configure Active Directory -->
+      <Json:JsonFile Id="ApiWindowsDomainName" ElementPath="$.AppSettings.DomainName" File="[#DorcApiWindowsConfig]" Value="[DOMAINNAME]" />
+      <Json:JsonFile Id="ApiWindowsDomainNameIntra" ElementPath="$.AppSettings.DomainNameIntra" File="[#DorcApiWindowsConfig]" Value="[DOMAINNAMEINTRA]" />
+      <Json:JsonFile Id="ApiWindowsAdRoleProviderConfigAdmin" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DorcApiWindowsConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
+      <Json:JsonFile Id="ApiWindowsAdRoleProviderConfigPowerUser" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DorcApiWindowsConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
+      <Json:JsonFile Id="ApiWindowsAdUserCacheTime" ElementPath="$.AppSettings.ADUserCacheTimeMinutes" File="[#DorcApiWindowsConfig]" Value="30" />
+      <Json:JsonFile Id="ApiWindowsIsUseAdAsSearcher" ElementPath="$.AppSettings.IsUseAdAsSearcher" File="[#DorcApiWindowsConfig]" Value="false" />
+      <Json:JsonFile Id="ApiWindowsIsUseAdSidsForAccessControl" ElementPath="$.AppSettings.IsUseAdSidsForAccessControl" File="[#DorcApiWindowsConfig]" Value="false" />
+
+      <!-- Configure OpenSearch -->
+      <Json:JsonFile Id="ApiWindowsOpenSearchUri" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]" />
+      <Json:JsonFile Id="ApiWindowsOpenSearchUserName" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]" />
+      <Json:JsonFile Id="ApiWindowsOpenSearchPassword" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]" />
+      <Json:JsonFile Id="ApiWindowsOpenSearchDeploymentResultIndex" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]" />
+
+      <!-- Configure Logging -->
+      <Json:JsonFile Id="ApiWindowsLogLevel" ElementPath="$.Logging.LogLevel.Default" File="[#DorcApiWindowsConfig]" Value="Information" />
+    </Component>
+
+    <!-- Production component -->
+    <Component Id="ApiWindowsComponentProd" Guid="{B8F6D9E0-A3C5-4F7B-AD4E-2E9F8B6C0D3D}" Directory="ApiWindowsFolder" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+      <util:User Id="ApiWindowsUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+      
+      <!-- App Pool for Windows API -->
+      <iis:WebAppPool Id="DorcApiWindowsPoolProd" Name="DorcApiWindows" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiWindowsUserProd">
+        <iis:RecycleTime Value="2:00" />
+      </iis:WebAppPool>
+
+      <!-- Website for Windows API -->
+      <iis:WebSite Id="DOrcApiWindowsProd" SiteId="*" Description="DOrcApiWindows" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="ApiWindowsFolder">
+        <iis:WebDirProperties Id="ApiWindowsSiteDirPropertiesProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+        <iis:WebAddress Id="ApiWindowsAllUnassignedProd" Port="5002" />
+        <iis:WebApplication Id="DOrcApiWindowsWebAppProd" WebAppPool="DorcApiWindowsPoolProd" Name="DOrcApiWindows" />
+      </iis:WebSite>
+
+      <!-- Configure Database Connection -->
+      <Json:JsonFile Id="ApiWindowsConnectionStringProd" File="[#DorcApiWindowsConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+
+      <!-- Configure CORS -->
+      <Json:JsonFile Id="ApiWindowsCorsProd" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DorcApiWindowsConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
+
+      <!-- Configure Active Directory -->
+      <Json:JsonFile Id="ApiWindowsDomainNameProd" ElementPath="$.AppSettings.DomainName" File="[#DorcApiWindowsConfig]" Value="[DOMAINNAME]" />
+      <Json:JsonFile Id="ApiWindowsDomainNameIntraProd" ElementPath="$.AppSettings.DomainNameIntra" File="[#DorcApiWindowsConfig]" Value="[DOMAINNAMEINTRA]" />
+      <Json:JsonFile Id="ApiWindowsAdRoleProviderConfigAdminProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DorcApiWindowsConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
+      <Json:JsonFile Id="ApiWindowsAdRoleProviderConfigPowerUserProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DorcApiWindowsConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
+      <Json:JsonFile Id="ApiWindowsAdUserCacheTimeProd" ElementPath="$.AppSettings.ADUserCacheTimeMinutes" File="[#DorcApiWindowsConfig]" Value="30" />
+      <Json:JsonFile Id="ApiWindowsIsUseAdAsSearcherProd" ElementPath="$.AppSettings.IsUseAdAsSearcher" File="[#DorcApiWindowsConfig]" Value="false" />
+      <Json:JsonFile Id="ApiWindowsIsUseAdSidsForAccessControlProd" ElementPath="$.AppSettings.IsUseAdSidsForAccessControl" File="[#DorcApiWindowsConfig]" Value="false" />
+
+      <!-- Configure OpenSearch -->
+      <Json:JsonFile Id="ApiWindowsOpenSearchUriProd" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.ConnectionUri" Value="[OPENSEARCH.URI]" />
+      <Json:JsonFile Id="ApiWindowsOpenSearchUserNameProd" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.UserName" Value="[OPENSEARCH.USERNAME]" />
+      <Json:JsonFile Id="ApiWindowsOpenSearchPasswordProd" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.Password" Value="[OPENSEARCH.PASSWORD]" />
+      <Json:JsonFile Id="ApiWindowsOpenSearchDeploymentResultIndexProd" File="[#DorcApiWindowsConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]" />
+
+      <!-- Configure Logging -->
+      <Json:JsonFile Id="ApiWindowsLogLevelProd" ElementPath="$.Logging.LogLevel.Default" File="[#DorcApiWindowsConfig]" Value="Information" />
+    </Component>
+  </Fragment>
+</Wix>

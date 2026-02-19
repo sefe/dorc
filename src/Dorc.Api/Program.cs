@@ -1,8 +1,11 @@
 using AspNetCoreRateLimit;
+using Dorc.Api.Configuration;
 using Dorc.Api.Events;
+using Dorc.Api.Identity;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
+using Dorc.Api.Infrastructure;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
@@ -96,17 +99,24 @@ switch (authenticationScheme)
     case ConfigAuthScheme.OAuth:
         ConfigureOAuth(builder, configurationSettings, secretsReader);
         break;
+#if WINDOWS
     case ConfigAuthScheme.WinAuth:
         ConfigureWinAuth(builder);
         break;
     case ConfigAuthScheme.Both:
         ConfigureBoth(builder, configurationSettings, secretsReader);
         break;
+#endif
     default:
+#if WINDOWS
         ConfigureWinAuth(builder);
+#else
+        ConfigureOAuth(builder, configurationSettings, secretsReader);
+#endif
         break;
 }
 
+#if WINDOWS
 static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
 {
     if (registerOwnReader)
@@ -120,12 +130,13 @@ static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnRead
         .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
 }
+#endif
 
 static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader, bool registerOwnReader = true)
 {
     if (registerOwnReader)
     {
-        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupsReaderFactory>().GetOAuthUserGroupsReader());
+        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupProvider>().GetOAuthUserGroupsReader());
         builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
     }
 
@@ -191,6 +202,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     });
 }
 
+#if WINDOWS
 static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader)
 {
     builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
@@ -210,6 +222,7 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
         options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
     });
 }
+#endif
 
 static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
@@ -294,12 +307,24 @@ builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
+// Register WindowsApiClient only on non-Windows platforms to call Windows API remotely
+#if !WINDOWS
+builder.Services.AddHttpClient<IWindowsApiClient, WindowsApiClient>();
+#endif
+
 builder.Host.UseLamar((context, registry) =>
 {
     registry.IncludeRegistry<OpenSearchDataRegistry>();
     registry.IncludeRegistry<PersistentDataRegistry>();
     registry.IncludeRegistry<CoreRegistry>();
-    registry.IncludeRegistry<ApiRegistry>();
+    
+    // Only include Windows-specific registry on Windows OS
+#if WINDOWS
+    if (OperatingSystem.IsWindows())
+    {
+        registry.IncludeRegistry<DependencyRegistry>();
+    }
+#endif
 
     registry.AddScoped<IBundledRequestVariableLoader, BundledRequestVariableLoader>();
     registry.AddKeyedTransient<IVariableResolver, VariableResolver>("VariableResolver");
@@ -353,7 +378,14 @@ app.UseCors(dorcCorsRefDataPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<WinAuthLoggingMiddleware>();
+
+// Only use Windows-specific middleware on Windows platform
+#if WINDOWS
+if (OperatingSystem.IsWindows())
+{
+    app.UseMiddleware<WinAuthLoggingMiddleware>();
+}
+#endif
 
 var endpointConventionBuilder = app.MapControllers();
 if (authenticationScheme is ConfigAuthScheme.OAuth)

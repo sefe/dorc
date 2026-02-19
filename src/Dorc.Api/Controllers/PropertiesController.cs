@@ -12,10 +12,10 @@ namespace Dorc.Api.Controllers
     [Route("api/[controller]")]
     public class PropertiesController : ControllerBase
     {
-        private readonly IPropertiesService _propertiesService;
+        private readonly IProperties _propertiesService;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
 
-        public PropertiesController(IPropertiesService propertiesService, ISecurityPrivilegesChecker apiSecurityService)
+        public PropertiesController(IProperties propertiesService, ISecurityPrivilegesChecker apiSecurityService)
         {
             _propertiesService = propertiesService;
             _apiSecurityService = apiSecurityService;
