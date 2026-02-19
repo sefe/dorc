@@ -1011,7 +1011,7 @@ namespace Dorc.PersistentData.Sources
                         {
                             username = _claimsPrincipalReader.GetUserFullDomainName(user);
                             userId = _claimsPrincipalReader.GetUserId(user);
-                            userDisplayName = _claimsPrincipalReader.GetUserName(user);
+                            userDisplayName = _claimsPrincipalReader.GetUserLogin(user);
                         }
                         catch (Exception ex)
                         {
