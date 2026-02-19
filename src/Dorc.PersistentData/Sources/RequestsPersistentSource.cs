@@ -192,8 +192,7 @@ namespace Dorc.PersistentData.Sources
                     Status = DeploymentResultStatus.Pending.ToString()
                 };
 
-                if (deploymentResult.Component.IsEnabled.HasValue
-                    && !deploymentResult.Component.IsEnabled.Value)
+                if (!deploymentResult.Component.IsEnabled)
                 {
                     deploymentResult.Status = DeploymentResultStatus.Disabled.ToString();
                 }
@@ -474,6 +473,17 @@ namespace Dorc.PersistentData.Sources
                 var request = context.DeploymentRequests.Add(deploymentRequest);
                 context.SaveChanges();
                 return request.Entity.Id;
+            }
+        }
+
+        public void UpdateRequestDetails(int requestId, string requestDetails)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.RequestDetails, requestDetails));
             }
         }
 

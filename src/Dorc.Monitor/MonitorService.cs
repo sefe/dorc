@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
@@ -41,29 +41,35 @@ namespace Dorc.Monitor
         {
             logger.LogInformation("Deployment Monitor service is started.");
 
-            try
+            var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
+            if (deploymentEngine == null)
             {
-                var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
-                if (deploymentEngine == null)
-                {
-                    throw new NullReferenceException("DeploymentEngine was not issued and equals null");
-                }
+                throw new NullReferenceException("DeploymentEngine was not issued and equals null");
+            }
 
-                await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
-            }
-            catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
+            while (!monitorCancellationToken.IsCancellationRequested)
             {
-                logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
+                try
+                {
+                    await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
+                }
+                catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
+                }
+                catch (SqlException sqlException)
+                {
+                    logger.LogWarning("Transient SQL failure, retrying in 10s. Exception: " + sqlException);
+                    await Task.Delay(TimeSpan.FromSeconds(10), monitorCancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    logger.LogError("Monitor process is failed. Exception: " + exception);
+                    throw;
+                }
             }
-            catch (Exception exception)
-            {
-                logger.LogError("Monitor process is failed. Exception: " + exception);
-                throw;
-            }
-            finally
-            {
-                logger.LogInformation("Deployment Monitor service is stopping.");
-            }
+
+            logger.LogInformation("Deployment Monitor service is stopping.");
         }
 
         public override void Dispose()

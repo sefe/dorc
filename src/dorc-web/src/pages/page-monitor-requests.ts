@@ -12,7 +12,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import { css, LitElement, PropertyValueMap, render } from 'lit';
+import { css, PropertyValueMap, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
@@ -24,7 +24,6 @@ import {
   PagedDataSorting,
   RequestStatusesApi
 } from '../apis/dorc-api';
-import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
 import '../icons/custom-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
@@ -37,6 +36,10 @@ import {
 } from '../services/ServerEvents';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
+import type { PropertyValues } from 'lit';
+import type { RouterLocation } from '@vaadin/router';
+import { PageElement } from '../helpers/page-element';
+import type { RouteMeta } from '../router/routes';
 
 const username = 'Username';
 const status = 'Status';
@@ -45,7 +48,7 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('page-monitor-requests')
-export class PageMonitorRequests extends LitElement implements IDeploymentsEventsClient {
+export class PageMonitorRequests extends PageElement implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
@@ -326,9 +329,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   }
 
   protected async firstUpdated(
-    _changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  _changedProperties: PropertyValues
   ): Promise<void> {
-    super.firstUpdated(_changedProperties);
+      super.firstUpdated(_changedProperties);
 
     // Initialize SignalR connection for real-time updates
     await this.initializeSignalR();
@@ -352,7 +355,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
-  protected updated(changed: PropertyValueMap<any>) {
+  updated(changed: PropertyValueMap<any>) {
     super.updated(changed);
     if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
       if (this._idHeaderRoot) {
@@ -360,6 +363,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         this.idHeaderRenderer(this._idHeaderRoot);
       }
     }
+  }
+
+   // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
+  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  this.location = location;
   }
 
   disconnectedCallback(): void {

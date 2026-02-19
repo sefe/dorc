@@ -118,6 +118,169 @@ namespace Dorc.Monitor
                 return bool.Parse(configurationRoot.GetSection(appSettings)["DisableSignalR"] ?? "false");
             }
         }
+
+        public bool HighAvailabilityEnabled
+        {
+            get
+            {
+                return bool.Parse(configurationRoot.GetSection(appSettings)["HighAvailability:Enabled"] ?? "false");
+            }
+        }
+
+        public string RabbitMqHostName
+        {
+            get
+            {
+                var hostName = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:HostName"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(hostName))
+                {
+                    throw new InvalidOperationException("RabbitMQ HostName is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:HostName).");
+                }
+                return hostName ?? "localhost";
+            }
+        }
+
+        public int RabbitMqPort
+        {
+            get
+            {
+                var portStr = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Port"];
+                if (int.TryParse(portStr, out int port))
+                {
+                    return port;
+                }
+                return 5672; // Default RabbitMQ port
+            }
+        }
+
+        public string? RabbitMqVirtualHost
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:VirtualHost"];
+            }
+        }
+
+        public string RabbitMqOAuthClientId
+        {
+            get
+            {
+                var clientId = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:ClientId"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(clientId))
+                {
+                    throw new InvalidOperationException("RabbitMQ OAuth ClientId is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:ClientId).");
+                }
+                return clientId ?? "";
+            }
+        }
+
+        public string RabbitMqOAuthClientSecret
+        {
+            get
+            {
+                var clientSecret = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:ClientSecret"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(clientSecret))
+                {
+                    throw new InvalidOperationException("RabbitMQ OAuth ClientSecret is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:ClientSecret).");
+                }
+                return clientSecret ?? "";
+            }
+        }
+
+        public string RabbitMqOAuthTokenEndpoint
+        {
+            get
+            {
+                var tokenEndpoint = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:TokenEndpoint"];
+                if (HighAvailabilityEnabled && string.IsNullOrWhiteSpace(tokenEndpoint))
+                {
+                    throw new InvalidOperationException("RabbitMQ OAuth TokenEndpoint is required when HighAvailability is enabled (AppSettings:HighAvailability:RabbitMQ:OAuth:TokenEndpoint).");
+                }
+                return tokenEndpoint ?? "";
+            }
+        }
+
+        public string RabbitMqOAuthScope
+        {
+            get
+            {
+                var scope = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:Scope"];
+                // Scope is optional
+                return scope ?? "";
+            }
+        }
+
+        public bool RabbitMqSslEnabled
+        {
+            get
+            {
+                var sslEnabled = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:Enabled"];
+                return bool.TryParse(sslEnabled, out bool result) && result;
+            }
+        }
+
+        public string? RabbitMqSslServerName
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:ServerName"];
+            }
+        }
+
+        public string? RabbitMqSslVersion
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:Version"];
+            }
+        }
+                
+        public string Environment
+        {
+            get
+            {
+                return configurationRoot.GetSection(appSettings)["Environment"] ?? "unknown";
+            }
+        }
+
+        public int MaxConcurrentDeployments
+        {
+            get
+            {
+                var maxStr = configurationRoot.GetSection(appSettings)["MaxConcurrentDeployments"];
+                if (int.TryParse(maxStr, out int max) && max > 0)
+                {
+                    return max;
+                }
+                return 0; // 0 means unlimited
+            }
+        }
+
+        public int LockAcquisitionTimeoutSeconds
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:LockAcquisitionTimeoutSeconds"];
+                if (int.TryParse(str, out int seconds) && seconds > 0)
+                {
+                    return seconds;
+                }
+                return 5; // Default 5 seconds
+            }
+        }
+
+        public int OAuthTokenRefreshCheckIntervalMinutes
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:OAuthTokenRefreshCheckIntervalMinutes"];
+                if (int.TryParse(str, out int minutes) && minutes > 0)
+                {
+                    return minutes;
+                }
+                return 15; // Default 15 minutes
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration

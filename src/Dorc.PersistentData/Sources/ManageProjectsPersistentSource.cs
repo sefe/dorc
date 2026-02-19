@@ -4,8 +4,6 @@ using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SqlServer.Management.Smo.Agent;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -290,7 +288,10 @@ namespace Dorc.PersistentData.Sources
                         duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
                         duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
                         var script = duplicateComponent.Script;
-                        script.Name = $"{script.Name} {duplicateComponent.Name}";
+                        if (script != null)
+                        {
+                            script.Name = $"{script.Name} {duplicateComponent.Name}";
+                        }
 
                         context.SaveChanges();
                     }
@@ -302,10 +303,16 @@ namespace Dorc.PersistentData.Sources
                         ObjectId = Guid.NewGuid(),
                         Description = "Created via API",
                         IsEnabled = apiComponent.IsEnabled,
-                        ComponentType = apiComponent.ComponentType
+                        ComponentType = apiComponent.ComponentType,
+                        TerraformSourceType = apiComponent.TerraformSourceType,
+                        TerraformGitBranch = apiComponent.TerraformGitBranch,
+                        TerraformSubPath = apiComponent.TerraformSubPath,
                     };
 
-                    if (apiComponent.ScriptPath != null)
+                    // Only create Script entity for PowerShell components and Terraform with SharedFolder type
+                    // Terraform components may have ScriptPath (for SharedFolder type) but don't use Script entities
+                    if ((apiComponent.ComponentType == ComponentType.PowerShell || (apiComponent.ComponentType == ComponentType.Terraform && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder))
+                        && apiComponent.ScriptPath != null)
                     {
                         var script = new Script
                         {
@@ -344,10 +351,14 @@ namespace Dorc.PersistentData.Sources
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
 
-                // Update ComponentType for all updates
-                component.ComponentType = apiComponent.ComponentType;
+                DuplicateComponent(apiComponent, component, context); // if name is changed to existing name, rename existing one
 
-                DuplicateComponent(apiComponent, component, context);
+                component.Name = apiComponent.ComponentName;
+                component.StopOnFailure = apiComponent.StopOnFailure;
+                component.ComponentType = apiComponent.ComponentType;
+                component.TerraformSourceType = apiComponent.TerraformSourceType;
+                component.TerraformGitBranch = apiComponent.TerraformGitBranch;
+                component.TerraformSubPath = apiComponent.TerraformSubPath;
 
                 if (component.Parent == null && parentId != null)
                     component.Parent = context.Components.First(x => x.Id == parentId);
@@ -357,54 +368,30 @@ namespace Dorc.PersistentData.Sources
                     if (component.Parent.Id != parentId)
                         component.Parent = context.Components.First(x => x.Id == parentId);
 
-                // Handle script updates
-                var oldScript = component.Script;
-                var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
-
-                if (!string.IsNullOrEmpty(apiComponent.ScriptPath))
+                // Handle script updates for PowerShell components and Terraform components with SharedFolder type
+                // Terraform components use ScriptPath as shared folder path
+                if (apiComponent.ComponentType == ComponentType.PowerShell || (apiComponent.ComponentType == ComponentType.Terraform && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder))
                 {
-                    // Component has a script path
-                    if (oldScript != null)
-                    {
-                        // Check if script content is changing
-                        var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
-                            || oldScript.NonProdOnly != apiComponent.NonProdOnly
-                            || oldScript.Name != apiComponent.ComponentName
-                            || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
+                    var oldScript = component.Script;
+                    var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
 
-                        if (isScriptContentChanged)
+                    // if new script path is not null - update script properties
+                    if (apiComponent.ScriptPath != null)
+                    {
+                        // Component has a script path
+                        if (oldScript != null)
                         {
-                            if (isScriptShared)
-                            {
-                                // Script is shared with other components, create a new script
-                                var newScript = new Script
-                                {
-                                    Name = apiComponent.ComponentName,
-                                    Path = apiComponent.ScriptPath,
-                                    NonProdOnly = apiComponent.NonProdOnly,
-                                    IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                    PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                                };
-                                component.Script = newScript;
-                            }
-                            else
-                            {
-                                // Script is not shared, update it
-                                oldScript.Name = apiComponent.ComponentName;
-                                oldScript.Path = apiComponent.ScriptPath;
-                                oldScript.NonProdOnly = apiComponent.NonProdOnly;
-                                oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
-                                oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
-                            }
-                        }
-                        else
-                        {
-                            // Script content unchanged, only update name if needed
-                            if (oldScript.Name != apiComponent.ComponentName)
+                            // Check if script content is changing
+                            var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
+                                || oldScript.NonProdOnly != apiComponent.NonProdOnly
+                                || oldScript.Name != apiComponent.ComponentName
+                                || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
+
+                            if (isScriptContentChanged)
                             {
                                 if (isScriptShared)
                                 {
-                                    // Script is shared, create new script with updated name
+                                    // Script is shared with other components, create a new script
                                     var newScript = new Script
                                     {
                                         Name = apiComponent.ComponentName,
@@ -417,48 +404,88 @@ namespace Dorc.PersistentData.Sources
                                 }
                                 else
                                 {
+                                    // Script is not shared, update it
                                     oldScript.Name = apiComponent.ComponentName;
+                                    oldScript.Path = apiComponent.ScriptPath;
+                                    oldScript.NonProdOnly = apiComponent.NonProdOnly;
+                                    oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
+                                    oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
+                                }
+                            }
+                            else
+                            {
+                                // Script content unchanged, only update name if needed
+                                if (oldScript.Name != apiComponent.ComponentName)
+                                {
+                                    if (isScriptShared)
+                                    {
+                                        // Script is shared, create new script with updated name
+                                        var newScript = new Script
+                                        {
+                                            Name = apiComponent.ComponentName,
+                                            Path = apiComponent.ScriptPath,
+                                            NonProdOnly = apiComponent.NonProdOnly,
+                                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                                        };
+                                        component.Script = newScript;
+                                    }
+                                    else
+                                    {
+                                        oldScript.Name = apiComponent.ComponentName;
+                                    }
                                 }
                             }
                         }
-                    }
-                    else
-                    {
-                        // Component didn't have a script, create new one
-                        var script = new Script
+                        else
                         {
-                            Name = apiComponent.ComponentName,
-                            Path = apiComponent.ScriptPath,
-                            NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                        };
-                        component.Script = script;
+                            // Component didn't have a script, create new one
+                            var script = new Script
+                            {
+                                Name = apiComponent.ComponentName,
+                                Path = apiComponent.ScriptPath,
+                                NonProdOnly = apiComponent.NonProdOnly,
+                                IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                                PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                            };
+                            component.Script = script;
+                        }
+                    }
+                    else if (oldScript != null) // new script path is null, removing script record
+                    {
+                        removeScriptFromComponent(context, component, oldScript);
                     }
                 }
-                else if (apiComponent.ScriptPath == null && oldScript != null)
+                else if (apiComponent.ComponentType == ComponentType.Terraform)
                 {
-                    // Script is being removed from component
-                    if (isScriptShared)
+                    // For Terraform components, ScriptPath is used for SharedFolder source type
+                    // but we don't create Script entities for Terraform components, just ensure no script is associated if one exists
+                    if (component.Script != null)
                     {
-                        // Script is shared, just remove reference
-                        component.Script = null;
-                        component.ScriptId = null;
+                        removeScriptFromComponent(context, component, component.Script);
                     }
-                    else
-                    {
-                        // Script is not shared, delete it
-                        component.Script = null;
-                        component.ScriptId = null;
-                        context.Scripts.Remove(oldScript);
-                    }
-                }
-                else if (component.Script != null)
-                {
-                    component.Script.PowerShellVersionNumber = null; // it is just a container for other components, no sense to have PS version for it
                 }
 
                 context.SaveChanges();
+            }
+        }
+
+        private static void removeScriptFromComponent(IDeploymentContext context, Component component, Script oldScript)
+        {
+            var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
+
+            if (isScriptShared)
+            {
+                // Script is shared, just remove reference
+                component.Script = null;
+                component.ScriptId = null;
+            }
+            else
+            {
+                // Script is not shared, delete it
+                component.Script = null;
+                component.ScriptId = null;
+                context.Scripts.Remove(oldScript);
             }
         }
 
@@ -476,10 +503,6 @@ namespace Dorc.PersistentData.Sources
                 duplicateComponent.Name = Guid.NewGuid().ToString();
                 context.SaveChanges();
             }
-
-            component.Name = apiComponent.ComponentName;
-            component.StopOnFailure = apiComponent.StopOnFailure;
-            component.ComponentType = apiComponent.ComponentType;
         }
 
         public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
@@ -546,8 +569,7 @@ namespace Dorc.PersistentData.Sources
         private Component GetTopLevelEnabledParentComponent(Component component)
         {
             return component.Parent == null
-                || component.Parent.IsEnabled == null
-                || component.Parent.IsEnabled == false
+                || !component.Parent.IsEnabled
                 ? component
                 : GetTopLevelEnabledParentComponent(component.Parent);
         }
@@ -586,6 +608,9 @@ namespace Dorc.PersistentData.Sources
                     IsEnabled = comp.IsEnabled,
                     ParentId = comp.Parent != null ? comp.Parent.Id : 0,
                     ComponentType = comp.ComponentType,
+                    TerraformSourceType = comp.TerraformSourceType,
+                    TerraformGitBranch = comp.TerraformGitBranch,
+                    TerraformSubPath = comp.TerraformSubPath,
                     PSVersion = script.PowerShellVersionNumber
                 };
 
@@ -598,7 +623,10 @@ namespace Dorc.PersistentData.Sources
                 StopOnFailure = comp.StopOnFailure,
                 IsEnabled = comp.IsEnabled,
                 ParentId = comp.Parent != null ? comp.Parent.Id : 0,
-                ComponentType = comp.ComponentType
+                ComponentType = comp.ComponentType,
+                TerraformSourceType = comp.TerraformSourceType,
+                TerraformGitBranch = comp.TerraformGitBranch,
+                TerraformSubPath = comp.TerraformSubPath,
             };
         }
 

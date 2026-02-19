@@ -16,6 +16,7 @@ namespace Tools.PostRestoreEndurCLI
             {
                 For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
                 For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PostRestoreEndurCLI"));
+                For(typeof(ILogger<>)).Use(typeof(Logger<>));
 
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();

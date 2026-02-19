@@ -1,36 +1,33 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
-//using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Runner.Logger;
-using Dorc.TerraformmRunner.Pipes;
+using Dorc.TerraformRunner.CodeSources;
+using Dorc.TerraformRunner.Pipes;
 using Microsoft.Extensions.Logging;
-
-//using System.Diagnostics;
+using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     internal class TerraformProcessor : ITerraformProcessor
     {
         private readonly IRunnerLogger logger;
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
-        //private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
 
         public TerraformProcessor(
             IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient)
-            //IRequestsPersistentSource requestsPersistentSource)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
-            //this.requestsPersistentSource = requestsPersistentSource;
+            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger);
         }
 
         public async Task<bool> PreparePlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string resultFilePath,
             string planContentFilePath,
             CancellationToken cancellationToken)
@@ -43,32 +40,30 @@ namespace Dorc.TerraformmRunner
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
 
-            logger.FileLogger.LogInformation($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
+            logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
             
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
+            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroupProperties, cancellationToken);
 
             try
             {
-                // Create terraform plan (placeholder implementation)
+                // Create terraform plan
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
-                logger.FileLogger.LogInformation($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
+                logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
+                DeleteTempTerraformFolder(terraformWorkingDir);
+
                 return true;
             }
             catch (Exception ex)
             {
-                logger.FileLogger.LogError(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
+                logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 return false;
-            }
-            finally
-            {
-                DeleteTempTerraformFolder(terraformWorkingDir);
             }
         }
 
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
             int requestId,
-            string scriptPath,
+            ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
             // Create a unique working directory for this deployment
@@ -79,40 +74,24 @@ namespace Dorc.TerraformmRunner
 
             Directory.CreateDirectory(workingDir);
 
-            // Copy Terraform files from component script path to working directory
-            if (!string.IsNullOrEmpty(scriptPath) && Directory.Exists(scriptPath))
+            // Get the appropriate provider for the source type
+            var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
+            
+            logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
+            
+            // Provision the code using the selected provider
+            await provider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken);
+
+            // If a sub-path is specified, move only that directory to the root
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
             {
-                logger.FileLogger.LogInformation($"Copying Terraform files from '{scriptPath}' to working directory '{workingDir}'");
-                await CopyDirectoryAsync(scriptPath, workingDir, cancellationToken);
+                await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
             }
-            else
-            {
-                throw new InvalidOperationException($"Terraform script path '{scriptPath}' does not exist.");
-            }
+
+            logger.Information($"Terraform working directory has been set up at: {workingDir}");
 
             return workingDir;
-        }
-
-        private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
-        {
-            await Task.Run(() =>
-            {
-                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
-                    var destFileDir = Path.GetDirectoryName(destFile);
-
-                    if (!string.IsNullOrEmpty(destFileDir))
-                    {
-                        Directory.CreateDirectory(destFileDir);
-                    }
-
-                    File.Copy(file, destFile, true);
-                }
-            }, cancellationToken);
         }
 
         private async Task<string> CreateTerraformPlanAsync(
@@ -146,13 +125,8 @@ namespace Dorc.TerraformmRunner
                     File.WriteAllText(planContentFilePath, planContent);
                 }
                 
-                logger.FileLogger.LogInformation($"Terraform plan created successfully for request '{requestId}'");
+                logger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
-            }
-            catch (Exception ex)
-            {
-                logger.FileLogger.LogError(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
-                throw;
             }
             finally
             {
@@ -233,7 +207,9 @@ namespace Dorc.TerraformmRunner
                 }
             };
 
-            logger.FileLogger.LogDebug($"Running Terraform command: terraform {arguments} in {workingDir}");
+            var tfCommand = arguments.Split(' ')[0];
+
+            logger.Debug($"Running Terraform command: terraform {tfCommand}");
 
             try
             {
@@ -248,6 +224,24 @@ namespace Dorc.TerraformmRunner
                     await Task.Delay(100, cancellationToken);
                 }
             }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
+            {
+                var errorMessage = "Terraform executable not found. Please ensure Terraform is installed and available in the system PATH.";
+                logger.Error(errorMessage, ex);
+                throw new InvalidOperationException(errorMessage, ex);
+            }
+            catch (Win32Exception ex)
+            {
+                var errorMessage = $"Failed to start Terraform process. Win32 error code: {ex.NativeErrorCode}. " +
+                                   "Please ensure Terraform is properly installed and the user has necessary permissions.";
+                logger.Error(errorMessage, ex);
+                throw new InvalidOperationException(errorMessage, ex);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.Warning($"Terraform command {tfCommand} was cancelled.");
+                throw;
+            }
             catch (Exception e)
             {
                 logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
@@ -259,19 +253,18 @@ namespace Dorc.TerraformmRunner
 
             if (process.ExitCode == 1)
             {
-                var errorMessage = $"Terraform command failed with exit code {process.ExitCode}. Error: {error}";
-                logger.Error(errorMessage);
+                var errorMessage = $"Terraform command {tfCommand} failed with exit code {process.ExitCode}";
+                logger.Error($"{errorMessage}. Error: {error}");
                 throw new InvalidOperationException(errorMessage);
             }
 
-            logger.Information($"Terraform command completed successfully. Output:{Environment.NewLine}{output}");
+            logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
             return output;
         }
 
         public async Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string planFile,
             CancellationToken cancellationToken)
         {
@@ -283,38 +276,16 @@ namespace Dorc.TerraformmRunner
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
 
-            logger.FileLogger.LogInformation($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
+            logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
-            try
-            {
-
-                // Execute the actual Terraform plan
-                var executionResult = await ExecuteTerraformPlanAsync(requestId, scriptPath, planFile, cancellationToken);
-
-                if (executionResult.Success)
-                {
-
-                    logger.FileLogger.LogInformation($"Terraform plan executed successfully for deployment result ID: {deployResultId}");
-                    return true;
-                }
-                else
-                {
-
-                    logger.FileLogger.LogError($"Terraform plan execution failed for deployment result ID {deployResultId}: {executionResult.ErrorMessage}");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.FileLogger.LogError(ex, $"Failed to execute Terraform plan for deployment result ID {deployResultId}: {ex.Message}");
-                return false;
-            }
+            // Execute the actual Terraform plan
+            return await ExecuteTerraformPlanAsync(requestId, planFile, scriptGroupProperties, cancellationToken);
         }
 
-        private async Task<TerraformExecutionResult> ExecuteTerraformPlanAsync(
+        private async Task<bool> ExecuteTerraformPlanAsync(
             int requestId,
-            string scriptPath,
             string planFile,
+            ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -322,38 +293,25 @@ namespace Dorc.TerraformmRunner
             var terraformWorkingDir = string.Empty;
             try
             {
-                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptPath, cancellationToken);
+                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroup, cancellationToken);
 
                 // Initialize Terraform if needed
                 await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
 
                 // Execute terraform apply using the stored plan
                 var applyArgs = $"apply -auto-approve {planFile}  -no-color";
-                logger.FileLogger.LogInformation($"Executing Terraform apply for request ID: {requestId}");
-                
-                var applyOutput = await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
+                await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
 
-                logger.FileLogger.LogInformation($"Terraform apply completed successfully for request ID: {requestId}");
-                
-                return new TerraformExecutionResult 
-                { 
-                    Success = true, 
-                    Output = applyOutput 
-                };
+                logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
+
+                DeleteTempTerraformFolder(terraformWorkingDir);
+
+                return true;
             }
             catch (Exception ex)
             {
-                logger.FileLogger.LogError(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
-                return new TerraformExecutionResult 
-                { 
-                    Success = false, 
-                    ErrorMessage = ex.Message,
-                    Output = ex.StackTrace 
-                };
-            }
-            finally
-            {
-                DeleteTempTerraformFolder(terraformWorkingDir);
+                logger.Error(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
+                return false;
             }
         }
 
@@ -362,7 +320,7 @@ namespace Dorc.TerraformmRunner
             if (String.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
                 return;
 
-            Directory.Delete(folderPath, true);
+            DirectoryHelper.SafeRemoveDirectory(folderPath);
         }
 
         private class TerraformExecutionResult

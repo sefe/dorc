@@ -1,11 +1,10 @@
-namespace Dorc.TerraformmRunner
+namespace Dorc.TerraformRunner
 {
     internal interface ITerraformProcessor
     {
         Task<bool> PreparePlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string resultFilePath,
             string planContentFilePath,
             CancellationToken cancellationToken);
@@ -13,7 +12,6 @@ namespace Dorc.TerraformmRunner
         Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
             int requestId,
-            string scriptPath,
             string planFile,
             CancellationToken cancellationToken);
     }
