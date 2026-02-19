@@ -293,6 +293,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
+builder.Services.AddHttpClient<IServiceNowService, ServiceNowService>();
+builder.Services.AddTransient<IEmailNotificationService, EmailNotificationService>();
 
 builder.Host.UseLamar((context, registry) =>
 {
