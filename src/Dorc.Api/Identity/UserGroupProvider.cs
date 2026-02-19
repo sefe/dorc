@@ -12,7 +12,7 @@ namespace Dorc.Api.Identity
 
         public UserGroupProvider(IConfigurationSettings config,
             IMemoryCache cache,
-            IDirectorySearcherFactory searcherFactory)
+            IDirectorySearchProvider searcherFactory)
         {
             _winUserGroupReader = new CachedUserGroupReader(config, cache, searcherFactory.GetActiveDirectorySearcher());
             _oauthUserGroupsReader = new CachedUserGroupReader(config, cache, searcherFactory.GetOAuthDirectorySearcher());
