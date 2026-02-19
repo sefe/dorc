@@ -70,7 +70,7 @@ namespace Dorc.Api.Windows.Controllers
         {
             try
             {
-                var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(envFilter, envName);
+                var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(username, envFilter, envName);
                 if (db == null)
                     return Ok(new ApiBoolResult
                     { Message = $"No application database found for environment '{envName}' with users of login type '{envFilter}'", Result = false });
