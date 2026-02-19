@@ -143,5 +143,51 @@ namespace Dorc.Api.Controllers
             var env = environmentsPersistentSource.UpdateEnvironment(content, User);
             return StatusCode(StatusCodes.Status200OK, env);
         }
+
+        /// <summary>
+        /// Clone an environment including its variables/properties
+        /// </summary>
+        /// <param name="request">The clone request containing source environment ID and new environment name</param>
+        /// <returns>The newly created cloned environment</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("Clone")]
+        [HttpPost]
+        public IActionResult Clone([FromBody] CloneEnvironmentRequest request)
+        {
+            try
+            {
+                // Check permissions: only Admin, PowerUser, or Owner of source environment can clone
+                if (!(_rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User)))
+                {
+                    // Not admin/poweruser - check if owner of source environment
+                    var sourceEnv = environmentsPersistentSource.GetEnvironment(request.SourceEnvironmentId, User);
+                    if (sourceEnv == null)
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            $"Source environment with ID {request.SourceEnvironmentId} not found.");
+
+                    if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, sourceEnv.EnvironmentName))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "Only Admin, PowerUser, or Environment Owner can clone an environment.");
+                }
+
+                var clonedEnv = environmentsPersistentSource.CloneEnvironment(request, User);
+                return StatusCode(StatusCodes.Status200OK, clonedEnv);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    $"An error occurred while cloning the environment: {ex.Message}");
+            }
+        }
     }
 }

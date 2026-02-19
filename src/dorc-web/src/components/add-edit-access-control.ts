@@ -264,7 +264,10 @@ export class AddEditAccessControl extends LitElement {
             ></vaadin-grid-column>
           </vaadin-grid>
 
-          <div style="margin-right: 30px">
+          <div style="color: #FF3131">${this.ErrorMessage}</div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <div>
             <vaadin-button
               ?disabled="${!this.UserEditable}"
               @click="${this.save}"
@@ -274,9 +277,6 @@ export class AddEditAccessControl extends LitElement {
               ? html` <div class="small-loader"></div> `
               : html``}
           </div>
-          <div style="color: #FF3131">${this.ErrorMessage}</div>
-        </div>
-        <div style="display: flex; justify-content: flex-end">
           <vaadin-button dialog-confirm @click="${this.close}"
             >Close</vaadin-button
           >
