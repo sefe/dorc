@@ -67,6 +67,8 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
 
   @state() noResults = false;
 
+  @state() protected location = {} as RouterLocation<RouteMeta>;
+
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
