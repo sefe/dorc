@@ -45,6 +45,17 @@ namespace Dorc.PersistentData.Sources
                     {
                         if (pagedDataFilter == null)
                             continue;
+
+                        // For env specific monitor
+                        if (pagedDataFilter.Path == "EnvironmentNameExact")
+                        {
+                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
+                                pagedDataFilter.FilterValue);
+                            if (containsExpression != null)
+                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                            continue;
+                        }
+
                         if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
                             pagedDataFilter.Path == "BuildNumber") // this isn't pleasant but given this is built specifically for the UI
                         {
