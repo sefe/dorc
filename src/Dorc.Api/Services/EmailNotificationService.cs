@@ -41,15 +41,6 @@ namespace Dorc.Api.Services
         private string GetFromName() => _configValuesPersistentSource.GetConfigValue(ConfigKey_FromName, "DOrc Deployment System");
         private string GetAppSupportEmail() => _configValuesPersistentSource.GetConfigValue(ConfigKey_AppSupport, string.Empty);
 
-        private static string SanitizeForLog(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-                return value;
-
-            // Remove all control characters (newlines, tabs, etc.) to prevent log forging
-            return new string(value.Where(c => !char.IsControl(c)).ToArray());
-        }
-
         public async Task SendCrOverrideNotificationAsync(
             string username,
             string environment,
@@ -112,14 +103,13 @@ namespace Dorc.Api.Services
                 await smtpClient.SendMailAsync(mailMessage);
 
                 _logger.LogInformation(
-                    "CR override notification sent to {RecipientCount} recipients for deployment to {Environment}",
-                    mailMessage.To.Count, SanitizeForLog(environment));
+                    "CR override notification sent to {RecipientCount} recipients",
+                    mailMessage.To.Count);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Failed to send CR override notification for deployment to {Environment}",
-                    SanitizeForLog(environment));
+                    "Failed to send CR override notification");
                 // Don't throw - email failure shouldn't block deployment
             }
         }
