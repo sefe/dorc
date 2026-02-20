@@ -13,6 +13,7 @@ import '../components/environment-tabs/env-servers.ts'
 import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
 import '../components/environment-tabs/env-tenants.ts'
+import '../components/environment-tabs/env-monitor.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-list.ts'
@@ -338,7 +339,16 @@ export const routes: Route<RouteMeta>[] = [
               title: 'Tenants',
               description: 'Environment tenants details'
             }
+          },
+          {
+            path: '/monitor',
+            component: 'env-monitor',
+            metadata: {
+              title: 'Monitor',
+              description: 'Monitor for the environment'
+            }
           }
+
         ]
       },
       {
