@@ -46,9 +46,8 @@ namespace Dorc.Api.Services
             if (string.IsNullOrEmpty(value))
                 return value;
 
-            return value
-                .Replace("\r", string.Empty)
-                .Replace("\n", string.Empty);
+            // Remove all control characters (newlines, tabs, etc.) to prevent log forging
+            return new string(value.Where(c => !char.IsControl(c)).ToArray());
         }
 
         public async Task SendCrOverrideNotificationAsync(
