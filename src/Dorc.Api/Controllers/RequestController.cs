@@ -339,9 +339,9 @@ namespace Dorc.Api.Controllers
                                 requestDto.Project,
                                 requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty);
                         }
-                        catch (Exception emailEx)
+                        catch (Exception)
                         {
-                            _log.LogError(emailEx, "Failed to send CR override email notification for request {RequestId}", result.Id);
+                            _log.LogError("Failed to send CR override email notification for request {RequestId}", result.Id);
                             // Don't fail the deployment because of email failure
                         }
                     }
