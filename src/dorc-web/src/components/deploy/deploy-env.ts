@@ -1,4 +1,5 @@
 import '@vaadin/button';
+import '@vaadin/checkbox';
 import '@vaadin/combo-box';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
@@ -25,6 +26,9 @@ import {
   RequestStatusDto
 } from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
+import type { ChangeRequestValidationResult } from '../../types/ChangeRequestTypes';
+import { appConfig } from '../../app-config';
+import { oauthServiceContainer, OAUTH_SCHEME } from '../../services/Account/OAuthService';
 import './deploy-confirm-dialog';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -57,6 +61,8 @@ export class DeployEnv extends LitElement {
 
   @property({ type: String }) envName = '';
 
+  @property({ type: Boolean }) envIsProd = false;
+
   @property({ type: Array }) data: TreeNode[];
 
   @property({ type: Array }) propertyOverrides: RequestProperty[] = [];
@@ -76,6 +82,11 @@ export class DeployEnv extends LitElement {
   @property({ type: Boolean }) deploymentStarting = false;
 
   @property() ErrorMessage = '';
+
+  @state() private crNumber = '';
+  @state() private crValidationResult: ChangeRequestValidationResult | null = null;
+  @state() private crValidating = false;
+  @state() private overrideCr = false;
 
   @property({ type: Object }) req!: RequestPostRequest;
 
@@ -122,7 +133,48 @@ export class DeployEnv extends LitElement {
         100% {
           transform: rotate(360deg);
         }
-
+      }
+      .cr-section {
+        margin: 12px 12px 0 12px;
+        padding: 12px;
+        border-top: 6px solid cornflowerblue;
+        background-color: ghostwhite;
+      }
+      .cr-validation-success {
+        background: #e8f5e9;
+        border: 1px solid #4caf50;
+        border-radius: 4px;
+        padding: 12px;
+        margin-top: 8px;
+      }
+      .cr-validation-error {
+        background: #ffebee;
+        border: 1px solid #ef5350;
+        border-radius: 4px;
+        padding: 12px;
+        margin-top: 8px;
+      }
+      .cr-details-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+        margin-top: 8px;
+      }
+      .cr-details-grid dt {
+        font-weight: 600;
+        color: #555;
+        margin: 0;
+      }
+      .cr-details-grid dd {
+        margin: 0;
+        color: #212529;
+      }
+      .cr-override-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
     `;
   }
 
@@ -310,6 +362,7 @@ export class DeployEnv extends LitElement {
           </vaadin-grid>
         </vaadin-vertical-layout>
       </vaadin-details>
+      ${this.envIsProd ? this._renderCrSection() : html``}
       <vaadin-button
         style="width: 600px; margin-left: 12px; margin-bottom: 50px"
         @click="${this.openDeployDialog}"
@@ -319,6 +372,123 @@ export class DeployEnv extends LitElement {
       ${this.deploymentStarting ? html` <div class="loader"></div> ` : html``}
       <div style="color: #FF3131">${this.ErrorMessage}</div>
     `;
+  }
+
+  private _renderCrSection() {
+    return html`
+      <div class="cr-section">
+        <strong>Production Deployment — Change Request</strong>
+        <div style="display: flex; align-items: flex-end; gap: 8px; margin-top: 8px;">
+          <vaadin-text-field
+            label="CR Number"
+            placeholder="e.g. CHG0012345"
+            style="width: 300px"
+            .value="${this.crNumber}"
+            @value-changed="${(e: CustomEvent) => { this.crNumber = (e.target as HTMLInputElement).value; }}"
+          ></vaadin-text-field>
+          <vaadin-button
+            theme="primary"
+            ?disabled="${this.crValidating || !this.crNumber}"
+            @click="${this._validateCr}"
+          >
+            ${this.crValidating ? html`Validating...` : html`Validate`}
+          </vaadin-button>
+        </div>
+        ${this.crValidationResult ? this._renderCrResult() : html``}
+        ${!this.crValidationResult || !this.crValidationResult.IsValid ? html`
+          <div class="cr-override-row">
+            <vaadin-checkbox
+              id="override-cr-checkbox"
+              .checked="${this.overrideCr}"
+              @change="${this._handleOverrideChange}"
+            ></vaadin-checkbox>
+            <span style="color: #d32f2f; font-weight: 500;">
+              ⚠ Override CR — App Support will be notified by email
+            </span>
+          </div>
+        ` : html``}
+      </div>
+    `;
+  }
+
+  private _renderCrResult() {
+    const r = this.crValidationResult!;
+    const cssClass = r.IsValid ? 'cr-validation-success' : 'cr-validation-error';
+    const icon = r.IsValid ? '✓' : '✗';
+    return html`
+      <div class="${cssClass}">
+        <strong>${icon} ${r.Message}</strong>
+        <dl class="cr-details-grid">
+          ${r.ShortDescription ? html`<dt>Description</dt><dd>${r.ShortDescription}</dd>` : html``}
+          ${r.State ? html`<dt>State</dt><dd>${r.State}</dd>` : html``}
+          ${r.StartDate || r.EndDate ? html`<dt>Change Window</dt><dd>${r.StartDate ?? 'N/A'} — ${r.EndDate ?? 'N/A'}</dd>` : html``}
+        </dl>
+      </div>
+    `;
+  }
+
+  private async _validateCr() {
+    if (!this.crNumber) return;
+    this.crValidating = true;
+    this.crValidationResult = null;
+
+    try {
+      const baseUrl = appConfig.dorcApi;
+      const headers: Record<string, string> = {
+        'Accept': 'application/json'
+      };
+      if (appConfig.authenticationScheme === OAUTH_SCHEME) {
+        const token = oauthServiceContainer.service.signedInUser?.access_token;
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      const response = await fetch(
+        `${baseUrl}/api/ChangeRequest/validate?crNumber=${encodeURIComponent(this.crNumber)}`,
+        { headers, credentials: 'include' }
+      );
+      if (!response.ok) {
+        const text = await response.text();
+        this.crValidationResult = {
+          IsValid: false,
+          Message: text || `Validation failed (HTTP ${response.status})`
+        };
+        return;
+      }
+      const result: ChangeRequestValidationResult = await response.json();
+      this.crValidationResult = result;
+
+      // If CR is valid, clear override
+      if (result.IsValid) {
+        this.overrideCr = false;
+      }
+    } catch {
+      this.crValidationResult = {
+        IsValid: false,
+        Message: 'Failed to validate Change Request. Please try again.'
+      };
+    } finally {
+      this.crValidating = false;
+    }
+  }
+
+  private _handleOverrideChange(e: Event) {
+    const checkbox = e.target as HTMLInputElement;
+    if (checkbox.checked) {
+      const confirmed = confirm(
+        'You are about to deploy to production WITHOUT a valid Change Request.\n\n' +
+        'App Support will be notified by email.\n\n' +
+        'Are you sure you want to proceed?'
+      );
+      if (confirmed) {
+        this.overrideCr = true;
+      } else {
+        checkbox.checked = false;
+        this.overrideCr = false;
+      }
+    } else {
+      this.overrideCr = false;
+    }
   }
 
   _boundPropOverridesButtonsRenderer(
@@ -403,6 +573,10 @@ export class DeployEnv extends LitElement {
 
   public EnvironmentChange(env: string) {
     this.envName = env;
+    this.crNumber = '';
+    this.crValidationResult = null;
+    this.crValidating = false;
+    this.overrideCr = false;
     if (this._project !== undefined) {
       this.LoadBuilds();
     }
@@ -611,7 +785,10 @@ export class DeployEnv extends LitElement {
         BuildText: this.buildDef,
         BuildNum: this.selectedBuild,
         RequestProperties: this.propertyOverrides,
-        Components: components
+        Components: components,
+        // CR fields: not yet in generated RequestDto (will appear after swagger regen + dorc-api-gen)
+        ...((this.crNumber ? { ChangeRequestNumber: this.crNumber } : {}) as any),
+        ...((this.overrideCr ? { OverrideCr: true } : {}) as any)
       }
     };
 
@@ -643,6 +820,19 @@ export class DeployEnv extends LitElement {
       if (alertUser)
         alert('Please select at least one component for deployment!');
       return false;
+    }
+
+    // For production environments, require either a validated CR or override
+    if (this.envIsProd) {
+      const hasCr = this.crNumber && this.crValidationResult?.IsValid;
+      if (!hasCr && !this.overrideCr) {
+        if (alertUser)
+          alert(
+            'A validated Change Request number is required for production deployments.\n\n' +
+            'Either enter and validate a CR number, or check the Override CR checkbox.'
+          );
+        return false;
+      }
     }
 
     this.dialog.deployJson = this.req;

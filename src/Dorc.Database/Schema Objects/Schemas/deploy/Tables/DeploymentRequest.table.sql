@@ -12,7 +12,8 @@
     [Environment]    NVARCHAR (64)      NULL,
     [BuildNumber]    NVARCHAR (256)     NULL,
     [Components]     NVARCHAR (MAX)     NULL,
-    [UNCLogPath]     NVARCHAR (1024)    NULL
+    [UNCLogPath]     NVARCHAR (1024)    NULL,
+    [ChangeRequestNumber] NVARCHAR (50) NULL
     CONSTRAINT [PK_DeploymentRequest] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 

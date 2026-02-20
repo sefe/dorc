@@ -29,6 +29,7 @@ namespace Tools.RequestCLI
             Output("=== Build Uri          : " + cliArgs.Request.BuildUrl);
             Output("=== Components         : " + string.Join(" ", cliArgs.Request.Components.ToArray()));
             Output("=== Pinned             : " + cliArgs.Request.Pinned);
+            Output("=== CR Number          : " + (cliArgs.Request.ChangeRequestNumber ?? "(none)"));
             Output("=== Wait               : " + cliArgs.Wait);
             Output("=== Api Root Url       : " + config["DorcApi:BaseUrl"]);
             Output("=============================================================================");
