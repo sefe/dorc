@@ -214,6 +214,13 @@ namespace Dorc.Api.Services
                 };
             }
 
+            // Sanitize and normalize CR number format to prevent log forging
+            crNumber = crNumber
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty)
+                .Trim()
+                .ToUpperInvariant();
+
             // Check if ServiceNow integration is enabled
             if (!IsServiceNowEnabled())
             {
@@ -241,13 +248,6 @@ namespace Dorc.Api.Services
             // Configure HTTP client with ServiceNow settings (acquires AAD token)
             await ConfigureHttpClientAsync(apiUrl, GetSubscriptionKey());
 
-            // Sanitize and normalize CR number format to prevent log forging
-            crNumber = crNumber
-                .Replace("\r", string.Empty)
-                .Replace("\n", string.Empty)
-                .Trim()
-                .ToUpperInvariant();
-
             try
             {
                 // Query ServiceNow for the change request with display values.
@@ -258,7 +258,8 @@ namespace Dorc.Api.Services
                 //   - approval: "Approved" instead of "approved"
                 var endpoint = $"change_request?number={crNumber}&sysparm_fields=number,state,short_description,start_date,end_date,business_service,approval&sysparm_display_value=true";
 
-                _logger.LogInformation("Validating CR {CrNumber} against ServiceNow at {ApiUrl}", crNumber, apiUrl);
+                var safeApiUrl = apiUrl.Replace("\r", string.Empty).Replace("\n", string.Empty);
+                _logger.LogInformation("Validating CR {CrNumber} against ServiceNow at {ApiUrl}", crNumber, safeApiUrl);
 
                 var response = await _httpClient.GetAsync(endpoint);
 
