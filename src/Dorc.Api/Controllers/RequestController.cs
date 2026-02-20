@@ -308,7 +308,7 @@ namespace Dorc.Api.Controllers
                 if (!canModifyEnv)
                 {
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation($"Forbidden request to {requestDto.Environment} from {username}");
+                    _log.LogInformation("Forbidden deployment request from {Username}", username);
                     return StatusCode(StatusCodes.Status403Forbidden,
                             $"Forbidden request to {requestDto.Environment} from {username}");
                 }
