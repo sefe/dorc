@@ -24,12 +24,16 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IEmailNotificationService _emailNotificationService;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeploymentEventsPublisher deploymentEventsPublisher
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IEmailNotificationService emailNotificationService,
+            IEnvironmentsPersistentSource environmentsPersistentSource
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -40,6 +44,8 @@ namespace Dorc.Api.Controllers
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _emailNotificationService = emailNotificationService;
+            _environmentsPersistentSource = environmentsPersistentSource;
         }
 
         /// <summary>
@@ -294,7 +300,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(RequestStatusDto))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [HttpPost]
-        public IActionResult Post([FromBody] RequestDto requestDto)
+        public async Task<IActionResult> Post([FromBody] RequestDto requestDto)
         {
             try
             {
@@ -307,6 +313,9 @@ namespace Dorc.Api.Controllers
                             $"Forbidden request to {requestDto.Environment} from {username}");
                 }
 
+                // Check if environment is prod (used for email notification below)
+                var isProd = _environmentsPersistentSource.EnvironmentIsProd(requestDto.Environment);
+
                 try
                 {
                     var result = _service.CreateRequest(requestDto, User);
@@ -317,6 +326,25 @@ namespace Dorc.Api.Controllers
                         return BadRequest(result.Status);
 
                     _log.LogInformation($"Request {result.Id} created");
+
+                    // Send email notification when deploying to prod without a valid CR
+                    if (isProd && requestDto.OverrideCr && string.IsNullOrWhiteSpace(requestDto.ChangeRequestNumber))
+                    {
+                        try
+                        {
+                            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                            await _emailNotificationService.SendCrOverrideNotificationAsync(
+                                username,
+                                requestDto.Environment,
+                                requestDto.Project,
+                                requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _log.LogError(emailEx, "Failed to send CR override email notification for request {RequestId}", result.Id);
+                            // Don't fail the deployment because of email failure
+                        }
+                    }
 
                     return Ok(result);
                 }
