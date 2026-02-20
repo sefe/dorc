@@ -40,8 +40,12 @@ namespace Dorc.Api.Controllers
                     return BadRequest("Change Request number is required");
                 }
 
+                var safeCrNumber = crNumber
+                    .Replace("\r", string.Empty)
+                    .Replace("\n", string.Empty);
+
                 _logger.LogInformation("Validating CR {CrNumber} for user {User}",
-                    crNumber, User.Identity?.Name ?? "Unknown");
+                    safeCrNumber, User.Identity?.Name ?? "Unknown");
 
                 var result = await _serviceNowService.ValidateChangeRequestAsync(crNumber);
 
@@ -49,7 +53,10 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating CR {CrNumber}: {Message}", crNumber, ex.Message);
+                var safeCrNumber = crNumber?
+                    .Replace("\r", string.Empty)
+                    .Replace("\n", string.Empty);
+                _logger.LogError(ex, "Error validating CR {CrNumber}: {Message}", safeCrNumber, ex.Message);
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     $"An error occurred while validating the Change Request: {ex.Message}");
             }

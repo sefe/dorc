@@ -103,8 +103,8 @@ namespace Dorc.Api.Services
                 await smtpClient.SendMailAsync(mailMessage);
 
                 _logger.LogInformation(
-                    "CR override notification sent to {Recipients} for deployment to {Environment} by {Username}",
-                    recipients, environment, username);
+                    "CR override notification sent to {RecipientCount} recipients for deployment to {Environment} by {Username}",
+                    mailMessage.To.Count, environment, username);
             }
             catch (Exception ex)
             {

@@ -241,8 +241,12 @@ namespace Dorc.Api.Services
             // Configure HTTP client with ServiceNow settings (acquires AAD token)
             await ConfigureHttpClientAsync(apiUrl, GetSubscriptionKey());
 
-            // Normalize CR number format
-            crNumber = crNumber.Trim().ToUpperInvariant();
+            // Sanitize and normalize CR number format to prevent log forging
+            crNumber = crNumber
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty)
+                .Trim()
+                .ToUpperInvariant();
 
             try
             {
