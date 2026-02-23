@@ -72,7 +72,7 @@ namespace Dorc.Api.Services
                 if (!buildDefs.Any())
                 {
                     _validationMessage = $"Found No Build Definitions in the project with name {dorcBuild.BuildText}";
-                    _log.LogDebug($"Found No Build Definitions in the project with name {dorcBuild.BuildText}");
+                    _log.LogDebug("Found No Build Definitions matching the requested build definition name");
                     return false;
                 }
 
@@ -168,7 +168,8 @@ namespace Dorc.Api.Services
                 _azureDevOpsProject + "; " + _azureDevOpsBuildDefinitionName,
                 request.Components.ToList(),
                 request.RequestProperties.ToList(),
-                user);
+                user,
+                request.ChangeRequestNumber);
 
             int id;
             try

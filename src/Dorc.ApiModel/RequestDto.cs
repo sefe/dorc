@@ -18,6 +18,8 @@ namespace Dorc.ApiModel
         public bool? Pinned { set; get; }
         public ICollection<RequestProperty> RequestProperties { set; get; }
         public string VstsUrl { set; get; }
+        public string ChangeRequestNumber { set; get; }
+        public bool OverrideCr { set; get; }
 
         public override string ToString()
         {

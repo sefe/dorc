@@ -7,7 +7,7 @@ namespace Dorc.Core.Interfaces
     {
         int SubmitRequest(string projectName, string environmentName, string uri,
             string buildDefinitionName, List<string> requestComponents, List<RequestProperty> requestProperties,
-            ClaimsPrincipal user);
+            ClaimsPrincipal user, string? changeRequestNumber = null);
 
         List<int> CopyEnvBuildWithComponentIds(string sourceEnv, string targetEnv, string strProjectName,
             int[] doDeploy, ClaimsPrincipal user);
