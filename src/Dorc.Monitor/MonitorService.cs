@@ -46,7 +46,15 @@ namespace Dorc.Monitor
             {
                 throw new NullReferenceException("DeploymentEngine was not issued and equals null");
             }
-
+            try
+            {
+                var stateProcessor = serviceProvider.GetService(typeof(IDeploymentRequestStateProcessor)) as IDeploymentRequestStateProcessor;
+                stateProcessor?.CancelStaleRequests(isProduction);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to cancel stale requests from previous instance. Continuing startup.");
+            }
             while (!monitorCancellationToken.IsCancellationRequested)
             {
                 try
