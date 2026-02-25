@@ -7,7 +7,7 @@ import { AddSqlUserOrGroup } from './add-sql-user-or-group';
 
 export function addSqlUserOrGroupTemplate(this: AddSqlUserOrGroup) {
 
-  const maxFieldLength = 512;
+  const maxFieldLength = 50;
 
   return html` <div>
     <vaadin-vertical-layout>

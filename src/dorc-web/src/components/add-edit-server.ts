@@ -21,7 +21,8 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 @customElement('add-edit-server')
 export class AddEditServer extends LitElement {
 
-  private readonly maxFieldLength = 250;
+  private readonly maxServerNameLength = 32;
+  private readonly maxOSNameLength = 50;
 
   @property({ type: Object })
   get srv(): ServerApiModel {
@@ -136,8 +137,8 @@ export class AddEditServer extends LitElement {
           <vaadin-text-field
             id="serverName"
             label="Server Name"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            maxlength="${this.maxServerNameLength}"
+            title="Maximum length: ${this.maxServerNameLength} symbols"
             class="block"
             required
             auto-validate
@@ -148,8 +149,8 @@ export class AddEditServer extends LitElement {
           <vaadin-combo-box
             id="OsName"
             label="Operating System"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            maxlength="${this.maxOSNameLength}"
+            title="Maximum length: ${this.maxOSNameLength} symbols"
             class="block"
             @value-changed="${this._operatingSystemValueChanged}"
             .items="${this.templates}"

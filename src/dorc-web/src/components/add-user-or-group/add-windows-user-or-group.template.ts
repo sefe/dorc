@@ -11,7 +11,7 @@ import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
 
 export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
 
-  const maxFieldLength = 512;
+  const maxFieldLength = 50;
 
   return html` <div>
     <vaadin-vertical-layout>
