@@ -39,7 +39,7 @@ namespace Dorc.Api.Services
         public RequestStatusDto Process(RequestDto request, ClaimsPrincipal user)
         {
             var sId = _deployLibrary.SubmitRequest(request.Project, request.Environment, request.BuildUrl, string.Empty,
-                request.Components.ToList(), request.RequestProperties.ToList(), user, request.ChangeRequestNumber);
+                request.Components.ToList(), request.RequestProperties.ToList(), user);
             int id;
             try
             {

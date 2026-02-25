@@ -168,8 +168,7 @@ namespace Dorc.Api.Services
                 _azureDevOpsProject + "; " + _azureDevOpsBuildDefinitionName,
                 request.Components.ToList(),
                 request.RequestProperties.ToList(),
-                user,
-                request.ChangeRequestNumber);
+                user);
 
             int id;
             try

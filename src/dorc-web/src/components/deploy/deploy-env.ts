@@ -513,9 +513,18 @@ export class DeployEnv extends LitElement {
       );
       if (!response.ok) {
         const text = await response.text();
+        let message = `Validation failed (HTTP ${response.status})`;
+        if (text) {
+          try {
+            const errorBody = JSON.parse(text);
+            message = errorBody.Message || errorBody.message || text;
+          } catch {
+            message = text;
+          }
+        }
         this.crValidationResult = {
           IsValid: false,
-          Message: text || `Validation failed (HTTP ${response.status})`
+          Message: message
         };
         return;
       }
@@ -573,9 +582,18 @@ export class DeployEnv extends LitElement {
 
       if (!response.ok) {
         const text = await response.text();
+        let message = `Auto-create failed (HTTP ${response.status} ${response.statusText})`;
+        if (text) {
+          try {
+            const errorBody = JSON.parse(text);
+            message = errorBody.Message || errorBody.message || text;
+          } catch {
+            message = text;
+          }
+        }
         this.crValidationResult = {
           IsValid: false,
-          Message: text || `Auto-create failed (HTTP ${response.status} ${response.statusText})`
+          Message: message
         };
         return;
       }

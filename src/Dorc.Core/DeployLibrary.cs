@@ -47,7 +47,7 @@ namespace Dorc.Core
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
             string buildDefinitionName, List<string> requestComponents, List<RequestProperty> requestProperties,
-            ClaimsPrincipal user, string? changeRequestNumber = null)
+            ClaimsPrincipal user)
         {
             var project = _projectsPersistentSource.GetProject(projectName);
             if (project == null)
@@ -68,7 +68,7 @@ namespace Dorc.Core
             var properties = requestProperties
                 ?.Select(x => new KeyValuePair<string, string>(x.PropertyName, x.PropertyValue))
                 .ToArray();
-            return CreateRequest(project, environment, uri, buildDefinitionName, components, properties, user, changeRequestNumber)
+            return CreateRequest(project, environment, uri, buildDefinitionName, components, properties, user)
                 .RequestId;
         }
 
@@ -125,7 +125,7 @@ namespace Dorc.Core
             return requestIds;
         }
 
-        private int CreateRequest(DeploymentRequestDetail requestDetail, ClaimsPrincipal user, string? changeRequestNumber = null)
+        private int CreateRequest(DeploymentRequestDetail requestDetail, ClaimsPrincipal user)
         {
             var serializer = new DeploymentRequestDetailSerializer();
 
@@ -138,8 +138,7 @@ namespace Dorc.Core
                     Project = requestDetail.BuildDetail.Project,
                     Environment = requestDetail.EnvironmentName,
                     BuildNumber = requestDetail.BuildDetail.BuildNumber,
-                    Components = string.Join("|", requestDetail.Components),
-                    ChangeRequestNumber = changeRequestNumber
+                    Components = string.Join("|", requestDetail.Components)
                 };
 
             var requestId = _requestsPersistentSource.SubmitRequest(deploymentRequest);
@@ -159,8 +158,7 @@ namespace Dorc.Core
 
         private CreateResponse CreateRequest(ProjectApiModel project, EnvironmentApiModel environment,
             string buildUrl, string buildDefinitionName,
-            ComponentApiModel[] components, IEnumerable<KeyValuePair<string, string>> properties, ClaimsPrincipal user,
-            string? changeRequestNumber = null)
+            ComponentApiModel[] components, IEnumerable<KeyValuePair<string, string>> properties, ClaimsPrincipal user)
         {
             try
             {
@@ -172,11 +170,10 @@ namespace Dorc.Core
                     BuildUrl = buildUrl,
                     Components = components.Select(c => c.ComponentName).ToList(),
                     Properties =
-                        properties?.Select(x => new RequestProperty { PropertyName = x.Key, PropertyValue = x.Value }),
-                    ChangeRequestNumber = changeRequestNumber
+                        properties?.Select(x => new RequestProperty { PropertyName = x.Key, PropertyValue = x.Value })
                 };
 
-                var response = CreateRequestAsync(request, user, changeRequestNumber).Result;
+                var response = CreateRequestAsync(request, user).Result;
 
                 return response;
             }
@@ -189,7 +186,7 @@ namespace Dorc.Core
             return null;
         }
 
-        private async Task<CreateResponse> CreateRequestAsync(CreateRequest createRequest, ClaimsPrincipal user, string? changeRequestNumber = null)
+        private async Task<CreateResponse> CreateRequestAsync(CreateRequest createRequest, ClaimsPrincipal user)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
 
@@ -279,7 +276,7 @@ namespace Dorc.Core
                     requestDetail.Properties.Add(new PropertyPair(requestProperty.PropertyName,
                         requestProperty.PropertyValue));
 
-            var requestId = CreateRequest(requestDetail, user, createRequest.ChangeRequestNumber);
+            var requestId = CreateRequest(requestDetail, user);
 
             return new CreateResponse
             {

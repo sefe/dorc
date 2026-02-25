@@ -11,7 +11,6 @@ namespace Dorc.ApiModel
         public string DropFolder { get; set; }
         public ICollection<string> Components { get; set; }
         public IEnumerable<RequestProperty> Properties { get; set; }
-        public string ChangeRequestNumber { get; set; }
     }
 
     public class RequestProperty
