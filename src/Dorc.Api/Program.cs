@@ -295,6 +295,7 @@ builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ =
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 builder.Services.AddHttpClient<IServiceNowService, ServiceNowService>();
 builder.Services.AddTransient<IEmailNotificationService, EmailNotificationService>();
+builder.Services.AddTransient<ICrInputsProvider, AzureDevOpsCrInputsProvider>();
 
 builder.Host.UseLamar((context, registry) =>
 {

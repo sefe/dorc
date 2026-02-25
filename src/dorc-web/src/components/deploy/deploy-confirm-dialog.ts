@@ -17,7 +17,13 @@ export class DeployConfirmDialog extends LitElement {
   @query('#dialog') dialog!: HegsDialog;
 
   static get styles() {
-    return css``;
+    return css`
+      .button-container {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+      }
+    `;
   }
 
   render() {
@@ -30,23 +36,25 @@ export class DeployConfirmDialog extends LitElement {
       >
         Please confirm you want to submit this deployment request?
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
-        <vaadin-button @click="${() => (this._open = false)}">
-          Cancel
-        </vaadin-button>
-        <vaadin-button
-          theme="primary"
-          @click="${() => {
-            this._open = false;
-            const event = new CustomEvent('deploy-confirm-dialog-begin', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            });
-            this.dispatchEvent(event);
-          }}"
-        >
-          Deploy
-        </vaadin-button>
+        <div class="button-container">
+          <vaadin-button @click="${() => (this._open = false)}">
+            Cancel
+          </vaadin-button>
+          <vaadin-button
+            theme="primary"
+            @click="${() => {
+              this._open = false;
+              const event = new CustomEvent('deploy-confirm-dialog-begin', {
+                detail: {},
+                bubbles: true,
+                composed: true
+              });
+              this.dispatchEvent(event);
+            }}"
+          >
+            Deploy
+          </vaadin-button>
+        </div>
       </hegs-dialog>
     `;
   }

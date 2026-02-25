@@ -5,16 +5,6 @@ using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Services
 {
-    /// <summary>
-    /// Email notification service that uses DOrc configuration.
-    /// 
-    /// Required DOrc Config Values (in Config table):
-    /// - Email_SmtpHost: SMTP server hostname
-    /// - Email_SmtpPort: SMTP server port (default: 25)
-    /// - Email_FromAddress: Sender email address
-    /// - Email_FromName: Sender display name (default: "DOrc Deployment System")
-    /// - App support: Email recipient(s) for CR override notifications
-    /// </summary>
     public class EmailNotificationService : IEmailNotificationService
     {
         private readonly ILogger<EmailNotificationService> _logger;

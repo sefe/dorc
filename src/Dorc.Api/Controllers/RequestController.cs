@@ -327,8 +327,8 @@ namespace Dorc.Api.Controllers
 
                     _log.LogInformation($"Request {result.Id} created");
 
-                    // Send email notification when deploying to prod without a valid CR
-                    if (isProd && requestDto.OverrideCr && string.IsNullOrWhiteSpace(requestDto.ChangeRequestNumber))
+                    // Send email notification when deploying to prod with CR override
+                    if (isProd && requestDto.OverrideCr)
                     {
                         try
                         {

@@ -12,21 +12,19 @@ namespace Dorc.Api.Controllers
     public class ChangeRequestController : ControllerBase
     {
         private readonly IServiceNowService _serviceNowService;
+        private readonly ICrInputsProvider _crInputsProvider;
         private readonly ILogger<ChangeRequestController> _logger;
 
         public ChangeRequestController(
             IServiceNowService serviceNowService,
+            ICrInputsProvider crInputsProvider,
             ILogger<ChangeRequestController> logger)
         {
             _serviceNowService = serviceNowService;
+            _crInputsProvider = crInputsProvider;
             _logger = logger;
         }
 
-        /// <summary>
-        /// Validates a Change Request number against ServiceNow
-        /// </summary>
-        /// <param name="crNumber">The Change Request number to validate (e.g., CHG0012345)</param>
-        /// <returns>Validation result indicating if the CR is valid and in Implement state</returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ChangeRequestValidationResult))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [HttpGet("validate")]
@@ -61,10 +59,6 @@ namespace Dorc.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Creates a standard Change Request in ServiceNow automatically (AutoCR).
-        /// Used by the web UI "Auto-create CR" button and CLI /autocr flag.
-        /// </summary>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CreateChangeRequestResult))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [HttpPost("create")]
@@ -83,8 +77,42 @@ namespace Dorc.Api.Controllers
                     input.RequestedBy = User.Identity?.Name ?? "Unknown";
                 }
 
+                var safeProjectName = (input.ProjectName ?? string.Empty)
+                    .Replace("\r", string.Empty)
+                    .Replace("\n", string.Empty);
+                var safeEnvironment = (input.Environment ?? string.Empty)
+                    .Replace("\r", string.Empty)
+                    .Replace("\n", string.Empty);
+
                 _logger.LogInformation("AutoCR requested by {User} for project {Project} to {Environment}",
-                    User.Identity?.Name ?? "Unknown", input.ProjectName, input.Environment);
+                    User.Identity?.Name ?? "Unknown", safeProjectName, safeEnvironment);
+
+                // Auto-fetch cr-inputs.json from the project's Azure DevOps repo
+                if (!string.IsNullOrEmpty(input.ProjectName))
+                {
+                    try
+                    {
+                        var crInputs = await _crInputsProvider.GetCrInputsAsync(input.ProjectName);
+                        if (crInputs != null)
+                        {
+                            MergeCrInputs(input, crInputs);
+                            input.CrInputsFetched = true;
+                            _logger.LogInformation("Auto-fetched cr-inputs.json for project '{Project}': " +
+                                "assignment_group='{Group}', business_service='{Service}'",
+                                safeProjectName, input.AssignmentGroup, input.BusinessService);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("cr-inputs.json not found for project '{Project}'. " +
+                                "Will use global config and hardcoded defaults.", safeProjectName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to auto-fetch cr-inputs.json for project '{Project}'. " +
+                            "Will use global config and hardcoded defaults.", safeProjectName);
+                    }
+                }
 
                 var result = await _serviceNowService.CreateChangeRequestAsync(input);
 
@@ -101,6 +129,42 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     $"An error occurred while creating the Change Request: {ex.Message}");
             }
+        }
+
+        private static void MergeCrInputs(CreateChangeRequestInput input, CrInputsModel crInputs)
+        {
+            if (string.IsNullOrEmpty(input.AssignmentGroup) && !string.IsNullOrEmpty(crInputs.AssignmentGroup))
+                input.AssignmentGroup = crInputs.AssignmentGroup;
+            if (string.IsNullOrEmpty(input.BusinessService) && !string.IsNullOrEmpty(crInputs.BusinessService))
+                input.BusinessService = crInputs.BusinessService;
+            if (string.IsNullOrEmpty(input.ChgModel) && !string.IsNullOrEmpty(crInputs.ChgModel))
+                input.ChgModel = crInputs.ChgModel;
+            if (string.IsNullOrEmpty(input.Type) && !string.IsNullOrEmpty(crInputs.Type))
+                input.Type = crInputs.Type;
+            if (string.IsNullOrEmpty(input.ShortDescription) && !string.IsNullOrEmpty(crInputs.ShortDescription))
+                input.ShortDescription = crInputs.ShortDescription;
+            if (string.IsNullOrEmpty(input.BackoutPlan) && !string.IsNullOrEmpty(crInputs.BackoutPlan))
+                input.BackoutPlan = crInputs.BackoutPlan;
+            if (string.IsNullOrEmpty(input.ImplementationPlan) && !string.IsNullOrEmpty(crInputs.ImplementationPlan))
+                input.ImplementationPlan = crInputs.ImplementationPlan;
+            if (string.IsNullOrEmpty(input.Justification) && !string.IsNullOrEmpty(crInputs.Justification))
+                input.Justification = crInputs.Justification;
+            if (string.IsNullOrEmpty(input.TestPlan) && !string.IsNullOrEmpty(crInputs.TestPlan))
+                input.TestPlan = crInputs.TestPlan;
+            if (string.IsNullOrEmpty(input.RiskImpactAnalysis) && !string.IsNullOrEmpty(crInputs.RiskImpactAnalysis))
+                input.RiskImpactAnalysis = crInputs.RiskImpactAnalysis;
+            if (string.IsNullOrEmpty(input.WorkNotes) && !string.IsNullOrEmpty(crInputs.WorkNotes))
+                input.WorkNotes = crInputs.WorkNotes;
+            if (string.IsNullOrEmpty(input.Category) && !string.IsNullOrEmpty(crInputs.Category))
+                input.Category = crInputs.Category;
+            if (string.IsNullOrEmpty(input.CorrelationId) && !string.IsNullOrEmpty(crInputs.CorrelationId))
+                input.CorrelationId = crInputs.CorrelationId;
+            if (string.IsNullOrEmpty(input.Impact) && !string.IsNullOrEmpty(crInputs.Impact))
+                input.Impact = crInputs.Impact;
+            if (string.IsNullOrEmpty(input.Priority) && !string.IsNullOrEmpty(crInputs.Priority))
+                input.Priority = crInputs.Priority;
+            if (string.IsNullOrEmpty(input.Urgency) && !string.IsNullOrEmpty(crInputs.Urgency))
+                input.Urgency = crInputs.Urgency;
         }
     }
 }

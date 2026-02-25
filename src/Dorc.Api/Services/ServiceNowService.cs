@@ -6,18 +6,13 @@ using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Services
 {
-    /// <summary>
-    /// ServiceNow Change Request response model.
-    /// With sysparm_display_value=true:
-    ///   - Choice fields (state, approval) are returned as display strings
-    ///   - Reference fields (business_service) may still be returned as objects
-    ///     with "link" and "value" properties, so we use JsonElement to handle
-    ///     both string and object shapes safely.
-    /// </summary>
+    /// <summary>ServiceNow CR response model. Uses sysparm_display_value=true so choice fields are display strings.</summary>
     public class SnChangeRequestResponseModel
     {
+        public string sys_id { get; set; } = string.Empty;
         public string number { get; set; } = string.Empty;
         public string state { get; set; } = string.Empty;
+        public string type { get; set; } = string.Empty;
         public string short_description { get; set; } = string.Empty;
         public string? start_date { get; set; }
         public string? end_date { get; set; }
@@ -25,10 +20,6 @@ namespace Dorc.Api.Services
         // Reference fields: may be a string OR an object { "link": "...", "value": "..." }
         public JsonElement? business_service { get; set; }
 
-        /// <summary>
-        /// Safely extracts a display string from a JsonElement that could be
-        /// a plain string or a reference object with "display_value"/"value" keys.
-        /// </summary>
         public static string GetDisplayValue(JsonElement? element, string fallback = "N/A")
         {
             if (element == null) return fallback;
@@ -60,20 +51,6 @@ namespace Dorc.Api.Services
         public T[] result { get; set; } = Array.Empty<T>();
     }
 
-    /// <summary>
-    /// ServiceNow integration service that uses DOrc configuration.
-    /// Authentication uses Azure AD bearer token + APIM subscription key,
-    /// matching the DBAChangeRequestPortal pattern.
-    /// 
-    /// Required DOrc Config Values (in ConfigValue table):
-    /// - UseServiceNow: Set to "true" to enable CR validation
-    /// - ServiceNowApiUrl: APIM gateway URL (e.g., https://apim-np-servicenow-uks.azure-api.net)
-    /// - ServiceNowApiSubscriptionKey: APIM subscription key
-    /// - ServiceNowAadScope: Azure AD scope for token acquisition (e.g., {app-id}/.default)
-    /// 
-    /// Azure AD credentials (TenantId, ClientId, ClientSecret) come from appsettings.json
-    /// via IConfigurationSettings.
-    /// </summary>
     public class ServiceNowService : IServiceNowService
     {
         private readonly HttpClient _httpClient;
@@ -120,9 +97,6 @@ namespace Dorc.Api.Services
             return _configValuesPersistentSource.GetConfigValue(ConfigKey_AadScope, string.Empty);
         }
 
-        /// <summary>
-        /// Acquires an Azure AD bearer token using client credentials flow.
-        /// </summary>
         private async Task<string?> GetBearerTokenAsync()
         {
             var scope = GetAadScope();
@@ -151,7 +125,6 @@ namespace Dorc.Api.Services
                 new KeyValuePair<string, string>("scope", scope)
             });
 
-            // Use a separate HttpClient for token acquisition (don't use the one configured for ServiceNow)
             using var tokenClient = new HttpClient();
             var tokenResponse = await tokenClient.PostAsync(tokenUrl, tokenRequestBody);
             var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
@@ -250,13 +223,8 @@ namespace Dorc.Api.Services
 
             try
             {
-                // Query ServiceNow for the change request with display values.
-                // Authentication is via subscription-key header + Bearer token (configured in ConfigureHttpClient).
-                // IMPORTANT: Do NOT use a leading '/' - that makes HttpClient resolve against the host root.
-                // Using sysparm_display_value=true returns human-readable display values:
-                //   - state: "Implement" instead of "-1"
-                //   - approval: "Approved" instead of "approved"
-                var endpoint = $"change_request?number={crNumber}&sysparm_fields=number,state,short_description,start_date,end_date,business_service,approval&sysparm_display_value=true";
+                // sysparm_display_value=true returns human-readable state/approval values
+                var endpoint = $"change_request?number={crNumber}&sysparm_fields=number,state,short_description,start_date,end_date,business_service,approval,assignment_group&sysparm_display_value=true";
 
                 var safeApiUrl = apiUrl.Replace("\r", string.Empty).Replace("\n", string.Empty);
                 _logger.LogInformation("Validating CR {CrNumber} against ServiceNow at {ApiUrl}", crNumber, safeApiUrl);
@@ -314,7 +282,8 @@ namespace Dorc.Api.Services
                 var stateDisplay = cr.state?.Trim() ?? string.Empty;
                 var currentDateUtc = DateTime.UtcNow;
 
-                // Helper to build a populated result (avoids repeating field assignments)
+                _logger.LogInformation("CR {CrNumber} raw validate response: {Response}", crNumber, responseContent);
+
                 ChangeRequestValidationResult BuildResult(bool isValid, string message) => new()
                 {
                     IsValid = isValid,
@@ -326,11 +295,7 @@ namespace Dorc.Api.Services
                     EndDate = cr.end_date ?? string.Empty
                 };
 
-                // With sysparm_display_value=true, state is the display name
-                // CR lifecycle: New → Assess → Authorize → Scheduled → Implement → Review → Closed / Cancelled
-                // "Implement" is the primary deployment state.
-                // "Closed" and "Review" are post-implementation states — deployment already happened, so these are valid.
-                // All other states mean the CR is not yet ready.
+                // "Implement" is the deployment state. "Closed" and "Review" are post-implementation — also valid.
                 if (!string.Equals(stateDisplay, "Implement", StringComparison.OrdinalIgnoreCase))
                 {
                     var lowerState = stateDisplay.ToLowerInvariant();
@@ -343,8 +308,8 @@ namespace Dorc.Api.Services
 
                         var postImplMessage = lowerState switch
                         {
-                            "closed" => $"Change Request {crNumber} has been completed and closed.",
-                            "review" => $"Change Request {crNumber} has been implemented and is under review.",
+                            "closed" => $"Change Request {crNumber} is closed. Deployment is permitted.",
+                            "review" => $"Change Request {crNumber} is in Review state (post-implementation). Deployment is permitted.",
                             _ => string.Empty
                         };
 
@@ -358,10 +323,15 @@ namespace Dorc.Api.Services
                     var stateMessage = lowerState switch
                     {
                         "cancelled" => $"Change Request {crNumber} has been cancelled and cannot be used for deployment.",
-                        "new" => $"Change Request {crNumber} is still in 'New' state and has not been progressed yet.",
-                        "assess" => $"Change Request {crNumber} is being assessed and is not yet ready for deployment.",
-                        "authorize" => $"Change Request {crNumber} is awaiting authorization and is not yet ready for deployment.",
-                        "scheduled" => $"Change Request {crNumber} is scheduled but has not moved to 'Implement' yet.",
+                        "new" => $"Change Request {crNumber} is still in 'New' state. " +
+                                 "It must be progressed to 'Implement' before deployment can proceed. " +
+                                 "Use Auto-create CR or advance the CR in ServiceNow.",
+                        "assess" => $"Change Request {crNumber} is being assessed and is not yet ready for deployment. " +
+                                    "It must reach 'Implement' state before deployment can proceed.",
+                        "authorize" => $"Change Request {crNumber} is pending authorization and is not yet ready for deployment. " +
+                                       "It must reach 'Implement' state before deployment can proceed.",
+                        "scheduled" => $"Change Request {crNumber} is in 'Scheduled' state. " +
+                                       "It must be moved to 'Implement' in ServiceNow before deployment can proceed.",
                         _ => $"Change Request {crNumber} is in '{stateDisplay}' state. It must be in 'Implement' state to proceed with deployment."
                     };
 
@@ -376,7 +346,9 @@ namespace Dorc.Api.Services
                         crNumber, approvalDisplay);
 
                     return BuildResult(false,
-                        $"Change Request {crNumber} has not been approved yet (current status: {(string.IsNullOrEmpty(approvalDisplay) ? "N/A" : approvalDisplay)}).");
+                        $"Change Request {crNumber} does not have ServiceNow approval (current approval status: " +
+                        $"{(string.IsNullOrEmpty(approvalDisplay) ? "N/A" : approvalDisplay)}). " +
+                        "The CR's approval field must be set to 'Approved' in ServiceNow before deployment can proceed.");
                 }
 
                 // Check if current time is within the approved change window
@@ -385,11 +357,12 @@ namespace Dorc.Api.Services
                     if (currentDateUtc < startDate || currentDateUtc > endDate)
                     {
                         _logger.LogWarning(
-                            "CR {CrNumber} is not within the approved change window. Window: {StartDate} to {EndDate}, Current: {CurrentTime}",
+                            "CR {CrNumber} is not within the scheduled change window. Window: {StartDate} to {EndDate}, Current: {CurrentTime}",
                             crNumber, startDate, endDate, currentDateUtc);
 
                         return BuildResult(false,
-                            $"Change Request {crNumber} is outside its approved change window.");
+                            $"Change Request {crNumber} is outside its scheduled change window. " +
+                            $"The window is {cr.start_date ?? "N/A"} to {cr.end_date ?? "N/A"} but the current time is outside this range.");
                     }
                 }
 
@@ -400,7 +373,7 @@ namespace Dorc.Api.Services
                 _logger.LogInformation("CR {CrNumber} validated successfully - {Details}", crNumber, details);
 
                 return BuildResult(true,
-                    $"Change Request {crNumber} is valid and approved, within the change window.");
+                    $"Change Request {crNumber} is valid and ready for deployment (state: Implement, within change window).");
             }
             catch (HttpRequestException ex)
             {
@@ -426,15 +399,6 @@ namespace Dorc.Api.Services
             }
         }
 
-        /// <summary>
-        /// Creates a standard Change Request in ServiceNow via the APIM gateway.
-        /// This mirrors what the service-now-cli does with its "createcr" command.
-        /// The CR is created with type=Standard, model=Standard, scheduled for "now" to "now + 1 hour".
-        /// 
-        /// Required DOrc Config Values (in addition to existing ServiceNow ones):
-        /// - ServiceNowCrAssignmentGroup: The assignment group for CRs (e.g., team/tribe name)
-        /// - ServiceNowCrBusinessService: The business service name in CMDB
-        /// </summary>
         public async Task<CreateChangeRequestResult> CreateChangeRequestAsync(CreateChangeRequestInput input)
         {
             if (string.IsNullOrWhiteSpace(input.ShortDescription) &&
@@ -470,34 +434,77 @@ namespace Dorc.Api.Services
 
             try
             {
-                var assignmentGroup = _configValuesPersistentSource.GetConfigValue("ServiceNowCrAssignmentGroup", "");
-                var businessService = _configValuesPersistentSource.GetConfigValue("ServiceNowCrBusinessService", "");
+                // Resolve assignment_group: cr-inputs.json → project DB field → global config
+                var assignmentGroup = !string.IsNullOrEmpty(input.AssignmentGroup)
+                    ? input.AssignmentGroup
+                    : _configValuesPersistentSource.GetConfigValue("ServiceNowCrAssignmentGroup", "");
+
+                // Resolve business_service: cr-inputs.json → global config
+                var businessService = !string.IsNullOrEmpty(input.BusinessService)
+                    ? input.BusinessService
+                    : _configValuesPersistentSource.GetConfigValue("ServiceNowCrBusinessService", "");
+
+                if (string.IsNullOrEmpty(assignmentGroup))
+                {
+                    _logger.LogWarning("No AssignmentGroup found for project '{Project}'. " +
+                        "Add cr-inputs.json to the project's ADO repo " +
+                        "or configure ServiceNowCrAssignmentGroup globally. " +
+                        "ServiceNow may reject the CR.", input.ProjectName);
+                }
 
                 var startDate = DateTime.UtcNow;
                 var endDate = startDate.AddHours(1);
                 var dateFormat = "dd.MM.yyyy HH:mm:ss";
 
+                // Use user-supplied change window dates if provided (ISO 8601 from date-time picker)
+                if (!string.IsNullOrEmpty(input.StartDate) && DateTime.TryParse(input.StartDate, out var parsedStart))
+                    startDate = parsedStart;
+                if (!string.IsNullOrEmpty(input.EndDate) && DateTime.TryParse(input.EndDate, out var parsedEnd))
+                    endDate = parsedEnd;
+
                 var shortDesc = !string.IsNullOrWhiteSpace(input.ShortDescription)
                     ? input.ShortDescription
                     : $"[DOrc] Deploy {input.ProjectName} to {input.Environment}";
 
-                var implPlan = $"Execute DOrc deployment of {input.ProjectName} " +
-                               $"build {input.BuildNumber} to {input.Environment}";
+                var implPlan = !string.IsNullOrWhiteSpace(input.ImplementationPlan)
+                    ? input.ImplementationPlan
+                    : $"Execute DOrc deployment of {input.ProjectName} build {input.BuildNumber} to {input.Environment}";
 
-                // Build the CR body matching the ServiceNow /change_request POST schema.
-                // Only non-empty fields are sent (ServiceNow ignores nulls).
+                var backoutPlan = !string.IsNullOrWhiteSpace(input.BackoutPlan)
+                    ? input.BackoutPlan
+                    : "Re-run the previously successful production release version";
+
+                var justification = !string.IsNullOrWhiteSpace(input.Justification)
+                    ? input.Justification
+                    : $"Automated deployment via DOrc for {input.ProjectName}";
+
+                var testPlan = !string.IsNullOrWhiteSpace(input.TestPlan)
+                    ? input.TestPlan
+                    : "Tested through the CI/CD pipeline prior to production deployment";
+
+                var riskImpact = !string.IsNullOrWhiteSpace(input.RiskImpactAnalysis)
+                    ? input.RiskImpactAnalysis
+                    : "OutageOrRestrictedFunctionality: false; ServiceImpactedOnFailure: false; Criticality: Minor";
+
+                var crType = !string.IsNullOrWhiteSpace(input.Type) ? input.Type : "Standard";
+                var chgModel = !string.IsNullOrWhiteSpace(input.ChgModel) ? input.ChgModel : "Standard";
+
+                var crInputsSource = input.CrInputsFetched ? "cr-inputs.json" : "hardcoded defaults";
+                _logger.LogInformation("Building CR body for project '{Project}' using {Source}",
+                    input.ProjectName, crInputsSource);
+
                 var crBody = new Dictionary<string, string>
                 {
                     ["short_description"] = shortDesc,
-                    ["type"] = "Standard",
-                    ["chg_model"] = "Standard",
+                    ["type"] = crType,
+                    ["chg_model"] = chgModel,
                     ["start_date"] = startDate.ToString(dateFormat),
                     ["end_date"] = endDate.ToString(dateFormat),
                     ["implementation_plan"] = implPlan,
-                    ["backout_plan"] = "Re-run the previously successful production release version",
-                    ["justification"] = $"Automated deployment via DOrc for {input.ProjectName}",
-                    ["test_plan"] = "Tested through the CI/CD pipeline prior to production deployment",
-                    ["risk_impact_analysis"] = "OutageOrRestrictedFunctionality: false; ServiceImpactedOnFailure: false; Criticality: Minor"
+                    ["backout_plan"] = backoutPlan,
+                    ["justification"] = justification,
+                    ["test_plan"] = testPlan,
+                    ["risk_impact_analysis"] = riskImpact
                 };
 
                 if (!string.IsNullOrEmpty(assignmentGroup))
@@ -507,11 +514,31 @@ namespace Dorc.Api.Services
                 if (!string.IsNullOrEmpty(input.RequestedBy))
                     crBody["requested_by"] = input.RequestedBy;
 
+                if (!string.IsNullOrEmpty(input.WorkNotes))
+                    crBody["work_notes"] = input.WorkNotes;
+                if (!string.IsNullOrEmpty(input.Category))
+                    crBody["category"] = input.Category;
+                if (!string.IsNullOrEmpty(input.CorrelationId))
+                    crBody["correlation_id"] = input.CorrelationId;
+                if (!string.IsNullOrEmpty(input.Impact))
+                    crBody["impact"] = input.Impact;
+                if (!string.IsNullOrEmpty(input.Priority))
+                    crBody["priority"] = input.Priority;
+                if (!string.IsNullOrEmpty(input.Urgency))
+                    crBody["urgency"] = input.Urgency;
+
                 var jsonContent = JsonSerializer.Serialize(crBody);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
 
+                var safeProject = (input.ProjectName ?? string.Empty)
+                    .Replace("\r", string.Empty)
+                    .Replace("\n", string.Empty);
+                var safeEnvironment = (input.Environment ?? string.Empty)
+                    .Replace("\r", string.Empty)
+                    .Replace("\n", string.Empty);
+
                 _logger.LogInformation("Creating AutoCR for project {Project} environment {Environment}",
-                    input.ProjectName, input.Environment);
+                    safeProject, safeEnvironment);
 
                 var response = await _httpClient.PostAsync("change_request", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -526,12 +553,14 @@ namespace Dorc.Api.Services
                     };
                 }
 
+                _logger.LogInformation("ServiceNow CR creation raw response: {Response}", responseContent);
+
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var result = JsonSerializer.Deserialize<ResultObject<SnChangeRequestResponseModel>>(responseContent, options);
 
                 if (result?.result == null || string.IsNullOrEmpty(result.result.number))
                 {
-                    _logger.LogError("ServiceNow CR creation returned no CR number");
+                    _logger.LogError("ServiceNow CR creation returned no CR number. Raw: {Response}", responseContent);
                     return new CreateChangeRequestResult
                     {
                         Success = false,
@@ -539,12 +568,55 @@ namespace Dorc.Api.Services
                     };
                 }
 
-                _logger.LogInformation("AutoCR created successfully: {CrNumber}", result.result.number);
+                _logger.LogInformation("AutoCR created successfully: {CrNumber}, sys_id={SysId}, state={State}",
+                    result.result.number, result.result.sys_id, result.result.state);
+
+                // Progress CR from New → Scheduled → Implement so it's ready for deployment
+                var sysId = result.result.sys_id;
+                var createdState = result.result.state;
+
+                var progressedToImplement = false;
+                if (createdState != "-1" && createdState != "Implement" && !string.IsNullOrEmpty(sysId))
+                {
+                    if (string.IsNullOrEmpty(assignmentGroup))
+                    {
+                        _logger.LogWarning("ServiceNowCrAssignmentGroup config is not set. " +
+                            "ServiceNow requires assignment_group to advance CR state. " +
+                            "Set this value in DOrc config. CR {CrNumber} will remain in {State} state.",
+                            result.result.number, createdState);
+                    }
+
+                    var stateProgression = new[] { "-2", "-1" }; // Scheduled, then Implement
+                    progressedToImplement = true;
+                    foreach (var targetState in stateProgression)
+                    {
+                        var advanced = await AdvanceCrStateAsync(sysId, targetState, assignmentGroup, startDate, endDate, dateFormat);
+                        if (!advanced)
+                        {
+                            _logger.LogWarning("Could not advance CR {CrNumber} to state {State}, stopping progression",
+                                result.result.number, targetState);
+                            progressedToImplement = false;
+                            break;
+                        }
+                    }
+                }
+                else if (createdState == "-1" || createdState == "Implement")
+                {
+                    progressedToImplement = true;
+                }
+
+                var message = progressedToImplement
+                    ? $"Change Request {result.result.number} created and progressed to Implement" +
+                      (input.CrInputsFetched ? " (using cr-inputs.json from ADO repo)" : "")
+                    : $"Change Request {result.result.number} created but could not advance to Implement state. " +
+                      "Ensure assignment_group is set in the project's cr-inputs.json " +
+                      "or the global ServiceNowCrAssignmentGroup config.";
+
                 return new CreateChangeRequestResult
                 {
                     Success = true,
                     CrNumber = result.result.number,
-                    Message = $"Change Request {result.result.number} created successfully"
+                    Message = message
                 };
             }
             catch (HttpRequestException ex)
@@ -564,6 +636,60 @@ namespace Dorc.Api.Services
                     Success = false,
                     Message = $"Error creating Change Request: {ex.Message}"
                 };
+            }
+        }
+
+        private async Task<bool> AdvanceCrStateAsync(
+            string sysId, string targetState, string assignmentGroup,
+            DateTime startDate, DateTime endDate, string dateFormat)
+        {
+            try
+            {
+                var body = new Dictionary<string, string> { ["state"] = targetState };
+                if (!string.IsNullOrEmpty(assignmentGroup))
+                    body["assignment_group"] = assignmentGroup;
+                body["start_date"] = startDate.ToString(dateFormat);
+                body["end_date"] = endDate.ToString(dateFormat);
+                var jsonContent = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(body),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+
+                var response = await _httpClient.PutAsync($"change_request/{sysId}", jsonContent);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to advance CR {SysId} to state {State}. Status: {Status}, Response: {Response}",
+                        sysId, targetState, response.StatusCode, responseBody);
+                    return false;
+                }
+
+                // Verify actual state from response (ServiceNow can return 200 without changing state)
+                try
+                {
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var result = JsonSerializer.Deserialize<ResultObject<SnChangeRequestResponseModel>>(responseBody, options);
+                    var actualState = result?.result?.state;
+                    if (!string.IsNullOrEmpty(actualState) && actualState != targetState)
+                    {
+                        _logger.LogWarning("CR {SysId} state not advanced: requested {TargetState} but actual state is {ActualState}. Response: {Response}",
+                            sysId, targetState, actualState, responseBody);
+                        return false;
+                    }
+                }
+                catch (Exception parseEx)
+                {
+                    _logger.LogDebug(parseEx, "Could not parse state from advance response, assuming success");
+                }
+
+                _logger.LogInformation("Advanced CR {SysId} to state {State}", sysId, targetState);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error advancing CR {SysId} to state {State}", sysId, targetState);
+                return false;
             }
         }
 

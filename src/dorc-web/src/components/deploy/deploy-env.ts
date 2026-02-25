@@ -37,6 +37,10 @@ import { appConfig } from '../../app-config';
 import { oauthServiceContainer, OAUTH_SCHEME } from '../../services/Account/OAuthService';
 import './deploy-confirm-dialog';
 import './property-override-controls';
+import '../confirm-dialog';
+import { ConfirmDialog } from '../confirm-dialog';
+import '../hegs-dialog';
+import { HegsDialog } from '../hegs-dialog';
 import { ErrorNotification } from '../notifications/error-notification';
 import './component-tree/hegs-tree';
 import { HegsTree } from './component-tree/hegs-tree';
@@ -98,6 +102,9 @@ export class DeployEnv extends LitElement {
   @property({ type: Object }) req!: RequestPostRequest;
 
   @query('#dialog') dialog!: DeployConfirmDialog;
+  @query('#override-confirm') overrideConfirmDialog!: ConfirmDialog;
+  @query('#alert-dialog') alertDialog!: HegsDialog;
+  @state() private alertMessage = '';
 
   @state()
   dialogOpened = false;
@@ -182,6 +189,25 @@ export class DeployEnv extends LitElement {
         gap: 8px;
         margin-top: 8px;
       }
+      .cr-progress-bar {
+        width: 100%;
+        height: 4px;
+        background: #e0e0e0;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      .cr-progress-bar-inner {
+        height: 100%;
+        width: 40%;
+        background: linear-gradient(90deg, #1976d2, #42a5f5);
+        border-radius: 2px;
+        animation: cr-progress-slide 1.2s ease-in-out infinite;
+      }
+      @keyframes cr-progress-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(350%); }
+      }
     `;
   }
 
@@ -233,6 +259,21 @@ export class DeployEnv extends LitElement {
         id="dialog"
         .deployJson="${this.req}"
       ></deploy-confirm-dialog>
+      <confirm-dialog
+        id="override-confirm"
+        title="Override Change Request"
+        message="You are about to deploy to production WITHOUT a valid Change Request. App Support will be notified by email. Are you sure you want to proceed?"
+        confirmText="Override"
+        cancelText="Cancel"
+        @confirm-dialog-confirm="${this._onOverrideConfirmed}"
+        @confirm-dialog-cancel="${this._onOverrideCancelled}"
+      ></confirm-dialog>
+      <hegs-dialog id="alert-dialog" title="Deployment">
+        <p style="margin: 16px 20px; font-size: 15px;">${this.alertMessage}</p>
+        <div style="display: flex; justify-content: flex-end; padding: 0 20px 16px;">
+          <vaadin-button theme="primary" @click="${() => { this.alertDialog.close(); }}">OK</vaadin-button>
+        </div>
+      </hegs-dialog>
       <table
         style="width: 330px; margin-left: 10px"
         ?hidden="${this.isFolderProject}"
@@ -409,13 +450,21 @@ export class DeployEnv extends LitElement {
             ${this.crCreating ? html`Creating...` : html`Auto-create CR`}
           </vaadin-button>
         </div>
+        ${this.crCreating ? html`
+          <div class="cr-progress-bar">
+            <div class="cr-progress-bar-inner"></div>
+          </div>
+          <div style="color: #666; font-size: 13px; margin-top: 4px;">
+            Creating Change Request in ServiceNow...
+          </div>
+        ` : html``}
         ${this.crValidationResult ? this._renderCrResult() : html``}
         ${!this.crValidationResult || !this.crValidationResult.IsValid ? html`
           <div class="cr-override-row">
             <vaadin-checkbox
               id="override-cr-checkbox"
               .checked="${this.overrideCr}"
-              @change="${this._handleOverrideChange}"
+              @checked-changed="${this._handleOverrideChange}"
             ></vaadin-checkbox>
             <span style="color: #d32f2f; font-weight: 500;">
               ⚠ Override CR — App Support will be notified by email
@@ -477,10 +526,10 @@ export class DeployEnv extends LitElement {
       if (result.IsValid) {
         this.overrideCr = false;
       }
-    } catch {
+    } catch (err) {
       this.crValidationResult = {
         IsValid: false,
-        Message: 'Failed to validate Change Request. Please try again.'
+        Message: `Failed to validate Change Request: ${err instanceof Error ? err.message : String(err)}`
       };
     } finally {
       this.crValidating = false;
@@ -522,50 +571,72 @@ export class DeployEnv extends LitElement {
         }
       );
 
-      const result = await response.json();
-
-      if (!response.ok || !result.Success) {
+      if (!response.ok) {
+        const text = await response.text();
         this.crValidationResult = {
           IsValid: false,
-          Message: result.Message || `Auto-create failed (HTTP ${response.status})`
+          Message: text || `Auto-create failed (HTTP ${response.status} ${response.statusText})`
         };
         return;
       }
 
-      // CR created — set the number and auto-validate it
+      const text = await response.text();
+      if (!text) {
+        this.crValidationResult = {
+          IsValid: false,
+          Message: `Auto-create failed: empty response from server (HTTP ${response.status})`
+        };
+        return;
+      }
+
+      const result = JSON.parse(text);
+
+      if (!result.Success) {
+        this.crValidationResult = {
+          IsValid: false,
+          Message: result.Message || `Auto-create failed`
+        };
+        return;
+      }
+
+      // CR created — just set the number in the field.
+      // User clicks Validate separately to check the state.
       this.crNumber = result.CrNumber;
-      this.crValidationResult = {
-        IsValid: true,
-        Message: result.Message || `Change Request ${result.CrNumber} created successfully`
-      };
-      this.overrideCr = false;
-    } catch {
+    } catch (err) {
       this.crValidationResult = {
         IsValid: false,
-        Message: 'Failed to auto-create Change Request. Please try again or enter a CR number manually.'
+        Message: `Failed to auto-create Change Request: ${err instanceof Error ? err.message : String(err)}`
       };
     } finally {
       this.crCreating = false;
     }
   }
 
-  private _handleOverrideChange(e: Event) {
-    const checkbox = e.target as HTMLInputElement;
-    if (checkbox.checked) {
-      const confirmed = confirm(
-        'You are about to deploy to production WITHOUT a valid Change Request.\n\n' +
-        'App Support will be notified by email.\n\n' +
-        'Are you sure you want to proceed?'
-      );
-      if (confirmed) {
-        this.overrideCr = true;
-      } else {
-        checkbox.checked = false;
-        this.overrideCr = false;
-      }
-    } else {
+  private _handleOverrideChange(e: CustomEvent) {
+    const isChecked = e.detail.value as boolean;
+    if (isChecked && !this.overrideCr) {
+      // User is trying to check the box — show confirmation dialog first
+      // Revert the checkbox until confirmed
+      const checkbox = e.target as HTMLInputElement;
+      checkbox.checked = false;
+      this.overrideConfirmDialog.open();
+    } else if (!isChecked && this.overrideCr) {
+      // User is unchecking — allow it directly
       this.overrideCr = false;
     }
+  }
+
+  private _onOverrideConfirmed() {
+    this.overrideCr = true;
+  }
+
+  private _onOverrideCancelled() {
+    this.overrideCr = false;
+  }
+
+  private _showAlert(message: string) {
+    this.alertMessage = message;
+    this.alertDialog.open = true;
   }
 
   _boundPropOverridesButtonsRenderer(
@@ -769,12 +840,12 @@ export class DeployEnv extends LitElement {
     );
 
     if (find === undefined) {
-      alert('Please select a property from the list!');
+      this._showAlert('Please select a property from the list!');
       return;
     }
 
     if (this.propertyValue === '') {
-      alert('The property must contain a value!');
+      this._showAlert('The property must contain a value!');
       return;
     }
 
@@ -837,7 +908,7 @@ export class DeployEnv extends LitElement {
     const hegsTree = this.shadowRoot?.getElementById('hegs-tree') as HegsTree;
 
     if (this.project === null || this.project === undefined) {
-      if (alertUser) alert('Please select a project!');
+      if (alertUser) this._showAlert('Please select a project!');
       return false;
     }
     let folder = this.project.ArtefactsUrl;
@@ -871,7 +942,7 @@ export class DeployEnv extends LitElement {
       this.req.requestDto?.Project === '' ||
       this.req.requestDto?.Project === undefined
     ) {
-      if (alertUser) alert('Please select a project!');
+      if (alertUser) this._showAlert('Please select a project!');
       return false;
     }
 
@@ -879,7 +950,7 @@ export class DeployEnv extends LitElement {
       this.req.requestDto?.Environment === '' ||
       this.req.requestDto?.Environment === undefined
     ) {
-      if (alertUser) alert('Please select an environment!');
+      if (alertUser) this._showAlert('Please select an environment!');
       return false;
     }
 
@@ -887,13 +958,13 @@ export class DeployEnv extends LitElement {
       this.req.requestDto?.BuildUrl === '' ||
       this.req.requestDto?.BuildUrl === undefined
     ) {
-      if (alertUser) alert('Please select a build for deployment!');
+      if (alertUser) this._showAlert('Please select a build for deployment!');
       return false;
     }
 
     if (this.req.requestDto?.Components?.length === 0) {
       if (alertUser)
-        alert('Please select at least one component for deployment!');
+        this._showAlert('Please select at least one component for deployment!');
       return false;
     }
 
@@ -902,8 +973,8 @@ export class DeployEnv extends LitElement {
       const hasCr = this.crNumber && this.crValidationResult?.IsValid;
       if (!hasCr && !this.overrideCr) {
         if (alertUser)
-          alert(
-            'A validated Change Request number is required for production deployments.\n\n' +
+          this._showAlert(
+            'A validated Change Request number is required for production deployments. ' +
             'Either enter and validate a CR number, or check the Override CR checkbox.'
           );
         return false;
