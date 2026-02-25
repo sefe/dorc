@@ -516,8 +516,16 @@ namespace Dorc.Monitor.Tests.HighAvailability
                 "consumer-1", Arg.Any<bool>(), Arg.Any<CancellationToken>());
             await mockChannel.Received(1).QueueDeleteAsync(
                 "lock.env:TestEnv", Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>());
-            // Fallback was attempted (logged as warning about attempting fallback cleanup)
-            // Since lockService has no active connection, fallback will also fail gracefully
+
+            // Assert - fallback path was triggered: verify the warning log indicating
+            // fallback cleanup was attempted. The lock logs "was not deleted via original
+            // channel - attempting fallback cleanup" before calling TryDeleteQueueAsync.
+            mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString()!.Contains("was not deleted via original channel")),
+                Arg.Any<Exception?>(),
+                Arg.Any<Func<object, Exception?, string>>());
         }
 
         [TestMethod]

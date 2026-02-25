@@ -555,12 +555,21 @@ namespace Dorc.Monitor.HighAvailability
                     return false;
                 }
 
-                using var channel = await currentConnection.CreateChannelAsync(cancellationToken: CancellationToken.None);
-                await channel.QueuePurgeAsync(queueName, CancellationToken.None);
-                await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false, cancellationToken: CancellationToken.None);
-                await channel.CloseAsync(CancellationToken.None);
+                // Use a short timeout to prevent indefinite hangs if the broker is unhealthy
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var ct = timeoutCts.Token;
+
+                await using var channel = await currentConnection.CreateChannelAsync(cancellationToken: ct);
+                await channel.QueuePurgeAsync(queueName, ct);
+                await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false, cancellationToken: ct);
+                await channel.CloseAsync(ct);
                 logger.LogInformation("Deleted orphaned lock queue '{QueueName}' for resource '{ResourceKey}' via fallback channel", queueName, resourceKey);
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogWarning("Timeout (10s) deleting orphaned lock queue '{QueueName}' for resource '{ResourceKey}' via fallback channel", queueName, resourceKey);
+                return false;
             }
             catch (Exception ex)
             {
