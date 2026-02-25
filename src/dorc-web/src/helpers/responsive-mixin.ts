@@ -1,6 +1,7 @@
 import { LitElement } from 'lit';
 import { state } from 'lit/decorators.js';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type Constructor<T = {}> = new (...args: any[]) => T;
 
 const NARROW_BREAKPOINT = 768;
