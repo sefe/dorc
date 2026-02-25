@@ -10,6 +10,9 @@ import { AddEndurUserOrGroup } from './add-endur-user-or-group';
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
 
 export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
+
+  const maxFieldLength = 512;
+
   return html` <div>
     <vaadin-vertical-layout>
       <table>
@@ -56,6 +59,8 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         class="acc-form__block"
         id="system-account-id"
         label="System Account Identifier (Endur)"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         value="${this.lanId}"
         .invalid="${this.isLanIdValid === false}"
         error-message="${this.lanIdErrorMessage}"
@@ -66,6 +71,8 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         class="acc-form__block"
         id="displayName"
         label="Display Name"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         value="${this.displayName}"
         @value-changed="${this.displayNameChanged}"
         .invalid="${this.isDisplayNameValid === false}"
@@ -77,6 +84,8 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         class="acc-form__block"
         id="team"
         label="Team"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         .invalid="${this.isTeamNameValid === false}"
         error-message="${this.teamNameErrorMessage}"
         @value-changed="${this.teamNameChanged}"

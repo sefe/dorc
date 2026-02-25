@@ -37,6 +37,8 @@ export class AddEditEnvironment extends LitElement {
   private isNameValid = false;
   private hasUserChanges = false;
   private allEnvNames: string[] | undefined;
+  private readonly maxThinClientFieldLength = 50;
+  private readonly maxEnvironmentNameLength = 64;
 
   @property({ type: Boolean }) private addMode = false;
   @property({ type: Boolean }) private readonly = true;
@@ -222,6 +224,8 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="env-name"
             label="Name"
+            maxlength="${this.maxEnvironmentNameLength}"
+            title="Maximum length: ${this.maxEnvironmentNameLength} symbols"
             required
             auto-validate
             .value=${this.environment?.EnvironmentName ?? ''}
@@ -304,6 +308,8 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="opt-thin-client"
             label="Thin Client Server"
+            maxlength="${this.maxThinClientFieldLength}"
+            title="Maximum length: ${this.maxThinClientFieldLength} symbols"
             auto-validate
             .value=${this.environment?.Details?.ThinClient ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
