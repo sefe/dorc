@@ -37,5 +37,7 @@ export const ResponsiveMixin = <T extends Constructor<LitElement>>(
     }
   }
 
-  return ResponsiveElement as Constructor<{ _narrowScreen: boolean }> & T;
+  return ResponsiveElement as unknown as Constructor<{
+    _narrowScreen: boolean;
+  }> & T;
 };
