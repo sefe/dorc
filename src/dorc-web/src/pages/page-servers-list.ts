@@ -70,9 +70,15 @@ export class PageServersList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
       }
       vaadin-text-field {
@@ -118,7 +124,7 @@ export class PageServersList extends PageElement {
       }
 
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: cornflowerblue;
         color: white;
@@ -137,7 +143,7 @@ export class PageServersList extends PageElement {
       }
 
       .env {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
         background-color: var(

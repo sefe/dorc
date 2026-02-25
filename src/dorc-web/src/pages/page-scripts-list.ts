@@ -110,7 +110,7 @@ export class PageScriptsList extends PageElement {
         border-style: solid;
       }
       .project-tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
         background-color: var(

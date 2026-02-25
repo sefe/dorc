@@ -55,7 +55,7 @@ export class AttachedDatabases extends LitElement {
       }
 
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: cornflowerblue;
         color: white;

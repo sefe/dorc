@@ -69,7 +69,7 @@ export class AttachedServers extends LitElement {
         margin: 0px;
       }
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: cornflowerblue;
         color: white;

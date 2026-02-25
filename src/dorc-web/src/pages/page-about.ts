@@ -146,14 +146,16 @@ export class PageAbout extends PageElement {
         flex-wrap: wrap;
       }
       .statistics-cards__item {
-        margin: 5px;
+        margin: var(--lumo-space-xs);
         flex-shrink: 0;
+        min-width: 120px;
       }
 
       #chart-all {
-        margin: 0px;
-        padding: 0px;
+        margin: 0;
+        padding: 0;
         height: 100vh;
+        height: 100dvh;
         width: 100%;
       }
 
@@ -181,8 +183,9 @@ export class PageAbout extends PageElement {
 
       div#page_div {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 50px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
       }
 
       @keyframes spin {
@@ -251,7 +254,7 @@ export class PageAbout extends PageElement {
                 </div>
                 <div class="top3-chart-block">
                   <hegs-chart
-                    style="display: block; width: 600px; height: 400px;"
+                    style="display: block; width: 100%; max-width: 600px; height: 400px;"
                     .option="${this.top3PieChartOptions}"
                   ></hegs-chart>
                 </div>

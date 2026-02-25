@@ -56,14 +56,15 @@ export class PageEnvironmentsList extends PageElement {
   static get styles() {
     return css`
       :host {
-        position: relative;
-        overflow-y: hidden; /* Hide vertical scrollbar */
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 110px);
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
-        margin-top: 60px;
       }
       .overlay {
         width: 100%;

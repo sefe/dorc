@@ -91,11 +91,17 @@ export class PageConfigValuesList extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
       vaadin-grid#grid {
-        height: calc(100vh - 110px);
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
         width: 100%;
-        min-width: 100%;
       }
 
       vaadin-text-field {

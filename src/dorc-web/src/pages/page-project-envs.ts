@@ -82,15 +82,16 @@ export class PageProjectEnvs extends PageElement {
       }
 
       .statistics-cards {
-        max-width: 500px;
+        max-width: 100%;
         display: flex;
         flex-wrap: wrap;
       }
 
       .statistics-cards__item {
-        margin: 5px;
+        margin: var(--lumo-space-xs);
         flex-shrink: 0;
         background-color: #f5f6f8;
+        min-width: 280px;
       }
 
       .environments {
@@ -100,7 +101,8 @@ export class PageProjectEnvs extends PageElement {
         justify-content: flex-start;
         overflow-x: hidden;
         overflow-y: auto;
-        height: calc(100vh - 50px);
+        flex: 1;
+        min-height: 0;
       }
 
       a {

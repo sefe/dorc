@@ -95,8 +95,7 @@ export class DeployEnv extends LitElement {
         padding-top: 0px;
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(30vh - 110px);
+        min-height: 150px;
         --divider-color: rgb(223, 232, 239);
       }
       .small-loader {
@@ -187,7 +186,7 @@ export class DeployEnv extends LitElement {
               .renderer="${this._buildRenderer}"
               placeholder="Select Build Definition"
               label="Build Definition"
-              style="width: 600px"
+              style="width: 100%; max-width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
@@ -208,7 +207,7 @@ export class DeployEnv extends LitElement {
               .renderer="${this._buildRenderer}"
               placeholder="Select Build Number"
               label="Build Number"
-              style="width: 600px"
+              style="width: 100%; max-width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
@@ -234,7 +233,7 @@ export class DeployEnv extends LitElement {
               .renderer="${this._buildRenderer}"
               placeholder="Select Folder"
               label="Folder Artifacts"
-              style="width: 600px"
+              style="width: 100%; max-width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
@@ -267,13 +266,13 @@ export class DeployEnv extends LitElement {
             clear-button-visible
             item-label-path="Name"
             item-value-path="Name"
-            style="min-width: 600px"
+            style="width: 100%; max-width: 600px"
           ></vaadin-combo-box>
           <vaadin-text-field
             required
             placeholder="Property Value"
             @value-changed="${this._propValueChanged}"
-            style="min-width: 500px"
+            style="width: 100%; max-width: 500px"
           ></vaadin-text-field>
           <vaadin-button
             @click="${this.AddOverrideProperty}"
@@ -311,7 +310,7 @@ export class DeployEnv extends LitElement {
         </vaadin-vertical-layout>
       </vaadin-details>
       <vaadin-button
-        style="width: 600px; margin-left: 12px; margin-bottom: 50px"
+        style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-s); margin-bottom: var(--lumo-space-xl)"
         @click="${this.openDeployDialog}"
         theme="primary"
         >Deploy

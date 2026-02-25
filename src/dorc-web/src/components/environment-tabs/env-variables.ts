@@ -194,7 +194,7 @@ export class EnvVariables extends PageEnvBase {
                           clear-button-visible
                           item-label-path="Name"
                           item-value-path="Name"
-                          style="min-width: 600px; margin-left: 5px; "
+                          style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-xs)"
                         ></vaadin-combo-box>
                       </td>
                     </tr>

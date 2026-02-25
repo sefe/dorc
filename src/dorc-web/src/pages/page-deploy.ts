@@ -113,7 +113,7 @@ export class PageDeploy extends PageElement {
                 .renderer="${this._projectsRenderer}"
                 placeholder="Select Project"
                 label="Project"
-                style="width: 600px; padding-left: 10px"
+                style="width: 100%; max-width: 600px; padding-left: var(--lumo-space-s)"
                 item-label-path="ProjectName"
                 item-value-path="ProjectId"
                 clear-button-visible
@@ -133,7 +133,7 @@ export class PageDeploy extends PageElement {
                 .items="${this.environments}"
                 placeholder="Select Environment"
                 label="Environment"
-                style="width: 600px; padding-left: 10px"
+                style="width: 100%; max-width: 600px; padding-left: var(--lumo-space-s)"
                 clear-button-visible
                 item-label-path="EnvironmentName"
                 item-value-path="EnvironmentId"

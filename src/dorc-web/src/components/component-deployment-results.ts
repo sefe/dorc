@@ -69,8 +69,9 @@ export class ComponentDeploymentResults extends LitElement {
     return css`
       vaadin-grid#grid {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 410px);
+        width: 100%;
+        flex: 1;
+        min-height: 150px;
         --divider-color: rgb(223, 232, 239);
       }
       vaadin-grid-cell-content {

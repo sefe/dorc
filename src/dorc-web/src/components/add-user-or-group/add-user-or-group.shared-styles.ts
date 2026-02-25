@@ -8,7 +8,8 @@ export const addUserOrGroupSharedStypes = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 500px;
+    width: 100%;
+    max-width: 500px;
   }
   .acc-form__login-types,
   .acc-form__lan-id-types {
