@@ -502,7 +502,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
                 .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
             mockChannel.QueuePurgeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
-            mockChannel.QueueDeleteAsync(Arg.Any<string>(), Arg.Is<bool>(x => true), Arg.Is<bool>(x => true), Arg.Is<bool>(x => true), Arg.Any<CancellationToken>())
+            mockChannel.QueueDeleteAsync(Arg.Any<string>(), Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
 
             var lockObj = new RabbitMqDistributedLock(
