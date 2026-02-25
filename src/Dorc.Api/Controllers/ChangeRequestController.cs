@@ -99,7 +99,9 @@ namespace Dorc.Api.Controllers
                             input.CrInputsFetched = true;
                             _logger.LogInformation("Auto-fetched cr-inputs.json for project '{Project}': " +
                                 "assignment_group='{Group}', business_service='{Service}'",
-                                safeProjectName, input.AssignmentGroup, input.BusinessService);
+                                safeProjectName,
+                                (input.AssignmentGroup ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty),
+                                (input.BusinessService ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty));
                         }
                         else
                         {

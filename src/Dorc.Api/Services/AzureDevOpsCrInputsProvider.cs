@@ -36,26 +36,30 @@ namespace Dorc.Api.Services
                 return null;
             }
 
+            var safeProjectName = projectName
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
+
             try
             {
                 var project = _projectsPersistentSource.GetProject(projectName);
                 if (project == null)
                 {
-                    _logger.LogWarning("Project '{ProjectName}' not found in DOrc database", projectName);
+                    _logger.LogWarning("Project '{ProjectName}' not found in DOrc database", safeProjectName);
                     return null;
                 }
 
                 if (string.IsNullOrEmpty(project.ArtefactsUrl) || !project.ArtefactsUrl.StartsWith("http"))
                 {
                     _logger.LogInformation("Project '{ProjectName}' does not have an Azure DevOps ArtefactsUrl. " +
-                        "Cannot auto-fetch cr-inputs.json.", projectName);
+                        "Cannot auto-fetch cr-inputs.json.", safeProjectName);
                     return null;
                 }
 
                 if (string.IsNullOrEmpty(project.ArtefactsSubPaths))
                 {
                     _logger.LogInformation("Project '{ProjectName}' has no ArtefactsSubPaths (ADO project names). " +
-                        "Cannot auto-fetch cr-inputs.json.", projectName);
+                        "Cannot auto-fetch cr-inputs.json.", safeProjectName);
                     return null;
                 }
 
@@ -72,28 +76,34 @@ namespace Dorc.Api.Services
                 {
                     _logger.LogInformation("cr-inputs.json not found in any repo for project '{ProjectName}' " +
                         "(ADO projects: {AdoProjects}, searched for: {Names}). Hardcoded defaults will be used.",
-                        projectName, project.ArtefactsSubPaths, string.Join(", ", CandidateFileNames));
+                        safeProjectName,
+                        (project.ArtefactsSubPaths ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty),
+                        string.Join(", ", CandidateFileNames));
                     return null;
                 }
 
-                return ParseCrInputs(fileContent, projectName);
+                return ParseCrInputs(fileContent, safeProjectName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching cr-inputs.json for project '{ProjectName}'", projectName);
+                _logger.LogError(ex, "Error fetching cr-inputs.json for project '{ProjectName}'", safeProjectName);
                 return null;
             }
         }
 
         private CrInputsModel? ParseCrInputs(string json, string projectName)
         {
+            var safeProjectName = projectName
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
+
             try
             {
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var raw = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, options);
                 if (raw == null)
                 {
-                    _logger.LogWarning("cr-inputs.json for project '{ProjectName}' parsed as null", projectName);
+                    _logger.LogWarning("cr-inputs.json for project '{ProjectName}' parsed as null", safeProjectName);
                     return null;
                 }
 
@@ -105,7 +115,8 @@ namespace Dorc.Api.Services
                     {
                         _logger.LogInformation(
                             "Using legacy 'SupportGroup' field as assignment_group for project '{ProjectName}': '{Value}'",
-                            projectName, assignmentGroup);
+                            safeProjectName,
+                            assignmentGroup.Replace("\r", string.Empty).Replace("\n", string.Empty));
                     }
                 }
 
@@ -137,13 +148,16 @@ namespace Dorc.Api.Services
                 _logger.LogInformation(
                     "Parsed cr-inputs.json for project '{ProjectName}': assignment_group='{AssignmentGroup}', " +
                     "business_service='{BusinessService}', type='{Type}'",
-                    projectName, model.AssignmentGroup, model.BusinessService, model.Type);
+                    safeProjectName,
+                    (model.AssignmentGroup ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty),
+                    (model.BusinessService ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty),
+                    (model.Type ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty));
 
                 return model;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to parse cr-inputs.json for project '{ProjectName}'", projectName);
+                _logger.LogError(ex, "Failed to parse cr-inputs.json for project '{ProjectName}'", safeProjectName);
                 return null;
             }
         }

@@ -307,10 +307,12 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation("Forbidden deployment request from {Username}", username);
+                    var safeEnv = (requestDto.Environment ?? string.Empty)
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    _log.LogInformation("Forbidden deployment request to {Environment}", safeEnv);
                     return StatusCode(StatusCodes.Status403Forbidden,
-                            $"Forbidden request to {requestDto.Environment} from {username}");
+                            $"Forbidden request to {safeEnv}");
                 }
 
                 // Check if environment is prod (used for email notification below)

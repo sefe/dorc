@@ -321,17 +321,18 @@ namespace Dorc.Core.AzureDevOpsServer
 
             foreach (var project in projects)
             {
+                var safeProject = project.Replace("\r", "").Replace("\n", "");
                 try
                 {
                     // List all Git repositories in this ADO project
                     var reposUrl = $"{azureEndpoint}{org}/{project}/_apis/git/repositories?api-version={ApiVersion}";
-                    _log.LogDebug("Listing Git repos at {Url}", reposUrl);
+                    _log.LogDebug("Listing Git repos for project {Project}", safeProject);
 
                     var reposResponse = await httpClient.GetAsync(reposUrl);
                     if (!reposResponse.IsSuccessStatusCode)
                     {
                         _log.LogWarning("Failed to list Git repos for project {Project}: {Status}",
-                            project, reposResponse.StatusCode);
+                            safeProject, reposResponse.StatusCode);
                         continue;
                     }
 
@@ -340,24 +341,25 @@ namespace Dorc.Core.AzureDevOpsServer
 
                     if (reposResult?.Value == null || reposResult.Value.Count == 0)
                     {
-                        _log.LogDebug("No Git repos found in project {Project}", project);
+                        _log.LogDebug("No Git repos found in project {Project}", safeProject);
                         continue;
                     }
 
                     // For each repo, get the full file tree and search for matching file names
                     foreach (var repo in reposResult.Value)
                     {
+                        var safeRepoName = (repo.Name ?? string.Empty).Replace("\r", "").Replace("\n", "");
                         try
                         {
                             var treeUrl = $"{azureEndpoint}{org}/{project}/_apis/git/repositories/{repo.Id}" +
                                           $"/items?recursionLevel=Full&api-version={ApiVersion}";
-                            _log.LogDebug("Listing full tree for repo {RepoName} in project {Project}", repo.Name, project);
+                            _log.LogDebug("Listing full tree for repo {RepoName} in project {Project}", safeRepoName, safeProject);
 
                             var treeResponse = await httpClient.GetAsync(treeUrl);
                             if (!treeResponse.IsSuccessStatusCode)
                             {
                                 _log.LogDebug("Failed to list tree for repo {RepoName}: {Status}",
-                                    repo.Name, treeResponse.StatusCode);
+                                    safeRepoName, treeResponse.StatusCode);
                                 continue;
                             }
 
@@ -378,37 +380,39 @@ namespace Dorc.Core.AzureDevOpsServer
                                     continue;
 
                                 // Found a match — fetch the file content
+                                var safePath = (match.Path ?? string.Empty).Replace("\r", "").Replace("\n", "");
                                 var itemUrl = $"{azureEndpoint}{org}/{project}/_apis/git/repositories/{repo.Id}/items" +
                                               $"?path={Uri.EscapeDataString(match.Path)}&api-version={ApiVersion}";
-                                _log.LogDebug("Fetching {FilePath} from repo {RepoName}", match.Path, repo.Name);
+                                _log.LogDebug("Fetching {FilePath} from repo {RepoName}", safePath, safeRepoName);
 
                                 var itemResponse = await httpClient.GetAsync(itemUrl);
                                 if (itemResponse.IsSuccessStatusCode)
                                 {
                                     var content = await itemResponse.Content.ReadAsStringAsync();
                                     _log.LogInformation("Found {FileName} at {FilePath} in repo {RepoName} of project {Project}",
-                                        candidateName, match.Path, repo.Name, project);
+                                        candidateName, safePath, safeRepoName, safeProject);
                                     return content;
                                 }
 
                                 _log.LogWarning("File {FilePath} listed in tree but fetch failed: {Status}",
-                                    match.Path, itemResponse.StatusCode);
+                                    safePath, itemResponse.StatusCode);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _log.LogDebug(ex, "Error searching tree for repo {RepoName}", repo.Name);
+                            _log.LogDebug(ex, "Error searching tree for repo {RepoName}", safeRepoName);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _log.LogWarning(ex, "Error searching for files in ADO project {Project}", project);
+                    _log.LogWarning(ex, "Error searching for files in ADO project {Project}", safeProject);
                 }
             }
 
             _log.LogInformation("None of [{CandidateNames}] found in any repo across ADO projects: {Projects}",
-                string.Join(", ", candidateFileNames), adoProjects);
+                string.Join(", ", candidateFileNames),
+                adoProjects.Replace("\r", "").Replace("\n", ""));
             return null;
         }
 

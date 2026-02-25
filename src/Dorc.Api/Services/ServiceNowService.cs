@@ -432,6 +432,13 @@ namespace Dorc.Api.Services
 
             await ConfigureHttpClientAsync(apiUrl, GetSubscriptionKey());
 
+            var safeProject = (input.ProjectName ?? string.Empty)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
+            var safeEnvironment = (input.Environment ?? string.Empty)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
+
             try
             {
                 // Resolve assignment_group: cr-inputs.json → project DB field → global config
@@ -449,7 +456,7 @@ namespace Dorc.Api.Services
                     _logger.LogWarning("No AssignmentGroup found for project '{Project}'. " +
                         "Add cr-inputs.json to the project's ADO repo " +
                         "or configure ServiceNowCrAssignmentGroup globally. " +
-                        "ServiceNow may reject the CR.", input.ProjectName);
+                        "ServiceNow may reject the CR.", safeProject);
                 }
 
                 var startDate = DateTime.UtcNow;
@@ -491,7 +498,7 @@ namespace Dorc.Api.Services
 
                 var crInputsSource = input.CrInputsFetched ? "cr-inputs.json" : "hardcoded defaults";
                 _logger.LogInformation("Building CR body for project '{Project}' using {Source}",
-                    input.ProjectName, crInputsSource);
+                    safeProject, crInputsSource);
 
                 var crBody = new Dictionary<string, string>
                 {
@@ -529,13 +536,6 @@ namespace Dorc.Api.Services
 
                 var jsonContent = JsonSerializer.Serialize(crBody);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
-
-                var safeProject = (input.ProjectName ?? string.Empty)
-                    .Replace("\r", string.Empty)
-                    .Replace("\n", string.Empty);
-                var safeEnvironment = (input.Environment ?? string.Empty)
-                    .Replace("\r", string.Empty)
-                    .Replace("\n", string.Empty);
 
                 _logger.LogInformation("Creating AutoCR for project {Project} environment {Environment}",
                     safeProject, safeEnvironment);
