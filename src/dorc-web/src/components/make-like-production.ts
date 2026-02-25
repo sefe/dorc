@@ -98,20 +98,20 @@ export class MakeLikeProduction extends LitElement {
 
   render() {
     return html`
-      <vaadin-vertical-layout style="width: 700px">
+      <vaadin-vertical-layout style="width: 100%; max-width: 700px">
         <vaadin-combo-box
           label="Bundle Request"
           class="block"
           .items="${this.bundledRequests}"
           .itemValuePath=""
-          style="min-width: 600px"
+          style="width: 100%; max-width: 600px"
           @value-changed="${this._dataSourceBundleNameChanged}"
         ></vaadin-combo-box>
         <vaadin-combo-box
           label="Data Source"
           class="block"
           .items="${this.dataBackups}"
-          style="min-width: 600px"
+          style="width: 100%; max-width: 600px"
           @value-changed="${this._dataSourceDataBackupChanged}"
         ></vaadin-combo-box>
         <vaadin-details
@@ -127,13 +127,13 @@ export class MakeLikeProduction extends LitElement {
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
-              style="min-width: 600px"
+              style="width: 100%; max-width: 600px"
             ></vaadin-combo-box>
             <vaadin-text-field
               required
               placeholder="Property Value"
               @value-changed="${this._propValueChanged}"
-              style="min-width: 500px"
+              style="width: 100%; max-width: 500px"
             ></vaadin-text-field>
             <vaadin-button
               @click="${this.AddOverrideProperty}"

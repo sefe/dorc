@@ -70,6 +70,8 @@ export class ComponentDeploymentResults extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
+        flex: 1;
+        min-height: 150px;
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid-cell-content {

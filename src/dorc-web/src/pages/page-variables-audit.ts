@@ -58,6 +58,7 @@ export class PageVariablesAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
+        overflow: hidden;
         /* Audit highlight palette derived from already-themable global
            tokens, so light/dark switching is automatic. Whole-row tints
            are a 35% wash of the success/failure colour over the page bg

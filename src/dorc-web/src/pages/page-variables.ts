@@ -123,8 +123,8 @@ export class PageVariables extends PageElement {
         }
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 390px);
+        flex: 1;
+        min-height: 200px;
       }
       vaadin-grid#grid::part(variable-value-error) {
         background-color: var(--dorc-highlight-bg);
@@ -206,7 +206,7 @@ export class PageVariables extends PageElement {
                       helper-text="${this.propertyValues
                         ? `Property contains ${this.propertyValues?.length} value(s)`
                         : 'Select Variable for info'}"
-                      style="min-width: 600px; margin-left: 5px"
+                      style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-xs)"
                       ?disabled="${this.deletingVariable}"
                     ></vaadin-combo-box>
                   </td>
