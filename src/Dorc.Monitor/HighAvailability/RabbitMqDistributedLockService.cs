@@ -529,13 +529,33 @@ namespace Dorc.Monitor.HighAvailability
         {
             try
             {
-                if (connection == null || !connection.IsOpen)
+                // Safely capture the current connection reference under the semaphore
+                // to avoid a race with ForceConnectionRefreshAsync setting connection to null.
+                IConnection? currentConnection = null;
+
+                var semaphoreAcquired = await connectionSemaphore.WaitAsync(TimeSpan.FromSeconds(5));
+                if (!semaphoreAcquired)
+                {
+                    logger.LogWarning("Timeout waiting to acquire connection semaphore when deleting orphaned lock queue '{QueueName}'", queueName);
+                    return false;
+                }
+
+                try
+                {
+                    currentConnection = connection;
+                }
+                finally
+                {
+                    connectionSemaphore.Release();
+                }
+
+                if (currentConnection == null || !currentConnection.IsOpen)
                 {
                     logger.LogWarning("Cannot delete orphaned lock queue '{QueueName}' - no active connection", queueName);
                     return false;
                 }
 
-                using var channel = await connection.CreateChannelAsync(cancellationToken: CancellationToken.None);
+                using var channel = await currentConnection.CreateChannelAsync(cancellationToken: CancellationToken.None);
                 await channel.QueuePurgeAsync(queueName, CancellationToken.None);
                 await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false, cancellationToken: CancellationToken.None);
                 await channel.CloseAsync(CancellationToken.None);
