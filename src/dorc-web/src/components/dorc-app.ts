@@ -38,15 +38,19 @@ export class DorcApp extends ShortcutsStore {
     return css`
       :host {
         --header-height: 50px;
-        display: inline;
-        height: 100%;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
         margin: 0;
         background: var(--dorc-bg-primary);
         font-family: Arial, monospace;
+        overflow: hidden;
       }
 
       #header {
         height: var(--header-height);
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -93,6 +97,10 @@ export class DorcApp extends ShortcutsStore {
         font-size: 0.75rem;
         color: var(--dorc-text-secondary);
         line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 300px;
       }
 
       #header .header-link {
@@ -110,12 +118,21 @@ export class DorcApp extends ShortcutsStore {
 
       #page {
         display: flex;
-        height: calc(100vh - var(--header-height));
+        flex: 1;
+        min-height: 0;
+      }
+
+      #dorcNavbar {
+        width: var(--dorc-sidebar-width, 300px);
+        flex-shrink: 0;
+        overflow: hidden;
+        transition: width 0.2s ease;
       }
 
       #splitter {
         width: 2px;
         min-width: 2px;
+        flex-shrink: 0;
         cursor: ew-resize;
         padding: 4px 0 0;
         top: 0;
@@ -126,9 +143,39 @@ export class DorcApp extends ShortcutsStore {
 
       #page-content {
         background: var(--dorc-bg-primary);
-        overflow-x: scroll;
-        overflow-y: hidden;
-        width: 100%;
+        overflow: auto;
+        flex: 1;
+        min-width: 0;
+      }
+
+      @media (max-width: 768px) {
+        #dorcNavbar {
+          position: fixed;
+          top: var(--header-height);
+          left: 0;
+          bottom: 0;
+          z-index: 100;
+          width: 0;
+          max-width: 85vw;
+          background: var(--dorc-bg-primary);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+        }
+
+        #dorcNavbar.open {
+          width: 280px;
+        }
+
+        #splitter {
+          display: none;
+        }
+
+        #header .user-info {
+          display: none;
+        }
+
+        #header {
+          padding: 0 8px;
+        }
       }
     `;
   }
@@ -222,10 +269,15 @@ export class DorcApp extends ShortcutsStore {
 
   private toggleSideBar() {
     if (this.dorcNavbar) {
-      if (this.dorcNavbar.style.width === '0px') {
-        this.dorcNavbar.style.width = '300px';
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile) {
+        this.dorcNavbar.classList.toggle('open');
       } else {
-        this.dorcNavbar.style.width = '0px';
+        if (this.dorcNavbar.style.width === '0px') {
+          this.dorcNavbar.style.width = '300px';
+        } else {
+          this.dorcNavbar.style.width = '0px';
+        }
       }
     }
   }

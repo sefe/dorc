@@ -37,6 +37,19 @@ registerStyles(
     [part='overlay'] {
       background: var(--lumo-base-color);
       color: var(--lumo-body-text-color);
+      width: min(90vw, 650px);
+      max-height: 85vh;
+      max-height: 85dvh;
+    }
+  `
+);
+
+registerStyles(
+  'vaadin-combo-box',
+  css`
+    :host {
+      width: 100%;
+      max-width: 600px;
     }
   `
 );

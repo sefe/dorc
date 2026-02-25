@@ -18,8 +18,9 @@ export class EnvProjects extends PageEnvBase {
       }
       vaadin-details {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 180px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
       }
     `;
   }

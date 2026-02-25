@@ -55,7 +55,7 @@ export class LogDialog extends LitElement {
       .loading-text {
         margin-top: 20px;
         color: #666;
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
       }
     `;
   }
@@ -118,7 +118,7 @@ export class LogDialog extends LitElement {
             `;
             
             const textDiv = document.createElement('div');
-            textDiv.style.cssText = 'margin-top: 20px; color: #666; font-size: 14px;';
+            textDiv.style.cssText = 'margin-top: 20px; color: #666; font-size: var(--lumo-font-size-s, 14px);';
             textDiv.textContent = 'Loading log...';
             
             // Add keyframe animation

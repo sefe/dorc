@@ -47,10 +47,17 @@ export class PageEnvironmentHistory extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
         height: calc(100vh - 65px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       vaadin-button {
         padding: 0px;

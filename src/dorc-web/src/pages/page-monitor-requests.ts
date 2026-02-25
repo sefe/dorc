@@ -89,10 +89,17 @@ export class PageMonitorRequests
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
         height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
       }
 
       vaadin-text-field {
