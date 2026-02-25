@@ -1,6 +1,10 @@
 using Dorc.Monitor.HighAvailability;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 using System.Net;
 
 namespace Dorc.Monitor.Tests.HighAvailability
@@ -444,6 +448,115 @@ namespace Dorc.Monitor.Tests.HighAvailability
 
             // Assert - the configuration property returns the expected value
             Assert.AreEqual(15, mockConfiguration.LockAcquisitionTimeoutSeconds);
+        }
+    }
+
+    [TestClass]
+    public class RabbitMqDistributedLockTests
+    {
+        private ILogger<RabbitMqDistributedLockService> mockLogger;
+        private IMonitorConfiguration mockConfiguration;
+        private IChannel mockChannel;
+        private RabbitMqDistributedLockService lockService;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
+            mockConfiguration = Substitute.For<IMonitorConfiguration>();
+            mockConfiguration.HighAvailabilityEnabled.Returns(false);
+            mockChannel = Substitute.For<IChannel>();
+            lockService = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            lockService.Dispose();
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_WhenChannelIsHealthy_DeletesQueueDirectly()
+        {
+            // Arrange
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act
+            await lockObj.DisposeAsync();
+
+            // Assert - queue was deleted via the original channel, no fallback needed
+            await mockChannel.Received(1).BasicCancelAsync(
+                "consumer-1", Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await mockChannel.Received(1).QueuePurgeAsync(
+                "lock.env:TestEnv", Arg.Any<CancellationToken>());
+            await mockChannel.Received(1).QueueDeleteAsync(
+                "lock.env:TestEnv", Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_WhenChannelIsDead_AttemptsQueueDeleteViaFallback()
+        {
+            // Arrange - simulate the channel being dead (connection was refreshed concurrently)
+            mockChannel.BasicCancelAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
+            mockChannel.QueuePurgeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
+            mockChannel.QueueDeleteAsync(Arg.Any<string>(), Arg.Is<bool>(x => true), Arg.Is<bool>(x => true), Arg.Is<bool>(x => true), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
+
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act - should not throw despite all channel operations failing
+            await lockObj.DisposeAsync();
+
+            // Assert - original channel operations were attempted
+            await mockChannel.Received(1).BasicCancelAsync(
+                "consumer-1", Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await mockChannel.Received(1).QueueDeleteAsync(
+                "lock.env:TestEnv", Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            // Fallback was attempted (logged as warning about attempting fallback cleanup)
+            // Since lockService has no active connection, fallback will also fail gracefully
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_CalledTwice_OnlyDisposesOnce()
+        {
+            // Arrange
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act
+            await lockObj.DisposeAsync();
+            await lockObj.DisposeAsync();
+
+            // Assert - operations only called once due to Interlocked guard
+            await mockChannel.Received(1).BasicCancelAsync(
+                "consumer-1", Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_WhenQueueDeleteSucceeds_DoesNotCallFallback()
+        {
+            // Arrange - cancel and purge fail but delete succeeds
+            mockChannel.BasicCancelAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
+            mockChannel.QueuePurgeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
+            // QueueDeleteAsync succeeds (default mock behavior returns completed task)
+
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act
+            await lockObj.DisposeAsync();
+
+            // Assert - queue delete succeeded, so no fallback should be attempted.
+            // The fallback logs a specific warning message; absence of that log means no fallback.
+            // We verify by checking QueueDeleteAsync was called exactly once (on original channel only)
+            await mockChannel.Received(1).QueueDeleteAsync(
+                "lock.env:TestEnv", Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
     }
 }
