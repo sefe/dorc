@@ -173,79 +173,65 @@ export class DeployEnv extends LitElement {
         id="dialog"
         .deployJson="${this.req}"
       ></deploy-confirm-dialog>
-      <table
-        style="width: 330px; margin-left: 10px"
+      <div
+        style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; margin-left: 10px;"
         ?hidden="${this.isFolderProject}"
       >
-        <tr>
-          <td>
+        <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
             <vaadin-combo-box
               id="build-defs"
+              style="flex: 1;"
               @value-changed="${this._buildDefValueChanged}"
               .items="${this.buildDefinitions}"
               .renderer="${this._buildRenderer}"
               placeholder="Select Build Definition"
               label="Build Definition"
-              style="width: 100%; max-width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
             ></vaadin-combo-box>
-          </td>
-          <td>
             ${this.buildDefsLoading
               ? html` <div class="small-loader"></div> `
               : html``}
-          </td>
-        </tr>
-        <tr>
-          <td>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
             <vaadin-combo-box
               id="builds"
+              style="flex: 1;"
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
               .renderer="${this._buildRenderer}"
               placeholder="Select Build Number"
               label="Build Number"
-              style="width: 100%; max-width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
             ></vaadin-combo-box>
-          </td>
-          <td>
             ${this.buildsLoading
               ? html` <div class="small-loader"></div> `
               : html``}
-          </td>
-        </tr>
-      </table>
-      <table
-        style="width: 330px; margin-left: 10px"
+        </div>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: var(--lumo-space-s); width: 100%; max-width: 600px; margin-left: 10px;"
         ?hidden="${!this.isFolderProject}"
       >
-        <tr>
-          <td>
             <vaadin-combo-box
               id="folders"
+              style="flex: 1;"
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
               .renderer="${this._buildRenderer}"
               placeholder="Select Folder"
               label="Folder Artifacts"
-              style="width: 100%; max-width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
             ></vaadin-combo-box>
-          </td>
-          <td>
             ${this.buildsLoading
               ? html` <div class="small-loader"></div> `
               : html``}
-          </td>
-        </tr>
-      </table>
+      </div>
       <vaadin-details
         opened
         summary="Components"

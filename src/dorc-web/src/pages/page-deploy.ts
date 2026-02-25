@@ -104,48 +104,40 @@ export class PageDeploy extends PageElement {
   render() {
     return html`
       <div class="scroller">
-        <table style="width: 330px">
-          <tr>
-            <td>
+        <div style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; padding-left: var(--lumo-space-s);">
+          <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
               <vaadin-combo-box
+                style="flex: 1;"
                 @value-changed="${this._projectValueChanged}"
                 .items="${this.projects}"
                 .renderer="${this._projectsRenderer}"
                 placeholder="Select Project"
                 label="Project"
-                style="width: 100%; max-width: 600px; padding-left: var(--lumo-space-s)"
                 item-label-path="ProjectName"
                 item-value-path="ProjectId"
                 clear-button-visible
               ></vaadin-combo-box>
-            </td>
-            <td>
               ${this.projectsLoading
                 ? html` <div class="small-loader"></div> `
                 : html``}
-            </td>
-          </tr>
-          <tr>
-            <td>
+          </div>
+          <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
               <vaadin-combo-box
                 id="environments"
+                style="flex: 1;"
                 @value-changed="${this._environmentValueChanged}"
                 .items="${this.environments}"
                 placeholder="Select Environment"
                 label="Environment"
-                style="width: 100%; max-width: 600px; padding-left: var(--lumo-space-s)"
                 clear-button-visible
                 item-label-path="EnvironmentName"
                 item-value-path="EnvironmentId"
               ></vaadin-combo-box>
-            </td>
-            <td>
               ${this.envsLoading
                 ? html` <div class="small-loader"></div> `
                 : html``}
-            </td>
-          </tr>
-        </table>
+          </div>
+        </div>
         <deploy-env
           id="deployEnv"
           .project="${this.project}"

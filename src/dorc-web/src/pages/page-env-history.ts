@@ -14,11 +14,12 @@ import '../components/grid-button-groups/edit-comments-controls';
 import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
 
 @customElement('page-env-history')
-export class PageEnvironmentHistory extends PageElement {
+export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
   @property({ type: Object }) location = router.location;
 
   @property({ type: Array })
@@ -99,28 +100,33 @@ export class PageEnvironmentHistory extends PageElement {
           resizable
           path="UpdatedBy"
           header="Updated By"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="UpdateType"
           header="Update Type"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="FromValue"
           header="Old Version"
           width="170px"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="ToValue"
           header="New Version"
           width="170px"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="Details"
           header="Tfs Id"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           resizable

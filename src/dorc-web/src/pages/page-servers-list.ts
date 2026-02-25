@@ -35,6 +35,7 @@ import {
 } from '../apis/dorc-api';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/server-tags';
 import { AttachedServers } from '../components/attached-servers';
 import '../components/grid-button-groups/server-controls';
@@ -49,7 +50,7 @@ const osName = 'OsName';
 const applicationTags = 'ApplicationTags';
 
 @customElement('page-servers-list')
-export class PageServersList extends PageElement {
+export class PageServersList extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @query('#grid') grid: Grid | undefined;
@@ -238,11 +239,13 @@ export class PageServersList extends PageElement {
           .headerRenderer='${this.osHeaderRenderer}'
           auto-width
           flex-grow='0'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer='${this.applicationTagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
@@ -251,6 +254,7 @@ export class PageServersList extends PageElement {
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
           resizable
           header='Mapped Environments'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='200px'

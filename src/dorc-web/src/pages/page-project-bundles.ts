@@ -50,8 +50,9 @@ export class PageProjectBundles extends PageElement {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
-        padding: 20px 20px 0 20px;
+        margin-bottom: var(--lumo-space-m);
+        padding: var(--lumo-space-m) var(--lumo-space-m) 0 var(--lumo-space-m);
+        flex-wrap: wrap;
       }
 
 

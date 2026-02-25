@@ -16,6 +16,7 @@ import '../components/grid-button-groups/env-controls';
 import { EnvironmentApiModel, RefDataRolesApi } from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
 import '../components/hegs-dialog';
@@ -23,7 +24,7 @@ import { HegsDialog } from '../components/hegs-dialog';
 import { AddEditEnvironment } from '../components/add-edit-environment';
 
 @customElement('page-environments-list')
-export class PageEnvironmentsList extends PageElement {
+export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) environments: EnvironmentApiModel[] = [];
 
   @property({ type: Array })
@@ -170,33 +171,39 @@ export class PageEnvironmentsList extends PageElement {
                   resizable
                   path="Details.EnvironmentOwner"
                   header="Owner"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.Description"
                   header="Description"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentSecure"
                   header="Secure"
                   .renderer="${this._envSecureRenderer}"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentIsProd"
                   header="Prod"
                   .renderer="${this._envIsProdRenderer}"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.FileShare"
                   header="File Share"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.Notes"
                   header="Notes"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-column
                   .renderer="${this._envDetailsButtonsRenderer}"

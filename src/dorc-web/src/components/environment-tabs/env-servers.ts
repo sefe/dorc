@@ -43,9 +43,9 @@ export class EnvServers extends PageEnvBase {
         vertical-align: middle;
       }
       .buttons {
-        font-size: 10px;
+        font-size: var(--lumo-font-size-s);
         color: cornflowerblue;
-        padding: 2px;
+        padding: var(--lumo-space-xs);
       }
       vaadin-details {
         overflow: auto;
