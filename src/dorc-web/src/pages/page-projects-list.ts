@@ -14,6 +14,7 @@ import type { ProjectApiModel } from '../apis/dorc-api';
 import { AccessControlType } from '../apis/dorc-api';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
@@ -25,7 +26,7 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { SuccessNotification } from '../components/notifications/success-notification';
 
 @customElement('page-projects-list')
-export class PageProjectsList extends PageElement {
+export class PageProjectsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) projects: ProjectApiModel[] = [];
 
   @property({ type: Object }) selectedProject: ProjectApiModel = {};
@@ -237,14 +238,28 @@ export class PageProjectsList extends PageElement {
                 .renderer="${this._projectNameRenderer}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
+                path="ProjectDescription"
+                header="Project Description"
+                resizable
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-sort-column>
+              <vaadin-grid-sort-column
                 path="ArtefactsUrl"
                 header="Artefacts URL"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsSubPaths"
                 header="Artefacts Sub-Paths"
                 resizable
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-sort-column>
+              <vaadin-grid-sort-column
+                path="ArtefactsBuildRegex"
+                header="Build Definition Regex"
+                resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 .attachedPPLControl="${this}"

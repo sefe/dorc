@@ -35,6 +35,7 @@ import {
 } from '../apis/dorc-api';
 import { RefDataDatabasesApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AttachedDatabases } from '../components/attached-databases';
 import '../components/grid-button-groups/database-controls';
 import '@vaadin/grid/vaadin-grid-sorter';
@@ -47,7 +48,7 @@ const serverName = 'ServerName';
 const environmentNames = 'EnvironmentNames';
 
 @customElement('page-databases-list')
-export class PageDatabasesList extends PageElement {
+export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @property({ type: Boolean }) noResults = false;
@@ -125,10 +126,13 @@ export class PageDatabasesList extends PageElement {
         background-color: var(--dorc-chip-bg);
         color: var(--dorc-chip-text);
         display: inline-block;
-        padding: 3px;
+        padding: 6px 10px;
+        min-height: 32px;
         margin: 3px;
         text-decoration: none;
         border-radius: 3px;
+        border: none;
+        box-sizing: border-box;
       }
 
       .tag:hover {
@@ -140,7 +144,7 @@ export class PageDatabasesList extends PageElement {
 
       .env {
         font-size: var(--lumo-font-size-s);
-        border: 0px;
+        border: none;
         font-family: monospace;
         background-color: var(
           --_lumo-button-background-color,
@@ -148,10 +152,12 @@ export class PageDatabasesList extends PageElement {
         );
         color: var(--_lumo-button-color, var(--lumo-primary-text-color));
         display: inline-block;
-        padding: 3px;
+        padding: 6px 10px;
+        min-height: 32px;
         margin: 3px;
         text-decoration: none;
         border-radius: 3px;
+        box-sizing: border-box;
       }
 
       .env:hover {
@@ -228,6 +234,7 @@ export class PageDatabasesList extends PageElement {
           .renderer='${this.applicationTagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
@@ -236,6 +243,7 @@ export class PageDatabasesList extends PageElement {
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
           resizable
           header='Mapped Environments'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='200px'

@@ -38,6 +38,7 @@ import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import { PageElement, PageLocation } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 
 const username = 'Username';
 const status = 'Status';
@@ -49,7 +50,7 @@ const id = 'Id';
 
 @customElement('page-monitor-requests')
 export class PageMonitorRequests
-  extends PageElement
+  extends ResponsiveMixin(PageElement)
   implements IDeploymentsEventsClient
 {
   @query('#grid') grid: Grid | undefined;
@@ -309,6 +310,7 @@ export class PageMonitorRequests
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -316,6 +318,7 @@ export class PageMonitorRequests
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -338,6 +341,7 @@ export class PageMonitorRequests
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
