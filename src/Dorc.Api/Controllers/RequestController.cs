@@ -247,26 +247,27 @@ namespace Dorc.Api.Controllers
             try
             {
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
-
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                     _log.LogInformation($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
+                var cancelledTime = DateTimeOffset.UtcNow;
+
                 if (deploymentRequest.Status == DeploymentRequestStatus.Running.ToString()
                     || deploymentRequest.Status == DeploymentRequestStatus.Requesting.ToString())
                 {
-                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelling);
+                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelling, username, cancelledTime);
                 }
 
                 if (deploymentRequest.Status == DeploymentRequestStatus.Pending.ToString()
                     || deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString())
                 {
-                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelled);
+                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelled, username, cancelledTime);
                 }
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);

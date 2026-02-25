@@ -24,6 +24,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime, string log);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user);
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime);
+
         int UpdateNonProcessedRequest(
             DeploymentRequestApiModel deploymentRequest,
             DeploymentRequestStatus newStatus,
