@@ -635,7 +635,10 @@ namespace Dorc.PersistentData.Sources
                         catch (Exception ex)
                         {
                             transaction.Rollback();
-                            logger.LogError(ex, $"Failed to delete environment '{env.EnvironmentName}'");
+                            var safeEnvironmentName = env.EnvironmentName?
+                                .Replace("\r", string.Empty)
+                                .Replace("\n", string.Empty);
+                            logger.LogError(ex, $"Failed to delete environment '{safeEnvironmentName}'");
                             throw;
                         }
                     }
