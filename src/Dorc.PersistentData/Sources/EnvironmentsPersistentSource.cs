@@ -589,7 +589,7 @@ namespace Dorc.PersistentData.Sources
                             if (!objectFilter.HasPrivilege(environment, principal, AccessLevel.Write))
                                 throw new UnauthorizedAccessException($"User does not have permission to delete environment '{environment.Name}'");
 
-                            string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
+                            var username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                             var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
                             EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
 
