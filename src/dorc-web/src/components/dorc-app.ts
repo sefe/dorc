@@ -44,7 +44,7 @@ export class DorcApp extends ShortcutsStore {
         height: 100dvh;
         margin: 0;
         background: var(--dorc-bg-primary);
-        font-family: Arial, monospace;
+        font-family: var(--lumo-font-family, Arial, sans-serif);
         overflow: hidden;
       }
 
