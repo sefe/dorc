@@ -1,16 +1,16 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 using System.Security.Principal;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 using Environment = Dorc.PersistentData.Model.Environment;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData.Contexts;
-using System.Security.Claims;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -403,7 +403,7 @@ namespace Dorc.PersistentData.Sources
 
                 var isOwner = envPermissions
                     .Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
-                
+
                 result.IsOwner = isOwner;
 
                 if (_rolePrivilegesChecker.IsAdmin(user))
@@ -411,7 +411,7 @@ namespace Dorc.PersistentData.Sources
                     result.UserEditable = true;
                 }
                 else
-                {                    
+                {
                     var isDelegate = context.Environments
                         .Where(env => env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username))
                         .Select(env => env.Name).Any();
@@ -561,55 +561,88 @@ namespace Dorc.PersistentData.Sources
         public bool DeleteEnvironment(EnvironmentApiModel env, IPrincipal principal)
         {
             using (var context = contextFactory.GetContext())
-            using (var dbContextTransaction = context.Database.BeginTransaction())
             {
-                var environment = context.Environments
-                    .Include(e => e.AccessControls)
-                    .Include(e => e.Databases)
-                    .Include(e => e.ComponentStatus)
-                    .Include(e => e.Histories)
-                    .Include(e => e.Projects)
-                    .Include(e => e.Servers)
-                    .Include(e => e.Users)
-                    .SingleOrDefault(environment =>
-                        EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation)
-                        == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
+                // Use the execution strategy to wrap the transaction
+                var strategy = context.Database.CreateExecutionStrategy();
 
-                if (environment == null) return false;
-
-                // Add environment history record for deletion
-                string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
-                var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
-                EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
-
-                var propertyValueIds = context.PropertyValueFilters.Where(pvf => pvf.Value.Equals(environment.Name))
-                    .Select(pvf => pvf.PropertyValue.Id).ToList();
-
-                context.PropertyValueFilters.Where(pvf => pvf.Value.Equals(environment.Name)).ExecuteDelete();
-                context.PropertyValues.Where(pv => propertyValueIds.Contains(pv.Id)).ExecuteDelete();
-
-                environment.AccessControls.Clear();
-                environment.Databases.Clear();
-                environment.Servers.Clear();
-                environment.Users.Clear();
-
-                // Environment histories will be preserved automatically by the database foreign key constraint
-                // The EnvId will be set to NULL when the environment is deleted, preserving audit trail
-                environment.Histories.Clear();
-
-                environment.Projects.Clear();
-
-                foreach (var ecs in environment.ComponentStatus.ToList())
+                return strategy.Execute(() =>
                 {
-                    context.EnvironmentComponentStatuses.Remove(ecs);
-                }
-                environment.ComponentStatus.Clear();
+                    using (var transaction = context.Database.BeginTransaction())
+                    {
+                        try
+                        {
+                            var environment = context.Environments
+                                .Include(e => e.AccessControls)
+                                .Include(e => e.Databases)
+                                .Include(e => e.ComponentStatus)
+                                .Include(e => e.Histories)
+                                .Include(e => e.Projects)
+                                .Include(e => e.Servers)
+                                .Include(e => e.Users)
+                                .SingleOrDefault(e =>
+                                    EF.Functions.Collate(e.Name, DeploymentContext.CaseInsensitiveCollation)
+                                    == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
 
-                context.Environments.Remove(environment);
+                            if (environment == null)
+                                return false;
 
-                context.SaveChanges();
-                dbContextTransaction.Commit();
-                return true;
+                            if (!objectFilter.HasPrivilege(environment, principal, AccessLevel.Write))
+                                throw new UnauthorizedAccessException($"User does not have permission to delete environment '{environment.Name}'");
+
+                            var username = _claimsPrincipalReader.GetUserFullDomainName(principal);
+                            var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
+                            EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
+
+                            var propertyValueIds = context.PropertyValueFilters
+                                .Where(pvf => pvf.Value.Equals(environment.Name))
+                                .Select(pvf => pvf.PropertyValue.Id)
+                                .ToList();
+
+                            context.PropertyValueFilters
+                                .Where(pvf => pvf.Value.Equals(environment.Name))
+                                .ExecuteDelete();
+
+                            context.PropertyValues
+                                .Where(pv => propertyValueIds.Contains(pv.Id))
+                                .ExecuteDelete();
+
+                            environment.AccessControls.Clear();
+                            environment.Databases.Clear();
+                            environment.Servers.Clear();
+                            environment.Users.Clear();
+                            environment.Projects.Clear();
+
+                            // Environment histories will be preserved automatically by the database foreign key constraint
+                            // The EnvId will be set to NULL when the environment is deleted, preserving audit trail
+                            environment.Histories.Clear();
+
+                            foreach (var ecs in environment.ComponentStatus.ToList())
+                            {
+                                context.EnvironmentComponentStatuses.Remove(ecs);
+                            }
+                            environment.ComponentStatus.Clear();
+
+                            context.Environments.Remove(environment);
+
+                            context.SaveChanges();
+
+                            transaction.Commit();
+
+                            logger.LogInformation($"Environment '{environment.Name}' deleted successfully by {_claimsPrincipalReader.GetUserLogin(principal)}");
+
+                            return true;
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            var safeEnvironmentName = env.EnvironmentName?
+                                .Replace("\r", string.Empty)
+                                .Replace("\n", string.Empty);
+                            logger.LogError(ex, $"Failed to delete environment '{safeEnvironmentName}'");
+                            throw;
+                        }
+                    }
+                });
             }
         }
 
