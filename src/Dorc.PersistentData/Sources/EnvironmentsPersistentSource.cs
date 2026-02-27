@@ -538,7 +538,6 @@ namespace Dorc.PersistentData.Sources
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, env.EnvironmentId);
-
                 if (env.EnvironmentName != environment.Name)
                 {
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
@@ -548,6 +547,20 @@ namespace Dorc.PersistentData.Sources
 
                     // Need to also update the env properties
                     propertyValuesPersistentSource.ReassignPropertyValues(context, environment, env.EnvironmentName);
+                }
+                if (env.EnvironmentSecure != environment.Secure)
+                {
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    EnvironmentHistoryPersistentSource.AddHistory(environment, string.Empty,
+                        "EnvironmentSecure Updated to " + env.EnvironmentSecure + " from " + environment.Secure,
+                        username, "Env Secure Update", context);
+                }
+                if (env.EnvironmentIsProd != environment.IsProd)
+                {
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    EnvironmentHistoryPersistentSource.AddHistory(environment, string.Empty,
+                        "Environment IsProd Updated to " + env.EnvironmentIsProd + " from " + environment.IsProd,
+                        username, "Env IsProd Update", context);
                 }
 
                 MapToEnvironment(env, environment);
