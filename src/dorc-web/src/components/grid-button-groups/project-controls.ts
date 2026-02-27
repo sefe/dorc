@@ -169,12 +169,16 @@ export class ProjectControls extends LitElement {
   static get styles() {
     return css`
       :host {
-        display: inline-block;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
       }
-
       vaadin-button {
         --lumo-button-size: 28px;
         --lumo-icon-size-m: 16px;
+        padding: 0px;
+        margin: 0px;
+        min-width: 0;
       }
     `;
   }
