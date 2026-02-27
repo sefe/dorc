@@ -15,16 +15,19 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
             ILogger<ScriptsPersistentSource> logger,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IScriptsAuditPersistentSource scriptsAuditPersistentSource
             )
         {
             _logger = logger;
             _contextFactory = contextFactory;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
         }
 
         public GetScriptsListResponseDto GetScriptsByPage(int limit, int page, PagedDataOperators operators)
@@ -128,15 +131,27 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var foundScript = context.Scripts.Include(s => s.Components).FirstOrDefault(s => s.Id == script.Id);
+                var foundScript = context.Scripts.Include(s => s.Components).ThenInclude(c => c.Projects).FirstOrDefault(s => s.Id == script.Id);
 
                 if (foundScript == null)
                     return false;
 
                 string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                _logger.LogWarning(
-                    $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
 
+                // Capture old values for audit
+                var oldApiModel = MapToScriptApiModel(foundScript);
+                var oldIsEnabled = foundScript.Components.FirstOrDefault()?.IsEnabled ?? false;
+                var projectNames = string.Join(", ", foundScript.Components
+                    .SelectMany(c => c.Projects)
+                    .Select(p => p.Name)
+                    .Distinct());
+
+                _logger.LogWarning(
+                    $"Script {script.Name} {script.InstallScriptName} updated from {oldIsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
+
+                // Build from/to value strings for audit
+                var fromValue = $"Name={oldApiModel?.Name}; Path={oldApiModel?.Path}; NonProdOnly={oldApiModel?.NonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldApiModel?.PowerShellVersionNumber}";
+                
                 foundScript.Name = script.Name;
                 foundScript.Path = script.Path;
                 foundScript.NonProdOnly = script.NonProdOnly;
@@ -147,7 +162,14 @@ namespace Dorc.PersistentData.Sources
                     scriptComponent.IsEnabled = script.IsEnabled;
                 }
 
+                var toValue = $"Name={script.Name}; Path={script.Path}; NonProdOnly={script.NonProdOnly}; IsEnabled={script.IsEnabled}; PSVersion={script.PowerShellVersionNumber}";
+
                 context.SaveChanges();
+
+                _scriptsAuditPersistentSource.AddRecord(
+                    script.Id, script.Name, fromValue, toValue,
+                    username, "Update", projectNames);
+
                 return true;
             }
         }
