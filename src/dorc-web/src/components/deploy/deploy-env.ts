@@ -91,6 +91,9 @@ export class DeployEnv extends LitElement {
         :host{
             overflow-y: scroll;
         }
+      [hidden] {
+        display: none !important;
+      }
       vaadin-combo-box {
         padding-top: 0px;
       }
