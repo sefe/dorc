@@ -98,6 +98,27 @@ export class DeployEnv extends LitElement {
       [hidden] {
         display: none !important;
       }
+      .build-defs-section {
+        display: flex;
+        flex-direction: column;
+        gap: var(--lumo-space-xs);
+        width: 100%;
+        max-width: 600px;
+        margin-left: 10px;
+      }
+      .combo-row {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+      }
+      .folder-artifacts-section {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        width: 100%;
+        max-width: 600px;
+        margin-left: 10px;
+      }
       vaadin-combo-box {
         padding-top: 0px;
       }
@@ -183,10 +204,10 @@ export class DeployEnv extends LitElement {
         .deployJson="${this.req}"
       ></deploy-confirm-dialog>
       <div
-        style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; margin-left: 10px;"
+        class="build-defs-section"
         ?hidden="${this.isFolderProject}"
       >
-        <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
+        <div class="combo-row">
             <vaadin-combo-box
               id="build-defs"
               style="flex: 1;"
@@ -203,7 +224,7 @@ export class DeployEnv extends LitElement {
               ? html` <div class="small-loader"></div> `
               : html``}
         </div>
-        <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
+        <div class="combo-row">
             <vaadin-combo-box
               id="builds"
               style="flex: 1;"
@@ -222,7 +243,7 @@ export class DeployEnv extends LitElement {
         </div>
       </div>
       <div
-        style="display: flex; align-items: center; gap: var(--lumo-space-s); width: 100%; max-width: 600px; margin-left: 10px;"
+        class="folder-artifacts-section"
         ?hidden="${!this.isFolderProject}"
       >
             <vaadin-combo-box

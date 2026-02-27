@@ -169,7 +169,7 @@ export class ProjectControls extends LitElement {
   static get styles() {
     return css`
       :host {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
       }
@@ -178,7 +178,6 @@ export class ProjectControls extends LitElement {
         --lumo-icon-size-m: 16px;
         padding: 0px;
         margin: 0px;
-        min-width: 0;
       }
     `;
   }

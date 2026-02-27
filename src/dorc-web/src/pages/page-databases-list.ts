@@ -126,13 +126,10 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         background-color: var(--dorc-chip-bg);
         color: var(--dorc-chip-text);
         display: inline-block;
-        padding: 6px 10px;
-        min-height: 32px;
+        padding: 3px;
         margin: 3px;
         text-decoration: none;
         border-radius: 3px;
-        border: none;
-        box-sizing: border-box;
       }
 
       .tag:hover {
@@ -144,7 +141,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
       .env {
         font-size: var(--lumo-font-size-s);
-        border: none;
+        border: 0px;
         font-family: monospace;
         background-color: var(
           --_lumo-button-background-color,
@@ -152,12 +149,10 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         );
         color: var(--_lumo-button-color, var(--lumo-primary-text-color));
         display: inline-block;
-        padding: 6px 10px;
-        min-height: 32px;
+        padding: 3px;
         margin: 3px;
         text-decoration: none;
         border-radius: 3px;
-        box-sizing: border-box;
       }
 
       .env:hover {
