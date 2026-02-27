@@ -161,12 +161,17 @@ export class PageAbout extends PageElement {
 
       .main-info {
         display: flex;
+        flex-wrap: wrap;
+        gap: var(--lumo-space-s);
       }
 
       .top3-chart-block {
         padding: 26px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         align-self: flex-start;
+        flex: 1 1 400px;
+        min-width: 300px;
+        max-width: 652px;
       }
 
       .top3-chart-block__percent {
@@ -255,7 +260,7 @@ export class PageAbout extends PageElement {
                 </div>
                 <div class="top3-chart-block">
                   <hegs-chart
-                    style="display: block; width: 100%; max-width: 600px; height: 400px;"
+                    style="display: block; width: 100%; height: 400px;"
                     .option="${this.top3PieChartOptions}"
                   ></hegs-chart>
                 </div>
