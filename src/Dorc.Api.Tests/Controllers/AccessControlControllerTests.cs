@@ -97,7 +97,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _securityPrivilegesChecker.CanModifyEnvironment(_user, accessControl.Name).Returns(true);
             _accessControlPersistentSource.GetAccessControls(objectId).Returns(currentOwners);
-            _accessControlPersistentSource.UpdateAccessControl(Arg.Any<AccessControlApiModel>()).Returns(ci => ci.Arg<AccessControlApiModel>());
+            _accessControlPersistentSource.UpdateAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>()).Returns(ci => ci.Arg<AccessControlApiModel>());
 
             // Act
             var result = _controller.Put(accessControl);
@@ -129,7 +129,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _securityPrivilegesChecker.CanModifyEnvironment(_user, accessControl.Name).Returns(true);
             _accessControlPersistentSource.GetAccessControls(objectId).Returns(currentOwners);
-            _accessControlPersistentSource.AddAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>()).Returns(ci => ci.Arg<AccessControlApiModel>());
+            _accessControlPersistentSource.AddAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>()).Returns(ci => ci.Arg<AccessControlApiModel>());
 
             // Act
             var result = _controller.Put(accessControl);
