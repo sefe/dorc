@@ -91,8 +91,7 @@ export class DorcApp extends ShortcutsStore {
       #dorcNavbar {
         width: var(--dorc-sidebar-width, 300px);
         flex-shrink: 0;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
         transition: width 0.2s ease;
       }
 
