@@ -119,7 +119,6 @@ namespace Dorc.Core
             var iResults = new List<ServicesAndStatus>();
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId);
-            var daemons = _daemonsPersistentSource.GetDaemons();
 
             try
             {
@@ -127,6 +126,7 @@ namespace Dorc.Core
                 {
                     try
                     {
+                        var daemons = _daemonsPersistentSource.GetDaemonsForServer(serverApiModel.ServerId);
                         foreach (var daemonApiModel in daemons)
                         {
                             var servicesAndStatus = new ServicesAndStatus();

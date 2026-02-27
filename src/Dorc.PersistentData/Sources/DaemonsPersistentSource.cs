@@ -19,7 +19,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var server = GetServer(serverId, context);
-                result = server == null
+                result = server != null
                     ? server.Services.Select(daemon => Map(daemon, server)).ToList()
                     : new List<DaemonApiModel>();
             }
@@ -131,5 +131,38 @@ namespace Dorc.PersistentData.Sources
             return result;
         }
 
+        public bool AttachDaemonToServer(int serverId, int daemonId)
+        {
+            using var context = _contextFactory.GetContext();
+            var server = context.Servers
+                .Include(s => s.Services)
+                .FirstOrDefault(s => s.Id == serverId);
+            if (server == null) return false;
+
+            var daemon = context.Services.Find(daemonId);
+            if (daemon == null) return false;
+
+            if (server.Services.Any(d => d.Id == daemonId)) return true;
+
+            server.Services.Add(daemon);
+            context.SaveChanges();
+            return true;
+        }
+
+        public bool DetachDaemonFromServer(int serverId, int daemonId)
+        {
+            using var context = _contextFactory.GetContext();
+            var server = context.Servers
+                .Include(s => s.Services)
+                .FirstOrDefault(s => s.Id == serverId);
+            if (server == null) return false;
+
+            var daemon = server.Services.FirstOrDefault(d => d.Id == daemonId);
+            if (daemon == null) return false;
+
+            server.Services.Remove(daemon);
+            context.SaveChanges();
+            return true;
+        }
     }
 }

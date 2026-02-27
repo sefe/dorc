@@ -10,6 +10,7 @@ import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
+import '../components/manage-daemons.ts';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
@@ -59,6 +60,8 @@ export class PageServersList extends PageElement {
   private addEditServerDialogOpened = false;
   @state()
   private editTagsDialogOpened = false;
+  @state()
+  private manageDaemonsDialogOpened = false;
 
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
@@ -173,6 +176,20 @@ export class PageServersList extends PageElement {
 
   render() {
     return html`
+        <vaadin-dialog
+        id="daemon-mapping-dialog"
+        title="Manage Daemons for ${this.selectedServer?.Name}"
+        .opened="${this.manageDaemonsDialogOpened}"
+        draggable
+        @opened-changed="${(event: DialogOpenedChangedEvent) => {
+          this.manageDaemonsDialogOpened = event.detail.value;
+          if (!this.manageDaemonsDialogOpened) {
+            this.selectedServer = {};
+          }
+        }}"
+        ${dialogRenderer(this.renderManageDaemonsDialog, [this.selectedServer])}
+        ${dialogFooterRenderer(this.renderManageDaemonsFooter, [])}
+      ></vaadin-dialog>
       <vaadin-dialog
         id='add-edit-server-dialog'
         header-title='Add/Edit Server'
@@ -392,6 +409,20 @@ export class PageServersList extends PageElement {
     <vaadin-button @click="${this.closeEditTagsDialog}">Close</vaadin-button>
   `;
 
+    private renderManageDaemonsDialog = () => html`
+    <manage-daemons
+      id="manage-daemons"
+      .server="${this.selectedServer}"
+    ></manage-daemons>
+  `;
+
+  private renderManageDaemonsFooter = () => html`
+    <vaadin-button @click="${this.closeManageDaemonsDialog}"
+      >Close</vaadin-button
+    >
+  `;
+
+
   private renderAddEditServerDialog = () => html`
     <add-edit-server
       id="add-edit-server"
@@ -406,6 +437,11 @@ export class PageServersList extends PageElement {
       >Close</vaadin-button
     >
   `;
+
+  private closeManageDaemonsDialog() {
+    this.manageDaemonsDialogOpened = false;
+  }
+
 
   private closeAddEditServerDialog() {
     this.addEditServerDialogOpened = false;
@@ -718,6 +754,10 @@ export class PageServersList extends PageElement {
     super.firstUpdated(_changedProperties);
 
     this.addEventListener(
+      'manage-daemons',
+      this.openManageDaemonsDialog as EventListener
+    );
+    this.addEventListener(
       'edit-server',
       this.openEditServerDialog as EventListener
     );
@@ -794,6 +834,11 @@ export class PageServersList extends PageElement {
       duration: 5000
     });
     this.addEditServerDialogOpened = false;
+  }
+
+  public openManageDaemonsDialog(e: CustomEvent) {
+    this.selectedServer = e.detail.server;
+    this.manageDaemonsDialogOpened = true;
   }
 
   openEditServerDialog(e: CustomEvent) {

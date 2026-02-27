@@ -68,6 +68,18 @@ export class ServerControls extends LitElement {
         ></vaadin-icon>
       </vaadin-button>
 
+      <vaadin-button
+        title="Manage Daemons"
+        theme="icon"
+        @click="${this.manageDaemons}"
+        ?disabled="${this.readonly}"
+      >
+        <vaadin-icon
+          icon="vaadin:cog"
+          style=${styleMap(editStyles)}
+        ></vaadin-icon>
+      </vaadin-button>
+
       ${this.envSet
         ? html`<vaadin-button
             title="Detach server"
@@ -152,6 +164,17 @@ export class ServerControls extends LitElement {
 
   manage() {
     this.fireManageServerTags();
+  }
+
+  manageDaemons() {
+    const event = new CustomEvent('manage-daemons', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        server: this.serverDetails
+      }
+    });
+    this.dispatchEvent(event);
   }
 
   editServer() {

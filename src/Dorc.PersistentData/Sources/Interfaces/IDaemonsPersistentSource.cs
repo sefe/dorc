@@ -9,5 +9,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DaemonApiModel Add(DaemonApiModel daemonApiModel);
         bool Delete(int daemonApiModelId);
         DaemonApiModel Update(DaemonApiModel env);
+        bool AttachDaemonToServer(int serverId, int daemonId);
+        bool DetachDaemonFromServer(int serverId, int daemonId);
     }
 }
