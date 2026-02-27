@@ -127,6 +127,14 @@ namespace Dorc.Monitor
             }
         }
 
+        public bool PauseDeploymentEnabled
+        {
+            get
+            {
+                return bool.Parse(configurationRoot.GetSection(appSettings)["PauseDeploymentEnabled"] ?? "false");
+            }
+        }
+
         public string RabbitMqHostName
         {
             get

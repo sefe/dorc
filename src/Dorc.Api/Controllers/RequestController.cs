@@ -1,5 +1,6 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.Core.Configuration;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -24,12 +25,14 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IConfigurationSettings _configurationSettings;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeploymentEventsPublisher deploymentEventsPublisher
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IConfigurationSettings configurationSettings
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -40,6 +43,7 @@ namespace Dorc.Api.Controllers
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _configurationSettings = configurationSettings;
         }
 
         /// <summary>
@@ -300,6 +304,12 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                if (!_configurationSettings.GetPauseDeploymentEnabled())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Pause deployment feature is disabled.");
+                }
+
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
@@ -350,6 +360,12 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                if (!_configurationSettings.GetPauseDeploymentEnabled())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Pause deployment feature is disabled.");
+                }
+
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);

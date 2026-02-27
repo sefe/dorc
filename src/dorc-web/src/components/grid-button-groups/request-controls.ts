@@ -99,6 +99,8 @@ export class RequestControls extends LitElement {
               ></vaadin-icon>
             </vaadin-button>
           </td>
+          ${appConfig.pauseDeploymentEnabled
+            ? html`
           <td class="table-button">
             <vaadin-button
               title="Pause Request"
@@ -125,6 +127,8 @@ export class RequestControls extends LitElement {
               ></vaadin-icon>
             </vaadin-button>
           </td>
+            `
+            : html``}
         </tr>
       </table>
     `;

@@ -19,6 +19,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
         private readonly IDistributedLockService distributedLockService;
+        private readonly IMonitorConfiguration monitorConfiguration;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -39,7 +40,8 @@ namespace Dorc.Monitor
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
             IDeploymentEventsPublisher eventPublisher,
-            IDistributedLockService distributedLockService)
+            IDistributedLockService distributedLockService,
+            IMonitorConfiguration monitorConfiguration)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
@@ -47,6 +49,7 @@ namespace Dorc.Monitor
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
             this.distributedLockService = distributedLockService;
+            this.monitorConfiguration = monitorConfiguration;
         }
 
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
@@ -276,8 +279,9 @@ namespace Dorc.Monitor
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
-            // Select Pending, Running, Confirmed, and Paused requests for each environment.
-            // Paused requests block subsequent requests from executing.
+            // Always fetch Paused requests so they block subsequent requests in the queue,
+            // regardless of whether the pause feature flag is enabled.
+            // The flag only controls whether users can pause/resume via UI and API.
             var allRelevantRequests = this.requestsPersistentSource
                 .GetRequestsWithStatus(
                         DeploymentRequestStatus.Pending,
@@ -290,7 +294,6 @@ namespace Dorc.Monitor
 
             // Group by environment and filter to only environments without Running requests
             // and where the first request (by ID) is not Paused.
-            // A Paused request blocks only SUBSEQUENT requests, not earlier ones.
             var environmentRequestGroupsToExecute = allRelevantRequests
                 .GroupBy(
                     request => request.EnvironmentName,
@@ -301,7 +304,7 @@ namespace Dorc.Monitor
                     // No Running requests in this environment
                     environmentRequestGroup.All(envRequest =>
                         envRequest.Request.Status != DeploymentRequestStatus.Running.ToString()) &&
-                    // The first (earliest by ID) request is not Paused.
+                    // The first (earliest by ID) request must not be Paused.
                     // If Request 3 is Paused, Requests 4,5 are blocked.
                     // But if Request 4 is Paused, Request 3 can still run (it's before the pause).
                     environmentRequestGroup.OrderBy(r => r.Request.Id).First().Request.Status != DeploymentRequestStatus.Paused.ToString());
