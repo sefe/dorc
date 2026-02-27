@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -285,6 +287,164 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var uri = new Uri(buildUri);
             return Convert.ToInt32(uri.LocalPath.Split('/').Last());
+        }
+
+        /// <inheritdoc />
+        public async Task<string?> GetFileFromRepoAsync(string collection, string adoProjects, params string[] candidateFileNames)
+        {
+            if (candidateFileNames == null || candidateFileNames.Length == 0)
+            {
+                _log.LogWarning("No candidate file names provided for GetFileFromRepoAsync");
+                return null;
+            }
+
+            var org = GetAzureOrgAndUrl(collection, out var azureEndpoint);
+
+            // Determine auth: OAuth for cloud, default credentials for on-prem
+            var useOAuth = azureEndpoint.Contains(azureEndpointUrl);
+
+            using var httpClient = new HttpClient();
+            if (useOAuth)
+            {
+                var token = _authTokenGenerator.GetToken();
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            else
+            {
+                _log.LogWarning("Git file fetch is only supported for Azure DevOps Services (cloud). " +
+                    "On-prem TFS/Azure DevOps Server is not supported for cr-inputs.json auto-fetch.");
+                return null;
+            }
+
+            var projects = adoProjects.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            foreach (var project in projects)
+            {
+                var safeProject = project.Replace("\r", "").Replace("\n", "");
+                try
+                {
+                    // List all Git repositories in this ADO project
+                    var reposUrl = $"{azureEndpoint}{org}/{project}/_apis/git/repositories?api-version={ApiVersion}";
+                    _log.LogDebug("Listing Git repos for project {Project}", safeProject);
+
+                    var reposResponse = await httpClient.GetAsync(reposUrl);
+                    if (!reposResponse.IsSuccessStatusCode)
+                    {
+                        _log.LogWarning("Failed to list Git repos for project {Project}: {Status}",
+                            safeProject, reposResponse.StatusCode);
+                        continue;
+                    }
+
+                    var reposJson = await reposResponse.Content.ReadAsStringAsync();
+                    var reposResult = JsonSerializer.Deserialize<AdoRepoListResponse>(reposJson, jsonOptions);
+
+                    if (reposResult?.Value == null || reposResult.Value.Count == 0)
+                    {
+                        _log.LogDebug("No Git repos found in project {Project}", safeProject);
+                        continue;
+                    }
+
+                    // For each repo, get the full file tree and search for matching file names
+                    foreach (var repo in reposResult.Value)
+                    {
+                        var safeRepoName = (repo.Name ?? string.Empty).Replace("\r", "").Replace("\n", "");
+                        try
+                        {
+                            var treeUrl = $"{azureEndpoint}{org}/{project}/_apis/git/repositories/{repo.Id}" +
+                                          $"/items?recursionLevel=Full&api-version={ApiVersion}";
+                            _log.LogDebug("Listing full tree for repo {RepoName} in project {Project}", safeRepoName, safeProject);
+
+                            var treeResponse = await httpClient.GetAsync(treeUrl);
+                            if (!treeResponse.IsSuccessStatusCode)
+                            {
+                                _log.LogDebug("Failed to list tree for repo {RepoName}: {Status}",
+                                    safeRepoName, treeResponse.StatusCode);
+                                continue;
+                            }
+
+                            var treeJson = await treeResponse.Content.ReadAsStringAsync();
+                            var treeResult = JsonSerializer.Deserialize<AdoItemsListResponse>(treeJson, jsonOptions);
+                            if (treeResult?.Value == null || treeResult.Value.Count == 0)
+                                continue;
+
+                            // Find all items whose file name matches a candidate, grouped by priority
+                            // candidateFileNames[0] has highest priority (e.g. "cr-inputs-new.json")
+                            foreach (var candidateName in candidateFileNames)
+                            {
+                                var match = treeResult.Value.FirstOrDefault(item =>
+                                    !item.IsFolder &&
+                                    item.Path.EndsWith("/" + candidateName, StringComparison.OrdinalIgnoreCase));
+
+                                if (match == null)
+                                    continue;
+
+                                // Found a match — fetch the file content
+                                var safePath = (match.Path ?? string.Empty).Replace("\r", "").Replace("\n", "");
+                                var itemUrl = $"{azureEndpoint}{org}/{project}/_apis/git/repositories/{repo.Id}/items" +
+                                              $"?path={Uri.EscapeDataString(match.Path)}&api-version={ApiVersion}";
+                                _log.LogDebug("Fetching {FilePath} from repo {RepoName}", safePath, safeRepoName);
+
+                                var itemResponse = await httpClient.GetAsync(itemUrl);
+                                if (itemResponse.IsSuccessStatusCode)
+                                {
+                                    var content = await itemResponse.Content.ReadAsStringAsync();
+                                    _log.LogInformation("Found {FileName} at {FilePath} in repo {RepoName} of project {Project}",
+                                        candidateName, safePath, safeRepoName, safeProject);
+                                    return content;
+                                }
+
+                                _log.LogWarning("File {FilePath} listed in tree but fetch failed: {Status}",
+                                    safePath, itemResponse.StatusCode);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _log.LogDebug(ex, "Error searching tree for repo {RepoName}", safeRepoName);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.LogWarning(ex, "Error searching for files in ADO project {Project}", safeProject);
+                }
+            }
+
+            _log.LogInformation("None of [{CandidateNames}] found in any repo across ADO projects: {Projects}",
+                string.Join(", ", candidateFileNames),
+                adoProjects.Replace("\r", "").Replace("\n", ""));
+            return null;
+        }
+
+        /// <summary>
+        /// Response model for ADO Git Repositories List API
+        /// </summary>
+        private class AdoRepoListResponse
+        {
+            public List<AdoRepo> Value { get; set; } = new();
+            public int Count { get; set; }
+        }
+
+        private class AdoRepo
+        {
+            public string Id { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+            public string DefaultBranch { get; set; } = string.Empty;
+        }
+
+        /// <summary>
+        /// Response model for ADO Git Items List API (recursionLevel=Full)
+        /// </summary>
+        private class AdoItemsListResponse
+        {
+            public List<AdoItem> Value { get; set; } = new();
+            public int Count { get; set; }
+        }
+
+        private class AdoItem
+        {
+            public string Path { get; set; } = string.Empty;
+            public bool IsFolder { get; set; }
         }
     }
 }
