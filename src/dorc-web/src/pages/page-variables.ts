@@ -71,6 +71,8 @@ export class PageVariables extends PageElement {
 
   private allPropertyValues: PropertyValueDtoExtended[] | undefined;
 
+  private _editingValueId: number | undefined;
+
   private scopeFilterValue = '';
 
   private valueFilterValue = '';
@@ -616,6 +618,16 @@ export class PageVariables extends PageElement {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+      const grid = this.shadowRoot?.getElementById('grid') as any;
+      grid?.requestContentUpdate?.();
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+      const grid = this.shadowRoot?.getElementById('grid') as any;
+      grid?.requestContentUpdate?.();
+    }) as EventListener);
     this.getAllVariableNames();
     this.getEnvironments();
   }
@@ -945,11 +957,11 @@ export class PageVariables extends PageElement {
     }
   }
 
-  variableValueControlsRenderer(
+  variableValueControlsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<PropertyValueDtoExtended>
-  ) {
+  ) => {
     let dup = '';
     if (model.item.IsDuplicate) {
       dup = 'WARNING: duplicate value located!';
@@ -958,13 +970,14 @@ export class PageVariables extends PageElement {
     render(
       html`<variable-value-controls
         .value="${model.item}"
+        .editing="${model.item.Id === this._editingValueId}"
         .additionalInformation="${dup}"
         style="min-width:150px"
       >
       </variable-value-controls>`,
       root
     );
-  }
+  };
 
   errorAlert(errs: Response[]) {
     console.error(errs);

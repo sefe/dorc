@@ -73,6 +73,8 @@ export class EnvVariables extends PageEnvBase {
   filterVariableScope: string = '';
   isShowDefaultProps: boolean = false;
 
+  private _editingValueId: number | undefined;
+
   static get styles() {
     return css`
       :host {
@@ -410,6 +412,14 @@ export class EnvVariables extends PageEnvBase {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+      this.grid?.requestContentUpdate?.();
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+      this.grid?.requestContentUpdate?.();
+    }) as EventListener);
 
     this.getAllVariableNames();
   }
@@ -623,11 +633,11 @@ export class EnvVariables extends PageEnvBase {
     });
   }
 
-  variableValueControlsRenderer(
+  variableValueControlsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
+  ) => {
     const converted: PropertyValueDto = {
       Id: model.item.PropertyValueId,
       Value: model.item.PropertyValue,
@@ -642,11 +652,14 @@ export class EnvVariables extends PageEnvBase {
     };
 
     render(
-      html`<variable-value-controls .value="${converted}">
+      html`<variable-value-controls
+        .value="${converted}"
+        .editing="${converted.Id === this._editingValueId}"
+      >
       </variable-value-controls>`,
       root
     );
-  }
+  };
 
   secureRenderer(
     root: HTMLElement,
