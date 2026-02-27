@@ -561,12 +561,13 @@ export class PageServersList extends PageElement {
           style="align-items: normal"
         ></vaadin-grid-sorter>
         <vaadin-text-field
+          id="tags-search"
           placeholder="Application Tags"
           clear-button-visible
           focus-target
           style="width: 200px"
           theme="small"
-          @input="${(e: InputEvent) => {
+          @value-changed="${(e: CustomEvent) => {
             const textField = e.target as TextField;
             this.dispatchEvent(
               new CustomEvent('searching-servers-started', {
