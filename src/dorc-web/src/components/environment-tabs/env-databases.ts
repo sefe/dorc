@@ -151,9 +151,9 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
-    if (String(a.ServerName) > String(b.ServerName)) return 1;
-    if (a.ServerName === b.ServerName) {
-      if (String(a.Name) > String(b.Name)) return 1;
+    if (String(a.Name).toLowerCase() > String(b.Name).toLowerCase()) return 1;
+    if (a.Name?.toLowerCase() === b.Name?.toLowerCase()) {
+      if (String(a.ServerName).toLowerCase() > String(b.ServerName).toLowerCase()) return 1;
       return -1;
     }
     return -1;
