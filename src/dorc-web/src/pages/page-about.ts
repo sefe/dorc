@@ -166,6 +166,7 @@ export class PageAbout extends PageElement {
       .top3-chart-block {
         padding: 26px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
+        align-self: flex-start;
       }
 
       .top3-chart-block__percent {
