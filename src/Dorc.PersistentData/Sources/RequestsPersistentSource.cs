@@ -285,6 +285,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.Status, status.ToString())
+                        .SetProperty(b => b.CancelledBy, user)
+                        .SetProperty(b => b.CancelledTime, CancelledTime));
+            }
+        }
         public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user)
         {
             using (var context = _contextFactory.GetContext())
@@ -536,7 +548,9 @@ namespace Dorc.PersistentData.Sources
                 StartedTime = req.StartedTime,
                 Status = status.ToString(),
                 UserName = req.UserName,
-                UncLogPath = req.UncLogPath
+                UncLogPath = req.UncLogPath,
+                CancelledBy = req.CancelledBy,
+                CancelledTime = req.CancelledTime
             };
         }
 

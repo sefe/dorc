@@ -176,6 +176,8 @@ namespace Dorc.PersistentData.Sources
                                            UserName = req.UserName,
                                            RequestDetails = req.RequestDetails,
                                            UncLogPath = req.UncLogPath,
+                                           CancelledBy = req.CancelledBy,
+                                           CancelledTime = req.CancelledTime,
                                            UserEditable = isOwner || isDelegate || isPermissioned
                                        };
 
