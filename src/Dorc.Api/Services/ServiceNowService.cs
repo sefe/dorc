@@ -1,203 +1,109 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Dorc.Api.Interfaces;
-using Dorc.Core.Configuration;
+using Dorc.Api.Models;
 using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Services
 {
-    /// <summary>ServiceNow CR response model. Uses sysparm_display_value=true so choice fields are display strings.</summary>
-    public class SnChangeRequestResponseModel
-    {
-        public string sys_id { get; set; } = string.Empty;
-        public string number { get; set; } = string.Empty;
-        public string state { get; set; } = string.Empty;
-        public string type { get; set; } = string.Empty;
-        public string short_description { get; set; } = string.Empty;
-        public string? start_date { get; set; }
-        public string? end_date { get; set; }
-        public string? approval { get; set; }
-        // Reference fields: may be a string OR an object { "link": "...", "value": "..." }
-        public JsonElement? business_service { get; set; }
-
-        public static string GetDisplayValue(JsonElement? element, string fallback = "N/A")
-        {
-            if (element == null) return fallback;
-            var el = element.Value;
-            if (el.ValueKind == JsonValueKind.String)
-            {
-                var s = el.GetString();
-                return string.IsNullOrWhiteSpace(s) ? fallback : s;
-            }
-            if (el.ValueKind == JsonValueKind.Object)
-            {
-                if (el.TryGetProperty("display_value", out var dv) && dv.ValueKind == JsonValueKind.String)
-                {
-                    var s = dv.GetString();
-                    return string.IsNullOrWhiteSpace(s) ? fallback : s;
-                }
-                if (el.TryGetProperty("value", out var v) && v.ValueKind == JsonValueKind.String)
-                {
-                    var s = v.GetString();
-                    return string.IsNullOrWhiteSpace(s) ? fallback : s;
-                }
-            }
-            return fallback;
-        }
-    }
-
-    public class ResultArray<T>
-    {
-        public T[] result { get; set; } = Array.Empty<T>();
-    }
-
     public class ServiceNowService : IServiceNowService
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<ServiceNowService> _logger;
-        private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
-        private readonly IConfigurationSettings _configurationSettings;
-        
-        // DOrc Config Value Keys
-        private const string ConfigKey_UseServiceNow = "UseServiceNow";
-        private const string ConfigKey_ApiUrl = "ServiceNowApiUrl";
-        private const string ConfigKey_SubscriptionKey = "ServiceNowApiSubscriptionKey";
-        private const string ConfigKey_AadScope = "ServiceNowAadScope";
+        private readonly IConfigValuesPersistentSource _config;
+        private readonly IAzureAdTokenService _tokenService;
+
+        private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
         public ServiceNowService(
             HttpClient httpClient,
             ILogger<ServiceNowService> logger,
             IConfigValuesPersistentSource configValuesPersistentSource,
-            IConfigurationSettings configurationSettings)
+            IAzureAdTokenService tokenService)
         {
             _httpClient = httpClient;
             _logger = logger;
-            _configValuesPersistentSource = configValuesPersistentSource;
-            _configurationSettings = configurationSettings;
+            _config = configValuesPersistentSource;
+            _tokenService = tokenService;
         }
 
-        private bool IsServiceNowEnabled()
+        // ── Configuration helpers ──────────────────────────────────────────
+
+        private bool IsEnabled() =>
+            bool.TryParse(_config.GetConfigValue("UseServiceNow", "false"), out var v) && v;
+
+        private string ApiUrl() => _config.GetConfigValue("ServiceNowApiUrl", string.Empty);
+        private string SubscriptionKey() => _config.GetConfigValue("ServiceNowApiSubscriptionKey", string.Empty);
+        private string AadScope() => _config.GetConfigValue("ServiceNowAadScope", string.Empty);
+
+        private string ConfigOrDefault(string key, string fallback) =>
+            _config.GetConfigValue(key, fallback) is { Length: > 0 } v ? v : fallback;
+
+        // ── HTTP client bootstrap ──────────────────────────────────────────
+
+        private async Task ConfigureClientAsync()
         {
-            var enabled = _configValuesPersistentSource.GetConfigValue(ConfigKey_UseServiceNow, "false");
-            return bool.TryParse(enabled, out var result) && result;
-        }
-
-        private string GetServiceNowApiUrl()
-        {
-            return _configValuesPersistentSource.GetConfigValue(ConfigKey_ApiUrl, string.Empty);
-        }
-
-        private string GetSubscriptionKey()
-        {
-            return _configValuesPersistentSource.GetConfigValue(ConfigKey_SubscriptionKey, string.Empty);
-        }
-
-        private string GetAadScope()
-        {
-            return _configValuesPersistentSource.GetConfigValue(ConfigKey_AadScope, string.Empty);
-        }
-
-        private async Task<string?> GetBearerTokenAsync()
-        {
-            var scope = GetAadScope();
-            if (string.IsNullOrEmpty(scope))
-            {
-                _logger.LogWarning("ServiceNowAadScope not configured - cannot acquire bearer token");
-                return null;
-            }
-
-            var tenantId = _configurationSettings.GetAzureEntraTenantId();
-            var clientId = _configurationSettings.GetAzureEntraClientId();
-            var clientSecret = _configurationSettings.GetAzureEntraClientSecret();
-
-            if (string.IsNullOrEmpty(tenantId) || string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
-            {
-                _logger.LogWarning("Azure AD credentials (TenantId/ClientId/ClientSecret) not fully configured");
-                return null;
-            }
-
-            var tokenUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
-            var tokenRequestBody = new FormUrlEncodedContent(new[]
-            {
-                new KeyValuePair<string, string>("grant_type", "client_credentials"),
-                new KeyValuePair<string, string>("client_id", clientId),
-                new KeyValuePair<string, string>("client_secret", clientSecret),
-                new KeyValuePair<string, string>("scope", scope)
-            });
-
-            using var tokenClient = new HttpClient();
-            var tokenResponse = await tokenClient.PostAsync(tokenUrl, tokenRequestBody);
-            var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
-
-            if (!tokenResponse.IsSuccessStatusCode)
-            {
-                _logger.LogError("Failed to acquire Azure AD token. Status: {Status}, Response: {Response}",
-                    tokenResponse.StatusCode, tokenContent.Length > 500 ? tokenContent[..500] : tokenContent);
-                return null;
-            }
-
-            var tokenResult = JsonSerializer.Deserialize<JsonElement>(tokenContent);
-            if (tokenResult.TryGetProperty("access_token", out var accessToken))
-            {
-                _logger.LogDebug("Azure AD bearer token acquired successfully");
-                return accessToken.GetString();
-            }
-
-            _logger.LogError("Azure AD token response missing access_token property");
-            return null;
-        }
-
-        private async Task ConfigureHttpClientAsync(string apiUrl, string subscriptionKey)
-        {
+            var apiUrl = ApiUrl();
             if (!string.IsNullOrEmpty(apiUrl))
             {
-                // BaseAddress MUST end with '/' for relative URI resolution to work correctly.
-                if (!apiUrl.EndsWith('/'))
-                    apiUrl += '/';
+                if (!apiUrl.EndsWith('/')) apiUrl += '/';
                 _httpClient.BaseAddress = new Uri(apiUrl);
             }
 
-            // Add subscription key header for APIM authentication
-            if (!string.IsNullOrEmpty(subscriptionKey))
+            var subKey = SubscriptionKey();
+            if (!string.IsNullOrEmpty(subKey))
+                _httpClient.DefaultRequestHeaders.Add("subscription-key", subKey);
+
+            var scope = AadScope();
+            if (!string.IsNullOrEmpty(scope))
             {
-                _httpClient.DefaultRequestHeaders.Add("subscription-key", subscriptionKey);
+                var token = await _tokenService.GetTokenAsync(scope);
+                if (!string.IsNullOrEmpty(token))
+                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
 
-            // Acquire and add Azure AD bearer token
-            var bearerToken = await GetBearerTokenAsync();
-            if (!string.IsNullOrEmpty(bearerToken))
-            {
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", bearerToken);
-            }
-
-            _httpClient.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
+            _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
+
+        // ── Validate ───────────────────────────────────────────────────────
 
         public async Task<ChangeRequestValidationResult> ValidateChangeRequestAsync(string crNumber)
         {
-            if (string.IsNullOrWhiteSpace(crNumber))
+            crNumber = Sanitize(crNumber);
+            if (string.IsNullOrEmpty(crNumber))
+                return ValidationError("Change Request number is required", crNumber);
+
+            var skip = CheckServiceNowAvailability(crNumber);
+            if (skip != null) return skip;
+
+            await ConfigureClientAsync();
+
+            try
             {
-                return new ChangeRequestValidationResult
-                {
-                    IsValid = false,
-                    Message = "Change Request number is required",
-                    CrNumber = crNumber ?? string.Empty
-                };
+                var cr = await FetchChangeRequestAsync(crNumber);
+                if (cr == null)
+                    return ValidationError($"Change Request {crNumber} not found in ServiceNow", crNumber);
+
+                return EvaluateChangeRequest(cr, crNumber);
             }
-
-            // Sanitize and normalize CR number format to prevent log forging
-            crNumber = crNumber
-                .Replace("\r", string.Empty)
-                .Replace("\n", string.Empty)
-                .Trim()
-                .ToUpperInvariant();
-
-            // Check if ServiceNow integration is enabled
-            if (!IsServiceNowEnabled())
+            catch (HttpRequestException ex)
             {
-                _logger.LogDebug("ServiceNow CR validation is disabled - skipping validation for {CrNumber}", crNumber);
+                _logger.LogError(ex, "HTTP error validating CR {CrNumber}", crNumber);
+                return ValidationError("Failed to connect to ServiceNow. Please try again later or contact support.", crNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating CR {CrNumber}", crNumber);
+                return ValidationError("An unexpected error occurred while validating the Change Request. Please try again later or contact support.", crNumber);
+            }
+        }
+
+        private ChangeRequestValidationResult? CheckServiceNowAvailability(string crNumber)
+        {
+            if (!IsEnabled())
+            {
+                _logger.LogDebug("ServiceNow is disabled — skipping validation for {CrNumber}", crNumber);
                 return new ChangeRequestValidationResult
                 {
                     IsValid = true,
@@ -206,10 +112,9 @@ namespace Dorc.Api.Services
                 };
             }
 
-            var apiUrl = GetServiceNowApiUrl();
-            if (string.IsNullOrEmpty(apiUrl))
+            if (string.IsNullOrEmpty(ApiUrl()))
             {
-                _logger.LogWarning("ServiceNow API URL not configured - skipping CR validation for {CrNumber}", crNumber);
+                _logger.LogWarning("ServiceNow API URL not configured — skipping validation for {CrNumber}", crNumber);
                 return new ChangeRequestValidationResult
                 {
                     IsValid = true,
@@ -218,469 +123,290 @@ namespace Dorc.Api.Services
                 };
             }
 
-            // Configure HTTP client with ServiceNow settings (acquires AAD token)
-            await ConfigureHttpClientAsync(apiUrl, GetSubscriptionKey());
-
-            try
-            {
-                // sysparm_display_value=true returns human-readable state/approval values
-                var endpoint = $"change_request?number={crNumber}&sysparm_fields=number,state,short_description,start_date,end_date,business_service,approval,assignment_group&sysparm_display_value=true";
-
-                var safeApiUrl = apiUrl.Replace("\r", string.Empty).Replace("\n", string.Empty);
-                _logger.LogInformation("Validating CR {CrNumber} against ServiceNow at {ApiUrl}", crNumber, safeApiUrl);
-
-                var response = await _httpClient.GetAsync(endpoint);
-
-                var responseContent = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("ServiceNow API returned {StatusCode} for CR {CrNumber}. Response: {Response}",
-                        response.StatusCode, crNumber, responseContent.Length > 500 ? responseContent[..500] : responseContent);
-
-                    return new ChangeRequestValidationResult
-                    {
-                        IsValid = false,
-                        Message = $"Failed to validate Change Request. ServiceNow returned {response.StatusCode}",
-                        CrNumber = crNumber
-                    };
-                }
-
-                // Check if response is actually JSON (not an HTML error/login page)
-                if (responseContent.TrimStart().StartsWith('<'))
-                {
-                    _logger.LogError("ServiceNow returned HTML instead of JSON for CR {CrNumber}. Response: {Response}",
-                        crNumber, responseContent.Length > 500 ? responseContent[..500] : responseContent);
-
-                    return new ChangeRequestValidationResult
-                    {
-                        IsValid = false,
-                        Message = "ServiceNow returned an unexpected response (HTML instead of JSON). Check authentication configuration.",
-                        CrNumber = crNumber
-                    };
-                }
-
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                var resultArray = JsonSerializer.Deserialize<ResultArray<SnChangeRequestResponseModel>>(responseContent, options);
-
-                if (resultArray?.result == null || resultArray.result.Length == 0)
-                {
-                    _logger.LogWarning("CR {CrNumber} not found in ServiceNow", crNumber);
-
-                    return new ChangeRequestValidationResult
-                    {
-                        IsValid = false,
-                        Message = $"Change Request {crNumber} not found in ServiceNow",
-                        CrNumber = crNumber
-                    };
-                }
-
-                var cr = resultArray.result[0];
-                var stateDisplay = cr.state?.Trim() ?? string.Empty;
-                var currentDateUtc = DateTime.UtcNow;
-
-                _logger.LogInformation("CR {CrNumber} raw validate response: {Response}", crNumber, responseContent);
-
-                ChangeRequestValidationResult BuildResult(bool isValid, string message) => new()
-                {
-                    IsValid = isValid,
-                    Message = message,
-                    State = stateDisplay,
-                    CrNumber = crNumber,
-                    ShortDescription = cr.short_description,
-                    StartDate = cr.start_date ?? string.Empty,
-                    EndDate = cr.end_date ?? string.Empty
-                };
-
-                // "Implement" is the deployment state. "Closed" and "Review" are post-implementation — also valid.
-                if (!string.Equals(stateDisplay, "Implement", StringComparison.OrdinalIgnoreCase))
-                {
-                    var lowerState = stateDisplay.ToLowerInvariant();
-
-                    // Post-implementation states: CR was already implemented, allow deployment
-                    if (lowerState is "closed" or "review")
-                    {
-                        _logger.LogInformation("CR {CrNumber} is in post-implementation state '{State}'. Allowing deployment.",
-                            crNumber, stateDisplay);
-
-                        var postImplMessage = lowerState switch
-                        {
-                            "closed" => $"Change Request {crNumber} is closed. Deployment is permitted.",
-                            "review" => $"Change Request {crNumber} is in Review state (post-implementation). Deployment is permitted.",
-                            _ => string.Empty
-                        };
-
-                        return BuildResult(true, postImplMessage);
-                    }
-
-                    // Pre-implementation states: CR is not ready for deployment
-                    _logger.LogWarning("CR {CrNumber} is not in Implement state. Current state: {State}",
-                        crNumber, stateDisplay);
-
-                    var stateMessage = lowerState switch
-                    {
-                        "cancelled" => $"Change Request {crNumber} has been cancelled and cannot be used for deployment.",
-                        "new" => $"Change Request {crNumber} is still in 'New' state. " +
-                                 "It must be progressed to 'Implement' before deployment can proceed. " +
-                                 "Use Auto-create CR or advance the CR in ServiceNow.",
-                        "assess" => $"Change Request {crNumber} is being assessed and is not yet ready for deployment. " +
-                                    "It must reach 'Implement' state before deployment can proceed.",
-                        "authorize" => $"Change Request {crNumber} is pending authorization and is not yet ready for deployment. " +
-                                       "It must reach 'Implement' state before deployment can proceed.",
-                        "scheduled" => $"Change Request {crNumber} is in 'Scheduled' state. " +
-                                       "It must be moved to 'Implement' in ServiceNow before deployment can proceed.",
-                        _ => $"Change Request {crNumber} is in '{stateDisplay}' state. It must be in 'Implement' state to proceed with deployment."
-                    };
-
-                    return BuildResult(false, stateMessage);
-                }
-
-                // Check if the CR has been approved
-                var approvalDisplay = cr.approval?.Trim() ?? string.Empty;
-                if (!string.Equals(approvalDisplay, "Approved", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogWarning("CR {CrNumber} is not approved. Approval status: {ApprovalStatus}",
-                        crNumber, approvalDisplay);
-
-                    return BuildResult(false,
-                        $"Change Request {crNumber} does not have ServiceNow approval (current approval status: " +
-                        $"{(string.IsNullOrEmpty(approvalDisplay) ? "N/A" : approvalDisplay)}). " +
-                        "The CR's approval field must be set to 'Approved' in ServiceNow before deployment can proceed.");
-                }
-
-                // Check if current time is within the approved change window
-                if (DateTime.TryParse(cr.start_date, out var startDate) && DateTime.TryParse(cr.end_date, out var endDate))
-                {
-                    if (currentDateUtc < startDate || currentDateUtc > endDate)
-                    {
-                        _logger.LogWarning(
-                            "CR {CrNumber} is not within the scheduled change window. Window: {StartDate} to {EndDate}, Current: {CurrentTime}",
-                            crNumber, startDate, endDate, currentDateUtc);
-
-                        return BuildResult(false,
-                            $"Change Request {crNumber} is outside its scheduled change window. " +
-                            $"The window is {cr.start_date ?? "N/A"} to {cr.end_date ?? "N/A"} but the current time is outside this range.");
-                    }
-                }
-
-                var businessService = SnChangeRequestResponseModel.GetDisplayValue(cr.business_service);
-
-                var details = $"{cr.number} - {businessService} - " +
-                             $"Window: {cr.start_date ?? "N/A"} to {cr.end_date ?? "N/A"}";
-                _logger.LogInformation("CR {CrNumber} validated successfully - {Details}", crNumber, details);
-
-                return BuildResult(true,
-                    $"Change Request {crNumber} is valid and ready for deployment (state: Implement, within change window).");
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "HTTP error while validating CR {CrNumber}", crNumber);
-
-                return new ChangeRequestValidationResult
-                {
-                    IsValid = false,
-                    Message = $"Failed to connect to ServiceNow: {ex.Message}",
-                    CrNumber = crNumber
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating CR {CrNumber}", crNumber);
-
-                return new ChangeRequestValidationResult
-                {
-                    IsValid = false,
-                    Message = $"Error validating Change Request: {ex.Message}",
-                    CrNumber = crNumber
-                };
-            }
+            return null; // ServiceNow is available
         }
+
+        private async Task<SnChangeRequestResponse?> FetchChangeRequestAsync(string crNumber)
+        {
+            var endpoint = $"change_request?number={crNumber}" +
+                           "&sysparm_fields=number,state,short_description,start_date,end_date,business_service,approval,assignment_group" +
+                           "&sysparm_display_value=true";
+
+            _logger.LogInformation("Validating CR {CrNumber} against ServiceNow", crNumber);
+            var response = await _httpClient.GetAsync(endpoint);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("ServiceNow returned {StatusCode} for CR {CrNumber}. Response: {Response}",
+                    response.StatusCode, crNumber, Truncate(body));
+                return null;
+            }
+
+            if (body.TrimStart().StartsWith('<'))
+            {
+                _logger.LogError("ServiceNow returned HTML instead of JSON for CR {CrNumber}", crNumber);
+                return null;
+            }
+
+            _logger.LogInformation("CR {CrNumber} raw validate response: {Response}", crNumber, body);
+
+            var result = JsonSerializer.Deserialize<SnResultArray<SnChangeRequestResponse>>(body, JsonOptions);
+            return result?.result is { Length: > 0 } arr ? arr[0] : null;
+        }
+
+        private ChangeRequestValidationResult EvaluateChangeRequest(SnChangeRequestResponse cr, string crNumber)
+        {
+            var state = cr.state?.Trim() ?? string.Empty;
+
+            ChangeRequestValidationResult Result(bool valid, string msg) => new()
+            {
+                IsValid = valid, Message = msg, State = state, CrNumber = crNumber,
+                ShortDescription = cr.short_description,
+                StartDate = cr.start_date ?? string.Empty, EndDate = cr.end_date ?? string.Empty
+            };
+
+            // ── State check ──
+            if (!state.Equals("Implement", StringComparison.OrdinalIgnoreCase))
+            {
+                var lower = state.ToLowerInvariant();
+
+                // Post-implementation states are acceptable
+                if (lower is "closed" or "review")
+                {
+                    _logger.LogInformation("CR {CrNumber} is in post-implementation state '{State}'", crNumber, state);
+                    var msg = lower == "closed"
+                        ? $"Change Request {crNumber} is closed. Deployment is permitted."
+                        : $"Change Request {crNumber} is in Review state (post-implementation). Deployment is permitted.";
+                    return Result(true, msg);
+                }
+
+                // Pre-implementation states block deployment
+                _logger.LogWarning("CR {CrNumber} is in '{State}' state, not Implement", crNumber, state);
+                return Result(false, GetPreImplementStateMessage(crNumber, lower, state));
+            }
+
+            // ── Approval check ──
+            var approval = cr.approval?.Trim() ?? string.Empty;
+            if (!approval.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("CR {CrNumber} approval status: {Approval}", crNumber, approval);
+                return Result(false,
+                    $"Change Request {crNumber} does not have ServiceNow approval " +
+                    $"(current: {(string.IsNullOrEmpty(approval) ? "N/A" : approval)}). " +
+                    "It must be 'Approved' before deployment can proceed.");
+            }
+
+            // ── Change window check ──
+            if (DateTime.TryParse(cr.start_date, out var start) && DateTime.TryParse(cr.end_date, out var end))
+            {
+                var now = DateTime.UtcNow;
+                if (now < start || now > end)
+                {
+                    _logger.LogWarning("CR {CrNumber} outside change window {Start}–{End}", crNumber, start, end);
+                    return Result(false,
+                        $"Change Request {crNumber} is outside its scheduled change window " +
+                        $"({cr.start_date ?? "N/A"} — {cr.end_date ?? "N/A"}).");
+                }
+            }
+
+            // ── All checks passed ──
+            var biz = SnChangeRequestResponse.GetDisplayValue(cr.business_service);
+            _logger.LogInformation("CR {CrNumber} validated: {Biz}, window {Start}–{End}", crNumber, biz, cr.start_date, cr.end_date);
+            return Result(true, $"Change Request {crNumber} is valid and ready for deployment (state: Implement, within change window).");
+        }
+
+        private static string GetPreImplementStateMessage(string crNumber, string lowerState, string displayState) => lowerState switch
+        {
+            "cancelled" => $"Change Request {crNumber} has been cancelled and cannot be used for deployment.",
+            "new" => $"Change Request {crNumber} is still in 'New' state. It must be progressed to 'Implement' before deployment can proceed. Use Auto-create CR or advance the CR in ServiceNow.",
+            "assess" => $"Change Request {crNumber} is being assessed. It must reach 'Implement' state before deployment can proceed.",
+            "authorize" => $"Change Request {crNumber} is pending authorization. It must reach 'Implement' state before deployment can proceed.",
+            "scheduled" => $"Change Request {crNumber} is in 'Scheduled' state. It must be moved to 'Implement' in ServiceNow before deployment can proceed.",
+            _ => $"Change Request {crNumber} is in '{displayState}' state. It must be in 'Implement' state to proceed with deployment."
+        };
+
+        // ── Create ─────────────────────────────────────────────────────────
 
         public async Task<CreateChangeRequestResult> CreateChangeRequestAsync(CreateChangeRequestInput input)
         {
-            if (string.IsNullOrWhiteSpace(input.ShortDescription) &&
-                string.IsNullOrWhiteSpace(input.ProjectName))
-            {
-                return new CreateChangeRequestResult
-                {
-                    Success = false,
-                    Message = "Either ShortDescription or ProjectName is required to create a CR"
-                };
-            }
+            if (string.IsNullOrWhiteSpace(input.ShortDescription) && string.IsNullOrWhiteSpace(input.ProjectName))
+                return CreateError("Either ShortDescription or ProjectName is required to create a CR");
 
-            if (!IsServiceNowEnabled())
-            {
-                return new CreateChangeRequestResult
-                {
-                    Success = false,
-                    Message = "ServiceNow integration is not enabled. Set UseServiceNow=true in config."
-                };
-            }
+            if (!IsEnabled())
+                return CreateError("ServiceNow integration is not enabled. Set UseServiceNow=true in config.");
 
-            var apiUrl = GetServiceNowApiUrl();
-            if (string.IsNullOrEmpty(apiUrl))
-            {
-                return new CreateChangeRequestResult
-                {
-                    Success = false,
-                    Message = "ServiceNow API URL is not configured"
-                };
-            }
+            if (string.IsNullOrEmpty(ApiUrl()))
+                return CreateError("ServiceNow API URL is not configured");
 
-            await ConfigureHttpClientAsync(apiUrl, GetSubscriptionKey());
+            await ConfigureClientAsync();
 
-            var safeProject = (input.ProjectName ?? string.Empty)
-                .Replace("\r", string.Empty)
-                .Replace("\n", string.Empty);
-            var safeEnvironment = (input.Environment ?? string.Empty)
-                .Replace("\r", string.Empty)
-                .Replace("\n", string.Empty);
+            var safeProject = Sanitize(input.ProjectName);
+            var safeEnv = Sanitize(input.Environment);
 
             try
             {
-                // Resolve assignment_group: cr-inputs.json → project DB field → global config
-                var assignmentGroup = !string.IsNullOrEmpty(input.AssignmentGroup)
-                    ? input.AssignmentGroup
-                    : _configValuesPersistentSource.GetConfigValue("ServiceNowCrAssignmentGroup", "");
+                var crBody = BuildCrBody(input);
+                var assignmentGroup = crBody.GetValueOrDefault("assignment_group", "");
 
-                // Resolve business_service: cr-inputs.json → global config
-                var businessService = !string.IsNullOrEmpty(input.BusinessService)
-                    ? input.BusinessService
-                    : _configValuesPersistentSource.GetConfigValue("ServiceNowCrBusinessService", "");
+                _logger.LogInformation("Creating AutoCR for {Project} → {Environment}", safeProject, safeEnv);
 
-                if (string.IsNullOrEmpty(assignmentGroup))
-                {
-                    _logger.LogWarning("No AssignmentGroup found for project '{Project}'. " +
-                        "Add cr-inputs.json to the project's ADO repo " +
-                        "or configure ServiceNowCrAssignmentGroup globally. " +
-                        "ServiceNow may reject the CR.", safeProject);
-                }
-
-                var startDate = DateTime.UtcNow;
-                var endDate = startDate.AddHours(1);
-                var dateFormat = "dd.MM.yyyy HH:mm:ss";
-
-                // Use user-supplied change window dates if provided (ISO 8601 from date-time picker)
-                if (!string.IsNullOrEmpty(input.StartDate) && DateTime.TryParse(input.StartDate, out var parsedStart))
-                    startDate = parsedStart;
-                if (!string.IsNullOrEmpty(input.EndDate) && DateTime.TryParse(input.EndDate, out var parsedEnd))
-                    endDate = parsedEnd;
-
-                var shortDesc = !string.IsNullOrWhiteSpace(input.ShortDescription)
-                    ? input.ShortDescription
-                    : $"[DOrc] Deploy {input.ProjectName} to {input.Environment}";
-
-                var implPlan = !string.IsNullOrWhiteSpace(input.ImplementationPlan)
-                    ? input.ImplementationPlan
-                    : $"Execute DOrc deployment of {input.ProjectName} build {input.BuildNumber} to {input.Environment}";
-
-                var backoutPlan = !string.IsNullOrWhiteSpace(input.BackoutPlan)
-                    ? input.BackoutPlan
-                    : "Re-run the previously successful production release version";
-
-                var justification = !string.IsNullOrWhiteSpace(input.Justification)
-                    ? input.Justification
-                    : $"Automated deployment via DOrc for {input.ProjectName}";
-
-                var testPlan = !string.IsNullOrWhiteSpace(input.TestPlan)
-                    ? input.TestPlan
-                    : "Tested through the CI/CD pipeline prior to production deployment";
-
-                var riskImpact = !string.IsNullOrWhiteSpace(input.RiskImpactAnalysis)
-                    ? input.RiskImpactAnalysis
-                    : "OutageOrRestrictedFunctionality: false; ServiceImpactedOnFailure: false; Criticality: Minor";
-
-                var crType = !string.IsNullOrWhiteSpace(input.Type) ? input.Type : "Standard";
-                var chgModel = !string.IsNullOrWhiteSpace(input.ChgModel) ? input.ChgModel : "Standard";
-
-                var crInputsSource = input.CrInputsFetched ? "cr-inputs.json" : "hardcoded defaults";
-                _logger.LogInformation("Building CR body for project '{Project}' using {Source}",
-                    safeProject, crInputsSource);
-
-                var crBody = new Dictionary<string, string>
-                {
-                    ["short_description"] = shortDesc,
-                    ["type"] = crType,
-                    ["chg_model"] = chgModel,
-                    ["start_date"] = startDate.ToString(dateFormat),
-                    ["end_date"] = endDate.ToString(dateFormat),
-                    ["implementation_plan"] = implPlan,
-                    ["backout_plan"] = backoutPlan,
-                    ["justification"] = justification,
-                    ["test_plan"] = testPlan,
-                    ["risk_impact_analysis"] = riskImpact
-                };
-
-                if (!string.IsNullOrEmpty(assignmentGroup))
-                    crBody["assignment_group"] = assignmentGroup;
-                if (!string.IsNullOrEmpty(businessService))
-                    crBody["business_service"] = businessService;
-                if (!string.IsNullOrEmpty(input.RequestedBy))
-                    crBody["requested_by"] = input.RequestedBy;
-
-                if (!string.IsNullOrEmpty(input.WorkNotes))
-                    crBody["work_notes"] = input.WorkNotes;
-                if (!string.IsNullOrEmpty(input.Category))
-                    crBody["category"] = input.Category;
-                if (!string.IsNullOrEmpty(input.CorrelationId))
-                    crBody["correlation_id"] = input.CorrelationId;
-                if (!string.IsNullOrEmpty(input.Impact))
-                    crBody["impact"] = input.Impact;
-                if (!string.IsNullOrEmpty(input.Priority))
-                    crBody["priority"] = input.Priority;
-                if (!string.IsNullOrEmpty(input.Urgency))
-                    crBody["urgency"] = input.Urgency;
-
-                var jsonContent = JsonSerializer.Serialize(crBody);
-                var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
-
-                _logger.LogInformation("Creating AutoCR for project {Project} environment {Environment}",
-                    safeProject, safeEnvironment);
-
-                var response = await _httpClient.PostAsync("change_request", content);
+                var response = await _httpClient.PostAsync("change_request",
+                    new StringContent(JsonSerializer.Serialize(crBody), Encoding.UTF8, "application/json"));
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError("ServiceNow CR creation failed with {StatusCode}", response.StatusCode);
-                    return new CreateChangeRequestResult
-                    {
-                        Success = false,
-                        Message = $"ServiceNow returned {response.StatusCode} when creating CR"
-                    };
+                    _logger.LogError("CR creation failed with {StatusCode}. Response: {Response}",
+                        response.StatusCode, Truncate(responseContent));
+                    return CreateError($"ServiceNow returned {response.StatusCode} when creating CR");
                 }
 
-                _logger.LogInformation("ServiceNow CR creation raw response: {Response}", responseContent);
+                _logger.LogInformation("CR creation raw response: {Response}", responseContent);
 
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var result = JsonSerializer.Deserialize<ResultObject<SnChangeRequestResponseModel>>(responseContent, options);
-
+                var result = JsonSerializer.Deserialize<SnResultObject<SnChangeRequestResponse>>(responseContent, JsonOptions);
                 if (result?.result == null || string.IsNullOrEmpty(result.result.number))
                 {
-                    _logger.LogError("ServiceNow CR creation returned no CR number. Raw: {Response}", responseContent);
-                    return new CreateChangeRequestResult
-                    {
-                        Success = false,
-                        Message = "ServiceNow created a CR but did not return a CR number"
-                    };
+                    _logger.LogError("CR creation returned no number. Raw: {Response}", responseContent);
+                    return CreateError("ServiceNow created a CR but did not return a CR number");
                 }
 
-                _logger.LogInformation("AutoCR created successfully: {CrNumber}, sys_id={SysId}, state={State}",
-                    result.result.number, result.result.sys_id, result.result.state);
+                var cr = result.result;
+                _logger.LogInformation("AutoCR {CrNumber} created (sys_id={SysId}, state={State})", cr.number, cr.sys_id, cr.state);
 
-                // Progress CR from New → Scheduled → Implement so it's ready for deployment
-                var sysId = result.result.sys_id;
-                var createdState = result.result.state;
+                var progressed = await TryProgressToImplementAsync(cr, assignmentGroup, input);
 
-                var progressedToImplement = false;
-                if (createdState != "-1" && createdState != "Implement" && !string.IsNullOrEmpty(sysId))
-                {
-                    if (string.IsNullOrEmpty(assignmentGroup))
-                    {
-                        _logger.LogWarning("ServiceNowCrAssignmentGroup config is not set. " +
-                            "ServiceNow requires assignment_group to advance CR state. " +
-                            "Set this value in DOrc config. CR {CrNumber} will remain in {State} state.",
-                            result.result.number, createdState);
-                    }
+                var message = progressed
+                    ? $"Change Request {cr.number} created and progressed to Implement"
+                      + (input.CrInputsFetched ? " (using cr-inputs.json from ADO repo)" : "")
+                    : $"Change Request {cr.number} created but could not advance to Implement state. "
+                      + "Ensure assignment_group is set in the project's cr-inputs.json or the global ServiceNowCrAssignmentGroup config.";
 
-                    var stateProgression = new[] { "-2", "-1" }; // Scheduled, then Implement
-                    progressedToImplement = true;
-                    foreach (var targetState in stateProgression)
-                    {
-                        var advanced = await AdvanceCrStateAsync(sysId, targetState, assignmentGroup, startDate, endDate, dateFormat);
-                        if (!advanced)
-                        {
-                            _logger.LogWarning("Could not advance CR {CrNumber} to state {State}, stopping progression",
-                                result.result.number, targetState);
-                            progressedToImplement = false;
-                            break;
-                        }
-                    }
-                }
-                else if (createdState == "-1" || createdState == "Implement")
-                {
-                    progressedToImplement = true;
-                }
-
-                var message = progressedToImplement
-                    ? $"Change Request {result.result.number} created and progressed to Implement" +
-                      (input.CrInputsFetched ? " (using cr-inputs.json from ADO repo)" : "")
-                    : $"Change Request {result.result.number} created but could not advance to Implement state. " +
-                      "Ensure assignment_group is set in the project's cr-inputs.json " +
-                      "or the global ServiceNowCrAssignmentGroup config.";
-
-                return new CreateChangeRequestResult
-                {
-                    Success = true,
-                    CrNumber = result.result.number,
-                    Message = message
-                };
+                return new CreateChangeRequestResult { Success = true, CrNumber = cr.number, Message = message };
             }
             catch (HttpRequestException ex)
             {
                 _logger.LogError(ex, "HTTP error creating AutoCR");
-                return new CreateChangeRequestResult
-                {
-                    Success = false,
-                    Message = $"Failed to connect to ServiceNow: {ex.Message}"
-                };
+                return CreateError("Failed to connect to ServiceNow. Please try again later or contact support.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating AutoCR");
-                return new CreateChangeRequestResult
-                {
-                    Success = false,
-                    Message = $"Error creating Change Request: {ex.Message}"
-                };
+                return CreateError("An unexpected error occurred while creating the Change Request. Please try again later or contact support.");
             }
         }
 
-        private async Task<bool> AdvanceCrStateAsync(
-            string sysId, string targetState, string assignmentGroup,
-            DateTime startDate, DateTime endDate, string dateFormat)
+        private Dictionary<string, string> BuildCrBody(CreateChangeRequestInput input)
         {
+            var assignmentGroup = !string.IsNullOrEmpty(input.AssignmentGroup)
+                ? input.AssignmentGroup
+                : _config.GetConfigValue("ServiceNowCrAssignmentGroup", "");
+
+            var businessService = !string.IsNullOrEmpty(input.BusinessService)
+                ? input.BusinessService
+                : _config.GetConfigValue("ServiceNowCrBusinessService", "");
+
+            if (string.IsNullOrEmpty(assignmentGroup))
+                _logger.LogWarning("No AssignmentGroup for project '{Project}'. ServiceNow may reject the CR.", Sanitize(input.ProjectName));
+
+            var startDate = DateTime.UtcNow;
+            var endDate = startDate.AddHours(1);
+            const string dateFmt = "dd.MM.yyyy HH:mm:ss";
+
+            if (DateTime.TryParse(input.StartDate, out var ps)) startDate = ps;
+            if (DateTime.TryParse(input.EndDate, out var pe)) endDate = pe;
+
+            var source = input.CrInputsFetched ? "cr-inputs.json" : "hardcoded defaults";
+            _logger.LogInformation("Building CR body for '{Project}' using {Source}", Sanitize(input.ProjectName), source);
+
+            var body = new Dictionary<string, string>
+            {
+                ["short_description"] = OrDefault(input.ShortDescription, $"[DOrc] Deploy {input.ProjectName} to {input.Environment}"),
+                ["type"] = OrDefault(input.Type, "Standard"),
+                ["chg_model"] = OrDefault(input.ChgModel, "Standard"),
+                ["start_date"] = startDate.ToString(dateFmt),
+                ["end_date"] = endDate.ToString(dateFmt),
+                ["implementation_plan"] = OrDefault(input.ImplementationPlan, $"Execute DOrc deployment of {input.ProjectName} build {input.BuildNumber} to {input.Environment}"),
+                ["backout_plan"] = OrDefault(input.BackoutPlan, "Re-run the previously successful production release version"),
+                ["justification"] = OrDefault(input.Justification, $"Automated deployment via DOrc for {input.ProjectName}"),
+                ["test_plan"] = OrDefault(input.TestPlan, "Tested through the CI/CD pipeline prior to production deployment"),
+                ["risk_impact_analysis"] = OrDefault(input.RiskImpactAnalysis, "OutageOrRestrictedFunctionality: false; ServiceImpactedOnFailure: false; Criticality: Minor")
+            };
+
+            AddIfNotEmpty(body, "assignment_group", assignmentGroup);
+            AddIfNotEmpty(body, "business_service", businessService);
+            AddIfNotEmpty(body, "requested_by", input.RequestedBy);
+            AddIfNotEmpty(body, "work_notes", input.WorkNotes);
+            AddIfNotEmpty(body, "category", input.Category);
+            AddIfNotEmpty(body, "correlation_id", input.CorrelationId);
+            AddIfNotEmpty(body, "impact", input.Impact);
+            AddIfNotEmpty(body, "priority", input.Priority);
+            AddIfNotEmpty(body, "urgency", input.Urgency);
+
+            return body;
+        }
+
+        // ── State progression ──────────────────────────────────────────────
+
+        private async Task<bool> TryProgressToImplementAsync(
+            SnChangeRequestResponse cr, string assignmentGroup, CreateChangeRequestInput input)
+        {
+            if (cr.state is "-1" or "Implement") return true;
+            if (string.IsNullOrEmpty(cr.sys_id)) return false;
+
+            if (string.IsNullOrEmpty(assignmentGroup))
+            {
+                _logger.LogWarning("No assignment_group — cannot advance CR {CrNumber} past '{State}'", cr.number, cr.state);
+                return false;
+            }
+
+            var startDate = DateTime.UtcNow;
+            var endDate = startDate.AddHours(1);
+            if (DateTime.TryParse(input.StartDate, out var ps)) startDate = ps;
+            if (DateTime.TryParse(input.EndDate, out var pe)) endDate = pe;
+
+            // Progress: New → Scheduled (-2) → Implement (-1)
+            foreach (var targetState in new[] { "-2", "-1" })
+            {
+                if (!await AdvanceCrStateAsync(cr.sys_id, targetState, assignmentGroup, startDate, endDate))
+                {
+                    _logger.LogWarning("Stopped progression of CR {CrNumber} at state {State}", cr.number, targetState);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private async Task<bool> AdvanceCrStateAsync(
+            string sysId, string targetState, string assignmentGroup, DateTime start, DateTime end)
+        {
+            const string dateFmt = "dd.MM.yyyy HH:mm:ss";
             try
             {
-                var body = new Dictionary<string, string> { ["state"] = targetState };
-                if (!string.IsNullOrEmpty(assignmentGroup))
-                    body["assignment_group"] = assignmentGroup;
-                body["start_date"] = startDate.ToString(dateFormat);
-                body["end_date"] = endDate.ToString(dateFormat);
-                var jsonContent = new StringContent(
-                    System.Text.Json.JsonSerializer.Serialize(body),
-                    System.Text.Encoding.UTF8,
-                    "application/json");
+                var body = new Dictionary<string, string>
+                {
+                    ["state"] = targetState,
+                    ["start_date"] = start.ToString(dateFmt),
+                    ["end_date"] = end.ToString(dateFmt)
+                };
+                AddIfNotEmpty(body, "assignment_group", assignmentGroup);
 
-                var response = await _httpClient.PutAsync($"change_request/{sysId}", jsonContent);
+                var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PutAsync($"change_request/{sysId}", content);
                 var responseBody = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Failed to advance CR {SysId} to state {State}. Status: {Status}, Response: {Response}",
-                        sysId, targetState, response.StatusCode, responseBody);
+                    _logger.LogWarning("Failed to advance CR {SysId} to {State}. Status: {Status}", sysId, targetState, response.StatusCode);
                     return false;
                 }
 
-                // Verify actual state from response (ServiceNow can return 200 without changing state)
-                try
+                // Verify ServiceNow actually changed the state (it can return 200 without changing)
+                var result = JsonSerializer.Deserialize<SnResultObject<SnChangeRequestResponse>>(responseBody, JsonOptions);
+                if (result?.result?.state is { } actual && actual != targetState)
                 {
-                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var result = JsonSerializer.Deserialize<ResultObject<SnChangeRequestResponseModel>>(responseBody, options);
-                    var actualState = result?.result?.state;
-                    if (!string.IsNullOrEmpty(actualState) && actualState != targetState)
-                    {
-                        _logger.LogWarning("CR {SysId} state not advanced: requested {TargetState} but actual state is {ActualState}. Response: {Response}",
-                            sysId, targetState, actualState, responseBody);
-                        return false;
-                    }
-                }
-                catch (Exception parseEx)
-                {
-                    _logger.LogDebug(parseEx, "Could not parse state from advance response, assuming success");
+                    _logger.LogWarning("CR {SysId} state not advanced: wanted {Target}, got {Actual}", sysId, targetState, actual);
+                    return false;
                 }
 
                 _logger.LogInformation("Advanced CR {SysId} to state {State}", sysId, targetState);
@@ -693,10 +419,30 @@ namespace Dorc.Api.Services
             }
         }
 
-    }
+        // ── Helpers ────────────────────────────────────────────────────────
 
-    public class ResultObject<T>
-    {
-        public T result { get; set; } = default!;
+        private static ChangeRequestValidationResult ValidationError(string message, string crNumber) => new()
+        {
+            IsValid = false, Message = message, CrNumber = crNumber
+        };
+
+        private static CreateChangeRequestResult CreateError(string message) => new()
+        {
+            Success = false, Message = message
+        };
+
+        private static string Sanitize(string? value) =>
+            (value ?? string.Empty).Replace("\r", "").Replace("\n", "").Trim().ToUpperInvariant();
+
+        private static string OrDefault(string? value, string fallback) =>
+            string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+        private static void AddIfNotEmpty(Dictionary<string, string> dict, string key, string? value)
+        {
+            if (!string.IsNullOrEmpty(value)) dict[key] = value;
+        }
+
+        private static string Truncate(string value, int maxLength = 500) =>
+            value.Length > maxLength ? value[..maxLength] : value;
     }
 }

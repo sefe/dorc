@@ -293,8 +293,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
+builder.Services.AddSingleton<IAzureAdTokenService, AzureAdTokenService>();
 builder.Services.AddHttpClient<IServiceNowService, ServiceNowService>();
-builder.Services.AddTransient<IEmailNotificationService, EmailNotificationService>();
+builder.Services.AddHttpClient<IEmailNotificationService, EmailNotificationService>();
 builder.Services.AddTransient<ICrInputsProvider, AzureDevOpsCrInputsProvider>();
 
 builder.Host.UseLamar((context, registry) =>

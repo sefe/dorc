@@ -17,7 +17,7 @@ export class DeployConfirmDialog extends LitElement {
   @query('#dialog') dialog!: HegsDialog;
 
   static get styles() {
-    return css`
+   return css`
       .button-container {
         display: flex;
         justify-content: space-between;

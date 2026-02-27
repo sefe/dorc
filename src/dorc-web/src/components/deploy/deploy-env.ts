@@ -491,55 +491,54 @@ export class DeployEnv extends LitElement {
     `;
   }
 
+  private _getAuthHeaders(contentType?: string): Record<string, string> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (contentType) headers['Content-Type'] = contentType;
+    if (appConfig.authenticationScheme === OAUTH_SCHEME) {
+      const token = oauthServiceContainer.service.signedInUser?.access_token;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
+  private async _extractErrorMessage(response: Response, fallback: string): Promise<string> {
+    const text = await response.text();
+    if (!text) return fallback;
+    try {
+      const body = JSON.parse(text);
+      return body.Message || body.message || text;
+    } catch {
+      return text;
+    }
+  }
+
+  private _crError(message: string): ChangeRequestValidationResult {
+    return { IsValid: false, Message: message };
+  }
+
   private async _validateCr() {
     if (!this.crNumber) return;
     this.crValidating = true;
     this.crValidationResult = null;
 
     try {
-      const baseUrl = appConfig.dorcApi;
-      const headers: Record<string, string> = {
-        'Accept': 'application/json'
-      };
-      if (appConfig.authenticationScheme === OAUTH_SCHEME) {
-        const token = oauthServiceContainer.service.signedInUser?.access_token;
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
       const response = await fetch(
-        `${baseUrl}/api/ChangeRequest/validate?crNumber=${encodeURIComponent(this.crNumber)}`,
-        { headers, credentials: 'include' }
+        `${appConfig.dorcApi}/api/ChangeRequest/validate?crNumber=${encodeURIComponent(this.crNumber)}`,
+        { headers: this._getAuthHeaders(), credentials: 'include' }
       );
       if (!response.ok) {
-        const text = await response.text();
-        let message = `Validation failed (HTTP ${response.status})`;
-        if (text) {
-          try {
-            const errorBody = JSON.parse(text);
-            message = errorBody.Message || errorBody.message || text;
-          } catch {
-            message = text;
-          }
-        }
-        this.crValidationResult = {
-          IsValid: false,
-          Message: message
-        };
+        this.crValidationResult = this._crError(
+          await this._extractErrorMessage(response, `Validation failed (HTTP ${response.status})`)
+        );
         return;
       }
       const result: ChangeRequestValidationResult = await response.json();
       this.crValidationResult = result;
-
-      // If CR is valid, clear override
-      if (result.IsValid) {
-        this.overrideCr = false;
-      }
+      if (result.IsValid) this.overrideCr = false;
     } catch (err) {
-      this.crValidationResult = {
-        IsValid: false,
-        Message: `Failed to validate Change Request: ${err instanceof Error ? err.message : String(err)}`
-      };
+      this.crValidationResult = this._crError(
+        `Failed to validate Change Request: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       this.crValidating = false;
     }
@@ -550,81 +549,41 @@ export class DeployEnv extends LitElement {
     this.crValidationResult = null;
 
     try {
-      const baseUrl = appConfig.dorcApi;
-      const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      };
-      if (appConfig.authenticationScheme === OAUTH_SCHEME) {
-        const token = oauthServiceContainer.service.signedInUser?.access_token;
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
-
-      const body = {
-        ProjectName: this.project?.ProjectName ?? '',
-        Environment: this.envName,
-        BuildNumber: this.selectedBuild || this.buildDef || '',
-        ShortDescription: '',
-        RequestedBy: ''
-      };
-
       const response = await fetch(
-        `${baseUrl}/api/ChangeRequest/create`,
+        `${appConfig.dorcApi}/api/ChangeRequest/create`,
         {
           method: 'POST',
-          headers,
+          headers: this._getAuthHeaders('application/json'),
           credentials: 'include',
-          body: JSON.stringify(body)
+          body: JSON.stringify({
+            ProjectName: this.project?.ProjectName ?? '',
+            Environment: this.envName,
+            BuildNumber: this.selectedBuild || this.buildDef || '',
+            ShortDescription: '',
+            RequestedBy: ''
+          })
         }
       );
 
       if (!response.ok) {
-        const text = await response.text();
-        let message = `Auto-create failed (HTTP ${response.status} ${response.statusText})`;
-        if (text) {
-          try {
-            const errorBody = JSON.parse(text);
-            message = errorBody.Message || errorBody.message || text;
-          } catch {
-            message = text;
-          }
-        }
-        this.crValidationResult = {
-          IsValid: false,
-          Message: message
-        };
+        this.crValidationResult = this._crError(
+          await this._extractErrorMessage(response, `Auto-create failed (HTTP ${response.status})`)
+        );
         return;
       }
 
-      const text = await response.text();
-      if (!text) {
-        this.crValidationResult = {
-          IsValid: false,
-          Message: `Auto-create failed: empty response from server (HTTP ${response.status})`
-        };
+      const result = await response.json();
+      if (!result?.Success) {
+        this.crValidationResult = this._crError(result?.Message || 'Auto-create failed');
         return;
       }
 
-      const result = JSON.parse(text);
-
-      if (!result.Success) {
-        this.crValidationResult = {
-          IsValid: false,
-          Message: result.Message || `Auto-create failed`
-        };
-        return;
-      }
-
-      // CR created — just set the number in the field.
-      // User clicks Validate separately to check the state.
+      // CR created — set the number so user can click Validate
       this.crNumber = result.CrNumber;
     } catch (err) {
-      this.crValidationResult = {
-        IsValid: false,
-        Message: `Failed to auto-create Change Request: ${err instanceof Error ? err.message : String(err)}`
-      };
+      this.crValidationResult = this._crError(
+        `Failed to auto-create Change Request: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       this.crCreating = false;
     }

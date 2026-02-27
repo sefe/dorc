@@ -1,5 +1,6 @@
 using System.Net;
-using System.Net.Mail;
+using System.Text;
+using System.Text.Json;
 using Dorc.Api.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 
@@ -7,29 +8,28 @@ namespace Dorc.Api.Services
 {
     public class EmailNotificationService : IEmailNotificationService
     {
+        private readonly HttpClient _httpClient;
         private readonly ILogger<EmailNotificationService> _logger;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
+        private readonly IAzureAdTokenService _tokenService;
 
-        // DOrc Config Value Keys
-        private const string ConfigKey_SmtpHost = "Email_SmtpHost";
-        private const string ConfigKey_SmtpPort = "Email_SmtpPort";
-        private const string ConfigKey_FromAddress = "Email_FromAddress";
-        private const string ConfigKey_FromName = "Email_FromName";
-        private const string ConfigKey_AppSupport = "App support";
+        private const string GraphScope = "https://graph.microsoft.com/.default";
 
         public EmailNotificationService(
+            HttpClient httpClient,
             ILogger<EmailNotificationService> logger,
-            IConfigValuesPersistentSource configValuesPersistentSource)
+            IConfigValuesPersistentSource configValuesPersistentSource,
+            IAzureAdTokenService tokenService)
         {
+            _httpClient = httpClient;
             _logger = logger;
             _configValuesPersistentSource = configValuesPersistentSource;
+            _tokenService = tokenService;
         }
 
-        private string GetSmtpHost() => _configValuesPersistentSource.GetConfigValue(ConfigKey_SmtpHost, string.Empty);
-        private int GetSmtpPort() => int.TryParse(_configValuesPersistentSource.GetConfigValue(ConfigKey_SmtpPort, "25"), out var port) ? port : 25;
-        private string GetFromAddress() => _configValuesPersistentSource.GetConfigValue(ConfigKey_FromAddress, string.Empty);
-        private string GetFromName() => _configValuesPersistentSource.GetConfigValue(ConfigKey_FromName, "DOrc Deployment System");
-        private string GetAppSupportEmail() => _configValuesPersistentSource.GetConfigValue(ConfigKey_AppSupport, string.Empty);
+        private string GetFromAddress() => _configValuesPersistentSource.GetConfigValue("Email_FromAddress", string.Empty);
+        private string GetFromName() => _configValuesPersistentSource.GetConfigValue("Email_FromName", "DOrc Deployment System");
+        private string GetAppSupportEmail() => _configValuesPersistentSource.GetConfigValue("App support", string.Empty);
 
         public async Task SendCrOverrideNotificationAsync(
             string username,
@@ -37,13 +37,6 @@ namespace Dorc.Api.Services
             string project,
             string buildNumber)
         {
-            var smtpHost = GetSmtpHost();
-            if (string.IsNullOrEmpty(smtpHost))
-            {
-                _logger.LogWarning("Email_SmtpHost not configured. Cannot send CR override notification.");
-                return;
-            }
-
             var recipients = GetAppSupportEmail();
             if (string.IsNullOrEmpty(recipients))
             {
@@ -60,46 +53,81 @@ namespace Dorc.Api.Services
 
             try
             {
+                var token = await _tokenService.GetTokenAsync(GraphScope);
+                if (string.IsNullOrEmpty(token))
+                {
+                    _logger.LogWarning("Cannot send CR override notification: failed to acquire Graph API token.");
+                    return;
+                }
+
                 var subject = $"[DOrc Alert] Production Deployment CR Override - {environment}";
                 var body = CreateCrOverrideEmailBody(username, environment, project, buildNumber);
 
-                using var smtpClient = new SmtpClient(smtpHost, GetSmtpPort());
-
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromAddress, GetFromName()),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-
-                // Add all recipients (App support may contain multiple emails)
+                // Build recipients list
                 var recipientList = recipients
                     .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(r => r.Trim())
-                    .Where(r => !string.IsNullOrEmpty(r));
+                    .Where(r => !string.IsNullOrEmpty(r))
+                    .ToList();
 
-                foreach (var recipient in recipientList)
-                {
-                    mailMessage.To.Add(recipient);
-                }
-
-                if (mailMessage.To.Count == 0)
+                if (recipientList.Count == 0)
                 {
                     _logger.LogWarning("No valid recipients for CR override notification.");
                     return;
                 }
 
-                await smtpClient.SendMailAsync(mailMessage);
+                var toRecipients = recipientList.Select(r => new
+                {
+                    emailAddress = new { address = r }
+                }).ToArray();
+
+                var graphPayload = new
+                {
+                    message = new
+                    {
+                        subject,
+                        body = new
+                        {
+                            contentType = "HTML",
+                            content = body
+                        },
+                        from = new
+                        {
+                            emailAddress = new
+                            {
+                                address = fromAddress,
+                                name = GetFromName()
+                            }
+                        },
+                        toRecipients
+                    },
+                    saveToSentItems = false
+                };
+
+                var json = JsonSerializer.Serialize(graphPayload);
+                var request = new HttpRequestMessage(HttpMethod.Post,
+                    $"https://graph.microsoft.com/v1.0/users/{fromAddress}/sendMail");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Graph API sendMail failed. Status: {Status}, Response: {Response}",
+                        response.StatusCode, responseBody.Length > 500 ? responseBody[..500] : responseBody);
+                    return;
+                }
 
                 _logger.LogInformation(
-                    "CR override notification sent to {RecipientCount} recipients",
-                    mailMessage.To.Count);
+                    "CR override notification sent via Graph API to {RecipientCount} recipients",
+                    recipientList.Count);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Failed to send CR override notification");
+                    "Failed to send CR override notification via Graph API");
                 // Don't throw - email failure shouldn't block deployment
             }
         }
