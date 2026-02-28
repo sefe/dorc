@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -14,12 +15,14 @@ namespace Dorc.Api.Controllers
     {
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
         public RefDataSearchPropertyValuesController(IPropertyValuesPersistentSource propertyValuesPersistentSource,
-            IRolePrivilegesChecker rolePrivilegesChecker)
+            IRolePrivilegesChecker rolePrivilegesChecker, ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
         }
 
         /// <summary>
@@ -37,16 +40,38 @@ namespace Dorc.Api.Controllers
             var getScopedPropertyValuesResponseDto = _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(limit,
                 page, operators, User);
 
-            var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
-            if (!isAdmin)
-                return StatusCode(StatusCodes.Status200OK, getScopedPropertyValuesResponseDto);
+            if (getScopedPropertyValuesResponseDto?.Items == null || getScopedPropertyValuesResponseDto.Items.Count == 0)
+                return Ok(getScopedPropertyValuesResponseDto);
 
-            foreach (var prop in getScopedPropertyValuesResponseDto.Items)
+            var canReadCache = new Dictionary<string, bool>(System.StringComparer.OrdinalIgnoreCase);
+
+            foreach (var item in getScopedPropertyValuesResponseDto.Items)
             {
-                prop.UserEditable = true;
+                var scopeName = item.PropertyValueScope ?? string.Empty;
+
+                bool canReadSecrets = false;
+                if (!string.IsNullOrWhiteSpace(scopeName))
+                {
+                    if (!canReadCache.TryGetValue(scopeName, out canReadSecrets))
+                    {
+                        canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, scopeName);
+                        canReadCache[scopeName] = canReadSecrets;
+                    }
+                }
+
+                if (item.Secure == true && !canReadSecrets)
+                {
+                    item.PropertyValue = null;
+                }
             }
 
-            return StatusCode(StatusCodes.Status200OK, getScopedPropertyValuesResponseDto);
+            if (_rolePrivilegesChecker.IsAdmin(User))
+            {
+                foreach (var item in getScopedPropertyValuesResponseDto.Items)
+                    item.UserEditable = true;
+            }
+
+            return Ok(getScopedPropertyValuesResponseDto);
         }
     }
 }
