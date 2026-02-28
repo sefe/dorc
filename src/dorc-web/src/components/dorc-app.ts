@@ -121,10 +121,18 @@ export class DorcApp extends ShortcutsStore {
           max-width: 85vw;
           background: var(--lumo-base-color, white);
           box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+          visibility: hidden;
+          pointer-events: none;
+          transform: translateX(-100%);
+          transition: transform 0.2s ease, width 0.2s ease, visibility 0s linear 0.2s;
         }
 
         #dorcNavbar.open {
           width: 280px;
+          visibility: visible;
+          pointer-events: auto;
+          transform: translateX(0);
+          transition: transform 0.2s ease, width 0.2s ease, visibility 0s;
         }
 
         #splitter {
@@ -146,6 +154,8 @@ export class DorcApp extends ShortcutsStore {
   @property() userRoles = '';
 
   @query('#splitter') splitter!: HTMLDivElement;
+
+  private _drawerClickHandler: ((e: Event) => void) | undefined;
 
   render() {
     return html`
@@ -210,12 +220,13 @@ export class DorcApp extends ShortcutsStore {
 
     // Auto-close drawer on mobile after navigation click
     const navbar = this.dorcNavbar;
-    navbar.addEventListener('click', (e: Event) => {
+    this._drawerClickHandler = (e: Event) => {
       const isMobile = window.matchMedia('(max-width: 768px)').matches;
       if (isMobile && e.composedPath().some(el => (el as HTMLElement).tagName === 'A')) {
         navbar.classList.remove('open');
       }
-    });
+    };
+    navbar.addEventListener('click', this._drawerClickHandler);
 
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {
@@ -225,6 +236,13 @@ export class DorcApp extends ShortcutsStore {
 
       document.body.style.setProperty('user-select', 'none');
     });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.dorcNavbar && this._drawerClickHandler) {
+      this.dorcNavbar.removeEventListener('click', this._drawerClickHandler);
+    }
   }
 
   private toggleSideBar() {
