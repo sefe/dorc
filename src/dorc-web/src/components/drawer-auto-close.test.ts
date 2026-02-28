@@ -49,7 +49,7 @@ describe('Drawer auto-close on mobile', () => {
         return true;
       }
       if (origOnError) {
-        return (origOnError as Function).call(window, msg, ...rest);
+        return (origOnError as (...args: any[]) => any).call(window, msg, ...rest);
       }
       return false;
     };
