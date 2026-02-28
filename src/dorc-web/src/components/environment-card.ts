@@ -73,7 +73,7 @@ export class EnvironmentCard extends LitElement {
       }
 
       vaadin-button {
-        padding: 0;
+        padding: 0px;
       }
     `;
   }
