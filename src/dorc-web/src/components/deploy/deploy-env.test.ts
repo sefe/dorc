@@ -1,6 +1,5 @@
 import { expect, fixture, html } from '@open-wc/testing';
-import './deploy-env.js';
-import type { DeployEnv } from './deploy-env.js';
+import { DeployEnv } from './deploy-env.js';
 
 describe('DeployEnv responsive layout', () => {
   it('should NOT contain any table elements', async () => {
@@ -19,14 +18,11 @@ describe('DeployEnv responsive layout', () => {
     `);
     await el.updateComplete;
 
-    // The non-folder project container (first flex column container)
-    const flexContainers = el.shadowRoot!.querySelectorAll(
-      'div[style*="flex-direction: column"]'
-    );
+    // The build-defs-section uses CSS class with flex-direction: column
+    const flexContainers = el.shadowRoot!.querySelectorAll('.build-defs-section');
 
-    // Should have at least one flex-direction: column container for the combos
     expect(flexContainers.length).to.be.greaterThan(0,
-      'Should have flex column containers for combo boxes');
+      'Should have .build-defs-section flex column containers for combo boxes');
   });
 
   it('should have combo boxes with flex: 1 to fill available width', async () => {
@@ -41,16 +37,14 @@ describe('DeployEnv responsive layout', () => {
   });
 
   it('should have max-width constraint on combo containers', async () => {
-    const el = await fixture<DeployEnv>(html`
-      <deploy-env></deploy-env>
-    `);
-    await el.updateComplete;
+    // The max-width: 600px is set via .build-defs-section CSS class, not inline
+    const styles = (DeployEnv as any).styles;
+    const cssText = Array.isArray(styles)
+      ? styles.map((s: any) => s.cssText ?? '').join('')
+      : (styles as any)?.cssText ?? '';
 
-    const containers = el.shadowRoot!.querySelectorAll(
-      'div[style*="max-width: 600px"]'
-    );
-    expect(containers.length).to.be.greaterThan(0,
-      'Containers should have max-width: 600px');
+    expect(cssText).to.include('max-width: 600px',
+      'CSS should include max-width: 600px for combo containers');
   });
 
   it('should render the deploy button with max-width constraint', async () => {
