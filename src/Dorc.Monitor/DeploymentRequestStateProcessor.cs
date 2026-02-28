@@ -315,6 +315,11 @@ namespace Dorc.Monitor
                     continue;
                 }
 
+                // Register the environment as running BEFORE starting the task to prevent a race condition
+                // where the task's finally block (TryRemove) could execute before TryAdd, leaving a
+                // phantom entry that permanently blocks the environment from being processed.
+                environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
+
                 // Try to acquire distributed lock for this environment BEFORE creating the task
                 // This ensures only one monitor instance processes this environment at a time
                 // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
@@ -378,7 +383,7 @@ namespace Dorc.Monitor
                     {
                         this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
                         environmentRequestIdRunning.TryRemove(requestGroup.Key, out runningRequestId);
-                        
+
                         // Release the distributed lock
                         if (envLock != null)
                         {
@@ -387,7 +392,6 @@ namespace Dorc.Monitor
                         }
                     }
                 }, monitorCancellationToken);
-                environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
                 task.ConfigureAwait(false);
                 requestGroupExecutionTasks.Add(task);
             }
