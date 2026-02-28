@@ -10,6 +10,7 @@ import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
@@ -19,7 +20,7 @@ import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
 
 @customElement('page-config-values-list')
-export class PageConfigValuesList extends PageElement {
+export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
   @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
@@ -167,6 +168,13 @@ export class PageConfigValuesList extends PageElement {
         overflow: auto;
         padding: 10px;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -237,6 +245,7 @@ export class PageConfigValuesList extends PageElement {
                 width="100px"
                 flex-grow="0"
                 .renderer=${this.isSecuredRenderer}
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="IsForProd"
@@ -245,6 +254,7 @@ export class PageConfigValuesList extends PageElement {
                 width="100px"
                 flex-grow="0"
                 .renderer=${this.isForProdRenderer}
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Config Value"

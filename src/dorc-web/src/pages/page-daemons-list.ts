@@ -18,12 +18,13 @@ import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 
 @customElement('page-daemons-list')
-export class PageDaemonsList extends PageElement {
+export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -134,6 +135,13 @@ export class PageDaemonsList extends PageElement {
       .row-actions vaadin-button {
         padding: 0;
         margin: 0 2px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -252,11 +260,13 @@ export class PageDaemonsList extends PageElement {
                 path="AccountName"
                 header="Account Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ServiceType"
                 header="Type"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="LastSeenDate"
