@@ -1,6 +1,6 @@
-﻿using Dorc.Api.Interfaces;
+﻿using Dorc.Api.Build;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
-using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -23,7 +23,7 @@ namespace Dorc.Api.Tests
             };
             var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
+            var mockedHelper = Substitute.For<IFileOperations>();
             mockedHelper.DirectoryExists(Arg.Any<string>())
                 .Returns(true);
             var buildDetails = new BuildDetails(request.BuildUrl);
@@ -45,7 +45,7 @@ namespace Dorc.Api.Tests
             };
             var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
+            var mockedHelper = Substitute.For<IFileOperations>();
             mockedHelper.DirectoryExists(Arg.Any<string>())
                 .Returns(true);
             var buildDetails = new BuildDetails(request.BuildUrl);
@@ -67,7 +67,7 @@ namespace Dorc.Api.Tests
             };
             var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
+            var mockedHelper = Substitute.For<IFileOperations>();
             mockedHelper.DirectoryExists(Arg.Any<string>())
                 .Returns(false);
             var buildDetails = new BuildDetails(request.BuildUrl);
@@ -89,7 +89,7 @@ namespace Dorc.Api.Tests
             };
             var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
+            var mockedHelper = Substitute.For<IFileOperations>();
             mockedHelper.DirectoryExists(Arg.Any<string>())
                 .Returns(false);
             var buildDetails = new BuildDetails(request.BuildUrl);
@@ -111,7 +111,7 @@ namespace Dorc.Api.Tests
             };
             var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
+            var mockedHelper = Substitute.For<IFileOperations>();
             mockedHelper.DirectoryExists(Arg.Any<string>())
                 .Returns(false);
             var buildDetails = new BuildDetails(request.BuildUrl);
