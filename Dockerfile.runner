@@ -1,0 +1,39 @@
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY src/Dorc.Runner/Dorc.Runner.csproj Dorc.Runner/
+COPY src/Dorc.ApiModel/Dorc.ApiModel.csproj Dorc.ApiModel/
+COPY src/Dorc.PowerShell/Dorc.PowerShell.csproj Dorc.PowerShell/
+COPY src/Dorc.Runner.Logger/Dorc.Runner.Logger.csproj Dorc.Runner.Logger/
+COPY src/Includes/ Includes/
+RUN dotnet restore Dorc.Runner/Dorc.Runner.csproj
+
+COPY src/Dorc.Runner/ Dorc.Runner/
+COPY src/Dorc.ApiModel/ Dorc.ApiModel/
+COPY src/Dorc.PowerShell/ Dorc.PowerShell/
+COPY src/Dorc.Runner.Logger/ Dorc.Runner.Logger/
+RUN dotnet publish Dorc.Runner/Dorc.Runner.csproj -c Release -o /app/publish --no-restore
+
+# Stage 2: Runtime with PowerShell Core
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+
+# Install PowerShell Core
+RUN apt-get update && \
+    apt-get install -y wget apt-transport-https software-properties-common && \
+    wget -q "https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb" -O packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    apt-get update && \
+    apt-get install -y powershell && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/log/dorc/scriptgroup-files /var/log/dorc/runner
+
+COPY --from=build /app/publish .
+
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+ENV DORC_SCRIPTGROUP_FILES_PATH=/var/log/dorc/scriptgroup-files/
+
+ENTRYPOINT ["dotnet", "Dorc.Runner.dll"]

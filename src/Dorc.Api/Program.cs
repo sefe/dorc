@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Extensions.Logging;
 using System.Reflection;
@@ -29,9 +30,12 @@ const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
+var aspNetEnv = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "";
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
+    .AddJsonFile($"appsettings.{aspNetEnv}.json", optional: true)
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .AddEnvironmentVariables()
     .Build();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
@@ -256,6 +260,10 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
     });
 }
 
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddSqlServer(configurationSettings.GetDorcConnectionString(), name: "sqlserver");
+
 builder.Services
     .AddControllers(opts =>
     {
@@ -337,6 +345,9 @@ var app = builder.Build();
 
 app.UseIpRateLimiting();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -364,5 +375,11 @@ if (authenticationScheme is ConfigAuthScheme.OAuth)
 
 // Map SignalR hub
 app.MapHub<DeploymentsHub>("/hubs/deployments");
+
+// Health check endpoint (unauthenticated)
+app.MapHealthChecks("/healthz").AllowAnonymous();
+
+// SPA fallback - serve index.html for client-side routes
+app.MapFallbackToFile("index.html");
 
 app.Run();

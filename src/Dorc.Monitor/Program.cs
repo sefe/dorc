@@ -26,19 +26,27 @@ using System.Text;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+var aspNetEnv = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "";
 var configurationRoot = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
+    .AddJsonFile($"appsettings.{aspNetEnv}.json", optional: true)
     .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables()
     .Build();
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 
 builder.Services.AddTransient(s => configurationRoot);
 builder.Services.AddTransient<IMonitorConfiguration>(m => monitorConfiguration);
 
-builder.Services.AddWindowsService(options =>
+var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+
+if (!isRunningInContainer)
 {
-    options.ServiceName = monitorConfiguration.ServiceName;
-});
+    builder.Services.AddWindowsService(options =>
+    {
+        options.ServiceName = monitorConfiguration.ServiceName;
+    });
+}
 
 #region Logging Configuration
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -95,11 +103,20 @@ builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEvent
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
 
+if (isRunningInContainer)
+{
+    // Container mode: always use file-based IPC via shared volume
+    builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
+    builder.Services.AddTransient<IRunnerDispatcher, ContainerRunnerDispatcher>();
+}
+else
+{
 #if DEBUG
-builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
+    builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
 #else
     builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupPipeServer>();
 #endif
+}
 
 
 builder.Services.AddTransient<ISecurityObjectFilter, SecurityObjectFilter>();

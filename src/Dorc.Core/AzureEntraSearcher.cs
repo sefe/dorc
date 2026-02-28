@@ -7,12 +7,10 @@ using Microsoft.Graph;
 using Microsoft.Graph.Authentication;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Users.Item.CheckMemberGroups;
-using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 
 namespace Dorc.Core
 {
-    [SupportedOSPlatform("windows")]
     public class AzureEntraSearcher : IActiveDirectorySearcher
     {
         private readonly string _tenantId;
