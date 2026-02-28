@@ -208,6 +208,15 @@ export class DorcApp extends ShortcutsStore {
 
     super.firstUpdated(_changedProperties);
 
+    // Auto-close drawer on mobile after navigation click
+    const navbar = this.dorcNavbar;
+    navbar.addEventListener('click', (e: Event) => {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile && e.composedPath().some(el => (el as HTMLElement).tagName === 'A')) {
+        navbar.classList.remove('open');
+      }
+    });
+
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {
         passive: true

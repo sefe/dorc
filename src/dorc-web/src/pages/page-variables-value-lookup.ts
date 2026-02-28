@@ -26,11 +26,12 @@ import {
 } from '../apis/dorc-api';
 import { PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/grid-button-groups/variable-value-controls';
 import { PropertyValueDto } from '../apis/dorc-api';
 
 @customElement('page-variables-value-lookup')
-export class PageVariablesValueLookup extends PageElement {
+export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
   @property({ type: Array })
   variableValues: Array<FlatPropertyValueApiModel> = [];
 
@@ -111,6 +112,13 @@ export class PageVariablesValueLookup extends PageElement {
         padding-bottom: 0px;
         margin: 0px;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -147,6 +155,7 @@ export class PageVariablesValueLookup extends PageElement {
           .headerRenderer="${this.scopeHeaderRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Value"

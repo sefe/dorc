@@ -7,6 +7,7 @@ import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/edit-database-permissions';
@@ -20,7 +21,7 @@ import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
 
 @customElement('attached-databases')
-export class AttachedDatabases extends LitElement {
+export class AttachedDatabases extends ResponsiveMixin(LitElement) {
   @property({ type: Number })
   envId = 0;
 
@@ -72,6 +73,13 @@ export class AttachedDatabases extends LitElement {
         cursor: pointer;
         text-decoration: none;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -97,11 +105,13 @@ export class AttachedDatabases extends LitElement {
           .renderer="${this.applicationTagsRenderer}"
           resizable
           header="Application Tag"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ArrayName"
           header="Array Name"
           resizable
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._boundDatabasesButtonsRenderer}"

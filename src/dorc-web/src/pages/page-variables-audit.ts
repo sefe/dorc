@@ -27,10 +27,11 @@ import {
   PropertyValueAuditApiModel
 } from '../apis/dorc-api/models';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-variables-audit')
-export class PageVariablesAudit extends PageElement {
+export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) scripts: Array<PropertyValueAuditApiModel> = [];
 
   @property({ type: Array }) appConfig = [];
@@ -116,6 +117,13 @@ export class PageVariablesAudit extends PageElement {
       .highlight-removed {
         background-color: #ffb4c2;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -163,6 +171,7 @@ export class PageVariablesAudit extends PageElement {
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-sort-column
           path="UpdatedDate"
@@ -171,6 +180,7 @@ export class PageVariablesAudit extends PageElement {
           .renderer="${this.UpdatedRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"

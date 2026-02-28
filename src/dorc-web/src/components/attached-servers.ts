@@ -7,6 +7,7 @@ import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/database-env-controls.ts';
@@ -24,7 +25,7 @@ import type { EnvironmentContentApiModel } from '../apis/dorc-api';
 import { splitTags } from '../helpers/tag-parser';
 
 @customElement('attached-servers')
-export class AttachedServers extends LitElement {
+export class AttachedServers extends ResponsiveMixin(LitElement) {
   @property({ type: Object })
   envContent!: EnvironmentContentApiModel;
 
@@ -79,15 +80,17 @@ export class AttachedServers extends LitElement {
         text-decoration: none;
         border-radius: 3px;
       }
-      vaadin-grid-cell-content {
-      white-space: normal;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
     .column-content {
       display: block;
       width: 100%;
     }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -132,11 +135,13 @@ export class AttachedServers extends LitElement {
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.applicationTagsRenderer}"
           header="Application Tags"
           resizable
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           width="200px"

@@ -4,6 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/delegated-user-controls';
@@ -11,7 +12,7 @@ import { DelegatedUsersApi } from '../apis/dorc-api';
 import { UserApiModel } from '../apis/dorc-api/models';
 
 @customElement('attached-delegated-users')
-export class AttachedDelegatedUsers extends LitElement {
+export class AttachedDelegatedUsers extends ResponsiveMixin(LitElement) {
   @property({ type: Array }) users: UserApiModel[] = [];
 
   @property({ type: Boolean }) delegatedUsersLoading = true;
@@ -70,6 +71,13 @@ export class AttachedDelegatedUsers extends LitElement {
       vaadin-button[disabled] {
         background-color: #dde2e8;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -114,17 +122,21 @@ export class AttachedDelegatedUsers extends LitElement {
             header="Login Type"
             path="LoginType"
             resizable
+            ?hidden="${this._narrowScreen}"
           >
           </vaadin-grid-sort-column>
-          <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable>
+          <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable
+            ?hidden="${this._narrowScreen}">
           </vaadin-grid-sort-column>
           <vaadin-grid-sort-column
             header="LAN ID Type"
             path="LanIdType"
             resizable
+            ?hidden="${this._narrowScreen}"
           >
           </vaadin-grid-sort-column>
-          <vaadin-grid-sort-column header="Team" path="Team" resizable>
+          <vaadin-grid-sort-column header="Team" path="Team" resizable
+            ?hidden="${this._narrowScreen}">
           </vaadin-grid-sort-column>
           <vaadin-grid-column
             .renderer="${this._boundUsersButtonsRenderer}"
