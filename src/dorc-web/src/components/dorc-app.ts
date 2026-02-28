@@ -231,6 +231,8 @@ export class DorcApp extends ShortcutsStore {
     if (this.dorcNavbar) {
       const isMobile = window.matchMedia('(max-width: 768px)').matches;
       if (isMobile) {
+        // Clear any desktop/splitter inline width so mobile CSS can control the drawer
+        this.dorcNavbar.style.width = '';
         this.dorcNavbar.classList.toggle('open');
       } else {
         if (this.dorcNavbar.style.width === '0px') {

@@ -72,7 +72,7 @@ jobs:
 
     - name: Install Playwright browsers
       working-directory: src/dorc-web
-      run: npx playwright install --with-deps chromium
+      run: npx playwright install chromium
 
     - name: Run web tests
       working-directory: src/dorc-web

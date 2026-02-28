@@ -64,7 +64,7 @@ export class HegsChart extends LitElement {
   }
 
   updateChart() {
-    if (!this.chart) return;
+    if (!this.chart || !this.option) return;
     this.chart.setOption(this.option);
   }
 

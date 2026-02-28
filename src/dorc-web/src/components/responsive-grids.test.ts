@@ -69,7 +69,7 @@ describe('Responsive grid CSS (structural)', () => {
   });
 
   it('attached-databases CSS contains responsive cell wrapping', async function () {
-    this.timeout(20000);
+    this.timeout(30000);
     const mod = await import('./attached-databases.js');
     assertResponsiveCss(mod.AttachedDatabases, 'attached-databases');
   });

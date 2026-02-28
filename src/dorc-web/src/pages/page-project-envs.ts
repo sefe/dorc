@@ -169,7 +169,7 @@ export class PageProjectEnvs extends PageElement {
       }
 
       vaadin-button {
-        padding: 0;
+        padding: 0px;
       }
     `;
   }
