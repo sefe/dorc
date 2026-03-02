@@ -44,6 +44,11 @@ namespace Dorc.Core.Security
             return _clientId;
         }
 
+        public string GetUserSafeIdentifier(IPrincipal user)
+        {
+            return _clientId;
+        }
+
         public string GetUserEmail(ClaimsPrincipal user)
         {
             return string.Empty;

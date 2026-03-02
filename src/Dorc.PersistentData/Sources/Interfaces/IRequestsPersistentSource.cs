@@ -11,6 +11,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, bool isProd);
+        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, DeploymentRequestStatus status4, bool isProd);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId, int componentId);
         string GetRequestLog(int id);
