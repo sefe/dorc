@@ -315,10 +315,9 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation($"Forbidden request to pause {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to pause {requestId} for {deploymentRequest.EnvironmentName}");
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
+                        $"Forbidden request to {deploymentRequest.EnvironmentName}");
                 }
 
                 // Only Pending requests can be paused
@@ -371,10 +370,9 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation($"Forbidden request to resume {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to resume {requestId} for {deploymentRequest.EnvironmentName}");
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
+                        $"Forbidden request to {deploymentRequest.EnvironmentName}");
                 }
 
                 // Only Paused requests can be resumed
