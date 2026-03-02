@@ -6,40 +6,40 @@ This script adds the new cancellation tracking fields to match the DeploymentReq
 IF NOT EXISTS (
     SELECT 1 
     FROM sys.columns 
-    WHERE object_id = OBJECT_ID(N'[deploy].[ArchiveDeploymentRequests]') 
+    WHERE object_id = OBJECT_ID(N'[archive].[DeploymentRequest]') 
     AND name = 'CancelledBy'
 )
 BEGIN
-    PRINT 'Adding CancelledBy column to [deploy].[ArchiveDeploymentRequests]'
+    PRINT 'Adding CancelledBy column to [archive].[DeploymentRequest]'
     
-    ALTER TABLE [deploy].[ArchiveDeploymentRequests]
+    ALTER TABLE [archive].[DeploymentRequest]
     ADD [CancelledBy] NVARCHAR(128) NULL
     
     PRINT 'CancelledBy column added successfully'
 END
 ELSE
 BEGIN
-    PRINT 'CancelledBy column already exists in [deploy].[ArchiveDeploymentRequests]'
+    PRINT 'CancelledBy column already exists in [archive].[DeploymentRequest]'
 END
 GO
 
 IF NOT EXISTS (
     SELECT 1 
     FROM sys.columns 
-    WHERE object_id = OBJECT_ID(N'[deploy].[ArchiveDeploymentRequests]') 
+    WHERE object_id = OBJECT_ID(N'[archive].[DeploymentRequest]') 
     AND name = 'CancelledTime'
 )
 BEGIN
-    PRINT 'Adding CancelledTime column to [deploy].[ArchiveDeploymentRequests]'
+    PRINT 'Adding CancelledTime column to [archive].[DeploymentRequest]'
     
-    ALTER TABLE [deploy].[ArchiveDeploymentRequests]
+    ALTER TABLE [archive].[DeploymentRequest]
     ADD [CancelledTime] DATETIMEOFFSET(7) NULL
     
     PRINT 'CancelledTime column added successfully'
 END
 ELSE
 BEGIN
-    PRINT 'CancelledTime column already exists in [deploy].[ArchiveDeploymentRequests]'
+    PRINT 'CancelledTime column already exists in [archive].[DeploymentRequest]'
 END
 GO
 
@@ -47,11 +47,11 @@ GO
 IF EXISTS (
     SELECT 1 
     FROM sys.columns 
-    WHERE object_id = OBJECT_ID(N'[deploy].[ArchiveDeploymentRequests]') 
+    WHERE object_id = OBJECT_ID(N'[archive].[DeploymentRequest]') 
     AND name IN ('CancelledBy', 'CancelledTime')
 )
 BEGIN
-    PRINT 'Verification: Cancellation fields successfully added to [deploy].[ArchiveDeploymentRequests]'
+    PRINT 'Verification: Cancellation fields successfully added to [archive].[DeploymentRequest]'
     
     SELECT 
         c.name AS ColumnName,
@@ -60,7 +60,7 @@ BEGIN
         c.is_nullable AS IsNullable
     FROM sys.columns c
     INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
-    WHERE c.object_id = OBJECT_ID(N'[deploy].[ArchiveDeploymentRequests]')
+    WHERE c.object_id = OBJECT_ID(N'[archive].[DeploymentRequest]')
     AND c.name IN ('CancelledBy', 'CancelledTime')
 END
 GO
