@@ -164,5 +164,26 @@ namespace Dorc.PersistentData.Sources
             context.SaveChanges();
             return true;
         }
+
+        public void DiscoverAndMapDaemonsForServer(int serverId, IEnumerable<string> confirmedServiceNames)
+        {
+            using var context = _contextFactory.GetContext();
+            var server = context.Servers
+                .Include(s => s.Services)
+                .FirstOrDefault(s => s.Id == serverId);
+            if (server == null) return;
+
+            var daemonsByName = context.Services
+                .Where(d => confirmedServiceNames.Contains(d.Name))
+                .ToList();
+
+            foreach (var daemon in daemonsByName)
+            {
+                if (!server.Services.Any(s => s.Id == daemon.Id))
+                    server.Services.Add(daemon);
+            }
+
+            context.SaveChanges();
+        }
     }
 }
