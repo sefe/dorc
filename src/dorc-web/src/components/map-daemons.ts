@@ -15,7 +15,7 @@ import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import { ServerDaemonsApi } from '../apis/dorc-api/apis/ServerDaemonsApi';
 
-@customElement('manage-daemons')
+@customElement('map-daemons')
 export class ServerDaemonMapping extends LitElement {
   @property({ type: Object })
   get server(): ServerApiModel | undefined {
@@ -82,7 +82,7 @@ export class ServerDaemonMapping extends LitElement {
     return html`
       <div class="attach-row">
         <vaadin-combo-box
-          label="Attach Daemon"
+          label="Map Daemon"
           item-value-path="Id"
           item-label-path="DisplayName"
           .items="${unmappedDaemons}"
@@ -100,7 +100,7 @@ export class ServerDaemonMapping extends LitElement {
             icon="vaadin:link"
             style="color: cornflowerblue"
           ></vaadin-icon>
-          Attach
+          Map
         </vaadin-button>
       </div>
       <vaadin-grid
@@ -150,7 +150,7 @@ export class ServerDaemonMapping extends LitElement {
     render(
       html`
         <vaadin-button
-          title="Detach daemon"
+          title="Unmap daemon"
           theme="icon"
           ?disabled="${control.readonly}"
           @click="${() => control.detachDaemon(daemon)}"
@@ -203,7 +203,7 @@ export class ServerDaemonMapping extends LitElement {
       })
       .subscribe({
         next: () => {
-          Notification.show('Daemon attached to server', {
+          Notification.show('Daemon mapped to server', {
             theme: 'success',
             position: 'bottom-start',
             duration: 3000
@@ -219,7 +219,7 @@ export class ServerDaemonMapping extends LitElement {
   public detachDaemon(daemon: DaemonApiModel) {
     if (!this._server?.ServerId || !daemon.Id) return;
     const answer = confirm(
-      `Detach daemon "${daemon.DisplayName ?? daemon.Name}" from server "${this._server.Name}"?`
+      `Unmap daemon "${daemon.DisplayName ?? daemon.Name}" from server "${this._server.Name}"?`
     );
     if (!answer) return;
 
@@ -231,7 +231,7 @@ export class ServerDaemonMapping extends LitElement {
       })
       .subscribe({
         next: () => {
-          Notification.show('Daemon detached from server', {
+          Notification.show('Daemon unmapped from server', {
             theme: 'success',
             position: 'bottom-start',
             duration: 3000

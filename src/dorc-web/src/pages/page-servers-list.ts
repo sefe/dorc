@@ -10,7 +10,7 @@ import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
-import '../components/manage-daemons.ts';
+import '../components/map-daemons.ts';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';

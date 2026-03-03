@@ -15,7 +15,7 @@ import '../components/server-tags';
 import './server-tags';
 import '../components/add-edit-server';
 import './add-edit-server';
-import '../components/manage-daemons.ts';
+import './map-daemons.ts';
 import { Notification } from '@vaadin/notification';
 import { map } from 'lit/directives/map.js';
 import '../components/hegs-dialog';
