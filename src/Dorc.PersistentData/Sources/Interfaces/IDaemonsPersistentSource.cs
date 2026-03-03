@@ -11,7 +11,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DaemonApiModel Update(DaemonApiModel env);
         bool AttachDaemonToServer(int serverId, int daemonId);
         bool DetachDaemonFromServer(int serverId, int daemonId);
-        public void DiscoverAndMapDaemonsForServer(int serverId, IEnumerable<string> confirmedServiceNames)
+        public void DiscoverAndMapDaemonsForServer(int serverId, IEnumerable<string> confirmedServiceNames);
 
     }
 }
