@@ -536,7 +536,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     model: GridItemModel<DeploymentRequestApiModel>) {
 
     const request = model.item as DeploymentRequestApiModel;
-    const elements = request.Components?.split('|');
+    const elements = request.Components?.split('|').sort((a, b) => a.localeCompare(b));
 
     render(html`
       <vaadin-vertical-layout>
