@@ -47,6 +47,9 @@
 
 					<Json:JsonFile Id="SetOtelUrlNonProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#NonProdDeployMonitorExeConfig]" />
 					
+					<!-- Pause Deployment Configuration -->
+					<Json:JsonFile Id="PauseDeploymentEnabledNonProd" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
+
 					<!-- High Availability Configuration -->
 					<Json:JsonFile Id="HAEnabledNonProd" ElementPath="$.AppSettings.HighAvailability.Enabled" Value="[HA.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQHostNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.HostName" Value="[HA.RABBITMQ.HOSTNAME]" File="[#NonProdDeployMonitorExeConfig]" />

@@ -264,6 +264,10 @@
     {
       "MSIParameter": "HA.RABBITMQ.SSL.VERSION",
       "DeployProperty": "HA_RABBITMQ_SSL_VERSION"
+    },
+    {
+      "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
+      "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }
   ]
 }
