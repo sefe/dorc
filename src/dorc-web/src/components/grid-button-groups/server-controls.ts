@@ -167,7 +167,7 @@ export class ServerControls extends LitElement {
   }
 
   manageDaemons() {
-    const event = new CustomEvent('manage-daemons', {
+    const event = new CustomEvent('map-daemons', {
       bubbles: true,
       composed: true,
       detail: {
