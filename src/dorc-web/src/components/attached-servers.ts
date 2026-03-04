@@ -119,10 +119,10 @@ export class AttachedServers extends LitElement {
         id="daemon-mapping-dialog"
         title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
       >
-        <manage-daemons
+        <map-daemons
           .server="${this.selectedServer}"
           .readonly="${this.readonly}"
-        ></manage-daemons>
+        ></map-daemons>
       </hegs-dialog>
       
       <vaadin-grid

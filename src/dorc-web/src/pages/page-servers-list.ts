@@ -410,10 +410,10 @@ export class PageServersList extends PageElement {
   `;
 
     private renderManageDaemonMappingsDialog = () => html`
-    <manage-daemons
-      id="manage-daemons"
+    <map-daemons
+      id="map-daemons"
       .server="${this.selectedServer}"
-    ></manage-daemons>
+    ></map-daemons>
   `;
 
   private renderManageDaemonMappingsFooter = () => html`
