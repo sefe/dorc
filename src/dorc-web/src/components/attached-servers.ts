@@ -15,7 +15,7 @@ import '../components/server-tags';
 import './server-tags';
 import '../components/add-edit-server';
 import './add-edit-server';
-import './map-daemons.ts';
+import '../components/map-daemons.ts';
 import { Notification } from '@vaadin/notification';
 import { map } from 'lit/directives/map.js';
 import '../components/hegs-dialog';
@@ -117,7 +117,7 @@ export class AttachedServers extends LitElement {
 
       <hegs-dialog
         id="daemon-mapping-dialog"
-        title="Manage Daemons for ${this.selectedServer?.Name}"
+        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
       >
         <manage-daemons
           .server="${this.selectedServer}"
@@ -259,7 +259,7 @@ export class AttachedServers extends LitElement {
         @edit-server="${(e: CustomEvent) => {
           altThis.editServer(e);
         }}"
-        @manage-daemons="${() => {
+        @map-daemons="${() => {
           altThis.openDaemonMapping(server);
         }}"
       >

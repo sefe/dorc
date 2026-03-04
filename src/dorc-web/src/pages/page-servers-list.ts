@@ -61,7 +61,7 @@ export class PageServersList extends PageElement {
   @state()
   private editTagsDialogOpened = false;
   @state()
-  private manageDaemonsDialogOpened = false;
+  private manageDaemonMappingsDialogOpened = false;
 
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
@@ -178,17 +178,17 @@ export class PageServersList extends PageElement {
     return html`
         <vaadin-dialog
         id="daemon-mapping-dialog"
-        title="Manage Daemons for ${this.selectedServer?.Name}"
-        .opened="${this.manageDaemonsDialogOpened}"
+        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+        .opened="${this.manageDaemonMappingsDialogOpened}"
         draggable
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
-          this.manageDaemonsDialogOpened = event.detail.value;
-          if (!this.manageDaemonsDialogOpened) {
+          this.manageDaemonMappingsDialogOpened = event.detail.value;
+          if (!this.manageDaemonMappingsDialogOpened) {
             this.selectedServer = {};
           }
         }}"
-        ${dialogRenderer(this.renderManageDaemonsDialog, [this.selectedServer])}
-        ${dialogFooterRenderer(this.renderManageDaemonsFooter, [])}
+        ${dialogRenderer(this.renderManageDaemonMappingsDialog, [this.selectedServer])}
+        ${dialogFooterRenderer(this.renderManageDaemonMappingsFooter, [])}
       ></vaadin-dialog>
       <vaadin-dialog
         id='add-edit-server-dialog'
@@ -409,15 +409,15 @@ export class PageServersList extends PageElement {
     <vaadin-button @click="${this.closeEditTagsDialog}">Close</vaadin-button>
   `;
 
-    private renderManageDaemonsDialog = () => html`
+    private renderManageDaemonMappingsDialog = () => html`
     <manage-daemons
       id="manage-daemons"
       .server="${this.selectedServer}"
     ></manage-daemons>
   `;
 
-  private renderManageDaemonsFooter = () => html`
-    <vaadin-button @click="${this.closeManageDaemonsDialog}"
+  private renderManageDaemonMappingsFooter = () => html`
+    <vaadin-button @click="${this.closeManageDaemonMappingsDialog}"
       >Close</vaadin-button
     >
   `;
@@ -438,8 +438,8 @@ export class PageServersList extends PageElement {
     >
   `;
 
-  private closeManageDaemonsDialog() {
-    this.manageDaemonsDialogOpened = false;
+  private closeManageDaemonMappingsDialog() {
+    this.manageDaemonMappingsDialogOpened = false;
   }
 
 
@@ -754,8 +754,8 @@ export class PageServersList extends PageElement {
     super.firstUpdated(_changedProperties);
 
     this.addEventListener(
-      'manage-daemons',
-      this.openManageDaemonsDialog as EventListener
+      'map-daemons',
+      this.openManageDaemonMappingsDialog as EventListener
     );
     this.addEventListener(
       'edit-server',
@@ -836,9 +836,9 @@ export class PageServersList extends PageElement {
     this.addEditServerDialogOpened = false;
   }
 
-  public openManageDaemonsDialog(e: CustomEvent) {
+  public openManageDaemonMappingsDialog(e: CustomEvent) {
     this.selectedServer = e.detail.server;
-    this.manageDaemonsDialogOpened = true;
+    this.manageDaemonMappingsDialogOpened = true;
   }
 
   openEditServerDialog(e: CustomEvent) {
