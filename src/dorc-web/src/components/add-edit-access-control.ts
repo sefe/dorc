@@ -65,7 +65,7 @@ export class AddEditAccessControl extends LitElement {
     return css`
       paper-dialog.size-position {
         overflow: auto;
-        width: 650px;
+        width: min(90vw, 650px);
       }
       vaadin-text-field {
         display: flex;

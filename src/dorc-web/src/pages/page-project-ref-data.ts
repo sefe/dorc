@@ -16,6 +16,12 @@ export class PageProjectRefData extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
       .btn {
         position: fixed;
         right: 40px;
@@ -68,7 +74,7 @@ export class PageProjectRefData extends PageElement {
 
   render() {
     return html`
-      <div id="editor" style="width: 100%; height: calc(100vh - 50px);">
+      <div id="editor" style="width: 100%; flex: 1; min-height: 200px;">
         Loading...
       </div>
       <div class="loader" ?hidden="${!this.refDataLoading}"></div>

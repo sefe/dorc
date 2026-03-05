@@ -11,6 +11,7 @@ on:
       - 'hotfix/**'
       - 'migration/**'
       - 'copilot/**'
+      - 'claude/**'
   pull_request:
     branches:
       - main
@@ -68,7 +69,15 @@ jobs:
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
-      
+
+    - name: Install Playwright browsers
+      working-directory: src/dorc-web
+      run: npx playwright install chromium
+
+    - name: Run web tests
+      working-directory: src/dorc-web
+      run: npm test
+
     - name: Version AssemblyInfo files
       shell: pwsh
       env:

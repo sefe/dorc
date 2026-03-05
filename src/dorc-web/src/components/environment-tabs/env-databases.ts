@@ -43,14 +43,15 @@ export class EnvDatabases extends PageEnvBase {
         vertical-align: middle;
       }
       .buttons {
-        font-size: 10px;
+        font-size: var(--lumo-font-size-s);
         color: cornflowerblue;
-        padding: 2px;
+        padding: var(--lumo-space-xs);
       }
       vaadin-details {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 180px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
       }
     `;

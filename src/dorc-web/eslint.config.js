@@ -10,5 +10,14 @@ export default [
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintConfigPrettier,
-  { rules: { '@typescript-eslint/no-explicit-any': 0 } }
+  { rules: { '@typescript-eslint/no-explicit-any': 0 } },
+  {
+    files: ['**/*.test.ts'],
+    languageOptions: {
+      globals: globals.mocha,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-expressions': 0,
+    },
+  },
 ];

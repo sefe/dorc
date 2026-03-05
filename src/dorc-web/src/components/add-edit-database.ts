@@ -123,14 +123,15 @@ export class AddEditDatabase extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
     `;
   }
 
   render() {
     return html`
-      <div style="padding: 10px; width:500px">
+      <div style="padding: var(--lumo-space-s); width: 100%; max-width: 500px; box-sizing: border-box;">
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"

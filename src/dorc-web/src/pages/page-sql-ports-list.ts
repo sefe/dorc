@@ -70,9 +70,15 @@ export class PageSqlPortsList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 110px);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
       }
       .overlay {
