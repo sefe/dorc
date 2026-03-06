@@ -219,7 +219,7 @@ namespace Dorc.Monitor.HighAvailability
                         logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
                             resourceKey);
 
-                        return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey, consumerTag);
+                        return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey, consumerTag, this);
                     }
                     catch (OperationInterruptedException opEx) when (opEx.Message.Contains("ACCESS_REFUSED") && retry < maxRetries - 1)
                     {
@@ -270,20 +270,35 @@ namespace Dorc.Monitor.HighAvailability
                     return;
                 }
                 
-                // Close and dispose existing connection if any
+                // Close and dispose existing connection if any.
+                // IMPORTANT: CloseAsync and Dispose must be in separate try blocks.
+                // If CloseAsync throws (e.g. TaskCanceledException during token refresh),
+                // Dispose must still be called to release the underlying TCP socket and
+                // deregister consumers. A leaked connection keeps old consumers alive on
+                // RabbitMQ, permanently blocking single-active-consumer lock queues.
                 if (connection != null)
                 {
+                    var connToDispose = connection;
+                    connection = null;
+
                     try
                     {
-                        await connection.CloseAsync(cancellationToken);
-                        connection.Dispose();
-                        logger.LogDebug("Closed existing RabbitMQ connection for refresh");
+                        await connToDispose.CloseAsync(cancellationToken);
                     }
                     catch (Exception ex)
                     {
                         logger.LogWarning(ex, "Error closing connection during forced refresh");
                     }
-                    connection = null;
+
+                    try
+                    {
+                        connToDispose.Dispose();
+                        logger.LogDebug("Disposed existing RabbitMQ connection for refresh");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Error disposing connection during forced refresh");
+                    }
                 }
 
                 // Clear cached credentials and token expiry to force new token acquisition
@@ -504,6 +519,65 @@ namespace Dorc.Monitor.HighAvailability
             };
         }
 
+        /// <summary>
+        /// Attempts to delete a lock queue using the current connection.
+        /// Called by RabbitMqDistributedLock.DisposeAsync as a fallback when the lock's
+        /// original channel is dead (e.g. due to a concurrent connection refresh).
+        /// This prevents orphaned lock queues that permanently block environments.
+        /// </summary>
+        internal async Task<bool> TryDeleteQueueAsync(string queueName, string resourceKey)
+        {
+            try
+            {
+                // Safely capture the current connection reference under the semaphore
+                // to avoid a race with ForceConnectionRefreshAsync setting connection to null.
+                IConnection? currentConnection = null;
+
+                var semaphoreAcquired = await connectionSemaphore.WaitAsync(TimeSpan.FromSeconds(5));
+                if (!semaphoreAcquired)
+                {
+                    logger.LogWarning("Timeout waiting to acquire connection semaphore when deleting orphaned lock queue '{QueueName}'", queueName);
+                    return false;
+                }
+
+                try
+                {
+                    currentConnection = connection;
+                }
+                finally
+                {
+                    connectionSemaphore.Release();
+                }
+
+                if (currentConnection == null || !currentConnection.IsOpen)
+                {
+                    logger.LogWarning("Cannot delete orphaned lock queue '{QueueName}' - no active connection", queueName);
+                    return false;
+                }
+
+                // Use a short timeout to prevent indefinite hangs if the broker is unhealthy
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var ct = timeoutCts.Token;
+
+                await using var channel = await currentConnection.CreateChannelAsync(cancellationToken: ct);
+                await channel.QueuePurgeAsync(queueName, ct);
+                await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false, cancellationToken: ct);
+                await channel.CloseAsync(ct);
+                logger.LogInformation("Deleted orphaned lock queue '{QueueName}' for resource '{ResourceKey}' via fallback channel", queueName, resourceKey);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogWarning("Timeout (10s) deleting orphaned lock queue '{QueueName}' for resource '{ResourceKey}' via fallback channel", queueName, resourceKey);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to delete orphaned lock queue '{QueueName}' for resource '{ResourceKey}' via fallback channel", queueName, resourceKey);
+                return false;
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (disposed)
@@ -607,17 +681,19 @@ namespace Dorc.Monitor.HighAvailability
         private readonly string queueName;
         private readonly string resourceKey;
         private readonly string consumerTag;
+        private readonly RabbitMqDistributedLockService lockService;
         private int disposedFlag = 0;  // Use int for Interlocked operations
 
         public string ResourceKey => resourceKey;
 
-        public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey, string consumerTag)
+        public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey, string consumerTag, RabbitMqDistributedLockService lockService)
         {
             this.logger = logger;
             this.channel = channel;
             this.queueName = queueName;
             this.resourceKey = resourceKey;
             this.consumerTag = consumerTag;
+            this.lockService = lockService;
         }
 
         public async ValueTask DisposeAsync()
@@ -625,6 +701,8 @@ namespace Dorc.Monitor.HighAvailability
             // Thread-safe disposal check and set using Interlocked
             if (Interlocked.Exchange(ref disposedFlag, 1) == 1)
                 return;
+
+            bool queueDeleted = false;
 
             try
             {
@@ -654,6 +732,7 @@ namespace Dorc.Monitor.HighAvailability
                 // This prevents accumulation of unused lock queues
                 await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false);
                 logger.LogInformation("Deleted lock queue '{QueueName}' for resource '{ResourceKey}' after deployment completed", queueName, resourceKey);
+                queueDeleted = true;
             }
             catch (Exception ex)
             {
@@ -670,6 +749,16 @@ namespace Dorc.Monitor.HighAvailability
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Error closing channel for lock '{ResourceKey}'", resourceKey);
+            }
+
+            // Fallback: if queue deletion failed (e.g. because the connection was refreshed
+            // concurrently and our channel is dead), try to delete the queue using a fresh
+            // channel from the lock service's current connection. Without this, the orphaned
+            // queue retains the lock message and permanently blocks the environment.
+            if (!queueDeleted)
+            {
+                logger.LogWarning("Lock queue '{QueueName}' for resource '{ResourceKey}' was not deleted via original channel - attempting fallback cleanup", queueName, resourceKey);
+                await lockService.TryDeleteQueueAsync(queueName, resourceKey);
             }
         }
 

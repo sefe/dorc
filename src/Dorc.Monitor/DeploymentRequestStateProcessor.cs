@@ -6,7 +6,6 @@ using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
-using Microsoft.Graph.Models.Security;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
@@ -19,7 +18,6 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
         private readonly IDistributedLockService distributedLockService;
-        private readonly IMonitorConfiguration monitorConfiguration;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -40,8 +38,7 @@ namespace Dorc.Monitor
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
             IDeploymentEventsPublisher eventPublisher,
-            IDistributedLockService distributedLockService,
-            IMonitorConfiguration monitorConfiguration)
+            IDistributedLockService distributedLockService)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
@@ -49,7 +46,6 @@ namespace Dorc.Monitor
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
             this.distributedLockService = distributedLockService;
-            this.monitorConfiguration = monitorConfiguration;
         }
 
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
@@ -95,6 +91,59 @@ namespace Dorc.Monitor
                     DeploymentResultStatus.Pending,
                     DeploymentResultStatus.Cancelled,
                     monitorCancellationToken);
+            }
+        }
+
+        public void CancelStaleRequests(bool isProduction)
+        {
+            var staleStatuses = new[] { DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting };
+
+            foreach (var status in staleStatuses)
+            {
+                var staleRequests = this.requestsPersistentSource
+                    .GetRequestsWithStatus(status, isProduction)
+                    .ToList();
+
+                if (staleRequests.Count == 0)
+                    continue;
+
+                var ids = staleRequests.Select(r => r.Id).ToArray();
+                var idsString = string.Join(',', ids);
+
+                this.logger.LogWarning(
+                    "Found {Count} stale requests in '{Status}' state from a previous instance. Cancelling IDs [{Ids}]",
+                    staleRequests.Count, status, idsString);
+
+                int updatedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    staleRequests,
+                    status,
+                    DeploymentRequestStatus.Cancelled,
+                    DateTimeOffset.Now);
+
+                if (updatedCount > 0)
+                {
+                    // Also cancel any pending deployment results for these requests
+                    this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
+                        staleRequests,
+                        DeploymentResultStatus.Pending,
+                        DeploymentResultStatus.Cancelled);
+
+                    foreach (var id in ids)
+                    {
+                        TerminateRunnerProcesses(id);
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: DeploymentRequestStatus.Cancelled.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+
+                    this.logger.LogWarning(
+                        "Cancelled {UpdatedCount} stale requests. IDs [{Ids}]",
+                        updatedCount, idsString);
+                }
             }
         }
 
@@ -332,6 +381,12 @@ namespace Dorc.Monitor
                     continue;
                 }
 
+                // IMPORTANT: Register the environment as running BEFORE Task.Run to prevent a race condition.
+                // If TryAdd is after Task.Run, a fast-completing task (e.g. lock acquisition fails immediately)
+                // can execute TryRemove in its finally block BEFORE TryAdd runs, leaving a phantom entry
+                // that permanently blocks this environment from being processed.
+                environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
+
                 // Try to acquire distributed lock for this environment BEFORE creating the task
                 // This ensures only one monitor instance processes this environment at a time
                 // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
@@ -404,7 +459,6 @@ namespace Dorc.Monitor
                         }
                     }
                 }, monitorCancellationToken);
-                environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
                 task.ConfigureAwait(false);
                 requestGroupExecutionTasks.Add(task);
             }

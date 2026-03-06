@@ -47,6 +47,19 @@ namespace Dorc.Monitor
                 throw new NullReferenceException("DeploymentEngine was not issued and equals null");
             }
 
+            // Cancel any requests left in Running/Requesting state from a previous crashed instance.
+            // Without this, environments with stale Running requests are blocked until the 24-hour
+            // AbandonRequests timeout kicks in.
+            try
+            {
+                var stateProcessor = serviceProvider.GetService(typeof(IDeploymentRequestStateProcessor)) as IDeploymentRequestStateProcessor;
+                stateProcessor?.CancelStaleRequests(isProduction);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to cancel stale requests from previous instance. Continuing startup.");
+            }
+
             while (!monitorCancellationToken.IsCancellationRequested)
             {
                 try
