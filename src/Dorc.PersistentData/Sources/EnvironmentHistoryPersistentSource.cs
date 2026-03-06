@@ -93,6 +93,23 @@ namespace Dorc.PersistentData.Sources
             envDetails.LastUpdate = newHistory.UpdateDate;
         }
 
+        internal static void AddHistoryAction(Environment environment, string oldValue, string newValue, string updatedBy, string updateType, string summary,
+             IDeploymentContext context)
+        {
+            var newHistory = new EnvironmentHistory
+            {
+                Environment = environment,
+                UpdateDate = DateTime.Now,
+                UpdateType = updateType,
+                UpdatedBy = updatedBy,
+                FromValue = oldValue,
+                ToValue = newValue,
+                Details = summary
+            };
+            context.EnvironmentHistories.Add(newHistory);
+            environment.LastUpdate = newHistory.UpdateDate;
+        }
+
         internal static void AddDeletionHistory(string newVersion, string updatedBy, string updateType,
             IDeploymentContext context)
         {
