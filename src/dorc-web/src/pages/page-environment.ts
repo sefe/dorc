@@ -21,7 +21,6 @@ export enum EnvPageTabNames {
   Deployments = 'deployments',
   Tenants = 'tenants',
   Users = 'users',
-  DelegatedUsers = 'delegated-users'
 }
 
 @customElement('page-environment')
@@ -158,8 +157,7 @@ export class PageEnvironment extends PageElement {
   convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
     if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
       if (
-        tabName === EnvPageTabNames.Users ||
-        tabName === EnvPageTabNames.DelegatedUsers
+        tabName === EnvPageTabNames.Users
       )
         return html``;
     }
