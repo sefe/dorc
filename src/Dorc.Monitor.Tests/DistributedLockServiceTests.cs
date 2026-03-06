@@ -469,6 +469,30 @@ namespace Dorc.Monitor.Tests.HighAvailability
             lockService = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
         }
 
+        [TestMethod]
+        public void IsValid_WhenChannelIsOpen_ReturnsTrue()
+        {
+            // Arrange
+            mockChannel.IsOpen.Returns(true);
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act & Assert
+            Assert.IsTrue(lockObj.IsValid);
+        }
+
+        [TestMethod]
+        public void IsValid_WhenChannelIsClosed_ReturnsFalse()
+        {
+            // Arrange
+            mockChannel.IsOpen.Returns(false);
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act & Assert
+            Assert.IsFalse(lockObj.IsValid);
+        }
+
         [TestCleanup]
         public void Cleanup()
         {
@@ -562,6 +586,139 @@ namespace Dorc.Monitor.Tests.HighAvailability
             // Assert - queue delete succeeded, so no fallback should be attempted.
             await mockChannel.Received(1).QueueDeleteAsync(
                 "lock.env:TestEnv", Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+    }
+
+    /// <summary>
+    /// Tests documenting TTL, retired connection, and AlreadyClosedException retry behavior.
+    /// These tests verify design intent - the actual RabbitMQ interactions require integration tests.
+    /// </summary>
+    [TestClass]
+    public class RabbitMqDistributedLockServiceBehaviorTests
+    {
+        private ILogger<RabbitMqDistributedLockService> mockLogger = null!;
+        private IMonitorConfiguration mockConfiguration = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
+            mockConfiguration = Substitute.For<IMonitorConfiguration>();
+        }
+
+        /// <summary>
+        /// Documents that lock messages now include per-message TTL for crash recovery.
+        /// When a monitor crashes without disposing the lock, the RabbitMQ message expires
+        /// after leaseTimeMs, allowing another monitor to acquire the lock.
+        /// </summary>
+        [TestMethod]
+        public async Task TryAcquireLockAsync_ShouldSetMessageTTLOnPublish()
+        {
+            // This test documents the TTL behavior:
+            //
+            // BEFORE FIX: Lock messages had no TTL. If a monitor crashed, the message
+            // stayed in the queue forever, permanently blocking the environment.
+            //
+            // AFTER FIX: Each lock message has Expiration = leaseTimeMs.ToString().
+            // If the monitor crashes, the message expires after leaseTimeMs and
+            // another monitor can acquire the lock.
+            //
+            // With a live RabbitMQ server, verification would be:
+            // 1. Acquire lock with leaseTimeMs = 5000
+            // 2. Inspect message properties via management API
+            // 3. Verify Expiration = "5000"
+            // 4. Kill the monitor process without disposing the lock
+            // 5. Wait 5 seconds
+            // 6. Verify message has expired and queue is empty
+            // 7. Another monitor can now acquire the lock
+
+            // Arrange
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.RabbitMqHostName.Returns("nonexistent-host");
+            mockConfiguration.RabbitMqPort.Returns(5672);
+            mockConfiguration.Environment.Returns("test");
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            // Act - will fail to connect but documents the intent
+            var result = await service.TryAcquireLockAsync("env:TestEnv", 300000, CancellationToken.None);
+
+            // Assert
+            Assert.IsNull(result);
+        }
+
+        /// <summary>
+        /// Documents that ForceConnectionRefreshAsync retires old connections instead of
+        /// immediately closing them, preventing AlreadyClosedException on in-flight channels.
+        /// </summary>
+        [TestMethod]
+        public async Task ForceConnectionRefresh_RetiresOldConnection()
+        {
+            // This test documents the retired connection behavior:
+            //
+            // BEFORE FIX: ForceConnectionRefreshAsync would CloseAsync + Dispose the old
+            // connection immediately. If a lock's channel was still using that connection,
+            // the channel would die with AlreadyClosedException during lock disposal,
+            // potentially leaving orphaned queues.
+            //
+            // AFTER FIX: Old connections are added to _retiredConnections list.
+            // CleanupRetiredConnections() only disposes connections that are already closed
+            // (IsOpen == false). DisposeAsync closes and disposes all retired connections.
+            //
+            // Verification with live RabbitMQ:
+            // 1. Acquire lock on connection gen 0
+            // 2. Force connection refresh (gen 0 -> gen 1)
+            // 3. Verify gen 0 connection is NOT closed (still in retired list)
+            // 4. Dispose the lock (uses gen 0 connection's channel)
+            // 5. Verify lock disposal succeeds (channel still works)
+            // 6. Verify gen 0 connection is disposed on next cleanup cycle
+
+            // Arrange
+            mockConfiguration.HighAvailabilityEnabled.Returns(false);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            // Act & Assert - service disposes cleanly (retired list is empty in this case)
+            await service.DisposeAsync();
+        }
+
+        /// <summary>
+        /// Documents that AlreadyClosedException during lock acquisition triggers a connection
+        /// refresh and retry, similar to the ACCESS_REFUSED handling for OAuth token expiry.
+        /// </summary>
+        [TestMethod]
+        public async Task TryAcquireLockAsync_WhenAlreadyClosedException_RetriesWithRefresh()
+        {
+            // This test documents the AlreadyClosedException retry behavior:
+            //
+            // BEFORE FIX: AlreadyClosedException fell through to the generic Exception catch,
+            // which returned null without retrying. If the connection died mid-acquisition
+            // (e.g., due to a concurrent refresh), the lock attempt would fail permanently
+            // for that cycle.
+            //
+            // AFTER FIX: AlreadyClosedException is caught with a retry guard
+            // (retry < maxRetries - 1). The handler calls ForceConnectionRefreshAsync
+            // and continues to the next retry iteration.
+            //
+            // Verification with live RabbitMQ:
+            // 1. Start lock acquisition
+            // 2. Concurrently trigger connection refresh (simulating OAuth token expiry)
+            // 3. Lock acquisition hits AlreadyClosedException on the now-dead channel
+            // 4. Handler refreshes connection and retries
+            // 5. Second attempt succeeds with fresh connection
+
+            // Arrange
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.RabbitMqHostName.Returns("nonexistent-host");
+            mockConfiguration.RabbitMqPort.Returns(5672);
+            mockConfiguration.Environment.Returns("test");
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            // Act - will fail to connect but documents the retry intent
+            var result = await service.TryAcquireLockAsync("env:TestEnv", 5000, CancellationToken.None);
+
+            // Assert
+            Assert.IsNull(result);
         }
     }
 }

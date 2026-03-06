@@ -5,6 +5,7 @@ using Dorc.Monitor.HighAvailability;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor.Tests
@@ -130,7 +131,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void RestartRequests_SwitchStatusReturnsAll_ClearsResultsAndPublishes()
+        public async Task RestartRequests_SwitchStatusReturnsAll_ClearsResultsAndPublishes()
         {
             // Arrange: we win the optimistic concurrency race for all requests
             var requests = CreateRequests(1, 2);
@@ -149,6 +150,9 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
+            // Allow fire-and-forget event publish tasks to complete
+            await Task.Delay(200);
+
             // Assert
             // SwitchStatus called FIRST
             mockRequestsPersistentSource.Received(1)
@@ -165,7 +169,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void RestartRequests_SwitchStatusReturnsPartial_ClearsResultsAndPublishesAndLogsPartial()
+        public async Task RestartRequests_SwitchStatusReturnsPartial_ClearsResultsAndPublishesAndLogsPartial()
         {
             // Arrange: we won for 1 of 2 requests
             var requests = CreateRequests(1, 2);
@@ -183,6 +187,9 @@ namespace Dorc.Monitor.Tests
 
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
+
+            // Allow fire-and-forget event publish tasks to complete
+            await Task.Delay(200);
 
             // Assert - ClearAllDeploymentResults still called (partial success)
             mockRequestsPersistentSource.Received(1)
@@ -596,7 +603,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void CancelStaleRequests_WhenHADisabled_PerformsCleanup()
+        public async Task CancelStaleRequests_WhenHADisabled_PerformsCleanup()
         {
             // Arrange - HA is disabled (single node), so stale cleanup is safe
             mockDistributedLockService.IsEnabled.Returns(false);
@@ -621,6 +628,9 @@ namespace Dorc.Monitor.Tests
 
             // Act
             sut.CancelStaleRequests(false);
+
+            // Allow fire-and-forget event publish tasks to complete
+            await Task.Delay(200);
 
             // Assert - stale requests should be cancelled
             mockRequestsPersistentSource.Received(1)
@@ -657,7 +667,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void CancelStaleRequests_WithRunningRequests_CancelsThemAndPublishesEvents()
+        public async Task CancelStaleRequests_WithRunningRequests_CancelsThemAndPublishesEvents()
         {
             // Arrange
             var staleRunning = new List<DeploymentRequestApiModel>
@@ -683,6 +693,9 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelStaleRequests(false);
 
+            // Allow fire-and-forget event publish tasks to complete
+            await Task.Delay(200);
+
             // Assert - status switched to Cancelled
             mockRequestsPersistentSource.Received(1)
                 .SwitchDeploymentRequestStatuses(
@@ -704,7 +717,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void CancelStaleRequests_WithRequestingRequests_CancelsThem()
+        public async Task CancelStaleRequests_WithRequestingRequests_CancelsThem()
         {
             // Arrange
             mockRequestsPersistentSource
@@ -729,6 +742,9 @@ namespace Dorc.Monitor.Tests
 
             // Act
             sut.CancelStaleRequests(false);
+
+            // Allow fire-and-forget event publish tasks to complete
+            await Task.Delay(200);
 
             // Assert
             mockRequestsPersistentSource.Received(1)
@@ -811,7 +827,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void AbandonRequests_WithOldRequests_AbandonsThemAndPublishesEvents()
+        public async Task AbandonRequests_WithOldRequests_AbandonsThemAndPublishesEvents()
         {
             // Arrange - return request older than 1 day
             var oldRequests = new List<DeploymentRequestApiModel>
@@ -835,6 +851,9 @@ namespace Dorc.Monitor.Tests
 
             // Act
             sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
+
+            // Allow fire-and-forget event publish tasks to complete
+            await Task.Delay(200);
 
             // Assert - switched to Abandoned
             mockRequestsPersistentSource.Received(1)
@@ -1113,6 +1132,108 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<DeploymentRequestStatus>(),
                     Arg.Any<DeploymentRequestStatus>(),
                     Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // Lock health check (IsValid) after execution
+        // =====================================================================
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenLockLostDuringExecution_LogsWarning()
+        {
+            // Arrange - lock acquired but channel dies during execution
+            var requests = CreatePendingRequests("EnvLockLost", 200);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvLockLost");
+            // Lock is initially valid but becomes invalid during execution
+            mockLock.IsValid.Returns(false);
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            // Request is still Pending when re-validated after lock acquisition
+            mockRequestsPersistentSource.GetRequest(200)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 200,
+                    Status = DeploymentRequestStatus.Pending.ToString()
+                });
+
+            // UpdateNonProcessedRequest succeeds (simulates execution starting)
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - warning should be logged about lost lock
+            mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString()!.Contains("was lost during execution")),
+                Arg.Any<Exception?>(),
+                Arg.Any<Func<object, Exception?, string>>());
+
+            // Assert - lock should still be disposed
+            await mockLock.Received(1).DisposeAsync();
+        }
+
+        // =====================================================================
+        // PublishRequestStatusChangedSafe error handling
+        // =====================================================================
+
+        [TestMethod]
+        public async Task PublishRequestStatusChangedSafe_WhenPublishFails_LogsWarning()
+        {
+            // Arrange - make the event publisher throw
+            mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
+                .ThrowsAsync(new InvalidOperationException("SignalR hub is down"));
+
+            var requests = CreateRequests(300);
+            requests[0].Status = DeploymentRequestStatus.Restarting.ToString();
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Restarting, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Restarting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - should not throw despite publish failure
+            sut.RestartRequests(false, cancellationSources, CancellationToken.None);
+
+            // Give the fire-and-forget task time to complete
+            await Task.Delay(500);
+
+            // Assert - warning should be logged about failed publish
+            mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString()!.Contains("Failed to publish status event")),
+                Arg.Any<Exception?>(),
+                Arg.Any<Func<object, Exception?, string>>());
         }
     }
 }

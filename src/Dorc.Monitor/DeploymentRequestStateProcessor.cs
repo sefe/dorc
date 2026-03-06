@@ -48,6 +48,30 @@ namespace Dorc.Monitor
             this.distributedLockService = distributedLockService;
         }
 
+        /// <summary>
+        /// Publishes a request status changed event in a fire-and-forget manner with error handling.
+        /// Logs a warning if the publish fails instead of letting the exception go unobserved.
+        /// </summary>
+        private void PublishRequestStatusChangedSafe(DeploymentRequestEventData eventData)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await this.eventPublisher.PublishRequestStatusChangedAsync(eventData);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogWarning(ex, "Failed to publish status event for request {RequestId}", eventData.RequestId);
+                }
+            });
+        }
+
+        // NOTE: AbandonRequests handles truly stale requests (>24 hours in Running state).
+        // In a dual-node HA scenario where BOTH monitors crash simultaneously, requests
+        // will remain in Running state until this 24-hour threshold is reached. This is a
+        // known limitation - accepted as a reasonable trade-off vs. the risk of incorrectly
+        // cancelling another node's in-flight deployments.
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             var requestsToAbandon = this.requestsPersistentSource
@@ -144,7 +168,7 @@ namespace Dorc.Monitor
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                             RequestId: id,
                             Status: DeploymentRequestStatus.Cancelled.ToString(),
                             StartedTime: null,
@@ -186,7 +210,7 @@ namespace Dorc.Monitor
 
                 if (requests.Any(r => r.IsProd))
                 {
-                    this.logger.LogError($"Cannot {methodName} the request with id '{requests.First(r => r.IsProd).Id}' because request is running on PR environment");
+                    this.logger.LogError($"Cannot {methodName} the request with id '{requests.First(r => r.IsProd).Id}' because request is running on production environment");
                     return 0;
                 }
 
@@ -208,8 +232,7 @@ namespace Dorc.Monitor
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
-                        // publish request status change
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                             RequestId: id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
@@ -225,7 +248,7 @@ namespace Dorc.Monitor
                     foreach (var id in ids)
                     {
                         TerminateRunnerProcesses(id);
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                             RequestId: id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
@@ -316,7 +339,7 @@ namespace Dorc.Monitor
                 {
                     TerminateRequestExecution(id, requestCancellationSources);
                     TerminateRunnerProcesses(id);
-                    _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                         RequestId: id,
                         Status: DeploymentRequestStatus.Pending.ToString(),
                         StartedTime: null,
@@ -422,7 +445,7 @@ namespace Dorc.Monitor
 
                             if (envLock == null)
                             {
-                                this.logger.LogDebug($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
+                                this.logger.LogWarning($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
                                 environmentLockBackoff[requestGroup.Key] = DateTime.UtcNow.Add(LockBackoffDuration);
                                 return; // Skip this environment - another monitor is processing it
                             }
@@ -445,11 +468,22 @@ namespace Dorc.Monitor
                         }
 
                         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
+                        // AddOrUpdate is safe here: the semaphore-like environmentRequestIdRunning guard
+                        // ensures only one task per environment is active, so no contention on this key.
                         requestCancellationSources!.AddOrUpdate(
                             requestToExecute.Request.Id,
                             requestCancellationTokenSource,
                             (requestId, existingCancellationTokenSource) => requestCancellationTokenSource);
                         this.ExecuteRequest(requestToExecute, requestCancellationTokenSource.Token);
+
+                        // Check lock health after execution completes
+                        if (envLock != null && !envLock.IsValid)
+                        {
+                            this.logger.LogWarning(
+                                "Distributed lock for environment '{Environment}' was lost during execution of request {RequestId} (channel closed). " +
+                                "The deployment completed but another monitor may have started a concurrent deployment.",
+                                requestGroup.Key, requestToExecute.Request.Id);
+                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -507,7 +541,7 @@ namespace Dorc.Monitor
                 return;
             }
 
-            _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+            PublishRequestStatusChangedSafe(new DeploymentRequestEventData(requestToExecute.Request)
             {
                 Status = DeploymentRequestStatus.Requesting.ToString(),
             });

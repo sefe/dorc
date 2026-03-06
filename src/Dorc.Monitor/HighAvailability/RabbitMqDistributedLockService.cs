@@ -22,9 +22,15 @@ namespace Dorc.Monitor.HighAvailability
         private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
         private HttpClientHandler? httpClientHandler;
         private OAuth2ClientCredentialsProvider? credentialsProvider;
-        private bool disposed = false;
+        private volatile bool disposed = false;
         private Timer? tokenRefreshTimer;
+        private readonly List<(IConnection Connection, DateTime RetiredAt)> _retiredConnections = new();
+        private static readonly TimeSpan RetiredConnectionGracePeriod = TimeSpan.FromMinutes(2);
         private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
+        // tokenExpiryTimeUtc is read outside the semaphore in IsTokenExpiringSoon() but only
+        // written under connectionSemaphore. Stale reads are harmless: a slightly stale value
+        // may cause an unnecessary proactive refresh (safe) or delay refresh by one cycle (also safe,
+        // since the background timer will catch it).
         private DateTime? tokenExpiryTimeUtc; // Tracks when the current OAuth token expires
         private static readonly TimeSpan TokenRefreshThreshold = TimeSpan.FromMinutes(5); // Refresh token 5 minutes before expiry
 
@@ -106,14 +112,18 @@ namespace Dorc.Monitor.HighAvailability
                 try
                 {
                     await EnsureConnectionAsync(cancellationToken);
-                    
-                    if (connection == null || !connection.IsOpen)
+
+                    // Capture a local reference to the connection. Another thread may call
+                    // ForceConnectionRefreshAsync between our null-check and CreateChannelAsync,
+                    // setting the field to null. A local reference avoids that race.
+                    var conn = connection;
+                    if (conn == null || !conn.IsOpen)
                     {
                         logger.LogWarning("RabbitMQ connection is not available for lock acquisition on '{ResourceKey}'", resourceKey);
                         return null;
                     }
 
-                    var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+                    var channel = await conn.CreateChannelAsync(cancellationToken: cancellationToken);
                     
                     // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
                     // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
@@ -189,12 +199,19 @@ namespace Dorc.Monitor.HighAvailability
                             return null;
                         }
 
-                        // Publish a lock message that the consumer will hold
-                        // Consumer is already set up, so it will receive this message
+                        // Publish a lock message that the consumer will hold.
+                        // Per-message TTL ensures crash recovery: if the monitor dies without
+                        // disposing the lock, the message expires and another monitor can acquire it.
                         var lockMessage = System.Text.Encoding.UTF8.GetBytes($"lock:{resourceKey}:{DateTime.UtcNow:O}");
+                        var properties = new BasicProperties
+                        {
+                            Expiration = leaseTimeMs.ToString()
+                        };
                         await channel.BasicPublishAsync(
                             exchange: exchangeName,
                             routingKey: queueName,
+                            mandatory: false,
+                            basicProperties: properties,
                             body: lockMessage,
                             cancellationToken: cancellationToken);
 
@@ -224,17 +241,24 @@ namespace Dorc.Monitor.HighAvailability
                     catch (OperationInterruptedException opEx) when (opEx.Message.Contains("ACCESS_REFUSED") && retry < maxRetries - 1)
                     {
                         // OAuth token likely expired - close channel and force connection refresh
-                        logger.LogWarning(opEx, "ACCESS_REFUSED error on lock acquisition for '{ResourceKey}' - OAuth token may have expired. Refreshing connection and retrying (attempt {Retry}/{MaxRetries})", 
+                        logger.LogWarning(opEx, "ACCESS_REFUSED error on lock acquisition for '{ResourceKey}' - OAuth token may have expired. Refreshing connection and retrying (attempt {Retry}/{MaxRetries})",
                             resourceKey, retry + 1, maxRetries);
-                        
+
                         await channel.CloseAsync(cancellationToken: cancellationToken);
                         await channel.DisposeAsync();
-                        
+
                         // Force connection recreation to get fresh OAuth token
                         // Pass the generation we captured before the attempt to prevent redundant refreshes
                         await ForceConnectionRefreshAsync(currentGeneration, cancellationToken);
-                        
+
                         // Continue to next retry iteration
+                        continue;
+                    }
+                    catch (AlreadyClosedException acEx) when (retry < maxRetries - 1)
+                    {
+                        logger.LogWarning(acEx, "Connection closed during lock acquisition for '{ResourceKey}' - refreshing and retrying (attempt {Retry}/{MaxRetries})",
+                            resourceKey, retry + 1, maxRetries);
+                        await ForceConnectionRefreshAsync(currentGeneration, cancellationToken);
                         continue;
                     }
                     catch (Exception ex)
@@ -270,39 +294,18 @@ namespace Dorc.Monitor.HighAvailability
                     return;
                 }
                 
-                // Close and dispose existing connection if any.
-                // IMPORTANT: CloseAsync and Dispose must be in separate try blocks.
-                // If CloseAsync throws (e.g. TaskCanceledException during token refresh),
-                // Dispose must still be called to release the underlying TCP socket and
-                // deregister consumers. A leaked connection keeps old consumers alive on
-                // RabbitMQ, permanently blocking single-active-consumer lock queues.
+                // Retire (don't close) the existing connection. In-flight lock channels may still
+                // reference it; closing it immediately would kill those channels and cause
+                // AlreadyClosedException in their cleanup path. Instead, we add it to a
+                // retired list and only dispose connections that are already closed.
                 if (connection != null)
                 {
-                    var connToDispose = connection;
+                    _retiredConnections.Add((connection, DateTime.UtcNow));
                     connection = null;
-
-                    try
-                    {
-                        // Use CancellationToken.None for cleanup: the caller's token may
-                        // already be cancelled (e.g. during shutdown), but we must still
-                        // close the connection to release TCP sockets and deregister consumers.
-                        await connToDispose.CloseAsync(CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Error closing connection during forced refresh");
-                    }
-
-                    try
-                    {
-                        connToDispose.Dispose();
-                        logger.LogDebug("Disposed existing RabbitMQ connection for refresh");
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Error disposing connection during forced refresh");
-                    }
+                    logger.LogDebug("Retired existing RabbitMQ connection for refresh");
                 }
+
+                CleanupRetiredConnections();
 
                 // Clear cached credentials and token expiry to force new token acquisition
                 credentialsProvider = null;
@@ -320,6 +323,39 @@ namespace Dorc.Monitor.HighAvailability
             
             // Recreate connection with new credentials
             await EnsureConnectionAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Disposes retired connections that are already closed or older than the grace period.
+        /// Must be called under connectionSemaphore.
+        /// Connections are given a grace period to allow in-flight lock channels to complete
+        /// their cleanup before the connection is forcibly closed.
+        /// </summary>
+        private void CleanupRetiredConnections()
+        {
+            for (int i = _retiredConnections.Count - 1; i >= 0; i--)
+            {
+                var (conn, retiredAt) = _retiredConnections[i];
+                var shouldDispose = !conn.IsOpen || (DateTime.UtcNow - retiredAt) > RetiredConnectionGracePeriod;
+                if (shouldDispose)
+                {
+                    try
+                    {
+                        if (conn.IsOpen)
+                        {
+                            logger.LogDebug("Force-closing retired RabbitMQ connection after grace period");
+                            // CloseAsync would require async context; use sync Dispose which closes + disposes
+                        }
+                        conn.Dispose();
+                        logger.LogDebug("Disposed retired RabbitMQ connection");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Error disposing retired RabbitMQ connection");
+                    }
+                    _retiredConnections.RemoveAt(i);
+                }
+            }
         }
 
         private async Task EnsureConnectionAsync(CancellationToken cancellationToken)
@@ -462,12 +498,22 @@ namespace Dorc.Monitor.HighAvailability
                 // Accept self-signed or mismatched certificates if server name is specified
                 if (!string.IsNullOrWhiteSpace(configuration.RabbitMqSslServerName))
                 {
+                    // SECURITY NOTE: This callback accepts certificates with validation errors.
+                    // This is intentional for environments using self-signed or internal CA certificates.
+                    // In production, ensure RabbitMqSslServerName is correctly configured to limit exposure.
                     handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
                     {
                         if (errors == System.Net.Security.SslPolicyErrors.None)
                             return true;
 
-                        logger.LogWarning("SSL certificate validation error for OAuth token endpoint: {Errors}. Accepting certificate due to configuration.", errors);
+                        logger.LogWarning(
+                            "SSL certificate validation error for OAuth token endpoint: {Errors}. " +
+                            "Subject={Subject}, Issuer={Issuer}, Thumbprint={Thumbprint}. " +
+                            "Accepting certificate due to configuration.",
+                            errors,
+                            cert?.Subject ?? "N/A",
+                            cert?.Issuer ?? "N/A",
+                            cert?.GetCertHashString() ?? "N/A");
                         return true; // Accept self-signed or mismatched certificates as configured
                     };
                 }
@@ -666,6 +712,30 @@ namespace Dorc.Monitor.HighAvailability
                 }
             }
 
+            // Close and dispose all retired connections
+            foreach (var (conn, _) in _retiredConnections)
+            {
+                try
+                {
+                    if (conn.IsOpen)
+                        await conn.CloseAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error closing retired connection during disposal");
+                }
+
+                try
+                {
+                    conn.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error disposing retired connection during disposal");
+                }
+            }
+            _retiredConnections.Clear();
+
             try
             {
                 httpClientHandler?.Dispose();
@@ -678,9 +748,13 @@ namespace Dorc.Monitor.HighAvailability
             connectionSemaphore.Dispose();
         }
 
+        /// <remarks>
+        /// WARNING: Sync-over-async. This blocks the calling thread while DisposeAsync runs.
+        /// Prefer DisposeAsync where possible. This exists only for IDisposable compatibility
+        /// (e.g., DI container disposal when IAsyncDisposable is not supported).
+        /// </remarks>
         public void Dispose()
         {
-            // Call async dispose synchronously for IDisposable compatibility
             DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
@@ -699,6 +773,8 @@ namespace Dorc.Monitor.HighAvailability
         private int disposedFlag = 0;  // Use int for Interlocked operations
 
         public string ResourceKey => resourceKey;
+
+        public bool IsValid => channel.IsOpen;
 
         public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey, string consumerTag, RabbitMqDistributedLockService lockService)
         {
@@ -776,6 +852,10 @@ namespace Dorc.Monitor.HighAvailability
             }
         }
 
+        /// <remarks>
+        /// WARNING: Sync-over-async. Blocks the calling thread while DisposeAsync runs.
+        /// Prefer DisposeAsync where possible.
+        /// </remarks>
         public void Dispose()
         {
             DisposeAsync().GetAwaiter().GetResult();

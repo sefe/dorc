@@ -11,10 +11,11 @@ namespace Dorc.Monitor.HighAvailability
         /// </summary>
         /// <param name="resourceKey">Unique identifier for the resource to lock (e.g., "request:123" or "env:Production")</param>
         /// <param name="leaseTimeMs">
-        /// Reserved for future use. In the current RabbitMQ implementation, the lock is held until
-        /// the returned <see cref="IDistributedLock"/> is disposed, regardless of this value.
-        /// The parameter is retained for potential future implementations that may support
-        /// auto-expiring locks (e.g., Redis-based distributed locks with TTL).
+        /// Used as the per-message TTL (in milliseconds) on the RabbitMQ lock message.
+        /// If the monitor crashes without disposing the lock, the message expires after this
+        /// duration, allowing another monitor to acquire the lock for crash recovery.
+        /// The lock is still held until the returned <see cref="IDistributedLock"/> is disposed
+        /// under normal operation.
         /// </param>
         /// <param name="cancellationToken">Cancellation token to abort lock acquisition</param>
         /// <returns>A lock handle if successful, null if lock could not be acquired. The lock is held until disposed.</returns>
@@ -35,5 +36,11 @@ namespace Dorc.Monitor.HighAvailability
         /// The resource key this lock is for.
         /// </summary>
         string ResourceKey { get; }
+
+        /// <summary>
+        /// Returns true if the underlying lock connection/channel is still healthy.
+        /// A false value indicates the lock may have been lost (e.g., due to a connection refresh).
+        /// </summary>
+        bool IsValid { get; }
     }
 }
