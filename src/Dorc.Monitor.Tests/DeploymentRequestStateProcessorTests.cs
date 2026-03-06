@@ -567,6 +567,73 @@ namespace Dorc.Monitor.Tests
         // =====================================================================
 
         [TestMethod]
+        public void CancelStaleRequests_WhenHAEnabled_SkipsCleanup()
+        {
+            // Arrange - HA is enabled, so stale cleanup must be skipped to avoid
+            // cancelling the other node's active deployments
+            mockDistributedLockService.IsEnabled.Returns(true);
+
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 45, EnvironmentName = "EnvHA", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Assert - should NOT query for stale requests or cancel anything
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public void CancelStaleRequests_WhenHADisabled_PerformsCleanup()
+        {
+            // Arrange - HA is disabled (single node), so stale cleanup is safe
+            mockDistributedLockService.IsEnabled.Returns(false);
+
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 46, EnvironmentName = "EnvSingle", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Assert - stale requests should be cancelled
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>());
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
         public void CancelStaleRequests_NoStaleRequests_DoesNothing()
         {
             // Arrange

@@ -96,6 +96,19 @@ namespace Dorc.Monitor
 
         public void CancelStaleRequests(bool isProduction)
         {
+            // In HA mode, we cannot distinguish between requests that are genuinely stale
+            // (from a crashed previous instance of THIS node) and requests actively being
+            // processed by the OTHER node. Cancelling everything would destroy the other
+            // node's in-flight deployments. The distributed lock already prevents duplicate
+            // processing, and AbandonRequests handles truly stale requests after 24 hours.
+            if (distributedLockService.IsEnabled)
+            {
+                this.logger.LogInformation(
+                    "High Availability mode is enabled - skipping stale request cleanup on startup. " +
+                    "Distributed locking prevents duplicate processing; AbandonRequests handles truly stale requests.");
+                return;
+            }
+
             var staleStatuses = new[] { DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting };
 
             foreach (var status in staleStatuses)

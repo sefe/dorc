@@ -283,7 +283,10 @@ namespace Dorc.Monitor.HighAvailability
 
                     try
                     {
-                        await connToDispose.CloseAsync(cancellationToken);
+                        // Use CancellationToken.None for cleanup: the caller's token may
+                        // already be cancelled (e.g. during shutdown), but we must still
+                        // close the connection to release TCP sockets and deregister consumers.
+                        await connToDispose.CloseAsync(CancellationToken.None);
                     }
                     catch (Exception ex)
                     {
@@ -641,14 +644,25 @@ namespace Dorc.Monitor.HighAvailability
 
             if (connToDispose != null)
             {
+                // IMPORTANT: CloseAsync and Dispose must be in separate try blocks (same
+                // pattern as ForceConnectionRefreshAsync). If CloseAsync throws, Dispose
+                // must still run to release the underlying TCP socket and deregister consumers.
                 try
                 {
                     await connToDispose.CloseAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error closing RabbitMQ connection during disposal");
+                }
+
+                try
+                {
                     connToDispose.Dispose();
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Error disposing RabbitMQ connection");
+                    logger.LogWarning(ex, "Error disposing RabbitMQ connection during disposal");
                 }
             }
 
