@@ -25,6 +25,7 @@ namespace Dorc.Monitor
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
         private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
+        private const int EnvironmentLockLeaseTimeMs = 300000;
 
         // Test hook: invoked when a fire-and-forget publish task is created.
         // Null in production (zero overhead). Tests assign a callback to collect tasks
@@ -126,19 +127,6 @@ namespace Dorc.Monitor
 
         public void CancelStaleRequests(bool isProduction)
         {
-            // In HA mode, we cannot distinguish between requests that are genuinely stale
-            // (from a crashed previous instance of THIS node) and requests actively being
-            // processed by the OTHER node. Cancelling everything would destroy the other
-            // node's in-flight deployments. The distributed lock already prevents duplicate
-            // processing, and AbandonRequests handles truly stale requests after 24 hours.
-            if (distributedLockService.IsEnabled)
-            {
-                this.logger.LogInformation(
-                    "High Availability mode is enabled - skipping stale request cleanup on startup. " +
-                    "Distributed locking prevents duplicate processing; AbandonRequests handles truly stale requests.");
-                return;
-            }
-
             var staleStatuses = new[] { DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting };
 
             foreach (var status in staleStatuses)
@@ -150,43 +138,103 @@ namespace Dorc.Monitor
                 if (staleRequests.Count == 0)
                     continue;
 
-                var ids = staleRequests.Select(r => r.Id).ToArray();
-                var idsString = string.Join(',', ids);
+                if (distributedLockService.IsEnabled)
+                {
+                    foreach (var environmentGroup in staleRequests.GroupBy(request => request.EnvironmentName ?? string.Empty))
+                    {
+                        var requestsForEnvironment = environmentGroup.ToList();
+                        var environmentName = environmentGroup.Key;
+                        var recoveredIdsString = string.Join(',', requestsForEnvironment.Select(request => request.Id));
+                        IDistributedLock? envLock = null;
+
+                        try
+                        {
+                            envLock = this.distributedLockService
+                                .TryAcquireLockAsync($"env:{environmentName}", EnvironmentLockLeaseTimeMs, CancellationToken.None)
+                                .GetAwaiter()
+                                .GetResult();
+
+                            if (envLock == null)
+                            {
+                                this.logger.LogInformation(
+                                    "Skipping stale request recovery for environment '{Environment}' in status '{Status}' because its distributed lock is still held. IDs [{Ids}]",
+                                    environmentName,
+                                    status,
+                                    recoveredIdsString);
+                                continue;
+                            }
+
+                            this.logger.LogWarning(
+                                "Acquired distributed lock for environment '{Environment}' while recovering stale '{Status}' requests. Cancelling IDs [{Ids}]",
+                                environmentName,
+                                status,
+                                recoveredIdsString);
+
+                            CancelStaleRequests(status, requestsForEnvironment);
+                        }
+                        catch (Exception ex)
+                        {
+                            this.logger.LogWarning(
+                                ex,
+                                "Error recovering stale requests for environment '{Environment}' in status '{Status}'. IDs [{Ids}]",
+                                environmentName,
+                                status,
+                                recoveredIdsString);
+                        }
+                        finally
+                        {
+                            if (envLock != null)
+                            {
+                                envLock.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    CancelStaleRequests(status, staleRequests);
+                }
+            }
+        }
+
+        private void CancelStaleRequests(DeploymentRequestStatus status, List<DeploymentRequestApiModel> staleRequests)
+        {
+            var ids = staleRequests.Select(r => r.Id).ToArray();
+            var idsString = string.Join(',', ids);
+
+            this.logger.LogWarning(
+                "Found {Count} stale requests in '{Status}' state from a previous instance. Cancelling IDs [{Ids}]",
+                staleRequests.Count, status, idsString);
+
+            int updatedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                staleRequests,
+                status,
+                DeploymentRequestStatus.Cancelled,
+                DateTimeOffset.Now);
+
+            if (updatedCount > 0)
+            {
+                // Also cancel any pending deployment results for these requests
+                this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
+                    staleRequests,
+                    DeploymentResultStatus.Pending,
+                    DeploymentResultStatus.Cancelled);
+
+                foreach (var id in ids)
+                {
+                    TerminateRunnerProcesses(id);
+                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                        RequestId: id,
+                        Status: DeploymentRequestStatus.Cancelled.ToString(),
+                        StartedTime: null,
+                        CompletedTime: null,
+                        Timestamp: DateTimeOffset.UtcNow
+                    ));
+                }
 
                 this.logger.LogWarning(
-                    "Found {Count} stale requests in '{Status}' state from a previous instance. Cancelling IDs [{Ids}]",
-                    staleRequests.Count, status, idsString);
-
-                int updatedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    staleRequests,
-                    status,
-                    DeploymentRequestStatus.Cancelled,
-                    DateTimeOffset.Now);
-
-                if (updatedCount > 0)
-                {
-                    // Also cancel any pending deployment results for these requests
-                    this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
-                        staleRequests,
-                        DeploymentResultStatus.Pending,
-                        DeploymentResultStatus.Cancelled);
-
-                    foreach (var id in ids)
-                    {
-                        TerminateRunnerProcesses(id);
-                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
-                            Status: DeploymentRequestStatus.Cancelled.ToString(),
-                            StartedTime: null,
-                            CompletedTime: null,
-                            Timestamp: DateTimeOffset.UtcNow
-                        ));
-                    }
-
-                    this.logger.LogWarning(
-                        "Cancelled {UpdatedCount} stale requests. IDs [{Ids}]",
-                        updatedCount, idsString);
-                }
+                    "Cancelled {UpdatedCount} stale requests. IDs [{Ids}]",
+                    updatedCount, idsString);
             }
         }
 
@@ -317,10 +365,27 @@ namespace Dorc.Monitor
 
                 this.logger.LogInformation($"Going to restart {requestToRestartCount} requests, IDs [{idsString}]");
 
-                monitorCancellationToken.ThrowIfCancellationRequested();
+                var requestsRestartedByThisMonitor = new List<DeploymentRequestApiModel>();
 
-                // Switch status FIRST - optimistic concurrency ensures only one monitor wins
-                var pendingRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(requestsToRestart, DeploymentRequestStatus.Restarting, DeploymentRequestStatus.Pending);
+                foreach (var requestToRestart in requestsToRestart)
+                {
+                    monitorCancellationToken.ThrowIfCancellationRequested();
+
+                    // Switch status per request so we know exactly which restarts this monitor won.
+                    // Bulk restart switching only returned a count, which let a losing monitor still
+                    // clear results / kill processes / publish events for requests another monitor won.
+                    var switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { requestToRestart },
+                        DeploymentRequestStatus.Restarting,
+                        DeploymentRequestStatus.Pending);
+
+                    if (switched > 0)
+                    {
+                        requestsRestartedByThisMonitor.Add(requestToRestart);
+                    }
+                }
+
+                var pendingRequestCount = requestsRestartedByThisMonitor.Count;
 
                 if (pendingRequestCount == 0)
                 {
@@ -328,20 +393,22 @@ namespace Dorc.Monitor
                     return;
                 }
 
-                // Clear deployment results only if we won the status switch
+                var restartedIds = requestsRestartedByThisMonitor.Select(r => r.Id).ToList();
+                var restartedIdsString = string.Join(',', restartedIds);
+
+                // Clear deployment results only for requests we actually restarted.
                 try
                 {
-                    this.logger.LogDebug($"Removing All results for IDs [{idsString}].");
-                    this.requestsPersistentSource.ClearAllDeploymentResults(ids);
-                    this.logger.LogDebug($"Finish removing All results for IDs [{idsString}].");
+                    this.logger.LogDebug($"Removing All results for IDs [{restartedIdsString}].");
+                    this.requestsPersistentSource.ClearAllDeploymentResults(restartedIds);
+                    this.logger.LogDebug($"Finish removing All results for IDs [{restartedIdsString}].");
                 }
                 catch (Exception exception)
                 {
-                    this.logger.LogError($"Removing All Results for IDs [{idsString}] has failed. Exception: {exception}");
+                    this.logger.LogError($"Removing All Results for IDs [{restartedIdsString}] has failed. Exception: {exception}");
                 }
 
-                // Terminate and publish for all IDs (idempotent operations)
-                ids.ForEach(id =>
+                restartedIds.ForEach(id =>
                 {
                     TerminateRequestExecution(id, requestCancellationSources);
                     TerminateRunnerProcesses(id);
@@ -408,14 +475,6 @@ namespace Dorc.Monitor
                 // in order to guarantee that requests are executed sequentially withing distinct environment.
                 var requestToExecute = requestGroup.First();
 
-                int runningRequestId;
-                // if some request is already running for that env, just skip (that should not happen if DB would be quick enough)
-                if (environmentRequestIdRunning.TryGetValue(requestGroup.Key, out runningRequestId))
-                {
-                    this.logger.LogDebug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
-                    continue;
-                }
-
                 // Skip environment if in lock backoff period (failed to acquire lock recently)
                 if (environmentLockBackoff.TryGetValue(requestGroup.Key, out var backoffUntil) && DateTime.UtcNow < backoffUntil)
                 {
@@ -427,7 +486,12 @@ namespace Dorc.Monitor
                 // If TryAdd is after Task.Run, a fast-completing task (e.g. lock acquisition fails immediately)
                 // can execute TryRemove in its finally block BEFORE TryAdd runs, leaving a phantom entry
                 // that permanently blocks this environment from being processed.
-                environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id);
+                if (!environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id))
+                {
+                    environmentRequestIdRunning.TryGetValue(requestGroup.Key, out var runningRequestId);
+                    this.logger.LogDebug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
+                    continue;
+                }
 
                 // Try to acquire distributed lock for this environment BEFORE creating the task
                 // This ensures only one monitor instance processes this environment at a time
@@ -447,7 +511,7 @@ namespace Dorc.Monitor
                             var lockKey = $"env:{requestGroup.Key}";
                             // Lock lease time is longer than typical request duration to handle long deployments
                             // The lock will auto-release if the monitor crashes
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 300000, monitorCancellationToken);
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
 
                             if (envLock == null)
                             {
@@ -515,7 +579,7 @@ namespace Dorc.Monitor
                     finally
                     {
                         this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
-                        environmentRequestIdRunning.TryRemove(requestGroup.Key, out runningRequestId);
+                        environmentRequestIdRunning.TryRemove(requestGroup.Key, out _);
                         
                         // Release the distributed lock
                         if (envLock != null)

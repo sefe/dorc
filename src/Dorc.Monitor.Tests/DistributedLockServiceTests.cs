@@ -524,6 +524,13 @@ namespace Dorc.Monitor.Tests.HighAvailability
             await (Task)method.Invoke(service, new object[] { connection })!;
         }
 
+        private static async Task InvokeIncrementActiveLockCountAsync(RabbitMqDistributedLockService service, IConnection connection, CancellationToken cancellationToken)
+        {
+            var method = typeof(RabbitMqDistributedLockService)
+                .GetMethod("IncrementActiveLockCountAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            await (Task)method.Invoke(service, new object[] { connection, cancellationToken })!;
+        }
+
         [TestMethod]
         public async Task ReleaseConnectionReferenceAsync_WhenLastLockOnRetiredConnection_DisposesEagerly()
         {
@@ -590,6 +597,52 @@ namespace Dorc.Monitor.Tests.HighAvailability
             // Assert - count removed but connection NOT disposed (still the active connection)
             Assert.IsFalse(lockCounts.ContainsKey(mockConnection), "Lock count entry should be removed");
             mockConnection.DidNotReceive().Dispose();
+
+            service.Dispose();
+        }
+
+        [TestMethod]
+        public async Task IncrementAndRelease_ConcurrentOnSameConnection_CountIsConsistent()
+        {
+            // Arrange - verifies that increment and release are serialized via semaphore,
+            // preventing the race where release reads a stale count and removes the entry
+            var mockConnection = Substitute.For<IConnection>();
+            mockConnection.IsOpen.Returns(true);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var lockCounts = GetActiveLockCounts(service);
+
+            // Start with 1 active lock
+            await InvokeIncrementActiveLockCountAsync(service, mockConnection, CancellationToken.None);
+            Assert.AreEqual(1, lockCounts[mockConnection]);
+
+            // Increment and release concurrently - both are now under the semaphore
+            // so they serialize. After increment (count=2) then release (count=1), count should be 1.
+            var incrementTask = InvokeIncrementActiveLockCountAsync(service, mockConnection, CancellationToken.None);
+            var releaseTask = InvokeReleaseConnectionReferenceAsync(service, mockConnection);
+            await Task.WhenAll(incrementTask, releaseTask);
+
+            // Count should be exactly 1 (started at 1, +1 from increment, -1 from release)
+            Assert.IsTrue(lockCounts.ContainsKey(mockConnection), "Lock count entry should still exist");
+            Assert.AreEqual(1, lockCounts[mockConnection], "Count should be 1 after concurrent increment and release");
+
+            service.Dispose();
+        }
+
+        [TestMethod]
+        public async Task IncrementActiveLockCountAsync_IncrementsCorrectly()
+        {
+            // Arrange
+            var mockConnection = Substitute.For<IConnection>();
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var lockCounts = GetActiveLockCounts(service);
+
+            // Act - increment twice
+            await InvokeIncrementActiveLockCountAsync(service, mockConnection, CancellationToken.None);
+            await InvokeIncrementActiveLockCountAsync(service, mockConnection, CancellationToken.None);
+
+            // Assert
+            Assert.AreEqual(2, lockCounts[mockConnection]);
 
             service.Dispose();
         }

@@ -121,7 +121,7 @@ namespace Dorc.Monitor.Tests
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert - SwitchStatus was called (FIRST)
-            mockRequestsPersistentSource.Received(1)
+            mockRequestsPersistentSource.Received(2)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Restarting,
@@ -159,7 +159,7 @@ namespace Dorc.Monitor.Tests
 
             // Assert
             // SwitchStatus called FIRST
-            mockRequestsPersistentSource.Received(1)
+            mockRequestsPersistentSource.Received(2)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Restarting,
@@ -173,7 +173,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public async Task RestartRequests_SwitchStatusReturnsPartial_ClearsResultsAndPublishesAndLogsPartial()
+        public async Task RestartRequests_SwitchStatusReturnsPartial_OnlyAffectsRequestsWonByThisMonitor()
         {
             // Arrange: we won for 1 of 2 requests
             var requests = CreateRequests(1, 2);
@@ -182,10 +182,16 @@ namespace Dorc.Monitor.Tests
                 .Returns(requests);
             mockRequestsPersistentSource
                 .SwitchDeploymentRequestStatuses(
-                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is<IList<DeploymentRequestApiModel>>(items => items.Count == 1 && items[0].Id == 1),
                     DeploymentRequestStatus.Restarting,
                     DeploymentRequestStatus.Pending)
                 .Returns(1);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(items => items.Count == 1 && items[0].Id == 2),
+                    DeploymentRequestStatus.Restarting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(0);
 
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
 
@@ -195,12 +201,13 @@ namespace Dorc.Monitor.Tests
             // Wait for fire-and-forget event publish tasks to complete
             await Task.WhenAll(publishTasks);
 
-            // Assert - ClearAllDeploymentResults still called (partial success)
+            // Assert - only the request we actually restarted is touched
             mockRequestsPersistentSource.Received(1)
-                .ClearAllDeploymentResults(Arg.Is<IList<int>>(ids => ids.Count == 2));
-            // Events published for all IDs (terminate/publish are idempotent)
-            mockEventPublisher.Received(2)
-                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+                .ClearAllDeploymentResults(Arg.Is<IList<int>>(ids => ids.Count == 1 && ids[0] == 1));
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 1));
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 2));
         }
 
         [TestMethod]
@@ -232,7 +239,7 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert - SwitchStatus was called BEFORE ClearResults
+            // Assert - all SwitchStatus calls happened before ClearResults
             Assert.AreEqual(2, callOrder.Count);
             Assert.AreEqual("SwitchStatus", callOrder[0]);
             Assert.AreEqual("ClearResults", callOrder[1]);
@@ -578,11 +585,13 @@ namespace Dorc.Monitor.Tests
         // =====================================================================
 
         [TestMethod]
-        public void CancelStaleRequests_WhenHAEnabled_SkipsCleanup()
+        public void CancelStaleRequests_WhenHAEnabledAndEnvironmentLockIsHeld_SkipsCleanup()
         {
-            // Arrange - HA is enabled, so stale cleanup must be skipped to avoid
-            // cancelling the other node's active deployments
+            // Arrange - HA is enabled, but another monitor still holds the environment lock
             mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync("env:EnvHA", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns((IDistributedLock?)null);
 
             var staleRunning = new List<DeploymentRequestApiModel>
             {
@@ -595,7 +604,9 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelStaleRequests(false);
 
-            // Assert - should NOT query for stale requests or cancel anything
+            // Assert - lock was checked, but cleanup was skipped
+            mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync("env:EnvHA", Arg.Any<int>(), Arg.Any<CancellationToken>());
             mockRequestsPersistentSource.DidNotReceive()
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
@@ -604,6 +615,50 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<DateTimeOffset>());
             mockEventPublisher.DidNotReceive()
                 .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_WhenHAEnabledAndEnvironmentLockIsRecovered_CancelsRequests()
+        {
+            // Arrange - HA is enabled and no other monitor holds the environment lock anymore
+            mockDistributedLockService.IsEnabled.Returns(true);
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockDistributedLockService
+                .TryAcquireLockAsync("env:EnvRecovered", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 145, EnvironmentName = "EnvRecovered", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+            await Task.WhenAll(publishTasks);
+
+            // Assert
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>());
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 145 && e.Status == DeploymentRequestStatus.Cancelled.ToString()));
+            await mockLock.Received(1).DisposeAsync();
         }
 
         [TestMethod]

@@ -238,7 +238,7 @@ namespace Dorc.Monitor.HighAvailability
                         logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
                             resourceKey);
 
-                        IncrementActiveLockCount(conn);
+                        await IncrementActiveLockCountAsync(conn, cancellationToken);
                         return new RabbitMqDistributedLock(logger, channel, conn, queueName, resourceKey, consumerTag, this);
                     }
                     catch (OperationInterruptedException opEx) when (opEx.Message.Contains("ACCESS_REFUSED") && retry < maxRetries - 1)
@@ -364,9 +364,23 @@ namespace Dorc.Monitor.HighAvailability
             return activeLockCounts.TryGetValue(connection, out var count) && count > 0;
         }
 
-        private void IncrementActiveLockCount(IConnection connection)
+        /// <summary>
+        /// Increments the active lock count for a connection under the semaphore.
+        /// Must be synchronized with ReleaseConnectionReferenceAsync to prevent a race
+        /// where a concurrent release reads a stale count and removes the entry,
+        /// losing this increment and causing premature retired connection disposal.
+        /// </summary>
+        private async Task IncrementActiveLockCountAsync(IConnection connection, CancellationToken cancellationToken)
         {
-            activeLockCounts.AddOrUpdate(connection, 1, static (_, count) => count + 1);
+            await connectionSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                activeLockCounts.AddOrUpdate(connection, 1, static (_, count) => count + 1);
+            }
+            finally
+            {
+                connectionSemaphore.Release();
+            }
         }
 
         private async Task ReleaseConnectionReferenceAsync(IConnection connection)
@@ -376,8 +390,14 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                await connectionSemaphore.WaitAsync();
-                semaphoreAcquired = true;
+                semaphoreAcquired = await connectionSemaphore.WaitAsync(TimeSpan.FromSeconds(30));
+                if (!semaphoreAcquired)
+                {
+                    logger.LogWarning(
+                        "Timeout (30s) waiting for semaphore in ReleaseConnectionReferenceAsync. " +
+                        "Lock count may not be decremented; will be cleared on service disposal.");
+                    return;
+                }
 
                 if (activeLockCounts.TryGetValue(connection, out var count))
                 {
