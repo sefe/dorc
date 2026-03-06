@@ -3,6 +3,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Client.OAuth2;
+using System.Collections.Concurrent;
 using System.Security.Authentication;
 
 namespace Dorc.Monitor.HighAvailability
@@ -24,6 +25,7 @@ namespace Dorc.Monitor.HighAvailability
         private OAuth2ClientCredentialsProvider? credentialsProvider;
         private volatile bool disposed = false;
         private Timer? tokenRefreshTimer;
+        private readonly ConcurrentDictionary<IConnection, int> activeLockCounts = new();
         private readonly List<(IConnection Connection, DateTime RetiredAt)> _retiredConnections = new();
         private static readonly TimeSpan RetiredConnectionGracePeriod = TimeSpan.FromMinutes(2);
         private volatile int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
@@ -236,6 +238,7 @@ namespace Dorc.Monitor.HighAvailability
                         logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
                             resourceKey);
 
+                        IncrementActiveLockCount(conn);
                         return new RabbitMqDistributedLock(logger, channel, conn, queueName, resourceKey, consumerTag, this);
                     }
                     catch (OperationInterruptedException opEx) when (opEx.Message.Contains("ACCESS_REFUSED") && retry < maxRetries - 1)
@@ -345,7 +348,8 @@ namespace Dorc.Monitor.HighAvailability
             for (int i = _retiredConnections.Count - 1; i >= 0; i--)
             {
                 var (conn, retiredAt) = _retiredConnections[i];
-                var shouldDispose = !conn.IsOpen || (DateTime.UtcNow - retiredAt) > RetiredConnectionGracePeriod;
+                var shouldDispose = !conn.IsOpen
+                    || ((DateTime.UtcNow - retiredAt) > RetiredConnectionGracePeriod && !HasActiveLocks(conn));
                 if (shouldDispose)
                 {
                     toDispose.Add(conn);
@@ -353,6 +357,71 @@ namespace Dorc.Monitor.HighAvailability
                 }
             }
             return toDispose;
+        }
+
+        private bool HasActiveLocks(IConnection connection)
+        {
+            return activeLockCounts.TryGetValue(connection, out var count) && count > 0;
+        }
+
+        private void IncrementActiveLockCount(IConnection connection)
+        {
+            activeLockCounts.AddOrUpdate(connection, 1, static (_, count) => count + 1);
+        }
+
+        private async Task ReleaseConnectionReferenceAsync(IConnection connection)
+        {
+            List<IConnection>? connectionsToDispose = null;
+            var semaphoreAcquired = false;
+
+            try
+            {
+                await connectionSemaphore.WaitAsync();
+                semaphoreAcquired = true;
+
+                if (activeLockCounts.TryGetValue(connection, out var count))
+                {
+                    if (count <= 1)
+                    {
+                        activeLockCounts.TryRemove(connection, out _);
+                    }
+                    else
+                    {
+                        activeLockCounts[connection] = count - 1;
+                    }
+                }
+
+                var retiredConnectionIndex = _retiredConnections.FindIndex(entry => ReferenceEquals(entry.Connection, connection));
+                if (retiredConnectionIndex >= 0 && !HasActiveLocks(connection))
+                {
+                    connectionsToDispose = new List<IConnection> { connection };
+                    _retiredConnections.RemoveAt(retiredConnectionIndex);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Service is shutting down. The lock count won't be decremented here, but
+                // DisposeAsync calls activeLockCounts.Clear() so no leak occurs.
+                return;
+            }
+            finally
+            {
+                if (semaphoreAcquired)
+                {
+                    try
+                    {
+                        connectionSemaphore.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                }
+            }
+
+            if (connectionsToDispose != null)
+            {
+                await DisposeRetiredConnectionsAsync(connectionsToDispose);
+            }
         }
 
         /// <summary>
@@ -765,6 +834,7 @@ namespace Dorc.Monitor.HighAvailability
                 }
             }
             _retiredConnections.Clear();
+            activeLockCounts.Clear();
 
             try
             {
@@ -904,14 +974,21 @@ namespace Dorc.Monitor.HighAvailability
                     logger.LogWarning(ex, "Error disposing channel for lock '{ResourceKey}'", resourceKey);
                 }
 
-                // Fallback: if queue deletion failed (e.g. because the connection was refreshed
-                // concurrently and our channel is dead), try to delete the queue using a fresh
-                // channel from the lock service's current connection. Without this, the orphaned
-                // queue retains the lock message and permanently blocks the environment.
-                if (!queueDeleted)
+                try
                 {
-                    logger.LogWarning("Lock queue '{QueueName}' for resource '{ResourceKey}' was not deleted via original channel - attempting fallback cleanup", queueName, resourceKey);
-                    await lockService.TryDeleteQueueAsync(queueName, resourceKey);
+                    // Fallback: if queue deletion failed (e.g. because the connection was refreshed
+                    // concurrently and our channel is dead), try to delete the queue using a fresh
+                    // channel from the lock service's current connection. Without this, the orphaned
+                    // queue retains the lock message and permanently blocks the environment.
+                    if (!queueDeleted)
+                    {
+                        logger.LogWarning("Lock queue '{QueueName}' for resource '{ResourceKey}' was not deleted via original channel - attempting fallback cleanup", queueName, resourceKey);
+                        await lockService.TryDeleteQueueAsync(queueName, resourceKey);
+                    }
+                }
+                finally
+                {
+                    await lockService.ReleaseConnectionReferenceAsync(connection);
                 }
             }
 

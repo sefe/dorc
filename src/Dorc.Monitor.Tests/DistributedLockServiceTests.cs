@@ -5,7 +5,9 @@ using NSubstitute.ExceptionExtensions;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
+using System.Collections.Concurrent;
 using System.Net;
+using System.Reflection;
 
 namespace Dorc.Monitor.Tests.HighAvailability
 {
@@ -448,6 +450,148 @@ namespace Dorc.Monitor.Tests.HighAvailability
 
             // Assert - the configuration property returns the expected value
             Assert.AreEqual(15, mockConfiguration.LockAcquisitionTimeoutSeconds);
+        }
+
+        [TestMethod]
+        public void CollectRetiredConnectionsForDisposal_WhenRetiredConnectionStillHasActiveLocks_KeepsConnectionAlive()
+        {
+            // Arrange - simulate a long-running deployment still using a retired connection
+            var mockConnection = Substitute.For<IConnection>();
+            mockConnection.IsOpen.Returns(true);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var retiredConnections = GetRetiredConnections(service);
+            retiredConnections.Add((mockConnection, DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(10))));
+            GetActiveLockCounts(service)[mockConnection] = 1;
+
+            // Act
+            var toDispose = CollectRetiredConnectionsForDisposal(service);
+
+            // Assert - the connection must remain retired but alive until the lock is released
+            Assert.AreEqual(0, toDispose.Count);
+            Assert.AreEqual(1, retiredConnections.Count);
+
+            service.Dispose();
+        }
+
+        [TestMethod]
+        public void CollectRetiredConnectionsForDisposal_WhenRetiredConnectionHasNoActiveLocks_ReturnsConnectionForCleanup()
+        {
+            // Arrange
+            var mockConnection = Substitute.For<IConnection>();
+            mockConnection.IsOpen.Returns(true);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var retiredConnections = GetRetiredConnections(service);
+            retiredConnections.Add((mockConnection, DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(10))));
+
+            // Act
+            var toDispose = CollectRetiredConnectionsForDisposal(service);
+
+            // Assert
+            Assert.AreEqual(1, toDispose.Count);
+            Assert.AreSame(mockConnection, toDispose[0]);
+            Assert.AreEqual(0, retiredConnections.Count);
+
+            service.Dispose();
+        }
+
+        private static List<(IConnection Connection, DateTime RetiredAt)> GetRetiredConnections(RabbitMqDistributedLockService service)
+        {
+            return (List<(IConnection Connection, DateTime RetiredAt)>)typeof(RabbitMqDistributedLockService)
+                .GetField("_retiredConnections", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(service)!;
+        }
+
+        private static ConcurrentDictionary<IConnection, int> GetActiveLockCounts(RabbitMqDistributedLockService service)
+        {
+            return (ConcurrentDictionary<IConnection, int>)typeof(RabbitMqDistributedLockService)
+                .GetField("activeLockCounts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(service)!;
+        }
+
+        private static List<IConnection> CollectRetiredConnectionsForDisposal(RabbitMqDistributedLockService service)
+        {
+            return (List<IConnection>)typeof(RabbitMqDistributedLockService)
+                .GetMethod("CollectRetiredConnectionsForDisposal", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(service, null)!;
+        }
+
+        private static async Task InvokeReleaseConnectionReferenceAsync(RabbitMqDistributedLockService service, IConnection connection)
+        {
+            var method = typeof(RabbitMqDistributedLockService)
+                .GetMethod("ReleaseConnectionReferenceAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            await (Task)method.Invoke(service, new object[] { connection })!;
+        }
+
+        [TestMethod]
+        public async Task ReleaseConnectionReferenceAsync_WhenLastLockOnRetiredConnection_DisposesEagerly()
+        {
+            // Arrange - retired connection with exactly 1 active lock
+            var mockConnection = Substitute.For<IConnection>();
+            mockConnection.IsOpen.Returns(true);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var retiredConnections = GetRetiredConnections(service);
+            var lockCounts = GetActiveLockCounts(service);
+
+            retiredConnections.Add((mockConnection, DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(1))));
+            lockCounts[mockConnection] = 1;
+
+            // Act - release the last lock reference
+            await InvokeReleaseConnectionReferenceAsync(service, mockConnection);
+
+            // Assert - connection removed from retired list and disposed
+            Assert.AreEqual(0, retiredConnections.Count, "Retired connection should be removed");
+            Assert.IsFalse(lockCounts.ContainsKey(mockConnection), "Lock count entry should be removed");
+            mockConnection.Received(1).Dispose();
+
+            service.Dispose();
+        }
+
+        [TestMethod]
+        public async Task ReleaseConnectionReferenceAsync_WhenMultipleLocksOnRetiredConnection_KeepsConnectionAlive()
+        {
+            // Arrange - retired connection with 2 active locks
+            var mockConnection = Substitute.For<IConnection>();
+            mockConnection.IsOpen.Returns(true);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var retiredConnections = GetRetiredConnections(service);
+            var lockCounts = GetActiveLockCounts(service);
+
+            retiredConnections.Add((mockConnection, DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(1))));
+            lockCounts[mockConnection] = 2;
+
+            // Act - release one of two locks
+            await InvokeReleaseConnectionReferenceAsync(service, mockConnection);
+
+            // Assert - connection still alive with 1 remaining lock
+            Assert.AreEqual(1, retiredConnections.Count, "Connection should remain in retired list");
+            Assert.AreEqual(1, lockCounts[mockConnection], "Lock count should be decremented to 1");
+            mockConnection.DidNotReceive().Dispose();
+
+            service.Dispose();
+        }
+
+        [TestMethod]
+        public async Task ReleaseConnectionReferenceAsync_WhenConnectionNotRetired_OnlyDecrementsCount()
+        {
+            // Arrange - active (non-retired) connection with 1 lock
+            var mockConnection = Substitute.For<IConnection>();
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            var lockCounts = GetActiveLockCounts(service);
+            lockCounts[mockConnection] = 1;
+
+            // Act
+            await InvokeReleaseConnectionReferenceAsync(service, mockConnection);
+
+            // Assert - count removed but connection NOT disposed (still the active connection)
+            Assert.IsFalse(lockCounts.ContainsKey(mockConnection), "Lock count entry should be removed");
+            mockConnection.DidNotReceive().Dispose();
+
+            service.Dispose();
         }
     }
 
