@@ -143,7 +143,7 @@ namespace Dorc.Monitor.HighAvailability
 
                         // Declare a quorum queue with single-active consumer for cluster support
                         // Quorum queues replicate across cluster nodes for high availability
-                        var args = new Dictionary<string, object>
+                        var args = new Dictionary<string, object?>
                         {
                             { "x-queue-type", "quorum" }, // Use quorum queue for cluster replication
                             { "x-single-active-consumer", true } // Only one consumer gets messages at a time
@@ -236,7 +236,7 @@ namespace Dorc.Monitor.HighAvailability
                         logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
                             resourceKey);
 
-                        return new RabbitMqDistributedLock(logger, channel, queueName, resourceKey, consumerTag, this);
+                        return new RabbitMqDistributedLock(logger, channel, conn, queueName, resourceKey, consumerTag, this);
                     }
                     catch (OperationInterruptedException opEx) when (opEx.Message.Contains("ACCESS_REFUSED") && retry < maxRetries - 1)
                     {
@@ -787,115 +787,142 @@ namespace Dorc.Monitor.HighAvailability
         {
             DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
-    }
 
-    /// <summary>
-    /// Represents a distributed lock held via RabbitMQ single-active consumer on a quorum queue.
-    /// </summary>
-    internal class RabbitMqDistributedLock : IDistributedLock
-    {
-        private readonly ILogger logger;
-        private readonly IChannel channel;
-        private readonly string queueName;
-        private readonly string resourceKey;
-        private readonly string consumerTag;
-        private readonly RabbitMqDistributedLockService lockService;
-        private int disposedFlag = 0;  // Use int for Interlocked operations
-
-        public string ResourceKey => resourceKey;
-
-        public bool IsValid => channel.IsOpen;
-
-        public RabbitMqDistributedLock(ILogger logger, IChannel channel, string queueName, string resourceKey, string consumerTag, RabbitMqDistributedLockService lockService)
+        /// <summary>
+        /// Represents a distributed lock held via RabbitMQ single-active consumer on a quorum queue.
+        /// </summary>
+        internal class RabbitMqDistributedLock : IDistributedLock
         {
-            this.logger = logger;
-            this.channel = channel;
-            this.queueName = queueName;
-            this.resourceKey = resourceKey;
-            this.consumerTag = consumerTag;
-            this.lockService = lockService;
-        }
+            private readonly ILogger logger;
+            private readonly IChannel channel;
+            private readonly IConnection connection;
+            private readonly string queueName;
+            private readonly string resourceKey;
+            private readonly string consumerTag;
+            private readonly RabbitMqDistributedLockService lockService;
+            private int disposedFlag = 0;  // Use int for Interlocked operations
+            private readonly CancellationTokenSource _lockLostCts = new();
 
-        public async ValueTask DisposeAsync()
-        {
-            // Thread-safe disposal check and set using Interlocked
-            if (Interlocked.Exchange(ref disposedFlag, 1) == 1)
-                return;
+            public string ResourceKey => resourceKey;
 
-            bool queueDeleted = false;
+            public bool IsValid => channel.IsOpen;
+            public CancellationToken LockLostToken => _lockLostCts.Token;
 
-            try
+            public RabbitMqDistributedLock(ILogger logger, IChannel channel, IConnection connection, string queueName, string resourceKey, string consumerTag, RabbitMqDistributedLockService lockService)
             {
-                // Cancel the consumer to release the lock
-                await channel.BasicCancelAsync(consumerTag);
-                logger.LogDebug("Cancelled consumer for lock '{ResourceKey}'", resourceKey);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Error cancelling consumer for lock '{ResourceKey}'", resourceKey);
-            }
+                this.logger = logger;
+                this.channel = channel;
+                this.connection = connection;
+                this.queueName = queueName;
+                this.resourceKey = resourceKey;
+                this.consumerTag = consumerTag;
+                this.lockService = lockService;
 
-            try
-            {
-                // Purge all messages from the queue to clean up lock tokens
-                await channel.QueuePurgeAsync(queueName);
-                logger.LogDebug("Purged messages from lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Error purging lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+                // Hook into channel shutdown to trigger cancellation immediately
+                channel.ChannelShutdownAsync += OnChannelShutdownAsync;
+                connection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
             }
 
-            try
+            private Task OnChannelShutdownAsync(object? sender, ShutdownEventArgs e)
             {
-                // Delete the queue to clean up after deployment completes
-                // This prevents accumulation of unused lock queues
-                await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false);
-                logger.LogInformation("Deleted lock queue '{QueueName}' for resource '{ResourceKey}' after deployment completed", queueName, resourceKey);
-                queueDeleted = true;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Error deleting lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+                logger.LogWarning("Channel for lock '{ResourceKey}' shut down: {Reason}. Triggering cancellation.", resourceKey, e.ReplyText);
+                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
+                return Task.CompletedTask;
             }
 
-            try
+            private Task OnConnectionShutdownAsync(object? sender, ShutdownEventArgs e)
             {
-                await channel.CloseAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Error closing channel for lock '{ResourceKey}'", resourceKey);
+                logger.LogWarning("Connection for lock '{ResourceKey}' shut down: {Reason}. Triggering cancellation.", resourceKey, e.ReplyText);
+                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
+                return Task.CompletedTask;
             }
 
-            try
+            public async ValueTask DisposeAsync()
             {
-                await channel.DisposeAsync();
-                logger.LogDebug("Disposed channel for lock '{ResourceKey}'", resourceKey);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Error disposing channel for lock '{ResourceKey}'", resourceKey);
+                // Thread-safe disposal check and set using Interlocked
+                if (Interlocked.Exchange(ref disposedFlag, 1) == 1)
+                    return;
+
+                // Unregister event handlers
+                channel.ChannelShutdownAsync -= OnChannelShutdownAsync;
+                connection.ConnectionShutdownAsync -= OnConnectionShutdownAsync;
+                _lockLostCts.Dispose();
+
+                bool queueDeleted = false;
+
+                try
+                {
+                    // Cancel the consumer to release the lock
+                    await channel.BasicCancelAsync(consumerTag);
+                    logger.LogDebug("Cancelled consumer for lock '{ResourceKey}'", resourceKey);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error cancelling consumer for lock '{ResourceKey}'", resourceKey);
+                }
+
+                try
+                {
+                    // Purge all messages from the queue to clean up lock tokens
+                    await channel.QueuePurgeAsync(queueName);
+                    logger.LogDebug("Purged messages from lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error purging lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+                }
+
+                try
+                {
+                    // Delete the queue to clean up after deployment completes
+                    // This prevents accumulation of unused lock queues
+                    await channel.QueueDeleteAsync(queue: queueName, ifUnused: false, ifEmpty: false);
+                    logger.LogInformation("Deleted lock queue '{QueueName}' for resource '{ResourceKey}' after deployment completed", queueName, resourceKey);
+                    queueDeleted = true;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error deleting lock queue '{QueueName}' for resource '{ResourceKey}'", queueName, resourceKey);
+                }
+
+                try
+                {
+                    await channel.CloseAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error closing channel for lock '{ResourceKey}'", resourceKey);
+                }
+
+                try
+                {
+                    await channel.DisposeAsync();
+                    logger.LogDebug("Disposed channel for lock '{ResourceKey}'", resourceKey);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error disposing channel for lock '{ResourceKey}'", resourceKey);
+                }
+
+                // Fallback: if queue deletion failed (e.g. because the connection was refreshed
+                // concurrently and our channel is dead), try to delete the queue using a fresh
+                // channel from the lock service's current connection. Without this, the orphaned
+                // queue retains the lock message and permanently blocks the environment.
+                if (!queueDeleted)
+                {
+                    logger.LogWarning("Lock queue '{QueueName}' for resource '{ResourceKey}' was not deleted via original channel - attempting fallback cleanup", queueName, resourceKey);
+                    await lockService.TryDeleteQueueAsync(queueName, resourceKey);
+                }
             }
 
-            // Fallback: if queue deletion failed (e.g. because the connection was refreshed
-            // concurrently and our channel is dead), try to delete the queue using a fresh
-            // channel from the lock service's current connection. Without this, the orphaned
-            // queue retains the lock message and permanently blocks the environment.
-            if (!queueDeleted)
+            /// <remarks>
+            /// WARNING: Sync-over-async. Blocks the calling thread while DisposeAsync runs.
+            /// Prefer DisposeAsync where possible.
+            /// </remarks>
+            public void Dispose()
             {
-                logger.LogWarning("Lock queue '{QueueName}' for resource '{ResourceKey}' was not deleted via original channel - attempting fallback cleanup", queueName, resourceKey);
-                await lockService.TryDeleteQueueAsync(queueName, resourceKey);
+                DisposeAsync().GetAwaiter().GetResult();
             }
-        }
-
-        /// <remarks>
-        /// WARNING: Sync-over-async. Blocks the calling thread while DisposeAsync runs.
-        /// Prefer DisposeAsync where possible.
-        /// </remarks>
-        public void Dispose()
-        {
-            DisposeAsync().GetAwaiter().GetResult();
         }
     }
 }

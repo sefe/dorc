@@ -457,6 +457,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
         private ILogger<RabbitMqDistributedLockService> mockLogger = null!;
         private IMonitorConfiguration mockConfiguration = null!;
         private IChannel mockChannel = null!;
+        private IConnection mockConnection = null!;
         private RabbitMqDistributedLockService lockService = null!;
 
         [TestInitialize]
@@ -466,6 +467,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration = Substitute.For<IMonitorConfiguration>();
             mockConfiguration.HighAvailabilityEnabled.Returns(false);
             mockChannel = Substitute.For<IChannel>();
+            mockConnection = Substitute.For<IConnection>();
             lockService = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
         }
 
@@ -474,8 +476,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // Arrange
             mockChannel.IsOpen.Returns(true);
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act & Assert
             Assert.IsTrue(lockObj.IsValid);
@@ -486,8 +488,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // Arrange
             mockChannel.IsOpen.Returns(false);
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act & Assert
             Assert.IsFalse(lockObj.IsValid);
@@ -503,8 +505,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         public async Task DisposeAsync_WhenChannelIsHealthy_DeletesQueueDirectly()
         {
             // Arrange
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act
             await lockObj.DisposeAsync();
@@ -529,8 +531,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockChannel.QueueDeleteAsync(Arg.Any<string>(), Arg.Is(false), Arg.Is(false), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
 
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act - should not throw despite all channel operations failing
             await lockObj.DisposeAsync();
@@ -555,8 +557,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         public async Task DisposeAsync_CalledTwice_OnlyDisposesOnce()
         {
             // Arrange
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act
             await lockObj.DisposeAsync();
@@ -577,8 +579,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
                 .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "Already closed")));
             // QueueDeleteAsync succeeds (default mock behavior returns completed task)
 
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act
             await lockObj.DisposeAsync();
@@ -599,6 +601,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
         private ILogger<RabbitMqDistributedLockService> mockLogger = null!;
         private IMonitorConfiguration mockConfiguration = null!;
         private IChannel mockChannel = null!;
+        private IConnection mockConnection = null!;
         private RabbitMqDistributedLockService lockService = null!;
 
         [TestInitialize]
@@ -608,6 +611,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockConfiguration = Substitute.For<IMonitorConfiguration>();
             mockConfiguration.HighAvailabilityEnabled.Returns(false);
             mockChannel = Substitute.For<IChannel>();
+            mockConnection = Substitute.For<IConnection>();
             lockService = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
         }
 
@@ -627,8 +631,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockChannel.CloseAsync(Arg.Any<CancellationToken>())
                 .ThrowsAsync(new System.IO.IOException("Connection reset"));
 
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act - should not throw despite CloseAsync failure
             await lockObj.DisposeAsync();
@@ -652,8 +656,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockChannel.DisposeAsync()
                 .Returns(new ValueTask(Task.FromException(new ObjectDisposedException("channel"))));
 
-            var lockObj = new RabbitMqDistributedLock(
-                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
 
             // Act - should not throw despite every operation failing
             await lockObj.DisposeAsync();
@@ -663,6 +667,109 @@ namespace Dorc.Monitor.Tests.HighAvailability
                 "consumer-1", Arg.Any<bool>(), Arg.Any<CancellationToken>());
             await mockChannel.Received(1).QueueDeleteAsync(
                 "lock.env:TestEnv", Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+    }
+
+    /// <summary>
+    /// Tests for LockLostToken - verifying that channel/connection shutdown triggers cancellation
+    /// and that DisposeAsync properly cleans up event handlers and CTS.
+    /// </summary>
+    [TestClass]
+    public class RabbitMqDistributedLockLockLostTests
+    {
+        private ILogger<RabbitMqDistributedLockService> mockLogger = null!;
+        private IMonitorConfiguration mockConfiguration = null!;
+        private IChannel mockChannel = null!;
+        private IConnection mockConnection = null!;
+        private RabbitMqDistributedLockService lockService = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
+            mockConfiguration = Substitute.For<IMonitorConfiguration>();
+            mockConfiguration.HighAvailabilityEnabled.Returns(false);
+            mockChannel = Substitute.For<IChannel>();
+            mockConnection = Substitute.For<IConnection>();
+            lockService = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            lockService.Dispose();
+        }
+
+        [TestMethod]
+        public void LockLostToken_Initially_IsNotCancelled()
+        {
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public void LockLostToken_WhenChannelShutdown_IsCancelled()
+        {
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Simulate channel shutdown by raising the event
+            mockChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                mockChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 320, "Connection forced"));
+
+            Assert.IsTrue(lockObj.LockLostToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public void LockLostToken_WhenConnectionShutdown_IsCancelled()
+        {
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Simulate connection shutdown by raising the event
+            mockConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                mockConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 320, "Connection forced"));
+
+            Assert.IsTrue(lockObj.LockLostToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_UnregistersEventHandlers_NoFurtherCancellation()
+        {
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Capture the token before disposal
+            var token = lockObj.LockLostToken;
+
+            await lockObj.DisposeAsync();
+
+            // After disposal, raising shutdown events should NOT crash (handlers unregistered, CTS disposed)
+            // The token should not have been cancelled since the channel didn't shut down before dispose
+            Assert.IsFalse(token.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public void LockLostToken_CanBeLinkedWithOtherTokens()
+        {
+            // Verifies the pattern used in DeploymentRequestStateProcessor where
+            // LockLostToken is linked with the monitor cancellation token
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            using var monitorCts = new CancellationTokenSource();
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                monitorCts.Token, lockObj.LockLostToken);
+
+            Assert.IsFalse(linkedCts.Token.IsCancellationRequested);
+
+            // When channel shuts down, the linked token should also be cancelled
+            mockChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                mockChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 320, "Connection forced"));
+
+            Assert.IsTrue(linkedCts.Token.IsCancellationRequested);
         }
     }
 

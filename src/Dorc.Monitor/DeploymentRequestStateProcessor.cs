@@ -472,7 +472,20 @@ namespace Dorc.Monitor
                             }
                         }
 
-                        var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
+                        // Create a linked token source that cancels if:
+                        // 1. The monitor service stops (monitorCancellationToken)
+                        // 2. The distributed lock is lost (envLock.LockLostToken)
+                        // This ensures split-brain scenarios are avoided by terminating execution immediately if the lock is lost.
+                        CancellationTokenSource requestCancellationTokenSource;
+                        if (envLock != null)
+                        {
+                            requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken, envLock.LockLostToken);
+                        }
+                        else
+                        {
+                            requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
+                        }
+
                         // AddOrUpdate is safe here: the semaphore-like environmentRequestIdRunning guard
                         // ensures only one task per environment is active, so no contention on this key.
                         requestCancellationSources!.AddOrUpdate(

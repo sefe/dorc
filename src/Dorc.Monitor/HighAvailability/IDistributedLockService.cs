@@ -42,5 +42,12 @@ namespace Dorc.Monitor.HighAvailability
         /// A false value indicates the lock may have been lost (e.g., due to a connection refresh).
         /// </summary>
         bool IsValid { get; }
+
+        /// <summary>
+        /// A cancellation token that is triggered when the lock is lost (e.g. connection dropped).
+        /// This should be linked to the deployment cancellation token to ensure immediate
+        /// termination of the deployment if the lock is compromised.
+        /// </summary>
+        CancellationToken LockLostToken { get; }
     }
 }

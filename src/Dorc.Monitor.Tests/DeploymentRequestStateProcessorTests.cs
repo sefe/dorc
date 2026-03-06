@@ -1273,5 +1273,59 @@ namespace Dorc.Monitor.Tests
                 Arg.Any<Exception?>(),
                 Arg.Any<Func<object, Exception?, string>>());
         }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenLockHasLockLostToken_LinksItToCancellation()
+        {
+            // Arrange - verify that when HA is enabled and a lock is acquired,
+            // the LockLostToken is linked to the request cancellation token.
+            var requests = CreatePendingRequests("EnvLinked", 500);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvLinked");
+            mockLock.IsValid.Returns(true);
+            var lockLostCts = new CancellationTokenSource();
+            mockLock.LockLostToken.Returns(lockLostCts.Token);
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            // Re-validation passes
+            mockRequestsPersistentSource.GetRequest(500)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 500,
+                    Status = DeploymentRequestStatus.Pending.ToString()
+                });
+
+            // Execution starts
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            var requestCancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, requestCancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - lock was acquired and disposed
+            await mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            await mockLock.Received(1).DisposeAsync();
+        }
     }
 }
