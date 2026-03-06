@@ -26,7 +26,7 @@ namespace Dorc.Monitor.HighAvailability
         private Timer? tokenRefreshTimer;
         private readonly List<(IConnection Connection, DateTime RetiredAt)> _retiredConnections = new();
         private static readonly TimeSpan RetiredConnectionGracePeriod = TimeSpan.FromMinutes(2);
-        private int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
+        private volatile int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
         // tokenExpiryTimeUtc is read outside the semaphore in IsTokenExpiringSoon() but only
         // written under connectionSemaphore. Stale reads are harmless: a slightly stale value
         // may cause an unnecessary proactive refresh (safe) or delay refresh by one cycle (also safe,
@@ -244,8 +244,8 @@ namespace Dorc.Monitor.HighAvailability
                         logger.LogWarning(opEx, "ACCESS_REFUSED error on lock acquisition for '{ResourceKey}' - OAuth token may have expired. Refreshing connection and retrying (attempt {Retry}/{MaxRetries})",
                             resourceKey, retry + 1, maxRetries);
 
-                        await channel.CloseAsync(cancellationToken: cancellationToken);
-                        await channel.DisposeAsync();
+                        try { await channel.CloseAsync(cancellationToken: cancellationToken); } catch { }
+                        try { await channel.DisposeAsync(); } catch { }
 
                         // Force connection recreation to get fresh OAuth token
                         // Pass the generation we captured before the attempt to prevent redundant refreshes
@@ -258,14 +258,15 @@ namespace Dorc.Monitor.HighAvailability
                     {
                         logger.LogWarning(acEx, "Connection closed during lock acquisition for '{ResourceKey}' - refreshing and retrying (attempt {Retry}/{MaxRetries})",
                             resourceKey, retry + 1, maxRetries);
+                        try { await channel.DisposeAsync(); } catch { /* channel likely already dead */ }
                         await ForceConnectionRefreshAsync(currentGeneration, cancellationToken);
                         continue;
                     }
                     catch (Exception ex)
                     {
                         logger.LogWarning(ex, "Error acquiring lock for '{ResourceKey}'", resourceKey);
-                        await channel.CloseAsync(cancellationToken: cancellationToken);
-                        await channel.DisposeAsync();
+                        try { await channel.CloseAsync(cancellationToken: cancellationToken); } catch { }
+                        try { await channel.DisposeAsync(); } catch { }
                         return null;
                     }
                 }
@@ -282,6 +283,8 @@ namespace Dorc.Monitor.HighAvailability
 
         private async Task ForceConnectionRefreshAsync(int expectedGeneration, CancellationToken cancellationToken)
         {
+            List<IConnection> connectionsToDispose = new();
+
             await connectionSemaphore.WaitAsync(cancellationToken);
             try
             {
@@ -289,11 +292,11 @@ namespace Dorc.Monitor.HighAvailability
                 // If the generation has changed, another thread beat us to the refresh
                 if (connectionGeneration != expectedGeneration)
                 {
-                    logger.LogDebug("Connection was already refreshed by another thread (expected generation {ExpectedGeneration}, current {CurrentGeneration}). Skipping redundant refresh.", 
+                    logger.LogDebug("Connection was already refreshed by another thread (expected generation {ExpectedGeneration}, current {CurrentGeneration}). Skipping redundant refresh.",
                         expectedGeneration, connectionGeneration);
                     return;
                 }
-                
+
                 // Retire (don't close) the existing connection. In-flight lock channels may still
                 // reference it; closing it immediately would kill those channels and cause
                 // AlreadyClosedException in their cleanup path. Instead, we add it to a
@@ -305,7 +308,10 @@ namespace Dorc.Monitor.HighAvailability
                     logger.LogDebug("Retired existing RabbitMQ connection for refresh");
                 }
 
-                CleanupRetiredConnections();
+                // Collect retired connections eligible for disposal (under semaphore),
+                // but defer actual disposal until after releasing the semaphore to avoid
+                // blocking lock acquisitions with potentially slow sync Dispose calls.
+                connectionsToDispose = CollectRetiredConnectionsForDisposal();
 
                 // Clear cached credentials and token expiry to force new token acquisition
                 credentialsProvider = null;
@@ -313,47 +319,71 @@ namespace Dorc.Monitor.HighAvailability
 
                 // Increment generation to indicate a new connection cycle
                 connectionGeneration++;
-                
+
                 logger.LogInformation("Forced RabbitMQ connection refresh to obtain new OAuth token (generation {Generation})", connectionGeneration);
             }
             finally
             {
                 connectionSemaphore.Release();
             }
-            
+
+            // Dispose retired connections outside the semaphore to avoid blocking
+            // lock acquisitions with potentially slow sync Close/Dispose calls.
+            await DisposeRetiredConnectionsAsync(connectionsToDispose);
+
             // Recreate connection with new credentials
             await EnsureConnectionAsync(cancellationToken);
         }
 
         /// <summary>
-        /// Disposes retired connections that are already closed or older than the grace period.
+        /// Removes retired connections eligible for disposal from the list and returns them.
         /// Must be called under connectionSemaphore.
-        /// Connections are given a grace period to allow in-flight lock channels to complete
-        /// their cleanup before the connection is forcibly closed.
         /// </summary>
-        private void CleanupRetiredConnections()
+        private List<IConnection> CollectRetiredConnectionsForDisposal()
         {
+            var toDispose = new List<IConnection>();
             for (int i = _retiredConnections.Count - 1; i >= 0; i--)
             {
                 var (conn, retiredAt) = _retiredConnections[i];
                 var shouldDispose = !conn.IsOpen || (DateTime.UtcNow - retiredAt) > RetiredConnectionGracePeriod;
                 if (shouldDispose)
                 {
-                    try
-                    {
-                        if (conn.IsOpen)
-                        {
-                            logger.LogDebug("Force-closing retired RabbitMQ connection after grace period");
-                            // CloseAsync would require async context; use sync Dispose which closes + disposes
-                        }
-                        conn.Dispose();
-                        logger.LogDebug("Disposed retired RabbitMQ connection");
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Error disposing retired RabbitMQ connection");
-                    }
+                    toDispose.Add(conn);
                     _retiredConnections.RemoveAt(i);
+                }
+            }
+            return toDispose;
+        }
+
+        /// <summary>
+        /// Closes and disposes a list of retired connections.
+        /// Safe to call without holding the semaphore.
+        /// </summary>
+        private async Task DisposeRetiredConnectionsAsync(List<IConnection> connections)
+        {
+            foreach (var conn in connections)
+            {
+                try
+                {
+                    if (conn.IsOpen)
+                    {
+                        logger.LogDebug("Force-closing retired RabbitMQ connection after grace period");
+                        await conn.CloseAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error closing retired RabbitMQ connection");
+                }
+
+                try
+                {
+                    conn.Dispose();
+                    logger.LogDebug("Disposed retired RabbitMQ connection");
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error disposing retired RabbitMQ connection");
                 }
             }
         }
@@ -831,14 +861,21 @@ namespace Dorc.Monitor.HighAvailability
 
             try
             {
-                // Close the channel
                 await channel.CloseAsync();
-                await channel.DisposeAsync();
-                logger.LogDebug("Closed channel for lock '{ResourceKey}'", resourceKey);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Error closing channel for lock '{ResourceKey}'", resourceKey);
+            }
+
+            try
+            {
+                await channel.DisposeAsync();
+                logger.LogDebug("Disposed channel for lock '{ResourceKey}'", resourceKey);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error disposing channel for lock '{ResourceKey}'", resourceKey);
             }
 
             // Fallback: if queue deletion failed (e.g. because the connection was refreshed

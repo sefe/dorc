@@ -150,8 +150,8 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
-            // Allow fire-and-forget event publish tasks to complete
-            await Task.Delay(200);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert
             // SwitchStatus called FIRST
@@ -188,8 +188,8 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
-            // Allow fire-and-forget event publish tasks to complete
-            await Task.Delay(200);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert - ClearAllDeploymentResults still called (partial success)
             mockRequestsPersistentSource.Received(1)
@@ -629,8 +629,8 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelStaleRequests(false);
 
-            // Allow fire-and-forget event publish tasks to complete
-            await Task.Delay(200);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert - stale requests should be cancelled
             mockRequestsPersistentSource.Received(1)
@@ -693,8 +693,8 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelStaleRequests(false);
 
-            // Allow fire-and-forget event publish tasks to complete
-            await Task.Delay(200);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert - status switched to Cancelled
             mockRequestsPersistentSource.Received(1)
@@ -743,8 +743,8 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelStaleRequests(false);
 
-            // Allow fire-and-forget event publish tasks to complete
-            await Task.Delay(200);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert
             mockRequestsPersistentSource.Received(1)
@@ -852,8 +852,8 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
 
-            // Allow fire-and-forget event publish tasks to complete
-            await Task.Delay(200);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert - switched to Abandoned
             mockRequestsPersistentSource.Received(1)
@@ -1197,6 +1197,44 @@ namespace Dorc.Monitor.Tests
         }
 
         // =====================================================================
+        // _pendingPublishTasks deterministic tracking
+        // =====================================================================
+
+        [TestMethod]
+        public async Task PendingPublishTasks_TracksFireAndForgetTasks()
+        {
+            // Arrange - verify that fire-and-forget publish tasks are tracked in _pendingPublishTasks
+            // so tests can await them deterministically instead of using fragile Task.Delay
+            var requests = CreateRequests(400);
+            requests[0].Status = DeploymentRequestStatus.Restarting.ToString();
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Restarting, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Restarting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            Assert.AreEqual(0, sut._pendingPublishTasks.Count);
+            sut.RestartRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - tasks should be tracked
+            Assert.IsTrue(sut._pendingPublishTasks.Count > 0, "Fire-and-forget tasks should be tracked in _pendingPublishTasks");
+
+            // Wait for all tracked tasks to complete deterministically (no Task.Delay needed)
+            await Task.WhenAll(sut._pendingPublishTasks);
+
+            // Assert - event was published
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        // =====================================================================
         // PublishRequestStatusChangedSafe error handling
         // =====================================================================
 
@@ -1224,8 +1262,8 @@ namespace Dorc.Monitor.Tests
             // Act - should not throw despite publish failure
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
-            // Give the fire-and-forget task time to complete
-            await Task.Delay(500);
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(sut._pendingPublishTasks);
 
             // Assert - warning should be logged about failed publish
             mockLogger.Received().Log(

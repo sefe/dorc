@@ -590,6 +590,83 @@ namespace Dorc.Monitor.Tests.HighAvailability
     }
 
     /// <summary>
+    /// Tests verifying resilient channel disposal - CloseAsync failure must not prevent DisposeAsync.
+    /// This mirrors the fix in TryAcquireLockAsync's generic Exception handler.
+    /// </summary>
+    [TestClass]
+    public class RabbitMqDistributedLockResilientDisposalTests
+    {
+        private ILogger<RabbitMqDistributedLockService> mockLogger = null!;
+        private IMonitorConfiguration mockConfiguration = null!;
+        private IChannel mockChannel = null!;
+        private RabbitMqDistributedLockService lockService = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
+            mockConfiguration = Substitute.For<IMonitorConfiguration>();
+            mockConfiguration.HighAvailabilityEnabled.Returns(false);
+            mockChannel = Substitute.For<IChannel>();
+            lockService = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            lockService.Dispose();
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_WhenCloseThrows_StillCallsDisposeAsync()
+        {
+            // Arrange - CloseAsync throws but DisposeAsync should still be called
+            // This verifies the same pattern used in the generic Exception handler
+            // where CloseAsync and DisposeAsync are in separate try/catch blocks
+            // QueuePurgeAsync and QueueDeleteAsync return Task<uint> - default mock returns 0
+            mockChannel.CloseAsync(Arg.Any<CancellationToken>())
+                .ThrowsAsync(new System.IO.IOException("Connection reset"));
+
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act - should not throw despite CloseAsync failure
+            await lockObj.DisposeAsync();
+
+            // Assert - DisposeAsync was still called after CloseAsync threw
+            await mockChannel.Received(1).DisposeAsync();
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_WhenAllOperationsFail_DisposesWithoutCrash()
+        {
+            // Arrange - every single operation throws, simulating total connection death
+            mockChannel.BasicCancelAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "closed")));
+            mockChannel.QueuePurgeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "closed")));
+            mockChannel.QueueDeleteAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "closed")));
+            mockChannel.CloseAsync(Arg.Any<CancellationToken>())
+                .ThrowsAsync(new AlreadyClosedException(new ShutdownEventArgs(ShutdownInitiator.Application, 200, "closed")));
+            mockChannel.DisposeAsync()
+                .Returns(new ValueTask(Task.FromException(new ObjectDisposedException("channel"))));
+
+            var lockObj = new RabbitMqDistributedLock(
+                mockLogger, mockChannel, "lock.env:TestEnv", "env:TestEnv", "consumer-1", lockService);
+
+            // Act - should not throw despite every operation failing
+            await lockObj.DisposeAsync();
+
+            // Assert - all operations were attempted
+            await mockChannel.Received(1).BasicCancelAsync(
+                "consumer-1", Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await mockChannel.Received(1).QueueDeleteAsync(
+                "lock.env:TestEnv", Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+    }
+
+    /// <summary>
     /// Tests documenting TTL, retired connection, and AlreadyClosedException retry behavior.
     /// These tests verify design intent - the actual RabbitMQ interactions require integration tests.
     /// </summary>

@@ -26,6 +26,10 @@ namespace Dorc.Monitor
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
         private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
 
+        // Tracks fire-and-forget publish tasks so tests can await them deterministically
+        // instead of using fragile Task.Delay. Not used in production.
+        internal readonly ConcurrentBag<Task> _pendingPublishTasks = new();
+
         private enum Methods
         {
             Cancel,
@@ -54,7 +58,7 @@ namespace Dorc.Monitor
         /// </summary>
         private void PublishRequestStatusChangedSafe(DeploymentRequestEventData eventData)
         {
-            _ = Task.Run(async () =>
+            var task = Task.Run(async () =>
             {
                 try
                 {
@@ -65,6 +69,7 @@ namespace Dorc.Monitor
                     this.logger.LogWarning(ex, "Failed to publish status event for request {RequestId}", eventData.RequestId);
                 }
             });
+            _pendingPublishTasks.Add(task);
         }
 
         // NOTE: AbandonRequests handles truly stale requests (>24 hours in Running state).
