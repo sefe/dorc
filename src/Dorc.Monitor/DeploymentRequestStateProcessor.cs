@@ -472,6 +472,19 @@ namespace Dorc.Monitor
                         }
                     }
                 }, monitorCancellationToken);
+
+                // Safety net: if the token is already cancelled when Task.Run is called (or
+                // gets cancelled before the ThreadPool picks up the delegate), the task
+                // transitions to Cancelled without executing the delegate body - so the
+                // finally block with TryRemove never runs, leaving a phantom entry.
+                // ContinueWith ensures cleanup in that edge case. TryRemove is idempotent,
+                // so this is harmless if the finally block already ran.
+                var envKey = requestGroup.Key;
+                task.ContinueWith(_ =>
+                {
+                    environmentRequestIdRunning.TryRemove(envKey, out int _);
+                }, CancellationToken.None, TaskContinuationOptions.OnlyOnCanceled, TaskScheduler.Default);
+
                 task.ConfigureAwait(false);
                 requestGroupExecutionTasks.Add(task);
             }

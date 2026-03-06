@@ -516,9 +516,13 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public async Task ExecuteRequests_AfterTaskCompletes_EnvironmentIsAvailableForNextPoll()
         {
-            // This test verifies the TryAdd-before-Task.Run fix.
+            // Verifies the TryAdd-before-Task.Run fix on the SAME instance.
             // If TryAdd were after Task.Run, a fast-completing task could TryRemove
-            // before TryAdd, leaving a phantom entry that permanently blocks the environment.
+            // before TryAdd, leaving a phantom entry in environmentRequestIdRunning
+            // that permanently blocks the environment from being processed.
+            //
+            // We use locking disabled to avoid the backoff dictionary interfering -
+            // this isolates the test to only the environmentRequestIdRunning cleanup.
             var requests = CreatePendingRequests("EnvRace", 100);
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(
@@ -529,37 +533,33 @@ namespace Dorc.Monitor.Tests
                     false)
                 .Returns(requests);
 
-            mockDistributedLockService.IsEnabled.Returns(true);
-            // Lock fails immediately - this is the fast-path that triggers the race
-            mockDistributedLockService
-                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                .Returns((IDistributedLock?)null);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0); // Return 0 to avoid going deeper into execution
 
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
 
-            // Act - first call: lock fails, task completes quickly
+            // Act - first call: task runs and completes quickly (UpdateNonProcessedRequest returns 0)
             var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
             await Task.WhenAll(tasks);
 
-            // Wait for backoff to expire (30 seconds is too long for a test, so we use
-            // a fresh processor instance which has no backoff state)
-            var sut2 = new DeploymentRequestStateProcessor(
-                mockLogger,
-                mockServiceProvider,
-                mockProcessesPersistentSource,
-                mockRequestsPersistentSource,
-                mockEventPublisher,
-                mockDistributedLockService);
-
-            mockDistributedLockService.ClearReceivedCalls();
-
-            // Act - second call on fresh instance: environment should NOT be permanently blocked
-            var tasks2 = sut2.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            // Act - second call on SAME instance: environment should NOT be permanently blocked
+            // If TryAdd were after Task.Run, the phantom entry would cause TryGetValue to return true,
+            // skipping this environment forever.
+            mockRequestsPersistentSource.ClearReceivedCalls();
+            var tasks2 = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
             await Task.WhenAll(tasks2);
 
-            // Assert - lock acquisition was attempted (environment not stuck)
-            await mockDistributedLockService.Received()
-                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            // Assert - UpdateNonProcessedRequest called again, proving environment is not stuck
+            mockRequestsPersistentSource.Received(1)
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
         }
 
         // =====================================================================
