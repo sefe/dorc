@@ -47,6 +47,26 @@ namespace Dorc.Monitor
                 throw new NullReferenceException("DeploymentEngine was not issued and equals null");
             }
 
+            // Recover orphaned deployment requests from a previous service instance
+            // that may have crashed or been restarted while deployments were in progress
+            try
+            {
+                var stateProcessor = serviceProvider.GetService(typeof(IDeploymentRequestStateProcessor)) as IDeploymentRequestStateProcessor;
+                if (stateProcessor != null)
+                {
+                    await stateProcessor.RecoverOrphanedRequestsAsync(isProduction);
+                }
+                else
+                {
+                    logger.LogWarning("Could not resolve IDeploymentRequestStateProcessor for startup recovery.");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to recover orphaned deployment requests during startup. " +
+                    "Continuing with normal operation. Orphaned requests will be abandoned after 1 day.");
+            }
+
             while (!monitorCancellationToken.IsCancellationRequested)
             {
                 try

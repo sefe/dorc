@@ -289,6 +289,19 @@ namespace Dorc.Monitor
                 return 15; // Default 15 minutes
             }
         }
+
+        public int GracefulShutdownTimeoutSeconds
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["GracefulShutdownTimeoutSeconds"];
+                if (int.TryParse(str, out int seconds) && seconds > 0)
+                {
+                    return seconds;
+                }
+                return 120; // Default 2 minutes
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration

@@ -18,6 +18,7 @@ namespace Dorc.Monitor.Tests
         private IRequestsPersistentSource mockRequestsPersistentSource = null!;
         private IDeploymentEventsPublisher mockEventPublisher = null!;
         private IDistributedLockService mockDistributedLockService = null!;
+        private IMonitorConfiguration mockMonitorConfiguration = null!;
 
         private DeploymentRequestStateProcessor sut = null!;
 
@@ -30,6 +31,7 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
             mockEventPublisher = Substitute.For<IDeploymentEventsPublisher>();
             mockDistributedLockService = Substitute.For<IDistributedLockService>();
+            mockMonitorConfiguration = Substitute.For<IMonitorConfiguration>();
 
             mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
                 .Returns(Task.CompletedTask);
@@ -40,7 +42,8 @@ namespace Dorc.Monitor.Tests
                 mockProcessesPersistentSource,
                 mockRequestsPersistentSource,
                 mockEventPublisher,
-                mockDistributedLockService);
+                mockDistributedLockService,
+                mockMonitorConfiguration);
         }
 
         private static List<DeploymentRequestApiModel> CreateRequests(params int[] ids)
@@ -373,6 +376,7 @@ namespace Dorc.Monitor.Tests
                     DeploymentRequestStatus.Pending,
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
                     false)
                 .Returns(requests);
 
@@ -410,6 +414,7 @@ namespace Dorc.Monitor.Tests
                     DeploymentRequestStatus.Pending,
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
                     false)
                 .Returns(requests);
 
@@ -435,7 +440,8 @@ namespace Dorc.Monitor.Tests
                 mockProcessesPersistentSource,
                 mockRequestsPersistentSource,
                 mockEventPublisher,
-                mockDistributedLockService);
+                mockDistributedLockService,
+                mockMonitorConfiguration);
 
             mockDistributedLockService
                 .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -476,6 +482,7 @@ namespace Dorc.Monitor.Tests
                     DeploymentRequestStatus.Pending,
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
                     false)
                 .Returns(requests);
 
@@ -504,6 +511,271 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<DeploymentRequestApiModel>(),
                     Arg.Any<DeploymentRequestStatus>(),
                     Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // RecoverOrphanedRequestsAsync tests
+        // =====================================================================
+
+        private static List<DeploymentRequestApiModel> CreateOrphanedRequests(string envName, DeploymentRequestStatus status, params int[] ids)
+        {
+            return ids.Select(id => new DeploymentRequestApiModel
+            {
+                Id = id,
+                EnvironmentName = envName,
+                Status = status.ToString(),
+                IsProd = false,
+                UserName = "testuser"
+            }).ToList();
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_NoOrphanedRequests_DoesNothing()
+        {
+            // Arrange
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - no status switches or result clears
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>());
+            mockRequestsPersistentSource.DidNotReceive()
+                .ClearAllDeploymentResults(Arg.Any<IList<int>>());
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_RunningRequests_ResetsTosPendingAndClearsResults()
+        {
+            // Arrange
+            var orphaned = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Running, 1, 2);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(orphaned);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(2);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - Running → Pending
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 2),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+
+            // Assert - deployment results cleared
+            mockRequestsPersistentSource.Received(1)
+                .ClearAllDeploymentResults(Arg.Is<IList<int>>(ids => ids.Count == 2));
+
+            // Assert - events published
+            mockEventPublisher.Received(2)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_RequestingRequests_ResetsToPending()
+        {
+            // Arrange
+            var orphaned = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Requesting, 5);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(orphaned);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Requesting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - Requesting → Pending
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1),
+                    DeploymentRequestStatus.Requesting,
+                    DeploymentRequestStatus.Pending);
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_MixedStatuses_ResetsBothRunningAndRequesting()
+        {
+            // Arrange - mixed Running and Requesting in same environment
+            var runningReqs = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Running, 1);
+            var requestingReqs = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Requesting, 2);
+            var allOrphaned = runningReqs.Concat(requestingReqs).ToList();
+
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(allOrphaned);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is(DeploymentRequestStatus.Running),
+                    Arg.Is(DeploymentRequestStatus.Pending))
+                .Returns(1);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is(DeploymentRequestStatus.Requesting),
+                    Arg.Is(DeploymentRequestStatus.Pending))
+                .Returns(1);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - both statuses reset
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is(DeploymentRequestStatus.Running),
+                    Arg.Is(DeploymentRequestStatus.Pending));
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is(DeploymentRequestStatus.Requesting),
+                    Arg.Is(DeploymentRequestStatus.Pending));
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_HAEnabled_LockAcquired_ResetsRequests()
+        {
+            // Arrange
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:TestEnv");
+
+            var orphaned = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Running, 1);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(orphaned);
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - lock acquired and requests reset
+            await mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync("env:TestEnv", Arg.Any<int>(), Arg.Any<CancellationToken>());
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+
+            // Assert - lock released
+            await mockLock.Received(1).DisposeAsync();
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_HAEnabled_LockNotAcquired_SkipsEnvironment()
+        {
+            // Arrange - another monitor holds the lock
+            var orphaned = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Running, 1);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(orphaned);
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns((IDistributedLock?)null);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - no status changes (skipped because lock not acquired)
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>());
+            mockRequestsPersistentSource.DidNotReceive()
+                .ClearAllDeploymentResults(Arg.Any<IList<int>>());
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_KillsRunnerProcessesBeforeReset()
+        {
+            // Arrange
+            var orphaned = CreateOrphanedRequests("TestEnv", DeploymentRequestStatus.Running, 42);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(orphaned);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockProcessesPersistentSource
+                .GetAssociatedRunnerProcessIds(42)
+                .Returns(new List<int> { 9999 });
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - runner processes queried for cleanup
+            mockProcessesPersistentSource.Received(1)
+                .GetAssociatedRunnerProcessIds(42);
+        }
+
+        [TestMethod]
+        public async Task RecoverOrphanedRequests_MultipleEnvironments_RecoversBothIndependently()
+        {
+            // Arrange - orphaned requests across two environments
+            var envARequests = CreateOrphanedRequests("EnvA", DeploymentRequestStatus.Running, 1);
+            var envBRequests = CreateOrphanedRequests("EnvB", DeploymentRequestStatus.Running, 2);
+            var allOrphaned = envARequests.Concat(envBRequests).ToList();
+
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, false)
+                .Returns(allOrphaned);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            // Act
+            await sut.RecoverOrphanedRequestsAsync(false);
+
+            // Assert - switch called twice (once per environment)
+            mockRequestsPersistentSource.Received(2)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+
+            // Assert - results cleared for both environments
+            mockRequestsPersistentSource.Received(2)
+                .ClearAllDeploymentResults(Arg.Any<IList<int>>());
         }
     }
 }

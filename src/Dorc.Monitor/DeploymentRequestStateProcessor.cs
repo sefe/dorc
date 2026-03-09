@@ -52,6 +52,143 @@ namespace Dorc.Monitor
             this.monitorConfiguration = monitorConfiguration;
         }
 
+        /// <summary>
+        /// Recovers deployment requests left in Running or Requesting state from a previous
+        /// service instance that crashed or was restarted. Resets them to Pending so they
+        /// will be re-processed. In HA mode, acquires environment locks first to avoid
+        /// interfering with requests actively being processed by another monitor instance.
+        /// </summary>
+        public async Task RecoverOrphanedRequestsAsync(bool isProduction)
+        {
+            var orphanedRequests = this.requestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting, isProduction)
+                .OrderBy(r => r.Id)
+                .ToList();
+
+            if (!orphanedRequests.Any())
+            {
+                this.logger.LogInformation("Startup recovery: no orphaned deployment requests found.");
+                return;
+            }
+
+            var ids = orphanedRequests.Select(r => r.Id).ToArray();
+            var idsString = string.Join(',', ids);
+
+            this.logger.LogWarning(
+                "Startup recovery: found {Count} orphaned deployment requests [{Ids}]. " +
+                "These were likely interrupted by a previous service restart. Re-queuing them for processing.",
+                orphanedRequests.Count, idsString);
+
+            // Group by environment for HA-safe recovery with distributed locks
+            var environmentGroups = orphanedRequests.GroupBy(r => r.EnvironmentName);
+
+            int totalReset = 0;
+            foreach (var envGroup in environmentGroups)
+            {
+                var envName = envGroup.Key;
+                var envRequests = envGroup.ToList();
+
+                if (distributedLockService.IsEnabled)
+                {
+                    // In HA mode, acquire environment lock to verify no other monitor is processing
+                    var lockKey = $"env:{envName}";
+                    IDistributedLock? envLock = null;
+                    try
+                    {
+                        envLock = await distributedLockService.TryAcquireLockAsync(lockKey, 60000, CancellationToken.None);
+
+                        if (envLock == null)
+                        {
+                            this.logger.LogInformation(
+                                "Startup recovery: skipping environment '{Env}' - another monitor instance may be actively processing it.",
+                                envName);
+                            continue;
+                        }
+
+                        totalReset += RecoverRequestsForEnvironment(envRequests, envName);
+                    }
+                    finally
+                    {
+                        if (envLock != null)
+                        {
+                            await envLock.DisposeAsync();
+                        }
+                    }
+                }
+                else
+                {
+                    // Single-monitor mode: safe to reset all orphaned requests
+                    totalReset += RecoverRequestsForEnvironment(envRequests, envName);
+                }
+            }
+
+            this.logger.LogInformation("Startup recovery complete: {ResetCount} orphaned requests re-queued as Pending.", totalReset);
+        }
+
+        private int RecoverRequestsForEnvironment(List<DeploymentRequestApiModel> requests, string envName)
+        {
+            int resetCount = 0;
+            var ids = requests.Select(r => r.Id).ToList();
+
+            // Kill any orphaned runner processes from the previous service instance
+            foreach (var id in ids)
+            {
+                TerminateRunnerProcesses(id);
+            }
+
+            // Reset Running requests to Pending
+            var runningRequests = requests
+                .Where(r => r.Status == DeploymentRequestStatus.Running.ToString())
+                .ToList();
+            if (runningRequests.Any())
+            {
+                resetCount += this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    runningRequests,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+            }
+
+            // Reset Requesting requests to Pending
+            var requestingRequests = requests
+                .Where(r => r.Status == DeploymentRequestStatus.Requesting.ToString())
+                .ToList();
+            if (requestingRequests.Any())
+            {
+                resetCount += this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    requestingRequests,
+                    DeploymentRequestStatus.Requesting,
+                    DeploymentRequestStatus.Pending);
+            }
+
+            // Clear partial deployment results so the request starts fresh
+            if (resetCount > 0)
+            {
+                try
+                {
+                    this.requestsPersistentSource.ClearAllDeploymentResults(ids);
+                    this.logger.LogDebug("Startup recovery: cleared deployment results for environment '{Env}', request IDs [{Ids}].",
+                        envName, string.Join(',', ids));
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Startup recovery: failed to clear deployment results for environment '{Env}'.", envName);
+                }
+            }
+
+            // Publish status change events
+            foreach (var id in ids)
+            {
+                _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                    RequestId: id,
+                    Status: DeploymentRequestStatus.Pending.ToString(),
+                    StartedTime: null,
+                    CompletedTime: null,
+                    Timestamp: DateTimeOffset.UtcNow));
+            }
+
+            return resetCount;
+        }
+
         public void AbandonRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
             var requestsToAbandon = this.requestsPersistentSource
@@ -376,7 +513,7 @@ namespace Dorc.Monitor
                             }
                         }
 
-                        var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
+                        var requestCancellationTokenSource = new CancellationTokenSource();
                         requestCancellationSources!.AddOrUpdate(
                             requestToExecute.Request.Id,
                             requestCancellationTokenSource,
