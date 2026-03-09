@@ -23,10 +23,10 @@ export class ProjectCard extends LitElement {
         color: white;
       }
       .card-element__heading {
-        color: gray;
+        color: var(--dorc-text-secondary);
       }
       .card-element__text {
-        color: gray;
+        color: var(--dorc-text-secondary);
       }
 
       .statistics-cards {
@@ -37,7 +37,7 @@ export class ProjectCard extends LitElement {
       .statistics-cards__item {
         margin: 5px;
         flex-shrink: 0;
-        background-color: white;
+        background-color: var(--dorc-bg-primary);
       }
     `;
   }
@@ -69,7 +69,7 @@ export class ProjectCard extends LitElement {
             >
               <vaadin-icon
                 icon="vaadin:records"
-                style="color: cornflowerblue"
+                style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
           </div>

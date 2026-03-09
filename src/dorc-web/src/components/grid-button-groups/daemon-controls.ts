@@ -40,8 +40,8 @@ export class DaemonControls extends LitElement {
           <vaadin-icon
             icon="vaadin:play"
             style="color: ${this.startDisabled
-              ? 'lightgrey'
-              : 'cornflowerblue'}"
+              ? 'var(--dorc-text-secondary)'
+              : 'var(--dorc-link-color)'}"
           ></vaadin-icon>
         </vaadin-button>
         <vaadin-button
@@ -52,7 +52,7 @@ export class DaemonControls extends LitElement {
         >
           <vaadin-icon
             icon="vaadin:stop"
-            style="color: ${this.stopDisabled ? 'lightgrey' : 'cornflowerblue'}"
+            style="color: ${this.stopDisabled ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'}"
           ></vaadin-icon>
         </vaadin-button>
         <vaadin-button
@@ -64,8 +64,8 @@ export class DaemonControls extends LitElement {
           <vaadin-icon
             icon="vaadin:refresh"
             style="color: ${this.restartDisabled
-              ? 'lightgrey'
-              : 'cornflowerblue'}"
+              ? 'var(--dorc-text-secondary)'
+              : 'var(--dorc-link-color)'}"
           ></vaadin-icon>
         </vaadin-button>
         <span style="color: darkred">${this.error}</span>

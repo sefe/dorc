@@ -32,7 +32,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="lumo:edit"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -42,7 +42,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:lock"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -52,7 +52,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:records"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -62,7 +62,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:curly-brackets"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -72,7 +72,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:list"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -83,7 +83,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="icons:delete"
-          style="color: red"
+          style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>
     `;

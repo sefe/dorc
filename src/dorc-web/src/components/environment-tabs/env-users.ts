@@ -25,7 +25,7 @@ export class EnvUsers extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Users"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
       </vaadin-details>
       <attached-app-users

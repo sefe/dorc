@@ -13,11 +13,13 @@ export class EnvDeployments extends LitElement {
   static get styles() {
     return css`
       vaadin-grid::part(success) {
-        background-color: #90ee90;
+        background-color: var(--dorc-success-bg);
+        color: var(--dorc-text-primary);
       }
 
       vaadin-grid::part(failure) {
-        background-color: #f08080;
+        background-color: var(--dorc-failure-bg);
+        color: var(--dorc-text-primary);
       }
     `;
   }

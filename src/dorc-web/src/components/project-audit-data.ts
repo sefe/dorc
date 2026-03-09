@@ -65,13 +65,13 @@ export class ProjectAuditData extends LitElement {
         overflow: hidden;
         height: calc(100vh - 225px);
         width: calc(100vw - 400px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(insert-type) {
-        background-color: #b1ffb7;
+        background-color: var(--dorc-success-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: #ffd9d9;
+        background-color: var(--dorc-failure-bg);
       }
 
       .overlay {
@@ -95,8 +95,8 @@ export class ProjectAuditData extends LitElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -114,11 +114,11 @@ export class ProjectAuditData extends LitElement {
       }
 
       .highlight {
-        background-color: #b4d5ff;
+        background-color: var(--dorc-chip-bg);
       }
 
       .highlight-removed {
-        background-color: #ffb4c2;
+        background-color: var(--dorc-failure-bg);
       }
     `;
   }
