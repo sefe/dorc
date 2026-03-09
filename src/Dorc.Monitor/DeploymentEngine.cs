@@ -96,11 +96,12 @@ namespace Dorc.Monitor
             // Graceful shutdown: wait for all in-progress deployments to complete
             if (_runningTasks.Count > 0)
             {
-                logger.LogInformation("Graceful shutdown: waiting for {RunningCount} in-progress deployments to complete...", _runningTasks.Count);
+                var shutdownTimeout = TimeSpan.FromSeconds(configuration.GracefulShutdownTimeoutSeconds);
+                logger.LogInformation("Graceful shutdown: waiting up to {TimeoutSeconds}s for {RunningCount} in-progress deployments to complete...",
+                    configuration.GracefulShutdownTimeoutSeconds, _runningTasks.Count);
                 try
                 {
-                    // Wait with a reasonable timeout to avoid hanging indefinitely
-                    var completedInTime = await Task.WhenAll(_runningTasks).WaitAsync(TimeSpan.FromMinutes(30), CancellationToken.None)
+                    var completedInTime = await Task.WhenAll(_runningTasks).WaitAsync(shutdownTimeout, CancellationToken.None)
                         .ContinueWith(t => !t.IsFaulted && !t.IsCanceled);
 
                     if (completedInTime)
@@ -109,13 +110,16 @@ namespace Dorc.Monitor
                     }
                     else
                     {
-                        logger.LogWarning("Graceful shutdown timeout: some deployments may not have completed");
+                        logger.LogWarning("Graceful shutdown: some deployments finished with errors but all tasks completed");
                     }
                 }
                 catch (TimeoutException)
                 {
-                    logger.LogWarning("Graceful shutdown timeout (30 minutes): {RemainingCount} deployments still running",
-                        _runningTasks.Count(t => !t.IsCompleted));
+                    var remainingCount = _runningTasks.Count(t => !t.IsCompleted);
+                    logger.LogWarning(
+                        "Graceful shutdown timeout ({TimeoutSeconds}s): {RemainingCount} deployments still running. " +
+                        "These will be automatically recovered and re-queued on next service startup.",
+                        configuration.GracefulShutdownTimeoutSeconds, remainingCount);
                 }
                 catch (Exception ex)
                 {

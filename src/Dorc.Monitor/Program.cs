@@ -40,6 +40,12 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = monitorConfiguration.ServiceName;
 });
 
+// Configure host shutdown timeout to allow graceful completion of in-progress deployments
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.ShutdownTimeout = TimeSpan.FromSeconds(monitorConfiguration.GracefulShutdownTimeoutSeconds + 30);
+});
+
 #region Logging Configuration
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 builder.Logging.ClearProviders();
