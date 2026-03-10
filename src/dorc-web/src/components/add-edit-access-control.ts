@@ -613,15 +613,40 @@ export class AddEditAccessControl extends LitElement {
     _column: GridColumn,
     model: GridItemModel<AccessControlApiModel>
   ) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const addEditAccessControl = _column.altThis as AddEditAccessControl;
+
     const canOwnerRender = ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${true}"
+        ?disabled="${!addEditAccessControl.UserEditable}"
         ?checked="${canOwnerRender}"
       ></vaadin-checkbox>`,
       root
     );
+
+    const checkbox: Checkbox = root.querySelector(
+      'vaadin-checkbox'
+    ) as Checkbox;
+
+    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
+      const canOwner =
+        ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
+
+      const checked = e.detail.value as boolean;
+      if (checked && !canOwner) {
+        if (model.item.Allow !== undefined) {
+          model.item.Allow |= AC_ALLOW_OWNER;
+        }
+      }
+      if (!checked && canOwner) {
+        if (model.item.Allow !== undefined) {
+          model.item.Allow ^= AC_ALLOW_OWNER;
+        }
+      }
+    });
   }
 
 

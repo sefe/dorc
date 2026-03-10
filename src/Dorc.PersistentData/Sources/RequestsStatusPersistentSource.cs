@@ -145,11 +145,6 @@ namespace Dorc.PersistentData.Sources
             var reqStatusesQueryable = from req in context.DeploymentRequests
                                        join environment in context.Environments on req.Environment equals
                                            environment.Name
-                                       let isDelegate =
-                                           (from envDetail in context.Environments
-                                            join env in context.Environments on envDetail.Name equals env.Name
-                                            where env.Name == environment.Name && envDetail.Users.Select(u => u.LoginId).Contains(userName)
-                                            select envDetail.Name).Any()
                                        let permissions =
                                            (from env in context.Environments
                                             join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
@@ -178,7 +173,7 @@ namespace Dorc.PersistentData.Sources
                                            UncLogPath = req.UncLogPath,
                                            CancelledBy = req.CancelledBy,
                                            CancelledTime = req.CancelledTime,
-                                           UserEditable = isOwner || isDelegate || isPermissioned
+                                           UserEditable = isOwner  || isPermissioned
                                        };
 
             //var sql = reqStatusesQueryable.ToString();

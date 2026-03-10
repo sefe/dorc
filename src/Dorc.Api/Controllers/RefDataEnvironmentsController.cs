@@ -72,19 +72,6 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Returns whether this user is the env owner or delegate
-        /// </summary>
-        /// <param name="envName">Environment Name</param>
-        /// <returns>Json string with EnvironmentApiModel object or empty model if error occurred</returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
-        [Route("IsEnvironmentOwnerOrDelegate")]
-        [HttpGet]
-        public IActionResult GetIsEnvironmentOwnerOrDelegate(string envName)
-        {
-            return Ok(_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, envName));
-        }
-
-        /// <summary>
         ///     Create new environment
         /// </summary>
         /// <param name="content"></param>
