@@ -48,9 +48,6 @@
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#ProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 					
 					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
-					
-					<!-- Pause Deployment Configuration -->
-					<Json:JsonFile Id="PauseDeploymentEnabledProd" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
 
 					<!-- High Availability Configuration -->
 					<Json:JsonFile Id="HAEnabledProd" ElementPath="$.AppSettings.HighAvailability.Enabled" Value="[HA.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />

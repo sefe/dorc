@@ -17,9 +17,6 @@ namespace Dorc.Monitor
 
         // High Availability settings
         bool HighAvailabilityEnabled { get; }
-
-        // Pause deployment feature
-        bool PauseDeploymentEnabled { get; }
         string RabbitMqHostName { get; }
         int RabbitMqPort { get; }
         string? RabbitMqVirtualHost { get; }
