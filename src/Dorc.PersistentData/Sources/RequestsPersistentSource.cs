@@ -512,6 +512,17 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateEnvironmentOwnerEmail(int requestId, string email)
+        {
+            using var context = _contextFactory.GetContext();
+            var request = context.DeploymentRequests.Find(requestId);
+            if (request != null)
+            {
+                request.EnvironmentOwnerEmail = email;
+                context.SaveChanges();
+            }
+        }
+
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
         {
             DeploymentResultStatus status;
@@ -563,7 +574,8 @@ namespace Dorc.PersistentData.Sources
                 UserName = req.UserName,
                 UncLogPath = req.UncLogPath,
                 CancelledBy = req.CancelledBy,
-                CancelledTime = req.CancelledTime
+                CancelledTime = req.CancelledTime,
+                EnvironmentOwnerEmail = req.EnvironmentOwnerEmail
             };
         }
 

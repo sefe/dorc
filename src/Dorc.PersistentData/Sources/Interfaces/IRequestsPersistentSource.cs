@@ -47,5 +47,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DeploymentRequestApiModel GetRequest(int requestId);
         int SubmitRequest(DeploymentRequest deploymentRequest);
         void UpdateRequestDetails(int requestId, string requestDetails);
+        void UpdateEnvironmentOwnerEmail(int requestId, string email);
     }
 }

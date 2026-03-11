@@ -43,6 +43,7 @@ namespace Dorc.PersistentData.Model
         [StringLength(128)] public string? CancelledBy { get; set; }
 
         public DateTimeOffset? CancelledTime { get; set; }
+        [StringLength(256)] public string? EnvironmentOwnerEmail { get; set; }
 
 
         public string DropLocation
