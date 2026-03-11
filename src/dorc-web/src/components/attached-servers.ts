@@ -62,7 +62,7 @@ export class AttachedServers extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-button {
         padding: 0px;
@@ -71,8 +71,8 @@ export class AttachedServers extends LitElement {
       .tag {
         font-size: 14px;
         font-family: monospace;
-        background-color: cornflowerblue;
-        color: white;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
         display: inline-block;
         padding: 3px;
         margin: 3px;

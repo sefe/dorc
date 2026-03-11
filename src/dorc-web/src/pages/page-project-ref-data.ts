@@ -28,15 +28,15 @@ export class PageProjectRefData extends PageElement {
         color: white;
         cursor: pointer;
         border: 0;
-        background-color: cornflowerblue;
+        background-color: var(--dorc-link-color);
       }
       .btn:hover {
         background-color: RoyalBlue;
       }
       button:disabled,
       button[disabled] {
-        background-color: #cccccc;
-        color: #666666;
+        background-color: var(--dorc-bg-tertiary);
+        color: var(--dorc-text-secondary);
       }
       .loader {
         position: fixed;

@@ -68,7 +68,7 @@ export class AttachedDelegatedUsers extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
@@ -78,7 +78,7 @@ export class AttachedDelegatedUsers extends LitElement {
       <vaadin-details
         opened
         summary="Application Users with Delegated Privileges"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px; display: flex; flex-direction: column;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px; display: flex; flex-direction: column;"
       >
         <vaadin-combo-box
           id="unallocated-users"

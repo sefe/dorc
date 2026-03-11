@@ -25,14 +25,14 @@ export class DelegatedUserControls extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
     };
     return html`
       <vaadin-button
