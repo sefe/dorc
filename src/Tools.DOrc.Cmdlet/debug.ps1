@@ -1,11 +1,9 @@
 #Remove-Module DOrc.Cmdlet -Force
 Import-Module .\DOrc.Cmdlet.psd1 -Force
 
-# Optional: token auth (uncomment if needed)
-# $clientId = "dorc-cli"
-# $clientSecret = "<client-secret>"
-# $scope = "dorc-api.manage"
-# Connect-DOrcWithIdentityServer -ApiUrl $ApiUrl -ClientId $clientId -ClientSecret $clientSecret -Scope $scope
+# Optional: set JWT token (uncomment if needed)
+# $userJwt = "eyJ..."
+# Set-DOrcBearerToken -Token $userJwt
 
 $ApiUrl = "http://localhost:32194/api" 
 $Environment = "Comms Tool DV"
