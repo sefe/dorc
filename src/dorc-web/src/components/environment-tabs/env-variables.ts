@@ -35,6 +35,7 @@ import {
   RefDataScopedPropertyValuesApi
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
+import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
 
@@ -45,7 +46,7 @@ const variableIsShowDefaultProps = 'ShowDefaults';
 
 let _environment: EnvironmentApiModel | undefined;
 @customElement('env-variables')
-export class EnvVariables extends PageEnvBase {
+export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   private secureMessage =
     'This environment is not secure which includes default variables during deployments';
 
@@ -148,6 +149,13 @@ export class EnvVariables extends PageEnvBase {
           transform: rotate(360deg);
         }
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -196,7 +204,7 @@ export class EnvVariables extends PageEnvBase {
                           clear-button-visible
                           item-label-path="Name"
                           item-value-path="Name"
-                          style="min-width: 600px; margin-left: 5px; "
+                          style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-xs)"
                         ></vaadin-combo-box>
                       </td>
                     </tr>
@@ -367,6 +375,7 @@ export class EnvVariables extends PageEnvBase {
                   resizable
                   auto-width
                   flex-grow="0"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-column>
                 <vaadin-grid-column
                   path="Secure"
@@ -376,6 +385,7 @@ export class EnvVariables extends PageEnvBase {
                   .renderer="${this.secureRenderer}"
                   .headerRenderer="${this.secureHeaderRenderer}"
                   flex-grow="0"
+                  ?hidden="${this._narrowScreen}"
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-column

@@ -11,11 +11,12 @@ import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 
 @customElement('page-daemons-list')
-export class PageDaemonsList extends PageElement {
+export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -45,9 +46,15 @@ export class PageDaemonsList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 110px);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
       }
       .overlay {
@@ -86,6 +93,13 @@ export class PageDaemonsList extends PageElement {
         top: 16px;
         overflow: auto;
         padding: 10px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -156,11 +170,13 @@ export class PageDaemonsList extends PageElement {
                 path="AccountName"
                 header="Account Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ServiceType"
                 header="Type"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
             </vaadin-grid>
           `} `;

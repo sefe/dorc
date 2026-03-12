@@ -35,48 +35,117 @@ export class DorcApp extends ShortcutsStore {
   static get styles() {
     return css`
       :host {
-        display: inline;
-        height: 100%;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
         margin: 0;
-        background: black;
-        font-family: Arial, monospace;
+        background: white;
+        font-family: var(--lumo-font-family, Arial, sans-serif);
+        overflow: hidden;
       }
 
       #header {
-        height: 50px;
+        height: var(--dorc-header-height, 50px);
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         background: #f5f6f8;
-        color: #bbbbbb;
+        color: #555;
+        gap: var(--lumo-space-s);
+        padding: 0 var(--lumo-space-s);
+        box-sizing: border-box;
+      }
+
+      #header h2 {
+        margin: 0;
+        white-space: nowrap;
+      }
+
+      .header-spacer {
+        flex: 1;
+        min-width: var(--lumo-space-m);
+      }
+
+      .header-user-info {
+        color: #555;
+        font-size: var(--lumo-font-size-xs);
+        line-height: var(--lumo-line-height-s);
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 300px;
+      }
+
+      .header-user-info .user-roles {
+        color: #747f8d;
       }
 
       #page {
         display: flex;
-        height: calc(100vh - 30px);
-        /* calculate the height. Header is 30px */
+        flex: 1;
+        min-height: 0;
       }
 
-      #sideBar {
-        width: 300px;
-        background: blue;
+      #dorcNavbar {
+        width: var(--dorc-sidebar-width, 300px);
+        flex-shrink: 0;
+        overflow: hidden;
+        transition: width 0.2s ease;
       }
 
       #splitter {
         width: 2px;
         min-width: 2px;
+        flex-shrink: 0;
         cursor: ew-resize;
-        padding: 4px 0 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
         background-color: #f5f6f8;
       }
 
       #page-content {
         background: white;
-        overflow-x: scroll;
-        overflow-y: hidden;
-        width: 100%;
+        overflow: auto;
+        flex: 1;
+        min-width: 0;
+      }
+
+      @media (max-width: 768px) {
+        #dorcNavbar {
+          position: fixed;
+          top: var(--dorc-header-height, 50px);
+          left: 0;
+          bottom: 0;
+          z-index: 100;
+          width: 0;
+          max-width: 85vw;
+          background: var(--lumo-base-color, white);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+          visibility: hidden;
+          pointer-events: none;
+          transform: translateX(-100%);
+          transition: transform 0.2s ease, width 0.2s ease, visibility 0s linear 0.2s;
+        }
+
+        #dorcNavbar.open {
+          width: 280px;
+          visibility: visible;
+          pointer-events: auto;
+          transform: translateX(0);
+          transition: transform 0.2s ease, width 0.2s ease, visibility 0s;
+        }
+
+        #splitter {
+          display: none;
+        }
+
+        .header-user-info {
+          display: none;
+        }
+
+        #header {
+          padding: 0 var(--lumo-space-xs);
+        }
       }
     `;
   }
@@ -86,41 +155,37 @@ export class DorcApp extends ShortcutsStore {
 
   @query('#splitter') splitter!: HTMLDivElement;
 
+  private _drawerClickHandler: ((e: Event) => void) | undefined;
+
   render() {
     return html`
       <div id="header">
         <vaadin-button
           theme="icon"
           aria-label="Toggle Menu"
-          style="padding: 5px; margin-left: 10px"
           @click="${this.toggleSideBar}"
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
         </vaadin-button>
         <img
           src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png"
-          style="height: 65px; padding: 3px"
+          style="height: 40px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px;  color: black" title="DevOps Orchestrator">
+        <h2 style="color: black" title="DevOps Orchestrator">
           DOrc
         </h2>
 
-        <div style="width: calc(100% - 800px)"></div>
-        <table style="color: #747f8d; font-size: x-small">
-          <tr>
-            ${this.userEmail}
-          </tr>
-          <tr>
-            ${this.userRoles}
-          </tr>
-        </table>
+        <div class="header-spacer"></div>
+        <div class="header-user-info">
+          <div>${this.userEmail}</div>
+          <div class="user-roles">${this.userRoles}</div>
+        </div>
         <vaadin-button ?hidden="${!this.showSignOutButton}" @click="${this.signOut}">Sign Out</vaadin-button>
         <a
           class="plain"
           href="${this.dorcHelperPage}"
           target="_blank"
-          style="padding-left: 10px"
         >
           <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
           Help
@@ -153,6 +218,16 @@ export class DorcApp extends ShortcutsStore {
 
     super.firstUpdated(_changedProperties);
 
+    // Auto-close drawer on mobile after navigation click
+    const navbar = this.dorcNavbar;
+    this._drawerClickHandler = (e: Event) => {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile && e.composedPath().some(el => (el as HTMLElement).tagName === 'A')) {
+        navbar.classList.remove('open');
+      }
+    };
+    navbar.addEventListener('click', this._drawerClickHandler);
+
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {
         passive: true
@@ -163,12 +238,26 @@ export class DorcApp extends ShortcutsStore {
     });
   }
 
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.dorcNavbar && this._drawerClickHandler) {
+      this.dorcNavbar.removeEventListener('click', this._drawerClickHandler);
+    }
+  }
+
   private toggleSideBar() {
     if (this.dorcNavbar) {
-      if (this.dorcNavbar.style.width === '0px') {
-        this.dorcNavbar.style.width = '300px';
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile) {
+        // Clear any desktop/splitter inline width so mobile CSS can control the drawer
+        this.dorcNavbar.style.width = '';
+        this.dorcNavbar.classList.toggle('open');
       } else {
-        this.dorcNavbar.style.width = '0px';
+        if (this.dorcNavbar.style.width === '0px') {
+          this.dorcNavbar.style.width = '300px';
+        } else {
+          this.dorcNavbar.style.width = '0px';
+        }
       }
     }
   }

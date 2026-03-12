@@ -8,6 +8,7 @@ import '@vaadin/icons';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '@vaadin/details';
 import '@vaadin/horizontal-layout';
 import {
@@ -27,7 +28,7 @@ import { Router } from '@vaadin/router';
 import { ComboBox } from '@vaadin/combo-box';
 
 @customElement('page-project-bundles')
-export class PageProjectBundles extends PageElement {
+export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   @property({ type: String })
   project: string | undefined;
 
@@ -50,8 +51,9 @@ export class PageProjectBundles extends PageElement {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
-        padding: 20px 20px 0 20px;
+        margin-bottom: var(--lumo-space-m);
+        padding: var(--lumo-space-m) var(--lumo-space-m) 0 var(--lumo-space-m);
+        flex-wrap: wrap;
       }
 
 
@@ -99,6 +101,13 @@ export class PageProjectBundles extends PageElement {
       @keyframes spin {
         100% {
           transform: rotate(360deg);
+        }
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
       }
     `;
@@ -216,6 +225,7 @@ export class PageProjectBundles extends PageElement {
           auto-width
           flex-grow="0"
           resizable
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="RequestName"
@@ -231,6 +241,7 @@ export class PageProjectBundles extends PageElement {
           flex-grow="0"
           resizable
           direction="asc"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           .renderer="${this.bundleControlsRenderer}"
@@ -242,6 +253,7 @@ export class PageProjectBundles extends PageElement {
           header="Request"
           resizable
           .renderer="${this._jsonRenderer}"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
 

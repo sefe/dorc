@@ -62,9 +62,9 @@ export class ProjectAuditData extends LitElement {
   static get styles() {
     return css`
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 225px);
-        width: calc(100vw - 400px);
+        flex: 1;
+        min-height: 0;
+        width: 100%;
         --divider-color: rgb(223, 232, 239);
       }
       vaadin-grid#grid::part(insert-type) {

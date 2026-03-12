@@ -58,8 +58,9 @@ export class AddEditEnvironment extends LitElement {
       }
       div#div {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 175px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
       }
       vaadin-text-field {
         display: flex;
