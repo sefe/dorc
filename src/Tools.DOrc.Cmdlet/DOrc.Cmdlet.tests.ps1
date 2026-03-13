@@ -147,3 +147,21 @@ Context "Convert-CsvToCsvProperties validation" {
         { $invalidData | Convert-CsvToCsvProperties } | Should -Throw "Property value cannot be blank or empty. Found blank value for property 'ValidProperty'"
     }
 }
+
+Context "Bearer token management" {
+    It 'Set-DOrcBearerToken should accept token with Bearer prefix' {
+        Set-DOrcBearerToken -Token "Bearer abc.def.ghi" | Out-Null
+        [ApiCaller]::AccessToken | Should -Be "abc.def.ghi"
+    }
+
+    It 'Get-DOrcBearerTokenStatus should return true when token exists' {
+        [ApiCaller]::SetAccessToken("token123")
+        Get-DOrcBearerTokenStatus | Should -Be $true
+    }
+
+    It 'Clear-DOrcBearerToken should clear token' {
+        [ApiCaller]::SetAccessToken("token123")
+        Clear-DOrcBearerToken
+        [ApiCaller]::AccessToken | Should -Be $null
+    }
+}
