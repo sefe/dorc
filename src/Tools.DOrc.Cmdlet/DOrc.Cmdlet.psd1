@@ -12,7 +12,7 @@
 RootModule = 'DOrc.Cmdlet.psm1'
 
 # Version number of this module.
-ModuleVersion = '26.02.10.1'
+ModuleVersion = '1.1.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
