@@ -128,7 +128,7 @@ namespace Dorc.Api.Windows.Controllers
                 {
                     if (!newIds.Contains(existingId))
                     {
-                        _accessControlPersistentSource.DeleteAccessControl(existingId);
+                        _accessControlPersistentSource.DeleteAccessControl(existingId, accessControl.ObjectId, User);
                     }
                 }
 
@@ -136,12 +136,12 @@ namespace Dorc.Api.Windows.Controllers
                 {
                     if (accessControlPrivilege.Id == 0)
                     {
-                        _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId);
+                        _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
                     }
 
                     if (accessControlPrivilege.Id > 0)
                     {
-                        _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege);
+                        _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
                     }
                 }
 

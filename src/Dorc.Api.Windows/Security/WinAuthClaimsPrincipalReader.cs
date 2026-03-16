@@ -44,5 +44,10 @@ namespace Dorc.Api.Windows.Security
         {
             return _userGroupReader.GetSidsForUser(GetUserName(user));
         }
+
+        public string GetUserSafeIdentifier(IPrincipal user)
+        {
+            return GetUserName(user);
+        }
     }
 }
