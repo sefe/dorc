@@ -22,6 +22,9 @@ import {
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
+
+  private readonly maxFieldLength = 50;
+
   @property({ type: Object })
   get database(): DatabaseApiModel {
     return this._database;
@@ -132,6 +135,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Database"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
             required
             auto-validate
@@ -141,6 +146,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Application Tag"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
             required
             auto-validate
@@ -151,6 +158,8 @@ export class AddEditDatabase extends LitElement {
             class="block"
             pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
             label="Instance"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._sqlServerValueChanged}"
@@ -159,6 +168,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Array Name (leave blank if unknown)"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             @input="${this._dbaArrayNameValueChanged}"
             auto-validate
             .value="${this.ArrayName}"

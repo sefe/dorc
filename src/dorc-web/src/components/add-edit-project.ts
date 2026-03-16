@@ -17,6 +17,9 @@ import type { ProjectApiModel } from '../apis/dorc-api';
 
 @customElement('add-edit-project')
 export class AddEditProject extends LitElement {
+
+  private readonly maxFieldLength = 512;
+
   @property({ type: Object })
   get project(): ProjectApiModel {
     return this._project;
@@ -155,6 +158,8 @@ export class AddEditProject extends LitElement {
             id="proj-url"
             style="width: 490px;"
             label="Azure DevOps Server URL / File Path"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             pattern="^(https|file)?:\\/\\/(.*)"
             value="${this._project?.ArtefactsUrl ?? ''}"
@@ -164,6 +169,8 @@ export class AddEditProject extends LitElement {
             id="proj-azure"
             style="width: 490px;"
             label="Azure DevOps Server Project"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             min-length="6"
             value="${this._project?.ArtefactsSubPaths ?? ''}"
@@ -180,6 +187,8 @@ export class AddEditProject extends LitElement {
             id="proj-terraform-git-url"
             style="width: 490px;"
             label="Terraform Git Repository URL"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             value="${this._project?.TerraformGitRepoUrl ?? ''}"
             @value-changed="${this._terraformGitRepoUrlChanged}"
             helper-text="Git repository URL for Terraform code (e.g., https://github.com/org/repo.git)"

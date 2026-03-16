@@ -17,6 +17,10 @@ namespace Dorc.Monitor
         private readonly ILogger logger;
         private readonly IDeploymentRequestStateProcessor deploymentRequestStateProcessor;
         private readonly IMonitorConfiguration configuration;
+        /// <summary>
+        /// Tracks in-flight deployment tasks. Only accessed from the single ProcessDeploymentRequestsAsync
+        /// loop (no concurrent callers), so a plain List is safe here - no synchronization needed.
+        /// </summary>
         private readonly List<Task> _runningTasks = new();
 
         public DeploymentEngine(

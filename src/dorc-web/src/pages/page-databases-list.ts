@@ -516,12 +516,13 @@ export class PageDatabasesList extends PageElement {
               style="align-items: normal"
       ></vaadin-grid-sorter>
       <vaadin-text-field
+              id="tags-search"
               placeholder="Application Tag"
               clear-button-visible
               focus-target
               style="width: 120px"
               theme="small"
-              @input="${(e: InputEvent) => {
+              @value-changed="${(e: CustomEvent) => {
                   const textField = e.target as TextField;
                   this.dispatchEvent(
                           new CustomEvent('searching-databases-started', {
