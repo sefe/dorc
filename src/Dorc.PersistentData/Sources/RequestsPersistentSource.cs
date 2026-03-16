@@ -514,12 +514,12 @@ namespace Dorc.PersistentData.Sources
 
         public void UpdateEnvironmentOwnerEmail(int requestId, string email)
         {
-            using var context = _contextFactory.GetContext();
-            var request = context.DeploymentRequests.Find(requestId);
-            if (request != null)
+            using (var context = _contextFactory.GetContext())
             {
-                request.EnvironmentOwnerEmail = email;
-                context.SaveChanges();
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.EnvironmentOwnerEmail, email));
             }
         }
 

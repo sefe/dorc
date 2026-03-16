@@ -25,7 +25,6 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILoggerFactory _loggerFactory;
-        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -37,8 +36,7 @@ namespace Dorc.Monitor.RequestProcessors
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IConfigValuesPersistentSource configValuesPersistentSource, 
             IPropertyEvaluator propertyEvaluator,
-            IDeploymentEventsPublisher eventPublisher,
-            IActiveDirectorySearcher activeDirectorySearcher)
+            IDeploymentEventsPublisher eventPublisher)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
@@ -52,7 +50,6 @@ namespace Dorc.Monitor.RequestProcessors
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
             this.eventsPublisher = eventPublisher;
-            _activeDirectorySearcher = activeDirectorySearcher;
         }
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
@@ -99,9 +96,6 @@ namespace Dorc.Monitor.RequestProcessors
                     SetUpConfigValuesAsProperties(environment);
 
                     SetUpEnvironmentAsProperty(environment);
-
-                    var ownerEmail = ResolveAndStoreOwnerEmail(requestToExecute.Request, environment);
-                    _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmail, ownerEmail);
 
                     SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
@@ -456,32 +450,5 @@ namespace Dorc.Monitor.RequestProcessors
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environmentName);
         }        
-
-        private string ResolveAndStoreOwnerEmail(
-            DeploymentRequestApiModel request,
-            EnvironmentApiModel environment)
-        {
-            var ownerId = environment.Details?.EnvironmentOwnerId;
-            if (string.IsNullOrEmpty(ownerId))
-                return string.Empty;
-
-            try
-            {
-                var ownerData = _activeDirectorySearcher.GetUserDataById(ownerId);
-                var email = ownerData?.Email ?? string.Empty;
-
-                request.EnvironmentOwnerEmail = email;
-                requestsPersistentSource.UpdateEnvironmentOwnerEmail(request.Id, email);
-
-                return email;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Failed to resolve environment owner email for environment '{EnvironmentName}'",
-                    environment.EnvironmentName);
-                return string.Empty;
-            }
-        }
     }
 }
