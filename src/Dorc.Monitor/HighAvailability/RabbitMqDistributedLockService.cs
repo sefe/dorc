@@ -18,7 +18,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
         // HttpClient instance is managed by IHttpClientFactory and must NOT be disposed manually.
-        private IConnection? connection;
+        internal IConnection? connection;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
         private HttpClientHandler? httpClientHandler;
@@ -1032,8 +1032,14 @@ namespace Dorc.Monitor.HighAvailability
 
                 // If already disposed, don't attempt re-acquisition
                 if (Volatile.Read(ref disposedFlag) == 1)
+                {
+                    Interlocked.Exchange(ref _reacquiring, 0);
                     return;
+                }
 
+                // Track whether the success path already reset _reacquiring (before a potential re-trigger).
+                // The finally block resets on all other exit paths (failure, exception, disposed-during-reacquisition).
+                bool reacquiringReset = false;
                 try
                 {
                     var (newChannel, newConsumerTag, newConnection) = await lockService.TryReacquireLockChannelAsync(queueName, resourceKey);
@@ -1078,8 +1084,10 @@ namespace Dorc.Monitor.HighAvailability
 
                         logger.LogInformation("Successfully re-acquired lock for '{ResourceKey}' after connection loss. Deployment continues.", resourceKey);
 
-                        // Allow future re-acquisition attempts
+                        // Allow future re-acquisition attempts before potentially re-triggering,
+                        // so the re-triggered call can win the CompareExchange.
                         Interlocked.Exchange(ref _reacquiring, 0);
+                        reacquiringReset = true;
 
                         // Check if the new channel/connection already died during the swap.
                         // Shutdown events are edge-triggered: if one fired before we registered
@@ -1095,6 +1103,13 @@ namespace Dorc.Monitor.HighAvailability
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Lock re-acquisition failed for '{ResourceKey}'", resourceKey);
+                }
+                finally
+                {
+                    // Reset on all non-success exit paths so transient failures don't permanently
+                    // block future re-acquisition attempts for the lifetime of this lock.
+                    if (!reacquiringReset)
+                        Interlocked.Exchange(ref _reacquiring, 0);
                 }
 
                 // Re-acquisition failed - cancel the deployment

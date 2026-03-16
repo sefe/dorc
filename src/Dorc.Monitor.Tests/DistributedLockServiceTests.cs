@@ -1123,9 +1123,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
 
         private static void SetServiceConnection(RabbitMqDistributedLockService service, IConnection? connection)
         {
-            typeof(RabbitMqDistributedLockService)
-                .GetField("connection", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(service, connection);
+            service.connection = connection;
         }
 
         /// <summary>
@@ -1145,8 +1143,9 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
                 .Returns(mockNewChannel);
 
-            // When BasicConsumeAsync is called on the new channel, capture the consumer
-            // and simulate message delivery (the requeued lock message)
+            // When BasicConsumeAsync is called on the new channel, capture the consumer,
+            // simulate message delivery (the requeued lock message), and signal completion.
+            var reacquisitionComplete = new TaskCompletionSource();
             mockNewChannel.BasicConsumeAsync(
                 Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
                 Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
@@ -1154,13 +1153,13 @@ namespace Dorc.Monitor.Tests.HighAvailability
                 .Returns(callInfo =>
                 {
                     var consumer = callInfo.ArgAt<IAsyncBasicConsumer>(6);
-                    // Deliver the requeued message to the consumer
                     _ = Task.Run(async () =>
                     {
                         var props = Substitute.For<IReadOnlyBasicProperties>();
                         await consumer.HandleBasicDeliverAsync(
                             "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
                             props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
                     });
                     return "new-consumer-tag";
                 });
@@ -1183,8 +1182,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            // Wait for async re-acquisition to complete
-            await Task.Delay(1000);
+            // Wait for re-acquisition to complete (signalled when consumer receives the requeued message)
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - re-acquisition succeeded, deployment should continue
             Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested,
@@ -1216,8 +1215,10 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 mockChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            // Wait for async re-acquisition attempt to fail
-            await Task.Delay(500);
+            // Wait for re-acquisition to fail and LockLostToken to be cancelled
+            var cancelled = new TaskCompletionSource();
+            lockObj.LockLostToken.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - re-acquisition failed, deployment should be cancelled
             Assert.IsTrue(lockObj.LockLostToken.IsCancellationRequested,
@@ -1242,6 +1243,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
                 .Returns(mockNewChannel);
 
+            var reacquisitionComplete = new TaskCompletionSource();
             mockNewChannel.BasicConsumeAsync(
                 Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
                 Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
@@ -1255,6 +1257,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
                         await consumer.HandleBasicDeliverAsync(
                             "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
                             props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
                     });
                     return "new-consumer-tag";
                 });
@@ -1275,7 +1278,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            await Task.Delay(1000);
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - lock re-acquired via new channel, old channel disposed
             Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
@@ -1301,6 +1304,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
                 .Returns(mockNewChannel);
 
+            var reacquisitionComplete = new TaskCompletionSource();
             mockNewChannel.BasicConsumeAsync(
                 Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
                 Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
@@ -1314,6 +1318,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
                         await consumer.HandleBasicDeliverAsync(
                             "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
                             props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
                     });
                     return "new-consumer-tag";
                 });
@@ -1336,7 +1341,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            await Task.Delay(1000);
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - only one re-acquisition, lock is valid, deployment continues
             Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
@@ -1366,15 +1371,13 @@ namespace Dorc.Monitor.Tests.HighAvailability
             var reacquisitionStarted = new TaskCompletionSource<bool>();
             var allowReacquisitionToComplete = new TaskCompletionSource<bool>();
 
-            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
-                .Returns(async callInfo =>
-                {
-                    reacquisitionStarted.TrySetResult(true);
-                    // Block until the test signals
-                    await allowReacquisitionToComplete.Task;
-                    return mockNewChannel;
-                });
+            // Signal when cleanup of the new channel is complete (DisposeAsync called)
+            var cleanupComplete = new TaskCompletionSource();
+            mockNewChannel.DisposeAsync().Returns(_ => { cleanupComplete.TrySetResult(); return ValueTask.CompletedTask; });
 
+            // BasicConsumeAsync must return a consumer tag and deliver a message so
+            // TryReacquireLockChannelAsync completes (rather than timing out).
+            // TryReacquireOrCancelAsync will then see disposedFlag=1 and clean up the new channel.
             mockNewChannel.BasicConsumeAsync(
                 Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
                 Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
@@ -1390,6 +1393,15 @@ namespace Dorc.Monitor.Tests.HighAvailability
                             props, ReadOnlyMemory<byte>.Empty);
                     });
                     return "new-consumer-tag";
+                });
+
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    reacquisitionStarted.TrySetResult(true);
+                    // Block until the test signals
+                    await allowReacquisitionToComplete.Task;
+                    return mockNewChannel;
                 });
 
             mockConfiguration.HighAvailabilityEnabled.Returns(true);
@@ -1417,7 +1429,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
             // Now allow re-acquisition to complete - it should see disposedFlag=1 and clean up
             allowReacquisitionToComplete.TrySetResult(true);
 
-            await Task.Delay(500);
+            // Wait for cleanup to complete (DisposeAsync called on the new channel)
+            await cleanupComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - new channel should be cleaned up (cancel consumer, close, dispose)
             await mockNewChannel.Received(1).BasicCancelAsync(
@@ -1454,12 +1467,10 @@ namespace Dorc.Monitor.Tests.HighAvailability
             await lockObj.DisposeAsync();
 
             // Act - fire shutdown event after disposal
-            // Note: handlers were unregistered in DisposeAsync, so this event goes to any
-            // remaining subscribers but NOT to our lock's handler
+            // Note: handlers were unregistered synchronously in DisposeAsync, so this event
+            // will not reach our lock's handler - no async work is triggered.
             mockChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 mockChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
-
-            await Task.Delay(200);
 
             // Assert - no new channel was created (no re-acquisition attempt)
             await mockNewConnection.DidNotReceive().CreateChannelAsync(
@@ -1509,8 +1520,10 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            // Wait for re-acquisition timeout (1 second) + processing time
-            await Task.Delay(3000);
+            // Wait for re-acquisition to time out and cancel the token (configured timeout is 1s)
+            var cancelled = new TaskCompletionSource();
+            lockObj.LockLostToken.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - re-acquisition timed out, deployment should be cancelled
             Assert.IsTrue(lockObj.LockLostToken.IsCancellationRequested,
@@ -1536,6 +1549,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
                 .Returns(mockNewChannel);
 
+            var reacquisitionComplete = new TaskCompletionSource();
             mockNewChannel.BasicConsumeAsync(
                 Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
                 Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
@@ -1549,6 +1563,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
                         await consumer.HandleBasicDeliverAsync(
                             "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
                             props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
                     });
                     return "new-consumer-tag";
                 });
@@ -1574,7 +1589,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            await Task.Delay(1000);
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Assert - linked token should NOT be cancelled (re-acquisition succeeded)
             Assert.IsFalse(linkedCts.Token.IsCancellationRequested,
