@@ -28,6 +28,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly ConcurrentDictionary<IConnection, int> activeLockCounts = new();
         private readonly List<(IConnection Connection, DateTime RetiredAt)> _retiredConnections = new();
         private static readonly TimeSpan RetiredConnectionGracePeriod = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan LockReacquisitionTimeout = TimeSpan.FromSeconds(30);
         private volatile int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
         // tokenExpiryTimeUtc is read outside the semaphore in IsTokenExpiringSoon() but only
         // written under connectionSemaphore. Stale reads are harmless: a slightly stale value
@@ -746,6 +747,100 @@ namespace Dorc.Monitor.HighAvailability
             }
         }
 
+        /// <summary>
+        /// Attempts to re-acquire a lock by reconnecting and consuming the existing message
+        /// from the lock queue. Called when a channel/connection drops unexpectedly.
+        /// The lock message (with TTL) is still in the queue after disconnect, so we just need
+        /// a new channel and consumer to reclaim it.
+        /// </summary>
+        /// <returns>The new channel, consumer tag, and connection if successful; nulls otherwise.</returns>
+        internal async Task<(IChannel? Channel, string? ConsumerTag, IConnection? Connection)> TryReacquireLockChannelAsync(
+            string queueName, string resourceKey)
+        {
+            IChannel? channel = null;
+            try
+            {
+                using var timeoutCts = new CancellationTokenSource(LockReacquisitionTimeout);
+                var ct = timeoutCts.Token;
+
+                // Ensure we have a connection (may need to create a new one after the drop)
+                await EnsureConnectionAsync(ct);
+
+                IConnection? currentConnection;
+                await connectionSemaphore.WaitAsync(ct);
+                try
+                {
+                    currentConnection = connection;
+                }
+                finally
+                {
+                    connectionSemaphore.Release();
+                }
+
+                if (currentConnection == null || !currentConnection.IsOpen)
+                {
+                    logger.LogWarning("No active connection available for lock re-acquisition on '{ResourceKey}'", resourceKey);
+                    return (null, null, null);
+                }
+
+                channel = await currentConnection.CreateChannelAsync(cancellationToken: ct);
+
+                // Set up consumer to reclaim the existing message in the queue.
+                // The message was requeued when our previous connection dropped.
+                var consumer = new AsyncEventingBasicConsumer(channel);
+                var lockAcquired = new TaskCompletionSource<bool>();
+
+                consumer.ReceivedAsync += async (model, ea) =>
+                {
+                    lockAcquired.TrySetResult(true);
+                    await Task.CompletedTask;
+                };
+
+                var consumerTag = await channel.BasicConsumeAsync(
+                    queue: queueName,
+                    autoAck: false,
+                    consumer: consumer,
+                    cancellationToken: ct);
+
+                // Wait for the requeued lock message to be delivered to our new consumer
+                using var deliveryCts = new CancellationTokenSource(TimeSpan.FromSeconds(configuration.LockAcquisitionTimeoutSeconds));
+                using var linkedDeliveryCts = CancellationTokenSource.CreateLinkedTokenSource(ct, deliveryCts.Token);
+                try
+                {
+                    await lockAcquired.Task.WaitAsync(linkedDeliveryCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Timeout or outer cancellation
+                }
+
+                if (lockAcquired.Task.IsCompletedSuccessfully)
+                {
+                    await IncrementActiveLockCountAsync(currentConnection, ct);
+                    return (channel, consumerTag, currentConnection);
+                }
+
+                // Message wasn't delivered - another monitor may have consumed it
+                logger.LogWarning("Lock re-acquisition for '{ResourceKey}' timed out waiting for message delivery - lock may have been taken by another monitor", resourceKey);
+                try { await channel.BasicCancelAsync(consumerTag, cancellationToken: CancellationToken.None); } catch { }
+                try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                try { await channel.DisposeAsync(); } catch { }
+                channel = null; // Prevent double-dispose in outer catch
+                return (null, null, null);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to re-acquire lock channel for '{ResourceKey}'", resourceKey);
+                // Clean up the channel if it was created but an error occurred before successful return
+                if (channel != null)
+                {
+                    try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                    try { await channel.DisposeAsync(); } catch { }
+                }
+                return (null, null, null);
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (disposed)
@@ -884,13 +979,14 @@ namespace Dorc.Monitor.HighAvailability
         internal class RabbitMqDistributedLock : IDistributedLock
         {
             private readonly ILogger logger;
-            private readonly IChannel channel;
-            private readonly IConnection connection;
+            private IChannel channel;
+            private IConnection connection;
             private readonly string queueName;
             private readonly string resourceKey;
-            private readonly string consumerTag;
+            private string consumerTag;
             private readonly RabbitMqDistributedLockService lockService;
             private int disposedFlag = 0;  // Use int for Interlocked operations
+            private int _reacquiring = 0;  // Prevents re-entrant re-acquisition attempts
             private readonly CancellationTokenSource _lockLostCts = new();
 
             public string ResourceKey => resourceKey;
@@ -908,35 +1004,115 @@ namespace Dorc.Monitor.HighAvailability
                 this.consumerTag = consumerTag;
                 this.lockService = lockService;
 
-                // Hook into channel shutdown to trigger cancellation immediately
+                // Hook into channel shutdown to attempt re-acquisition before cancelling
                 channel.ChannelShutdownAsync += OnChannelShutdownAsync;
                 connection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
             }
 
             private Task OnChannelShutdownAsync(object? sender, ShutdownEventArgs e)
             {
-                logger.LogWarning("Channel for lock '{ResourceKey}' shut down: {Reason}. Triggering cancellation.", resourceKey, e.ReplyText);
-                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
+                logger.LogWarning("Channel for lock '{ResourceKey}' shut down: {Reason}. Attempting lock re-acquisition before cancelling.", resourceKey, e.ReplyText);
+                // Fire-and-forget: re-acquisition runs asynchronously to avoid blocking the RabbitMQ IO thread
+                _ = TryReacquireOrCancelAsync();
                 return Task.CompletedTask;
             }
 
             private Task OnConnectionShutdownAsync(object? sender, ShutdownEventArgs e)
             {
-                logger.LogWarning("Connection for lock '{ResourceKey}' shut down: {Reason}. Triggering cancellation.", resourceKey, e.ReplyText);
-                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
+                logger.LogWarning("Connection for lock '{ResourceKey}' shut down: {Reason}. Attempting lock re-acquisition before cancelling.", resourceKey, e.ReplyText);
+                _ = TryReacquireOrCancelAsync();
                 return Task.CompletedTask;
+            }
+
+            private async Task TryReacquireOrCancelAsync()
+            {
+                // Only one re-acquisition attempt at a time (channel + connection shutdowns can fire together)
+                if (Interlocked.CompareExchange(ref _reacquiring, 1, 0) != 0)
+                    return;
+
+                // If already disposed, don't attempt re-acquisition
+                if (Volatile.Read(ref disposedFlag) == 1)
+                    return;
+
+                try
+                {
+                    var (newChannel, newConsumerTag, newConnection) = await lockService.TryReacquireLockChannelAsync(queueName, resourceKey);
+
+                    if (newChannel != null && newConsumerTag != null && newConnection != null)
+                    {
+                        // Re-check after await: DisposeAsync may have run while we were reconnecting
+                        if (Volatile.Read(ref disposedFlag) == 1)
+                        {
+                            // Lock was disposed during re-acquisition - clean up new resources
+                            logger.LogDebug("Lock '{ResourceKey}' was disposed during re-acquisition - cleaning up new channel", resourceKey);
+                            try { await newChannel.BasicCancelAsync(newConsumerTag, cancellationToken: CancellationToken.None); } catch { }
+                            try { await newChannel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                            try { await newChannel.DisposeAsync(); } catch { }
+                            await lockService.ReleaseConnectionReferenceAsync(newConnection);
+                            return;
+                        }
+
+                        // Capture old references before swapping
+                        var oldChannel = channel;
+                        var oldConnection = connection;
+
+                        // Unhook from old channel/connection
+                        oldChannel.ChannelShutdownAsync -= OnChannelShutdownAsync;
+                        oldConnection.ConnectionShutdownAsync -= OnConnectionShutdownAsync;
+
+                        // Register handlers on new channel/connection BEFORE swapping fields
+                        // to eliminate the window where a shutdown on the new channel goes undetected
+                        newChannel.ChannelShutdownAsync += OnChannelShutdownAsync;
+                        newConnection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
+
+                        // Swap to the new channel and connection
+                        channel = newChannel;
+                        connection = newConnection;
+                        consumerTag = newConsumerTag;
+
+                        // Release lock count on old connection (new connection count is incremented in TryReacquireLockChannelAsync)
+                        await lockService.ReleaseConnectionReferenceAsync(oldConnection);
+
+                        // Explicitly dispose old channel to prevent resource leaks
+                        try { await oldChannel.DisposeAsync(); } catch { }
+
+                        logger.LogInformation("Successfully re-acquired lock for '{ResourceKey}' after connection loss. Deployment continues.", resourceKey);
+
+                        // Allow future re-acquisition attempts
+                        Interlocked.Exchange(ref _reacquiring, 0);
+
+                        // Check if the new channel/connection already died during the swap.
+                        // Shutdown events are edge-triggered: if one fired before we registered
+                        // our handler (or while _reacquiring was 1), we would miss it.
+                        if (!channel.IsOpen)
+                        {
+                            logger.LogWarning("New channel for lock '{ResourceKey}' already closed after re-acquisition. Re-attempting.", resourceKey);
+                            _ = TryReacquireOrCancelAsync();
+                        }
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Lock re-acquisition failed for '{ResourceKey}'", resourceKey);
+                }
+
+                // Re-acquisition failed - cancel the deployment
+                logger.LogWarning("Failed to re-acquire lock for '{ResourceKey}'. Triggering cancellation.", resourceKey);
+                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
             }
 
             public async ValueTask DisposeAsync()
             {
-                // Thread-safe disposal check and set using Interlocked
+                // Thread-safe disposal check and set using Interlocked.
+                // This also signals any in-progress TryReacquireOrCancelAsync to abort.
                 if (Interlocked.Exchange(ref disposedFlag, 1) == 1)
                     return;
 
-                // Unregister event handlers
+                // Unregister event handlers to prevent new re-acquisition attempts during cleanup.
+                // Any already-running TryReacquireOrCancelAsync will see disposedFlag=1 after its await.
                 channel.ChannelShutdownAsync -= OnChannelShutdownAsync;
                 connection.ConnectionShutdownAsync -= OnConnectionShutdownAsync;
-                _lockLostCts.Dispose();
 
                 bool queueDeleted = false;
 
@@ -1009,6 +1185,11 @@ namespace Dorc.Monitor.HighAvailability
                 finally
                 {
                     await lockService.ReleaseConnectionReferenceAsync(connection);
+
+                    // Dispose CTS last: TryReacquireOrCancelAsync may still reference it
+                    // until it sees disposedFlag=1 and exits. The ObjectDisposedException catch
+                    // in TryReacquireOrCancelAsync handles the rare case where it slips through.
+                    _lockLostCts.Dispose();
                 }
             }
 
