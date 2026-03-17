@@ -93,11 +93,11 @@ namespace Dorc.Monitor.RequestProcessors
 
                     SetUpRefDataApiUrlAsProperty();
 
-                    SetUpEnvOwnerEmailAsProperty(requestToExecute.Request);
-
                     SetUpConfigValuesAsProperties(environment);
 
                     SetUpEnvironmentAsProperty(environment);
+
+                    SetUpEnvOwnerEmailAsProperty(requestToExecute.Request);
 
                     SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
@@ -456,6 +456,13 @@ namespace Dorc.Monitor.RequestProcessors
         private void SetUpEnvOwnerEmailAsProperty(DeploymentRequestApiModel request)
         {
             var envOwnerEmail = request.EnvironmentOwnerEmail;
+
+            if (string.IsNullOrEmpty(envOwnerEmail))
+            {
+                var freshRequest = requestsPersistentSource.GetRequest(request.Id);
+                envOwnerEmail = freshRequest?.EnvironmentOwnerEmail;
+            }
+
             if (!string.IsNullOrEmpty(envOwnerEmail))
             {
                 _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmail, envOwnerEmail);
