@@ -35,6 +35,11 @@ export interface EnvironmentDetailsApiModel {
      * @type {string}
      * @memberof EnvironmentDetailsApiModel
      */
+    EnvironmentOwnerEmail?: string | null;
+    /**
+     * @type {string}
+     * @memberof EnvironmentDetailsApiModel
+     */
     RestoredFromSourceDb?: string | null;
     /**
      * @type {string}

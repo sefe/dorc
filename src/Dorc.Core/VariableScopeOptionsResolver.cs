@@ -140,6 +140,8 @@ namespace Dorc.Core
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DatabasePermissions,
                 new VariableValue { Value = databasePermissions, Type = databasePermissions.GetType() });
 
+            if (!string.IsNullOrEmpty(environment.Details?.EnvironmentOwnerEmail))
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmail, environment.Details.EnvironmentOwnerEmail);
         }
 
         private VariableValueDbPerm GetDbPermission(DatabaseApiModel databaseApiModel)
