@@ -44,6 +44,8 @@ export default class AppConfig {
   set authenticationScheme(value: string) {
     _authenticationScheme = value;
   }
+
+  pauseDeploymentEnabled = false;
 }
 
 export const appConfig = new AppConfig();

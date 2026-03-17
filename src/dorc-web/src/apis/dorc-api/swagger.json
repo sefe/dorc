@@ -7506,6 +7506,15 @@
             "format": "date-time",
             "nullable": true
           },
+          "CancelledTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CancelledBy": {
+            "type": "string",
+            "nullable": true
+          },
           "Status": {
             "type": "string",
             "nullable": true

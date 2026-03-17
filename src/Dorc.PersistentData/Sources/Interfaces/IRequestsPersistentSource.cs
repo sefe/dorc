@@ -11,6 +11,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, bool isProd);
+        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, DeploymentRequestStatus status4, bool isProd);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId, int componentId);
         string GetRequestLog(int id);
@@ -24,6 +25,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime, string log);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user);
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime);
+
         int UpdateNonProcessedRequest(
             DeploymentRequestApiModel deploymentRequest,
             DeploymentRequestStatus newStatus,
