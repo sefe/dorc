@@ -2,6 +2,7 @@
 [ValidateNotNullOrEmpty()]$ProjectDir=$Env:BUILD_SOURCESDIRECTORY,
 [ValidateNotNullOrEmpty()][System.String]$BuildNumber = $Env:BUILD_BUILDNUMBER
 )
+Import-Module PackageManagement -ErrorAction Stop
 Import-Module PowerShellGet -ErrorAction Stop
 $manifest=join-path -Path $ProjectDir  -ChildPath "src\Tools.DOrc.Cmdlet\DOrc.Cmdlet.psd1"
 write-host "Using manifest: " $manifest
