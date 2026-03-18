@@ -466,12 +466,12 @@ namespace Dorc.Monitor.RequestProcessors
             if (!string.IsNullOrEmpty(envOwnerEmail))
             {
                 _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails, envOwnerEmail);
-                logger.LogInformation("Set EnvOwnerEmail property to '{EnvOwnerEmail}' for request {RequestId}",
+                logger.LogInformation("Set EnvOwnerEmails property to '{EnvOwnerEmails}' for request {RequestId}",
                     envOwnerEmail, request.Id);
             }
             else
             {
-                logger.LogWarning("EnvironmentOwnerEmail is not set on request {RequestId}, EnvOwnerEmail property will not be available.",
+                logger.LogWarning("EnvironmentOwnerEmails is not set on request {RequestId}, EnvOwnerEmails property will not be available.",
                     request.Id);
             }
         }
