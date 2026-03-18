@@ -17,6 +17,7 @@ import '../components/grid-button-groups/env-controls';
 import { EnvironmentApiModel, RefDataRolesApi } from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
 import '../components/hegs-dialog';
@@ -25,7 +26,7 @@ import { AddEditEnvironment } from '../components/add-edit-environment';
 import { CloneEnvironment } from '../components/clone-environment';
 
 @customElement('page-environments-list')
-export class PageEnvironmentsList extends PageElement {
+export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) environments: EnvironmentApiModel[] = [];
 
   @property({ type: Array })
@@ -64,14 +65,15 @@ export class PageEnvironmentsList extends PageElement {
   static get styles() {
     return css`
       :host {
-        position: relative;
-        overflow-y: hidden; /* Hide vertical scrollbar */
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 110px);
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
-        margin-top: 60px;
       }
       .overlay {
         width: 100%;
@@ -182,33 +184,39 @@ export class PageEnvironmentsList extends PageElement {
                   resizable
                   path="Details.EnvironmentOwner"
                   header="Owner"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.Description"
                   header="Description"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentSecure"
                   header="Secure"
                   .renderer="${this._envSecureRenderer}"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentIsProd"
                   header="Prod"
                   .renderer="${this._envIsProdRenderer}"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.FileShare"
                   header="File Share"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.Notes"
                   header="Notes"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-column
                   .renderer="${this._envDetailsButtonsRenderer}"

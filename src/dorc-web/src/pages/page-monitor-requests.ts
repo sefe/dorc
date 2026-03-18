@@ -39,6 +39,7 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import type { RouterLocation } from '@vaadin/router';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import type { RouteMeta } from '../router/routes';
 
 const username = 'Username';
@@ -48,7 +49,7 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('page-monitor-requests')
-export class PageMonitorRequests extends PageElement implements IDeploymentsEventsClient{
+export class PageMonitorRequests extends ResponsiveMixin(PageElement) implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
@@ -81,9 +82,15 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
         --divider-color: rgb(223, 232, 239);
       }
 
@@ -286,6 +293,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -293,6 +301,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -315,6 +324,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>

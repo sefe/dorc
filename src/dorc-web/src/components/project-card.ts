@@ -18,9 +18,19 @@ export class ProjectCard extends LitElement {
       .card-element {
         padding: 10px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        min-width: 300px;
-        height: 50px;
-        color: white;
+        width: 300px;
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lumo-space-s);
+        box-sizing: border-box;
+      }
+      @media (max-width: 768px) {
+        .card-element {
+          width: 100%;
+          min-width: 0;
+        }
       }
       .card-element__heading {
         color: gray;
@@ -28,9 +38,13 @@ export class ProjectCard extends LitElement {
       .card-element__text {
         color: gray;
       }
+      .card-content {
+        flex: 1;
+        min-width: 0;
+      }
 
       .statistics-cards {
-        max-width: 500px;
+        max-width: 100%;
         display: flex;
         flex-wrap: wrap;
       }
@@ -45,7 +59,7 @@ export class ProjectCard extends LitElement {
   render() {
     return html`
       <div class="statistics-cards__item card-element">
-        <div style="float: left">
+        <div class="card-content">
           <h3 class="card-element__heading" style="margin: 0px">
             ${this.project?.ProjectName}
           </h3>
@@ -61,18 +75,17 @@ export class ProjectCard extends LitElement {
                 >`
           }
         </div>
-          <div style="float: right; width: 50px">
-            <vaadin-button
-              title="Project Environments for ${this.project?.ProjectName}"
-              theme="icon"
-              @click="${this.openProjectEnvironments}"
-            >
-              <vaadin-icon
-                icon="vaadin:records"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-          </div>
+        <div>
+          <vaadin-button
+            title="Project Environments for ${this.project?.ProjectName}"
+            theme="icon"
+            @click="${this.openProjectEnvironments}"
+          >
+            <vaadin-icon
+              icon="vaadin:records"
+              style="color: cornflowerblue"
+            ></vaadin-icon>
+          </vaadin-button>
         </div>
       </div>
     `;

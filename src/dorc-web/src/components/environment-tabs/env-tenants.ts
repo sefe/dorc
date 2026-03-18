@@ -25,9 +25,9 @@ export class EnvTenants extends PageEnvBase {
         vertical-align: middle;
       }
       .buttons {
-        font-size: 10px;
+        font-size: var(--lumo-font-size-s);
         color: cornflowerblue;
-        padding: 2px;
+        padding: var(--lumo-space-xs);
       }
       .card-element__text {
         color: gray;

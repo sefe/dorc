@@ -10,6 +10,8 @@ export class HegsChart extends LitElement {
 
   private _option!: EChartsOption;
 
+  private _resizeObserver: ResizeObserver | undefined;
+
   get option() {
     return this._option;
   }
@@ -22,15 +24,19 @@ export class HegsChart extends LitElement {
   }
 
   static get styles() {
-    return css``;
+    return css`
+      :host {
+        display: block;
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+      }
+    `;
   }
 
   render() {
-    return html`<div id="container" style="width: 100%; height: 100%;"></div>`;
-  }
-
-  static get observedAttributes() {
-    return ['style', 'option'];
+    return html`<div id="container"></div>`;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -41,36 +47,24 @@ export class HegsChart extends LitElement {
     ) as HTMLDivElement;
     this.chart = echarts.init(container);
     this.updateChart();
+
+    this._resizeObserver = new ResizeObserver(() => {
+      this.resizeChart();
+    });
+    this._resizeObserver.observe(container);
   }
 
   disconnectedCallback() {
-    const container = this.shadowRoot?.querySelector(
-      '#container'
-    ) as HTMLDivElement;
-    if (container) {
-      container.innerHTML = '';
-    }
+    super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
     if (this.chart) {
-      echarts.dispose(container);
-    }
-  }
-
-  attributeChangedCallback(name: string, _oldValue: any, newValue: any) {
-    if (name === 'option') {
-      this.updateChart();
-    } else if (name === 'style') {
-      const container = this.shadowRoot?.querySelector(
-        '#container'
-      ) as HTMLDivElement;
-      if (container) {
-        container.setAttribute('style', newValue);
-      }
-      this.resizeChart();
+      this.chart.dispose();
+      this.chart = undefined;
     }
   }
 
   updateChart() {
-    if (!this.chart) return;
+    if (!this.chart || !this.option) return;
     this.chart.setOption(this.option);
   }
 

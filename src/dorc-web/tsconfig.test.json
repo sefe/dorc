@@ -1,19 +1,18 @@
 {
   "compilerOptions": {
-    "target": "ES2020", // Specify ECMAScript target version
-    "module": "ES2020", //  Specify module code generation
-    "experimentalDecorators": true, //  Enables experimental support for ES7 decorators.
+    "target": "ES2020",
+    "module": "ES2020",
+    "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node", // Specify module resolution strategy
+    "moduleResolution": "node",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "rootDir": ".",
     "declaration": true,
     "sourceMap": true,
     "importHelpers": true,
@@ -21,14 +20,14 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "emitDecoratorMetadata": false,
     "allowJs": true,
     "maxNodeModuleJsDepth": 2,
-    "types": [],
+    "types": ["sinon"],
     "outDir": "ts-built"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules/**", "src/apis/**", "src/icons/*.js", "src/**/*.test.ts"]
+  "include": ["src/**/*.ts", "src/**/*.test.ts"],
+  "exclude": ["node_modules/**", "src/apis/**", "src/icons/*.js"]
 }

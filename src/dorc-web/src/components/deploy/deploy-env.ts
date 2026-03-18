@@ -91,12 +91,35 @@ export class DeployEnv extends LitElement {
         :host{
             overflow-y: scroll;
         }
+      [hidden] {
+        display: none !important;
+      }
+      .build-defs-section {
+        display: flex;
+        flex-direction: column;
+        gap: var(--lumo-space-xs);
+        width: 100%;
+        max-width: 600px;
+        margin-left: 10px;
+      }
+      .combo-row {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+      }
+      .folder-artifacts-section {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        width: 100%;
+        max-width: 600px;
+        margin-left: 10px;
+      }
       vaadin-combo-box {
         padding-top: 0px;
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(30vh - 110px);
+        min-height: 150px;
         --divider-color: rgb(223, 232, 239);
       }
       .small-loader {
@@ -174,79 +197,65 @@ export class DeployEnv extends LitElement {
         id="dialog"
         .deployJson="${this.req}"
       ></deploy-confirm-dialog>
-      <table
-        style="width: 330px; margin-left: 10px"
+      <div
+        class="build-defs-section"
         ?hidden="${this.isFolderProject}"
       >
-        <tr>
-          <td>
+        <div class="combo-row">
             <vaadin-combo-box
               id="build-defs"
+              style="flex: 1;"
               @value-changed="${this._buildDefValueChanged}"
               .items="${this.buildDefinitions}"
               .renderer="${this._buildRenderer}"
               placeholder="Select Build Definition"
               label="Build Definition"
-              style="width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
             ></vaadin-combo-box>
-          </td>
-          <td>
             ${this.buildDefsLoading
               ? html` <div class="small-loader"></div> `
               : html``}
-          </td>
-        </tr>
-        <tr>
-          <td>
+        </div>
+        <div class="combo-row">
             <vaadin-combo-box
               id="builds"
+              style="flex: 1;"
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
               .renderer="${this._buildRenderer}"
               placeholder="Select Build Number"
               label="Build Number"
-              style="width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
             ></vaadin-combo-box>
-          </td>
-          <td>
             ${this.buildsLoading
               ? html` <div class="small-loader"></div> `
               : html``}
-          </td>
-        </tr>
-      </table>
-      <table
-        style="width: 330px; margin-left: 10px"
+        </div>
+      </div>
+      <div
+        class="folder-artifacts-section"
         ?hidden="${!this.isFolderProject}"
       >
-        <tr>
-          <td>
             <vaadin-combo-box
               id="folders"
+              style="flex: 1;"
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
               .renderer="${this._buildRenderer}"
               placeholder="Select Folder"
               label="Folder Artifacts"
-              style="width: 600px"
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
             ></vaadin-combo-box>
-          </td>
-          <td>
             ${this.buildsLoading
               ? html` <div class="small-loader"></div> `
               : html``}
-          </td>
-        </tr>
-      </table>
+      </div>
       <vaadin-details
         opened
         summary="Components"
@@ -267,13 +276,13 @@ export class DeployEnv extends LitElement {
             clear-button-visible
             item-label-path="Name"
             item-value-path="Name"
-            style="min-width: 600px"
+            style="width: 100%; max-width: 600px"
           ></vaadin-combo-box>
           <vaadin-text-field
             required
             placeholder="Property Value"
             @value-changed="${this._propValueChanged}"
-            style="min-width: 500px"
+            style="width: 100%; max-width: 500px"
           ></vaadin-text-field>
           <vaadin-button
             @click="${this.AddOverrideProperty}"
@@ -311,7 +320,7 @@ export class DeployEnv extends LitElement {
         </vaadin-vertical-layout>
       </vaadin-details>
       <vaadin-button
-        style="width: 600px; margin-left: 12px; margin-bottom: 50px"
+        style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-s); margin-bottom: var(--lumo-space-xl)"
         @click="${this.openDeployDialog}"
         theme="primary"
         >Deploy

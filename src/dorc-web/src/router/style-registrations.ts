@@ -30,3 +30,25 @@ registerStyles(
       }
   `
 );
+
+registerStyles(
+  'vaadin-dialog-overlay',
+  css`
+    [part='overlay'] {
+      width: min(90vw, 650px);
+      max-height: 85vh;
+      max-height: 85dvh;
+    }
+  `
+);
+
+registerStyles(
+  'vaadin-combo-box',
+  css`
+    :host {
+      width: 100%;
+      max-width: 600px;
+    }
+  `
+);
+
