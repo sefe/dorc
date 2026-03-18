@@ -140,8 +140,13 @@ namespace Dorc.Core
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DatabasePermissions,
                 new VariableValue { Value = databasePermissions, Type = databasePermissions.GetType() });
 
-            if (!string.IsNullOrEmpty(environment.Details?.EnvironmentOwnerEmail))
-                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmail, environment.Details.EnvironmentOwnerEmail);
+            var ownerEmails = environment.Details?.EnvironmentOwnerEmails;
+            if (ownerEmails is { Count: > 0 })
+            {
+                var emailsArray = ownerEmails.ToArray();
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails,
+                    new VariableValue { Value = emailsArray, Type = emailsArray.GetType() });
+            }
         }
 
         private VariableValueDbPerm GetDbPermission(DatabaseApiModel databaseApiModel)

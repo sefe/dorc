@@ -9,7 +9,7 @@
         public static string DeploymentLogDir => "DeploymentLogDir";
         public static string BuildNumber => "BuildNumber";
         public static string EnvOwner => "EnvOwner";
-        public static string EnvOwnerEmail => "EnvOwnerEmail";
+        public static string EnvOwnerEmails => "EnvOwnerEmails";
 
         // Need the config value to be inserted here
         public static string AllServers => "AllServers";

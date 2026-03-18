@@ -470,23 +470,40 @@ namespace Dorc.Api.Controllers
                     return;
                 }
 
-                var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(environment.EnvironmentId);
-                if (string.IsNullOrEmpty(ownerId))
+                var ownerIds = _environmentsPersistentSource.GetEnvironmentOwnerIds(environment.EnvironmentId);
+                if (ownerIds.Count == 0)
                 {
-                    _log.LogWarning("No owner found for environment '{EnvironmentName}' on request {RequestId}",
+                    _log.LogWarning("No owners found for environment '{EnvironmentName}' on request {RequestId}",
                         environmentName, requestId);
                     return;
                 }
 
-                var ownerData = _directorySearcher.GetUserDataById(ownerId);
-                if (!string.IsNullOrEmpty(ownerData?.Email))
+                var emails = new List<string>();
+                foreach (var ownerId in ownerIds)
                 {
-                    _requestsPersistentSource.UpdateEnvironmentOwnerEmail(requestId, ownerData.Email);
-                    _log.LogInformation("Stored environment owner email for request {RequestId}", requestId);
+                    try
+                    {
+                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        if (!string.IsNullOrEmpty(ownerData?.Email))
+                        {
+                            emails.Add(ownerData.Email);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.LogWarning(ex, "Failed to resolve owner email for owner ID '{OwnerId}' in '{EnvironmentName}'",
+                            ownerId, environmentName);
+                    }
+                }
+
+                if (emails.Count > 0)
+                {
+                    _requestsPersistentSource.UpdateEnvironmentOwnerEmail(requestId, string.Join(";", emails));
+                    _log.LogInformation("Stored environment owner email(s) for request {RequestId}", requestId);
                 }
                 else
                 {
-                    _log.LogWarning("Environment owner for '{EnvironmentName}' has no email address, request {RequestId}",
+                    _log.LogWarning("No email addresses found for environment owners of '{EnvironmentName}', request {RequestId}",
                         environmentName, requestId);
                 }
             }

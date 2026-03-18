@@ -125,6 +125,23 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public List<string> GetEnvironmentOwnerIds(int envId)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var env = EnvironmentUnifier.GetEnvironment(context, envId);
+
+                if (env == null) return [];
+
+                var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
+                return permissions
+                    .Where(p => p.Allow.HasAccessLevel(AccessLevel.Owner))
+                    .Select(p => p.Pid ?? p.Sid)
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .ToList()!;
+            }
+        }
+
         public bool IsEnvironmentOwner(string envName, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())

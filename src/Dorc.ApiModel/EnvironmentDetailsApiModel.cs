@@ -1,11 +1,13 @@
-﻿namespace Dorc.ApiModel
+﻿using System.Collections.Generic;
+
+namespace Dorc.ApiModel
 {
     public class EnvironmentDetailsApiModel
     {
         public string LastUpdated { set; get; }
         public string EnvironmentOwner { set; get; }
         public string EnvironmentOwnerId { set; get; }
-        public string EnvironmentOwnerEmail { set; get; }
+        public List<string> EnvironmentOwnerEmails { set; get; }
         public string RestoredFromSourceDb { set; get; }
         public string Description { set; get; }
         public string FileShare { set; get; }

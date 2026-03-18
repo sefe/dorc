@@ -58,7 +58,7 @@ namespace Dorc.Api.Controllers
             var environment = _environmentsPersistentSource.GetEnvironment(propertyValueScope, User);
             if (environment is not null)
             {
-                EnrichEnvironmentOwnerEmail(environment);
+                EnrichEnvironmentOwnerEmails(environment);
                 _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
             }
 
@@ -80,23 +80,40 @@ namespace Dorc.Api.Controllers
             return Ok(output);
         }
 
-        private void EnrichEnvironmentOwnerEmail(EnvironmentApiModel environment)
+        private void EnrichEnvironmentOwnerEmails(EnvironmentApiModel environment)
         {
             try
             {
-                var ownerId = environment.Details?.EnvironmentOwnerId;
-                if (string.IsNullOrEmpty(ownerId))
+                var ownerIds = _environmentsPersistentSource.GetEnvironmentOwnerIds(environment.EnvironmentId);
+                if (ownerIds.Count == 0)
                     return;
 
-                var ownerData = _directorySearcher.GetUserDataById(ownerId);
-                if (!string.IsNullOrEmpty(ownerData?.Email))
+                var emails = new List<string>();
+                foreach (var ownerId in ownerIds)
                 {
-                    environment.Details!.EnvironmentOwnerEmail = ownerData.Email;
+                    try
+                    {
+                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        if (!string.IsNullOrEmpty(ownerData?.Email))
+                        {
+                            emails.Add(ownerData.Email);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to resolve owner email for owner ID '{OwnerId}' in '{EnvironmentName}'",
+                            ownerId, environment.EnvironmentName);
+                    }
+                }
+
+                if (emails.Count > 0)
+                {
+                    environment.Details!.EnvironmentOwnerEmails = emails;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to resolve owner email for '{EnvironmentName}'",
+                _logger.LogWarning(ex, "Failed to resolve owner emails for '{EnvironmentName}'",
                     environment.EnvironmentName);
             }
         }
