@@ -138,106 +138,45 @@ namespace Dorc.Monitor
                 if (staleRequests.Count == 0)
                     continue;
 
-                if (distributedLockService.IsEnabled)
-                {
-                    foreach (var environmentGroup in staleRequests.GroupBy(request => request.EnvironmentName ?? string.Empty))
-                    {
-                        var requestsForEnvironment = environmentGroup.ToList();
-                        var environmentName = environmentGroup.Key;
-                        var recoveredIdsString = string.Join(',', requestsForEnvironment.Select(request => request.Id));
-                        IDistributedLock? envLock = null;
-
-                        try
-                        {
-                            envLock = this.distributedLockService
-                                .TryAcquireLockAsync($"env:{environmentName}", EnvironmentLockLeaseTimeMs, CancellationToken.None)
-                                .GetAwaiter()
-                                .GetResult();
-
-                            if (envLock == null)
-                            {
-                                this.logger.LogInformation(
-                                    "Skipping stale request recovery for environment '{Environment}' in status '{Status}' because its distributed lock is still held. IDs [{Ids}]",
-                                    environmentName,
-                                    status,
-                                    recoveredIdsString);
-                                continue;
-                            }
-
-                            this.logger.LogWarning(
-                                "Acquired distributed lock for environment '{Environment}' while recovering stale '{Status}' requests. Cancelling IDs [{Ids}]",
-                                environmentName,
-                                status,
-                                recoveredIdsString);
-
-                            CancelStaleRequests(status, requestsForEnvironment);
-                        }
-                        catch (Exception ex)
-                        {
-                            this.logger.LogWarning(
-                                ex,
-                                "Error recovering stale requests for environment '{Environment}' in status '{Status}'. IDs [{Ids}]",
-                                environmentName,
-                                status,
-                                recoveredIdsString);
-                        }
-                        finally
-                        {
-                            if (envLock != null)
-                            {
-                                envLock.DisposeAsync().AsTask().GetAwaiter().GetResult();
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    CancelStaleRequests(status, staleRequests);
-                }
-            }
-        }
-
-        private void CancelStaleRequests(DeploymentRequestStatus status, List<DeploymentRequestApiModel> staleRequests)
-        {
-            var ids = staleRequests.Select(r => r.Id).ToArray();
-            var idsString = string.Join(',', ids);
-
-            this.logger.LogWarning(
-                "Found {Count} stale requests in '{Status}' state from a previous instance. Cancelling IDs [{Ids}]",
-                staleRequests.Count, status, idsString);
-
-            int updatedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                staleRequests,
-                status,
-                DeploymentRequestStatus.Cancelled,
-                DateTimeOffset.Now);
-
-            if (updatedCount > 0)
-            {
-                // Also cancel any pending deployment results for these requests
-                this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
-                    staleRequests,
-                    DeploymentResultStatus.Pending,
-                    DeploymentResultStatus.Cancelled);
-
-                foreach (var id in ids)
-                {
-                    TerminateRunnerProcesses(id);
-                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                        RequestId: id,
-                        Status: DeploymentRequestStatus.Cancelled.ToString(),
-                        StartedTime: null,
-                        CompletedTime: null,
-                        Timestamp: DateTimeOffset.UtcNow
-                    ));
-                }
+                var ids = staleRequests.Select(r => r.Id).ToArray();
+                var idsString = string.Join(',', ids);
 
                 this.logger.LogWarning(
-                    "Cancelled {UpdatedCount} stale requests. IDs [{Ids}]",
-                    updatedCount, idsString);
+                    "Found {Count} stale requests in '{Status}' state from a previous instance. Cancelling IDs [{Ids}]",
+                    staleRequests.Count, status, idsString);
+
+                int updatedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    staleRequests,
+                    status,
+                    DeploymentRequestStatus.Cancelled,
+                    DateTimeOffset.Now);
+
+                if (updatedCount > 0)
+                {
+                    // Also cancel any pending deployment results for these requests
+                    this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
+                        staleRequests,
+                        DeploymentResultStatus.Pending,
+                        DeploymentResultStatus.Cancelled);
+
+                    foreach (var id in ids)
+                    {
+                        TerminateRunnerProcesses(id);
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: DeploymentRequestStatus.Cancelled.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+
+                    this.logger.LogWarning(
+                        "Cancelled {UpdatedCount} stale requests. IDs [{Ids}]",
+                        updatedCount, idsString);
+                }
             }
         }
-
         /// <summary>
         /// Switches deployment request statuses using optimistic concurrency.
         ///
