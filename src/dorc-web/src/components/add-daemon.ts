@@ -9,6 +9,9 @@ import { RefDataDaemonsApi } from '../apis/dorc-api';
 
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
+
+  private readonly maxFieldLength = 50;
+
   @state() private displayName = '';
 
   @state() private displayNameValid = false;
@@ -69,6 +72,8 @@ export class AddDaemon extends LitElement {
             class="block"
             id="daemon-name"
             label="Daemon Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._daemonNameValueChanged}"
@@ -78,6 +83,8 @@ export class AddDaemon extends LitElement {
             class="block"
             id="display-name"
             label="Display Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._displayNameValueChanged}"
@@ -87,6 +94,8 @@ export class AddDaemon extends LitElement {
             class="block"
             id="account-name"
             label="Account Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._accountNameValueChanged}"
@@ -96,6 +105,8 @@ export class AddDaemon extends LitElement {
           <vaadin-text-field
             class="block"
             id="service-type"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             label="Type"
             required
             auto-validate

@@ -5,6 +5,7 @@ using Dorc.Monitor.HighAvailability;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor.Tests
@@ -20,6 +21,7 @@ namespace Dorc.Monitor.Tests
         private IDistributedLockService mockDistributedLockService = null!;
 
         private DeploymentRequestStateProcessor sut = null!;
+        private ConcurrentBag<Task> publishTasks = null!;
 
         [TestInitialize]
         public void Setup()
@@ -34,6 +36,8 @@ namespace Dorc.Monitor.Tests
             mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
                 .Returns(Task.CompletedTask);
 
+            publishTasks = new ConcurrentBag<Task>();
+
             sut = new DeploymentRequestStateProcessor(
                 mockLogger,
                 mockServiceProvider,
@@ -41,6 +45,7 @@ namespace Dorc.Monitor.Tests
                 mockRequestsPersistentSource,
                 mockEventPublisher,
                 mockDistributedLockService);
+            sut.OnPublishTaskCreated = t => publishTasks.Add(t);
         }
 
         private static List<DeploymentRequestApiModel> CreateRequests(params int[] ids)
@@ -116,7 +121,7 @@ namespace Dorc.Monitor.Tests
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert - SwitchStatus was called (FIRST)
-            mockRequestsPersistentSource.Received(1)
+            mockRequestsPersistentSource.Received(2)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Restarting,
@@ -130,7 +135,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void RestartRequests_SwitchStatusReturnsAll_ClearsResultsAndPublishes()
+        public async Task RestartRequests_SwitchStatusReturnsAll_ClearsResultsAndPublishes()
         {
             // Arrange: we win the optimistic concurrency race for all requests
             var requests = CreateRequests(1, 2);
@@ -149,9 +154,12 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
             // Assert
             // SwitchStatus called FIRST
-            mockRequestsPersistentSource.Received(1)
+            mockRequestsPersistentSource.Received(2)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Restarting,
@@ -165,7 +173,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void RestartRequests_SwitchStatusReturnsPartial_ClearsResultsAndPublishesAndLogsPartial()
+        public async Task RestartRequests_SwitchStatusReturnsPartial_OnlyAffectsRequestsWonByThisMonitor()
         {
             // Arrange: we won for 1 of 2 requests
             var requests = CreateRequests(1, 2);
@@ -174,22 +182,32 @@ namespace Dorc.Monitor.Tests
                 .Returns(requests);
             mockRequestsPersistentSource
                 .SwitchDeploymentRequestStatuses(
-                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is<IList<DeploymentRequestApiModel>>(items => items.Count == 1 && items[0].Id == 1),
                     DeploymentRequestStatus.Restarting,
                     DeploymentRequestStatus.Pending)
                 .Returns(1);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(items => items.Count == 1 && items[0].Id == 2),
+                    DeploymentRequestStatus.Restarting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(0);
 
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
 
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert - ClearAllDeploymentResults still called (partial success)
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
+            // Assert - only the request we actually restarted is touched
             mockRequestsPersistentSource.Received(1)
-                .ClearAllDeploymentResults(Arg.Is<IList<int>>(ids => ids.Count == 2));
-            // Events published for all IDs (terminate/publish are idempotent)
-            mockEventPublisher.Received(2)
-                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+                .ClearAllDeploymentResults(Arg.Is<IList<int>>(ids => ids.Count == 1 && ids[0] == 1));
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 1));
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 2));
         }
 
         [TestMethod]
@@ -221,7 +239,7 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert - SwitchStatus was called BEFORE ClearResults
+            // Assert - all SwitchStatus calls happened before ClearResults
             Assert.AreEqual(2, callOrder.Count);
             Assert.AreEqual("SwitchStatus", callOrder[0]);
             Assert.AreEqual("ClearResults", callOrder[1]);
@@ -373,6 +391,7 @@ namespace Dorc.Monitor.Tests
                     DeploymentRequestStatus.Pending,
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
                     false)
                 .Returns(requests);
 
@@ -410,6 +429,7 @@ namespace Dorc.Monitor.Tests
                     DeploymentRequestStatus.Pending,
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
                     false)
                 .Returns(requests);
 
@@ -476,6 +496,7 @@ namespace Dorc.Monitor.Tests
                     DeploymentRequestStatus.Pending,
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
                     false)
                 .Returns(requests);
 
@@ -504,6 +525,866 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<DeploymentRequestApiModel>(),
                     Arg.Any<DeploymentRequestStatus>(),
                     Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // TryAdd race condition fix: environmentRequestIdRunning.TryAdd before Task.Run
+        // =====================================================================
+
+        [TestMethod]
+        public async Task ExecuteRequests_AfterTaskCompletes_EnvironmentIsAvailableForNextPoll()
+        {
+            // Verifies the TryAdd-before-Task.Run fix on the SAME instance.
+            // If TryAdd were after Task.Run, a fast-completing task could TryRemove
+            // before TryAdd, leaving a phantom entry in environmentRequestIdRunning
+            // that permanently blocks the environment from being processed.
+            //
+            // We use locking disabled to avoid the backoff dictionary interfering -
+            // this isolates the test to only the environmentRequestIdRunning cleanup.
+            var requests = CreatePendingRequests("EnvRace", 100);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0); // Return 0 to avoid going deeper into execution
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - first call: task runs and completes quickly (UpdateNonProcessedRequest returns 0)
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Act - second call on SAME instance: environment should NOT be permanently blocked
+            // If TryAdd were after Task.Run, the phantom entry would cause TryGetValue to return true,
+            // skipping this environment forever.
+            mockRequestsPersistentSource.ClearReceivedCalls();
+            var tasks2 = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks2);
+
+            // Assert - UpdateNonProcessedRequest called again, proving environment is not stuck
+            mockRequestsPersistentSource.Received(1)
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // CancelStaleRequests - cleanup on startup
+        // =====================================================================
+
+        [TestMethod]
+        public void CancelStaleRequests_WhenHAEnabledAndEnvironmentLockIsHeld_SkipsCleanup()
+        {
+            // Arrange - HA is enabled, but another monitor still holds the environment lock
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync("env:EnvHA", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns((IDistributedLock?)null);
+
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 45, EnvironmentName = "EnvHA", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Assert - lock was checked, but cleanup was skipped
+            mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync("env:EnvHA", Arg.Any<int>(), Arg.Any<CancellationToken>());
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_WhenHAEnabledAndEnvironmentLockIsRecovered_CancelsRequests()
+        {
+            // Arrange - HA is enabled and no other monitor holds the environment lock anymore
+            mockDistributedLockService.IsEnabled.Returns(true);
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockDistributedLockService
+                .TryAcquireLockAsync("env:EnvRecovered", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 145, EnvironmentName = "EnvRecovered", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+            await Task.WhenAll(publishTasks);
+
+            // Assert
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>());
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 145 && e.Status == DeploymentRequestStatus.Cancelled.ToString()));
+            await mockLock.Received(1).DisposeAsync();
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_WhenHADisabled_PerformsCleanup()
+        {
+            // Arrange - HA is disabled (single node), so stale cleanup is safe
+            mockDistributedLockService.IsEnabled.Returns(false);
+
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 46, EnvironmentName = "EnvSingle", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
+            // Assert - stale requests should be cancelled
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>());
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public void CancelStaleRequests_NoStaleRequests_DoesNothing()
+        {
+            // Arrange
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Assert - no status switch attempted
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_WithRunningRequests_CancelsThemAndPublishesEvents()
+        {
+            // Arrange
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 50, EnvironmentName = "EnvA", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" },
+                new() { Id = 51, EnvironmentName = "EnvB", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(2);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
+            // Assert - status switched to Cancelled
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>());
+
+            // Assert - deployment results also cancelled
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentResultsStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is<DeploymentResultStatus>(s => s.Value == "Pending"),
+                    Arg.Is<DeploymentResultStatus>(s => s.Value == "Cancelled"));
+
+            // Assert - events published for each request
+            mockEventPublisher.Received(2)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_WithRequestingRequests_CancelsThem()
+        {
+            // Arrange
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+
+            var staleRequesting = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 60, EnvironmentName = "EnvC", Status = DeploymentRequestStatus.Requesting.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(staleRequesting);
+
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Requesting,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
+            // Assert
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Requesting,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>());
+
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public void CancelStaleRequests_WhenSwitchReturnsZero_DoesNotPublishEvents()
+        {
+            // Arrange: another monitor already cleaned these up
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 70, EnvironmentName = "EnvD", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            // Act
+            sut.CancelStaleRequests(false);
+
+            // Assert - no events published
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+            // Assert - deployment results not cancelled either
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentResultsStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentResultStatus>(),
+                    Arg.Any<DeploymentResultStatus>());
+        }
+
+        // =====================================================================
+        // AbandonRequests
+        // =====================================================================
+
+        [TestMethod]
+        public void AbandonRequests_NoOldRequests_DoesNothing()
+        {
+            // Arrange - return requests that are NOT older than 1 day
+            var recentRequests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 80, EnvironmentName = "EnvX", Status = DeploymentRequestStatus.Running.ToString(),
+                        IsProd = false, UserName = "testuser", RequestedTime = DateTimeOffset.Now.AddHours(-1) }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(recentRequests);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - no status switch because request is recent
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task AbandonRequests_WithOldRequests_AbandonsThemAndPublishesEvents()
+        {
+            // Arrange - return request older than 1 day
+            var oldRequests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 81, EnvironmentName = "EnvY", Status = DeploymentRequestStatus.Running.ToString(),
+                        IsProd = false, UserName = "testuser", RequestedTime = DateTimeOffset.Now.AddDays(-2) }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(oldRequests);
+
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Abandoned,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
+
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
+            // Assert - switched to Abandoned
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Abandoned,
+                    Arg.Any<DateTimeOffset>());
+
+            // Assert - event published
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        [TestMethod]
+        public void AbandonRequests_NoRequests_DoesNothing()
+        {
+            // Arrange
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // ExecuteRequests - Paused blocking and Running skip
+        // =====================================================================
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenFirstRequestIsPaused_SkipsEnvironment()
+        {
+            // Arrange - first request (by ID) is Paused, subsequent is Pending
+            var requests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 90, EnvironmentName = "EnvPause", Status = DeploymentRequestStatus.Paused.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" },
+                new() { Id = 91, EnvironmentName = "EnvPause", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - no requests should be processed since the first is Paused
+            mockRequestsPersistentSource.DidNotReceive()
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenEnvironmentHasRunningRequest_SkipsEnvironment()
+        {
+            // Arrange - environment has a Running request, so Pending requests should not be picked up
+            var requests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 100, EnvironmentName = "EnvRunning", Status = DeploymentRequestStatus.Running.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" },
+                new() { Id = 101, EnvironmentName = "EnvRunning", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - no requests should be processed since env has Running request
+            mockRequestsPersistentSource.DidNotReceive()
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_StatusChangedAfterLockAcquired_SkipsExecution()
+        {
+            // Arrange - lock succeeds but request status changed while waiting
+            var requests = CreatePendingRequests("EnvRevalidate", 110);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvRevalidate");
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            // Request status changed to Cancelled while waiting for lock
+            mockRequestsPersistentSource.GetRequest(110)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 110,
+                    Status = DeploymentRequestStatus.Cancelled.ToString()
+                });
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - should NOT call UpdateNonProcessedRequest because status changed
+            mockRequestsPersistentSource.DidNotReceive()
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+
+            // Assert - lock should still be disposed
+            await mockLock.Received(1).DisposeAsync();
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_MultipleEnvironments_ProcessesBothIndependently()
+        {
+            // Arrange - two different environments each with a pending request
+            var requests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 120, EnvironmentName = "EnvAlpha", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" },
+                new() { Id = 121, EnvironmentName = "EnvBeta", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0); // Return 0 to avoid going deeper into execution
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - both environments should have had UpdateNonProcessedRequest called
+            mockRequestsPersistentSource.Received(2)
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_OnlyFirstPendingPerEnvironmentIsProcessed()
+        {
+            // Arrange - same environment, two pending requests
+            var requests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 130, EnvironmentName = "EnvSeq", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" },
+                new() { Id = 131, EnvironmentName = "EnvSeq", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - only one request should be processed (the first by ID)
+            mockRequestsPersistentSource.Received(1)
+                .UpdateNonProcessedRequest(
+                    Arg.Is<DeploymentRequestApiModel>(r => r.Id == 130),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // SwitchRequestsStatus - isProd guard
+        // =====================================================================
+
+        [TestMethod]
+        public void CancelRequests_WhenRequestIsProd_DoesNotCancel()
+        {
+            // Arrange - request is on a production environment
+            var prodRequests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 140, EnvironmentName = "ProdEnv", Status = DeploymentRequestStatus.Cancelling.ToString(),
+                        IsProd = true, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Cancelling, false)
+                .Returns(prodRequests);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.CancelRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - should NOT switch status because IsProd is true
+            mockRequestsPersistentSource.DidNotReceive()
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        // =====================================================================
+        // Lock health check (IsValid) after execution
+        // =====================================================================
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenLockLostDuringExecution_LogsWarning()
+        {
+            // Arrange - lock acquired but channel dies during execution
+            var requests = CreatePendingRequests("EnvLockLost", 200);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvLockLost");
+            // Lock is initially valid but becomes invalid during execution
+            mockLock.IsValid.Returns(false);
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            // Request is still Pending when re-validated after lock acquisition
+            mockRequestsPersistentSource.GetRequest(200)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 200,
+                    Status = DeploymentRequestStatus.Pending.ToString()
+                });
+
+            // UpdateNonProcessedRequest succeeds (simulates execution starting)
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - warning should be logged about lost lock
+            mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString()!.Contains("was lost during execution")),
+                Arg.Any<Exception?>(),
+                Arg.Any<Func<object, Exception?, string>>());
+
+            // Assert - lock should still be disposed
+            await mockLock.Received(1).DisposeAsync();
+        }
+
+        // =====================================================================
+        // OnPublishTaskCreated callback deterministic tracking
+        // =====================================================================
+
+        [TestMethod]
+        public async Task OnPublishTaskCreated_CallbackTracksFireAndForgetTasks()
+        {
+            // Arrange - verify that the OnPublishTaskCreated callback is invoked for each
+            // fire-and-forget publish task, enabling deterministic test awaiting
+            var requests = CreateRequests(400);
+            requests[0].Status = DeploymentRequestStatus.Restarting.ToString();
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Restarting, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Restarting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            Assert.AreEqual(0, publishTasks.Count);
+            sut.RestartRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - callback should have been invoked
+            Assert.IsTrue(publishTasks.Count > 0, "OnPublishTaskCreated callback should be invoked for fire-and-forget tasks");
+
+            // Wait for all tracked tasks to complete deterministically (no Task.Delay needed)
+            await Task.WhenAll(publishTasks);
+
+            // Assert - event was published
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+        }
+
+        // =====================================================================
+        // PublishRequestStatusChangedSafe error handling
+        // =====================================================================
+
+        [TestMethod]
+        public async Task PublishRequestStatusChangedSafe_WhenPublishFails_LogsWarning()
+        {
+            // Arrange - make the event publisher throw
+            mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
+                .ThrowsAsync(new InvalidOperationException("SignalR hub is down"));
+
+            var requests = CreateRequests(300);
+            requests[0].Status = DeploymentRequestStatus.Restarting.ToString();
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Restarting, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Restarting,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - should not throw despite publish failure
+            sut.RestartRequests(false, cancellationSources, CancellationToken.None);
+
+            // Wait for fire-and-forget event publish tasks to complete
+            await Task.WhenAll(publishTasks);
+
+            // Assert - warning should be logged about failed publish
+            mockLogger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString()!.Contains("Failed to publish status event")),
+                Arg.Any<Exception?>(),
+                Arg.Any<Func<object, Exception?, string>>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenLockHasLockLostToken_LinksItToCancellation()
+        {
+            // Arrange - verify that when HA is enabled and a lock is acquired,
+            // the LockLostToken is linked to the request cancellation token.
+            var requests = CreatePendingRequests("EnvLinked", 500);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            var mockLock = Substitute.For<IDistributedLock>();
+            mockLock.ResourceKey.Returns("env:EnvLinked");
+            mockLock.IsValid.Returns(true);
+            var lockLostCts = new CancellationTokenSource();
+            mockLock.LockLostToken.Returns(lockLostCts.Token);
+
+            mockDistributedLockService.IsEnabled.Returns(true);
+            mockDistributedLockService
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(mockLock);
+
+            // Re-validation passes
+            mockRequestsPersistentSource.GetRequest(500)
+                .Returns(new DeploymentRequestApiModel
+                {
+                    Id = 500,
+                    Status = DeploymentRequestStatus.Pending.ToString()
+                });
+
+            // Execution starts
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            var requestCancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, requestCancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - lock was acquired and disposed
+            await mockDistributedLockService.Received(1)
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            await mockLock.Received(1).DisposeAsync();
         }
     }
 }

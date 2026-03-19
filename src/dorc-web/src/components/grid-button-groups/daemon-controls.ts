@@ -15,6 +15,9 @@ export class DaemonControls extends LitElement {
   @property({ type: String })
   private error = '';
 
+  @property({ type: Boolean })
+  private userEditable = false;
+
   static get styles() {
     return css`
       vaadin-button {
@@ -71,15 +74,15 @@ export class DaemonControls extends LitElement {
   }
 
   get startDisabled() {
-    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'running';
+    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'running' || this.userEditable === true;
   }
 
   get stopDisabled() {
-    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'stopped';
+    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'stopped' || this.userEditable === true; 
   }
 
   get restartDisabled() {
-    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'stopped';
+    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'stopped' || this.userEditable === true;
   }
 
   serviceStart() {

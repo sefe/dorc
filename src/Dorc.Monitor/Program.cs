@@ -88,6 +88,10 @@ builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockSe
 
 PersistentSourcesRegistry.Register(builder.Services);
 
+// Transient: DeploymentEngine and DeploymentRequestStateProcessor hold stateful fields
+// (_runningTasks, environmentRequestIdRunning, environmentLockBackoff) that must be scoped
+// to a single MonitorService hosted-service lifetime. Transient ensures each resolution
+// gets a fresh instance, which is correct because MonitorService resolves them once at startup.
 builder.Services.AddTransient<Dorc.Monitor.IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 

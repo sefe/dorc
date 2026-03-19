@@ -9,6 +9,7 @@ import { oauthSettings } from '../OAuthSettings.ts';
 new ApiConfigApi().apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
+    appConfig.pauseDeploymentEnabled = Boolean((apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']);
     if (appConfig.authenticationScheme == OAUTH_SCHEME) {
       const settings: OAuthServiceSettings = {
         ...oauthSettings,
