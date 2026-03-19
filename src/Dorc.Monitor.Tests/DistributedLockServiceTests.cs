@@ -1102,4 +1102,500 @@ namespace Dorc.Monitor.Tests.HighAvailability
             Assert.IsNull(result);
         }
     }
+
+    /// <summary>
+    /// Tests for the lock re-acquisition behavior when a channel/connection drops unexpectedly.
+    /// This verifies the fix for the cascading cancellation issue where a single RabbitMQ INTERNAL_ERROR
+    /// on the shared connection would kill all active locks and cancel all in-progress deployments.
+    /// </summary>
+    [TestClass]
+    public class RabbitMqDistributedLockReacquisitionTests
+    {
+        private ILogger<RabbitMqDistributedLockService> mockLogger = null!;
+        private IMonitorConfiguration mockConfiguration = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
+            mockConfiguration = Substitute.For<IMonitorConfiguration>();
+        }
+
+        private static void SetServiceConnection(RabbitMqDistributedLockService service, IConnection? connection)
+        {
+            service.connection = connection;
+        }
+
+        /// <summary>
+        /// When a channel shuts down but the lock can be re-acquired via a new connection,
+        /// the deployment should continue without cancellation. This is the core fix for the
+        /// cascading INTERNAL_ERROR issue.
+        /// </summary>
+        [TestMethod]
+        public async Task ChannelShutdown_WhenReacquisitionSucceeds_DoesNotCancelLockLostToken()
+        {
+            // Arrange - set up a new mock connection/channel for re-acquisition
+            var mockNewChannel = Substitute.For<IChannel>();
+            mockNewChannel.IsOpen.Returns(true);
+
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(mockNewChannel);
+
+            // When BasicConsumeAsync is called on the new channel, capture the consumer,
+            // simulate message delivery (the requeued lock message), and signal completion.
+            var reacquisitionComplete = new TaskCompletionSource();
+            mockNewChannel.BasicConsumeAsync(
+                Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
+                Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
+                Arg.Any<IAsyncBasicConsumer>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var consumer = callInfo.ArgAt<IAsyncBasicConsumer>(6);
+                    _ = Task.Run(async () =>
+                    {
+                        var props = Substitute.For<IReadOnlyBasicProperties>();
+                        await consumer.HandleBasicDeliverAsync(
+                            "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
+                            props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
+                    });
+                    return "new-consumer-tag";
+                });
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(5);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            // Inject the new connection so EnsureConnectionAsync finds it
+            SetServiceConnection(service, mockNewConnection);
+
+            // Create a lock with the OLD (dying) channel/connection
+            var oldChannel = Substitute.For<IChannel>();
+            var oldConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, oldChannel, oldConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Act - simulate INTERNAL_ERROR channel shutdown (the production failure scenario)
+            oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            // Wait for re-acquisition to complete (signalled when consumer receives the requeued message)
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - re-acquisition succeeded, deployment should continue
+            Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested,
+                "LockLostToken should NOT be cancelled when lock re-acquisition succeeds");
+            Assert.IsTrue(lockObj.IsValid,
+                "Lock should be valid after successful re-acquisition (new channel is open)");
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// When re-acquisition fails (no connection available), the lock should still cancel
+        /// the deployment - the safety mechanism must remain intact.
+        /// </summary>
+        [TestMethod]
+        public async Task ChannelShutdown_WhenReacquisitionFails_CancelsLockLostToken()
+        {
+            // Arrange - service has no connection, so re-acquisition will fail
+            mockConfiguration.HighAvailabilityEnabled.Returns(false);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            var mockChannel = Substitute.For<IChannel>();
+            var mockConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Act - simulate channel shutdown
+            mockChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                mockChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            // Wait for re-acquisition to fail and LockLostToken to be cancelled
+            var cancelled = new TaskCompletionSource();
+            lockObj.LockLostToken.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - re-acquisition failed, deployment should be cancelled
+            Assert.IsTrue(lockObj.LockLostToken.IsCancellationRequested,
+                "LockLostToken should be cancelled when lock re-acquisition fails");
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// When connection shuts down but re-acquisition succeeds, verify that
+        /// the lock properly swaps to the new connection/channel and cleans up the old ones.
+        /// </summary>
+        [TestMethod]
+        public async Task ConnectionShutdown_WhenReacquisitionSucceeds_SwapsToNewChannel()
+        {
+            // Arrange
+            var mockNewChannel = Substitute.For<IChannel>();
+            mockNewChannel.IsOpen.Returns(true);
+
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(mockNewChannel);
+
+            var reacquisitionComplete = new TaskCompletionSource();
+            mockNewChannel.BasicConsumeAsync(
+                Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
+                Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
+                Arg.Any<IAsyncBasicConsumer>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var consumer = callInfo.ArgAt<IAsyncBasicConsumer>(6);
+                    _ = Task.Run(async () =>
+                    {
+                        var props = Substitute.For<IReadOnlyBasicProperties>();
+                        await consumer.HandleBasicDeliverAsync(
+                            "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
+                            props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
+                    });
+                    return "new-consumer-tag";
+                });
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(5);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            SetServiceConnection(service, mockNewConnection);
+
+            var oldChannel = Substitute.For<IChannel>();
+            var oldConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, oldChannel, oldConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Act - simulate CONNECTION shutdown (affects all channels)
+            oldConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - lock re-acquired via new channel, old channel disposed
+            Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
+            Assert.IsTrue(lockObj.IsValid);
+            await oldChannel.Received(1).DisposeAsync();
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// When both channel and connection shutdown events fire simultaneously (as happens
+        /// in the real INTERNAL_ERROR scenario), only one re-acquisition attempt should occur.
+        /// </summary>
+        [TestMethod]
+        public async Task BothChannelAndConnectionShutdown_OnlySingleReacquisitionAttempt()
+        {
+            // Arrange
+            var mockNewChannel = Substitute.For<IChannel>();
+            mockNewChannel.IsOpen.Returns(true);
+
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(mockNewChannel);
+
+            var reacquisitionComplete = new TaskCompletionSource();
+            mockNewChannel.BasicConsumeAsync(
+                Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
+                Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
+                Arg.Any<IAsyncBasicConsumer>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var consumer = callInfo.ArgAt<IAsyncBasicConsumer>(6);
+                    _ = Task.Run(async () =>
+                    {
+                        var props = Substitute.For<IReadOnlyBasicProperties>();
+                        await consumer.HandleBasicDeliverAsync(
+                            "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
+                            props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
+                    });
+                    return "new-consumer-tag";
+                });
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(5);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            SetServiceConnection(service, mockNewConnection);
+
+            var oldChannel = Substitute.For<IChannel>();
+            var oldConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, oldChannel, oldConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Act - fire BOTH shutdown events (as happens in real INTERNAL_ERROR scenario)
+            oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+            oldConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - only one re-acquisition, lock is valid, deployment continues
+            Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
+            Assert.IsTrue(lockObj.IsValid);
+
+            // CreateChannelAsync should only be called once (single re-acquisition attempt)
+            await mockNewConnection.Received(1).CreateChannelAsync(
+                Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>());
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// If the lock is disposed before re-acquisition completes, the newly acquired
+        /// channel should be cleaned up to prevent resource leaks.
+        /// </summary>
+        [TestMethod]
+        public async Task ChannelShutdown_WhenDisposedDuringReacquisition_CleansUpNewResources()
+        {
+            // Arrange - set up a slow re-acquisition so we can dispose during it
+            var mockNewChannel = Substitute.For<IChannel>();
+            mockNewChannel.IsOpen.Returns(true);
+
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+
+            var reacquisitionStarted = new TaskCompletionSource<bool>();
+            var allowReacquisitionToComplete = new TaskCompletionSource<bool>();
+
+            // Signal when cleanup of the new channel is complete (DisposeAsync called)
+            var cleanupComplete = new TaskCompletionSource();
+            mockNewChannel.DisposeAsync().Returns(_ => { cleanupComplete.TrySetResult(); return ValueTask.CompletedTask; });
+
+            // BasicConsumeAsync must return a consumer tag and deliver a message so
+            // TryReacquireLockChannelAsync completes (rather than timing out).
+            // TryReacquireOrCancelAsync will then see disposedFlag=1 and clean up the new channel.
+            mockNewChannel.BasicConsumeAsync(
+                Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
+                Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
+                Arg.Any<IAsyncBasicConsumer>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var consumer = callInfo.ArgAt<IAsyncBasicConsumer>(6);
+                    _ = Task.Run(async () =>
+                    {
+                        var props = Substitute.For<IReadOnlyBasicProperties>();
+                        await consumer.HandleBasicDeliverAsync(
+                            "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
+                            props, ReadOnlyMemory<byte>.Empty);
+                    });
+                    return "new-consumer-tag";
+                });
+
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(async callInfo =>
+                {
+                    reacquisitionStarted.TrySetResult(true);
+                    // Block until the test signals
+                    await allowReacquisitionToComplete.Task;
+                    return mockNewChannel;
+                });
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(5);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            SetServiceConnection(service, mockNewConnection);
+
+            var oldChannel = Substitute.For<IChannel>();
+            var oldConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, oldChannel, oldConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Act - trigger shutdown, then dispose while re-acquisition is blocked
+            oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            // Wait for re-acquisition to start
+            await reacquisitionStarted.Task;
+
+            // Dispose the lock while re-acquisition is in progress
+            await lockObj.DisposeAsync();
+
+            // Now allow re-acquisition to complete - it should see disposedFlag=1 and clean up
+            allowReacquisitionToComplete.TrySetResult(true);
+
+            // Wait for cleanup to complete (DisposeAsync called on the new channel)
+            await cleanupComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - new channel should be cleaned up (cancel consumer, close, dispose)
+            await mockNewChannel.Received(1).BasicCancelAsync(
+                "new-consumer-tag", Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await mockNewChannel.Received(1).CloseAsync(Arg.Any<CancellationToken>());
+            await mockNewChannel.Received(1).DisposeAsync();
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// After a lock is already disposed, shutdown events should not trigger re-acquisition attempts.
+        /// </summary>
+        [TestMethod]
+        public async Task ChannelShutdown_WhenAlreadyDisposed_DoesNotAttemptReacquisition()
+        {
+            // Arrange
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(5);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            SetServiceConnection(service, mockNewConnection);
+
+            var mockChannel = Substitute.For<IChannel>();
+            var mockConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, mockChannel, mockConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Dispose the lock first
+            await lockObj.DisposeAsync();
+
+            // Act - fire shutdown event after disposal
+            // Note: handlers were unregistered synchronously in DisposeAsync, so this event
+            // will not reach our lock's handler - no async work is triggered.
+            mockChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                mockChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            // Assert - no new channel was created (no re-acquisition attempt)
+            await mockNewConnection.DidNotReceive().CreateChannelAsync(
+                Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>());
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// When re-acquisition times out waiting for message delivery (e.g., another monitor
+        /// consumed the requeued message), the lock should be cancelled. This ensures split-brain
+        /// protection remains intact.
+        /// </summary>
+        [TestMethod]
+        public async Task ChannelShutdown_WhenReacquisitionTimesOut_CancelsLockLostToken()
+        {
+            // Arrange - new channel never delivers a message (simulates another monitor taking it)
+            var mockNewChannel = Substitute.For<IChannel>();
+            mockNewChannel.IsOpen.Returns(true);
+
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(mockNewChannel);
+
+            // BasicConsumeAsync returns but never delivers a message
+            mockNewChannel.BasicConsumeAsync(
+                Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
+                Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
+                Arg.Any<IAsyncBasicConsumer>(), Arg.Any<CancellationToken>())
+                .Returns("new-consumer-tag");
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            // Use very short timeout to speed up test
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(1);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            SetServiceConnection(service, mockNewConnection);
+
+            var oldChannel = Substitute.For<IChannel>();
+            var oldConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, oldChannel, oldConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Act - simulate channel shutdown
+            oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            // Wait for re-acquisition to time out and cancel the token (configured timeout is 1s)
+            var cancelled = new TaskCompletionSource();
+            lockObj.LockLostToken.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - re-acquisition timed out, deployment should be cancelled
+            Assert.IsTrue(lockObj.LockLostToken.IsCancellationRequested,
+                "LockLostToken should be cancelled when re-acquisition times out (another monitor may hold the lock)");
+
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// Verifies that re-acquisition works correctly with the linked cancellation token
+        /// pattern used by DeploymentRequestStateProcessor - the same pattern that connects
+        /// LockLostToken to the deployment execution.
+        /// </summary>
+        [TestMethod]
+        public async Task ChannelShutdown_WithLinkedCancellationToken_DeploymentContinuesWhenReacquired()
+        {
+            // Arrange
+            var mockNewChannel = Substitute.For<IChannel>();
+            mockNewChannel.IsOpen.Returns(true);
+
+            var mockNewConnection = Substitute.For<IConnection>();
+            mockNewConnection.IsOpen.Returns(true);
+            mockNewConnection.CreateChannelAsync(Arg.Any<CreateChannelOptions>(), Arg.Any<CancellationToken>())
+                .Returns(mockNewChannel);
+
+            var reacquisitionComplete = new TaskCompletionSource();
+            mockNewChannel.BasicConsumeAsync(
+                Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>(),
+                Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IDictionary<string, object?>>(),
+                Arg.Any<IAsyncBasicConsumer>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var consumer = callInfo.ArgAt<IAsyncBasicConsumer>(6);
+                    _ = Task.Run(async () =>
+                    {
+                        var props = Substitute.For<IReadOnlyBasicProperties>();
+                        await consumer.HandleBasicDeliverAsync(
+                            "new-consumer-tag", 1, true, "", "lock.env:TestEnv",
+                            props, ReadOnlyMemory<byte>.Empty);
+                        reacquisitionComplete.TrySetResult();
+                    });
+                    return "new-consumer-tag";
+                });
+
+            mockConfiguration.HighAvailabilityEnabled.Returns(true);
+            mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(5);
+
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+            SetServiceConnection(service, mockNewConnection);
+
+            var oldChannel = Substitute.For<IChannel>();
+            var oldConnection = Substitute.For<IConnection>();
+
+            var lockObj = new RabbitMqDistributedLockService.RabbitMqDistributedLock(
+                mockLogger, oldChannel, oldConnection, "lock.env:TestEnv", "env:TestEnv", "consumer-1", service);
+
+            // Create a linked token source exactly as DeploymentRequestStateProcessor does
+            using var monitorCts = new CancellationTokenSource();
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                monitorCts.Token, lockObj.LockLostToken);
+
+            // Act - simulate INTERNAL_ERROR
+            oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
+                oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
+
+            await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert - linked token should NOT be cancelled (re-acquisition succeeded)
+            Assert.IsFalse(linkedCts.Token.IsCancellationRequested,
+                "Linked cancellation token (deployment) should NOT be cancelled when lock re-acquisition succeeds");
+
+            service.Dispose();
+        }
+    }
 }
