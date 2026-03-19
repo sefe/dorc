@@ -1,14 +1,14 @@
 using Dorc.Core.Connectivity;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Monitor.Connectivity
 {
     public class ConnectivityCheckService : IHostedService, IDisposable
     {
-        private readonly ILog _logger;
+        private readonly ILogger<ConnectivityCheckService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IConnectivityChecker _connectivityChecker;
         private readonly IMonitorConfiguration _configuration;
@@ -16,7 +16,7 @@ namespace Dorc.Monitor.Connectivity
         private int _isCheckRunning = 0;
 
         public ConnectivityCheckService(
-            ILog logger,
+            ILogger<ConnectivityCheckService> logger,
             IServiceProvider serviceProvider,
             IConnectivityChecker connectivityChecker,
             IMonitorConfiguration configuration)
@@ -31,7 +31,7 @@ namespace Dorc.Monitor.Connectivity
         {
             if (!_configuration.EnableConnectivityCheck)
             {
-                _logger.Info("Connectivity Check Service is disabled in configuration.");
+                _logger.LogInformation("Connectivity Check Service is disabled in configuration.");
                 return Task.CompletedTask;
             }
 
@@ -39,8 +39,8 @@ namespace Dorc.Monitor.Connectivity
             var interval = TimeSpan.FromMinutes(intervalMinutes);
             var initialDelay = TimeSpan.FromSeconds(30);
 
-            _logger.Info($"Connectivity Check Service is starting. Check interval: {intervalMinutes} minutes.");
-            _logger.Info($"Waiting {initialDelay.TotalSeconds} seconds before first connectivity check...");
+            _logger.LogInformation("Connectivity Check Service is starting. Check interval: {IntervalMinutes} minutes.", intervalMinutes);
+            _logger.LogInformation("Waiting {Seconds} seconds before first connectivity check...", initialDelay.TotalSeconds);
 
             _timer = new System.Threading.Timer(RunCheckCycle, null, initialDelay, interval);
 
@@ -51,7 +51,7 @@ namespace Dorc.Monitor.Connectivity
         {
             if (Interlocked.CompareExchange(ref _isCheckRunning, 1, 0) != 0)
             {
-                _logger.Info("Connectivity check cycle skipped - previous cycle still running.");
+                _logger.LogInformation("Connectivity check cycle skipped - previous cycle still running.");
                 return;
             }
 
@@ -59,14 +59,14 @@ namespace Dorc.Monitor.Connectivity
             {
                 try
                 {
-                    _logger.Info("Starting connectivity check cycle...");
+                    _logger.LogInformation("Starting connectivity check cycle...");
                     await CheckAllServersAsync();
                     await CheckAllDatabasesAsync();
-                    _logger.Info("Connectivity check cycle completed.");
+                    _logger.LogInformation("Connectivity check cycle completed.");
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error("Error during connectivity check", ex);
+                    _logger.LogError(ex, "Error during connectivity check");
                 }
                 finally
                 {
@@ -77,7 +77,7 @@ namespace Dorc.Monitor.Connectivity
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            _logger.Info("Connectivity Check Service is stopping.");
+            _logger.LogInformation("Connectivity Check Service is stopping.");
             _timer?.Change(Timeout.Infinite, 0);
             return Task.CompletedTask;
         }
@@ -99,7 +99,7 @@ namespace Dorc.Monitor.Connectivity
                 var processedCount = 0;
                 var now = DateTime.UtcNow;
 
-                _logger.Info($"Starting server connectivity check for {totalServers} servers in batches of {batchSize}...");
+                _logger.LogInformation("Starting server connectivity check for {Total} servers in batches of {BatchSize}...", totalServers, batchSize);
 
                 for (int skip = 0; skip < totalServers; skip += batchSize)
                 {
@@ -117,26 +117,26 @@ namespace Dorc.Monitor.Connectivity
 
                             if (!isReachable)
                             {
-                                _logger.Warn($"Server {server.Name} (ID: {server.Id}) is not reachable.");
+                                _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", server.Name, server.Id);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error($"Error checking server {server.Name} (ID: {server.Id})", ex);
+                            _logger.LogError(ex, "Error checking server {ServerName} (ID: {ServerId})", server.Name, server.Id);
                             serversPersistentSource.UpdateServerConnectivityStatus(server.Id, false, now);
                         }
 
                         processedCount++;
                     }
 
-                    _logger.Info($"Processed {processedCount}/{totalServers} servers...");
+                    _logger.LogInformation("Processed {Processed}/{Total} servers...", processedCount, totalServers);
                 }
 
-                _logger.Info($"Completed connectivity check for {processedCount} servers.");
+                _logger.LogInformation("Completed connectivity check for {Processed} servers.", processedCount);
             }
             catch (Exception ex)
             {
-                _logger.Error("Error in CheckAllServersAsync", ex);
+                _logger.LogError(ex, "Error in CheckAllServersAsync");
             }
         }
 
@@ -152,7 +152,7 @@ namespace Dorc.Monitor.Connectivity
                 var processedCount = 0;
                 var now = DateTime.UtcNow;
 
-                _logger.Info($"Starting database connectivity check for {totalDatabases} databases in batches of {batchSize}...");
+                _logger.LogInformation("Starting database connectivity check for {Total} databases in batches of {BatchSize}...", totalDatabases, batchSize);
 
                 for (int skip = 0; skip < totalDatabases; skip += batchSize)
                 {
@@ -170,26 +170,26 @@ namespace Dorc.Monitor.Connectivity
 
                             if (!isReachable)
                             {
-                                _logger.Warn($"Database {database.Name} on {database.ServerName} (ID: {database.Id}) is not reachable.");
+                                _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", database.Name, database.ServerName, database.Id);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error($"Error checking database {database.Name} on {database.ServerName} (ID: {database.Id})", ex);
+                            _logger.LogError(ex, "Error checking database {DbName} on {ServerName} (ID: {DbId})", database.Name, database.ServerName, database.Id);
                             databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, false, now);
                         }
 
                         processedCount++;
                     }
 
-                    _logger.Info($"Processed {processedCount}/{totalDatabases} databases...");
+                    _logger.LogInformation("Processed {Processed}/{Total} databases...", processedCount, totalDatabases);
                 }
 
-                _logger.Info($"Completed connectivity check for {processedCount} databases.");
+                _logger.LogInformation("Completed connectivity check for {Processed} databases.", processedCount);
             }
             catch (Exception ex)
             {
-                _logger.Error("Error in CheckAllDatabasesAsync", ex);
+                _logger.LogError(ex, "Error in CheckAllDatabasesAsync");
             }
         }
     }
