@@ -117,12 +117,12 @@ namespace Dorc.Monitor.Connectivity
 
                             if (!isReachable)
                             {
-                                _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", server.Name, server.Id);
+                                _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", SanitizeForLog(server.Name), server.Id);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error checking server {ServerName} (ID: {ServerId})", server.Name, server.Id);
+                            _logger.LogError(ex, "Error checking server {ServerName} (ID: {ServerId})", SanitizeForLog(server.Name), server.Id);
                             serversPersistentSource.UpdateServerConnectivityStatus(server.Id, false, now);
                         }
 
@@ -139,6 +139,9 @@ namespace Dorc.Monitor.Connectivity
                 _logger.LogError(ex, "Error in CheckAllServersAsync");
             }
         }
+
+        private static string SanitizeForLog(string? value) =>
+            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
 
         private async Task CheckAllDatabasesAsync()
         {
@@ -170,12 +173,12 @@ namespace Dorc.Monitor.Connectivity
 
                             if (!isReachable)
                             {
-                                _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", database.Name, database.ServerName, database.Id);
+                                _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error checking database {DbName} on {ServerName} (ID: {DbId})", database.Name, database.ServerName, database.Id);
+                            _logger.LogError(ex, "Error checking database {DbName} on {ServerName} (ID: {DbId})", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
                             databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, false, now);
                         }
 
