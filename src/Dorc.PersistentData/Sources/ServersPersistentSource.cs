@@ -389,7 +389,8 @@ namespace Dorc.PersistentData.Sources
                 EnvironmentNames = serverData.Server.Environments.Select(ed => ed.Name).ToList(),
                 UserEditable = serverData.UserEditable,
                 LastChecked = serverData.Server.LastChecked,
-                IsReachable = serverData.Server.IsReachable
+                IsReachable = serverData.Server.IsReachable,
+                UnreachableSince = serverData.Server.UnreachableSince
             };
         }
 
@@ -400,6 +401,11 @@ namespace Dorc.PersistentData.Sources
                 var server = context.Servers.FirstOrDefault(s => s.Id == serverId);
                 if (server != null)
                 {
+                    if (!isReachable && server.IsReachable != false)
+                        server.UnreachableSince = lastChecked;
+                    else if (isReachable)
+                        server.UnreachableSince = null;
+
                     server.IsReachable = isReachable;
                     server.LastChecked = lastChecked;
                     context.SaveChanges();

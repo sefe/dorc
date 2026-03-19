@@ -41,6 +41,10 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .Property(e => e.IsReachable)
                 .HasColumnName("IsReachable");
 
+            builder
+                .Property(e => e.UnreachableSince)
+                .HasColumnName("UnreachableSince");
+
             builder.HasOne(d => d.Group).WithMany(p => p.Databases).HasForeignKey(d => d.GroupId);
 
             builder.HasMany(d => d.Environments).WithMany(p => p.Databases)

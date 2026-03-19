@@ -56,4 +56,9 @@ export interface ServerApiModel {
      * @memberof ServerApiModel
      */
     IsReachable?: boolean | null;
+    /**
+     * @type {string}
+     * @memberof ServerApiModel
+     */
+    UnreachableSince?: string | null;
 }

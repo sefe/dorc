@@ -14,6 +14,8 @@
 
         public bool? IsReachable { get; set; }
 
+        public DateTime? UnreachableSince { get; set; }
+
         public ICollection<Daemon> Services { get; set; } = new List<Daemon>();
 
         public ICollection<Environment> Environments { get; set; } = new List<Environment>();

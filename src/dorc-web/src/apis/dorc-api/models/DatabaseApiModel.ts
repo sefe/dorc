@@ -66,4 +66,9 @@ export interface DatabaseApiModel {
      * @memberof DatabaseApiModel
      */
     IsReachable?: boolean | null;
+    /**
+     * @type {string}
+     * @memberof DatabaseApiModel
+     */
+    UnreachableSince?: string | null;
 }

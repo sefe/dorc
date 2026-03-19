@@ -690,23 +690,24 @@ export class PageDatabasesList extends PageElement {
     const database = model.item;
     const isReachable = database.IsReachable;
     const lastChecked = database.LastChecked ? new Date(database.LastChecked) : null;
+    const unreachableSince = database.UnreachableSince ? new Date(database.UnreachableSince) : null;
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    
+
     let statusHtml;
     let title = '';
-    
+
     if (lastChecked === null) {
       statusHtml = html`<span style="color: gray;">Not checked</span>`;
       title = 'Connectivity has not been checked yet';
     } else if (isReachable === true) {
       statusHtml = html`<vaadin-icon icon="vaadin:check-circle" style="color: green;"></vaadin-icon> <span>Online</span>`;
       title = `Last checked: ${lastChecked.toLocaleString()}`;
-    } else if (lastChecked < oneWeekAgo) {
+    } else if (unreachableSince !== null && unreachableSince < oneWeekAgo) {
       statusHtml = html`<vaadin-icon icon="vaadin:warning" style="color: orange;"></vaadin-icon> <span>Unreachable (7+ days)</span>`;
-      title = `Unreachable - Last checked: ${lastChecked.toLocaleString()}`;
+      title = `Unreachable since: ${unreachableSince.toLocaleString()}`;
     } else {
       statusHtml = html`<vaadin-icon icon="vaadin:close-circle" style="color: red;"></vaadin-icon> <span>Offline</span>`;
-      title = `Unreachable - Last checked: ${lastChecked.toLocaleString()}`;
+      title = `Unreachable since: ${unreachableSince ? unreachableSince.toLocaleString() : lastChecked.toLocaleString()}`;
     }
 
     render(

@@ -40,6 +40,10 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasColumnName("IsReachable");
 
             builder
+                .Property(e => e.UnreachableSince)
+                .HasColumnName("UnreachableSince");
+
+            builder
                 .HasMany(s => s.Services)
                 .WithMany(d => d.Server)
                 .UsingEntity("SERVER_SERVICE_MAP",

@@ -415,7 +415,8 @@ namespace Dorc.PersistentData.Sources
                 ArrayName = db.ArrayName,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>(),
                 LastChecked = db.LastChecked,
-                IsReachable = db.IsReachable
+                IsReachable = db.IsReachable,
+                UnreachableSince = db.UnreachableSince
             };
         }
 
@@ -426,6 +427,11 @@ namespace Dorc.PersistentData.Sources
                 var database = context.Databases.FirstOrDefault(d => d.Id == databaseId);
                 if (database != null)
                 {
+                    if (!isReachable && database.IsReachable != false)
+                        database.UnreachableSince = lastChecked;
+                    else if (isReachable)
+                        database.UnreachableSince = null;
+
                     database.IsReachable = isReachable;
                     database.LastChecked = lastChecked;
                     context.SaveChanges();

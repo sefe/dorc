@@ -11,5 +11,6 @@ namespace Dorc.ApiModel
         public string ApplicationTags { set; get; }
         public DateTime? LastChecked { set; get; }
         public bool? IsReachable { set; get; }
+        public DateTime? UnreachableSince { set; get; }
     }
 }
