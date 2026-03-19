@@ -4,7 +4,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Tools.PostRestoreEndurCLI
 {
@@ -14,16 +14,17 @@ namespace Tools.PostRestoreEndurCLI
         {
             try
             {
-                For<ILog>().Use(LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType));
+                For<ILoggerFactory>().Use(_ => LoggerFactory.Create(builder => builder.AddConsole()));
+                For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PostRestoreEndurCLI"));
+                For(typeof(ILogger<>)).Use(typeof(Logger<>));
+
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
                 For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();
             }
             catch (Exception e)
             {
-                var log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
-                log.Error(e);
+                Console.Error.WriteLine($"Error in CliRegistry: {e}");
                 throw;
             }
         }

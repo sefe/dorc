@@ -12,7 +12,8 @@ import './grid-button-groups/server-controls';
 import './log-dialog';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/server-tags';
-import { DeploymentResultApiModel } from '../apis/dorc-api';
+import './terraform-plan-dialog';
+import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
@@ -27,6 +28,15 @@ export class ComponentDeploymentResults extends LitElement {
   @state()
   selectedLog: string | undefined;
 
+  @state()
+  isLoadingLog = false;
+
+  @state()
+  terraformDialogOpened = false;
+
+  @state()
+  selectedTerraformDeploymentId: number = 0;
+
   constructor() {
     super();
 
@@ -35,6 +45,23 @@ export class ComponentDeploymentResults extends LitElement {
     this.addEventListener(
       'log-dialog-closed',
       this.logDialogClosed as EventListener
+    );
+
+    this.addEventListener('open-terraform-plan', this.viewTerraformPlan as EventListener);
+
+    this.addEventListener(
+      'terraform-plan-confirmed',
+      this.onTerraformPlanConfirmed as EventListener
+    );
+
+    this.addEventListener(
+      'terraform-plan-declined',
+      this.onTerraformPlanDeclined as EventListener
+    );
+
+    this.addEventListener(
+      'close-terraform-plan',
+      this.onCloseTerraformPlan as EventListener
     );
   }
 
@@ -56,6 +83,36 @@ export class ComponentDeploymentResults extends LitElement {
         padding: 0px;
         margin: 0px;
       }
+
+      .status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .status-waiting-confirmation {
+        background-color: var(--lumo-warning-color-10pct);
+        color: var(--lumo-warning-text-color);
+      }
+
+      .status-confirmed {
+        background-color: var(--lumo-success-color-10pct);
+        color: var(--lumo-success-text-color);
+      }
+
+      .terraform-actions {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+
+      .terraform-button {
+        min-width: 32px;
+        padding: 4px;
+      }
     `;
   }
 
@@ -64,8 +121,15 @@ export class ComponentDeploymentResults extends LitElement {
       <log-dialog
         .isOpened="${this.dialogOpened}"
         .selectedLog="${this.selectedLog}"
+        .isLoading="${this.isLoadingLog}"
       >
       </log-dialog>
+
+      <terraform-plan-dialog
+        .deploymentResultId="${this.selectedTerraformDeploymentId}"
+        .opened="${this.terraformDialogOpened}"
+      >
+      </terraform-plan-dialog>
 
       <vaadin-grid
         id="grid"
@@ -88,8 +152,14 @@ export class ComponentDeploymentResults extends LitElement {
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
-          path="Status"
+          .renderer="${this.statusRenderer}"
           header="Status"
+          resizable
+          auto-width
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          .renderer="${this.actionsRenderer}"
+          header="Actions"
           resizable
           auto-width
         ></vaadin-grid-column>
@@ -163,14 +233,48 @@ export class ComponentDeploymentResults extends LitElement {
     );
   }
 
-  private viewLog(e: CustomEvent) {
-    const result = e.detail.result as DeploymentResultApiModel;
-    this.selectedLog = result.Log ?? '';
+  private async viewLog(e: Event) {
+    const customEvent = e as CustomEvent;
+    const result = customEvent.detail.result as DeploymentResultApiModel;
+    
+    // Show dialog immediately with loading state
+    this.isLoadingLog = true;
+    this.selectedLog = '';
     this.dialogOpened = true;
+    
+    if (result.RequestId) {
+      try {
+        const api = new ResultStatusesApi();
+        const logObservable = api.resultStatusesLogGet({ requestId: result.RequestId, resultId: result.Id });
+        
+        logObservable.subscribe({
+          next: (fullLog: string) => {
+            this.selectedLog = fullLog;
+            this.isLoadingLog = false;
+          },
+          error: (error) => {
+            console.error('Failed to fetch log:', error);
+            // Fallback to the existing log if API call fails
+            this.selectedLog = result.Log ?? 'Failed to load full log';
+            this.isLoadingLog = false;
+          }
+        });
+      } catch (error) {
+        console.error('Failed to create API instance:', error);
+        // Fallback to the existing log if API creation fails
+        this.selectedLog = result.Log ?? 'Failed to load full log';
+        this.isLoadingLog = false;
+      }
+    } else {
+      // Fallback to the existing log if no RequestId
+      this.selectedLog = result.Log ?? 'No log available';
+      this.isLoadingLog = false;
+    }
   }
 
   private logDialogClosed() {
     this.dialogOpened = false;
+    this.isLoadingLog = false;
   }
 
   private timingsRenderer = (
@@ -228,4 +332,129 @@ export class ComponentDeploymentResults extends LitElement {
       root
     );
   };
+
+  statusRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    const result = model.item as DeploymentResultApiModel;
+    const status = result.Status || '';
+    
+    let statusClass = '';
+    if (status === 'WaitingConfirmation') {
+      statusClass = 'status-waiting-confirmation';
+    } else if (status === 'Confirmed') {
+      statusClass = 'status-confirmed';
+    }
+
+    render(
+      html`
+        <span class="status-badge ${statusClass}">
+          ${status}
+        </span>
+      `,
+      root
+    );
+  };
+
+  actionsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    const result = model.item as DeploymentResultApiModel;
+    const status = result.Status || '';
+    const isTerraformStatus = status === 'WaitingConfirmation' || status === 'Confirmed';
+
+    if (!isTerraformStatus) {
+      render(html`<span>-</span>`, root);
+      return;
+    }
+
+    render(
+      html`
+        <div class="terraform-actions">
+          <vaadin-button
+            class="terraform-button"
+            @click="${() => this.openTerraformPlan(result.Id!)}"
+            title="View Terraform Plan"
+          >
+            <vaadin-icon
+            icon="vaadin:file-text"
+            ></vaadin-icon>
+          </vaadin-button>
+        </div>
+      `,
+      root
+    );
+  };
+
+  private viewTerraformPlan(e: CustomEvent) {
+    const deploymentResultId = e.detail.deploymentResultId as number;
+    this.openTerraformPlan(deploymentResultId);
+  }
+
+  private openTerraformPlan(deploymentResultId: number) {
+    this.selectedTerraformDeploymentId = deploymentResultId;
+    this.terraformDialogOpened = true;
+  }
+
+  private onCloseTerraformPlan(e: CustomEvent) {
+    this.terraformDialogOpened = e.detail.value;
+
+    this.dispatchEvent(
+      new CustomEvent('refresh-monitor-result', {
+        detail: {},
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  private onTerraformPlanConfirmed(e: CustomEvent) {
+    const deploymentResultId = e.detail.deploymentResultId as number;
+    
+    // Update the status of the corresponding item in the grid
+    if (this.resultItems) {
+      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      if (item) {
+        item.Status = 'Confirmed';
+        this.requestUpdate(); // Force re-render of the grid
+      }
+    }
+
+    // Dispatch event to notify parent components
+    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
+      detail: { 
+        deploymentResultId,
+        newStatus: 'Confirmed'
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private onTerraformPlanDeclined(e: CustomEvent) {
+    const deploymentResultId = e.detail.deploymentResultId as number;
+    
+    // Update the status of the corresponding item in the grid
+    if (this.resultItems) {
+      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      if (item) {
+        item.Status = 'Cancelled';
+        this.requestUpdate(); // Force re-render of the grid
+      }
+    }
+
+    // Dispatch event to notify parent components
+    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
+      detail: { 
+        deploymentResultId,
+        newStatus: 'Cancelled'
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
 }

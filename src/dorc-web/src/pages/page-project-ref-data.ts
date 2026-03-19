@@ -7,6 +7,7 @@ import { Notification } from '@vaadin/notification';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
 import { RefDataApi, RefDataApiModel } from '../apis/dorc-api';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 let editorValue: string | undefined = '';
 @customElement('page-project-ref-data')
@@ -149,7 +150,8 @@ export class PageProjectRefData extends PageElement {
           }
         },
         error: (err: any) => {
-          this.errorAlert(err.xhr.response ?? err.xhr.statusText);
+          const errMsg = retrieveErrorMessage(err);
+          this.errorAlert(errMsg);
           console.log(err);
           this.refDataLoading = false;
         },

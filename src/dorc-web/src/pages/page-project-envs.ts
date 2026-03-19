@@ -11,6 +11,7 @@ import { Router } from '@vaadin/router';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
+import { AccessControlApi, AccessSecureApiModel, AccessControlType } from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
@@ -52,6 +53,9 @@ export class PageProjectEnvs extends PageElement {
 
   @state()
   private projects: ProjectApiModel[] | undefined;
+
+  @state()
+  private projectUserEditable = false;
 
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
@@ -202,6 +206,7 @@ export class PageProjectEnvs extends PageElement {
                   theme="icon"
                   @click="${this.openBundles}"
                   style="margin: 0;"
+                  ?hidden="${!this.projectUserEditable}"
                 >
                   <vaadin-icon
                     icon="vaadin:package"
@@ -404,6 +409,27 @@ export class PageProjectEnvs extends PageElement {
   private setEnvironments(data: EnvironmentApiModelTemplateApiModel) {
     this.projectData = data.Project;
     this.environments = data.Items?.sort(this.sortEnvironments);
+    this.checkProjectAccess();
+  }
+
+  private checkProjectAccess() {
+    if (this.project) {
+      const api = new AccessControlApi();
+      api
+        .accessControlGet({
+          accessControlType: AccessControlType.NUMBER_0,
+          accessControlName: this.project
+        })
+        .subscribe({
+          next: (data: AccessSecureApiModel) => {
+            this.projectUserEditable = data.UserEditable ?? false;
+          },
+          error: (err: string) => {
+            console.error('Error fetching project access control:', err);
+            this.projectUserEditable = false;
+          }
+        });
+    }
   }
 
   sortEnvironments(a: EnvironmentApiModel, b: EnvironmentApiModel): number {

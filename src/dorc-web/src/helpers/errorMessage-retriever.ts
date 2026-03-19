@@ -21,6 +21,14 @@ export function retrieveErrorMessage(
     errorMessage = err.response.Message;
   } else if (err.response?.ExceptionMessage) {
     errorMessage = err.response.ExceptionMessage;
+  } else if (err.response?.errors) {
+    let errMessages = '';
+    if (Array.isArray(err.response.errors) && err.response.errors.length > 0) {
+      errMessages = err.response.errors.join('; ');
+    } else if (typeof err.response.errors === 'object') {
+      errMessages = Object.values(err.response.errors).flat().join('; ');
+    }
+    errorMessage = `${err.message}, ${err.response.title} ${errMessages}`;
   } else if (err.response && typeof err.response === 'string') {
     errorMessage = err.response;
   } else if (err.message) {

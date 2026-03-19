@@ -20,6 +20,10 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('add-edit-server')
 export class AddEditServer extends LitElement {
+
+  private readonly maxServerNameLength = 32;
+  private readonly maxOSNameLength = 50;
+
   @property({ type: Object })
   get srv(): ServerApiModel {
     return this._srv;
@@ -92,6 +96,13 @@ export class AddEditServer extends LitElement {
 
   static get styles() {
     return css`
+      .block {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 500px;
+      }
+
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
         border-top: 2px solid #3498db; /* Blue */
@@ -99,6 +110,13 @@ export class AddEditServer extends LitElement {
         width: 12px;
         height: 12px;
         animation: spin 2s linear infinite;
+      }
+
+      .button-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 10px;
       }
 
       @keyframes spin {
@@ -114,39 +132,39 @@ export class AddEditServer extends LitElement {
 
   render() {
     return html`
-      <div style="margin-left: 50px;width: 50%">
-        <vaadin-text-field
-          id="serverName"
-          label="Server Name"
-          required
-          auto-validate
-          .value="${this.serverName}"
-          @value-changed="${this._serverNameValueChanged}"
-          helper-text="${this.serverInfoHelp}"
-        ></vaadin-text-field>
-        <vaadin-combo-box
-          id="OsName"
-          label="Operating System"
-          @value-changed="${this._operatingSystemValueChanged}"
-          .items="${this.templates}"
-          placeholder="Select Operating System"
-          style="width: 300px"
-          clear-button-visible
-        ></vaadin-combo-box>
-        <table>
-          <tr>
-            <td>
-              <vaadin-button @click="${this.lookupOSFromTarget}"
-                >Lookup OS</vaadin-button
-              >
-            </td>
-            ${this.loadingOS
-              ? html` <div class="small-loader"></div> `
-              : html``}
-          </tr>
-        </table>
-      </div>
-      <div style="margin: 30px">
+      <div style="padding: 10px; width:500px">
+        <vaadin-vertical-layout>
+          <vaadin-text-field
+            id="serverName"
+            label="Server Name"
+            maxlength="${this.maxServerNameLength}"
+            title="Maximum length: ${this.maxServerNameLength} symbols"
+            class="block"
+            required
+            auto-validate
+            .value="${this.serverName}"
+            @value-changed="${this._serverNameValueChanged}"
+            helper-text="${this.serverInfoHelp}"
+          ></vaadin-text-field>
+          <vaadin-combo-box
+            id="OsName"
+            label="Operating System"
+            maxlength="${this.maxOSNameLength}"
+            title="Maximum length: ${this.maxOSNameLength} symbols"
+            class="block"
+            @value-changed="${this._operatingSystemValueChanged}"
+            .items="${this.templates}"
+            placeholder="Select Operating System"
+            style="width: 300px"
+            clear-button-visible
+          ></vaadin-combo-box>
+        <div class="button-container">
+          <vaadin-button @click="${this.lookupOSFromTarget}">
+            Lookup OS
+          </vaadin-button>
+          ${this.loadingOS ? html`<div class="small-loader"></div>` : html``}
+        </div>
+        </vaadin-vertical-layout>
         <vaadin-button .disabled="${!this.canSubmit}" @click="${this.save}"
           >Save
         </vaadin-button>

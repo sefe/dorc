@@ -1,8 +1,9 @@
-using System;
-using System.Linq;
 using Dorc.ApiModel;
 using Dorc.Core;
+using Microsoft.Extensions.Configuration;
 using RestSharp;
+using System;
+using System.Linq;
 
 namespace Tools.RequestCLI
 {
@@ -12,10 +13,14 @@ namespace Tools.RequestCLI
         {
             int status = 0;
             AppDomain.CurrentDomain.UnhandledException += CatchAllUnhandledExceptions;
+
+            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+
             Output("=== Execution started ===");
 
             var cliArgs = new CliArgs(args);
-            var api = new ApiCaller();
+            var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+
             Output("============================= Requesting Deploy =============================");
             Output("=== Project            : " + cliArgs.Request.Project);
             Output("=== Target Environment : " + cliArgs.Request.Environment);
@@ -25,7 +30,7 @@ namespace Tools.RequestCLI
             Output("=== Components         : " + string.Join(" ", cliArgs.Request.Components.ToArray()));
             Output("=== Pinned             : " + cliArgs.Request.Pinned);
             Output("=== Wait               : " + cliArgs.Wait);
-            Output("=== Api Root Url       : " + api.Client.Options.BaseUrl);
+            Output("=== Api Root Url       : " + config["DorcApi:BaseUrl"]);
             Output("=============================================================================");
             try
             {
@@ -69,7 +74,7 @@ namespace Tools.RequestCLI
 
         private static void DisplayExceptionMessage(Exception ex)
         {
-            Output($"Exception was caught, message:/n{ex.Message}");
+            Output($"Exception was caught, message:\n{ex.Message}");
             if (ex.InnerException != null)
             {
                 DisplayExceptionMessage(ex.InnerException);

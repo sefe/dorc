@@ -9,7 +9,6 @@ import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import {
   BundledRequestsApiModel,
-  BundledRequestType,
   BundledRequestsApi,
   ProjectApiModel
 } from '../apis/dorc-api';
@@ -46,6 +45,9 @@ export class BundleEditorForm extends LitElement {
   @property({ type: Array})
   projects: ProjectApiModel[] | null  = [];
 
+  @property({ type: Array })
+  existingBundleNames: string[] = [];
+
   @property({ type: Boolean })
   isEdit = false;
 
@@ -54,27 +56,49 @@ export class BundleEditorForm extends LitElement {
 
   @state()
   private readonly _typeOptions = [
-    { value: BundledRequestType.NUMBER_1, label: 'JobRequest' },
-    { value: BundledRequestType.NUMBER_2, label: 'CopyEnvBuild' }
+    { value: 'JobRequest', label: 'JobRequest' },
+    { value: 'CopyEnvBuild', label: 'CopyEnvBuild' }
   ];
+
+  private readonly _requestTemplates: Record<string, object> = {
+    'JobRequest': {
+      Project: '',
+      BuildText: '',
+      BuildUrl: '',
+      DropFolder: null,
+      Components: [],
+      RequestProperties: []
+    },
+    'CopyEnvBuild': {
+      TargetEnv: '',
+      DataBackup: '',
+      BundleName: '',
+      BundleProperties: []
+    }
+  };
 
   render() {
     return html`
       <vaadin-vertical-layout>
         <div class="field-container">
-          <vaadin-text-field
+          <vaadin-combo-box
             id="bundleName"
             label="Bundle Name"
+            .items="${this.existingBundleNames}"
             .value="${this.bundleRequest.BundleName || ''}"
-            @input="${(e: Event) =>
-              this._updateValue(
-                'BundleName',
-                (e.target as HTMLInputElement).value
-              )}"
+            allow-custom-value
+            @value-changed="${(e: CustomEvent) => {
+              if (e.detail.value !== undefined) {
+                this._updateValue('BundleName', e.detail.value);
+              }
+            }}"
+            @custom-value-set="${(e: CustomEvent) => {
+              this._updateValue('BundleName', e.detail);
+            }}"
             style="width: 100%;"
-            placeholder="Enter Bundle Name"
-            helper-text="To add to an existing Bundle, use the same name"
-          ></vaadin-text-field>
+            placeholder="Select or enter Bundle Name"
+            helper-text="Select an existing bundle or type a new name"
+          ></vaadin-combo-box>
         </div>
 
         <div class="field-container">
@@ -84,9 +108,12 @@ export class BundleEditorForm extends LitElement {
             .items="${this._typeOptions}"
             item-label-path="label"
             item-value-path="value"
-            .value="${this.bundleRequest.Type}"
-            @value-changed="${(e: CustomEvent) =>
-              this._updateValue('Type', parseInt(e.detail.value, 10))}"
+            .value="${this.bundleRequest.Type || ''}"
+            @value-changed="${(e: CustomEvent) => {
+              if (e.detail.value) {
+                this._handleTypeChange(e.detail.value);
+              }
+            }}"
             style="width: 100%;"
             placeholder="Select a type"
             helper-text="JobRequest is a regular deployment, CopyEnvBuild copies environment state"
@@ -157,6 +184,7 @@ export class BundleEditorForm extends LitElement {
   firstUpdated() {
     this._initOrUpdateEditor();
     this._updateTypeComboBox();
+    this._setDefaultProject();
   }
 
   updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -166,6 +194,20 @@ export class BundleEditorForm extends LitElement {
       this._initOrUpdateEditor();
       this._updateTypeComboBox();
     }
+
+    if (changedProperties.has('projects')) {
+      this._setDefaultProject();
+    }
+  }
+
+  private _setDefaultProject() {
+    // If there's exactly one project and no project is selected, default to it
+    if (this.projects && this.projects.length === 1 && !this.bundleRequest.ProjectId) {
+      const project = this.projects[0];
+      if (project.ProjectId) {
+        this._updateValue('ProjectId', project.ProjectId);
+      }
+    }
   }
 
   private _updateTypeComboBox() {
@@ -174,14 +216,11 @@ export class BundleEditorForm extends LitElement {
         'bundleType'
       ) as ComboBox;
       if (typeComboBox && this.bundleRequest.Type !== undefined) {
-        if (typeComboBox.value)
-        {
-          const typeOption = this._typeOptions.find(
-            option => option.value === this.bundleRequest.Type
-          );
-          if (typeOption) {
-            typeComboBox.selectedItem = typeOption;
-          }
+        const typeOption = this._typeOptions.find(
+          option => option.value === this.bundleRequest.Type
+        );
+        if (typeOption) {
+          typeComboBox.selectedItem = typeOption;
         }
       }
     }, 10);
@@ -208,7 +247,61 @@ export class BundleEditorForm extends LitElement {
     }
   }
 
+  private _handleTypeChange(newType: string) {
+    // Skip if the type hasn't changed
+    if (this.bundleRequest.Type === newType) {
+      return;
+    }
+
+    // Update the type
+    this._updateValue('Type', newType);
+
+    // Check if we should apply a template
+    // Apply template if Request is empty, default '{}', or matches another type's template
+    const currentRequest = this.bundleRequest.Request || '{}';
+    const isEmptyOrDefault = currentRequest === '{}' || currentRequest.trim() === '';
+
+    // Check if current request matches one of the templates (user hasn't customized it)
+    let isTemplate = false;
+    for (const [, template] of Object.entries(this._requestTemplates)) {
+      try {
+        const templateJson = JSON.stringify(template, null, 2);
+        const currentJson = JSON.stringify(JSON.parse(currentRequest), null, 2);
+        if (templateJson === currentJson) {
+          isTemplate = true;
+          break;
+        }
+      } catch {
+        // Invalid JSON, treat as customized
+      }
+    }
+
+    if (isEmptyOrDefault || isTemplate) {
+      const template = this._requestTemplates[newType];
+      if (template) {
+        const templateJson = JSON.stringify(template, null, 2);
+        this._updateValue('Request', templateJson);
+
+        // Update the editor
+        if (this.editor) {
+          this.editor.setValue(templateJson, -1);
+          this.editor.clearSelection();
+        }
+      }
+    }
+  }
+
   private _updateValue(property: keyof BundledRequestsApiModel, value: any) {
+    // Skip if value is NaN (from parseInt on empty string)
+    if (typeof value === 'number' && isNaN(value)) {
+      return;
+    }
+
+    // Skip if the value hasn't actually changed
+    if (this.bundleRequest[property] === value) {
+      return;
+    }
+
     const updatedBundle = {
       ...this.bundleRequest,
       [property]: value
@@ -225,16 +318,12 @@ export class BundleEditorForm extends LitElement {
 
   private _handleSave() {
     this._synchronizeEditorWithBundleRequest();
-    
-    console.log('Updated Request before save:', this.bundleRequest.Request);
-  
+
     if (!this._validateBundle()) {
       return;
     }
-  
+
     const api = new BundledRequestsApi();
-    
-    console.log('Submitting bundle with Request:', this.bundleRequest.Request);
 
     const loadingChangeEvent = 'loading-changed';
     this.dispatchEvent(
@@ -262,14 +351,12 @@ export class BundleEditorForm extends LitElement {
         );
     
         this.dialog.closeDialog();
-        console.log('Dispatching bundle-saved event from form');
         const savedEvent = new CustomEvent('bundle-saved', {
           detail: { bundleRequest: this.bundleRequest },
           bubbles: true,
           composed: true
         });
         this.dispatchEvent(savedEvent);
-        console.log('Bundle-saved event dispatched');
       },
       error: (error) => {
         console.error('Error saving bundle request:', error);

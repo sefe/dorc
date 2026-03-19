@@ -36,6 +36,7 @@ import {
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
 import { ErrorNotification } from '../notifications/error-notification';
+import { Notification } from '@vaadin/notification';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -71,6 +72,8 @@ export class EnvVariables extends PageEnvBase {
   filterVariableName: string = '';
   filterVariableScope: string = '';
   isShowDefaultProps: boolean = false;
+
+  private _editingValueId: number | undefined;
 
   static get styles() {
     return css`
@@ -409,6 +412,14 @@ export class EnvVariables extends PageEnvBase {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+      this.grid?.requestContentUpdate?.();
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+      this.grid?.requestContentUpdate?.();
+    }) as EventListener);
 
     this.getAllVariableNames();
   }
@@ -449,6 +460,13 @@ export class EnvVariables extends PageEnvBase {
 
   private variablesLoaded() {
     this.loading = false;
+    const grid = this.grid;
+    if (grid?.shadowRoot && !grid.shadowRoot.querySelector('#scrollbar-fix')) {
+      const style = document.createElement('style');
+      style.id = 'scrollbar-fix';
+      style.textContent = '#items { margin-bottom: 1rem; }';
+      grid.shadowRoot.appendChild(style);
+    }
   }
 
   variableValueDeleted() {
@@ -558,6 +576,7 @@ export class EnvVariables extends PageEnvBase {
               this.grid?.clearCache();
               this.getAllVariableNames();
               this.addingVariableValue = false;
+              this.showSuccessMessage('Variable value added successfully!');
             } else {
               this.errorAlert(value);
               this.addingVariableValue = false;
@@ -567,7 +586,9 @@ export class EnvVariables extends PageEnvBase {
             this.errorAlert(err);
             this.addingVariableValue = false;
           },
-          complete: () => console.log('done adding variable value')
+          complete: () => {
+            console.log('done adding variable value');
+          }
         });
     }
   }
@@ -612,11 +633,11 @@ export class EnvVariables extends PageEnvBase {
     });
   }
 
-  variableValueControlsRenderer(
+  variableValueControlsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
+  ) => {
     const converted: PropertyValueDto = {
       Id: model.item.PropertyValueId,
       Value: model.item.PropertyValue,
@@ -631,11 +652,14 @@ export class EnvVariables extends PageEnvBase {
     };
 
     render(
-      html`<variable-value-controls .value="${converted}">
+      html`<variable-value-controls
+        .value="${converted}"
+        .editing="${converted.Id === this._editingValueId}"
+      >
       </variable-value-controls>`,
       root
     );
-  }
+  };
 
   secureRenderer(
     root: HTMLElement,
@@ -808,5 +832,13 @@ export class EnvVariables extends PageEnvBase {
       `,
       root
     );
+  }
+
+  private showSuccessMessage(text: string) {
+    Notification.show(text, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
   }
 }

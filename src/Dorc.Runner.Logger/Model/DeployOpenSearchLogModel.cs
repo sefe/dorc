@@ -17,7 +17,7 @@ namespace Dorc.Runner.Logger.Model
         [JsonProperty("exception")]
         public Exception exception { get; set; }
         [JsonProperty("level")]
-        public LogLevel level { get; set; }
+        public OpenSearch.Client.LogLevel level { get; set; }
         [JsonProperty("@timestamp")]
         public DateTime @timestamp { get; set; }
         [JsonProperty("name")]
@@ -37,7 +37,7 @@ namespace Dorc.Runner.Logger.Model
         [JsonProperty("process_user_identity")]
         public string process_user_identity { get; set; }
 
-        public DeployOpenSearchLogModel(int requestId, int deploymentResultId, string message, LogLevel level = LogLevel.Info, Exception exception = null, string environment = "", string environmentTier = "")
+        public DeployOpenSearchLogModel(int requestId, int deploymentResultId, string message, OpenSearch.Client.LogLevel level = OpenSearch.Client.LogLevel.Info, Exception exception = null, string environment = "", string environmentTier = "")
         {
             request_id = requestId;
             deployment_result_id = deploymentResultId;

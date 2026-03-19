@@ -3,6 +3,7 @@ using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
+using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -11,11 +12,11 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using JasperFx.Core;
-using log4net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Dorc.Monitor.Tests.Init
@@ -40,10 +41,12 @@ namespace Dorc.Monitor.Tests.Init
         /// <exception cref="InvalidOperationException"></exception>
         internal ServiceProvider InitializeServiceProvider()
         {
-            var logger = LogManager.GetLogger(logRepo);
-            collection.AddTransient<ILog>(provider => logger);
+            collection.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
             collection.AddTransient<ScriptDispatcher>();
+
+            // Register distributed lock service (NoOp for integration tests - HA not needed)
+            collection.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
 
             PersistentSourcesRegistry.Register(collection);
 

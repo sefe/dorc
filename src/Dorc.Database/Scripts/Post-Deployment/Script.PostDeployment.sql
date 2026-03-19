@@ -9,6 +9,4 @@ Example:      :setvar TableName MyTable
               SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
-:r .\Props-to-Configuration.sql
-GO
 :r .\CleanupOrphanedScripts.sql

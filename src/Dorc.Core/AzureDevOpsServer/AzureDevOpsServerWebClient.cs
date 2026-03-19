@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using Dorc.Core.Models;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Client.Auth;
@@ -11,29 +11,25 @@ namespace Dorc.Core.AzureDevOpsServer
     public class AzureDevOpsServerWebClient : IAzureDevOpsServerWebClient
     {
         private readonly string _serverUrl;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private const string ApiVersion = "6.0";
         private readonly IAuthTokenGenerator _authTokenGenerator;
         private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
 
         // The Client ID is used by the application to uniquely identify itself to Azure AD.
         // The Tenant is the name or Id of the Azure AD tenant in which this application is registered.
-        // The AAD Instance is the instance of Azure, for example public Azure or Azure China.
-        // The Authority is the sign-in URL of the tenant.
         // The Scopes are roles set within the App registration.
 
-        private static string aadInstance = AppSettings["AadInstance"];
         private static string tenant = AppSettings["AadTenant"];
         private static string clientId = AppSettings["AadClientId"];
         private static string secret = AppSettings["AadSecret"];
-        private static string azureDevOpsOrganizationUrl = AppSettings["AadAdosOrgUrl"];
         private static string[] scopes = { AppSettings["AadScopes"] };
-        private static string azureEndpointUrl = AppSettings["AzureEndpoint"];
+        private static string azureEndpointUrl = AppSettings["AzureEndpoint"] ?? "dev.azure.com";
         
 
-        public AzureDevOpsServerWebClient(string serverUrl, ILog log)
+        public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)
         {
-            var aadConnectionSettings = new AadConnectionSettings(clientId, aadInstance, azureDevOpsOrganizationUrl, scopes, secret, tenant);
+            var aadConnectionSettings = new AadConnectionSettings(clientId, scopes, secret, tenant);
             _log = log;
             _serverUrl = serverUrl;
             // Ideally for speed of queries we only want to retrieve the connection settings once at instantiation time.
@@ -262,7 +258,7 @@ namespace Dorc.Core.AzureDevOpsServer
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
             Org.OpenAPITools.Client.Configuration config;
 
-            if (azureEndpoint.Contains("dev.azure.com"))
+            if (azureEndpoint.Contains(azureEndpointUrl))
             {
                 config = new Org.OpenAPITools.Client.Configuration
                 {

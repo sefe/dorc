@@ -62,7 +62,9 @@ namespace Dorc.PersistentData.Sources
                 return context.DeploymentRequests.AsNoTracking()
                     .Where(r => status.ToString() == r.Status
                         && r.IsProd == isProd)
-                    .ToList().Select(MapToDeploymentRequestApiModel).ToList();
+                    .ToList().Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null) // Filter out failed mappings
+                    .ToList();
             }
         }
 
@@ -73,7 +75,35 @@ namespace Dorc.PersistentData.Sources
                 return context.DeploymentRequests.AsNoTracking()
                     .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status)
                         && r.IsProd == isProd)
-                    .ToList().Select(MapToDeploymentRequestApiModel).ToList();
+                    .ToList().Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null) // Filter out failed mappings
+                    .ToList();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, bool isProd)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests.AsNoTracking()
+                    .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status || status3.ToString() == r.Status)
+                        && r.IsProd == isProd)
+                    .ToList().Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null) // Filter out failed mappings
+                    .ToList();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, DeploymentRequestStatus status4, bool isProd)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests.AsNoTracking()
+                    .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status || status3.ToString() == r.Status || status4.ToString() == r.Status)
+                        && r.IsProd == isProd)
+                    .ToList().Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null) // Filter out failed mappings
+                    .ToList();
             }
         }
 
@@ -129,7 +159,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var deploymentResult = context.DeploymentResults.FirstOrDefault(x => x.Id == resultId);
+                var deploymentResult = context.DeploymentResults
+                    .Include(results => results.Component)
+                    .Include(results => results.DeploymentRequest)
+                    .FirstOrDefault(x => x.Id == resultId);
                 if (deploymentResult != null)
                     return MapToDeploymentResultModel(deploymentResult);
             }
@@ -172,8 +205,7 @@ namespace Dorc.PersistentData.Sources
                     Status = DeploymentResultStatus.Pending.ToString()
                 };
 
-                if (deploymentResult.Component.IsEnabled.HasValue
-                    && !deploymentResult.Component.IsEnabled.Value)
+                if (!deploymentResult.Component.IsEnabled)
                 {
                     deploymentResult.Status = DeploymentResultStatus.Disabled.ToString();
                 }
@@ -266,6 +298,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.Status, status.ToString())
+                        .SetProperty(b => b.CancelledBy, user)
+                        .SetProperty(b => b.CancelledTime, CancelledTime));
+            }
+        }
         public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user)
         {
             using (var context = _contextFactory.GetContext())
@@ -289,7 +333,10 @@ namespace Dorc.PersistentData.Sources
                     .ExecuteUpdate(setters => setters
                         .SetProperty(r => r.Status, toStatus.ToString()));
 
-                deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                if (rowsAffected > 0)
+                {
+                    deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                }
 
                 return rowsAffected;
             }
@@ -457,6 +504,17 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestDetails(int requestId, string requestDetails)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.RequestDetails, requestDetails));
+            }
+        }
+
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
         {
             DeploymentResultStatus status;
@@ -492,10 +550,10 @@ namespace Dorc.PersistentData.Sources
             return new DeploymentRequestApiModel
             {
                 BuildNumber = req.BuildNumber,
-                BuildUri = req.BuildUri,
+                BuildUri = GetSafeProperty(() => req.BuildUri),
                 CompletedTime = req.CompletedTime,
                 Components = req.Components,
-                DropLocation = req.DropLocation,
+                DropLocation = GetSafeProperty(() => req.DropLocation),
                 EnvironmentName = req.Environment,
                 Id = req.Id,
                 IsProd = req.IsProd,
@@ -506,8 +564,23 @@ namespace Dorc.PersistentData.Sources
                 StartedTime = req.StartedTime,
                 Status = status.ToString(),
                 UserName = req.UserName,
-                UncLogPath = req.UncLogPath
+                UncLogPath = req.UncLogPath,
+                CancelledBy = req.CancelledBy,
+                CancelledTime = req.CancelledTime
             };
+        }
+
+        private static string GetSafeProperty(Func<string> getter)
+        {
+            try
+            {
+                return getter();
+            }
+            catch (Exception)
+            {
+                // If property access fails (e.g., XML parsing error), return null
+                return null;
+            }
         }
 
         private static RequestStatusDto MapToRequestStatusDto(DeploymentRequest req)

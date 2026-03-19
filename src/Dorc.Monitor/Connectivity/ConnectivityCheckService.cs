@@ -6,13 +6,14 @@ using Microsoft.Extensions.Hosting;
 
 namespace Dorc.Monitor.Connectivity
 {
-    public class ConnectivityCheckService : BackgroundService
+    public class ConnectivityCheckService : IHostedService, IDisposable
     {
         private readonly ILog _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IConnectivityChecker _connectivityChecker;
         private readonly IMonitorConfiguration _configuration;
-        private TimeSpan _checkInterval;
+        private System.Threading.Timer? _timer;
+        private int _isCheckRunning = 0;
 
         public ConnectivityCheckService(
             ILog logger,
@@ -26,36 +27,35 @@ namespace Dorc.Monitor.Connectivity
             _configuration = configuration;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Check if connectivity checking is enabled
             if (!_configuration.EnableConnectivityCheck)
             {
                 _logger.Info("Connectivity Check Service is disabled in configuration.");
-                return;
+                return Task.CompletedTask;
             }
 
-            _checkInterval = TimeSpan.FromMinutes(_configuration.ConnectivityCheckIntervalMinutes);
-            
-            _logger.Info($"Connectivity Check Service is starting. Check interval: {_checkInterval.TotalMinutes} minutes.");
-
-            // Add a small initial delay to allow other services to initialize
+            var intervalMinutes = _configuration.ConnectivityCheckIntervalMinutes;
+            var interval = TimeSpan.FromMinutes(intervalMinutes);
             var initialDelay = TimeSpan.FromSeconds(30);
+
+            _logger.Info($"Connectivity Check Service is starting. Check interval: {intervalMinutes} minutes.");
             _logger.Info($"Waiting {initialDelay.TotalSeconds} seconds before first connectivity check...");
-            
-            try
+
+            _timer = new System.Threading.Timer(RunCheckCycle, null, initialDelay, interval);
+
+            return Task.CompletedTask;
+        }
+
+        private void RunCheckCycle(object? state)
+        {
+            if (Interlocked.CompareExchange(ref _isCheckRunning, 1, 0) != 0)
             {
-                await Task.Delay(initialDelay, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Info("Connectivity Check Service was cancelled during initial delay.");
+                _logger.Info("Connectivity check cycle skipped - previous cycle still running.");
                 return;
             }
 
-            _logger.Info("Initial delay completed. Starting connectivity checks...");
-
-            while (!stoppingToken.IsCancellationRequested)
+            _ = Task.Run(async () =>
             {
                 try
                 {
@@ -68,20 +68,23 @@ namespace Dorc.Monitor.Connectivity
                 {
                     _logger.Error("Error during connectivity check", ex);
                 }
-
-                try
+                finally
                 {
-                    _logger.Info($"Waiting {_checkInterval.TotalMinutes} minutes until next connectivity check...");
-                    await Task.Delay(_checkInterval, stoppingToken);
+                    Interlocked.Exchange(ref _isCheckRunning, 0);
                 }
-                catch (OperationCanceledException)
-                {
-                    _logger.Info("Connectivity Check Service is stopping.");
-                    break;
-                }
-            }
+            });
+        }
 
-            _logger.Info("Connectivity Check Service has stopped.");
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.Info("Connectivity Check Service is stopping.");
+            _timer?.Change(Timeout.Infinite, 0);
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            _timer?.Dispose();
         }
 
         private async Task CheckAllServersAsync()

@@ -102,7 +102,7 @@ export class DorcApp extends ShortcutsStore {
           style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px;  color: black" title="Deployment Orchestrator">
+        <h2 style="padding: 5px;  color: black" title="DevOps Orchestrator">
           DOrc
         </h2>
 
@@ -145,12 +145,13 @@ export class DorcApp extends ShortcutsStore {
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
-
+    // Assign dorcNavbar BEFORE calling super to ensure it's available for event handlers
     this.dorcNavbar = this.shadowRoot?.getElementById(
       'dorcNavbar'
     ) as DorcNavbar;
     dorcNavbar = this.dorcNavbar;
+
+    super.firstUpdated(_changedProperties);
 
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {

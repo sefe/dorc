@@ -1,8 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using OpenSearch.Client;
 using Serilog;
 using Serilog.Events;
 using System;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace Dorc.Runner.Logger
 {
@@ -57,7 +59,8 @@ namespace Dorc.Runner.Logger
                                 .WriteTo.File(logPath, outputTemplate: outputTemplate, restrictedToMinimumLevel: logLevel)
                 .Enrich.FromLogContext()
                 .CreateLogger();
-            return seriLogger;
+
+            return new LoggerFactory().AddSerilog(seriLogger).CreateLogger("Runner");
         }
 
         private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationSection openSearchConfig)

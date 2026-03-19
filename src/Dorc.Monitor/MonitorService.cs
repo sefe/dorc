@@ -1,13 +1,13 @@
-﻿using log4net;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
 {
     public sealed class MonitorService : BackgroundService
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         private bool isProduction;
         private readonly IServiceProvider serviceProvider;
@@ -19,7 +19,7 @@ namespace Dorc.Monitor
         private int requestProcessingIterationDelayMs;
 
         public MonitorService(
-            ILog logger,
+            ILogger<MonitorService> logger,
             IServiceProvider serviceProvider,
             IMonitorConfiguration configuration
             )
@@ -39,31 +39,50 @@ namespace Dorc.Monitor
 
         protected override async Task ExecuteAsync(CancellationToken monitorCancellationToken)
         {
-            logger.Info("Deployment Monitor service is started.");
+            logger.LogInformation("Deployment Monitor service is started.");
 
+            var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
+            if (deploymentEngine == null)
+            {
+                throw new NullReferenceException("DeploymentEngine was not issued and equals null");
+            }
+
+            // Cancel any requests left in Running/Requesting state from a previous crashed instance.
+            // Without this, environments with stale Running requests are blocked until the 24-hour
+            // AbandonRequests timeout kicks in.
             try
             {
-                var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
-                if (deploymentEngine == null)
-                {
-                    throw new NullReferenceException("DeploymentEngine was not issued and equals null");
-                }
+                var stateProcessor = serviceProvider.GetService(typeof(IDeploymentRequestStateProcessor)) as IDeploymentRequestStateProcessor;
+                stateProcessor?.CancelStaleRequests(isProduction);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to cancel stale requests from previous instance. Continuing startup.");
+            }
 
-                await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
-            }
-            catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
+            while (!monitorCancellationToken.IsCancellationRequested)
             {
-                logger.Warn("Monitor process is cancelled. " + operationCanceledException.Message);
+                try
+                {
+                    await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
+                }
+                catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
+                }
+                catch (SqlException sqlException)
+                {
+                    logger.LogWarning("Transient SQL failure, retrying in 10s. Exception: " + sqlException);
+                    await Task.Delay(TimeSpan.FromSeconds(10), monitorCancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    logger.LogError("Monitor process is failed. Exception: " + exception);
+                    throw;
+                }
             }
-            catch (Exception exception)
-            {
-                logger.Error("Monitor process is failed. Exception: " + exception);
-                throw;
-            }
-            finally
-            {
-                logger.Info("Deployment Monitor service is stopping.");
-            }
+
+            logger.LogInformation("Deployment Monitor service is stopping.");
         }
 
         public override void Dispose()

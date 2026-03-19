@@ -1,0 +1,26 @@
+{
+  "Serilog": {
+    "Using": [
+      "Serilog.Sinks.File"
+    ],
+    "MinimumLevel": {
+      "Default": "Information"
+    },
+    "Enrich": [
+      "WithThreadId"
+    ],
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "c:\\Log\\DOrc\\Deploy\\Services\\Monitor{env}_.log",
+          "rollingInterval": "Day",
+          "rollOnFileSizeLimit": true,
+          "fileSizeLimitBytes": 10485760,
+          "retainedFileCountLimit": 100,
+          "outputTemplate": "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u5} {SourceContext}:{Method}] [T:{ThreadId}] - {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  }
+}

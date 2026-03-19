@@ -66,15 +66,11 @@ export class EnvDatabases extends PageEnvBase {
         <div>
           <div class="inline">
             <div class="inline">
-              ${!this.envReadOnly
-                ? html`
                   <vaadin-button
                     title="Attach Database"
-                    theme="small"
                     @click="${this.openAttachDatabaseDialog}"
+                    .disabled="${!this.environment?.UserEditable}"
                   >Attach Database</vaadin-button>
-                `
-                : html``}
               <vaadin-dialog
                 id='attach-database-dialog'
                 header-title='Attach Database'
@@ -155,9 +151,9 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
-    if (String(a.ServerName) > String(b.ServerName)) return 1;
-    if (a.ServerName === b.ServerName) {
-      if (String(a.Name) > String(b.Name)) return 1;
+    if (String(a.Name).toLowerCase() > String(b.Name).toLowerCase()) return 1;
+    if (a.Name?.toLowerCase() === b.Name?.toLowerCase()) {
+      if (String(a.ServerName).toLowerCase() > String(b.ServerName).toLowerCase()) return 1;
       return -1;
     }
     return -1;
@@ -172,9 +168,11 @@ export class EnvDatabases extends PageEnvBase {
   `;
 
   private renderAttachDatabaseFooter = () => html`
+  <div style="display: flex; justify-content: flex-end">
     <vaadin-button @click="${this.closeAttachDatabaseDialog}"
       >Close</vaadin-button
     >
+    </div>
   `;
 
   private openAttachDatabaseDialog() {

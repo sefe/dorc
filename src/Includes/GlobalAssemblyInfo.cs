@@ -2,7 +2,7 @@ using System.Reflection;
 
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("SEFE")]
-[assembly: AssemblyProduct("DOrc (Deployment Orchestrator)")]
+[assembly: AssemblyProduct("DOrc (DevOps Orchestrator)")]
 [assembly: AssemblyCopyright("Copyright © SEFE 2024")]
 [assembly: AssemblyTrademark("")]
 

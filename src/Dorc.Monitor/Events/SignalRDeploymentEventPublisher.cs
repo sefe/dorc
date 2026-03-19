@@ -1,10 +1,8 @@
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Monitor.Logging;
-using log4net;
-using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.SignalR.Client;
 using TypedSignalR.Client;
 
 namespace Dorc.Monitor.Events
@@ -12,14 +10,14 @@ namespace Dorc.Monitor.Events
     public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IAsyncDisposable
     {
         private readonly string? _hubUrl;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly DorcApiTokenProvider _tokenProvider;
         private HubConnection? _connection;
         private IDeploymentEventsHub? _hubProxy;
         private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
         private bool _isConnectionBecomeLost;
 
-        public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILog logger)
+        public SignalRDeploymentEventPublisher(IMonitorConfiguration configuration, ILogger<SignalRDeploymentEventPublisher> logger)
         {
             var baseUri = new Uri(configuration.RefDataApiUrl, UriKind.Absolute);
             _hubUrl = configuration.DisableSignalR ? null : new Uri(baseUri, "hubs/deployments").ToString();
@@ -50,7 +48,7 @@ namespace Dorc.Monitor.Events
             }
             catch (Exception exc)
             {
-                _logger.Error($"Failed to invoke {operationName} via SignalR hub at {_hubUrl}", exc);
+                _logger.LogError(exc, $"Failed to invoke {operationName} via SignalR hub at {_hubUrl}");
                 throw;
             }
         }
@@ -84,14 +82,10 @@ namespace Dorc.Monitor.Events
                                 catch (Exception ex)
                                 {
                                     if (!_isConnectionBecomeLost)
-                                        _logger.Error("Failed to acquire OAuth access token for SignalR connection.", ex);
+                                        _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection.");
                                     return string.Empty;
                                 }
                             };
-                        })
-                        .ConfigureLogging(logging =>
-                        {
-                            logging.AddProvider(new Log4NetLoggerProvider(_logger));
                         })
                         .WithAutomaticReconnect();
                     _connection = builder.Build();
@@ -122,7 +116,7 @@ namespace Dorc.Monitor.Events
             {
                 if (!_isConnectionBecomeLost)
                 {
-                    _logger.Error($"Error connecting to SignalR hub at {_hubUrl}", exc);
+                    _logger.LogError(exc, $"Error connecting to SignalR hub at {_hubUrl}");
                     _isConnectionBecomeLost = true;
                 }
                 return false;
