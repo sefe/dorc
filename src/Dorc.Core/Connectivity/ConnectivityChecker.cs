@@ -45,8 +45,14 @@ namespace Dorc.Core.Connectivity
 
             try
             {
-                var connectionString = $"Server={serverName};Database={databaseName};Connection Timeout={DatabaseConnectionTimeoutSeconds};Integrated Security=true;";
-                using var connection = new SqlConnection(connectionString);
+                var builder = new SqlConnectionStringBuilder
+                {
+                    DataSource = serverName,
+                    InitialCatalog = databaseName,
+                    ConnectTimeout = DatabaseConnectionTimeoutSeconds,
+                    IntegratedSecurity = true
+                };
+                using var connection = new SqlConnection(builder.ConnectionString);
                 await connection.OpenAsync();
                 return true;
             }
