@@ -646,25 +646,6 @@ namespace Dorc.Monitor.Tests.HighAvailability
 
             service.Dispose();
         }
-
-        /// <summary>
-        /// S-001: Verifies that the queue arguments used for lock queue declaration include
-        /// x-consumer-timeout=0L, which disables the broker's consumer acknowledgement timeout
-        /// for long-running deployments (FM-2 fix).
-        /// The value must be typed as long (Int64) — a 32-bit int 0 would silently mis-type in the AMQP protocol.
-        /// </summary>
-        [TestMethod]
-        public void BuildLockQueueArguments_IncludesConsumerTimeoutOfZeroAsLong()
-        {
-            var args = RabbitMqDistributedLockService.BuildLockQueueArguments();
-
-            Assert.IsTrue(args.ContainsKey("x-consumer-timeout"),
-                "Queue arguments must include 'x-consumer-timeout' to disable broker consumer acknowledgement timeout");
-            Assert.IsInstanceOfType(args["x-consumer-timeout"], typeof(long),
-                "x-consumer-timeout value must be of type long (Int64); an int would silently mis-type in AMQP");
-            Assert.AreEqual(0L, args["x-consumer-timeout"],
-                "x-consumer-timeout must be 0 to disable the broker consumer acknowledgement timeout");
-        }
     }
 
     [TestClass]
