@@ -28,7 +28,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly ConcurrentDictionary<IConnection, int> activeLockCounts = new();
         private readonly List<(IConnection Connection, DateTime RetiredAt)> _retiredConnections = new();
         private static readonly TimeSpan RetiredConnectionGracePeriod = TimeSpan.FromMinutes(2);
-        private static readonly TimeSpan LockReacquisitionTimeout = TimeSpan.FromSeconds(30);
+        // LockReacquisitionTimeout removed (S-002): replaced by LockReacquisitionRetryWindowSeconds config property.
         private volatile int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
         // tokenExpiryTimeUtc is read outside the semaphore in IsTokenExpiringSoon() but only
         // written under connectionSemaphore. Stale reads are harmless: a slightly stale value
@@ -770,76 +770,174 @@ namespace Dorc.Monitor.HighAvailability
         internal async Task<(IChannel? Channel, string? ConsumerTag, IConnection? Connection)> TryReacquireLockChannelAsync(
             string queueName, string resourceKey)
         {
+            // S-002: retry loop — keep attempting until the message is delivered or the window expires.
+            // The retry window is calibrated to outlast broker recovery (observed ~2–3 min for FM-3).
+            var retryWindowSeconds = configuration.LockReacquisitionRetryWindowSeconds;
+            var deadline = DateTime.UtcNow.AddSeconds(retryWindowSeconds);
+            var attempt = 0;
+
             IChannel? channel = null;
             try
             {
-                using var timeoutCts = new CancellationTokenSource(LockReacquisitionTimeout);
-                var ct = timeoutCts.Token;
-
-                // Ensure we have a connection (may need to create a new one after the drop)
-                await EnsureConnectionAsync(ct);
-
-                IConnection? currentConnection;
-                await connectionSemaphore.WaitAsync(ct);
-                try
+                while (true)
                 {
-                    currentConnection = connection;
+                    // Check deadline before starting a new attempt (start-attempt semantics).
+                    var remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        var elapsed = retryWindowSeconds - remaining.TotalSeconds; // total elapsed ≈ retryWindowSeconds
+                        logger.LogWarning(
+                            "Lock re-acquisition for '{ResourceKey}' exhausted retry window after {Attempts} attempt(s) " +
+                            "({Elapsed:F0}s elapsed). Lock may have been claimed by another monitor.",
+                            resourceKey, attempt, retryWindowSeconds);
+                        return (null, null, null);
+                    }
+
+                    attempt++;
+
+                    // Ensure we have a connection (may need to create a new one after the drop).
+                    // Use a per-connection-attempt CTS bounded by the remaining window so we don't
+                    // stall here longer than the window allows.
+                    using var connectionCts = new CancellationTokenSource(remaining);
+                    try
+                    {
+                        await EnsureConnectionAsync(connectionCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        logger.LogWarning(
+                            "Lock re-acquisition for '{ResourceKey}' aborted: window expired while establishing connection (attempt {Attempt})",
+                            resourceKey, attempt);
+                        return (null, null, null);
+                    }
+
+                    IConnection? currentConnection;
+                    await connectionSemaphore.WaitAsync(CancellationToken.None);
+                    try
+                    {
+                        currentConnection = connection;
+                    }
+                    finally
+                    {
+                        connectionSemaphore.Release();
+                    }
+
+                    if (currentConnection == null || !currentConnection.IsOpen)
+                    {
+                        logger.LogWarning(
+                            "Lock re-acquisition for '{ResourceKey}': no active connection on attempt {Attempt}, will retry",
+                            resourceKey, attempt);
+                        // Fall through to inter-attempt delay and next iteration
+                    }
+                    else
+                    {
+                        try
+                        {
+                            channel = await currentConnection.CreateChannelAsync(cancellationToken: CancellationToken.None);
+
+                            // Set up consumer to reclaim the existing message in the queue.
+                            // The message was requeued when our previous connection dropped.
+                            // Per-iteration channel recreation is correct: the triggering event is always
+                            // channel closure — there is no path where a prior channel can be reused.
+                            var consumer = new AsyncEventingBasicConsumer(channel);
+                            var lockAcquired = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                            consumer.ReceivedAsync += async (_, _) =>
+                            {
+                                lockAcquired.TrySetResult(true);
+                                await Task.CompletedTask;
+                            };
+
+                            var consumerTag = await channel.BasicConsumeAsync(
+                                queue: queueName,
+                                autoAck: false,
+                                consumer: consumer,
+                                cancellationToken: CancellationToken.None);
+
+                            // Wait for the requeued lock message to be delivered to our new consumer
+                            using var deliveryCts = new CancellationTokenSource(
+                                TimeSpan.FromSeconds(configuration.LockAcquisitionTimeoutSeconds));
+                            try
+                            {
+                                await lockAcquired.Task.WaitAsync(deliveryCts.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                // Delivery timed out for this attempt — fall through to cleanup and retry
+                            }
+
+                            if (lockAcquired.Task.IsCompletedSuccessfully)
+                            {
+                                if (attempt > 1)
+                                {
+                                    logger.LogInformation(
+                                        "Lock re-acquisition for '{ResourceKey}' succeeded on attempt {Attempt} " +
+                                        "({Elapsed:F0}s elapsed). Deployment continues.",
+                                        resourceKey, attempt, (DateTime.UtcNow - (deadline.AddSeconds(-retryWindowSeconds))).TotalSeconds);
+                                }
+                                await IncrementActiveLockCountAsync(currentConnection, CancellationToken.None);
+                                return (channel, consumerTag, currentConnection);
+                            }
+
+                            // Message not delivered this attempt — clean up channel (best-effort)
+                            var remainingAfterAttempt = deadline - DateTime.UtcNow;
+                            logger.LogWarning(
+                                "Lock re-acquisition for '{ResourceKey}': message not delivered on attempt {Attempt} " +
+                                "({Elapsed:F0}s elapsed, {Remaining:F0}s remaining in window). Retrying.",
+                                resourceKey, attempt,
+                                retryWindowSeconds - remainingAfterAttempt.TotalSeconds,
+                                Math.Max(0, remainingAfterAttempt.TotalSeconds));
+
+                            try { await channel.BasicCancelAsync(consumerTag, cancellationToken: CancellationToken.None); } catch { }
+                            try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                            try { await channel.DisposeAsync(); } catch { }
+                            channel = null; // Prevent double-dispose in outer catch
+                        }
+                        catch (Exception ex)
+                        {
+                            // Channel creation or consumer registration failed — treat as a delivery
+                            // timeout and retry. Broker recovery exceptions are expected here (Warning).
+                            logger.LogWarning(ex,
+                                "Lock re-acquisition for '{ResourceKey}': exception on attempt {Attempt}, will retry",
+                                resourceKey, attempt);
+                            if (channel != null)
+                            {
+                                try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                                try { await channel.DisposeAsync(); } catch { }
+                                channel = null;
+                            }
+                        }
+                    }
+
+                    // Inter-attempt delay: give the broker time to recover.
+                    // Capped at the remaining window so we don't overshoot the deadline.
+                    // Cancellation-aware: linked to the service lifetime so disposal during
+                    // the sleep terminates the loop promptly.
+                    var interAttemptDelay = TimeSpan.FromSeconds(3);
+                    var remainingWindow = deadline - DateTime.UtcNow;
+                    if (remainingWindow <= TimeSpan.Zero)
+                    {
+                        // Window already expired — loop back and let the deadline check handle it
+                        continue;
+                    }
+                    var actualDelay = remainingWindow < interAttemptDelay ? remainingWindow : interAttemptDelay;
+                    try
+                    {
+                        using var delayCts = new CancellationTokenSource();
+                        // Link delay to service disposal via serviceCts if available
+                        var serviceCancelled = serviceCts?.Token ?? CancellationToken.None;
+                        using var linkedDelayCts = CancellationTokenSource.CreateLinkedTokenSource(delayCts.Token, serviceCancelled);
+                        await Task.Delay(actualDelay, linkedDelayCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Service disposed during sleep — exit loop; caller handles null return
+                        logger.LogDebug(
+                            "Lock re-acquisition for '{ResourceKey}' interrupted during inter-attempt delay (service disposed or stopping)",
+                            resourceKey);
+                        return (null, null, null);
+                    }
                 }
-                finally
-                {
-                    connectionSemaphore.Release();
-                }
-
-                if (currentConnection == null || !currentConnection.IsOpen)
-                {
-                    logger.LogWarning("No active connection available for lock re-acquisition on '{ResourceKey}'", resourceKey);
-                    return (null, null, null);
-                }
-
-                channel = await currentConnection.CreateChannelAsync(cancellationToken: ct);
-
-                // Set up consumer to reclaim the existing message in the queue.
-                // The message was requeued when our previous connection dropped.
-                var consumer = new AsyncEventingBasicConsumer(channel);
-                var lockAcquired = new TaskCompletionSource<bool>();
-
-                consumer.ReceivedAsync += async (model, ea) =>
-                {
-                    lockAcquired.TrySetResult(true);
-                    await Task.CompletedTask;
-                };
-
-                var consumerTag = await channel.BasicConsumeAsync(
-                    queue: queueName,
-                    autoAck: false,
-                    consumer: consumer,
-                    cancellationToken: ct);
-
-                // Wait for the requeued lock message to be delivered to our new consumer
-                using var deliveryCts = new CancellationTokenSource(TimeSpan.FromSeconds(configuration.LockAcquisitionTimeoutSeconds));
-                using var linkedDeliveryCts = CancellationTokenSource.CreateLinkedTokenSource(ct, deliveryCts.Token);
-                try
-                {
-                    await lockAcquired.Task.WaitAsync(linkedDeliveryCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Timeout or outer cancellation
-                }
-
-                if (lockAcquired.Task.IsCompletedSuccessfully)
-                {
-                    await IncrementActiveLockCountAsync(currentConnection, ct);
-                    return (channel, consumerTag, currentConnection);
-                }
-
-                // Message wasn't delivered - another monitor may have consumed it
-                logger.LogWarning("Lock re-acquisition for '{ResourceKey}' timed out waiting for message delivery - lock may have been taken by another monitor", resourceKey);
-                try { await channel.BasicCancelAsync(consumerTag, cancellationToken: CancellationToken.None); } catch { }
-                try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
-                try { await channel.DisposeAsync(); } catch { }
-                channel = null; // Prevent double-dispose in outer catch
-                return (null, null, null);
             }
             catch (Exception ex)
             {
