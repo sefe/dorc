@@ -1193,11 +1193,17 @@ namespace Dorc.PersistentData.Sources
                     continue;
                 }
 
-                // Create a new property value with the same data
+                // Create a new property value with the same data, replacing source env name with new env name
+                var newValue = sourcePvf.PropertyValue.Value;
+                if (!string.IsNullOrEmpty(newValue))
+                {
+                    newValue = newValue.Replace(sourceEnvName, destEnvName, StringComparison.OrdinalIgnoreCase);
+                }
+
                 var newPropertyValue = new PropertyValue
                 {
                     Property = sourcePvf.PropertyValue.Property,
-                    Value = sourcePvf.PropertyValue.Value
+                    Value = newValue
                 };
                 context.PropertyValues.Add(newPropertyValue);
                 context.SaveChanges(); // Save to get the new ID
