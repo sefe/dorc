@@ -775,6 +775,9 @@ namespace Dorc.Monitor.HighAvailability
             var retryWindowSeconds = configuration.LockReacquisitionRetryWindowSeconds;
             var deadline = DateTime.UtcNow.AddSeconds(retryWindowSeconds);
             var attempt = 0;
+            // Capture once before the loop: CancellationToken is a value type and remains valid
+            // (and cancelled) even after the source is disposed, eliminating any race with DisposeAsync.
+            var serviceToken = serviceCts.Token;
 
             IChannel? channel = null;
             try
@@ -931,8 +934,8 @@ namespace Dorc.Monitor.HighAvailability
                     var actualDelay = remainingWindow < interAttemptDelay ? remainingWindow : interAttemptDelay;
                     try
                     {
-                        // Link delay to service disposal via serviceCts so shutdown terminates the sleep promptly
-                        await Task.Delay(actualDelay, serviceCts.Token);
+                        // Link delay to service disposal via serviceToken so shutdown terminates the sleep promptly
+                        await Task.Delay(actualDelay, serviceToken);
                     }
                     catch (OperationCanceledException)
                     {

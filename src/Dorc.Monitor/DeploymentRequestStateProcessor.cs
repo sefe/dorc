@@ -149,6 +149,7 @@ namespace Dorc.Monitor
                 // impossible to determine which specific IDs were transitioned vs already handled
                 // by a concurrent startup instance (AC-7: event per transition, not per attempt).
                 int resumedCount = 0;
+                var resumedIds = new List<int>();
                 foreach (var request in runningRequests)
                 {
                     int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
@@ -159,7 +160,8 @@ namespace Dorc.Monitor
                     if (transitioned == 0) continue;
 
                     resumedCount++;
-                    _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                    resumedIds.Add(request.Id);
+                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                         RequestId: request.Id,
                         Status: DeploymentRequestStatus.Pending.ToString(),
                         StartedTime: null,
@@ -172,7 +174,7 @@ namespace Dorc.Monitor
                 {
                     this.logger.LogWarning(
                         "Resumed {ResumedCount} of {TotalFound} stale Running request(s) as Pending. IDs [{Ids}]",
-                        resumedCount, runningRequests.Count, runningIdsString);
+                        resumedCount, runningRequests.Count, string.Join(',', resumedIds));
                 }
             }
 
@@ -208,7 +210,7 @@ namespace Dorc.Monitor
                     foreach (var id in requestingIds)
                     {
                         TerminateRunnerProcesses(id);
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                             RequestId: id,
                             Status: DeploymentRequestStatus.Cancelled.ToString(),
                             StartedTime: null,

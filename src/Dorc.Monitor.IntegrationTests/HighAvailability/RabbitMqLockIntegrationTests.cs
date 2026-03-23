@@ -414,6 +414,8 @@ namespace Dorc.Monitor.IntegrationTests.HighAvailability
                 "this is the S-001 fix verification");
 
             // Cleanup
+            try { await controlChannel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+            await controlChannel.DisposeAsync();
             try { await treatmentChannel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
             await treatmentChannel.DisposeAsync();
             await bootstrapLock.DisposeAsync();
