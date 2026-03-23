@@ -240,7 +240,7 @@ namespace Dorc.Monitor.Tests
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert - all SwitchStatus calls happened before ClearResults
-            Assert.AreEqual(2, callOrder.Count);
+            Assert.HasCount(2, callOrder);
             Assert.AreEqual("SwitchStatus", callOrder[0]);
             Assert.AreEqual("ClearResults", callOrder[1]);
         }
@@ -1279,11 +1279,11 @@ namespace Dorc.Monitor.Tests
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
 
             // Act
-            Assert.AreEqual(0, publishTasks.Count);
+            Assert.IsEmpty(publishTasks);
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert - callback should have been invoked
-            Assert.IsTrue(publishTasks.Count > 0, "OnPublishTaskCreated callback should be invoked for fire-and-forget tasks");
+            Assert.IsNotEmpty(publishTasks, "OnPublishTaskCreated callback should be invoked for fire-and-forget tasks");
 
             // Wait for all tracked tasks to complete deterministically (no Task.Delay needed)
             await Task.WhenAll(publishTasks);

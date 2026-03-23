@@ -468,8 +468,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
             var toDispose = CollectRetiredConnectionsForDisposal(service);
 
             // Assert - the connection must remain retired but alive until the lock is released
-            Assert.AreEqual(0, toDispose.Count);
-            Assert.AreEqual(1, retiredConnections.Count);
+            Assert.IsEmpty(toDispose);
+            Assert.HasCount(1, retiredConnections);
 
             service.Dispose();
         }
@@ -489,9 +489,9 @@ namespace Dorc.Monitor.Tests.HighAvailability
             var toDispose = CollectRetiredConnectionsForDisposal(service);
 
             // Assert
-            Assert.AreEqual(1, toDispose.Count);
+            Assert.HasCount(1, toDispose);
             Assert.AreSame(mockConnection, toDispose[0]);
-            Assert.AreEqual(0, retiredConnections.Count);
+            Assert.IsEmpty(retiredConnections);
 
             service.Dispose();
         }
@@ -549,7 +549,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             await InvokeReleaseConnectionReferenceAsync(service, mockConnection);
 
             // Assert - connection removed from retired list and disposed
-            Assert.AreEqual(0, retiredConnections.Count, "Retired connection should be removed");
+            Assert.IsEmpty(retiredConnections, "Retired connection should be removed");
             Assert.IsFalse(lockCounts.ContainsKey(mockConnection), "Lock count entry should be removed");
             mockConnection.Received(1).Dispose();
 
@@ -574,7 +574,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             await InvokeReleaseConnectionReferenceAsync(service, mockConnection);
 
             // Assert - connection still alive with 1 remaining lock
-            Assert.AreEqual(1, retiredConnections.Count, "Connection should remain in retired list");
+            Assert.HasCount(1, retiredConnections, "Connection should remain in retired list");
             Assert.AreEqual(1, lockCounts[mockConnection], "Lock count should be decremented to 1");
             mockConnection.DidNotReceive().Dispose();
 
@@ -1138,6 +1138,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             mockLogger = Substitute.For<ILogger<RabbitMqDistributedLockService>>();
             mockConfiguration = Substitute.For<IMonitorConfiguration>();
+            // S-002: retry window must be > 0 so TryReacquireLockChannelAsync makes at least one attempt
+            mockConfiguration.LockReacquisitionRetryWindowSeconds.Returns(30);
         }
 
         private static void SetServiceConnection(RabbitMqDistributedLockService service, IConnection? connection)
@@ -1201,8 +1203,12 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            // Wait for re-acquisition to complete (signalled when consumer receives the requeued message)
+            // Wait for re-acquisition to complete (signalled when consumer receives the requeued message).
+            // The extra delay allows TryReacquireOrCancelAsync to complete the channel swap: the consumer
+            // delivery signal fires asynchronously (RunContinuationsAsynchronously), so the swap runs
+            // on a thread pool continuation after this task completes.
             await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
 
             // Assert - re-acquisition succeeded, deployment should continue
             Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested,
@@ -1222,6 +1228,8 @@ namespace Dorc.Monitor.Tests.HighAvailability
         {
             // Arrange - service has no connection, so re-acquisition will fail
             mockConfiguration.HighAvailabilityEnabled.Returns(false);
+            // Override Setup default: short window so the test completes quickly
+            mockConfiguration.LockReacquisitionRetryWindowSeconds.Returns(2);
             var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
 
             var mockChannel = Substitute.For<IChannel>();
@@ -1297,7 +1305,9 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
+            // Allow TryReacquireOrCancelAsync to complete the channel swap after consumer delivery signals
             await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
 
             // Assert - lock re-acquired via new channel, old channel disposed
             Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
@@ -1360,7 +1370,9 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldConnection.ConnectionShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldConnection, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
+            // Allow TryReacquireOrCancelAsync to complete the channel swap after consumer delivery signals
             await reacquisitionComplete.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
 
             // Assert - only one re-acquisition, lock is valid, deployment continues
             Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested);
@@ -1523,8 +1535,10 @@ namespace Dorc.Monitor.Tests.HighAvailability
                 .Returns("new-consumer-tag");
 
             mockConfiguration.HighAvailabilityEnabled.Returns(true);
-            // Use very short timeout to speed up test
+            // Use very short timeout and retry window to speed up test
             mockConfiguration.LockAcquisitionTimeoutSeconds.Returns(1);
+            // Override Setup default: 2s window ensures the loop exhausts quickly (1s delivery + ~1s remaining)
+            mockConfiguration.LockReacquisitionRetryWindowSeconds.Returns(2);
 
             var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
             SetServiceConnection(service, mockNewConnection);
@@ -1539,7 +1553,7 @@ namespace Dorc.Monitor.Tests.HighAvailability
             oldChannel.ChannelShutdownAsync += Raise.Event<AsyncEventHandler<ShutdownEventArgs>>(
                 oldChannel, new ShutdownEventArgs(ShutdownInitiator.Peer, 541, "INTERNAL_ERROR"));
 
-            // Wait for re-acquisition to time out and cancel the token (configured timeout is 1s)
+            // Wait for re-acquisition to time out and cancel the token (window=2s, delivery timeout=1s)
             var cancelled = new TaskCompletionSource();
             lockObj.LockLostToken.Register(() => cancelled.TrySetResult());
             await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
