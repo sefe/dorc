@@ -932,8 +932,7 @@ namespace Dorc.Monitor.HighAvailability
                     try
                     {
                         // Link delay to service disposal via serviceCts so shutdown terminates the sleep promptly
-                        var serviceCancelled = serviceCts?.Token ?? CancellationToken.None;
-                        await Task.Delay(actualDelay, serviceCancelled);
+                        await Task.Delay(actualDelay, serviceCts.Token);
                     }
                     catch (OperationCanceledException)
                     {
