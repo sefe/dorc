@@ -146,11 +146,7 @@ namespace Dorc.Monitor.HighAvailability
 
                         // Declare a quorum queue with single-active consumer for cluster support
                         // Quorum queues replicate across cluster nodes for high availability
-                        var args = new Dictionary<string, object?>
-                        {
-                            { "x-queue-type", "quorum" }, // Use quorum queue for cluster replication
-                            { "x-single-active-consumer", true } // Only one consumer gets messages at a time
-                        };
+                        var args = BuildLockQueueArguments();
 
                         await channel.QueueDeclareAsync(
                             queue: queueName,
@@ -640,6 +636,23 @@ namespace Dorc.Monitor.HighAvailability
             }
 
             return handler;
+        }
+
+        /// <summary>
+        /// Returns the queue arguments used when declaring a distributed lock queue.
+        /// Setting x-consumer-timeout to 0 disables the broker's per-consumer acknowledgement
+        /// timeout, preventing PRECONDITION_FAILED channel closure on deployments longer than
+        /// the broker's default 30-minute timeout (FM-2 fix, S-001).
+        /// The value must be long (Int64) — RabbitMQ AMQP time arguments are 64-bit.
+        /// </summary>
+        internal static Dictionary<string, object?> BuildLockQueueArguments()
+        {
+            return new Dictionary<string, object?>
+            {
+                { "x-queue-type", "quorum" },           // Quorum queue for cluster replication
+                { "x-single-active-consumer", true },   // Only one consumer receives messages at a time
+                { "x-consumer-timeout", 0L }            // 0 = disabled; prevents broker closing channel on long-running deployments
+            };
         }
 
         /// <summary>
