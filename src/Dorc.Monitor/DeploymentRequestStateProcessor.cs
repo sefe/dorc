@@ -138,34 +138,41 @@ namespace Dorc.Monitor
 
             if (runningRequests.Count > 0)
             {
-                var runningIds = runningRequests.Select(r => r.Id).ToArray();
-                var runningIdsString = string.Join(',', runningIds);
+                var runningIdsString = string.Join(',', runningRequests.Select(r => r.Id));
 
                 this.logger.LogWarning(
                     "Found {Count} requests in 'Running' state from a previous instance. Resuming as Pending: [{Ids}]",
                     runningRequests.Count, runningIdsString);
 
-                int resumedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    runningRequests,
-                    DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Pending);
+                // Per-request transitions to ensure events are only published for requests this
+                // instance actually transitioned. A batch call returns only a count, making it
+                // impossible to determine which specific IDs were transitioned vs already handled
+                // by a concurrent startup instance (AC-7: event per transition, not per attempt).
+                int resumedCount = 0;
+                foreach (var request in runningRequests)
+                {
+                    int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Pending);
+
+                    if (transitioned == 0) continue;
+
+                    resumedCount++;
+                    _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                        RequestId: request.Id,
+                        Status: DeploymentRequestStatus.Pending.ToString(),
+                        StartedTime: null,
+                        CompletedTime: null,
+                        Timestamp: DateTimeOffset.UtcNow
+                    ));
+                }
 
                 if (resumedCount > 0)
                 {
-                    foreach (var id in runningIds)
-                    {
-                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
-                            RequestId: id,
-                            Status: DeploymentRequestStatus.Pending.ToString(),
-                            StartedTime: null,
-                            CompletedTime: null,
-                            Timestamp: DateTimeOffset.UtcNow
-                        ));
-                    }
-
                     this.logger.LogWarning(
-                        "Resumed {ResumedCount} stale Running request(s) as Pending. IDs [{Ids}]",
-                        resumedCount, runningIdsString);
+                        "Resumed {ResumedCount} of {TotalFound} stale Running request(s) as Pending. IDs [{Ids}]",
+                        resumedCount, runningRequests.Count, runningIdsString);
                 }
             }
 

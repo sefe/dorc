@@ -736,14 +736,14 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Pending)
-                .Returns(2);
+                .Returns(1); // per-request call returns 1 each time
 
             // Act
             sut.CancelStaleRequests(false);
             await Task.WhenAll(publishTasks);
 
-            // Assert - status switched to Pending (not Cancelled) — AC-1
-            mockRequestsPersistentSource.Received(1)
+            // Assert - status switched to Pending (not Cancelled), once per request — AC-1
+            mockRequestsPersistentSource.Received(2)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
@@ -1264,7 +1264,8 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public async Task ExecuteRequests_TerminateRequestExecution_StillCancelsRequestToken()
         {
-            // Arrange - S-003: user-initiated cancellation via TerminateRequestExecution must still work
+            // Arrange - S-003: user-initiated cancellation via TerminateRequestExecution must still work.
+            // The mock blocks Execute until signalled, so the CTS is still in the dict when we cancel it.
             var requests = CreatePendingRequests("EnvTerminate", 202);
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(
@@ -1280,37 +1281,70 @@ namespace Dorc.Monitor.Tests
                 .Returns(1);
 
             CancellationToken capturedToken = default;
-            var cancelledByTerminate = false;
+            var executionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseExecution = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
                 .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
-                .Do(ci => capturedToken = ci.Arg<CancellationToken>());
+                .Do(ci =>
+                {
+                    capturedToken = ci.Arg<CancellationToken>();
+                    executionStarted.SetResult();
+                    releaseExecution.Task.GetAwaiter().GetResult(); // block until signalled
+                });
             mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
 
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
 
-            // Act
+            // Act - start tasks; Execute will block until released
             var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await executionStarted.Task; // wait until Execute has captured the token
+
+            // At this point the task is blocked in Execute — CTS is still in the dict
+            Assert.IsTrue(cancellationSources.ContainsKey(202), "CTS must be in the dict while Execute is running");
+            cancellationSources[202].Cancel(); // simulate TerminateRequestExecution
+            var cancelledByTerminate = capturedToken.IsCancellationRequested;
+
+            releaseExecution.SetResult(); // unblock Execute
             await Task.WhenAll(tasks);
 
-            // Simulate TerminateRequestExecution: cancel the CTS that was stored in the dict
-            // After task completes, the CTS is cleaned from the dict — but we can still cancel it
-            // to verify the token reports cancelled (proving it was from a real CTS, not a static token)
-            if (cancellationSources.TryGetValue(202, out var storedCts))
-            {
-                storedCts.Cancel();
-                cancelledByTerminate = capturedToken.IsCancellationRequested;
-            }
-            else
-            {
-                // CTS was removed after task completion; verify token was a real cancellable token
-                Assert.IsTrue(capturedToken != CancellationToken.None,
-                    "Request token must be a real cancellable CancellationToken");
-                cancelledByTerminate = true; // intent verified via token identity
-            }
-
+            // Assert - cancelling the stored CTS must have cancelled the token passed to Execute (S-003 R1 / AC-4)
             Assert.IsTrue(cancelledByTerminate,
-                "TerminateRequestExecution (Cancel on stored CTS) must cancel the request token (S-003 R1)");
+                "TerminateRequestExecution (Cancel on stored CTS) must cancel the request token");
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenMonitorAlreadyCancelled_DoesNotStartDeploymentTask()
+        {
+            // Arrange - S-003: ThrowIfCancellationRequested guard must prevent new work from starting
+            // after shutdown is signalled, even though the request token is no longer linked to monitorCts.
+            var requests = CreatePendingRequests("EnvGuard", 203);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+            mockDistributedLockService.IsEnabled.Returns(false);
+
+            var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
+            mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
+
+            var monitorCts = new CancellationTokenSource();
+            monitorCts.Cancel(); // pre-cancel: monitor is already stopping when ExecuteRequests is called
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - Task.Run with a pre-cancelled token transitions the task to Cancelled without running it
+            var tasks = sut.ExecuteRequests(false, cancellationSources, monitorCts.Token);
+            try { await Task.WhenAll(tasks); } catch (OperationCanceledException) { /* expected */ }
+
+            // Assert - the guard prevented Execute from being called
+            mockPendingProcessor.DidNotReceive()
+                .Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>());
         }
 
         // =====================================================================
