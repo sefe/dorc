@@ -419,5 +419,260 @@ namespace Dorc.Monitor.IntegrationTests.HighAvailability
             await bootstrapLock.DisposeAsync();
             bootstrapService.Dispose();
         }
+
+        /// <summary>
+        /// S-002 / IT1: After triggering channel loss, if the lock message is never delivered
+        /// within the configured retry window, LockLostToken must be cancelled — confirming
+        /// that window exhaustion correctly triggers deployment cancellation.
+        ///
+        /// The test uses a standby consumer on a separate RabbitMQ connection to hold the lock
+        /// message undelivered for the duration. The service's re-acquisition retry loop must
+        /// run multiple attempts before the window expires. Elapsed time >= (window - tolerance)
+        /// confirms that retries ran rather than a single-attempt fast-cancel.
+        ///
+        /// This test FAILS with the old single-attempt code (which cancels too quickly, before
+        /// the retry window is exhausted) and PASSES with the S-002 retry loop.
+        /// </summary>
+        [TestMethod]
+        public async Task ReacquisitionRetry_WhenMessageNeverDelivered_CancelsAfterWindow()
+        {
+            const int retryWindowSeconds = 10;
+            const int perAttemptSeconds = 2;
+
+            // Service under test — short window and per-attempt to keep test duration manageable
+            var serviceConfig = Substitute.For<IMonitorConfiguration>();
+            serviceConfig.HighAvailabilityEnabled.Returns(true);
+            serviceConfig.RabbitMqHostName.Returns(configuration.RabbitMqHostName);
+            serviceConfig.RabbitMqPort.Returns(configuration.RabbitMqPort);
+            serviceConfig.RabbitMqVirtualHost.Returns(configuration.RabbitMqVirtualHost);
+            serviceConfig.RabbitMqOAuthClientId.Returns(configuration.RabbitMqOAuthClientId);
+            serviceConfig.RabbitMqOAuthClientSecret.Returns(configuration.RabbitMqOAuthClientSecret);
+            serviceConfig.RabbitMqOAuthTokenEndpoint.Returns(configuration.RabbitMqOAuthTokenEndpoint);
+            serviceConfig.RabbitMqOAuthScope.Returns(configuration.RabbitMqOAuthScope);
+            serviceConfig.RabbitMqSslEnabled.Returns(configuration.RabbitMqSslEnabled);
+            serviceConfig.RabbitMqSslServerName.Returns(configuration.RabbitMqSslServerName);
+            serviceConfig.RabbitMqSslVersion.Returns(configuration.RabbitMqSslVersion);
+            serviceConfig.Environment.Returns("integration-test");
+            serviceConfig.LockAcquisitionTimeoutSeconds.Returns(perAttemptSeconds);
+            serviceConfig.LockReacquisitionRetryWindowSeconds.Returns(retryWindowSeconds);
+
+            var service = new RabbitMqDistributedLockService(logger, serviceConfig);
+            var resourceKey = $"env:S002-IT1-{Guid.NewGuid()}";
+            var lockQueueName = $"lock.{resourceKey}";
+
+            // Arrange: acquire lock to establish the queue and the service connection
+            var lockObj = await service.TryAcquireLockAsync(resourceKey, 30000, CancellationToken.None);
+            Assert.IsNotNull(lockObj, "Lock acquisition must succeed before testing re-acquisition");
+
+            // Arrange: create a separate connection for the blocker (must be on a different
+            // connection from the service so it survives when the service's connection is closed)
+            var blockerConfig = Substitute.For<IMonitorConfiguration>();
+            blockerConfig.HighAvailabilityEnabled.Returns(true);
+            blockerConfig.RabbitMqHostName.Returns(configuration.RabbitMqHostName);
+            blockerConfig.RabbitMqPort.Returns(configuration.RabbitMqPort);
+            blockerConfig.RabbitMqVirtualHost.Returns(configuration.RabbitMqVirtualHost);
+            blockerConfig.RabbitMqOAuthClientId.Returns(configuration.RabbitMqOAuthClientId);
+            blockerConfig.RabbitMqOAuthClientSecret.Returns(configuration.RabbitMqOAuthClientSecret);
+            blockerConfig.RabbitMqOAuthTokenEndpoint.Returns(configuration.RabbitMqOAuthTokenEndpoint);
+            blockerConfig.RabbitMqOAuthScope.Returns(configuration.RabbitMqOAuthScope);
+            blockerConfig.RabbitMqSslEnabled.Returns(configuration.RabbitMqSslEnabled);
+            blockerConfig.RabbitMqSslServerName.Returns(configuration.RabbitMqSslServerName);
+            blockerConfig.RabbitMqSslVersion.Returns(configuration.RabbitMqSslVersion);
+            blockerConfig.Environment.Returns("integration-test-blocker");
+            blockerConfig.LockAcquisitionTimeoutSeconds.Returns(5);
+            blockerConfig.LockReacquisitionRetryWindowSeconds.Returns(150);
+            var blockerService = new RabbitMqDistributedLockService(logger, blockerConfig);
+            // Initialize the blocker service's connection by acquiring a lock on a dummy resource
+            var dummyKey = $"env:S002-IT1-blocker-{Guid.NewGuid()}";
+            var dummyLock = await blockerService.TryAcquireLockAsync(dummyKey, 30000, CancellationToken.None);
+            Assert.IsNotNull(dummyLock, "Blocker service must connect to RabbitMQ");
+
+            // Register a standby consumer on the lock queue via the blocker's separate connection.
+            // ORDERING IS CRITICAL: register BEFORE triggering channel loss on the service, so
+            // that SAC promotes this consumer (not the retry loop's first consumer) when the
+            // lock message is requeued.
+            var blockerConn = blockerService.connection;
+            Assert.IsNotNull(blockerConn, "Blocker service connection must be available");
+            var blockerChannel = await blockerConn.CreateChannelAsync(cancellationToken: CancellationToken.None);
+            var blockerConsumer = new AsyncEventingBasicConsumer(blockerChannel);
+            await blockerChannel.BasicConsumeAsync(
+                queue: lockQueueName,
+                autoAck: false,
+                consumerTag: "",
+                noLocal: false,
+                exclusive: false,
+                arguments: null,
+                consumer: blockerConsumer,
+                cancellationToken: CancellationToken.None);
+
+            // Act: force-close the service's connection, triggering lock re-acquisition
+            var startTime = DateTime.UtcNow;
+            var serviceConn = service.connection;
+            Assert.IsNotNull(serviceConn, "Service connection must be available");
+            try { await serviceConn.CloseAsync(); } catch { }
+
+            // Wait for LockLostToken to be cancelled (window + generous buffer for connection setup)
+            var lockLostTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            lockObj.LockLostToken.Register(() => lockLostTcs.TrySetResult(true));
+            var bufferSeconds = retryWindowSeconds + 15;
+            var tokenFired = await Task.WhenAny(lockLostTcs.Task, Task.Delay(TimeSpan.FromSeconds(bufferSeconds)))
+                             == lockLostTcs.Task;
+            var elapsed = DateTime.UtcNow - startTime;
+
+            // Assert: deployment must be cancelled
+            Assert.IsTrue(tokenFired,
+                $"LockLostToken must be cancelled within {bufferSeconds}s — " +
+                $"retry window exhaustion must trigger deployment cancellation");
+
+            // Assert: elapsed time confirms retries ran, not a single-attempt fast-cancel.
+            // With old single-attempt code, cancellation fires after ~perAttemptSeconds.
+            // With retry loop, it fires after ~retryWindowSeconds.
+            // Require elapsed >= (retryWindowSeconds - perAttemptSeconds - 2) as tolerance.
+            var minimumElapsedSeconds = retryWindowSeconds - perAttemptSeconds - 2;
+            Assert.IsTrue(elapsed.TotalSeconds >= minimumElapsedSeconds,
+                $"Elapsed {elapsed.TotalSeconds:F1}s is less than minimum {minimumElapsedSeconds}s — " +
+                $"this indicates single-attempt behaviour rather than the retry loop");
+
+            // Cleanup
+            try { await blockerChannel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+            await blockerChannel.DisposeAsync();
+            await dummyLock.DisposeAsync();
+            await blockerService.DisposeAsync();
+            service.Dispose();
+        }
+
+        /// <summary>
+        /// S-002 / IT2: After triggering channel loss, if the lock message is delivered
+        /// partway through the retry window (after at least two attempt cycles), LockLostToken
+        /// must NOT be cancelled — confirming the deployment continues after delayed re-acquisition.
+        ///
+        /// The test uses a standby consumer to hold the message for a blocking duration that
+        /// exceeds 2 × LockAcquisitionTimeoutSeconds + inter-attempt delay, guaranteeing at
+        /// least two retry attempts before the message becomes available.
+        ///
+        /// This test FAILS with the old single-attempt code (which cancels the deployment
+        /// immediately after the first attempt times out) and PASSES with the S-002 retry loop.
+        /// </summary>
+        [TestMethod]
+        public async Task ReacquisitionRetry_WhenMessageDeliveredMidWindow_ContinuesDeployment()
+        {
+            const int retryWindowSeconds = 20;
+            const int perAttemptSeconds = 2;
+            // Blocking duration must exceed 2 × perAttemptSeconds + inter-attempt delay.
+            // Using 8s: covers 2 × 2s delivery waits + a 3s inter-attempt delay + margin.
+            const int blockingSeconds = 8;
+
+            var serviceConfig = Substitute.For<IMonitorConfiguration>();
+            serviceConfig.HighAvailabilityEnabled.Returns(true);
+            serviceConfig.RabbitMqHostName.Returns(configuration.RabbitMqHostName);
+            serviceConfig.RabbitMqPort.Returns(configuration.RabbitMqPort);
+            serviceConfig.RabbitMqVirtualHost.Returns(configuration.RabbitMqVirtualHost);
+            serviceConfig.RabbitMqOAuthClientId.Returns(configuration.RabbitMqOAuthClientId);
+            serviceConfig.RabbitMqOAuthClientSecret.Returns(configuration.RabbitMqOAuthClientSecret);
+            serviceConfig.RabbitMqOAuthTokenEndpoint.Returns(configuration.RabbitMqOAuthTokenEndpoint);
+            serviceConfig.RabbitMqOAuthScope.Returns(configuration.RabbitMqOAuthScope);
+            serviceConfig.RabbitMqSslEnabled.Returns(configuration.RabbitMqSslEnabled);
+            serviceConfig.RabbitMqSslServerName.Returns(configuration.RabbitMqSslServerName);
+            serviceConfig.RabbitMqSslVersion.Returns(configuration.RabbitMqSslVersion);
+            serviceConfig.Environment.Returns("integration-test");
+            serviceConfig.LockAcquisitionTimeoutSeconds.Returns(perAttemptSeconds);
+            serviceConfig.LockReacquisitionRetryWindowSeconds.Returns(retryWindowSeconds);
+
+            var service = new RabbitMqDistributedLockService(logger, serviceConfig);
+            var resourceKey = $"env:S002-IT2-{Guid.NewGuid()}";
+            var lockQueueName = $"lock.{resourceKey}";
+
+            // Acquire lock to establish the service connection and queue
+            var lockObj = await service.TryAcquireLockAsync(resourceKey, 30000, CancellationToken.None);
+            Assert.IsNotNull(lockObj, "Lock acquisition must succeed before testing re-acquisition");
+
+            // Create a separate connection for the blocker
+            var blockerConfig = Substitute.For<IMonitorConfiguration>();
+            blockerConfig.HighAvailabilityEnabled.Returns(true);
+            blockerConfig.RabbitMqHostName.Returns(configuration.RabbitMqHostName);
+            blockerConfig.RabbitMqPort.Returns(configuration.RabbitMqPort);
+            blockerConfig.RabbitMqVirtualHost.Returns(configuration.RabbitMqVirtualHost);
+            blockerConfig.RabbitMqOAuthClientId.Returns(configuration.RabbitMqOAuthClientId);
+            blockerConfig.RabbitMqOAuthClientSecret.Returns(configuration.RabbitMqOAuthClientSecret);
+            blockerConfig.RabbitMqOAuthTokenEndpoint.Returns(configuration.RabbitMqOAuthTokenEndpoint);
+            blockerConfig.RabbitMqOAuthScope.Returns(configuration.RabbitMqOAuthScope);
+            blockerConfig.RabbitMqSslEnabled.Returns(configuration.RabbitMqSslEnabled);
+            blockerConfig.RabbitMqSslServerName.Returns(configuration.RabbitMqSslServerName);
+            blockerConfig.RabbitMqSslVersion.Returns(configuration.RabbitMqSslVersion);
+            blockerConfig.Environment.Returns("integration-test-blocker");
+            blockerConfig.LockAcquisitionTimeoutSeconds.Returns(5);
+            blockerConfig.LockReacquisitionRetryWindowSeconds.Returns(150);
+            var blockerService = new RabbitMqDistributedLockService(logger, blockerConfig);
+            var dummyKey = $"env:S002-IT2-blocker-{Guid.NewGuid()}";
+            var dummyLock = await blockerService.TryAcquireLockAsync(dummyKey, 30000, CancellationToken.None);
+            Assert.IsNotNull(dummyLock, "Blocker service must connect to RabbitMQ");
+
+            // Register standby consumer on lock queue BEFORE triggering channel loss.
+            // SAC will promote this consumer when the service's connection drops.
+            var blockerConn = blockerService.connection;
+            Assert.IsNotNull(blockerConn, "Blocker service connection must be available");
+            var blockerChannel = await blockerConn.CreateChannelAsync(cancellationToken: CancellationToken.None);
+            var blockerConsumer = new AsyncEventingBasicConsumer(blockerChannel);
+            ulong? capturedDeliveryTag = null;
+            blockerConsumer.ReceivedAsync += async (_, ea) =>
+            {
+                capturedDeliveryTag = ea.DeliveryTag;
+                await Task.CompletedTask;
+            };
+            var blockerConsumerTag = await blockerChannel.BasicConsumeAsync(
+                queue: lockQueueName,
+                autoAck: false,
+                consumerTag: "",
+                noLocal: false,
+                exclusive: false,
+                arguments: null,
+                consumer: blockerConsumer,
+                cancellationToken: CancellationToken.None);
+
+            // Force-close the service connection to trigger re-acquisition
+            var serviceConn = service.connection;
+            Assert.IsNotNull(serviceConn);
+            try { await serviceConn.CloseAsync(); } catch { }
+
+            // Hold the message for blockingSeconds (ensures >= 2 retry attempts by the service)
+            await Task.Delay(TimeSpan.FromSeconds(blockingSeconds));
+
+            // Release the message: nack-requeue then cancel the blocker consumer so the message
+            // is requeued and the service's next retry attempt can consume it
+            try
+            {
+                if (capturedDeliveryTag.HasValue)
+                {
+                    await blockerChannel.BasicNackAsync(
+                        deliveryTag: capturedDeliveryTag.Value,
+                        multiple: false,
+                        requeue: true,
+                        cancellationToken: CancellationToken.None);
+                }
+                await blockerChannel.BasicCancelAsync(
+                    consumerTag: blockerConsumerTag,
+                    cancellationToken: CancellationToken.None);
+            }
+            catch { /* best-effort consumer cancellation */ }
+
+            // Wait for re-acquisition to succeed or fail — give up to (retryWindow + 5s) total
+            var successWaitSeconds = retryWindowSeconds - blockingSeconds + 5;
+            var lockLostTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            lockObj.LockLostToken.Register(() => lockLostTcs.TrySetResult(true));
+            await Task.WhenAny(lockLostTcs.Task, Task.Delay(TimeSpan.FromSeconds(successWaitSeconds)));
+
+            // Assert: lock must NOT be lost — deployment must continue after delayed re-acquisition
+            Assert.IsFalse(lockObj.LockLostToken.IsCancellationRequested,
+                "LockLostToken must NOT be cancelled when the lock message is delivered " +
+                "within the retry window — deployment must continue");
+
+            // Cleanup
+            try { await blockerChannel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+            await blockerChannel.DisposeAsync();
+            await dummyLock.DisposeAsync();
+            await blockerService.DisposeAsync();
+            await lockObj.DisposeAsync();
+            service.Dispose();
+        }
     }
 }
