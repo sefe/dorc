@@ -127,39 +127,78 @@ namespace Dorc.Monitor
 
         public void CancelStaleRequests(bool isProduction)
         {
-            var staleStatuses = new[] { DeploymentRequestStatus.Running, DeploymentRequestStatus.Requesting };
+            // S-004: Running requests are resumed as Pending rather than cancelled.
+            // The previous Monitor instance must have exited before this instance starts, so all
+            // runner processes from the previous run are already gone — no process cleanup needed.
+            // Deployment results from the interrupted run are left in place; PendingRequestProcessor
+            // fetches and reuses them on re-execution (U-5: deployments are idempotent).
+            var runningRequests = this.requestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, isProduction)
+                .ToList();
 
-            foreach (var status in staleStatuses)
+            if (runningRequests.Count > 0)
             {
-                var staleRequests = this.requestsPersistentSource
-                    .GetRequestsWithStatus(status, isProduction)
-                    .ToList();
-
-                if (staleRequests.Count == 0)
-                    continue;
-
-                var ids = staleRequests.Select(r => r.Id).ToArray();
-                var idsString = string.Join(',', ids);
+                var runningIds = runningRequests.Select(r => r.Id).ToArray();
+                var runningIdsString = string.Join(',', runningIds);
 
                 this.logger.LogWarning(
-                    "Found {Count} stale requests in '{Status}' state from a previous instance. Cancelling IDs [{Ids}]",
-                    staleRequests.Count, status, idsString);
+                    "Found {Count} requests in 'Running' state from a previous instance. Resuming as Pending: [{Ids}]",
+                    runningRequests.Count, runningIdsString);
 
-                int updatedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    staleRequests,
-                    status,
+                int resumedCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    runningRequests,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+
+                if (resumedCount > 0)
+                {
+                    foreach (var id in runningIds)
+                    {
+                        _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                            RequestId: id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+
+                    this.logger.LogWarning(
+                        "Resumed {ResumedCount} stale Running request(s) as Pending. IDs [{Ids}]",
+                        resumedCount, runningIdsString);
+                }
+            }
+
+            // Requesting requests are still cancelled: this state means ExecuteRequest had begun
+            // pickup but the runner had not yet started component execution, so cancelling and
+            // allowing a fresh pickup on the next cycle is the correct recovery action.
+            var requestingRequests = this.requestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, isProduction)
+                .ToList();
+
+            if (requestingRequests.Count > 0)
+            {
+                var requestingIds = requestingRequests.Select(r => r.Id).ToArray();
+                var requestingIdsString = string.Join(',', requestingIds);
+
+                this.logger.LogWarning(
+                    "Found {Count} stale requests in 'Requesting' state from a previous instance. Cancelling IDs [{Ids}]",
+                    requestingRequests.Count, requestingIdsString);
+
+                int cancelledCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    requestingRequests,
+                    DeploymentRequestStatus.Requesting,
                     DeploymentRequestStatus.Cancelled,
                     DateTimeOffset.Now);
 
-                if (updatedCount > 0)
+                if (cancelledCount > 0)
                 {
-                    // Also cancel any pending deployment results for these requests
                     this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
-                        staleRequests,
+                        requestingRequests,
                         DeploymentResultStatus.Pending,
                         DeploymentResultStatus.Cancelled);
 
-                    foreach (var id in ids)
+                    foreach (var id in requestingIds)
                     {
                         TerminateRunnerProcesses(id);
                         _ = this.eventPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
@@ -172,8 +211,8 @@ namespace Dorc.Monitor
                     }
 
                     this.logger.LogWarning(
-                        "Cancelled {UpdatedCount} stale requests. IDs [{Ids}]",
-                        updatedCount, idsString);
+                        "Cancelled {CancelledCount} stale Requesting request(s). IDs [{Ids}]",
+                        cancelledCount, requestingIdsString);
                 }
             }
         }
@@ -476,18 +515,22 @@ namespace Dorc.Monitor
                             }
                         }
 
-                        // Create a linked token source that cancels if:
-                        // 1. The monitor service stops (monitorCancellationToken)
-                        // 2. The distributed lock is lost (envLock.LockLostToken)
-                        // This ensures split-brain scenarios are avoided by terminating execution immediately if the lock is lost.
+                        // Token decoupling (S-003): the request token is NOT linked to monitorCancellationToken.
+                        // Service shutdown does not cancel in-flight deployments — they continue until
+                        // the host's ShutdownTimeout expires. This allows deployments to complete during
+                        // graceful shutdown. S-004 recovers any requests still Running at next startup.
+                        //
+                        // HA enabled: link only to the distributed lock loss token so that split-brain
+                        // scenarios (lock lost mid-deployment) still abort the deployment immediately.
+                        // HA disabled: fully independent token, cancellable only via TerminateRequestExecution.
                         CancellationTokenSource requestCancellationTokenSource;
                         if (envLock != null)
                         {
-                            requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken, envLock.LockLostToken);
+                            requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(envLock.LockLostToken);
                         }
                         else
                         {
-                            requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(monitorCancellationToken);
+                            requestCancellationTokenSource = new CancellationTokenSource();
                         }
 
                         // AddOrUpdate is safe here: the semaphore-like environmentRequestIdRunning guard
