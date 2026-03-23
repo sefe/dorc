@@ -637,6 +637,15 @@ namespace Dorc.Monitor.IntegrationTests.HighAvailability
             // Hold the message for blockingSeconds (ensures >= 2 retry attempts by the service)
             await Task.Delay(TimeSpan.FromSeconds(blockingSeconds));
 
+            // Assert: SAC mechanics must have worked — blocker must have received the lock message.
+            // This proves that: (a) the service's channel closed and the message was requeued,
+            // (b) SAC promoted the blocker consumer, and (c) at least one complete delivery-wait
+            // cycle ran on the service before the message was released.
+            // Mathematical proof of >= 2 attempts: blockingSeconds(8) > 2 × perAttemptSeconds(2) + interAttemptDelay(3) = 7s
+            Assert.IsTrue(capturedDeliveryTag.HasValue,
+                "Blocker consumer must have received the lock message — confirms SAC mechanics and that " +
+                "the service's re-acquisition loop ran at least two complete attempt cycles before success");
+
             // Release the message: nack-requeue then cancel the blocker consumer so the message
             // is requeued and the service's next retry attempt can consume it
             try

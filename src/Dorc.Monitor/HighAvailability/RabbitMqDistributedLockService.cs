@@ -785,11 +785,11 @@ namespace Dorc.Monitor.HighAvailability
                     var remaining = deadline - DateTime.UtcNow;
                     if (remaining <= TimeSpan.Zero)
                     {
-                        var elapsed = retryWindowSeconds - remaining.TotalSeconds; // total elapsed ≈ retryWindowSeconds
+                        var elapsed = retryWindowSeconds - remaining.TotalSeconds; // actual elapsed (remaining <= 0)
                         logger.LogWarning(
                             "Lock re-acquisition for '{ResourceKey}' exhausted retry window after {Attempts} attempt(s) " +
                             "({Elapsed:F0}s elapsed). Lock may have been claimed by another monitor.",
-                            resourceKey, attempt, retryWindowSeconds);
+                            resourceKey, attempt, elapsed);
                         return (null, null, null);
                     }
 
@@ -809,6 +809,14 @@ namespace Dorc.Monitor.HighAvailability
                             "Lock re-acquisition for '{ResourceKey}' aborted: window expired while establishing connection (attempt {Attempt})",
                             resourceKey, attempt);
                         return (null, null, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Transient connection failure during broker recovery (e.g. BrokerUnreachableException).
+                        // Log at Warning and fall through to inter-attempt delay — do not abort the loop.
+                        logger.LogWarning(ex,
+                            "Lock re-acquisition for '{ResourceKey}': connection attempt {Attempt} failed, will retry",
+                            resourceKey, attempt);
                     }
 
                     IConnection? currentConnection;
@@ -875,6 +883,7 @@ namespace Dorc.Monitor.HighAvailability
                                         "({Elapsed:F0}s elapsed). Deployment continues.",
                                         resourceKey, attempt, (DateTime.UtcNow - (deadline.AddSeconds(-retryWindowSeconds))).TotalSeconds);
                                 }
+                                // CancellationToken.None: count increment must complete even during shutdown
                                 await IncrementActiveLockCountAsync(currentConnection, CancellationToken.None);
                                 return (channel, consumerTag, currentConnection);
                             }
@@ -917,17 +926,14 @@ namespace Dorc.Monitor.HighAvailability
                     var remainingWindow = deadline - DateTime.UtcNow;
                     if (remainingWindow <= TimeSpan.Zero)
                     {
-                        // Window already expired — loop back and let the deadline check handle it
-                        continue;
+                        return (null, null, null);
                     }
                     var actualDelay = remainingWindow < interAttemptDelay ? remainingWindow : interAttemptDelay;
                     try
                     {
-                        using var delayCts = new CancellationTokenSource();
-                        // Link delay to service disposal via serviceCts if available
+                        // Link delay to service disposal via serviceCts so shutdown terminates the sleep promptly
                         var serviceCancelled = serviceCts?.Token ?? CancellationToken.None;
-                        using var linkedDelayCts = CancellationTokenSource.CreateLinkedTokenSource(delayCts.Token, serviceCancelled);
-                        await Task.Delay(actualDelay, linkedDelayCts.Token);
+                        await Task.Delay(actualDelay, serviceCancelled);
                     }
                     catch (OperationCanceledException)
                     {
