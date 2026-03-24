@@ -6,7 +6,8 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/checkbox';
-import { customElement, property, state } from 'lit/decorators.js';
+import { Checkbox } from '@vaadin/checkbox';
+import { customElement, property, state, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
 import '@vaadin/horizontal-layout';
@@ -33,10 +34,14 @@ export class AddEditEnvironment extends LitElement {
 
   @state() EnvOwnerDisplayName: string | undefined = '';
 
+  @query('#env-secure') private envSecureCheckbox!: Checkbox;
+
   private envValid = false;
   private isNameValid = false;
   private hasUserChanges = false;
   private allEnvNames: string[] | undefined;
+  private readonly maxThinClientFieldLength = 50;
+  private readonly maxEnvironmentNameLength = 64;
 
   @property({ type: Boolean }) private addMode = false;
   @property({ type: Boolean }) private readonly = true;
@@ -222,6 +227,8 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="env-name"
             label="Name"
+            maxlength="${this.maxEnvironmentNameLength}"
+            title="Maximum length: ${this.maxEnvironmentNameLength} symbols"
             required
             auto-validate
             .value=${this.environment?.EnvironmentName ?? ''}
@@ -239,7 +246,7 @@ export class AddEditEnvironment extends LitElement {
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
                     this.handleFieldChange(this.updateSecure, e)}
                   class="tooltip"
-                  ?disabled=${this.readonly}
+                  ?disabled=${this.readonly || (this.environment?.EnvironmentIsProd ?? false)}
                   ><label slot="label"
                     >Is Secure<span class="tooltiptext"
                       >Only use explicitly set environment properties, no
@@ -304,6 +311,8 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="opt-thin-client"
             label="Thin Client Server"
+            maxlength="${this.maxThinClientFieldLength}"
+            title="Maximum length: ${this.maxThinClientFieldLength} symbols"
             auto-validate
             .value=${this.environment?.Details?.ThinClient ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
@@ -514,7 +523,20 @@ export class AddEditEnvironment extends LitElement {
   }
   updateIsProd(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      this.environment.EnvironmentIsProd = e.detail.value;
+      const isProd = e.detail.value;
+      // Production environments must always be secure
+      const updatedEnv = JSON.parse(JSON.stringify(this.environment));
+      updatedEnv.EnvironmentIsProd = isProd;
+      if (isProd) {
+        updatedEnv.EnvironmentSecure = true;
+      }
+      this.environment = updatedEnv;
+      // Explicitly update the checkbox
+      this.updateComplete.then(() => {
+        if (this.envSecureCheckbox && isProd) {
+          this.envSecureCheckbox.checked = true;
+        }
+      });
     }
   }
 

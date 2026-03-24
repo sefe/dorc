@@ -6728,73 +6728,131 @@
         }
       }
     },
-    "/ScriptsAudit": {
-      "put": {
+    "/ServerDaemons/{serverId}": {
+      "get": {
         "tags": [
-          "ScriptsAudit"
+          "ServerDaemons"
         ],
         "parameters": [
           {
-            "name": "page",
-            "in": "query",
+            "name": "serverId",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          },
-          {
-            "name": "useAndLogic",
-            "in": "query",
-            "schema": {
-              "type": "boolean",
-              "default": true
+              "format": "int32"
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DaemonApiModel"
+                  }
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DaemonApiModel"
+                  }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/ServerDaemons": {
+      "post": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -6888,7 +6946,78 @@
           }
         }
       }
-    }
+    },
+    "/ScriptsAudit": {
+      "put": {
+        "tags": [
+          "ScriptsAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
   },
   "components": {
     "schemas": {
@@ -7446,6 +7575,15 @@
           "CompletedTime": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "CancelledTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CancelledBy": {
+            "type": "string",
             "nullable": true
           },
           "Status": {

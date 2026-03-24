@@ -15,7 +15,7 @@ import '@vaadin/text-field';
 import { css, PropertyValueMap, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '../components/grid-button-groups/request-controls';
+import '../../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
 import {
   DeploymentRequestApiModel,
@@ -23,23 +23,23 @@ import {
   PagedDataFilter,
   PagedDataSorting,
   RequestStatusesApi
-} from '../apis/dorc-api';
-import '../icons/iron-icons.js';
-import '../icons/custom-icons.js';
-import { ErrorNotification } from '../components/notifications/error-notification';
-import { getShortLogonName } from '../helpers/user-extensions.js';
-import '../components/connection-status-indicator';
+} from '../../apis/dorc-api';
+import '../../icons/iron-icons.js';
+import '../../icons/custom-icons.js';
+import { ErrorNotification } from '../../components/notifications/error-notification';
+import { getShortLogonName } from '../../helpers/user-extensions.js';
+import '../../components/connection-status-indicator';
 import {
   DeploymentHub,
   getReceiverRegister,
   IDeploymentsEventsClient,
-} from '../services/ServerEvents';
+} from '../../services/ServerEvents';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
-import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import type { RouterLocation } from '@vaadin/router';
-import { PageElement } from '../helpers/page-element';
-import type { RouteMeta } from '../router/routes';
+import type { RouteMeta } from '../../router/routes';
+import { PageEnvBase } from './page-env-base';
 
 const username = 'Username';
 const status = 'Status';
@@ -47,11 +47,11 @@ const components = 'Components';
 const details = 'Details';
 const id = 'Id';
 
-@customElement('page-monitor-requests')
-export class PageMonitorRequests extends PageElement implements IDeploymentsEventsClient{
+@customElement('env-monitor')
+export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
-  // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
+  // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
   // we need to store the max count of items before refresh to keep grid's cache size
   maxCountBeforeRefresh: number | undefined;
 
@@ -67,6 +67,8 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
 
   @state() noResults = false;
 
+  @state() protected location = {} as RouterLocation<RouteMeta>;
+
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
@@ -79,11 +81,25 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
   idFilter: string = '';
   detailsFilter: string = '';
 
+  constructor() {
+    super();
+
+    super.loadEnvironmentInfo();
+  }
+
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
       vaadin-grid {
         overflow: hidden;
-        height: calc(100vh - 56px);
+        height: 100%;
         --divider-color: rgb(223, 232, 239);
       }
 
@@ -167,17 +183,21 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         ) => {
         if (
           params.sortOrders !== undefined &&
-          params.sortOrders.length !== 1
+          params.sortOrders.length > 1
         ) {
           return;
         }
 
+        // Always filter by the current environment name
+        if (this.environmentName) {
+          params.filters.push({
+            path: 'EnvironmentNameExact',
+            value: this.environmentName
+          });
+        }
+
         if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
           params.filters.push({ path: 'Project', value: this.detailsFilter });
-          params.filters.push({
-            path: 'EnvironmentName',
-            value: this.detailsFilter
-          });
           params.filters.push({
             path: 'BuildNumber',
             value: this.detailsFilter
@@ -306,7 +326,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         <vaadin-grid-column
           .renderer="${this._requestControlsRenderer}"
           resizable
-          width="160px"
+          width="100px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -343,14 +363,6 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     this.addEventListener(
       'request-restarted',
       this.requestRestarted as EventListener
-    );
-    this.addEventListener(
-      'request-paused',
-      this.requestPaused as EventListener
-    );
-    this.addEventListener(
-      'request-resumed',
-      this.requestResumed as EventListener
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
     this.addEventListener(
@@ -515,28 +527,12 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     });
   }
 
-  requestPaused(e: CustomEvent) {
-    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
-      theme: 'success',
-      position: 'bottom-start',
-      duration: 5000
-    });
-  }
-
-  requestResumed(e: CustomEvent) {
-    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
-      theme: 'success',
-      position: 'bottom-start',
-      duration: 5000
-    });
-  }
-
   private componentsRenderer(root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<DeploymentRequestApiModel>) {
 
     const request = model.item as DeploymentRequestApiModel;
-    const elements = request.Components?.split('|').sort((a, b) => a.localeCompare(b));
+    const elements = request.Components?.split('|');
 
     render(html`
       <vaadin-vertical-layout>
@@ -676,11 +672,8 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting' ||
-          item.Status === 'Paused')}
-        .canRestart=${!!item.UserEditable && item.Status !== 'Pending' && item.Status !== 'Paused'}
-        .canPause=${!!item.UserEditable && item.Status === 'Pending'}
-        .canResume=${!!item.UserEditable && item.Status === 'Paused'}
+          item.Status === 'Restarting')}
+        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
       ></request-controls>`,
       root
     );
