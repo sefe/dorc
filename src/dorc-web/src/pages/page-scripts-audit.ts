@@ -45,10 +45,10 @@ export class PageScriptsAudit extends PageElement {
 
   private projectNamesFilterValue = '';
 
-  static get styles() {
-    return css`
+    static get styles() {
+        return css`
       vaadin-grid#grid {
-        overflow: hidden;
+        overflow: auto;
         height: calc(100vh - 96px);
         --divider-color: rgb(223, 232, 239);
       }
@@ -96,8 +96,11 @@ export class PageScriptsAudit extends PageElement {
       .highlight-removed {
         background-color: #ffb4c2;
       }
+      .value-line {
+        white-space: nowrap;
+      }
     `;
-  }
+    }
 
   render() {
     return html`
@@ -156,7 +159,8 @@ export class PageScriptsAudit extends PageElement {
           .renderer="${this.valueRenderer}"
           .headerRenderer="${this.valueHeaderRenderer}"
           resizable
-          width="60em"
+          auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
@@ -191,11 +195,11 @@ export class PageScriptsAudit extends PageElement {
     this.loading = false;
   }
 
-  updatedRenderer(
+  updatedRenderer = (
     root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<ScriptAuditApiModel>
-  ) {
+  ) => {
     let sTime = '';
     let sDate = '';
 
@@ -229,64 +233,107 @@ export class PageScriptsAudit extends PageElement {
     return parts;
   };
 
-  valueRenderer(
+  valueRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<ScriptAuditApiModel>
-  ) {
-    const oldText = model.item.FromValue;
-    let text = '';
-    let spanOpen = false;
+  ) => {
+    const oldStr = model.item.FromValue ?? '';
+    const newStr = model.item.ToValue ?? '';
 
-    model.item.ToValue?.split('').forEach((val, i) => {
-      if (val !== oldText?.charAt(i)) {
-        text += !spanOpen ? "<span class='highlight'>" : '';
-        spanOpen = true;
-      } else {
-        text += spanOpen ? '</span>' : '';
-        spanOpen = false;
-      }
-      text += val;
+    if (model.item.Type === 'Insert' || (model.item.Type === 'Update' && oldStr === '')) {
+      render(
+        html`<div class="value-line"><span class="highlight">${newStr}</span></div>`,
+        root
+      );
+      return;
+    }
+
+    if (model.item.Type === 'Delete' || (model.item.Type === 'Update' && newStr === '')) {
+      render(
+        html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`,
+        root
+      );
+      return;
+    }
+
+    if (oldStr === newStr) {
+      render(
+        html`<div class="value-line">${newStr}</div>`,
+        root
+      );
+      return;
+    }
+
+    const ops = this.computeDiff(oldStr, newStr);
+
+    const oldParts = ops.map(op => {
+      if (op.type === 'keep') return html`${op.value}`;
+      if (op.type === 'delete') return html`<span class="highlight-removed">${op.value}</span>`;
+      return html``;
     });
 
-    const displayFromValue = model.item.FromValue?.replace(' ', '&nbsp;');
+    const newParts = ops.map(op => {
+      if (op.type === 'keep') return html`${op.value}`;
+      if (op.type === 'insert') return html`<span class="highlight">${op.value}</span>`;
+      return html``;
+    });
 
-    if (text.includes('highlight')) {
-      render(
-        html` <div id="old" style="margin:0px">
-            ${document
-              .createRange()
-              .createContextualFragment(displayFromValue ?? '')}
-          </div>
-          <div id="new">
-            ${document.createRange().createContextualFragment(text)}
-          </div>`,
-        root
-      );
-    } else {
-      text = '';
-      spanOpen = false;
-      const newText = model.item.ToValue;
+    render(
+      html`
+        <div class="value-line">${oldParts}</div>
+        <div class="value-line">${newParts}</div>
+      `,
+      root
+    );
+  }
 
-      model.item.FromValue?.split('').forEach((val, i) => {
-        if (val !== newText?.charAt(i)) {
-          text += !spanOpen ? "<span class='highlight-removed'>" : '';
-          spanOpen = true;
+  private computeDiff(oldStr: string, newStr: string): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
+    const oldLen = oldStr.length;
+    const newLen = newStr.length;
+    const dp: number[][] = Array.from({ length: oldLen + 1 }, () =>
+      new Array(newLen + 1).fill(0)
+    );
+    for (let i = 1; i <= oldLen; i++) {
+      for (let j = 1; j <= newLen; j++) {
+        if (oldStr[i - 1] === newStr[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
         } else {
-          text += spanOpen ? '</span>' : '';
-          spanOpen = false;
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
         }
-        text += val;
-      });
-
-      render(
-        html` <div id="old" style="margin:0px">
-            ${document.createRange().createContextualFragment(text)}
-          </div>
-          <div id="new">${model.item.ToValue ?? ''}</div>`,
-        root
-      );
+      }
     }
+
+    const ops: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
+    let i = oldLen;
+    let j = newLen;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldStr[i - 1] === newStr[j - 1]) {
+        ops.push({ type: 'keep', value: oldStr[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        ops.push({ type: 'insert', value: newStr[j - 1] });
+        j--;
+      } else {
+        ops.push({ type: 'delete', value: oldStr[i - 1] });
+        i--;
+      }
+    }
+    ops.reverse();
+
+    // Merge consecutive ops of same type
+    const merged: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
+    for (const op of ops) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === op.type) {
+        last.value += op.value;
+      } else {
+        merged.push({ type: op.type, value: op.value });
+      }
+    }
+
+    return merged;
   }
 
   nameHeaderRenderer = (root: HTMLElement) => {
