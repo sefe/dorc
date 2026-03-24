@@ -3,15 +3,14 @@ import '@vaadin/button';
 import {
   GridDataProviderCallback,
   GridDataProviderParams,
-  GridFilterDefinition,
   GridItemModel,
   GridSorterDefinition
 } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import '@vaadin/grid/vaadin-grid-filter';
-import { GridFilter } from '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/grid/vaadin-grid-sorter';
+import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
@@ -39,7 +38,11 @@ export class PageVariablesValueLookup extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
-  @property() nameFilterValue = '';
+  private nameFilterValue = '';
+  private scopeFilterValue = '';
+  private valueFilterValue = '';
+
+  private _editingValueId: number | undefined;
 
   @property({ type: Boolean }) loading = true;
 
@@ -166,6 +169,14 @@ export class PageVariablesValueLookup extends PageElement {
     );
 
     this.addEventListener('values-loaded', this.valuesLoaded as EventListener);
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+      (this.shadowRoot?.querySelector('vaadin-grid') as any)?.requestContentUpdate?.();
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+      (this.shadowRoot?.querySelector('vaadin-grid') as any)?.requestContentUpdate?.();
+    }) as EventListener);
   }
 
   private searchingValuesStarted() {
@@ -180,11 +191,11 @@ export class PageVariablesValueLookup extends PageElement {
     this.loading = false;
   }
 
-  valueRenderer(
+  valueRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
+  ) => {
     const converted: PropertyValueDto = {
       Id: model.item.PropertyValueId,
       Value: model.item.PropertyValue,
@@ -199,151 +210,116 @@ export class PageVariablesValueLookup extends PageElement {
     };
 
     render(
-      html`<variable-value-controls .value="${converted}">
+      html`<variable-value-controls
+        .value="${converted}"
+        .editing="${converted.Id === this._editingValueId}"
+      >
       </variable-value-controls>`,
       root
     );
-  }
+  };
 
-  nameHeaderRenderer(root: HTMLElement) {
+  nameHeaderRenderer = (root: HTMLElement) => {
     render(
-      html` <vaadin-grid-sorter path="Property"
-          >Variable Name</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="Property">
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="Property"></vaadin-grid-sorter>
           <vaadin-text-field
+            placeholder="Name"
             clear-button-visible
-            slot="filter"
             focus-target
-            style="width: 100%"
+            style="width: 100px"
             theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.nameFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+        </vaadin-horizontal-layout>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-values-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-  scopeHeaderRenderer(root: HTMLElement) {
+  scopeHeaderRenderer = (root: HTMLElement) => {
     render(
-      html` <vaadin-grid-sorter path="PropertyValueScope"
-          >Scope</vaadin-grid-sorter
-        >
-        <vaadin-grid-filter path="PropertyValueScope">
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="PropertyValueScope"></vaadin-grid-sorter>
           <vaadin-text-field
+            placeholder="Scope"
             clear-button-visible
-            slot="filter"
             focus-target
-            style="width: 100%"
+            style="width: 100px"
             theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.scopeFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+        </vaadin-horizontal-layout>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-values-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
   }
 
-  userHeaderRenderer(root: HTMLElement) {
+  valueHeaderRenderer = (root: HTMLElement) => {
     render(
-      html`<vaadin-grid-sorter path="UpdatedBy">User</vaadin-grid-sorter>
-        <vaadin-grid-filter path="UpdatedBy">
+      html`
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+          <vaadin-grid-sorter path="PropertyValue"></vaadin-grid-sorter>
           <vaadin-text-field
+            placeholder="Value"
             clear-button-visible
-            slot="filter"
             focus-target
-            style="width: 100%"
+            style="width: 100px"
             theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as HTMLInputElement;
+              this.valueFilterValue = textField?.value ?? '';
+              this.refreshGrid();
+            }}"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
+        </vaadin-horizontal-layout>
+      `,
       root
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-      });
   }
 
-  valueHeaderRenderer(root: HTMLElement) {
-    render(
-      html` <vaadin-grid-sorter path="PropertyValue">Value</vaadin-grid-sorter>
-        <vaadin-grid-filter path="PropertyValue">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`,
-      root
+  private refreshGrid() {
+    this.dispatchEvent(
+      new CustomEvent('searching-values-started', {
+        detail: {},
+        bubbles: true,
+        composed: true
+      })
     );
-
-    const filter: GridFilter = root.querySelector(
-      'vaadin-grid-filter'
-    ) as GridFilter;
-    root
-      .querySelector('vaadin-text-field')!
-      .addEventListener('value-changed', (e: any) => {
-        filter.value = e.detail.value;
-        this.dispatchEvent(
-          new CustomEvent('searching-values-started', {
-            detail: {},
-            bubbles: true,
-            composed: true
-          })
-        );
-      });
+    this.shadowRoot?.querySelector('vaadin-grid')?.clearCache();
   }
 
-  getPropertyValues(
+  getPropertyValues = (
     params: GridDataProviderParams<PropertyValueAuditApiModel>,
     callback: GridDataProviderCallback<PropertyValueAuditApiModel>
-  ) {
+  ) => {
+    const filters: PagedDataFilter[] = [];
+
+    if (this.nameFilterValue) {
+      filters.push({ Path: 'Property', FilterValue: this.nameFilterValue });
+    }
+    if (this.scopeFilterValue) {
+      filters.push({ Path: 'PropertyValueScope', FilterValue: this.scopeFilterValue });
+    }
+    if (this.valueFilterValue) {
+      filters.push({ Path: 'PropertyValue', FilterValue: this.valueFilterValue });
+    }
+
     const api = new RefDataSearchPropertyValuesApi();
     api
       .refDataSearchPropertyValuesPut({
         pagedDataOperators: {
-          Filters: params.filters.map(
-            (f: GridFilterDefinition): PagedDataFilter => ({
-              Path: f.path,
-              FilterValue: f.value
-            })
-          ),
+          Filters: filters,
           SortOrders: params.sortOrders.map(
             (s: GridSorterDefinition): PagedDataSorting => ({
               Path: s.path,

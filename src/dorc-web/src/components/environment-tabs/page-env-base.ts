@@ -176,7 +176,7 @@ export class PageEnvBase extends LitElement {
     const year: number = parseInt(splitDate[0], 10);
     const month: number = parseInt(splitDate[1], 10) - 1;
     const day: number = parseInt(splitDate[2], 10);
-    const hour: number = parseInt(splitTime[0], 10) - 1;
+    const hour: number = parseInt(splitTime[0], 10);
     const minutes: number = parseInt(splitTime[1], 10);
     const seconds = parseInt(splitTime[2].split('.')[0], 10);
 

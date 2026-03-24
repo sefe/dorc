@@ -287,11 +287,6 @@ namespace Dorc.Core
 
         private void AddComponent(ICollection<string> componentNames, ComponentApiModel component)
         {
-            if (!component.IsEnabled)
-            {
-                return;
-            }
-            
             _componentsPersistentSource.LoadChildren(component);
             foreach (var child in component.Children)
             {
@@ -301,8 +296,8 @@ namespace Dorc.Core
                 }
             }
 
-            // adding only leaf components
-            if (component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
+            // adding only enabled leaf components
+            if (component.IsEnabled && component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
             {
                 componentNames.Add(component.ComponentName);
             }

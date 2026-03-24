@@ -1,5 +1,4 @@
 import '@vaadin/button';
-import { Button } from '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/password-field';
@@ -21,11 +20,7 @@ export class VariableValueControls extends LitElement {
   @property({ type: Object })
   value!: PropertyValueDto;
 
-  @property({ type: Boolean }) editHidden = false;
-
-  @property({ type: Boolean }) saveHidden = true;
-
-  @property({ type: Boolean }) cancelHidden = true;
+  @property({ type: Boolean }) editing = false;
 
   @property({ type: String }) additionalInformation = '';
 
@@ -55,7 +50,7 @@ export class VariableValueControls extends LitElement {
             id="${`propValue${this.value?.Id}`}"
             value="Ex@mplePassw0rd"
             reveal-button-hidden
-            readonly
+            ?readonly="${!this.editing}"
             focus-target
             @value-changed="${(e: CustomEvent) => {
               const textField = e.detail as TextField;
@@ -65,7 +60,7 @@ export class VariableValueControls extends LitElement {
           ></vaadin-password-field>`
         : html` <vaadin-text-field
             id="${`propValue${this.value?.Id}`}"
-            readonly
+            ?readonly="${!this.editing}"
             focus-target
             .value="${this.value?.Value ?? ''}"
             @value-changed="${(e: CustomEvent) => {
@@ -81,7 +76,7 @@ export class VariableValueControls extends LitElement {
         theme="icon small"
         @click="${this._editClick}"
         ?disabled="${!this.value.UserEditable}"
-        ?hidden="${this.editHidden}"
+        ?hidden="${this.editing}"
       >
         <vaadin-icon
           icon="editor:mode-edit"
@@ -92,13 +87,13 @@ export class VariableValueControls extends LitElement {
         aria-label="Save"
         theme="primary"
         focus-target
-        ?hidden="${this.saveHidden}"
+        ?hidden="${!this.editing}"
         @click="${this._saveClick}"
         >Save</vaadin-button
       >
       <vaadin-button
         aria-label="Cancel"
-        ?hidden="${this.cancelHidden}"
+        ?hidden="${!this.editing}"
         @click="${this._cancelClick}"
         >Cancel</vaadin-button
       >
@@ -168,26 +163,28 @@ export class VariableValueControls extends LitElement {
     if (this.value.Property?.Secure) {
       textField.value = '';
     }
-    textField.readonly = false;
     textField.focus();
-    this.updateButtonsVisibility(true);
+    this.dispatchEvent(
+      new CustomEvent('editing-started', {
+        detail: { id: this.value?.Id },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   updateButtonsVisibility(editing: boolean) {
-    this.editHidden = editing;
-    this.saveHidden = !editing;
-    this.cancelHidden = !editing;
+    this.editing = editing;
   }
 
   _cancelClick() {
-    this.updateButtonsVisibility(false);
-    const edit = this.shadowRoot?.getElementById('edit') as Button;
-    edit.focus();
-
-    const textField = this.shadowRoot?.querySelector(
-      `#propValue${this.value?.Id}`
-    ) as unknown as TextField;
-    if (textField) textField.readonly = true;
+    this.dispatchEvent(
+      new CustomEvent('editing-cancelled', {
+        detail: { id: this.value?.Id },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   _saveClick() {
@@ -197,12 +194,13 @@ export class VariableValueControls extends LitElement {
         propertyValueDto: [this.value]
       })
       .subscribe(() => {
-        this._cancelClick();
-
-        const textField = this.shadowRoot?.querySelector(
-          `#propValue${this.value?.Id}`
-        ) as unknown as TextField;
-        if (textField) textField.readonly = true;
+        this.dispatchEvent(
+          new CustomEvent('editing-cancelled', {
+            detail: { id: this.value?.Id },
+            bubbles: true,
+            composed: true
+          })
+        );
         this.showSuccessMessage('Variable value saved successfully!');
       });
   }

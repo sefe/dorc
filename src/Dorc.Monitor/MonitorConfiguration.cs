@@ -242,6 +242,45 @@ namespace Dorc.Monitor
                 return configurationRoot.GetSection(appSettings)["Environment"] ?? "unknown";
             }
         }
+
+        public int MaxConcurrentDeployments
+        {
+            get
+            {
+                var maxStr = configurationRoot.GetSection(appSettings)["MaxConcurrentDeployments"];
+                if (int.TryParse(maxStr, out int max) && max > 0)
+                {
+                    return max;
+                }
+                return 0; // 0 means unlimited
+            }
+        }
+
+        public int LockAcquisitionTimeoutSeconds
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:LockAcquisitionTimeoutSeconds"];
+                if (int.TryParse(str, out int seconds) && seconds > 0)
+                {
+                    return seconds;
+                }
+                return 5; // Default 5 seconds
+            }
+        }
+
+        public int OAuthTokenRefreshCheckIntervalMinutes
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:OAuthTokenRefreshCheckIntervalMinutes"];
+                if (int.TryParse(str, out int minutes) && minutes > 0)
+                {
+                    return minutes;
+                }
+                return 15; // Default 15 minutes
+            }
+        }
     }
 
     internal class OAuthClientConfiguration : IOAuthClientConfiguration

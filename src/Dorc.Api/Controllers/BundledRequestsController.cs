@@ -1,9 +1,9 @@
-using System.Runtime.Versioning;
 using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Runtime.Versioning;
 
 namespace Dorc.Api.Controllers
 {
@@ -15,12 +15,16 @@ namespace Dorc.Api.Controllers
     {
         private readonly ILogger _logger;
         private readonly IBundledRequestsPersistentSource _bundledRequestsPersistentSource;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
-        public BundledRequestsController(ILogger<BundledRequestsController> logger,
-            IBundledRequestsPersistentSource bundledRequestsPersistentSource)
+        public BundledRequestsController(
+            ILogger<BundledRequestsController> logger,
+            IBundledRequestsPersistentSource bundledRequestsPersistentSource,
+            ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _bundledRequestsPersistentSource = bundledRequestsPersistentSource;
             _logger = logger;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
         }
 
         /// <summary>
@@ -89,7 +93,17 @@ namespace Dorc.Api.Controllers
                     return BadRequest("Invalid request data.");
                 }
 
-                // Assuming the persistent source has a method to add a new bundle
+                if (!model.ProjectId.HasValue)
+                {
+                    return BadRequest("ProjectId must be provided for bundled requests.");
+                }
+
+                // Check user has write/modify rights for the project
+                if (!_securityPrivilegesChecker.CanModifyProject(User, (int)model.ProjectId.Value))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                }
+
                 _bundledRequestsPersistentSource.AddRequestToBundle(model);
                 return Ok("Bundled request created successfully.");
             }
@@ -116,7 +130,17 @@ namespace Dorc.Api.Controllers
                     return BadRequest("Invalid request data.");
                 }
 
-                // Assuming the persistent source has a method to update a bundle
+                if (!model.ProjectId.HasValue)
+                {
+                    return BadRequest("ProjectId must be provided for bundled requests.");
+                }
+
+                // Check user has write/modify rights for the project
+                if (!_securityPrivilegesChecker.CanModifyProject(User, (int)model.ProjectId.Value))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                }
+
                 _bundledRequestsPersistentSource.UpdateRequestInBundle(model);
                 return Ok("Bundled request updated successfully.");
             }
@@ -138,6 +162,10 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                // Note: delete permission check is not changed here. If you need
+                // delete to be protected by project write rights, add a lookup
+                // for the bundle/project and check CanModifyProject like above.
+
                 // Call the persistent source to delete the bundled request by ID
                 _bundledRequestsPersistentSource.DeleteRequestFromBundle(id);
 
