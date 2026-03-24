@@ -103,15 +103,16 @@ export class DorcApp extends ShortcutsStore {
           style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px; color: black; white-space: nowrap" title="DevOps Orchestrator">
-          ${this.dorcEnv !== 'DORC PR 02' ? html`
-            ${this.dorcEnv} - This Is A Non Production Environment Of DOrc!
-          ` : ''}
-          ${this.dorcEnv == 'DORC PR 02' ? html`
-            DOrc
-          ` : ''}
-        </h2>
-
+        ${this.dorcEnv !== 'DORC PR 02' ? html`
+          <h2 style="padding: 5px; color: white; background: black; white-space: nowrap" title="DevOps Orchestrator">
+            ${this.dorcEnv} - You Are Using A Non-Prod DOrc Instance!
+          </h2>
+        ` : ''}
+        ${this.dorcEnv == 'DORC PR 02' ? html`
+            <h2 style="padding: 5px; color: black; white-space: nowrap" title="DevOps Orchestrator">
+              DOrc
+            </h2>
+        ` : ''}
         <div style="width: calc(100% - 800px)"></div>
         <table style="color: #747f8d; font-size: x-small">
           <tr>
