@@ -17,7 +17,7 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class RequestController : ControllerBase
     {
-        private readonly IRequestService _service;
+        private readonly IRequests _service;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly ILogger _log;
         private readonly IRequestsManager _requestsManager;
@@ -27,7 +27,7 @@ namespace Dorc.Api.Controllers
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IConfigurationSettings _configurationSettings;
 
-        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
+        public RequestController(IRequests service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
