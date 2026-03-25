@@ -33,4 +33,4 @@ new ApiConfigApi().apiConfigGet().subscribe({
     }
   },
   error: (err: string) => console.error(err)
-});
+}); 
