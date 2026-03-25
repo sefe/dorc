@@ -15,5 +15,6 @@
     [Components]     NVARCHAR (MAX)     NULL,
     [UNCLogPath]     NVARCHAR (1024)    NULL,
     [CancelledBy]    NVARCHAR (128)  NULL,
-    [CancelledTime]  DATETIMEOFFSET (7) NULL
+    [CancelledTime]  DATETIMEOFFSET (7) NULL,
+    [EnvironmentOwnerEmail] NVARCHAR (256) NULL
 )

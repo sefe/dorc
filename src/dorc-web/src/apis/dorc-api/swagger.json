@@ -7147,7 +7147,78 @@
           }
         }
       }
-    }
+    },
+    "/ScriptsAudit": {
+      "put": {
+        "tags": [
+          "ScriptsAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
   },
   "components": {
     "schemas": {
@@ -7792,6 +7863,10 @@
           },
           "UserEditable": {
             "type": "boolean"
+          },
+          "EnvironmentOwnerEmail": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8055,6 +8130,13 @@
             "type": "string",
             "nullable": true
           },
+          "EnvironmentOwnerEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
           "RestoredFromSourceDb": {
             "type": "string",
             "nullable": true
@@ -8299,6 +8381,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FlatPropertyValueApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetScriptsAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScriptAuditApiModel"
             },
             "nullable": true
           }
@@ -8937,6 +9044,49 @@
             "items": {
               "type": "string"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScriptAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ScriptId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "ScriptName": {
+            "type": "string",
+            "nullable": true
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Type": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectNames": {
+            "type": "string",
             "nullable": true
           }
         },

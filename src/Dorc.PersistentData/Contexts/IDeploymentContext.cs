@@ -28,6 +28,7 @@ namespace Dorc.PersistentData.Contexts
         DbSet<ConfigValue> ConfigValues { get; set; }
         DbSet<Audit> Audits { get; set; }
         DbSet<AuditProperty> AuditProperties { get; set; }
+        DbSet<AuditScript> AuditScripts { get; set; }
         DbSet<PropertyValueFilter> PropertyValueFilters { get; set; }
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
