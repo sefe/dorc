@@ -43,26 +43,4 @@ export class MetadataApi extends BaseAPI {
         }, opts?.responseOpts);
     };
 
-    /**
-     */
-    metadataIsProductionGet(): Observable<boolean>
-    metadataIsProductionGet(opts?: OperationOpts): Observable<AjaxResponse<boolean>>
-    metadataIsProductionGet(opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
-        const headers: HttpHeaders = {
-            // oauth required
-            ...(this.configuration.accessToken != null
-                ? { Authorization: typeof this.configuration.accessToken === 'function'
-                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
-                    : this.configuration.accessToken }
-                : undefined
-            ),
-        };
-
-        return this.request<boolean>({
-            url: '/Metadata/IsProduction',
-            method: 'GET',
-            headers,
-        }, opts?.responseOpts);
-    };
-
 }

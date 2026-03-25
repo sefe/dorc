@@ -1199,30 +1199,6 @@
         }
       }
     },
-    "/Metadata/IsProduction": {
-      "get": {
-        "tags": [
-          "Metadata"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/PowerShellVersions": {
       "get": {
         "tags": [
@@ -7406,6 +7382,9 @@
             "nullable": true
           },
           "PauseDeploymentEnabled": {
+            "type": "boolean"
+          },
+          "IsProduction": {
             "type": "boolean"
           }
         },
