@@ -135,6 +135,100 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
+        public void ValidateComponents_ComponentNameWithInvalidCharacters_ThrowsException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component\tWith\nTabs",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithCurlyBraces_ThrowsException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component{Invalid}",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithSquareBrackets_ThrowsException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component[0]",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithAllowedSpecialChars_NoException()
+        {
+            // Arrange - all allowed special characters
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "My-Component_v1.0 (test)",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert - Should not throw
+            _source.ValidateComponents(components, 1, HttpRequestType.Put);
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithPercent_ThrowsException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component%20Name",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+        }
+
+        [TestMethod]
         public void ValidateComponents_DuplicateComponentNames_ThrowsException()
         {
             // Arrange

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Component = Dorc.PersistentData.Model.Component;
 
 namespace Dorc.PersistentData.Sources
@@ -263,6 +264,7 @@ namespace Dorc.PersistentData.Sources
             {
                 ValidateAllComponentIdsAreZero(component, httpRequestType);
                 ValidateComponentNameAndIdAreNotEmpty(component);
+                ValidateComponentNameCharacters(component);
                 ValidateComponentIdsDoNotBelongToOtherProject(component, projectId);
                 ValidateComponentNameDoesNotBelongToDifferentProject(component, projectId);
                 ValidateNameLengthRestrictions(component);
@@ -639,6 +641,18 @@ namespace Dorc.PersistentData.Sources
 
             if (component.ComponentId != 0)
                 throw new ArgumentOutOfRangeException(nameof(component), "In a Post Call, all component ids should be 0");
+        }
+
+        private static readonly Regex AllowedComponentNameRegex = new(
+            @"^[a-zA-Z0-9 ,./?|:;'""<>()*&$#@!\-_=+]+$",
+            RegexOptions.Compiled);
+
+        private static void ValidateComponentNameCharacters(ComponentApiModel component)
+        {
+            if (!AllowedComponentNameRegex.IsMatch(component.ComponentName))
+                throw new ArgumentOutOfRangeException(nameof(component),
+                    "Component '" + component.ComponentName +
+                    "' contains invalid characters. Only alphanumeric characters, spaces, and the following symbols are allowed: ,./?|:;'\"<>()*&$#@!-_=+");
         }
 
         private static void ValidateNameLengthRestrictions(ComponentApiModel component)
