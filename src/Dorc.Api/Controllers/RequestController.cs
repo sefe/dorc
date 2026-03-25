@@ -465,16 +465,14 @@ namespace Dorc.Api.Controllers
                 var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
                 if (environment == null)
                 {
-                    _log.LogWarning("Unable to resolve environment '{EnvironmentName}' for storing owner email on request {RequestId}",
-                        environmentName, requestId);
+                    _log.LogWarning("Unable to resolve environment for storing owner email");
                     return;
                 }
 
                 var ownerIds = _environmentsPersistentSource.GetEnvironmentOwnerIds(environment.EnvironmentId);
                 if (ownerIds.Count == 0)
                 {
-                    _log.LogWarning("No owners found for environment '{EnvironmentName}' on request {RequestId}",
-                        environmentName, requestId);
+                    _log.LogWarning("No owners found for environment");
                     return;
                 }
 
@@ -491,8 +489,7 @@ namespace Dorc.Api.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _log.LogWarning(ex, "Failed to resolve owner email for owner ID '{OwnerId}' in '{EnvironmentName}'",
-                            ownerId, environmentName);
+                        _log.LogWarning(ex, "Failed to resolve owner email");
                     }
                 }
 
@@ -503,8 +500,7 @@ namespace Dorc.Api.Controllers
                 }
                 else
                 {
-                    _log.LogWarning("No email addresses found for environment owners of '{EnvironmentName}', request {RequestId}",
-                        environmentName, requestId);
+                    _log.LogWarning("No email addresses found for environment owners");
                 }
             }
             catch (Exception e)
