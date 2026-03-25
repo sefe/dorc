@@ -333,7 +333,10 @@ namespace Dorc.PersistentData.Sources
                     .ExecuteUpdate(setters => setters
                         .SetProperty(r => r.Status, toStatus.ToString()));
 
-                deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                if (rowsAffected > 0)
+                {
+                    deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                }
 
                 return rowsAffected;
             }

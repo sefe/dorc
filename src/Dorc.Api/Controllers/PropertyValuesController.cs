@@ -142,7 +142,10 @@ namespace Dorc.Api.Controllers
             try
             {
                 var propertyValues = _propertyValuesService.GetPropertyValues(propertyName, environmentName,
-                    User).ToArray();
+                    User)
+                    .OrderBy(pv => !string.IsNullOrEmpty(pv.PropertyValueFilter))
+                    .ThenBy(pv => pv.PropertyValueFilter)
+                    .ToArray();
                 if (!propertyValues.Any())
                 {
                     return NotFound();

@@ -33,6 +33,11 @@ export class EnvControls extends LitElement {
 
   protected updated(changedProperties: Map<string, unknown>) {
     super.updated(changedProperties);
+    // Reset owner check when environment changes (grid row recycling)
+    if (changedProperties.has('envDetails')) {
+      this.ownerCheckDone = false;
+      this.isOwner = false;
+    }
     // Only check ownership if not admin/poweruser and we haven't checked yet
     if (
       !this.isAdmin &&

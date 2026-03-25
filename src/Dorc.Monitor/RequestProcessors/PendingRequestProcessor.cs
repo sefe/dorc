@@ -241,6 +241,12 @@ namespace Dorc.Monitor.RequestProcessors
                         }
                     }
 
+                    if (deploymentRequestStatus != DeploymentRequestStatus.Completed &&
+                        deploymentRequestStatus != DeploymentRequestStatus.WaitingConfirmation)
+                    {
+                        CancelPendingDeploymentResults(requestToExecute.Request.Id, deploymentRequestStatus);
+                    }
+
                     requestsPersistentSource.SetRequestCompletionStatus(
                         requestToExecute.Request.Id,
                         deploymentRequestStatus,
@@ -269,6 +275,9 @@ namespace Dorc.Monitor.RequestProcessors
                     }
                     logger.LogError(log.ToString());
                     criticalLogBuilder.AppendLine(log.ToString());
+
+                    CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+
                     requestsPersistentSource.SetRequestCompletionStatus(
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored,
@@ -289,6 +298,8 @@ namespace Dorc.Monitor.RequestProcessors
                 logger.LogError($"Failed while starting runner: {e}");
                 criticalLogBuilder.AppendLine($"Failed while starting runner: {e}");
 
+                CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+
                 requestsPersistentSource.UpdateRequestStatus(
                     requestToExecute.Request.Id,
                     DeploymentRequestStatus.Errored,
@@ -302,6 +313,43 @@ namespace Dorc.Monitor.RequestProcessors
                 });
 
                 return;
+            }
+        }
+
+        private void CancelPendingDeploymentResults(int requestId, DeploymentRequestStatus requestStatus)
+        {
+            try
+            {
+                var pendingResults = requestsPersistentSource
+                    .GetDeploymentResultsForRequest(requestId)
+                    .Where(r => r.Status == DeploymentResultStatus.Pending.ToString())
+                    .ToList();
+
+                if (pendingResults.Count == 0)
+                    return;
+
+                logger.LogInformation(
+                    "Cancelling {Count} pending deployment results for request {RequestId} due to request status '{Status}'.",
+                    pendingResults.Count, requestId, requestStatus);
+
+                foreach (var pendingResult in pendingResults)
+                {
+                    requestsPersistentSource.UpdateResultStatus(pendingResult, DeploymentResultStatus.Cancelled);
+
+                    eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
+                    {
+                        Status = DeploymentResultStatus.Cancelled.ToString()
+                    });
+                }
+
+                logger.LogInformation(
+                    "Cancelled {Count} pending deployment results for request {RequestId}.",
+                    pendingResults.Count, requestId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to cancel pending deployment results for request {RequestId}.", requestId);
             }
         }
 
