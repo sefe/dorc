@@ -13,18 +13,15 @@ namespace Dorc.PersistentData.Sources
     public class ScriptsPersistentSource : IScriptsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILogger<ScriptsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader,
             IScriptsAuditPersistentSource scriptsAuditPersistentSource
             )
         {
-            _logger = logger;
             _contextFactory = contextFactory;
             _claimsPrincipalReader = claimsPrincipalReader;
             _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
@@ -146,8 +143,6 @@ namespace Dorc.PersistentData.Sources
                     .Select(p => p.Name)
                     .Distinct());
 
-                _logger.LogWarning(
-                    $"Script {script.Name} {script.InstallScriptName} updated from {oldIsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
 
                 // Build from/to value strings for audit
                 var fromValue = $"Name={oldApiModel?.Name}; Path={oldApiModel?.Path}; NonProdOnly={oldApiModel?.NonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldApiModel?.PowerShellVersionNumber}";
