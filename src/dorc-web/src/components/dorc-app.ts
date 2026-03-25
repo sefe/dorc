@@ -84,6 +84,7 @@ export class DorcApp extends ShortcutsStore {
   @property() userEmail = '';
   @property() userRoles = '';
   @property() dorcEnv = '';
+  @property({ type: Boolean }) isProduction = false;
 
   @query('#splitter') splitter!: HTMLDivElement;
 
@@ -103,12 +104,12 @@ export class DorcApp extends ShortcutsStore {
           style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        ${this.dorcEnv !== 'DOrc PR 02' ? html`
+        ${!this.isProduction ? html`
           <h2 style="padding: 5px; color: white; background: black; white-space: nowrap" title="DevOps Orchestrator">
             ${this.dorcEnv} - You Are Using A Non-Prod DOrc Instance!
           </h2>
         ` : ''}
-        ${this.dorcEnv == 'DOrc PR 02' ? html`
+        ${this.isProduction ? html`
             <h2 style="padding: 5px; color: black; white-space: nowrap" title="DevOps Orchestrator">
               DOrc
             </h2>
@@ -149,6 +150,7 @@ export class DorcApp extends ShortcutsStore {
     this.getUserEmail();
     this.getUserRoles();
     this.getDorcEnv();
+    this.getIsProduction();
     this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
@@ -206,6 +208,16 @@ export class DorcApp extends ShortcutsStore {
     api.metadataGet().subscribe({
       next: (data: string) => {
         this.dorcEnv = data.split('-')[0].trim();
+      },
+      error: (err: string) => console.error(err)
+    });
+  }
+
+  private getIsProduction() {
+    const api = new MetadataApi();
+    api.metadataIsProductionGet().subscribe({
+      next: (data: boolean) => {
+        this.isProduction = data;
       },
       error: (err: string) => console.error(err)
     });
