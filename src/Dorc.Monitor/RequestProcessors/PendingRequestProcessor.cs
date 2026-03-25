@@ -97,6 +97,8 @@ namespace Dorc.Monitor.RequestProcessors
 
                     SetUpEnvironmentAsProperty(environment);
 
+                    SetUpEnvOwnerEmailAsProperty(requestToExecute.Request);
+
                     SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
                     InitializeDeploymentRequest(
@@ -497,6 +499,29 @@ namespace Dorc.Monitor.RequestProcessors
             propertyValuesPersistentSource.AddEnvironmentFilter(environmentName);
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environmentName);
-        }        
+        }
+
+        private void SetUpEnvOwnerEmailAsProperty(DeploymentRequestApiModel request)
+        {
+            var envOwnerEmail = request.EnvironmentOwnerEmail;
+
+            if (string.IsNullOrEmpty(envOwnerEmail))
+            {
+                var freshRequest = requestsPersistentSource.GetRequest(request.Id);
+                envOwnerEmail = freshRequest?.EnvironmentOwnerEmail;
+            }
+
+            if (!string.IsNullOrEmpty(envOwnerEmail))
+            {
+                _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails, envOwnerEmail);
+                logger.LogInformation("Set EnvOwnerEmails property to '{EnvOwnerEmails}' for request {RequestId}",
+                    envOwnerEmail, request.Id);
+            }
+            else
+            {
+                logger.LogWarning("EnvironmentOwnerEmails is not set on request {RequestId}, EnvOwnerEmails property will not be available.",
+                    request.Id);
+            }
+        }
     }
 }

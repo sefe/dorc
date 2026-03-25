@@ -26,13 +26,17 @@ namespace Dorc.Api.Controllers
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IConfigurationSettings _configurationSettings;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IActiveDirectorySearcher _directorySearcher;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
-            IConfigurationSettings configurationSettings
+            IConfigurationSettings configurationSettings,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDirectorySearcherFactory directorySearcherFactory
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -44,6 +48,8 @@ namespace Dorc.Api.Controllers
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
             _configurationSettings = configurationSettings;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
         }
 
         /// <summary>
@@ -434,6 +440,8 @@ namespace Dorc.Api.Controllers
 
                     _log.LogInformation($"Request {result.Id} created");
 
+                    StoreEnvironmentOwnerEmail(result.Id, requestDto.Environment);
+
                     return Ok(result);
                 }
                 catch (Exception e)
@@ -447,6 +455,57 @@ namespace Dorc.Api.Controllers
                 _log.LogError(e, "api/Request/post");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
+            }
+        }
+
+        private void StoreEnvironmentOwnerEmail(int requestId, string environmentName)
+        {
+            try
+            {
+                var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
+                if (environment == null)
+                {
+                    _log.LogWarning("Unable to resolve environment for storing owner email");
+                    return;
+                }
+
+                var ownerIds = _environmentsPersistentSource.GetEnvironmentOwnerIds(environment.EnvironmentId);
+                if (ownerIds.Count == 0)
+                {
+                    _log.LogWarning("No owners found for environment");
+                    return;
+                }
+
+                var emails = new List<string>();
+                foreach (var ownerId in ownerIds)
+                {
+                    try
+                    {
+                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        if (!string.IsNullOrEmpty(ownerData?.Email))
+                        {
+                            emails.Add(ownerData.Email);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.LogWarning(ex, "Failed to resolve owner email");
+                    }
+                }
+
+                if (emails.Count > 0)
+                {
+                    _requestsPersistentSource.UpdateEnvironmentOwnerEmail(requestId, string.Join(";", emails));
+                    _log.LogInformation("Stored environment owner email(s) for request {RequestId}", requestId);
+                }
+                else
+                {
+                    _log.LogWarning("No email addresses found for environment owners");
+                }
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "Failed to store environment owner email for request {RequestId}", requestId);
             }
         }
     }
