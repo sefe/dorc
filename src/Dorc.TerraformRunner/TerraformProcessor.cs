@@ -41,7 +41,7 @@ namespace Dorc.TerraformRunner
             this.logger.SetDeploymentResultId(deployResultId);
 
             logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
-            
+
             var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroupProperties, cancellationToken);
 
             try
@@ -76,9 +76,9 @@ namespace Dorc.TerraformRunner
 
             // Get the appropriate provider for the source type
             var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
-            
+
             logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
-            
+
             // Provision the code using the selected provider
             await provider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken);
 
@@ -103,20 +103,20 @@ namespace Dorc.TerraformRunner
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-                        
+
             try
             {
                 // Initialize Terraform if needed
                 await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
-                
+
                 // Create Terraform variables file
                 await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
-                
+
                 // Generate the plan
                 var planArgs = $"plan -out={resultFilePath} -detailed-exitcode -no-color";
-                
+
                 var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
-                
+
                 // Get human-readable plan output
                 var showArgs = $"show {resultFilePath} -no-color";
                 var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
@@ -124,7 +124,7 @@ namespace Dorc.TerraformRunner
                 {
                     File.WriteAllText(planContentFilePath, planContent);
                 }
-                
+
                 logger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
             }
@@ -135,8 +135,8 @@ namespace Dorc.TerraformRunner
         }
 
         private async Task CreateTerraformVariablesFileAsync(
-            string workingDir, 
-            IDictionary<string, VariableValue> properties, 
+            string workingDir,
+            IDictionary<string, VariableValue> properties,
             CancellationToken cancellationToken)
         {
             var variablesContent = new StringBuilder();
@@ -175,8 +175,8 @@ namespace Dorc.TerraformRunner
         }
 
         private async Task<string> RunTerraformCommandAsync(
-            string workingDir, 
-            string arguments, 
+            string workingDir,
+            string arguments,
             CancellationToken cancellationToken)
         {
             using var process = new System.Diagnostics.Process();
@@ -195,6 +195,7 @@ namespace Dorc.TerraformRunner
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
+                    logger.Information($"terraform:{e.Data}");
                     outputBuilder.AppendLine(e.Data);
                 }
             };
@@ -258,7 +259,7 @@ namespace Dorc.TerraformRunner
                 throw new InvalidOperationException(errorMessage);
             }
 
-            logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
+            logger.Information($"Terraform command {tfCommand} completed successfully.");
             return output;
         }
 
