@@ -48,7 +48,7 @@ export class ShortcutsStore extends LitElement {
   environmentDeleted(e: CustomEvent) {
     this.dorcNavbar?.closeEnvDetail(e);
 
-    const path = '/projects';
+    const path = '/environments';
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);

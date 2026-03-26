@@ -21,11 +21,13 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
 
-        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource)
+        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptsAuditPersistentSource scriptsAuditPersistentSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _contextFactory = contextFactory;
+            _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
         }
 
         public void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel)
@@ -223,13 +225,13 @@ namespace Dorc.PersistentData.Sources
         }
 
         public void TraverseComponents(IEnumerable<ComponentApiModel> components, int? parentId, int projectId,
-            Action<ComponentApiModel, int, int?> action)
+            Action<ComponentApiModel, int, int?, string> action, string username)
         {
             if (components == null) return;
             foreach (var component in components)
             {
-                action(component, projectId, parentId);
-                TraverseComponents(component.Children, component.ComponentId, projectId, action);
+                action(component, projectId, parentId, username);
+                TraverseComponents(component.Children, component.ComponentId, projectId, action, username);
             }
         }
         public void TraverseComponents(IEnumerable<ComponentApiModel> components, int projectId,
@@ -271,7 +273,7 @@ namespace Dorc.PersistentData.Sources
             ValidateNoDuplicateComponentIdsOrNames(flattenedComponents);
         }
 
-        public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId)
+        public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 using (var context = _contextFactory.GetContext())
@@ -330,10 +332,19 @@ namespace Dorc.PersistentData.Sources
                     context.Components.Add(component);
                     context.SaveChanges();
                     apiComponent.ComponentId = component.Id;
+
+                    if (component.Script != null)
+                    {
+                        var projectName = context.Projects.First(x => x.Id == projectId).Name;
+                        var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                        _scriptsAuditPersistentSource.AddRecord(
+                            component.Script.Id, component.Script.Name, string.Empty, toValue,
+                            username, "Insert", projectName);
+                    }
                 }
         }
 
-        public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId)
+        public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 return;
@@ -347,11 +358,20 @@ namespace Dorc.PersistentData.Sources
                     .Include(c => c.Parent)
                     .First(x => x.Id == apiComponent.ComponentId);
 
-                if (component.Projects.Count == 0)
+                var wasOrphaned = component.Projects.Count == 0;
+
+                if (wasOrphaned)
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
 
                 DuplicateComponent(apiComponent, component, context); // if name is changed to existing name, rename existing one
+
+                var oldScriptName = component.Script?.Name;
+                var oldScriptPath = component.Script?.Path;
+                var oldNonProdOnly = component.Script?.NonProdOnly;
+                var oldIsEnabled = component.IsEnabled;
+                var oldPsVersion = component.Script?.PowerShellVersionNumber;
+                var hadScript = component.Script != null;
 
                 component.Name = apiComponent.ComponentName;
                 component.StopOnFailure = apiComponent.StopOnFailure;
@@ -467,6 +487,37 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 context.SaveChanges();
+
+                var projectNames = string.Join(", ", component.Projects.Select(p => p.Name).Distinct());
+                if (wasOrphaned && component.Script != null)
+                {
+                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        component.Script.Id, component.Script.Name, string.Empty, toValue,
+                        username, "Insert", projectNames);
+                }
+                else if (hadScript && component.Script != null)
+                {
+                    var fromValue = $"Name={oldScriptName}; Path={oldScriptPath}; NonProdOnly={oldNonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldPsVersion}";
+                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        component.Script.Id, component.Script.Name, fromValue, toValue,
+                        username, "Update", projectNames);
+                }
+                else if (!hadScript && component.Script != null)
+                {
+                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        component.Script.Id, component.Script.Name, string.Empty, toValue,
+                        username, "Insert", projectNames);
+                }
+                else if (hadScript && component.Script == null)
+                {
+                    var fromValue = $"Name={oldScriptName}; Path={oldScriptPath}; NonProdOnly={oldNonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldPsVersion}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        0, oldScriptName ?? string.Empty, fromValue, string.Empty,
+                        username, "Delete", projectNames);
+                }
             }
         }
 
@@ -505,14 +556,27 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
+        public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId, string username)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var components = context.Components.Include(c => c.Projects).Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
+                var components = context.Components
+                    .Include(c => c.Projects)
+                    .Include(c => c.Script)
+                    .Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
                 var componentsToDelete = components.Where(x => apiComponents.All(y => y.ComponentId != x.Id));
                 foreach (var component in componentsToDelete)
                 {
+                    var projectNames = string.Join(", ", component.Projects.Select(p => p.Name).Distinct());
+
+                    if (component.Script != null)
+                    {
+                        var fromValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                        _scriptsAuditPersistentSource.AddRecord(
+                            component.Script.Id, component.Script.Name, fromValue, string.Empty,
+                            username, "Delete", projectNames);
+                    }
+
                     component.Description = "ProjectId:" + projectId;
                     foreach (var project in component.Projects.ToArray())
                     {

@@ -33,6 +33,7 @@ export * from './GetPropertyValuesAuditListResponseDto';
 export * from './GetRefDataAuditListResponseDto';
 export * from './GetRequestStatusesListResponseDto';
 export * from './GetScopedPropertyValuesResponseDto';
+export * from './GetScriptsAuditListResponseDto'
 export * from './GetScriptsListResponseDto';
 export * from './GetServerApiModelListResponseDto';
 export * from './GroupApiModel';
@@ -59,6 +60,7 @@ export * from './RequestProperty';
 export * from './RequestStatusDto';
 export * from './Response';
 export * from './ScriptApiModel';
+export * from './ScriptAuditApiModel'
 export * from './ServerApiModel';
 export * from './ServerOperatingSystemApiModel';
 export * from './ServiceStatusApiModel';

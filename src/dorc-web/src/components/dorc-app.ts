@@ -2,7 +2,7 @@ import { css, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property, query } from 'lit/decorators.js';
 import '@vaadin/button';
-import { MakeLikeProdApi, RefDataRolesApi } from '../apis/dorc-api';
+import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
 import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
@@ -83,6 +83,7 @@ export class DorcApp extends ShortcutsStore {
 
   @property() userEmail = '';
   @property() userRoles = '';
+  @property() dorcEnv = '';
 
   @query('#splitter') splitter!: HTMLDivElement;
 
@@ -102,10 +103,16 @@ export class DorcApp extends ShortcutsStore {
           style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px;  color: black" title="DevOps Orchestrator">
-          DOrc
-        </h2>
-
+        ${!appConfig.isProduction ? html`
+          <h2 style="padding: 5px; color: white; background: black; white-space: nowrap" title="DevOps Orchestrator">
+            ${this.dorcEnv} - You Are Using A Non-Prod DOrc Instance!
+          </h2>
+        ` : ''}
+        ${appConfig.isProduction ? html`
+            <h2 style="padding: 5px; color: black; white-space: nowrap" title="DevOps Orchestrator">
+              DOrc
+            </h2>
+        ` : ''}
         <div style="width: calc(100% - 800px)"></div>
         <table style="color: #747f8d; font-size: x-small">
           <tr>
@@ -141,6 +148,7 @@ export class DorcApp extends ShortcutsStore {
     super();
     this.getUserEmail();
     this.getUserRoles();
+    this.getDorcEnv();
     this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
@@ -190,6 +198,16 @@ export class DorcApp extends ShortcutsStore {
         this.userEmail = value;
       },
       error: (err: string) => console.error(err),
+    });
+  }
+
+  private getDorcEnv() {
+    const api = new MetadataApi();
+    api.metadataGet().subscribe({
+      next: (data: string) => {
+        this.dorcEnv = data.split('-')[0].trim();
+      },
+      error: (err: string) => console.error(err)
     });
   }
 

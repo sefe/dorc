@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Versioning;
+using System.Security.Principal;
 using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
@@ -124,11 +125,12 @@ namespace Dorc.Api.Controllers
                 var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
                     .ToArray();
                 var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
+                
                 foreach (var existingId in existingIds)
                 {
                     if (!newIds.Contains(existingId))
                     {
-                        _accessControlPersistentSource.DeleteAccessControl(existingId);
+                        _accessControlPersistentSource.DeleteAccessControl(existingId, accessControl.ObjectId, User);
                     }
                 }
 
@@ -136,12 +138,11 @@ namespace Dorc.Api.Controllers
                 {
                     if (accessControlPrivilege.Id == 0)
                     {
-                        _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId);
+                        _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
                     }
-
-                    if (accessControlPrivilege.Id > 0)
+                    else if (accessControlPrivilege.Id > 0)
                     {
-                        _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege);
+                        _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
                     }
                 }
 
