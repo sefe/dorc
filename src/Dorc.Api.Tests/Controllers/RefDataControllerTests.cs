@@ -156,7 +156,7 @@ namespace Dorc.Api.Tests.Controllers
                 null,
                 projectId,
                 Arg.Any<Action<ComponentApiModel, int, int?, string>>(),
-                "testuser");
+                "DOMAIN\\TestUser");
         }
 
         [TestMethod]
@@ -301,7 +301,7 @@ namespace Dorc.Api.Tests.Controllers
             _manageProjectsPersistentSource.Received(1).DeleteComponents(
                 Arg.Any<IList<ComponentApiModel>>(),
                 projectId,
-                "testuser");
+                "DOMAIN\\TestUser");
         }
 
         [TestMethod]
