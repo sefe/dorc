@@ -7454,6 +7454,9 @@
           },
           "PauseDeploymentEnabled": {
             "type": "boolean"
+          },
+          "IsProduction": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
