@@ -31,10 +31,10 @@ export class DatabaseEnvControls extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
     };
     const editStyles = {
-      color: this.readonly ? 'grey' : 'cornflowerblue'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
@@ -66,7 +66,7 @@ export class DatabaseEnvControls extends LitElement {
       >
         <vaadin-icon
           icon="social:group"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
     `;

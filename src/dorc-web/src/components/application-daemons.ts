@@ -97,11 +97,11 @@ export class ApplicationDaemons extends LitElement {
     const daemon = model.item as ServiceStatusApiModel;
     const status = daemon?.ServiceStatus?.toLowerCase();
     if (status === 'running') {
-      root.style.color = 'green';
+      root.style.color = 'var(--dorc-success-bg)';
     } else if (status === 'stopped') {
-      root.style.color = 'black';
+      root.style.color = 'var(--dorc-text-primary)';
     } else {
-      root.style.color = 'red';
+      root.style.color = 'var(--dorc-error-color)';
     }
     render(
       html`<span>${daemon?.ServiceStatus}</span>`,

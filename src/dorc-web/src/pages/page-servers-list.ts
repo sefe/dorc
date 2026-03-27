@@ -76,7 +76,7 @@ export class PageServersList extends PageElement {
       vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-text-field {
         padding: 0;
@@ -107,8 +107,8 @@ export class PageServersList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -123,8 +123,8 @@ export class PageServersList extends PageElement {
       .tag {
         font-size: 14px;
         font-family: monospace;
-        background-color: cornflowerblue;
-        color: white;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
         display: inline-block;
         padding: 3px;
         margin: 3px;
@@ -133,8 +133,8 @@ export class PageServersList extends PageElement {
       }
 
       .tag:hover {
-        background-color: #444;
-        color: #fea40f;
+        background-color: var(--dorc-badge-bg);
+        color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
       }
@@ -160,7 +160,7 @@ export class PageServersList extends PageElement {
           --_lumo-button-background-color,
           var(--lumo-contrast-10pct)
         );
-        color: #fea40f;
+        color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
       }
@@ -239,7 +239,7 @@ export class PageServersList extends PageElement {
           path='Name'
           resizable
           .headerRenderer='${this.nameHeaderRenderer}'
-          style='color:lightgray'
+          style='color:var(--dorc-text-secondary)'
           auto-width
           flex-grow='0'
         ></vaadin-grid-column>
@@ -492,7 +492,7 @@ export class PageServersList extends PageElement {
         >
           <vaadin-icon
             icon="vaadin:server"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
           Add Server...
         </vaadin-button>

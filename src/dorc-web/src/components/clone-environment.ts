@@ -80,7 +80,7 @@ export class CloneEnvironment extends LitElement {
         padding: 0 10px;
       }
       .prod-badge {
-        color: #d32f2f;
+        color: var(--dorc-error-color);
         font-size: var(--lumo-font-size-s);
         margin-left: 8px;
       }
@@ -100,7 +100,7 @@ export class CloneEnvironment extends LitElement {
             <td>
               <vaadin-icon
                 icon="vaadin:copy-o"
-                style="color: cornflowerblue"
+                style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </td>
             <td>
@@ -126,7 +126,7 @@ export class CloneEnvironment extends LitElement {
           ></vaadin-text-field>
 
           <div
-            style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding: 12px; margin-top: 10px;"
+            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding: 12px; margin-top: 10px;"
           >
             <div style="font-weight: bold; margin-bottom: 8px;">
               Clone Options

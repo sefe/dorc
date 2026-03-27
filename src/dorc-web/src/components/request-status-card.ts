@@ -90,13 +90,13 @@ export class RequestStatusCard extends LitElement {
       }
 
       .card-element__heading {
-        color: black;
+        color: var(--dorc-text-primary);
         margin-top: 0px;
         margin-bottom: 0px;
       }
 
       .card-element__text {
-        color: gray;
+        color: var(--dorc-text-secondary);
         margin: 2px;
       }
 
@@ -121,8 +121,8 @@ export class RequestStatusCard extends LitElement {
       color:
         this.deployRequest?.Status === 'Failed' ||
         this.deployRequest?.Status === 'Errored'
-          ? 'red'
-          : 'gray'
+          ? 'var(--dorc-error-color)'
+          : 'var(--dorc-text-secondary)'
     };
     return html`
       <log-dialog
@@ -145,7 +145,7 @@ export class RequestStatusCard extends LitElement {
               >
                 <vaadin-icon
                   icon="icons:refresh"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
             </td>
@@ -164,7 +164,7 @@ export class RequestStatusCard extends LitElement {
                   >
                     <vaadin-icon
                       icon="notification:sms-failed"
-                      style="color: indianred"
+                      style="color: var(--dorc-error-color)"
                     ></vaadin-icon>
                   </vaadin-button>
                 </td>`
@@ -190,7 +190,7 @@ export class RequestStatusCard extends LitElement {
                 >
                   <vaadin-icon
                     icon="hardware:developer-board"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </h4>
@@ -295,7 +295,7 @@ export class RequestStatusCard extends LitElement {
                     >
                       <vaadin-icon
                         icon="icons:content-copy"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   </h4>

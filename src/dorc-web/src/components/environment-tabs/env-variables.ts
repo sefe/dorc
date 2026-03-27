@@ -84,7 +84,7 @@ export class EnvVariables extends PageEnvBase {
         height: 100%;
       }
       vaadin-grid#grid {
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
         width: 100%;
         height: 100%;
       }
@@ -137,8 +137,8 @@ export class EnvVariables extends PageEnvBase {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -171,7 +171,7 @@ export class EnvVariables extends PageEnvBase {
                 id="details"
                 opened
                 summary="Add Scoped Variable Value"
-                style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; width: 100%; margin: 0px;"
+                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%; margin: 0px;"
               >
                 <div
                   style="display: flex; flex-wrap: wrap; flex-direction: row"
