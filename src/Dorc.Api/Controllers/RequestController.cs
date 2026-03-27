@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using Dorc.OpenSearchData.Sources.Interfaces;
 
 namespace Dorc.Api.Controllers
 {
@@ -28,6 +29,7 @@ namespace Dorc.Api.Controllers
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IActiveDirectorySearcher _directorySearcher;
+        private readonly IDeploymentLogService _deploymentLogService;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
@@ -36,7 +38,8 @@ namespace Dorc.Api.Controllers
             IDeploymentEventsPublisher deploymentEventsPublisher,
             IConfigurationSettings configurationSettings,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IDirectorySearcherFactory directorySearcherFactory
+            IDirectorySearcherFactory directorySearcherFactory,
+            IDeploymentLogService deploymentLogService
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -50,6 +53,7 @@ namespace Dorc.Api.Controllers
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
             _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _deploymentLogService = deploymentLogService;
         }
 
         /// <summary>
@@ -226,6 +230,17 @@ namespace Dorc.Api.Controllers
                 {
                     try
                     {
+                        // Enrich deployment results with OpenSearch logs before archiving
+                        var deploymentResults = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
+                        _deploymentLogService.EnrichDeploymentResultsWithLogs(deploymentResults);
+                        foreach (var result in deploymentResults)
+                        {
+                            if (!string.IsNullOrEmpty(result.Log))
+                            {
+                                _requestsPersistentSource.UpdateResultLog(result, result.Log);
+                            }
+                        }
+
                         _requestsPersistentSource.ArchiveCurrentAttempt(requestId);
                     }
                     catch (Exception ex)
