@@ -114,7 +114,7 @@ export class PageEnvironmentHistory extends PageElement {
         <vaadin-grid-sort-column
           resizable
           path="Details"
-          header="Tfs Id"
+          header="Details"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           resizable

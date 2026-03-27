@@ -46,6 +46,7 @@ export default class AppConfig {
   }
 
   pauseDeploymentEnabled = false;
+  isProduction = false;
 }
 
 export const appConfig = new AppConfig();

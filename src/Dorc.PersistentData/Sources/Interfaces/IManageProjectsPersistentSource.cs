@@ -9,13 +9,13 @@ namespace Dorc.PersistentData.Sources.Interfaces
         void ValidateComponents(IList<ComponentApiModel> components, int projectId, HttpRequestType httpRequestType);
 
         void TraverseComponents(IEnumerable<ComponentApiModel> components, int? parentId, int projectId,
-            Action<ComponentApiModel, int, int?> action);
+            Action<ComponentApiModel, int, int?, string> action, string username);
 
-        void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId);
+        void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username);
 
-        void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId);
+        void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username);
 
-        void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId);
+        void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId, string username);
 
         void FlattenApiComponents(IEnumerable<ComponentApiModel> components,
             IList<ComponentApiModel> flattenedComponents);

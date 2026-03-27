@@ -56,6 +56,16 @@ export class ProjectControls extends LitElement {
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
+        title="Components"
+        theme="icon"
+        @click="${this.openComponents}"
+      >
+        <vaadin-icon
+          icon="vaadin:grid-big"
+          style="color: cornflowerblue"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
         title="Reference Data"
         theme="icon"
         @click="${this.openRefData}"
@@ -110,6 +120,18 @@ export class ProjectControls extends LitElement {
     });
     this.dispatchEvent(event);
   }
+
+  openComponents() {
+    const event = new CustomEvent('open-project-components', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
 
   openProjectMetadata() {
     const event = new CustomEvent('open-project-metadata', {

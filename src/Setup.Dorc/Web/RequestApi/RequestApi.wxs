@@ -73,6 +73,7 @@
 
 		<Json:JsonFile Id="ApiOtelUrl" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="PauseDeploymentEnabledApi" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="IsProductionApi" ElementPath="$.AppSettings.IsProduction" Value="False" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -135,6 +136,7 @@
 			<Json:JsonFile Id="AzureSignalRUseProd" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
 			<Json:JsonFile Id="AzureSignalRConnectionStringProd" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
 			<Json:JsonFile Id="PauseDeploymentEnabledApiProd" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="IsProductionApiProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#DeployApiWebConfig]" />
 	  </Component>
   </Fragment>
 </Wix>

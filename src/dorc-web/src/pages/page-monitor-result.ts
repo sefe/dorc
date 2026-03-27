@@ -41,6 +41,8 @@ const asUndef = (t: string | null | undefined): string | undefined => t ?? undef
 export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
   @property({ type: Boolean }) loading = true;
 
+  @property({ type: Boolean }) notFound = false;
+
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
 
@@ -154,11 +156,18 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    const resultId = location.pathname.substring(
-      location.pathname.lastIndexOf('/') + 1
+    const resultId = decodeURIComponent(
+      location.pathname.substring(location.pathname.lastIndexOf('/') + 1)
     );
-    this.requestId = Number.parseInt(decodeURIComponent(resultId), 10);
 
+    if (!/^\d+$/.test(resultId) || Number(resultId) > 2147483647 || Number(resultId) < 1) {
+      this.notFound = true;
+      this.loading = false;
+      this.showNotFoundError(`The deployment request '${resultId}' is not found.`);
+      return;
+    }
+
+    this.requestId = Number.parseInt(resultId, 10);
     this.refreshData();
 
     // Initialize SignalR connection for real-time updates scoped to this request
@@ -239,11 +248,22 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.deployRequest = normalised;
       },
       error: (err: any) => {
+        if (err.status === 404 || err.status === 400) {
+          this.notFound = true;
+          this.loading = false;
+          this.showNotFoundError(`The deployment request with id ${this.requestId} is not found.`);
+          return;
+        }
         const notification = new ErrorNotification();
-        notification.setAttribute('errorMessage', err.response);
+        notification.setAttribute(
+          'errorMessage',
+          typeof err.response === 'string'
+            ? err.response
+            : `Failed to load request ${this.requestId}`
+        );
         this.shadowRoot?.appendChild(notification);
         notification.open();
-        console.error(err);        
+        console.error(err);
       },
       complete: () => {
         console.log('done loading request');
@@ -347,7 +367,9 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   render() {
     return html`
-      ${this.loading
+      ${this.notFound
+        ? html``
+        : this.loading
         ? html`
             <div class="overlay" style="z-index: 2">
               <div class="overlay__inner">
@@ -378,6 +400,13 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
                 `}
           `}
     `;
+  }
+
+  private showNotFoundError(message: string) {
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
   }
 
   private refreshPage() {

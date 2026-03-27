@@ -33,6 +33,7 @@ namespace Dorc.Api.Controllers
         /// <param name="env">Environment Name</param>
         /// <returns>Json string with EnvironmentApiModel object or empty model if error occurred</returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<EnvironmentApiModel>))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet]
         public IActionResult Get(string env = "")
         {
@@ -40,6 +41,9 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status200OK, environmentsPersistentSource.GetEnvironments(User));
 
             var environmentApiModel = environmentsPersistentSource.GetEnvironment(env, User);
+
+            if (environmentApiModel == null)
+                return NotFound($"The environment '{env}' is not found.");
 
             return StatusCode(StatusCodes.Status200OK, new List<EnvironmentApiModel?> { environmentApiModel });
         }

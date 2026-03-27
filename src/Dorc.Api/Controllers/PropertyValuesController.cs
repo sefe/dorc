@@ -3,6 +3,7 @@ using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
+using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -22,17 +23,24 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
+        private readonly IActiveDirectorySearcher _directorySearcher;
+        private readonly ILogger<PropertyValuesController> _logger;
 
         public PropertyValuesController(IPropertyValuesService propertyValuesService,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
-            IEnvironmentsPersistentSource environmentsPersistentSource, IVariableScopeOptionsResolver variableScopeOptionsResolver)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IVariableScopeOptionsResolver variableScopeOptionsResolver,
+            IDirectorySearcherFactory directorySearcherFactory,
+            ILogger<PropertyValuesController> logger)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _environmentsPersistentSource = environmentsPersistentSource;
             _variableResolver = variableResolver;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyValuesService = propertyValuesService;
+            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _logger = logger;
         }
 
         /// <summary>
@@ -50,6 +58,7 @@ namespace Dorc.Api.Controllers
             var environment = _environmentsPersistentSource.GetEnvironment(propertyValueScope, User);
             if (environment is not null)
             {
+                EnrichEnvironmentOwnerEmails(environment);
                 _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
             }
 
@@ -69,6 +78,44 @@ namespace Dorc.Api.Controllers
                 }).ToList();
 
             return Ok(output);
+        }
+
+        private void EnrichEnvironmentOwnerEmails(EnvironmentApiModel environment)
+        {
+            try
+            {
+                var ownerIds = _environmentsPersistentSource.GetEnvironmentOwnerIds(environment.EnvironmentId);
+                if (ownerIds.Count == 0)
+                    return;
+
+                var emails = new List<string>();
+                foreach (var ownerId in ownerIds)
+                {
+                    try
+                    {
+                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        if (!string.IsNullOrEmpty(ownerData?.Email))
+                        {
+                            emails.Add(ownerData.Email);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to resolve owner email for owner ID '{OwnerId}' in '{EnvironmentName}'",
+                            ownerId, environment.EnvironmentName);
+                    }
+                }
+
+                if (emails.Count > 0)
+                {
+                    environment.Details!.EnvironmentOwnerEmails = emails;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve owner emails for '{EnvironmentName}'",
+                    environment.EnvironmentName);
+            }
         }
 
         private bool FilterOutNullAndEmpty(KeyValuePair<string, VariableValue> arg)
