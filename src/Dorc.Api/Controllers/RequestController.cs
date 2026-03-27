@@ -219,6 +219,8 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
+                // Archive the current attempt before restarting (skip for Cancelling/Cancelled
+                // since those may not have meaningful results to archive)
                 if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
                     && deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
                 {
@@ -230,12 +232,13 @@ namespace Dorc.Api.Controllers
                     {
                         _log.LogWarning(ex, "Failed to archive attempt for request {RequestId} before restart", requestId);
                     }
-
-                    _requestsPersistentSource.UpdateRequestStatus(
-                        requestId,
-                        DeploymentRequestStatus.Restarting,
-                        username);
                 }
+
+                // Always update status to Restarting so the Monitor picks it up
+                _requestsPersistentSource.UpdateRequestStatus(
+                    requestId,
+                    DeploymentRequestStatus.Restarting,
+                    username);
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
 
