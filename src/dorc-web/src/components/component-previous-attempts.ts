@@ -133,7 +133,7 @@ export class ComponentPreviousAttempts extends LitElement {
 
     return html`
       <div class="attempt-container">
-        <vaadin-details summary="Attempt ${attempt.AttemptNumber} - ${attempt.Status} (${attempt.ComponentResults?.length ?? 0} components)">
+        <vaadin-details summary="Attempt # ${attempt.AttemptNumber} - ${attempt.Status} (${attempt.ComponentResults?.length ?? 0} components)">
           <div class="attempt-header">
             <div class="attempt-header-item">
               <span class="attempt-header-label">Started:</span>

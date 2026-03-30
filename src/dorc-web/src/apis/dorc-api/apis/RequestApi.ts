@@ -46,6 +46,10 @@ export interface RequestGetRequest {
     id?: number;
 }
 
+export interface RequestPausePutRequest {
+    requestId?: number;
+}
+
 export interface RequestPostRequest {
     requestDto?: RequestDto;
 }
@@ -54,7 +58,16 @@ export interface RequestRequestIdAttemptsGetRequest {
     requestId: number;
 }
 
+export interface RequestRequestIdAttemptsLogGetRequest {
+    requestId: number;
+    deploymentResultId?: number;
+}
+
 export interface RequestRestartPostRequest {
+    requestId?: number;
+}
+
+export interface RequestResumePutRequest {
     requestId?: number;
 }
 
@@ -208,6 +221,34 @@ export class RequestApi extends BaseAPI {
 
     /**
      */
+    requestPausePut({ requestId }: RequestPausePutRequest): Observable<RequestStatusDto>
+    requestPausePut({ requestId }: RequestPausePutRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
+    requestPausePut({ requestId }: RequestPausePutRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (requestId != null) { query['requestId'] = requestId; }
+
+        return this.request<RequestStatusDto>({
+            url: '/Request/pause',
+            method: 'PUT',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     requestPost({ requestDto }: RequestPostRequest): Observable<RequestStatusDto>
     requestPost({ requestDto }: RequestPostRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
     requestPost({ requestDto }: RequestPostRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
@@ -257,6 +298,35 @@ export class RequestApi extends BaseAPI {
 
     /**
      */
+    requestRequestIdAttemptsLogGet({ requestId, deploymentResultId }: RequestRequestIdAttemptsLogGetRequest): Observable<string>
+    requestRequestIdAttemptsLogGet({ requestId, deploymentResultId }: RequestRequestIdAttemptsLogGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
+    requestRequestIdAttemptsLogGet({ requestId, deploymentResultId }: RequestRequestIdAttemptsLogGetRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+        throwIfNullOrUndefined(requestId, 'requestId', 'requestRequestIdAttemptsLogGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (deploymentResultId != null) { query['deploymentResultId'] = deploymentResultId; }
+
+        return this.request<string>({
+            url: '/Request/{requestId}/attempts/log'.replace('{requestId}', encodeURI(requestId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     requestRestartPost({ requestId }: RequestRestartPostRequest): Observable<RequestStatusDto>
     requestRestartPost({ requestId }: RequestRestartPostRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
     requestRestartPost({ requestId }: RequestRestartPostRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
@@ -278,6 +348,34 @@ export class RequestApi extends BaseAPI {
         return this.request<RequestStatusDto>({
             url: '/Request/restart',
             method: 'POST',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    requestResumePut({ requestId }: RequestResumePutRequest): Observable<RequestStatusDto>
+    requestResumePut({ requestId }: RequestResumePutRequest, opts?: OperationOpts): Observable<AjaxResponse<RequestStatusDto>>
+    requestResumePut({ requestId }: RequestResumePutRequest, opts?: OperationOpts): Observable<RequestStatusDto | AjaxResponse<RequestStatusDto>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (requestId != null) { query['requestId'] = requestId; }
+
+        return this.request<RequestStatusDto>({
+            url: '/Request/resume',
+            method: 'PUT',
             headers,
             query,
         }, opts?.responseOpts);
