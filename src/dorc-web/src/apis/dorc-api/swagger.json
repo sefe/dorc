@@ -1,6 +1,5 @@
 {
   "openapi": "3.0.4",
-  "openapi": "3.0.4",
   "info": {
     "title": "Dorc.Api",
     "version": "1.0"
@@ -6430,6 +6429,52 @@
         }
       }
     },
+    "/Request/{requestId}/attempts/log": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "deploymentResultId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/Request/cancel": {
       "put": {
         "tags": [
@@ -6974,6 +7019,77 @@
         }
       }
     },
+    "/ScriptsAudit": {
+      "put": {
+        "tags": [
+          "ScriptsAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ServerDaemons/{serverId}": {
       "get": {
         "tags": [
@@ -7192,78 +7308,7 @@
           }
         }
       }
-    },
-    "/ScriptsAudit": {
-      "put": {
-        "tags": [
-          "ScriptsAudit"
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          },
-          {
-            "name": "useAndLogic",
-            "in": "query",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
+    }
   },
   "components": {
     "schemas": {
@@ -8038,6 +8083,11 @@
           },
           "Status": {
             "type": "string",
+            "nullable": true
+          },
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           },
           "Log": {

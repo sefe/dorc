@@ -9,7 +9,7 @@ import { css, LitElement, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './log-dialog';
-import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel } from '../apis/dorc-api';
+import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
@@ -18,11 +18,17 @@ export class ComponentPreviousAttempts extends LitElement {
   @property({ type: Array })
   attemptItems: DeploymentRequestAttemptApiModel[] | undefined;
 
+  @property({ type: Number })
+  requestId: number | undefined;
+
   @state()
   dialogOpened = false;
 
   @state()
   selectedLog: string | undefined;
+
+  @state()
+  isLoadingLog = false;
 
   constructor() {
     super();
@@ -88,6 +94,7 @@ export class ComponentPreviousAttempts extends LitElement {
       <log-dialog
         .isOpened="${this.dialogOpened}"
         .selectedLog="${this.selectedLog}"
+        .isLoading="${this.isLoadingLog}"
       >
       </log-dialog>
 
@@ -288,11 +295,45 @@ export class ComponentPreviousAttempts extends LitElement {
   }
 
   private viewComponentLog(result: DeploymentResultAttemptApiModel) {
-    this.selectedLog = result.Log ?? 'No log available';
-    this.dialogOpened = true;
+    if (this.requestId && result.DeploymentResultId) {
+      // Show dialog immediately with loading state
+      this.isLoadingLog = true;
+      this.selectedLog = '';
+      this.dialogOpened = true;
+
+      try {
+        const api = new ResultStatusesApi();
+        const logObservable = api.resultStatusesLogGet({
+          requestId: this.requestId,
+          resultId: result.DeploymentResultId
+        });
+
+        logObservable.subscribe({
+          next: (fullLog: string) => {
+            this.selectedLog = fullLog;
+            this.isLoadingLog = false;
+          },
+          error: (error: any) => {
+            console.error('Failed to fetch log:', error);
+            // Fallback to the existing log snippet if API call fails
+            this.selectedLog = result.Log ?? 'Failed to load full log';
+            this.isLoadingLog = false;
+          }
+        });
+      } catch (error) {
+        console.error('Failed to create API instance:', error);
+        this.selectedLog = result.Log ?? 'Failed to load full log';
+        this.isLoadingLog = false;
+      }
+    } else {
+      // Fallback to the existing log snippet if no requestId or DeploymentResultId
+      this.selectedLog = result.Log ?? 'No log available';
+      this.dialogOpened = true;
+    }
   }
 
   private logDialogClosed() {
     this.dialogOpened = false;
+    this.isLoadingLog = false;
   }
 }

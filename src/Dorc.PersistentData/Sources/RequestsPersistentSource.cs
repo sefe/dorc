@@ -555,7 +555,10 @@ namespace Dorc.PersistentData.Sources
                 context.DeploymentRequestAttempts.Add(attempt);
                 context.SaveChanges();
 
-                // Archive the component results for this attempt
+                // Archive the component results for this attempt.
+                // Store the DeploymentResult.Id so logs can be fetched from OpenSearch on demand
+                // using (requestId, DeploymentResultId). Each restart creates new DeploymentResult
+                // rows with new auto-incremented IDs, so these never collide across attempts.
                 var componentResults = context.DeploymentResults
                     .Include(r => r.Component)
                     .Where(r => r.DeploymentRequest.Id == requestId)
@@ -571,7 +574,7 @@ namespace Dorc.PersistentData.Sources
                         StartedTime = result.StartedTime,
                         CompletedTime = result.CompletedTime,
                         Status = result.Status ?? "Unknown",
-                        Log = result.Log
+                        DeploymentResultId = result.Id
                     };
                     context.DeploymentResultAttempts.Add(resultAttempt);
                 }
@@ -608,7 +611,7 @@ namespace Dorc.PersistentData.Sources
                             StartedTime = r.StartedTime,
                             CompletedTime = r.CompletedTime,
                             Status = r.Status,
-                            Log = r.Log
+                            DeploymentResultId = r.DeploymentResultId
                         }).ToList()
                     })
                     .ToList();

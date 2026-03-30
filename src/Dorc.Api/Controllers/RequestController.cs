@@ -230,17 +230,9 @@ namespace Dorc.Api.Controllers
                 {
                     try
                     {
-                        // Enrich deployment results with OpenSearch logs before archiving
-                        var deploymentResults = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
-                        _deploymentLogService.EnrichDeploymentResultsWithLogs(deploymentResults);
-                        foreach (var result in deploymentResults)
-                        {
-                            if (!string.IsNullOrEmpty(result.Log))
-                            {
-                                _requestsPersistentSource.UpdateResultLog(result, result.Log);
-                            }
-                        }
-
+                        // No need to enrich logs from OpenSearch before archiving.
+                        // ArchiveCurrentAttempt stores the DeploymentResult.Id for each component,
+                        // and logs are fetched on demand from OpenSearch using (requestId, deploymentResultId).
                         _requestsPersistentSource.ArchiveCurrentAttempt(requestId);
                     }
                     catch (Exception ex)
@@ -292,6 +284,39 @@ namespace Dorc.Api.Controllers
                 }
 
                 var attempts = _requestsPersistentSource.GetAttemptsForRequest(requestId);
+
+                // Enrich component results with log snippets from OpenSearch
+                foreach (var attempt in attempts)
+                {
+                    var resultsWithDeploymentResultId = attempt.ComponentResults
+                        .Where(r => r.DeploymentResultId.HasValue)
+                        .ToList();
+
+                    if (resultsWithDeploymentResultId.Any())
+                    {
+                        // Create temporary DeploymentResultApiModel objects for the enrichment service
+                        var tempResults = resultsWithDeploymentResultId.Select(r => new DeploymentResultApiModel
+                        {
+                            Id = r.DeploymentResultId!.Value,
+                            RequestId = requestId,
+                            ComponentName = r.ComponentName
+                        }).ToList();
+
+                        _deploymentLogService.EnrichDeploymentResultsWithLogs(tempResults, 3);
+
+                        // Map the enriched logs back to the attempt results
+                        foreach (var tempResult in tempResults)
+                        {
+                            var attemptResult = resultsWithDeploymentResultId
+                                .FirstOrDefault(r => r.DeploymentResultId == tempResult.Id);
+                            if (attemptResult != null)
+                            {
+                                attemptResult.Log = tempResult.Log;
+                            }
+                        }
+                    }
+                }
+
                 return Ok(attempts);
             }
             catch (Exception e)
@@ -299,6 +324,45 @@ namespace Dorc.Api.Controllers
                 _log.LogError(e, "api/Request/{requestId}/attempts");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
+            }
+        }
+
+        /// <summary>
+        /// Gets the full log for a component result from a previous attempt, fetched from OpenSearch.
+        /// The deploymentResultId is the original DeploymentResult.Id captured at archive time.
+        /// OpenSearch retains logs indexed by (requestId, deploymentResultId) even after
+        /// DeploymentResult rows are deleted during restart.
+        /// </summary>
+        /// <param name="requestId">The deployment request ID</param>
+        /// <param name="deploymentResultId">The original DeploymentResult.Id stored in the attempt</param>
+        /// <returns>Full log text from OpenSearch</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [Route("{requestId}/attempts/log")]
+        [HttpGet]
+        public IActionResult GetAttemptResultLog(int requestId, int deploymentResultId)
+        {
+            try
+            {
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
+
+                var log = _deploymentLogService.GetLogsForSingleResult(requestId, deploymentResultId);
+
+                if (string.IsNullOrEmpty(log))
+                {
+                    return Ok("No logs found in OpenSearch for this result.");
+                }
+
+                return Ok(log);
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/{RequestId}/attempts/log?deploymentResultId={DeploymentResultId}", requestId, deploymentResultId);
+                return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
 

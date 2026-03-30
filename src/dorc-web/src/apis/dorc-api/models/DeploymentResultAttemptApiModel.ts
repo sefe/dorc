@@ -52,6 +52,11 @@ export interface DeploymentResultAttemptApiModel {
      */
     Status?: string | null;
     /**
+     * @type {number}
+     * @memberof DeploymentResultAttemptApiModel
+     */
+    DeploymentResultId?: number | null;
+    /**
      * @type {string}
      * @memberof DeploymentResultAttemptApiModel
      */

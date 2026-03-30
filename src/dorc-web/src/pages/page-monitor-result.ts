@@ -67,6 +67,13 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
       .overlay {
         width: 100%;
         height: 100%;
@@ -154,6 +161,12 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
       .vaadin-dialog-overlay {
         width: calc(100vw - (4 * var(--lumo-space-m)));
+      }
+
+      .results-section {
+        flex: 1 1 0;
+        overflow-y: auto;
+        min-height: 0;
       }
     `;
   }
@@ -390,31 +403,34 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
               .selectedProject="${this.selectedProject}"
               .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
-            ${!this.attemptsLoading && this.attemptItems && this.attemptItems.length > 0
-              ? html`
-                  <vaadin-details
-                    summary="Previous Attempts (${this.attemptItems.length})"
-                    style="border-top: 6px solid orange; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
-                  >
-                    <component-previous-attempts
-                      .attemptItems="${this.attemptItems}"
-                    ></component-previous-attempts>
-                  </vaadin-details>
-                `
-              : html``}
-            ${this.resultsLoading
-              ? html` <div class="small-loader"></div>`
-              : html`
-                  <vaadin-details
-                    opened
-                    summary="Deployment Component Results"
-                    style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
-                  >
-                    <component-deployment-results
-                      .resultItems="${this.resultItems}"
-                    ></component-deployment-results>
-                  </vaadin-details>
-                `}
+            <div class="results-section">
+              ${this.resultsLoading
+                ? html` <div class="small-loader"></div>`
+                : html`
+                    <vaadin-details
+                      opened
+                      summary="Deployment Component Results"
+                      style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
+                    >
+                      <component-deployment-results
+                        .resultItems="${this.resultItems}"
+                      ></component-deployment-results>
+                    </vaadin-details>
+                  `}
+              ${!this.attemptsLoading && this.attemptItems && this.attemptItems.length > 0
+                ? html`
+                    <vaadin-details
+                      summary="Previous Attempts (${this.attemptItems.length})"
+                      style="border-top: 6px solid orange; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
+                    >
+                      <component-previous-attempts
+                        .attemptItems="${this.attemptItems}"
+                        .requestId="${this.requestId}"
+                      ></component-previous-attempts>
+                    </vaadin-details>
+                  `
+                : html``}
+            </div>
           `}
     `;
   }

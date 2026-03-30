@@ -11,6 +11,7 @@ namespace Dorc.ApiModel
         public DateTimeOffset? StartedTime { get; set; }
         public DateTimeOffset? CompletedTime { get; set; }
         public string Status { get; set; }
+        public int? DeploymentResultId { get; set; }
         public string Log { get; set; }
     }
 }
