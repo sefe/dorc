@@ -86,10 +86,33 @@ export class ComponentPreviousAttempts extends LitElement {
       .component-results-grid {
         padding: 8px;
       }
+
+      .status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .status-waiting-confirmation {
+        background-color: var(--lumo-warning-color-10pct);
+        color: var(--lumo-warning-text-color);
+      }
+
+      .status-confirmed {
+        background-color: var(--lumo-success-color-10pct);
+        color: var(--lumo-success-text-color);
+      }
     `;
   }
 
   render() {
+    const sortedAttempts = this.attemptItems
+      ?.slice()
+      .sort((a, b) => (b.AttemptNumber ?? 0) - (a.AttemptNumber ?? 0));
+
     return html`
       <log-dialog
         .isOpened="${this.dialogOpened}"
@@ -98,7 +121,7 @@ export class ComponentPreviousAttempts extends LitElement {
       >
       </log-dialog>
 
-      ${this.attemptItems?.map(attempt => this.renderAttempt(attempt))}
+      ${sortedAttempts?.map(attempt => this.renderAttempt(attempt))}
     `;
   }
 
@@ -187,22 +210,28 @@ export class ComponentPreviousAttempts extends LitElement {
   ) {
     const result = model.item as DeploymentResultAttemptApiModel;
     render(
-      html`<a href="scripts?search-name=${result.ComponentName}" target="_blank" style="font-size: var(--lumo-font-size-s);">${result.ComponentName}</a>`,
+      html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `,
       root
     );
   }
 
-  componentStatusRenderer(
+  componentStatusRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<DeploymentResultAttemptApiModel>
-  ) {
+  ) => {
     const result = model.item as DeploymentResultAttemptApiModel;
+    const status = result.Status || '';
+
     render(
-      html`<span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${result.Status}</span>`,
+      html`
+        <span class="status-badge">
+          ${status}
+        </span>
+      `,
       root
     );
-  }
+  };
 
   componentTimingsRenderer = (
     root: HTMLElement,
@@ -215,17 +244,17 @@ export class ComponentPreviousAttempts extends LitElement {
     let cTime = '';
     let cDate = '';
 
-    if (result.StartedTime) {
-      sTime = new Date(result.StartedTime).toLocaleTimeString('en-GB');
-      sDate = new Date(result.StartedTime).toLocaleDateString('en-GB', {
+    if (result.StartedTime !== undefined && result.StartedTime !== null) {
+      sTime = new Date(result.StartedTime ?? '').toLocaleTimeString('en-GB');
+      sDate = new Date(result.StartedTime ?? '').toLocaleDateString('en-GB', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
     }
-    if (result.CompletedTime) {
-      cTime = new Date(result.CompletedTime).toLocaleTimeString('en-GB');
-      cDate = new Date(result.CompletedTime).toLocaleDateString('en-GB', {
+    if (result.CompletedTime !== undefined && result.CompletedTime !== null) {
+      cTime = new Date(result.CompletedTime ?? '').toLocaleTimeString('en-GB');
+      cDate = new Date(result.CompletedTime ?? '').toLocaleDateString('en-GB', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
@@ -234,14 +263,22 @@ export class ComponentPreviousAttempts extends LitElement {
 
     render(
       html`
-        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
-          <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">
-            ${`${sDate} ${sTime}`}
-          </div>
-          <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">
-            ${`${cDate} ${cTime}`}
-          </div>
-        </vaadin-vertical-layout>
+        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+          <vaadin-vertical-layout
+            style="line-height: var(--lumo-line-height-s);"
+          >
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${`${sDate} ${sTime}`}
+            </div>
+            <div
+              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+            >
+              ${`${cDate} ${cTime}`}
+            </div>
+          </vaadin-vertical-layout>
+        </vaadin-horizontal-layout>
       `,
       root
     );
@@ -257,34 +294,34 @@ export class ComponentPreviousAttempts extends LitElement {
     const lines = first100chars?.split(/\r?\n/);
 
     render(
-      html`
-        <table>
-          <tr>
-            <td>
-              <vaadin-button
-                theme="small"
-                style="width: 36px; min-width: 36px; padding: 0"
-                @click="${() => this.viewComponentLog(result)}"
-              >
-                <vaadin-icon
-                  icon="vaadin:ellipsis-dots-h"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
-              </vaadin-button>
-            </td>
-            <td>
-              <div style="font-family: monospace">
-                ${lines?.map(
-                  element =>
-                    html`<div style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);">
-                      ${element}
-                    </div>`
-                )}
-              </div>
-            </td>
-          </tr>
-        </table>
-      `,
+      html` <table>
+        <tr>
+          <td>
+            <vaadin-button
+              theme="small"
+              style="width: 36px; min-width: 36px; padding: 0"
+              @click="${() => this.viewComponentLog(result)}"
+            >
+              <vaadin-icon
+                icon="vaadin:ellipsis-dots-h"
+                style="color: cornflowerblue"
+              ></vaadin-icon>
+            </vaadin-button>
+          </td>
+          <td>
+            <div style="font-family: monospace">
+              ${lines?.map(
+                element =>
+                  html`<div
+                    style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                  >
+                    ${element}
+                  </div>`
+              )}
+            </div>
+          </td>
+        </tr>
+      </table>`,
       root
     );
   };

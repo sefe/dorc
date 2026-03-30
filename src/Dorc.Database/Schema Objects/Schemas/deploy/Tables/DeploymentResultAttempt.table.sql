@@ -6,6 +6,7 @@ CREATE TABLE [deploy].[DeploymentResultAttempt] (
     [StartedTime]                 DATETIMEOFFSET (7) NULL,
     [CompletedTime]               DATETIMEOFFSET (7) NULL,
     [Status]                      NVARCHAR (32)      NOT NULL,
+    [DeploymentResultId]                 INT                NOT NULL,
     [Log]                         NVARCHAR (MAX)     NULL,
     CONSTRAINT [PK_DeploymentResultAttempt] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_DeploymentResultAttempt_DeploymentRequestAttempt] FOREIGN KEY ([DeploymentRequestAttemptId]) REFERENCES [deploy].[DeploymentRequestAttempt] ([Id]) ON DELETE CASCADE

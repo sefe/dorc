@@ -223,22 +223,14 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
-                // Archive the current attempt before restarting (skip for Cancelling/Cancelled
-                // since those may not have meaningful results to archive)
-                if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
-                    && deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
+                // Archive the current attempt before restarting
+                try
                 {
-                    try
-                    {
-                        // No need to enrich logs from OpenSearch before archiving.
-                        // ArchiveCurrentAttempt stores the DeploymentResult.Id for each component,
-                        // and logs are fetched on demand from OpenSearch using (requestId, deploymentResultId).
-                        _requestsPersistentSource.ArchiveCurrentAttempt(requestId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _log.LogWarning(ex, "Failed to archive attempt for request {RequestId} before restart", requestId);
-                    }
+                    _requestsPersistentSource.ArchiveCurrentAttempt(requestId);
+                }
+                catch (Exception ex)
+                {
+                    _log.LogWarning(ex, "Failed to archive attempt for request {RequestId} before restart", requestId);
                 }
 
                 // Always update status to Restarting so the Monitor picks it up
