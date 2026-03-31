@@ -544,10 +544,19 @@ namespace Dorc.PersistentData.Sources
 
                 var currentResultIds = componentResults.Select(r => r.Id).ToList();
                 var alreadyArchived = context.DeploymentResultAttempts
-                    .Any(ra => ra.DeploymentResultId.HasValue && currentResultIds.Contains(ra.DeploymentResultId.Value));
+                    .Any(ra => ra.DeploymentResultId.HasValue
+                        && currentResultIds.Contains(ra.DeploymentResultId.Value));
 
                 if (alreadyArchived)
                     return;
+
+                var archivedStatus = request.Status switch
+                {
+                    "Running" or "Requesting" or "Restarting" => "Cancelled",
+                    "Cancelling" => "Cancelled",
+                    "Pending" or "Paused" => "Cancelled",
+                    _ => request.Status
+                };
 
                 var maxAttempt = context.DeploymentRequestAttempts
                     .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
@@ -560,8 +569,8 @@ namespace Dorc.PersistentData.Sources
                     DeploymentRequest = request,
                     AttemptNumber = attemptNumber,
                     StartedTime = request.StartedTime,
-                    CompletedTime = request.CompletedTime,
-                    Status = request.Status,
+                    CompletedTime = request.CompletedTime ?? DateTimeOffset.UtcNow,
+                    Status = archivedStatus,
                     Log = request.Log,
                     UserName = request.UserName
                 };
