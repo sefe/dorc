@@ -534,7 +534,21 @@ namespace Dorc.PersistentData.Sources
                 if (request == null)
                     return;
 
-                // Calculate attempt number within the same context to avoid entity tracking issues
+                var componentResults = context.DeploymentResults
+                    .Include(r => r.Component)
+                    .Where(r => r.DeploymentRequest.Id == requestId)
+                    .ToList();
+
+                if (componentResults.Count == 0)
+                    return;
+
+                var currentResultIds = componentResults.Select(r => r.Id).ToList();
+                var alreadyArchived = context.DeploymentResultAttempts
+                    .Any(ra => ra.DeploymentResultId.HasValue && currentResultIds.Contains(ra.DeploymentResultId.Value));
+
+                if (alreadyArchived)
+                    return;
+
                 var maxAttempt = context.DeploymentRequestAttempts
                     .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
                     .Select(a => (int?)a.AttemptNumber)
@@ -554,15 +568,6 @@ namespace Dorc.PersistentData.Sources
 
                 context.DeploymentRequestAttempts.Add(attempt);
                 context.SaveChanges();
-
-                // Archive the component results for this attempt.
-                // Store the DeploymentResult.Id so logs can be fetched from OpenSearch on demand
-                // using (requestId, DeploymentResultId). Each restart creates new DeploymentResult
-                // rows with new auto-incremented IDs, so these never collide across attempts.
-                var componentResults = context.DeploymentResults
-                    .Include(r => r.Component)
-                    .Where(r => r.DeploymentRequest.Id == requestId)
-                    .ToList();
 
                 foreach (var result in componentResults)
                 {
