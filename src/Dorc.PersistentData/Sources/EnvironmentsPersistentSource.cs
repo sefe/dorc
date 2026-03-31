@@ -151,18 +151,19 @@ namespace Dorc.PersistentData.Sources
                 if (env == null) return false;
 
                 var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
-                var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
-                if (ownerAccess == null) return false;
+                var ownerAccessList = permissions.Where(p => p.Allow.HasAccessLevel(AccessLevel.Owner)).ToList();
+                if (ownerAccessList.Count == 0) return false;
 
                 string userId = _claimsPrincipalReader.GetUserId(user);
                 string userlogin = _claimsPrincipalReader.GetUserLogin(user);
                 // Direct OID from token, unaffected by IsUseAdSidsForAccessControl config
                 string userOid = user.FindFirst("oid")?.Value ?? string.Empty;
 
-                return ownerAccess.Pid == userId ||    // 1. oauth user, permission was added via oauth with pid
-                    ownerAccess.Pid == userOid ||       // 2. oauth user, GetUserId returned AD SID due to config, but Pid stores OID
-                    ownerAccess.Sid == userId ||         // 3. winauth user, permission was added via AD with sid
-                    ownerAccess.Sid == userlogin;        // 4. oauth user, permission was added via AD and sid was set as loginId
+                return ownerAccessList.Any(ownerAccess =>
+                    ownerAccess.Pid == userId ||    // 1. oauth user, permission was added via oauth with pid
+                    ownerAccess.Pid == userOid ||   // 2. oauth user, GetUserId returned AD SID due to config, but Pid stores OID
+                    ownerAccess.Sid == userId ||     // 3. winauth user, permission was added via AD with sid
+                    ownerAccess.Sid == userlogin);   // 4. oauth user, permission was added via AD and sid was set as loginId
             }
         }
 
