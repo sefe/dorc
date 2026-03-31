@@ -443,7 +443,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
                 ? html`
                     <vaadin-details
                       summary="Previous Attempts (${this.attemptItems.length})"
-                      style="border-top: 6px solid orange; background-color: ghostwhite; padding-left: 4px; margin-top: 4px"
+                      style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
                     >
                       <component-previous-attempts
                         .attemptItems="${this.attemptItems}"

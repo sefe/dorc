@@ -59,8 +59,8 @@ export class ComponentPreviousAttempts extends LitElement {
 
       .attempt-container {
         margin-bottom: 8px;
-        border: 1px solid #e0e0e0;
         border-radius: 4px;
+        background-color: var(--dorc-bg-secondary);
       }
 
       .attempt-header {
@@ -68,7 +68,7 @@ export class ComponentPreviousAttempts extends LitElement {
         align-items: center;
         gap: 16px;
         padding: 8px 12px;
-        background-color: #f5f5f5;
+        background-color: var(--dorc-bg-secondary);
         font-size: var(--lumo-font-size-s);
         color: var(--lumo-secondary-text-color);
       }
