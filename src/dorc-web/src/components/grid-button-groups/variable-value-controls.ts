@@ -32,17 +32,17 @@ export class VariableValueControls extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
 
   render() {
     const editStyles = {
-      color: this.value.UserEditable ? 'cornflowerblue' : 'grey'
+      color: this.value.UserEditable ? 'var(--dorc-link-color)' : 'var(--dorc-text-secondary)'
     };
     const deleteStyles = {
-      color: this.value.UserEditable ? '#FF3131' : 'grey'
+      color: this.value.UserEditable ? 'var(--dorc-error-color)' : 'var(--dorc-text-secondary)'
     };
     return html`
       ${this.value?.Property?.Secure

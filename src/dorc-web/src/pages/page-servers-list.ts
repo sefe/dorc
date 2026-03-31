@@ -10,6 +10,7 @@ import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
+import '../components/map-daemons.ts';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
@@ -59,6 +60,8 @@ export class PageServersList extends PageElement {
   private addEditServerDialogOpened = false;
   @state()
   private editTagsDialogOpened = false;
+  @state()
+  private manageDaemonMappingsDialogOpened = false;
 
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
@@ -73,7 +76,7 @@ export class PageServersList extends PageElement {
       vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-text-field {
         padding: 0;
@@ -104,8 +107,8 @@ export class PageServersList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -120,8 +123,8 @@ export class PageServersList extends PageElement {
       .tag {
         font-size: 14px;
         font-family: monospace;
-        background-color: cornflowerblue;
-        color: white;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
         display: inline-block;
         padding: 3px;
         margin: 3px;
@@ -130,8 +133,8 @@ export class PageServersList extends PageElement {
       }
 
       .tag:hover {
-        background-color: #444;
-        color: #fea40f;
+        background-color: var(--dorc-badge-bg);
+        color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
       }
@@ -157,7 +160,7 @@ export class PageServersList extends PageElement {
           --_lumo-button-background-color,
           var(--lumo-contrast-10pct)
         );
-        color: #fea40f;
+        color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
       }
@@ -173,6 +176,20 @@ export class PageServersList extends PageElement {
 
   render() {
     return html`
+        <vaadin-dialog
+        id="daemon-mapping-dialog"
+        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+        .opened="${this.manageDaemonMappingsDialogOpened}"
+        draggable
+        @opened-changed="${(event: DialogOpenedChangedEvent) => {
+          this.manageDaemonMappingsDialogOpened = event.detail.value;
+          if (!this.manageDaemonMappingsDialogOpened) {
+            this.selectedServer = {};
+          }
+        }}"
+        ${dialogRenderer(this.renderManageDaemonMappingsDialog, [this.selectedServer])}
+        ${dialogFooterRenderer(this.renderManageDaemonMappingsFooter, [])}
+      ></vaadin-dialog>
       <vaadin-dialog
         id='add-edit-server-dialog'
         header-title='Add/Edit Server'
@@ -222,7 +239,7 @@ export class PageServersList extends PageElement {
           path='Name'
           resizable
           .headerRenderer='${this.nameHeaderRenderer}'
-          style='color:lightgray'
+          style='color:var(--dorc-text-secondary)'
           auto-width
           flex-grow='0'
         ></vaadin-grid-column>
@@ -392,6 +409,20 @@ export class PageServersList extends PageElement {
     <vaadin-button @click="${this.closeEditTagsDialog}">Close</vaadin-button>
   `;
 
+    private renderManageDaemonMappingsDialog = () => html`
+    <map-daemons
+      id="map-daemons"
+      .server="${this.selectedServer}"
+    ></map-daemons>
+  `;
+
+  private renderManageDaemonMappingsFooter = () => html`
+    <vaadin-button @click="${this.closeManageDaemonMappingsDialog}"
+      >Close</vaadin-button
+    >
+  `;
+
+
   private renderAddEditServerDialog = () => html`
     <add-edit-server
       id="add-edit-server"
@@ -406,6 +437,11 @@ export class PageServersList extends PageElement {
       >Close</vaadin-button
     >
   `;
+
+  private closeManageDaemonMappingsDialog() {
+    this.manageDaemonMappingsDialogOpened = false;
+  }
+
 
   private closeAddEditServerDialog() {
     this.addEditServerDialogOpened = false;
@@ -456,7 +492,7 @@ export class PageServersList extends PageElement {
         >
           <vaadin-icon
             icon="vaadin:server"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
           Add Server...
         </vaadin-button>
@@ -719,6 +755,10 @@ export class PageServersList extends PageElement {
     super.firstUpdated(_changedProperties);
 
     this.addEventListener(
+      'map-daemons',
+      this.openManageDaemonMappingsDialog as EventListener
+    );
+    this.addEventListener(
       'edit-server',
       this.openEditServerDialog as EventListener
     );
@@ -795,6 +835,11 @@ export class PageServersList extends PageElement {
       duration: 5000
     });
     this.addEditServerDialogOpened = false;
+  }
+
+  public openManageDaemonMappingsDialog(e: CustomEvent) {
+    this.selectedServer = e.detail.server;
+    this.manageDaemonMappingsDialogOpened = true;
   }
 
   openEditServerDialog(e: CustomEvent) {

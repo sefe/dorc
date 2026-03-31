@@ -33,5 +33,6 @@
         string GetAzureStorageAccountTerraformBlobsContainerName();
 
         bool GetPauseDeploymentEnabled();
+        bool GetIsProduction();
     }
 }

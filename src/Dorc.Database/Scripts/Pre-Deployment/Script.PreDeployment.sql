@@ -9,4 +9,3 @@
                SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
-:r .\AddCancelledFieldsToArchiveDeploymentRequests.sql

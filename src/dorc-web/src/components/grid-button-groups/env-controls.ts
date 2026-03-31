@@ -33,6 +33,11 @@ export class EnvControls extends LitElement {
 
   protected updated(changedProperties: Map<string, unknown>) {
     super.updated(changedProperties);
+    // Reset owner check when environment changes (grid row recycling)
+    if (changedProperties.has('envDetails')) {
+      this.ownerCheckDone = false;
+      this.isOwner = false;
+    }
     // Only check ownership if not admin/poweruser and we haven't checked yet
     if (
       !this.isAdmin &&
@@ -64,7 +69,7 @@ export class EnvControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:lock"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       ${this.isAdmin || this.isPowerUser || this.isOwner
@@ -75,7 +80,7 @@ export class EnvControls extends LitElement {
           >
             <vaadin-icon
               icon="vaadin:copy-o"
-              style="color: cornflowerblue"
+              style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>`
         : html``}
@@ -86,7 +91,7 @@ export class EnvControls extends LitElement {
       >
         <vaadin-icon
           icon="hardware:developer-board"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
     `;

@@ -22,12 +22,14 @@ namespace Dorc.Api.Tests.Sources
         private IRequestsPersistentSource _requestsPersistentSource;
         private ManageProjectsPersistentSource _source;
         private IDeploymentContext _context;
+        private IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
 
         [TestInitialize]
         public void Setup()
         {
             _contextFactory = Substitute.For<IDeploymentContextFactory>();
             _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            _scriptsAuditPersistentSource = Substitute.For<IScriptsAuditPersistentSource>();
             _context = Substitute.For<IDeploymentContext>();
             
             // Setup the context factory to return our mocked context
@@ -42,7 +44,7 @@ namespace Dorc.Api.Tests.Sources
             var projectsDbSet = DbContextMock.GetQueryableMockDbSet(emptyProjects);
             _context.Projects.Returns(projectsDbSet);
             
-            _source = new ManageProjectsPersistentSource(_contextFactory, _requestsPersistentSource);
+            _source = new ManageProjectsPersistentSource(_contextFactory, _requestsPersistentSource, _scriptsAuditPersistentSource);
         }
 
         [TestMethod]
@@ -79,7 +81,7 @@ namespace Dorc.Api.Tests.Sources
             };
 
             // Act
-            _source.UpdateComponent(apiComponent, 1, null);
+            _source.UpdateComponent(apiComponent, 1, null, "testuser");
 
             // Assert - Method should return early without calling context
             _contextFactory.DidNotReceive().GetContext();
@@ -251,13 +253,13 @@ namespace Dorc.Api.Tests.Sources
             };
 
             var callCount = 0;
-            Action<ComponentApiModel, int, int?> action = (component, projectId, parentId) =>
+            Action<ComponentApiModel, int, int?, string> action = (component, projectId, parentId, username) =>
             {
                 callCount++;
             };
 
             // Act
-            _source.TraverseComponents(components, null, 1, action);
+            _source.TraverseComponents(components, null, 1, action, "testuser");
 
             // Assert
             Assert.AreEqual(2, callCount, "Action should be called for parent and child");

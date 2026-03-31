@@ -65,14 +65,14 @@ export class EnvControlCenter extends PageEnvBase {
       }
 
       vaadin-button {
-        color: rgba(27, 43, 65, 0.72);
-        background-color: #fde3bb;
+        color: var(--dorc-ctrl-btn-text, rgba(27, 43, 65, 0.72));
+        background-color: var(--dorc-ctrl-btn-bg, var(--dorc-warning-bg));
       }
 
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #cccccc;
-        color: #666666;
+        background-color: var(--dorc-ctrl-disabled-bg, var(--dorc-bg-tertiary));
+        color: var(--dorc-ctrl-disabled-text, var(--dorc-text-secondary));
       }
 
       vaadin-button.not-endur {
@@ -91,7 +91,7 @@ export class EnvControlCenter extends PageEnvBase {
 
       a.plain {
         text-decoration: underline;
-        color: blue;
+        color: var(--dorc-link-color);
       }
     `;
   }
@@ -117,7 +117,7 @@ export class EnvControlCenter extends PageEnvBase {
       ></add-edit-access-control>
       <vaadin-details
         opened
-        style="border-top: 6px solid #ffad33 !important; background-color: #fff5e6; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-ctrl-section-border, #ffad33) !important; background-color: var(--dorc-ctrl-section-bg, #fff5e6); padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
           <vaadin-horizontal-layout>

@@ -76,14 +76,14 @@ export class AttachEnvironment extends LitElement {
         >
           <vaadin-icon
             icon="vaadin:list-select"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
       <vaadin-horizontal-layout>
         <vaadin-list-box
           id="shortlist"
-          style="height: 200px; width:300px; background-color: #f3f5f7"
+          style="height: 200px; width:300px; background-color: var(--dorc-bg-secondary)"
         >
           ${this.shortlist?.map(
             env =>
@@ -100,7 +100,7 @@ export class AttachEnvironment extends LitElement {
         >
           <vaadin-icon
             icon="vaadin:close-small"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
@@ -112,7 +112,7 @@ export class AttachEnvironment extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:link"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
         Attach Environment(s)
       </vaadin-button>

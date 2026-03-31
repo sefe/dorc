@@ -12,6 +12,7 @@ import '../components/environment-tabs/env-servers.ts'
 import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
 import '../components/environment-tabs/env-tenants.ts'
+import '../components/environment-tabs/env-monitor.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-list.ts'
@@ -26,9 +27,11 @@ import '../pages/page-not-found.ts'
 import '../pages/page-permissions-list.ts'
 import '../pages/page-project-envs.ts'
 import '../pages/page-project-bundles.ts'
+import '../pages/page-project-components.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
+import '../pages/page-scripts-audit.ts'
 import '../pages/page-servers-list.ts'
 import '../pages/page-sql-ports-list.ts'
 import '../pages/page-users-list.ts'
@@ -152,6 +155,15 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/scripts/audit',
+        name: 'scripts-audit',
+        component: 'page-scripts-audit',
+        metadata: {
+          title: 'Scripts Values Audit',
+          description: 'List of all scripts value changes'
+        }
+      },
+      {
         path: '/variables',
         name: 'variables',
         component: 'page-variables',
@@ -242,6 +254,15 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/project-components/:id',
+        name: 'project-components',
+        component: 'page-project-components',
+        metadata: {
+          title: 'Project Components',
+          description: 'View component deployments for a project'
+        }
+      },
+      {
         path: '/environment/:id',
         name: 'environment',
         component: 'page-environment',
@@ -329,7 +350,16 @@ export const routes: Route<RouteMeta>[] = [
               title: 'Tenants',
               description: 'Environment tenants details'
             }
+          },
+          {
+            path: '/monitor',
+            component: 'env-monitor',
+            metadata: {
+              title: 'Monitor',
+              description: 'Monitor for the environment'
+            }
           }
+
         ]
       },
       {
