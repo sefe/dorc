@@ -9,7 +9,7 @@ import { css, LitElement, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './log-dialog';
-import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, ResultStatusesApi } from '../apis/dorc-api';
+import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, RequestApi, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
@@ -332,17 +332,26 @@ export class ComponentPreviousAttempts extends LitElement {
   }
 
   private viewComponentLog(result: DeploymentResultAttemptApiModel) {
-    if (this.requestId && result.DeploymentResultId) {
-      // Show dialog immediately with loading state
-      this.isLoadingLog = true;
-      this.selectedLog = '';
+    if (!this.requestId) {
+      this.selectedLog = result.Log ?? 'No log available';
       this.dialogOpened = true;
+      return;
+    }
 
+    // Show dialog immediately with loading state
+    this.isLoadingLog = true;
+    this.selectedLog = '';
+    this.dialogOpened = true;
+
+    if (result.DeploymentResultId) {
+      // Primary path: fetch full log from OpenSearch via the attempt-specific endpoint.
+      // The original DeploymentResult rows are deleted on restart,
+      // so /ResultStatuses/Log would return 404.
       try {
-        const api = new ResultStatusesApi();
-        const logObservable = api.resultStatusesLogGet({
+        const api = new RequestApi();
+        const logObservable = api.requestRequestIdAttemptsLogGet({
           requestId: this.requestId,
-          resultId: result.DeploymentResultId
+          deploymentResultId: result.DeploymentResultId
         });
 
         logObservable.subscribe({
@@ -351,21 +360,42 @@ export class ComponentPreviousAttempts extends LitElement {
             this.isLoadingLog = false;
           },
           error: (error: any) => {
-            console.error('Failed to fetch log:', error);
-            // Fallback to the existing log snippet if API call fails
+            console.error('Failed to fetch log from attempts endpoint:', error);
             this.selectedLog = result.Log ?? 'Failed to load full log';
             this.isLoadingLog = false;
           }
         });
       } catch (error) {
-        console.error('Failed to create API instance:', error);
+        console.error('Failed to create RequestApi instance:', error);
         this.selectedLog = result.Log ?? 'Failed to load full log';
         this.isLoadingLog = false;
       }
     } else {
-      // Fallback to the existing log snippet if no requestId or DeploymentResultId
-      this.selectedLog = result.Log ?? 'No log available';
-      this.dialogOpened = true;
+      // Fallback for older archived attempts without DeploymentResultId:
+      // try the ResultStatuses/Log endpoint using the component's original result ID.
+      try {
+        const api = new ResultStatusesApi();
+        const logObservable = api.resultStatusesLogGet({
+          requestId: this.requestId,
+          resultId: result.Id
+        });
+
+        logObservable.subscribe({
+          next: (fullLog: string) => {
+            this.selectedLog = fullLog;
+            this.isLoadingLog = false;
+          },
+          error: (error: any) => {
+            console.error('Failed to fetch log from ResultStatuses:', error);
+            this.selectedLog = result.Log ?? 'No full log available for this archived attempt';
+            this.isLoadingLog = false;
+          }
+        });
+      } catch (error) {
+        console.error('Failed to create ResultStatusesApi instance:', error);
+        this.selectedLog = result.Log ?? 'No full log available for this archived attempt';
+        this.isLoadingLog = false;
+      }
     }
   }
 
