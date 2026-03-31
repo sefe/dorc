@@ -49,7 +49,7 @@ export class EnvironmentCard extends LitElement {
         flex-shrink: 0;
       }
       a {
-        color: blue;
+        color: var(--dorc-link-color);
         text-decoration: none; /* no underline */
       }
 
@@ -83,7 +83,7 @@ export class EnvironmentCard extends LitElement {
               >
                 <vaadin-icon
                   icon="hardware:developer-board"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
@@ -95,7 +95,7 @@ export class EnvironmentCard extends LitElement {
               >
                 <vaadin-icon
                   icon="icons:history"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>
@@ -109,7 +109,7 @@ export class EnvironmentCard extends LitElement {
               >
                 <vaadin-icon
                   icon="vaadin:unlink"
-                  style="color: #FF3131"
+                  style="color: var(--dorc-error-color)"
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
@@ -120,7 +120,7 @@ export class EnvironmentCard extends LitElement {
               >
                 <vaadin-icon
                   icon="vaadin:lock"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>

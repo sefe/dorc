@@ -60,12 +60,12 @@ export class AttachDatabase extends LitElement {
   static get styles() {
     return css`
       .warning-box {
-        background-color: #fff3cd;
+        background-color: var(--dorc-warning-bg);
         border: 1px solid #ffeaa7;
         border-radius: 4px;
         padding: 12px;
         margin: 10px 0;
-        color: #856404;
+        color: var(--dorc-warning-text);
       }
       .warning-title {
         font-weight: bold;
@@ -95,25 +95,25 @@ export class AttachDatabase extends LitElement {
         <div>
           <h3>
             Database:
-            <span style="color: blue"
+            <span style="color: var(--dorc-link-color)"
               >${this.selectedDatabase?.Name}</span
             >
           </h3>
           <h3>
             Application Tag:
-            <span style="color: blue"
+            <span style="color: var(--dorc-link-color)"
               >${this.selectedDatabase?.Type}</span
             >
           </h3>
           <h3>
             Instance:
-            <span style="color: blue"
+            <span style="color: var(--dorc-link-color)"
               >${this.selectedDatabase?.ServerName}</span
             >
           </h3>
           <h3>
             Citrix AD Group:
-            <span style="color: blue">${this.selectedDatabase?.AdGroup}</span>
+            <span style="color: var(--dorc-link-color)">${this.selectedDatabase?.AdGroup}</span>
           </h3>
         </div>
 

@@ -70,7 +70,8 @@ export class ComponentDeploymentResults extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
-        --divider-color: rgb(223, 232, 239);
+        height: calc(100vh - 410px);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid-cell-content {
         padding-top: 0px;
@@ -210,7 +211,7 @@ export class ComponentDeploymentResults extends LitElement {
             >
               <vaadin-icon
                 icon="vaadin:ellipsis-dots-h"
-                style="color: cornflowerblue"
+                style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
           </td>

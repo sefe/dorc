@@ -35,6 +35,8 @@ export class PageEnvironment extends PageElement {
 
   @property({ type: Boolean }) private loading = true;
 
+  @property({ type: Boolean }) private notFound = false;
+
   static get styles() {
     return css`
       :host {
@@ -65,6 +67,9 @@ export class PageEnvironment extends PageElement {
   }
 
   render() {
+    if (this.notFound) {
+      return html``;
+    }
     return html`
       <table style="margin-left: auto; margin-right: auto;">
         <tr>
@@ -117,6 +122,10 @@ export class PageEnvironment extends PageElement {
       'environment-loaded',
       this.environmentLoaded as EventListener
     );
+    this.addEventListener(
+      'environment-not-found',
+      this.environmentNotFound as EventListener
+    );
 
     const tabName = location.pathname.split('/')[3];
     if (tabName) this.tabId = this.tabNames.findIndex(p => p === tabName);
@@ -136,6 +145,11 @@ export class PageEnvironment extends PageElement {
     const env = e.detail.environment as EnvironmentApiModel;
     this.environmentName = env.EnvironmentName ?? '';
     this.parentName = env.ParentEnvironment?.EnvironmentName ?? '';
+    this.loading = false;
+  }
+
+  environmentNotFound() {
+    this.notFound = true;
     this.loading = false;
   }
 

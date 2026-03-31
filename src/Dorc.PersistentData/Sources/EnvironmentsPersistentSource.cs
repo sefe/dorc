@@ -418,6 +418,9 @@ namespace Dorc.PersistentData.Sources
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetEnvironmentWithParentChild(context, environmentName);
+                if (environment == null)
+                    return null;
+
                 var result = MapToEnvironmentApiModel(environment);
 
                 var envPermissions = context.AccessControls

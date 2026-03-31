@@ -33,13 +33,17 @@ export class HegsChart extends LitElement {
     return ['style', 'option'];
   }
 
+  private isDarkMode(): boolean {
+    return document.documentElement.getAttribute('theme')?.includes('dark') ?? false;
+  }
+
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
     const container = this.shadowRoot?.querySelector(
       '#container'
     ) as HTMLDivElement;
-    this.chart = echarts.init(container);
+    this.chart = echarts.init(container, this.isDarkMode() ? 'dark' : undefined);
     this.updateChart();
   }
 
@@ -71,7 +75,7 @@ export class HegsChart extends LitElement {
 
   updateChart() {
     if (!this.chart) return;
-    this.chart.setOption(this.option);
+    this.chart.setOption({ ...this.option, backgroundColor: 'transparent' });
   }
 
   resizeChart() {

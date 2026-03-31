@@ -72,15 +72,15 @@ export class AttachServer extends LitElement {
           <div>
             <h3 style="color: black">
               Server Name:
-              <span style="color: blue">${this.selectedServer?.Name}</span>
+              <span style="color: var(--dorc-link-color)">${this.selectedServer?.Name}</span>
             </h3>
             <h3 style="color: black">
               Server OS:
-              <span style="color: blue">${this.selectedServer?.OsName}</span>
+              <span style="color: var(--dorc-link-color)">${this.selectedServer?.OsName}</span>
             </h3>
             <h3 style="color: black">
               Server Applications:
-              <span style="color: blue"
+              <span style="color: var(--dorc-link-color)"
                 >${this.selectedServer?.ApplicationTags}</span
               >
             </h3>
