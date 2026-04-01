@@ -56,6 +56,11 @@ namespace Dorc.Api.Controllers
                                   accessControlType == AccessControlType.Project &&
                                    _securityPrivilegesChecker.CanModifyProject(User, accessControlName);
 
+            output.UserIsOwner = accessControlType == AccessControlType.Environment &&
+                                  _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, accessControlName) ||
+                                 accessControlType == AccessControlType.Project &&
+                                  _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
+
             return StatusCode(StatusCodes.Status200OK, output);
         }
 

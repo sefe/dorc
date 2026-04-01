@@ -797,125 +797,6 @@
         }
       }
     },
-    "/DelegatedUsers/GetUnallocatedUsers": {
-      "get": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/DelegatedUsers": {
-      "delete": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/DeploymentV2": {
       "get": {
         "tags": [
@@ -3330,6 +3211,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       },
@@ -3503,39 +3387,6 @@
       }
     },
     "/RefDataEnvironments/IsEnvironmentOwner": {
-      "get": {
-        "tags": [
-          "RefDataEnvironments"
-        ],
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataEnvironments/IsEnvironmentOwnerOrDelegate": {
       "get": {
         "tags": [
           "RefDataEnvironments"
@@ -7367,6 +7218,9 @@
           "UserEditable": {
             "type": "boolean"
           },
+          "UserIsOwner": {
+            "type": "boolean"
+          },
           "Privileges": {
             "type": "array",
             "items": {
@@ -8230,13 +8084,6 @@
             "nullable": true
           },
           "EndurUsers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserApiModel"
-            },
-            "nullable": true
-          },
-          "DelegatedUsers": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UserApiModel"

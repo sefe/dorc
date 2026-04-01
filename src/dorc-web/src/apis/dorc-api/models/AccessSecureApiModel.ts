@@ -42,6 +42,11 @@ export interface AccessSecureApiModel {
      */
     UserEditable?: boolean;
     /**
+     * @type {boolean}
+     * @memberof AccessSecureApiModel
+     */
+    UserIsOwner?: boolean;
+    /**
      * @type {Array<AccessControlApiModel>}
      * @memberof AccessSecureApiModel
      */

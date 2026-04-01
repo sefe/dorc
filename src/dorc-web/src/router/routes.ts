@@ -5,7 +5,6 @@ import '../components/dorc-app.ts'
 import '../components/environment-tabs/env-control-center.ts'
 import '../components/environment-tabs/env-daemons.ts'
 import '../components/environment-tabs/env-databases.ts'
-import '../components/environment-tabs/env-delegated-users.ts'
 import '../components/environment-tabs/env-deployments.ts'
 import '../components/environment-tabs/env-metadata.ts'
 import '../components/environment-tabs/env-projects.ts'
@@ -318,14 +317,6 @@ export const routes: Route<RouteMeta>[] = [
             metadata: {
               title: 'Users',
               description: 'Environment user details'
-            }
-          },
-          {
-            path: '/delegated-users',
-            component: 'env-delegated-users',
-            metadata: {
-              title: 'Delegated Users',
-              description: 'Environment delegated User details'
             }
           },
           {

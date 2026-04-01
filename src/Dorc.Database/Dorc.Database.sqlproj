@@ -326,7 +326,6 @@
     <Build Include="Schema Objects\Schemas\deploy\Tables\AuditProperty.table.sql" />
     <Build Include="deploy\Tables\DeploymentsByProjectDate.sql" />
     <Build Include="deploy\Tables\DeploymentsByProjectMonth.sql" />
-    <Build Include="deploy\Tables\EnvironmentDelegatedUser.sql" />
     <Build Include="deploy\Tables\EnvironmentServer.sql" />
     <Build Include="deploy\Tables\EnvironmentHistory.sql" />
     <Build Include="deploy\Tables\EnvironmentDatabase.sql" />

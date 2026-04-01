@@ -6,7 +6,6 @@ export * from './ApiConfigApi';
 export * from './ApiRootApi';
 export * from './BundledRequestsApi';
 export * from './DaemonStatusApi';
-export * from './DelegatedUsersApi';
 export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';
 export * from './MakeLikeProdApi';
