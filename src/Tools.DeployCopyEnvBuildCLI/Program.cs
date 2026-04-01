@@ -17,7 +17,10 @@ namespace Tools.DeployCopyEnvBuildCLI
         private static int Main(string[] args)
         {
 
-            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            var config = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json")
+                .AddJsonFile("loggerSettings.json")
+                .Build();
             
             var arguments = ParseArguments(args);
             
