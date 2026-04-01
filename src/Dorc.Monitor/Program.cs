@@ -92,6 +92,13 @@ PersistentSourcesRegistry.Register(builder.Services);
 // (_runningTasks, environmentRequestIdRunning, environmentLockBackoff) that must be scoped
 // to a single MonitorService hosted-service lifetime. Transient ensures each resolution
 // gets a fresh instance, which is correct because MonitorService resolves them once at startup.
+// Explicit shutdown timeout matching the Windows SCM ServicesPipeTimeout (S-003).
+// The host's graceful window is the single controlling timeout for in-flight deployments.
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.ShutdownTimeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Services.AddTransient<Dorc.Monitor.IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 
