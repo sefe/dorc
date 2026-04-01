@@ -59,6 +59,9 @@ export class AddEditAccessControl extends LitElement {
   UserEditable = false;
 
   @state()
+  UserIsOwner = false;
+
+  @state()
   private loading = true;
 
   static get styles() {
@@ -621,7 +624,7 @@ export class AddEditAccessControl extends LitElement {
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable}"
+        ?disabled="${!addEditAccessControl.UserIsOwner}"
         ?checked="${canOwnerRender}"
       ></vaadin-checkbox>`,
       root
@@ -673,6 +676,7 @@ export class AddEditAccessControl extends LitElement {
             data.Privileges = data.Privileges?.sort(this.sortAccessControls);
             this.Privileges = data.Privileges;
             this.UserEditable = data.UserEditable ?? false;
+            this.UserIsOwner = data.UserIsOwner ?? false;
             this.AccessControls = data;
 
             this.loading = false;

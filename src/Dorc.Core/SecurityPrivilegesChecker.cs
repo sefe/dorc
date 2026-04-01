@@ -43,6 +43,14 @@ namespace Dorc.Core
             return _rolePrivilegesChecker.IsAdmin(user) || _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user);
         }
 
+        public bool IsProjectOwnerOrAdmin(ClaimsPrincipal user, string projectName)
+        {
+            var project = _projectsPersistentSource.GetSecurityObject(projectName);
+            return project == null
+                ? _rolePrivilegesChecker.IsAdmin(user)
+                : _rolePrivilegesChecker.IsAdmin(user) || _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Owner);
+        }
+
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
