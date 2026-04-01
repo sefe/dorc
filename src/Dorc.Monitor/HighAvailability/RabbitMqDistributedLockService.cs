@@ -111,7 +111,7 @@ namespace Dorc.Monitor.HighAvailability
                 // Capture current connection generation before attempting lock acquisition
                 // This allows us to detect if another thread already refreshed the connection
                 int currentGeneration = connectionGeneration;
-                
+
                 try
                 {
                     await EnsureConnectionAsync(cancellationToken);
@@ -127,13 +127,13 @@ namespace Dorc.Monitor.HighAvailability
                     }
 
                     var channel = await conn.CreateChannelAsync(cancellationToken: cancellationToken);
-                    
+
                     // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
                     // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
                     var environment = SanitizeEnvironmentName(configuration.Environment);
                     var exchangeName = $"dorc.{environment}";
                     var queueName = $"lock.{resourceKey}";
-                    
+
                     try
                     {
                         // Declare a direct exchange for this DOrc environment
@@ -167,7 +167,7 @@ namespace Dorc.Monitor.HighAvailability
                         // This ensures we receive any messages published after we start consuming
                         var consumer = new AsyncEventingBasicConsumer(channel);
                         var lockAcquired = new TaskCompletionSource<bool>();
-                        
+
                         // Attach event handler to receive and hold the message
                         consumer.ReceivedAsync += async (model, ea) =>
                         {
@@ -176,7 +176,7 @@ namespace Dorc.Monitor.HighAvailability
                             lockAcquired.TrySetResult(true);
                             await Task.CompletedTask;
                         };
-                        
+
                         var consumerTag = await channel.BasicConsumeAsync(
                             queue: queueName,
                             autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
@@ -186,11 +186,11 @@ namespace Dorc.Monitor.HighAvailability
                         // Check if lock queue already has a message (lock is held by another monitor)
                         // Check AFTER setting up consumer to avoid race where message is published before consumer exists
                         var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
-                        
+
                         // If queue has messages, another monitor holds the lock
                         if (queueInfo.MessageCount > 0)
                         {
-                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
+                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.",
                                 resourceKey, queueInfo.MessageCount);
                             await channel.BasicCancelAsync(consumerTag, cancellationToken: cancellationToken);
                             await channel.CloseAsync(cancellationToken: cancellationToken);
@@ -232,7 +232,7 @@ namespace Dorc.Monitor.HighAvailability
                             }
                         }
 
-                        logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
+                        logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer",
                             resourceKey);
 
                         await IncrementActiveLockCountAsync(conn, cancellationToken);
@@ -276,7 +276,7 @@ namespace Dorc.Monitor.HighAvailability
                     return null;
                 }
             }
-            
+
             logger.LogError("Failed to acquire distributed lock for '{ResourceKey}' after {MaxRetries} retries", resourceKey, maxRetries);
             return null;
         }
@@ -515,7 +515,7 @@ namespace Dorc.Monitor.HighAvailability
                                                      System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors,
                             Version = sslProtocols
                         };
-                        logger.LogDebug("RabbitMQ SSL/TLS enabled with version {Version} and server name: {ServerName}", 
+                        logger.LogDebug("RabbitMQ SSL/TLS enabled with version {Version} and server name: {ServerName}",
                             sslProtocols, configuration.RabbitMqSslServerName);
                     }
 
@@ -529,7 +529,7 @@ namespace Dorc.Monitor.HighAvailability
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Failed to connect to RabbitMQ at {HostName}:{Port}", 
+                    logger.LogError(ex, "Failed to connect to RabbitMQ at {HostName}:{Port}",
                         configuration.RabbitMqHostName, configuration.RabbitMqPort);
                     throw;
                 }
@@ -600,7 +600,7 @@ namespace Dorc.Monitor.HighAvailability
         {
             // Dispose previous handler if it exists
             httpClientHandler?.Dispose();
-            
+
             var handler = new HttpClientHandler();
             httpClientHandler = handler;
 
@@ -651,7 +651,7 @@ namespace Dorc.Monitor.HighAvailability
             {
                 { "x-queue-type", "quorum" },           // Quorum queue for cluster replication
                 { "x-single-active-consumer", true },   // Only one consumer receives messages at a time
-                { "x-consumer-timeout", 0L }            // 0 = disabled; prevents broker closing channel on long-running deployments
+                { "x-consumer-timeout", 86400000L }     // 24hs; prevents broker closing channel on long-running deployments
             };
         }
 
@@ -668,14 +668,14 @@ namespace Dorc.Monitor.HighAvailability
 
             // Convert to lowercase
             var sanitized = environment.ToLowerInvariant();
-            
+
             // Replace spaces and invalid characters with hyphens
             // RabbitMQ exchange names can contain: letters, digits, hyphen, underscore, period, colon
             sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"[^a-z0-9\-_.:]+", "-");
-            
+
             // Remove leading/trailing hyphens
             sanitized = sanitized.Trim('-');
-            
+
             // If empty after sanitization, use default
             return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
         }
