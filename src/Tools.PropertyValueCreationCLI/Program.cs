@@ -54,9 +54,8 @@ namespace Tools.PropertyValueCreationCLI
                 For(typeof(ILogger<>)).Use(typeof(Logger<>));
 
                 For<DorcOAuthClientConfiguration>().Use(ctx => new DorcOAuthClientConfiguration(config));
-                For<ApiCaller>().Use(ctx => new ApiCaller(ctx.GetInstance<DorcOAuthClientConfiguration>()));
+                For<IApiCaller>().Use(ctx => new ApiCaller(ctx.GetInstance<DorcOAuthClientConfiguration>()));
                 For<Application>().Use<Application>();
-
             }
         }
 
