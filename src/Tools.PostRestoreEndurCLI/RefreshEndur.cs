@@ -24,7 +24,7 @@ namespace Tools.PostRestoreEndurCLI
         private DatabaseApiModel GetEndurDatabase(string envName)
         {
             var result = _apiCaller.Call<DatabaseApiModel>(
-                Endpoints.RefDataDatabases,
+                Endpoints.RefDataDatabasesByType,
                 Method.Get,
                 new Dictionary<string, string> { { "envName", envName }, { "type", "Endur" } },
                 null);
@@ -38,7 +38,7 @@ namespace Tools.PostRestoreEndurCLI
         private List<ServerApiModel> GetAppServers(string envName)
         {
             var result = _apiCaller.Call<List<ServerApiModel>>(
-                Endpoints.RefDataServers,
+                Endpoints.RefDataServersAppServersByEnvName,
                 Method.Get,
                 new Dictionary<string, string> { { "envName", envName } },
                 null);
@@ -52,7 +52,7 @@ namespace Tools.PostRestoreEndurCLI
         private string GetSqlPort(string instanceName)
         {
             var result = _apiCaller.Call<string>(
-                Endpoints.RefDataSqlPorts,
+                Endpoints.RefDataSqlPortsByInstance,
                 Method.Get,
                 new Dictionary<string, string> { { "instanceName", instanceName } },
                 null);

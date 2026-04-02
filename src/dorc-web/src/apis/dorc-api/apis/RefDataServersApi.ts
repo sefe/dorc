@@ -23,6 +23,10 @@ import type {
     ServerOperatingSystemApiModel,
 } from '../models';
 
+export interface RefDataServersAppServersByEnvNameGetRequest {
+    envName?: string;
+}
+
 export interface RefDataServersByIdIdGetRequest {
     id: number;
 }
@@ -61,14 +65,53 @@ export class RefDataServersApi extends BaseAPI {
 
     /**
      */
+    refDataServersAppServersByEnvNameGet({ envName }: RefDataServersAppServersByEnvNameGetRequest): Observable<Array<ServerApiModel>>
+    refDataServersAppServersByEnvNameGet({ envName }: RefDataServersAppServersByEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServerApiModel>>>
+    refDataServersAppServersByEnvNameGet({ envName }: RefDataServersAppServersByEnvNameGetRequest, opts?: OperationOpts): Observable<Array<ServerApiModel> | AjaxResponse<Array<ServerApiModel>>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (envName != null) { query['envName'] = envName; }
+
+        return this.request<Array<ServerApiModel>>({
+            url: '/RefDataServers/AppServersByEnvName',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataServersByIdIdGet({ id }: RefDataServersByIdIdGetRequest): Observable<ServerApiModel>
     refDataServersByIdIdGet({ id }: RefDataServersByIdIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<ServerApiModel>>
     refDataServersByIdIdGet({ id }: RefDataServersByIdIdGetRequest, opts?: OperationOpts): Observable<ServerApiModel | AjaxResponse<ServerApiModel>> {
         throwIfNullOrUndefined(id, 'id', 'refDataServersByIdIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<ServerApiModel>({
             url: '/RefDataServers/ById/{id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -80,6 +123,13 @@ export class RefDataServersApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};
@@ -102,6 +152,16 @@ export class RefDataServersApi extends BaseAPI {
     refDataServersDelete({ serverId }: RefDataServersDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
     refDataServersDelete({ serverId }: RefDataServersDeleteRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (serverId != null) { query['serverId'] = serverId; }
@@ -109,6 +169,7 @@ export class RefDataServersApi extends BaseAPI {
         return this.request<ApiBoolResult>({
             url: '/RefDataServers',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -118,9 +179,20 @@ export class RefDataServersApi extends BaseAPI {
     refDataServersGetAllGet(): Observable<Array<ServerApiModel>>
     refDataServersGetAllGet(opts?: OperationOpts): Observable<AjaxResponse<Array<ServerApiModel>>>
     refDataServersGetAllGet(opts?: OperationOpts): Observable<Array<ServerApiModel> | AjaxResponse<Array<ServerApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<ServerApiModel>>({
             url: '/RefDataServers/GetAll',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -130,6 +202,16 @@ export class RefDataServersApi extends BaseAPI {
     refDataServersGetServerOperatingFromTargetGet({ serverName }: RefDataServersGetServerOperatingFromTargetGetRequest, opts?: OperationOpts): Observable<AjaxResponse<ServerOperatingSystemApiModel>>
     refDataServersGetServerOperatingFromTargetGet({ serverName }: RefDataServersGetServerOperatingFromTargetGetRequest, opts?: OperationOpts): Observable<ServerOperatingSystemApiModel | AjaxResponse<ServerOperatingSystemApiModel>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (serverName != null) { query['serverName'] = serverName; }
@@ -137,6 +219,7 @@ export class RefDataServersApi extends BaseAPI {
         return this.request<ServerOperatingSystemApiModel>({
             url: '/RefDataServers/GetServerOperatingFromTarget',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -149,6 +232,13 @@ export class RefDataServersApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<ServerApiModel>({
@@ -167,6 +257,13 @@ export class RefDataServersApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};
@@ -189,9 +286,20 @@ export class RefDataServersApi extends BaseAPI {
     refDataServersServerGet({ server }: RefDataServersServerGetRequest, opts?: OperationOpts): Observable<ServerApiModel | AjaxResponse<ServerApiModel>> {
         throwIfNullOrUndefined(server, 'server', 'refDataServersServerGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<ServerApiModel>({
             url: '/RefDataServers/{server}'.replace('{server}', encodeURI(server)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
