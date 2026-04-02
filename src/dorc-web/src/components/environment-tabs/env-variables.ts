@@ -73,6 +73,8 @@ export class EnvVariables extends PageEnvBase {
   filterVariableScope: string = '';
   isShowDefaultProps: boolean = false;
 
+  private _editingValueId: number | undefined;
+
   static get styles() {
     return css`
       :host {
@@ -82,7 +84,7 @@ export class EnvVariables extends PageEnvBase {
         height: 100%;
       }
       vaadin-grid#grid {
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
         width: 100%;
         height: 100%;
       }
@@ -135,8 +137,8 @@ export class EnvVariables extends PageEnvBase {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -169,7 +171,7 @@ export class EnvVariables extends PageEnvBase {
                 id="details"
                 opened
                 summary="Add Scoped Variable Value"
-                style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; width: 100%; margin: 0px;"
+                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%; margin: 0px;"
               >
                 <div
                   style="display: flex; flex-wrap: wrap; flex-direction: row"
@@ -410,6 +412,14 @@ export class EnvVariables extends PageEnvBase {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+      this.grid?.requestContentUpdate?.();
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+      this.grid?.requestContentUpdate?.();
+    }) as EventListener);
 
     this.getAllVariableNames();
   }
@@ -450,6 +460,13 @@ export class EnvVariables extends PageEnvBase {
 
   private variablesLoaded() {
     this.loading = false;
+    const grid = this.grid;
+    if (grid?.shadowRoot && !grid.shadowRoot.querySelector('#scrollbar-fix')) {
+      const style = document.createElement('style');
+      style.id = 'scrollbar-fix';
+      style.textContent = '#items { margin-bottom: 1rem; }';
+      grid.shadowRoot.appendChild(style);
+    }
   }
 
   variableValueDeleted() {
@@ -616,11 +633,11 @@ export class EnvVariables extends PageEnvBase {
     });
   }
 
-  variableValueControlsRenderer(
+  variableValueControlsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
+  ) => {
     const converted: PropertyValueDto = {
       Id: model.item.PropertyValueId,
       Value: model.item.PropertyValue,
@@ -635,11 +652,14 @@ export class EnvVariables extends PageEnvBase {
     };
 
     render(
-      html`<variable-value-controls .value="${converted}">
+      html`<variable-value-controls
+        .value="${converted}"
+        .editing="${converted.Id === this._editingValueId}"
+      >
       </variable-value-controls>`,
       root
     );
-  }
+  };
 
   secureRenderer(
     root: HTMLElement,

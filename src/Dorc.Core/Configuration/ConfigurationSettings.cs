@@ -165,6 +165,18 @@ namespace Dorc.Core.Configuration
         {
             return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"];
         }
+
+        public bool GetPauseDeploymentEnabled()
+        {
+            var value = _configuration.GetSection("AppSettings")["PauseDeploymentEnabled"];
+            return bool.TryParse(value, out bool enabled) && enabled;
+        }
+
+        public bool GetIsProduction()
+        {
+            var value = _configuration.GetSection("AppSettings")["IsProduction"];
+            return bool.TryParse(value, out bool isProduction) && isProduction;
+        }
         #endregion
     }
 }

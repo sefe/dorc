@@ -1,8 +1,7 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
+import { GridCellPartNameGenerator } from '@vaadin/grid';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { EnvironmentContentBuildsApiModel } from '../apis/dorc-api';
@@ -13,12 +12,14 @@ export class EnvDeployments extends LitElement {
 
   static get styles() {
     return css`
-      .success {
-        background-color: #90ee90;
+      vaadin-grid::part(success) {
+        background-color: var(--dorc-success-bg);
+        color: var(--dorc-text-primary);
       }
 
-      .failure {
-        background-color: #f08080;
+      vaadin-grid::part(failure) {
+        background-color: var(--dorc-failure-bg);
+        color: var(--dorc-text-primary);
       }
     `;
   }
@@ -29,7 +30,7 @@ export class EnvDeployments extends LitElement {
         .items="${this.builds}"
         theme="compact row-stripes no-row-borders no-border"
         all-rows-visible
-        .cellClassNameGenerator="${this.cellClassNameGenerator}"
+        .cellPartNameGenerator="${this.cellPartNameGenerator}"
       >
         <vaadin-grid-sort-column
           header="Component Name"
@@ -55,17 +56,17 @@ export class EnvDeployments extends LitElement {
     `;
   }
 
-  cellClassNameGenerator(
-    _: GridColumn,
-    model: GridItemModel<EnvironmentContentBuildsApiModel>
-  ) {
-    const item = model.item as EnvironmentContentBuildsApiModel;
-    let classes = '';
+  cellPartNameGenerator: GridCellPartNameGenerator<EnvironmentContentBuildsApiModel> = (
+    _column,
+    model
+  ) => {
+    const item = model.item;
+    let parts = '';
     if (item.State === 'Complete') {
-      classes += ' success';
+      parts += ' success';
     } else if (item.State === 'Failed') {
-      classes += ' failure';
+      parts += ' failure';
     }
-    return classes;
-  }
+    return parts;
+  };
 }

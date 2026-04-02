@@ -9,6 +9,7 @@ namespace Dorc.PersistentData
         string GetUserId(ClaimsPrincipal user);
         string GetUserLogin(IPrincipal user);
         string GetUserFullDomainName(IPrincipal user);
+        string GetUserSafeIdentifier(IPrincipal user);
         string GetUserEmail(ClaimsPrincipal user);
         List<string> GetSidsForUser(IPrincipal user);
     }

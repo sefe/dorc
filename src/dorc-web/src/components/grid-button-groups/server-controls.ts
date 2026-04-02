@@ -38,10 +38,10 @@ export class ServerControls extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
     };
     const editStyles = {
-      color: this.readonly ? 'grey' : 'cornflowerblue'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
@@ -64,6 +64,18 @@ export class ServerControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:tags"
+          style=${styleMap(editStyles)}
+        ></vaadin-icon>
+      </vaadin-button>
+
+      <vaadin-button
+        title="Manage Daemons"
+        theme="icon"
+        @click="${this.manageDaemons}"
+        ?disabled="${this.readonly}"
+      >
+        <vaadin-icon
+          icon="vaadin:cog"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -152,6 +164,17 @@ export class ServerControls extends LitElement {
 
   manage() {
     this.fireManageServerTags();
+  }
+
+  manageDaemons() {
+    const event = new CustomEvent('map-daemons', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        server: this.serverDetails
+      }
+    });
+    this.dispatchEvent(event);
   }
 
   editServer() {

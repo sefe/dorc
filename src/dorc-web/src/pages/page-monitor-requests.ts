@@ -12,7 +12,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import { css, LitElement, PropertyValueMap, render } from 'lit';
+import { css, PropertyValueMap, render } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
@@ -24,7 +24,6 @@ import {
   PagedDataSorting,
   RequestStatusesApi
 } from '../apis/dorc-api';
-import '@vaadin/vaadin-lumo-styles/typography.js';
 import '../icons/iron-icons.js';
 import '../icons/custom-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
@@ -37,6 +36,10 @@ import {
 } from '../services/ServerEvents';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
+import type { PropertyValues } from 'lit';
+import type { RouterLocation } from '@vaadin/router';
+import { PageElement } from '../helpers/page-element';
+import type { RouteMeta } from '../router/routes';
 
 const username = 'Username';
 const status = 'Status';
@@ -45,7 +48,7 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('page-monitor-requests')
-export class PageMonitorRequests extends LitElement implements IDeploymentsEventsClient {
+export class PageMonitorRequests extends PageElement implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with mupliple requests (pages) in non-deterministic way,
@@ -81,7 +84,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
 
       vaadin-text-field {
@@ -119,8 +122,8 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -303,7 +306,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         <vaadin-grid-column
           .renderer="${this._requestControlsRenderer}"
           resizable
-          width="100px"
+          width="160px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -326,9 +329,9 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
   }
 
   protected async firstUpdated(
-    _changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  _changedProperties: PropertyValues
   ): Promise<void> {
-    super.firstUpdated(_changedProperties);
+      super.firstUpdated(_changedProperties);
 
     // Initialize SignalR connection for real-time updates
     await this.initializeSignalR();
@@ -341,6 +344,14 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
       'request-restarted',
       this.requestRestarted as EventListener
     );
+    this.addEventListener(
+      'request-paused',
+      this.requestPaused as EventListener
+    );
+    this.addEventListener(
+      'request-resumed',
+      this.requestResumed as EventListener
+    );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
     this.addEventListener(
       'searching-requests-started',
@@ -352,7 +363,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     );
   }
 
-  protected updated(changed: PropertyValueMap<any>) {
+  updated(changed: PropertyValueMap<any>) {
     super.updated(changed);
     if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
       if (this._idHeaderRoot) {
@@ -360,6 +371,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         this.idHeaderRenderer(this._idHeaderRoot);
       }
     }
+  }
+
+   // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
+  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  this.location = location;
   }
 
   disconnectedCallback(): void {
@@ -499,12 +515,28 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
     });
   }
 
+  requestPaused(e: CustomEvent) {
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
+  requestResumed(e: CustomEvent) {
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
   private componentsRenderer(root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<DeploymentRequestApiModel>) {
 
     const request = model.item as DeploymentRequestApiModel;
-    const elements = request.Components?.split('|');
+    const elements = request.Components?.split('|').sort((a, b) => a.localeCompare(b));
 
     render(html`
       <vaadin-vertical-layout>
@@ -623,7 +655,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           >
             <vaadin-icon
               icon="vaadin:ellipsis-dots-h"
-              style="color: cornflowerblue"
+              style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
         </vaadin-horizontal-layout>
@@ -644,8 +676,11 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting')}
-        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
+          item.Status === 'Restarting' ||
+          item.Status === 'Paused')}
+        .canRestart=${!!item.UserEditable && item.Status !== 'Pending' && item.Status !== 'Paused'}
+        .canPause=${!!item.UserEditable && item.Status === 'Pending'}
+        .canResume=${!!item.UserEditable && item.Status === 'Paused'}
       ></request-controls>`,
       root
     );
@@ -687,7 +722,7 @@ export class PageMonitorRequests extends LitElement implements IDeploymentsEvent
           >
             <vaadin-icon
             icon="icons:refresh"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
           `

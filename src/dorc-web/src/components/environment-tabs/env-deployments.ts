@@ -5,7 +5,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { GridItemModel } from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { DateTimePicker } from '@vaadin/date-time-picker';
 import { PageEnvBase } from './page-env-base';
@@ -59,8 +59,8 @@ export class EnvDeployments extends PageEnvBase {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -84,6 +84,16 @@ export class EnvDeployments extends PageEnvBase {
       .underlined-button::part(label) {
         text-decoration: underline;
       }
+
+      vaadin-grid::part(success) {
+        background-color: var(--dorc-success-bg);
+        color: var(--dorc-text-primary);
+      }
+
+      vaadin-grid::part(failure) {
+        background-color: var(--dorc-failure-bg);
+        color: var(--dorc-text-primary);
+      }
     `;
   }
 
@@ -101,7 +111,7 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-details
               opened
               summary="Application Deployment Filter"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
             >
               <vaadin-date-time-picker
                 id="deployments-filter"
@@ -122,7 +132,7 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-grid
               .items="${this.deployments ?? []}"
               theme="compact row-stripes no-row-borders no-border"
-              .cellClassNameGenerator="${this.cellClassNameGenerator}"
+              .cellPartNameGenerator="${this.cellPartNameGenerator}"
               style="height: 100%; width: 100%; flex-grow: 1"
             >
               <vaadin-grid-column
@@ -317,17 +327,17 @@ export class EnvDeployments extends PageEnvBase {
     console.log('loading set to false');
   }
 
-  cellClassNameGenerator(
-    _: GridColumn,
-    model: GridItemModel<EnvironmentContentBuildsApiModel>
-  ) {
-    const item = model.item as EnvironmentContentBuildsApiModel;
-    let classes = '';
+  cellPartNameGenerator: GridCellPartNameGenerator<EnvironmentContentBuildsApiModel> = (
+    _column,
+    model
+  ) => {
+    const item = model.item;
+    let parts = '';
     if (item.State === 'Complete') {
-      classes += ' success';
+      parts += ' success';
     } else if (item.State === 'Failed') {
-      classes += ' failure';
+      parts += ' failure';
     }
-    return classes;
-  }
+    return parts;
+  };
 }

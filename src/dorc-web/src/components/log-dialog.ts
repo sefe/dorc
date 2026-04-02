@@ -29,8 +29,8 @@ export class LogDialog extends LitElement {
         height: 40px;
         display: inline-block;
         border-width: 3px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -90,7 +90,7 @@ export class LogDialog extends LitElement {
                 )}"
             >
               <vaadin-icon
-                style="color: cornflowerblue;"
+                style="color: var(--dorc-link-color);"
                 icon="vaadin:close-small"
               ></vaadin-icon>
             </vaadin-button>`,
@@ -109,8 +109,8 @@ export class LogDialog extends LitElement {
               height: 40px;
               display: inline-block;
               border-width: 3px;
-              border-color: rgba(255, 255, 255, 0.05);
-              border-top-color: cornflowerblue;
+              border-color: var(--dorc-border-color);
+              border-top-color: var(--dorc-link-color);
               animation: spin 1s infinite linear;
               border-radius: 100%;
               border-style: solid;

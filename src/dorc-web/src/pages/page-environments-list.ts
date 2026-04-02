@@ -1,5 +1,5 @@
 import '@vaadin/button';
-import { GridItemModel } from '@vaadin/grid';
+import { Grid, GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
@@ -12,6 +12,7 @@ import { css, render } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
+import '../components/clone-environment';
 import '../components/grid-button-groups/env-controls';
 import { EnvironmentApiModel, RefDataRolesApi } from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
@@ -21,6 +22,7 @@ import '../components/add-edit-access-control';
 import '../components/hegs-dialog';
 import { HegsDialog } from '../components/hegs-dialog';
 import { AddEditEnvironment } from '../components/add-edit-environment';
+import { CloneEnvironment } from '../components/clone-environment';
 
 @customElement('page-environments-list')
 export class PageEnvironmentsList extends PageElement {
@@ -49,9 +51,15 @@ export class PageEnvironmentsList extends PageElement {
 
   @property({ type: Boolean }) public userRolesLoaded = false;
 
+  @property({ type: Boolean }) private isAdmin = false;
+
+  @property({ type: Boolean }) private isPowerUser = false;
+
   @query('#dialog') dialog!: HegsDialog;
 
   @query('#add-environment') addEditEnvironment!: AddEditEnvironment;
+
+  @query('#clone-environment') cloneEnvironmentComponent!: CloneEnvironment;
 
   static get styles() {
     return css`
@@ -62,7 +70,7 @@ export class PageEnvironmentsList extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 110px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
         margin-top: 60px;
       }
       .overlay {
@@ -86,8 +94,8 @@ export class PageEnvironmentsList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -120,7 +128,7 @@ export class PageEnvironmentsList extends PageElement {
           >
             <vaadin-icon
               icon="vaadin:cube"
-              style="color: cornflowerblue"
+              style="color: var(--dorc-link-color)"
             ></vaadin-icon>
             Add Environment...
           </vaadin-button>
@@ -136,6 +144,11 @@ export class PageEnvironmentsList extends PageElement {
           .environment="${this.newEnvironment}"
         ></add-edit-environment>
       </hegs-dialog>
+
+      <clone-environment
+        id="clone-environment"
+        @environment-cloned="${this.closeCloneEnv}"
+      ></clone-environment>
 
       <add-edit-access-control
         id="add-edit-access-control"
@@ -213,6 +226,11 @@ export class PageEnvironmentsList extends PageElement {
       'open-access-control',
       this.openAccessControl as EventListener
     );
+
+    this.addEventListener(
+      'clone-environment',
+      this.openCloneDialog as EventListener
+    );
   }
 
   constructor() {
@@ -222,6 +240,11 @@ export class PageEnvironmentsList extends PageElement {
     refDataRolesApi.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data;
+        this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+        this.isPowerUser =
+          this.userRoles.find(p => p === 'PowerUser') !== undefined;
+        const grid = this.shadowRoot?.getElementById('grid') as Grid;
+        grid?.requestContentUpdate();
       },
       error: (err: string) => console.error(err),
       complete: () => {
@@ -240,6 +263,22 @@ export class PageEnvironmentsList extends PageElement {
     ) as AddEditAccessControl;
 
     addEditAccessControl.open(this.secureName, type);
+  }
+
+  openCloneDialog(e: CustomEvent) {
+    const environment = e.detail.Environment as EnvironmentApiModel;
+    this.cloneEnvironmentComponent.open(environment);
+  }
+
+  closeCloneEnv(e: CustomEvent) {
+    const env = e.detail.environment as EnvironmentApiModel;
+
+    const model: EnvironmentApiModel[] = JSON.parse(
+      JSON.stringify(this.environments)
+    );
+    model.push(env);
+
+    this.setEnvironments(model);
   }
 
   _envSecureRenderer(
@@ -270,17 +309,21 @@ export class PageEnvironmentsList extends PageElement {
     render(checkbox, root);
   }
 
-  _envDetailsButtonsRenderer(
+  _envDetailsButtonsRenderer = (
     root: HTMLElement,
     _column: GridColumn,
     { item }: GridItemModel<EnvironmentApiModel>
-  ) {
+  ) => {
     const envDetails = item as EnvironmentApiModel;
     render(
-      html` <env-controls .envDetails="${envDetails}"></env-controls>`,
+      html` <env-controls
+        .envDetails="${envDetails}"
+        .isAdmin="${this.isAdmin}"
+        .isPowerUser="${this.isPowerUser}"
+      ></env-controls>`,
       root
     );
-  }
+  };
 
   closeAddEnv(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;

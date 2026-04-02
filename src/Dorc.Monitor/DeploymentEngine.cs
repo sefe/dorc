@@ -17,6 +17,10 @@ namespace Dorc.Monitor
         private readonly ILogger logger;
         private readonly IDeploymentRequestStateProcessor deploymentRequestStateProcessor;
         private readonly IMonitorConfiguration configuration;
+        /// <summary>
+        /// Tracks in-flight deployment tasks. Only accessed from the single ProcessDeploymentRequestsAsync
+        /// loop (no concurrent callers), so a plain List is safe here - no synchronization needed.
+        /// </summary>
         private readonly List<Task> _runningTasks = new();
 
         public DeploymentEngine(
@@ -93,33 +97,25 @@ namespace Dorc.Monitor
                 await Task.Delay(iterationDelayMs);
             }
 
-            // Graceful shutdown: wait for all in-progress deployments to complete
+            // Graceful shutdown: wait for all in-flight deployments to complete.
+            // The host's ShutdownTimeout (30s) is the single controlling timeout — no internal
+            // deadline is set here. If the host forces exit before all tasks finish, S-004 recovers
+            // any requests still in Running state on the next startup.
             if (_runningTasks.Count > 0)
             {
-                logger.LogInformation("Graceful shutdown: waiting for {RunningCount} in-progress deployments to complete...", _runningTasks.Count);
+                var shutdownCount = _runningTasks.Count;
+                logger.LogInformation("Graceful shutdown: waiting for {RunningCount} in-progress deployment(s) to complete...", shutdownCount);
                 try
                 {
-                    // Wait with a reasonable timeout to avoid hanging indefinitely
-                    var completedInTime = await Task.WhenAll(_runningTasks).WaitAsync(TimeSpan.FromMinutes(30), CancellationToken.None)
-                        .ContinueWith(t => !t.IsFaulted && !t.IsCanceled);
-
-                    if (completedInTime)
-                    {
-                        logger.LogInformation("All in-progress deployments completed successfully during graceful shutdown");
-                    }
-                    else
-                    {
-                        logger.LogWarning("Graceful shutdown timeout: some deployments may not have completed");
-                    }
-                }
-                catch (TimeoutException)
-                {
-                    logger.LogWarning("Graceful shutdown timeout (30 minutes): {RemainingCount} deployments still running",
-                        _runningTasks.Count(t => !t.IsCompleted));
+                    await Task.WhenAll(_runningTasks);
+                    logger.LogInformation("Graceful shutdown: all {Count} in-progress deployment(s) completed.", shutdownCount);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error during graceful shutdown while waiting for deployments");
+                    var stillRunning = _runningTasks.Count(t => !t.IsCompleted);
+                    logger.LogWarning(ex,
+                        "Graceful shutdown: {Completed} of {Total} deployment(s) completed; {StillRunning} still running.",
+                        shutdownCount - stillRunning, shutdownCount, stillRunning);
                 }
             }
         }

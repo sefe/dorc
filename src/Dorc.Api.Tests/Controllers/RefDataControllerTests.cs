@@ -155,7 +155,8 @@ namespace Dorc.Api.Tests.Controllers
                 refData.Components,
                 null,
                 projectId,
-                Arg.Any<Action<ComponentApiModel, int, int?>>());
+                Arg.Any<Action<ComponentApiModel, int, int?, string>>(),
+                "DOMAIN\\TestUser");
         }
 
         [TestMethod]
@@ -299,7 +300,8 @@ namespace Dorc.Api.Tests.Controllers
             // Verify DeleteComponents was called
             _manageProjectsPersistentSource.Received(1).DeleteComponents(
                 Arg.Any<IList<ComponentApiModel>>(),
-                projectId);
+                projectId,
+                "DOMAIN\\TestUser");
         }
 
         [TestMethod]

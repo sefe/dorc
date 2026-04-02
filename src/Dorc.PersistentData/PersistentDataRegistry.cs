@@ -37,6 +37,7 @@ namespace Dorc.PersistentData
             For<IPropertiesPersistentSource>().Use<PropertiesPersistentSource>().Scoped();
             For<IPropertyValuesAuditPersistentSource>().Use<PropertyValuesAuditPersistentSource>().Scoped();
             For<IPropertyValuesAuditPersistentSource>().Use<PropertyValuesAuditPersistentSource>().Scoped();
+            For<IScriptsAuditPersistentSource>().Use<ScriptsAuditPersistentSource>().Scoped();
             For<IPropertyValuesPersistentSource>().Use<PropertyValuesPersistentSource>().Ctor<bool>("filtersMustMatch").Is(false).Scoped();
             For<IRequestsPersistentSource>().Use<RequestsPersistentSource>().Scoped();
             For<IRequestsStatusPersistentSource>().Use<RequestsStatusPersistentSource>().Scoped();

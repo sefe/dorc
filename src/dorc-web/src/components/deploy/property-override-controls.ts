@@ -26,7 +26,7 @@ export class PropertyOverrideControls extends LitElement {
         theme="icon"
         @click="${this.detailedResults}"
       >
-        <vaadin-icon icon="icons:delete" style="color: #FF3131"></vaadin-icon>
+        <vaadin-icon icon="icons:delete" style="color: var(--dorc-error-color)"></vaadin-icon>
       </vaadin-button>
     `;
   }

@@ -11,20 +11,17 @@ namespace Dorc.Core
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly ISecurityObjectFilter _securityObjectFilter;
-        private readonly IUsersPersistentSource _usersPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public SecurityPrivilegesChecker(IProjectsPersistentSource projectsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityObjectFilter securityObjectFilter,
-            IUsersPersistentSource usersPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
-            _usersPersistentSource = usersPersistentSource;
             _securityObjectFilter = securityObjectFilter;
             _environmentsPersistentSource = environmentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
@@ -45,17 +42,13 @@ namespace Dorc.Core
         {
             return _rolePrivilegesChecker.IsAdmin(user) || _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user);
         }
-        public bool IsEnvironmentOwnerOrAdminOrDelegate(ClaimsPrincipal user, string environmentName)
-        {
-            return _rolePrivilegesChecker.IsAdmin(user) || IsEnvironmentOwnerOrDelegate(user, environmentName);
-        }
 
-        public bool IsEnvironmentOwnerOrDelegate(ClaimsPrincipal user, string environmentName)
+        public bool IsProjectOwnerOrAdmin(ClaimsPrincipal user, string projectName)
         {
-            var env = _environmentsPersistentSource.GetEnvironment(environmentName);
-            var userApiModels = _usersPersistentSource.GetEnvironmentUsers(env.EnvironmentId, UserAccountType.NotSet);
-            string username = _claimsPrincipalReader.GetUserLogin(user);
-            return _environmentsPersistentSource.IsEnvironmentOwner(environmentName, user) || userApiModels.Any(u => u.LanId == username);
+            var project = _projectsPersistentSource.GetSecurityObject(projectName);
+            return project == null
+                ? _rolePrivilegesChecker.IsAdmin(user)
+                : _rolePrivilegesChecker.IsAdmin(user) || _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Owner);
         }
 
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
@@ -90,9 +83,8 @@ namespace Dorc.Core
             }
 
             var isEnvironmentOwner = _environmentsPersistentSource.IsEnvironmentOwner(envName, user);
-            var isDelegatedUser = _usersPersistentSource.IsDelegatedUser(env.Id, user);
             var canModify = _securityObjectFilter.HasPrivilege(env, user, AccessLevel.Write);
-            return canModify || isEnvironmentOwner || isDelegatedUser;
+            return canModify || isEnvironmentOwner;
         }
     }
 }

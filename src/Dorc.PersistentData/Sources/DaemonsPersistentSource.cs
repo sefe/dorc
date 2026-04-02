@@ -19,7 +19,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var server = GetServer(serverId, context);
-                result = server == null
+                result = server != null
                     ? server.Services.Select(daemon => Map(daemon, server)).ToList()
                     : new List<DaemonApiModel>();
             }
@@ -131,5 +131,59 @@ namespace Dorc.PersistentData.Sources
             return result;
         }
 
+        public bool AttachDaemonToServer(int serverId, int daemonId)
+        {
+            using var context = _contextFactory.GetContext();
+            var server = context.Servers
+                .Include(s => s.Services)
+                .FirstOrDefault(s => s.Id == serverId);
+            if (server == null) return false;
+
+            var daemon = context.Services.Find(daemonId);
+            if (daemon == null) return false;
+
+            if (server.Services.Any(d => d.Id == daemonId)) return true;
+
+            server.Services.Add(daemon);
+            context.SaveChanges();
+            return true;
+        }
+
+        public bool DetachDaemonFromServer(int serverId, int daemonId)
+        {
+            using var context = _contextFactory.GetContext();
+            var server = context.Servers
+                .Include(s => s.Services)
+                .FirstOrDefault(s => s.Id == serverId);
+            if (server == null) return false;
+
+            var daemon = server.Services.FirstOrDefault(d => d.Id == daemonId);
+            if (daemon == null) return false;
+
+            server.Services.Remove(daemon);
+            context.SaveChanges();
+            return true;
+        }
+
+        public void DiscoverAndMapDaemonsForServer(int serverId, IEnumerable<string> confirmedServiceNames)
+        {
+            using var context = _contextFactory.GetContext();
+            var server = context.Servers
+                .Include(s => s.Services)
+                .FirstOrDefault(s => s.Id == serverId);
+            if (server == null) return;
+
+            var daemonsByName = context.Services
+                .Where(d => confirmedServiceNames.Contains(d.Name))
+                .ToList();
+
+            foreach (var daemon in daemonsByName)
+            {
+                if (!server.Services.Any(s => s.Id == daemon.Id))
+                    server.Services.Add(daemon);
+            }
+
+            context.SaveChanges();
+        }
     }
 }

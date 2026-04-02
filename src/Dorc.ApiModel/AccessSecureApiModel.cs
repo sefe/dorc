@@ -15,6 +15,7 @@ namespace Dorc.ApiModel
         public string Name { get; set; }
         public Guid ObjectId { get; set; }
         public bool UserEditable { get; set; }
+        public bool UserIsOwner { get; set; }
         public IEnumerable<AccessControlApiModel> Privileges { get; set; }
     }
 }
