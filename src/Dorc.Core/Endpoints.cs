@@ -7,6 +7,10 @@
         Request,
         ConfigValues,
         CopyEnvBuild,
-        RefDataEnvironments
+        RefDataEnvironments,
+        RefDataDatabases,
+        RefDataServers,
+        RefDataSqlPorts,
+        RefDataEnvironmentsHistory
     }
 }
