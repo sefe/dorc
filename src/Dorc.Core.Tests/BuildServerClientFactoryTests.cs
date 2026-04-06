@@ -55,7 +55,7 @@ namespace Dorc.Core.Tests
         {
             var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory);
 
-            Assert.ThrowsException<NotSupportedException>(() =>
+            Assert.Throws<NotSupportedException>(() =>
                 factory.Create((SourceControlType)999));
         }
 
