@@ -20,9 +20,11 @@ namespace Dorc.Core.Tests
             _loggerFactory.CreateLogger(Arg.Any<string>()).Returns(Substitute.For<ILogger>());
 
             _configuration = Substitute.For<IConfiguration>();
-            var section = Substitute.For<IConfigurationSection>();
-            section[Arg.Any<string>()].Returns((string?)null);
-            _configuration.GetSection("AppSettings").Returns(section);
+            var appSettingsSection = Substitute.For<IConfigurationSection>();
+            appSettingsSection[Arg.Any<string>()].Returns((string?)null);
+            var hostsSection = Substitute.For<IConfigurationSection>();
+            appSettingsSection.GetSection("AllowedGitHubEnterpriseHosts").Returns(hostsSection);
+            _configuration.GetSection("AppSettings").Returns(appSettingsSection);
 
             _httpClientFactory = Substitute.For<IHttpClientFactory>();
             _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
