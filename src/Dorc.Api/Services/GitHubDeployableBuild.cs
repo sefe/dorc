@@ -69,7 +69,7 @@ namespace Dorc.Api.Services
         public RequestStatusDto Process(RequestDto request, ClaimsPrincipal user)
         {
             if (_buildInfo == null)
-                return null;
+                return new RequestStatusDto { Id = 0, Status = "Build validation must succeed before processing" };
 
             var requestId = _deployLibrary.SubmitRequest(
                 request.Project,

@@ -187,9 +187,9 @@ export class AddEditProject extends LitElement {
             ]}"
             item-label-path="label"
             item-value-path="value"
-            .selectedItem="${this.isGitHub
-              ? { label: 'GitHub', value: SourceControlType.GitHub }
-              : { label: 'Azure DevOps', value: SourceControlType.AzureDevOps }}"
+            .value="${this.isGitHub
+              ? String(SourceControlType.GitHub)
+              : String(SourceControlType.AzureDevOps)}"
             @value-changed="${this._sourceControlTypeChanged}"
           ></vaadin-combo-box>
           <vaadin-text-field
