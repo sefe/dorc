@@ -21,8 +21,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
-    <ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
+    <ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj">
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+    </ProjectReference>
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

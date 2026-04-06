@@ -26,4 +26,10 @@
     <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
