@@ -304,7 +304,7 @@ namespace Dorc.Monitor
                 {
                     return milliseconds;
                 }
-                return 86400000L; // Default 24 hours (86400000 ms)
+                return (long)TimeSpan.FromHours(24).TotalMilliseconds; // Default 24 hours (86400000 ms)
             }
         }
     }
