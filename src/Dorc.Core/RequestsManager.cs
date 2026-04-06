@@ -242,6 +242,9 @@ namespace Dorc.Core
         public DeploymentRequestDetail RequestDetail(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
+            if (project == null)
+                throw new InvalidOperationException($"Project '{createRequest.Project}' not found.");
+
             var buildDetail = new BuildDetail();
             if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))

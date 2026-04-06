@@ -81,7 +81,7 @@ namespace Dorc.Core.BuildServer
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to fetch GitHub workflow '{Workflow}' for {Owner}/{Repo}", workflowFile, owner, repo);
+                    _logger.LogWarning(ex, "Failed to fetch GitHub workflow definition");
                 }
             }
 
@@ -100,7 +100,7 @@ namespace Dorc.Core.BuildServer
 
             if (workflowId == null)
             {
-                _logger.LogWarning("Could not find GitHub workflow with name '{DefinitionName}'", definitionName);
+                _logger.LogWarning("Could not find matching GitHub workflow by name");
                 return Enumerable.Empty<DeployableArtefact>();
             }
 

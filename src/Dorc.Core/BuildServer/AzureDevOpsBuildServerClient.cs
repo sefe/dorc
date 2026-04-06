@@ -129,9 +129,11 @@ namespace Dorc.Core.BuildServer
                 }
             }
 
-            if (vstsUrl != null && vstsUrl.ToLower().StartsWith("vstfs"))
+            if (!string.IsNullOrEmpty(vstsUrl))
             {
-                var buildDetails = builds.FirstOrDefault(b => b.Uri.ToString().Equals(vstsUrl));
+                // Match by vstfs:// URI or by HTTP build URL
+                var buildDetails = builds.FirstOrDefault(b =>
+                    b.Uri.ToString().Equals(vstsUrl) || b.Url.Equals(vstsUrl));
                 if (buildDetails == null) return null;
                 return new BuildServerBuildInfo
                 {
