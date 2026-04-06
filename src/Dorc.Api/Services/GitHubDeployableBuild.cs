@@ -42,8 +42,8 @@ namespace Dorc.Api.Services
             var project = _projectsPersistentSource.GetProject(dorcBuild.Project);
             if (project == null)
             {
-                _validationMessage = $"Project '{dorcBuild.Project}' not found";
-                _log.LogWarning(_validationMessage);
+                _validationMessage = "Project not found";
+                _log.LogWarning("GitHub build validation failed: project not found");
                 return false;
             }
 
