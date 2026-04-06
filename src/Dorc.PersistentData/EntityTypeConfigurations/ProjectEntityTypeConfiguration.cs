@@ -38,7 +38,7 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
 
             builder
                 .Property(x => x.SourceControlType)
-                .HasDefaultValue(ApiModel.SourceControlType.AzureDevOps)
+                .HasDefaultValue(SourceControlType.AzureDevOps)
                 .HasConversion<int>();
 
             builder

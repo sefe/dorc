@@ -367,9 +367,11 @@ export class DeployEnv extends LitElement {
   setBuildDefinitions(projects: DeployArtefactDto[]) {
     const sortedBuildDefinitions = projects.sort(this.sortBuildDefinitions);
     this.buildDefinitions = sortedBuildDefinitions;
+    const firstBuildDefinition = this.buildDefinitions[0];
     if (
-      this.buildDefinitions[0].Name === 'Not a CI/CD Server Project' ||
-      this.buildDefinitions[0].Name === 'Not an Azure DevOps Server Project'
+      firstBuildDefinition &&
+      (firstBuildDefinition.Name === 'Not a CI/CD Server Project' ||
+        firstBuildDefinition.Name === 'Not an Azure DevOps Server Project')
     ) {
       this.isFolderProject = true;
     } else {

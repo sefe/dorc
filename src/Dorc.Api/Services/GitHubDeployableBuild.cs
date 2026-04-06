@@ -44,7 +44,8 @@ namespace Dorc.Api.Services
             _buildInfo = _buildServerClient.ValidateBuildAsync(
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
                 dorcBuild.BuildText, dorcBuild.BuildNum, dorcBuild.VstsUrl,
-                dorcBuild.Pinned ?? false).Result;
+                dorcBuild.Pinned ?? false)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
 
             if (_buildInfo == null)
             {

@@ -60,7 +60,7 @@ namespace Dorc.TerraformRunner.CodeSources
 
             _logger.FileLogger.LogInformation($"Found {artifactsResponse.Artifacts.Count} artifact(s) for run '{scriptGroup.GitHubRunId}'");
 
-            // Download the first artifact (or a named one if specified)
+            // Download the first artifact returned for the run
             var artifact = artifactsResponse.Artifacts[0];
             var downloadUrl = artifact.ArchiveDownloadUrl;
 

@@ -35,7 +35,16 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
             var workflowFiles = projectPaths.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
-            var regex = new Regex(buildRegex, RegexOptions.IgnoreCase);
+            Regex regex;
+            try
+            {
+                regex = new Regex(buildRegex, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid build regex pattern provided");
+                return Enumerable.Empty<DeployableArtefact>();
+            }
 
             var result = new List<DeployableArtefact>();
 
@@ -47,9 +56,9 @@ namespace Dorc.Core.BuildServer
 
                 try
                 {
-                    var response = client.GetAsync(url).Result;
+                    var response = client.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
                     response.EnsureSuccessStatusCode();
-                    var json = response.Content.ReadAsStringAsync().Result;
+                    var json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                     var workflow = JsonSerializer.Deserialize<GitHubWorkflow>(json);
 
                     if (workflow != null && regex.IsMatch(workflow.Name ?? workflowFile))
@@ -96,8 +105,26 @@ namespace Dorc.Core.BuildServer
             if (runsResponse?.WorkflowRuns == null)
                 return Enumerable.Empty<DeployableArtefact>();
 
-            var runs = runsResponse.WorkflowRuns
-                .Where(r => r.Conclusion == "success")
+            var filteredRuns = runsResponse.WorkflowRuns
+                .Where(r => r.Conclusion == "success");
+
+            if (!string.IsNullOrEmpty(buildRegex))
+            {
+                try
+                {
+                    var regex = new Regex(buildRegex, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
+                    filteredRuns = filteredRuns.Where(r => regex.IsMatch(r.DisplayTitle ?? r.RunNumber.ToString()));
+                }
+                catch (ArgumentException)
+                {
+                    // Invalid regex pattern - skip filtering
+                }
+            }
+
+            // Note: GitHub Actions does not have a direct equivalent to Azure DevOps "KeepForever" (pinned).
+            // filterPinnedOnly is not applicable for GitHub Actions runs.
+
+            var runs = filteredRuns
                 .Select(r => new DeployableArtefact
                 {
                     Id = r.Id.ToString(),

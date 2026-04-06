@@ -243,7 +243,7 @@ namespace Dorc.Core
             if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                buildDetail = BuildServerDetailAsync(createRequest, project).Result;
+                buildDetail = BuildServerDetailAsync(createRequest, project).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
                 buildDetail = ShareDetail(createRequest);
@@ -296,12 +296,15 @@ namespace Dorc.Core
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
                 createRequest.BuildDefinitionName, null, createRequest.BuildUrl, false);
 
-            if (buildInfo != null)
+            if (buildInfo == null)
             {
-                buildDetail.BuildNumber = buildInfo.BuildNumber;
-                buildDetail.Uri = buildInfo.BuildUri;
-                buildDetail.BuildId = buildInfo.BuildId;
+                throw new InvalidOperationException(
+                    $"Unable to validate build '{createRequest.BuildDefinitionName}' with URL '{createRequest.BuildUrl}'.");
             }
+
+            buildDetail.BuildNumber = buildInfo.BuildNumber;
+            buildDetail.Uri = buildInfo.BuildUri;
+            buildDetail.BuildId = buildInfo.BuildId;
 
             return buildDetail;
         }
