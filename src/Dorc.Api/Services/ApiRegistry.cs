@@ -1,6 +1,7 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.Core;
 using Dorc.Core.Account;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Lamar;
@@ -43,6 +44,7 @@ namespace Dorc.Api.Services
             For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();
+            For<IBuildServerClientFactory>().Use<BuildServerClientFactory>().Singleton();
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();

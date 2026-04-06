@@ -8657,9 +8657,20 @@
           },
           "SourceDatabase": {
             "$ref": "#/components/schemas/DatabaseApiModel"
+          },
+          "SourceControlType": {
+            "$ref": "#/components/schemas/SourceControlType"
           }
         },
         "additionalProperties": false
+      },
+      "SourceControlType": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
       },
       "Property": {
         "type": "object",
@@ -9233,7 +9244,8 @@
         "enum": [
           "SharedFolder",
           "Git",
-          "AzureArtifact"
+          "AzureArtifact",
+          "GitHubArtifact"
         ],
         "type": "string"
       },

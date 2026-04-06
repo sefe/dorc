@@ -14,6 +14,7 @@ import { TextField } from '@vaadin/text-field';
 import { HegsDialog } from './hegs-dialog';
 import { RefDataProjectsApi } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
+import { SourceControlType } from '../apis/dorc-api';
 
 @customElement('add-edit-project')
 export class AddEditProject extends LitElement {
@@ -38,6 +39,28 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
     this.requestUpdate('project', oldVal);
+  }
+
+  private get isGitHub(): boolean {
+    return this._project?.SourceControlType === SourceControlType.GitHub;
+  }
+
+  private get urlLabel(): string {
+    return this.isGitHub
+      ? 'GitHub API URL (e.g., https://api.github.com/repos/owner/repo)'
+      : 'Azure DevOps Server URL / File Path';
+  }
+
+  private get subPathsLabel(): string {
+    return this.isGitHub
+      ? 'GitHub Workflow Files (semicolon-separated, e.g., build.yml;deploy.yml)'
+      : 'Azure DevOps Server Project';
+  }
+
+  private get buildRegexLabel(): string {
+    return this.isGitHub
+      ? 'Workflow Name Regex'
+      : 'Build Definition Regex';
   }
 
   @property({ type: Array })
@@ -154,10 +177,25 @@ export class AddEditProject extends LitElement {
             value="${this._project?.ProjectDescription ?? ''}"
             @value-changed="${this._descriptionChanged}"
           ></vaadin-text-field>
+          <vaadin-combo-box
+            id="proj-source-control"
+            style="width: 490px;"
+            label="Source Control Type"
+            .items="${[
+              { label: 'Azure DevOps', value: SourceControlType.AzureDevOps },
+              { label: 'GitHub', value: SourceControlType.GitHub }
+            ]}"
+            item-label-path="label"
+            item-value-path="value"
+            .selectedItem="${this.isGitHub
+              ? { label: 'GitHub', value: SourceControlType.GitHub }
+              : { label: 'Azure DevOps', value: SourceControlType.AzureDevOps }}"
+            @value-changed="${this._sourceControlTypeChanged}"
+          ></vaadin-combo-box>
           <vaadin-text-field
             id="proj-url"
             style="width: 490px;"
-            label="Azure DevOps Server URL / File Path"
+            label="${this.urlLabel}"
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
@@ -168,7 +206,7 @@ export class AddEditProject extends LitElement {
           <vaadin-text-field
             id="proj-azure"
             style="width: 490px;"
-            label="Azure DevOps Server Project"
+            label="${this.subPathsLabel}"
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
@@ -179,7 +217,7 @@ export class AddEditProject extends LitElement {
           <vaadin-text-field
             id="proj-regex"
             style="width: 490px;"
-            label="Build Definition Regex"
+            label="${this.buildRegexLabel}"
             value="${this._project?.ArtefactsBuildRegex ?? ''}"
             @value-changed="${this._buildDefinitionRegexChanged}"
           ></vaadin-text-field>
@@ -217,7 +255,8 @@ export class AddEditProject extends LitElement {
       ProjectName: '',
       ArtefactsBuildRegex: '',
       ArtefactsSubPaths: '',
-      ArtefactsUrl: ''
+      ArtefactsUrl: '',
+      SourceControlType: SourceControlType.AzureDevOps
     };
   }
 
@@ -290,6 +329,16 @@ export class AddEditProject extends LitElement {
       model.TerraformGitRepoUrl = data.target.value;
       this._project = model;
       this._inputValueChanged();
+    }
+  }
+
+  _sourceControlTypeChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      const value = data.target.value;
+      model.SourceControlType = typeof value === 'string' ? parseInt(value, 10) : value;
+      this._project = model;
+      this.requestUpdate();
     }
   }
 

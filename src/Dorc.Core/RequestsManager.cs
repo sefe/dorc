@@ -1,10 +1,9 @@
 using Dorc.ApiModel;
-using Dorc.Core.AzureDevOpsServer;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Models;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
-using Org.OpenAPITools.Model;
 using System.Text.Json;
 
 namespace Dorc.Core
@@ -12,20 +11,21 @@ namespace Dorc.Core
     public class RequestsManager : IRequestsManager
     {
         private readonly ILogger _logger;
-        private readonly ILoggerFactory _loggerFactory;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IBuildServerClientFactory _buildServerClientFactory;
 
         public RequestsManager(ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
-            IEnvironmentsPersistentSource environmentsPersistentSource)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IBuildServerClientFactory buildServerClientFactory)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _logger = loggerFactory.CreateLogger<RequestsManager>();
-            _loggerFactory = loggerFactory;
+            _buildServerClientFactory = buildServerClientFactory;
         }
 
         public IEnumerable<DeployableComponent> GetComponents(int? projectId, int? parentId)
@@ -93,17 +93,11 @@ namespace Dorc.Core
 
                 if (!project.ArtefactsUrl.StartsWith("http"))
                     return
-                        new List<DeployableArtefact> { new() { Id = project.ArtefactsUrl, Name = "Not an Azure DevOps Server Project" } };
+                        new List<DeployableArtefact> { new() { Id = project.ArtefactsUrl, Name = "Not a CI/CD Server Project" } };
 
-                var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
-
-                var output = tfsRestClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
-                        project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
-
-                var uiOutput = output.Select(i => new DeployableArtefact { Id = i.Id.ToString(), Name = i.Project.Name + "; " + i.Name });
-
-                return uiOutput.OrderBy(d => d.Name);
-
+                var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
+                return buildClient.GetBuildDefinitions(project.ArtefactsUrl,
+                    project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
             }
             catch (Exception ex)
             {
@@ -127,33 +121,15 @@ namespace Dorc.Core
 
                 if (project.ArtefactsUrl.StartsWith("http"))
                 {
-                    // Remove the Azure DevOps Server Project Name from the Build Definition Name
-                    var azureDevOpsBuildDefinitionAndBuildName = buildDefinitionName.Split(';');
-                    var azureDevOpsProjectName = azureDevOpsBuildDefinitionAndBuildName[0].Trim();
-                    var azureDevOpsBuildDefinitionName = azureDevOpsBuildDefinitionAndBuildName[1].Trim();
-
-                    var tfsRestClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
-
-                    var buildDefsForProject = tfsRestClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
-                            project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
-
-                    var buildDefinitionReference = buildDefsForProject.First(def =>
-                        def.Name.Equals(azureDevOpsBuildDefinitionName) && def.Project.Name.Equals(azureDevOpsProjectName));
-
-                    var buildsFromDefinitionsAsync = await tfsRestClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
-                        new List<BuildDefinitionReference> { buildDefinitionReference }).ConfigureAwait(false);
-
                     var filterOnlyPinned = !string.IsNullOrEmpty(environment) &&
                                            (_environmentsPersistentSource.EnvironmentIsProd(environment) ||
                                             _environmentsPersistentSource.EnvironmentIsSecure(environment));
 
-                    var tfsBuildModels = (from build in buildsFromDefinitionsAsync
-                                          where (!filterOnlyPinned || build.KeepForever) &&
-                                            build.Status == Build.StatusEnum.Completed &&
-                                            (build.Result == Build.ResultEnum.Succeeded || build.Result == Build.ResultEnum.PartiallySucceeded)
-                                          select new DeployableArtefact { Id = build.Url, Date = build.FinishTime, Name = CheckForPinnedBuild(build) }).ToList();
-
-                    output = tfsBuildModels;
+                    var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
+                    var builds = await buildClient.GetBuildsAsync(project.ArtefactsUrl,
+                        project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                        buildDefinitionName, filterOnlyPinned);
+                    output = builds.ToList();
                 }
                 else if (project.ArtefactsUrl.StartsWith("file"))
                     output = GetFolderBuilds(project).ToList();
@@ -196,17 +172,9 @@ namespace Dorc.Core
             }
         }
 
-        private static string CheckForPinnedBuild(Build b)
-        {
-            if (b.KeepForever != null && b.KeepForever)
-                return b.BuildNumber += " [PINNED]";
-            return b.BuildNumber;
-        }
-
         public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
-            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
             var result = new List<DeploymentRequestDetail>();
             var bundleJson = new StreamReader(createRequest.BuildUrl).ReadToEnd();
             var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson);
@@ -218,29 +186,25 @@ namespace Dorc.Core
 
             if (project.ArtefactsUrl.StartsWith("http"))
             {
+                var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
+
                 foreach (var buildItem in bundle.Items.GroupBy(i => i.Build))
                 {
-                    // Remove the Azure DevOps Server Project Name from the Build Definition Name
-                    var azureDevOpsBuildDefinitionAndBuildName = createRequest.BuildDefinitionName.Split(';');
-                    var azureDevOpsProjectName = azureDevOpsBuildDefinitionAndBuildName[0].Trim();
-                    var azureDevOpsBuildDefinitionName = buildItem.First().BuildDefinition;
+                    var buildDefinitionName = project.SourceControlType == SourceControlType.GitHub
+                        ? buildItem.First().BuildDefinition
+                        : createRequest.BuildDefinitionName.Split(';')[0].Trim() + "; " + buildItem.First().BuildDefinition;
 
-                    var buildDefsForProject = tfsClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
-                            project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
+                    var builds = await buildClient.GetBuildsAsync(project.ArtefactsUrl,
+                        project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                        buildDefinitionName, false);
 
-                    var buildDefinitionReference = buildDefsForProject.First(def =>
-                        def.Name.Equals(azureDevOpsBuildDefinitionName) && def.Project.Name.Equals(azureDevOpsProjectName));
-
-                    var buildsFromDefinitionsAsync = await tfsClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
-                        new List<BuildDefinitionReference> { buildDefinitionReference }).ConfigureAwait(false);
-
-                    var build = buildsFromDefinitionsAsync
-                        .FirstOrDefault(b => b.BuildNumber.Equals(buildItem.Key));
+                    var matchedBuild = builds.FirstOrDefault(b =>
+                        (b.Name ?? "").Replace(" [PINNED]", "").Equals(buildItem.Key));
 
                     var request = new CreateRequest
                     {
-                        BuildUrl = build?.Url,
-                        BuildDefinitionName = build?.Project.Name + "; " + build?.Definition.Name,
+                        BuildUrl = matchedBuild?.Id,
+                        BuildDefinitionName = buildDefinitionName,
                         Environment = createRequest.Environment,
                         Project = createRequest.Project,
                         Properties = createRequest.Properties,
@@ -279,7 +243,7 @@ namespace Dorc.Core
             if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                buildDetail = AzureDevOpsServerDetailAsync(createRequest).Result;
+                buildDetail = BuildServerDetailAsync(createRequest, project).Result;
             }
             else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
                 buildDetail = ShareDetail(createRequest);
@@ -313,55 +277,33 @@ namespace Dorc.Core
             return requestDetail;
         }
 
-        private async Task<BuildDetail> AzureDevOpsServerDetailAsync(CreateRequest createRequest)
+        private async Task<BuildDetail> BuildServerDetailAsync(CreateRequest createRequest, ProjectApiModel project)
         {
-            var buildDetail = new BuildDetail();
-            var project = _projectsPersistentSource.GetProject(createRequest.Project);
-            var tfsClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
+            var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
 
-            var tfsProjects = project.ArtefactsSubPaths.Split(';');
+            var artifactDownloadUrl = await buildClient.GetBuildArtifactDownloadUrlAsync(
+                project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                createRequest.BuildDefinitionName, createRequest.BuildUrl);
 
-            foreach (var tfsProject in tfsProjects)
+            var buildDetail = new BuildDetail
             {
-                // Remove the Azure DevOps Server Project Name from the Build Definition Name
-                var fullBuildDefinitionName = createRequest.BuildDefinitionName.Split(';');
-                var projectName = fullBuildDefinitionName[0].Trim();
-                var buildDefinition = fullBuildDefinitionName[1].Trim();
+                DropLocation = artifactDownloadUrl,
+                Project = project.ProjectName
+            };
 
-                var buildDefsForProject = tfsClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
-                        project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
+            // For Azure DevOps, the build URI is in the buildUrl; for GitHub, it's the run ID
+            var buildInfo = await buildClient.ValidateBuildAsync(
+                project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                createRequest.BuildDefinitionName, null, createRequest.BuildUrl, false);
 
-                var buildDefinitionReference = buildDefsForProject.First(def =>
-                    def.Name.Equals(buildDefinition) && def.Project.Name.Equals(projectName));
-
-                var buildsFromDefinitionsAsync = await tfsClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
-                    new List<BuildDefinitionReference> { buildDefinitionReference }).ConfigureAwait(false);
-
-                var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build =>
-                    build.Url.Equals(createRequest.BuildUrl));
-                if (buildValue == null)
-                    continue;
-
-                var tfsBuildArtifactResponse =
-                    tfsClient.GetBuildArtifacts(project.ArtefactsUrl, tfsProject, createRequest.BuildUrl);
-                if (tfsBuildArtifactResponse.Count > 1)
-                {
-                    var drop = tfsBuildArtifactResponse.FirstOrDefault(v => v.Name.Equals("drop"));
-                    buildDetail.DropLocation = drop?.Resource.DownloadUrl;
-                }
-                else
-                {
-                    buildDetail.DropLocation = tfsBuildArtifactResponse[0].Resource.DownloadUrl;
-                }
-
-                buildDetail.BuildNumber = buildValue.BuildNumber;
-                buildDetail.Uri = buildValue.Uri.ToString();
-                buildDetail.Project = project.ProjectName;
-                buildDetail.BuildId = buildValue.Id;
-                return buildDetail;
+            if (buildInfo != null)
+            {
+                buildDetail.BuildNumber = buildInfo.BuildNumber;
+                buildDetail.Uri = buildInfo.BuildUri;
+                buildDetail.BuildId = buildInfo.BuildId;
             }
 
-            throw new ApplicationException("Failed to locate the Build requested in Azure DevOps Server!");
+            return buildDetail;
         }
 
         private BuildDetail ShareDetail(CreateRequest createRequest)

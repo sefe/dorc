@@ -25,6 +25,7 @@ import {
   RequestStatusDto
 } from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
+import { SourceControlType } from '../../apis/dorc-api';
 import './deploy-confirm-dialog';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -185,8 +186,8 @@ export class DeployEnv extends LitElement {
               @value-changed="${this._buildDefValueChanged}"
               .items="${this.buildDefinitions}"
               .renderer="${this._buildRenderer}"
-              placeholder="Select Build Definition"
-              label="Build Definition"
+              placeholder="${this._project?.SourceControlType === SourceControlType.GitHub ? 'Select Workflow' : 'Select Build Definition'}"
+              label="${this._project?.SourceControlType === SourceControlType.GitHub ? 'Workflow' : 'Build Definition'}"
               style="width: 600px"
               clear-button-visible
               item-label-path="Name"
@@ -206,8 +207,8 @@ export class DeployEnv extends LitElement {
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
               .renderer="${this._buildRenderer}"
-              placeholder="Select Build Number"
-              label="Build Number"
+              placeholder="${this._project?.SourceControlType === SourceControlType.GitHub ? 'Select Workflow Run' : 'Select Build Number'}"
+              label="${this._project?.SourceControlType === SourceControlType.GitHub ? 'Workflow Run' : 'Build Number'}"
               style="width: 600px"
               clear-button-visible
               item-label-path="Name"
@@ -367,6 +368,7 @@ export class DeployEnv extends LitElement {
     const sortedBuildDefinitions = projects.sort(this.sortBuildDefinitions);
     this.buildDefinitions = sortedBuildDefinitions;
     if (
+      this.buildDefinitions[0].Name === 'Not a CI/CD Server Project' ||
       this.buildDefinitions[0].Name === 'Not an Azure DevOps Server Project'
     ) {
       this.isFolderProject = true;
