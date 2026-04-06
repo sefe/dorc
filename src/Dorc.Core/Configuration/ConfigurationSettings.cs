@@ -107,6 +107,11 @@ namespace Dorc.Core.Configuration
             return _configuration.GetSection("AppSettings")["AadSecret"];
         }
 
+        public string? GetGitHubToken()
+        {
+            return _configuration.GetSection("AppSettings")["GitHubToken"];
+        }
+
         public string? GetIdentityServerClientId()
         {
             return _configuration.GetSection("AppSettings")["IdentityServerClientId"];

@@ -44,6 +44,10 @@ namespace Dorc.Monitor.TerraformSourceConfig
                     ConfigureAzureArtifactSource(scriptGroup, request, project);
                     break;
 
+                case TerraformSourceType.GitHubArtifact:
+                    ConfigureGitHubArtifactSource(scriptGroup, request, project);
+                    break;
+
                 case TerraformSourceType.SharedFolder:
                     // No additional configuration needed for shared folder
                     break;
@@ -122,6 +126,61 @@ namespace Dorc.Monitor.TerraformSourceConfig
                 {
                     scriptGroup.AzureOrganization = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
                 }
+            }
+        }
+
+        private void ConfigureGitHubArtifactSource(
+            ScriptGroup scriptGroup,
+            DeploymentRequestApiModel request,
+            ProjectApiModel? project)
+        {
+            if (project == null)
+            {
+                _logger.LogWarning("Project information not available for GitHub artifact source configuration");
+                return;
+            }
+
+            // Parse owner/repo from ArtefactsUrl (e.g., "https://api.github.com/repos/{owner}/{repo}")
+            if (!string.IsNullOrEmpty(project.ArtefactsUrl))
+            {
+                try
+                {
+                    var uri = new Uri(project.ArtefactsUrl);
+                    var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    var reposIndex = Array.IndexOf(segments, "repos");
+                    if (reposIndex >= 0 && reposIndex + 2 < segments.Length)
+                    {
+                        scriptGroup.GitHubOwner = segments[reposIndex + 1];
+                        scriptGroup.GitHubRepo = segments[reposIndex + 2];
+                    }
+
+                    // Derive API base URL
+                    if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase))
+                        scriptGroup.GitHubApiBaseUrl = "https://api.github.com";
+                    else
+                        scriptGroup.GitHubApiBaseUrl = $"{uri.Scheme}://{uri.Host}/api/v3";
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse GitHub ArtefactsUrl: {ArtefactsUrl}", project.ArtefactsUrl);
+                }
+            }
+
+            // BuildUri contains the run ID for GitHub Actions
+            if (!string.IsNullOrEmpty(request.BuildUri))
+            {
+                scriptGroup.GitHubRunId = request.BuildUri;
+            }
+
+            // Get GitHub token from configuration
+            var gitHubToken = _configurationSettings.GetGitHubToken();
+            if (!string.IsNullOrEmpty(gitHubToken))
+            {
+                scriptGroup.GitHubToken = gitHubToken;
+            }
+            else
+            {
+                _logger.LogWarning("GitHub token not configured. Set 'GitHubToken' in AppSettings to download GitHub Actions artifacts.");
             }
         }
 
