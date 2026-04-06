@@ -6,6 +6,7 @@ using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Lamar;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Tools.PostRestoreEndurCLI
