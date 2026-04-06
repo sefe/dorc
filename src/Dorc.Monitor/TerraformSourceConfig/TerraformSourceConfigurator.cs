@@ -162,7 +162,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse GitHub ArtefactsUrl: {ArtefactsUrl}", project.ArtefactsUrl);
+                    _logger.LogWarning(ex, "Failed to parse GitHub ArtefactsUrl for project");
                 }
             }
 
