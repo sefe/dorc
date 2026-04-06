@@ -175,6 +175,9 @@ namespace Dorc.Core
         public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
+            if (project == null)
+                throw new InvalidOperationException($"Project '{createRequest.Project}' not found.");
+
             var result = new List<DeploymentRequestDetail>();
             var bundleJson = new StreamReader(createRequest.BuildUrl).ReadToEnd();
             var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson);

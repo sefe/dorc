@@ -161,8 +161,10 @@ namespace Dorc.Core.BuildServer
 
             var client = CreateHttpClient();
 
-            // buildUrl is the run ID for GitHub Actions
+            // buildUrl is the run ID for GitHub Actions — must be numeric
             var runId = buildUrl;
+            if (!long.TryParse(runId, out _))
+                throw new ArgumentException($"GitHub Actions run ID must be numeric, got '{runId}'");
 
             var artifactsUrl = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
             var response = await client.GetAsync(artifactsUrl);
@@ -283,8 +285,9 @@ namespace Dorc.Core.BuildServer
         {
             var client = _httpClientFactory.CreateClient("GitHubActions");
             // Static headers (Accept, UserAgent, X-GitHub-Api-Version, Timeout) are configured
-            // at named client registration time to avoid duplicate headers on pooled clients.
-            // Only the per-instance Authorization header is set here.
+            // at named client registration time. Authorization is set per-instance here since
+            // the token varies by configuration. Each CreateClient() call returns a new HttpClient
+            // instance (only the underlying handler is pooled), so this is thread-safe.
             if (!string.IsNullOrEmpty(_gitHubToken))
             {
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _gitHubToken);
@@ -304,13 +307,9 @@ namespace Dorc.Core.BuildServer
                 return (segments[reposIndex + 1], segments[reposIndex + 2]);
             }
 
-            // Fallback: treat last two segments as owner/repo
-            if (segments.Length >= 2)
-            {
-                return (segments[^2], segments[^1]);
-            }
-
-            throw new ArgumentException($"Cannot parse owner/repo from URL: {serverUrl}");
+            throw new ArgumentException(
+                $"Cannot parse owner/repo from URL: {serverUrl}. " +
+                "Expected format: https://api.github.com/repos/{{owner}}/{{repo}}");
         }
 
         private static readonly HashSet<string> AllowedGitHubHosts = new(StringComparer.OrdinalIgnoreCase)
