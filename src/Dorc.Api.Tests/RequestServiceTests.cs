@@ -3,6 +3,7 @@ using Dorc.Api.Interfaces;
 using Dorc.Api.Services;
 using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
@@ -164,7 +165,8 @@ namespace Dorc.Api.Tests
             var mockedLogger = Substitute.For<ILogger<RequestService>>();
             var mockedLoggerFactory = Substitute.For<ILoggerFactory>();
             var mockDeployLibrary = Substitute.For<IDeployLibrary>();
-            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource);
+            var mockedBuildServerClientFactory = Substitute.For<IBuildServerClientFactory>();
+            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource, mockedBuildServerClientFactory);
             var test4Service = new RequestService(mockedLogger, factory, mockedProjectsPds);
             Exception expectedException1 = null;
             try
