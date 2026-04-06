@@ -290,6 +290,7 @@ builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPubl
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();

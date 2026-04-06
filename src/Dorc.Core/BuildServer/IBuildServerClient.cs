@@ -41,7 +41,7 @@ namespace Dorc.Core.BuildServer
         public string BuildUri { get; set; } = string.Empty;
         public string ProjectName { get; set; } = string.Empty;
         public string DefinitionName { get; set; } = string.Empty;
-        public int BuildId { get; set; }
+        public long BuildId { get; set; }
         public string BuildNumber { get; set; } = string.Empty;
         public string ArtifactDownloadUrl { get; set; } = string.Empty;
     }

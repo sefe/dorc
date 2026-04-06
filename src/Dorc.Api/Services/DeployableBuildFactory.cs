@@ -33,7 +33,10 @@ namespace Dorc.Api.Services
         public IDeployableBuild CreateInstance(RequestDto request)
         {
             var project = _projectsPersistentSource.GetProject(request.Project);
-            var sourceControlType = project?.SourceControlType ?? SourceControlType.AzureDevOps;
+            if (project == null)
+                return null;
+
+            var sourceControlType = project.SourceControlType;
             var buildDetail = new BuildDetails(request, sourceControlType);
 
             switch (buildDetail.Type)

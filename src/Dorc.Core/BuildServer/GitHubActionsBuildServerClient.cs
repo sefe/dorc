@@ -21,14 +21,23 @@ namespace Dorc.Core.BuildServer
     {
         private readonly ILogger<GitHubActionsBuildServerClient> _logger;
         private readonly string _gitHubToken;
+        private readonly string[]? _allowedGitHubEnterpriseHosts;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        private static readonly IConfigurationSection AppSettings =
-            new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
-
-        public GitHubActionsBuildServerClient(ILogger<GitHubActionsBuildServerClient> logger)
+        public GitHubActionsBuildServerClient(ILogger<GitHubActionsBuildServerClient> logger, IConfiguration configuration,
+            IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
-            _gitHubToken = AppSettings["GitHubToken"] ?? string.Empty;
+            _httpClientFactory = httpClientFactory;
+            var appSettings = configuration.GetSection("AppSettings");
+            _gitHubToken = appSettings["GitHubToken"] ?? string.Empty;
+            _allowedGitHubEnterpriseHosts = appSettings.GetSection("AllowedGitHubEnterpriseHosts").Get<string[]>();
+
+            if (string.IsNullOrEmpty(_gitHubToken))
+            {
+                _logger.LogWarning("GitHubToken is not configured in AppSettings. GitHub API requests will be unauthenticated " +
+                    "with a rate limit of 60 requests/hour and no access to private repositories.");
+            }
         }
 
         public IEnumerable<DeployableArtefact> GetBuildDefinitions(string serverUrl, string projectPaths, string buildRegex)
@@ -48,7 +57,7 @@ namespace Dorc.Core.BuildServer
 
             var result = new List<DeployableArtefact>();
 
-            using var client = CreateHttpClient();
+            var client = CreateHttpClient();
 
             foreach (var workflowFile in workflowFiles)
             {
@@ -84,7 +93,7 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
-            using var client = CreateHttpClient();
+            var client = CreateHttpClient();
 
             // Find the workflow ID by name
             var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, definitionName);
@@ -121,8 +130,12 @@ namespace Dorc.Core.BuildServer
                 }
             }
 
-            // Note: GitHub Actions does not have a direct equivalent to Azure DevOps "KeepForever" (pinned).
-            // filterPinnedOnly is not applicable for GitHub Actions runs.
+            // GitHub Actions does not have a direct equivalent to Azure DevOps "KeepForever" (pinned).
+            if (filterPinnedOnly)
+            {
+                _logger.LogWarning("filterPinnedOnly is not supported for GitHub Actions. " +
+                    "All successful runs will be returned regardless of pinned status.");
+            }
 
             var runs = filteredRuns
                 .Select(r => new DeployableArtefact
@@ -141,7 +154,7 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
-            using var client = CreateHttpClient();
+            var client = CreateHttpClient();
 
             // buildUrl is the run ID for GitHub Actions
             var runId = buildUrl;
@@ -165,11 +178,20 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
-            using var client = CreateHttpClient();
+            var client = CreateHttpClient();
 
             // For GitHub, buildText is the workflow name
             if (string.IsNullOrEmpty(buildText))
                 return null;
+
+            // If a specific run ID was provided, fetch it directly instead of listing all runs
+            if (!string.IsNullOrEmpty(vstsUrl) && long.TryParse(vstsUrl, out _))
+            {
+                var run = await GetRunByIdAsync(client, serverUrl, owner, repo, vstsUrl);
+                if (run != null && run.Conclusion == "success")
+                    return MapRunToInfo(run, buildText);
+                return null;
+            }
 
             var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, buildText);
             if (workflowId == null)
@@ -191,14 +213,6 @@ namespace Dorc.Core.BuildServer
 
             if (!successfulRuns.Any())
                 return null;
-
-            // If a specific run ID was provided (via vstsUrl or buildUrl), find that specific run
-            if (!string.IsNullOrEmpty(vstsUrl))
-            {
-                var run = successfulRuns.FirstOrDefault(r => r.Id.ToString() == vstsUrl);
-                if (run == null) return null;
-                return MapRunToInfo(run, buildText);
-            }
 
             // Find by build number (display_title or run_number)
             if (!string.IsNullOrEmpty(buildNum))
@@ -222,6 +236,17 @@ namespace Dorc.Core.BuildServer
             return null;
         }
 
+        private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId)
+        {
+            var url = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}";
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<GitHubWorkflowRun>(json);
+        }
+
         private static BuildServerBuildInfo MapRunToInfo(GitHubWorkflowRun run, string workflowName)
         {
             return new BuildServerBuildInfo
@@ -229,7 +254,7 @@ namespace Dorc.Core.BuildServer
                 BuildUri = run.Id.ToString(),
                 ProjectName = workflowName,
                 DefinitionName = workflowName,
-                BuildId = (int)run.Id,
+                BuildId = run.Id,
                 BuildNumber = run.DisplayTitle ?? run.RunNumber.ToString()
             };
         }
@@ -251,9 +276,11 @@ namespace Dorc.Core.BuildServer
 
         private HttpClient CreateHttpClient()
         {
-            var client = new HttpClient();
+            var client = _httpClientFactory.CreateClient("GitHubActions");
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
             client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DORC", "1.0"));
+            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+            client.Timeout = TimeSpan.FromSeconds(30);
             if (!string.IsNullOrEmpty(_gitHubToken))
             {
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _gitHubToken);
@@ -282,15 +309,38 @@ namespace Dorc.Core.BuildServer
             throw new ArgumentException($"Cannot parse owner/repo from URL: {serverUrl}");
         }
 
-        private static string GetApiBase(string serverUrl)
+        private static readonly HashSet<string> AllowedGitHubHosts = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "api.github.com",
+            "github.com"
+        };
+
+        private string GetApiBase(string serverUrl)
         {
             var uri = new Uri(serverUrl);
+            ValidateGitHubHost(uri.Host);
+
             // For api.github.com, return https://api.github.com
             // For GitHub Enterprise, return https://hostname/api/v3
             if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase))
                 return "https://api.github.com";
 
             return $"{uri.Scheme}://{uri.Host}/api/v3";
+        }
+
+        private void ValidateGitHubHost(string host)
+        {
+            if (AllowedGitHubHosts.Contains(host))
+                return;
+
+            // Allow GitHub Enterprise hosts configured via appsettings
+            var allowedGheHosts = _allowedGitHubEnterpriseHosts;
+            if (allowedGheHosts != null && allowedGheHosts.Contains(host, StringComparer.OrdinalIgnoreCase))
+                return;
+
+            throw new ArgumentException(
+                $"GitHub API host '{host}' is not in the allowed hosts list. " +
+                "Configure 'AllowedGitHubEnterpriseHosts' in AppSettings to allow GitHub Enterprise hosts.");
         }
 
         #region GitHub API Response Models
