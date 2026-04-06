@@ -40,6 +40,12 @@ namespace Dorc.Api.Services
             }
 
             var project = _projectsPersistentSource.GetProject(dorcBuild.Project);
+            if (project == null)
+            {
+                _validationMessage = $"Project '{dorcBuild.Project}' not found";
+                _log.LogWarning(_validationMessage);
+                return false;
+            }
 
             _buildInfo = _buildServerClient.ValidateBuildAsync(
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,

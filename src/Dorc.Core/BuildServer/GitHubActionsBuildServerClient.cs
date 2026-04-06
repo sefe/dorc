@@ -122,11 +122,16 @@ namespace Dorc.Core.BuildServer
                 try
                 {
                     var regex = new Regex(buildRegex, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
-                    filteredRuns = filteredRuns.Where(r => regex.IsMatch(r.DisplayTitle ?? r.RunNumber.ToString()));
+                    // Materialize immediately to catch RegexMatchTimeoutException within this try/catch
+                    filteredRuns = filteredRuns.Where(r => regex.IsMatch(r.DisplayTitle ?? r.RunNumber.ToString())).ToList();
                 }
                 catch (ArgumentException)
                 {
                     // Invalid regex pattern - skip filtering
+                }
+                catch (RegexMatchTimeoutException)
+                {
+                    _logger.LogWarning("Build regex pattern matching timed out, skipping regex filter");
                 }
             }
 
@@ -277,10 +282,9 @@ namespace Dorc.Core.BuildServer
         private HttpClient CreateHttpClient()
         {
             var client = _httpClientFactory.CreateClient("GitHubActions");
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DORC", "1.0"));
-            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            // Static headers (Accept, UserAgent, X-GitHub-Api-Version, Timeout) are configured
+            // at named client registration time to avoid duplicate headers on pooled clients.
+            // Only the per-instance Authorization header is set here.
             if (!string.IsNullOrEmpty(_gitHubToken))
             {
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _gitHubToken);
@@ -320,11 +324,12 @@ namespace Dorc.Core.BuildServer
             var uri = new Uri(serverUrl);
             ValidateGitHubHost(uri.Host);
 
-            // For api.github.com, return https://api.github.com
-            // For GitHub Enterprise, return https://hostname/api/v3
-            if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase))
+            // For public GitHub (both api.github.com and github.com), use the API endpoint
+            if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
                 return "https://api.github.com";
 
+            // For GitHub Enterprise, return https://hostname/api/v3
             return $"{uri.Scheme}://{uri.Host}/api/v3";
         }
 
