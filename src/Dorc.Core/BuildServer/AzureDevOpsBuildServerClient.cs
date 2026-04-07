@@ -34,9 +34,7 @@ namespace Dorc.Core.BuildServer
         {
             var client = CreateClient(serverUrl);
 
-            var parts = definitionName.Split(';');
-            var azureDevOpsProjectName = parts[0].Trim();
-            var azureDevOpsBuildDefinitionName = parts[1].Trim();
+            var (azureDevOpsProjectName, azureDevOpsBuildDefinitionName) = ParseDefinitionName(definitionName);
 
             var buildDefsForProject = client.GetBuildDefinitionsForProjects(serverUrl, projectPaths, buildRegex);
 
@@ -65,9 +63,7 @@ namespace Dorc.Core.BuildServer
         {
             var client = CreateClient(serverUrl);
 
-            var parts = definitionName.Split(';');
-            var azureDevOpsProjectName = parts[0].Trim();
-            var azureDevOpsBuildDefinitionName = parts[1].Trim();
+            var (azureDevOpsProjectName, azureDevOpsBuildDefinitionName) = ParseDefinitionName(definitionName);
 
             var buildDefsForProject = client.GetBuildDefinitionsForProjects(serverUrl, projectPaths, buildRegex);
 
@@ -175,6 +171,15 @@ namespace Dorc.Core.BuildServer
             }
 
             return null;
+        }
+
+        private static (string projectName, string buildDefName) ParseDefinitionName(string definitionName)
+        {
+            var parts = definitionName.Split(';');
+            if (parts.Length < 2)
+                throw new ArgumentException(
+                    $"Azure DevOps definition name must be in 'project; definition' format, got '{definitionName}'");
+            return (parts[0].Trim(), parts[1].Trim());
         }
 
         private AzureDevOpsServerWebClient CreateClient(string serverUrl)

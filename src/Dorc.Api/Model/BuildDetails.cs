@@ -31,11 +31,19 @@ namespace Dorc.Api.Model
         private BuildType GetBuildType(string url)
         {
             if (string.IsNullOrEmpty(url)) return BuildType.UnknownBuildType;
-            if (SourceControlType == SourceControlType.GitHub && url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return BuildType.GitHubBuild;
-            if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return BuildType.TfsBuild;
             if (url.StartsWith("file", StringComparison.OrdinalIgnoreCase)) return BuildType.FileShareBuild;
-            // GitHub Actions runs use numeric IDs as the build URL
-            if (SourceControlType == SourceControlType.GitHub && long.TryParse(url, out _)) return BuildType.GitHubBuild;
+
+            if (SourceControlType == SourceControlType.GitHub)
+            {
+                // GitHub builds: numeric run IDs or GitHub API URLs
+                if (long.TryParse(url, out _)) return BuildType.GitHubBuild;
+                if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase) &&
+                    (url.Contains("github.com", StringComparison.OrdinalIgnoreCase) ||
+                     url.Contains("/repos/", StringComparison.OrdinalIgnoreCase)))
+                    return BuildType.GitHubBuild;
+            }
+
+            if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return BuildType.TfsBuild;
             return BuildType.UnknownBuildType;
         }
     }

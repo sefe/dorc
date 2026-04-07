@@ -32,7 +32,7 @@ namespace Tools.PostRestoreEndurCLI
                     client.Timeout = TimeSpan.FromSeconds(30);
                 });
                 For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
-                For<IBuildServerClientFactory>().Use<BuildServerClientFactory>().Singleton();
+                For<IBuildServerClientFactory>().Use<BuildServerClientFactory>();
 
                 For<IRequestsManager>().Use<RequestsManager>();
                 For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();

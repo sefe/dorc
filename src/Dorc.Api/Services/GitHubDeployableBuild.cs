@@ -54,11 +54,27 @@ namespace Dorc.Api.Services
                 return false;
             }
 
-            var buildInfo = _buildServerClient.ValidateBuildAsync(
-                project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                dorcBuild.BuildText, dorcBuild.BuildNum, dorcBuild.VstsUrl,
-                dorcBuild.Pinned ?? false)
-                .ConfigureAwait(false).GetAwaiter().GetResult();
+            BuildServerBuildInfo? buildInfo;
+            try
+            {
+                buildInfo = _buildServerClient.ValidateBuildAsync(
+                    project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                    dorcBuild.BuildText, dorcBuild.BuildNum, dorcBuild.VstsUrl,
+                    dorcBuild.Pinned ?? false)
+                    .ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+            catch (HttpRequestException ex)
+            {
+                _validationMessage = $"GitHub API request failed: {ex.StatusCode} — {ex.Message}";
+                _log.LogWarning(ex, "GitHub build validation failed with HTTP error");
+                return false;
+            }
+            catch (ArgumentException ex)
+            {
+                _validationMessage = $"GitHub build validation configuration error: {ex.Message}";
+                _log.LogWarning(ex, "GitHub build validation failed due to invalid configuration");
+                return false;
+            }
 
             if (buildInfo == null)
             {
