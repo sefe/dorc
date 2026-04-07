@@ -11,7 +11,7 @@ import { Notification } from '@vaadin/notification';
 import { AddEditProject } from '../components/add-edit-project';
 import '../components/grid-button-groups/project-controls';
 import type { ProjectApiModel } from '../apis/dorc-api';
-import { AccessControlType } from '../apis/dorc-api';
+import { AccessControlType, SourceControlType } from '../apis/dorc-api';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
 import { PageElement } from '../helpers/page-element';
 import './page-project-envs';
@@ -230,15 +230,17 @@ export class PageProjectsList extends PageElement {
               multi-sort
               theme="compact row-stripes no-row-borders no-border"
             >
+              <vaadin-grid-column
+                width="50px"
+                flex-grow="0"
+                header=""
+                .renderer="${this._sourceControlTypeRenderer}"
+              ></vaadin-grid-column>
               <vaadin-grid-sort-column
                 path="ProjectName"
                 header="Name"
                 resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="ProjectDescription"
-                header="Project Description"
-                resizable
+                .renderer="${this._projectNameRenderer}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsUrl"
@@ -248,11 +250,6 @@ export class PageProjectsList extends PageElement {
               <vaadin-grid-sort-column
                 path="ArtefactsSubPaths"
                 header="Artefacts Sub-Paths"
-                resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="ArtefactsBuildRegex"
-                header="Filter Regex"
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
@@ -297,6 +294,43 @@ export class PageProjectsList extends PageElement {
         .project="${project}"
         .deleteHidden="${!altThis.isAdmin}"
       ></project-controls>`,
+      root
+    );
+  }
+
+  _sourceControlTypeRenderer(
+    root: HTMLElement,
+    _column: HTMLElement,
+    { item }: GridItemModel<ProjectApiModel>
+  ) {
+    const project = item as ProjectApiModel;
+    let icon = 'vaadin:server';
+    let title = 'Azure DevOps';
+    let color = 'var(--dorc-link-color)';
+
+    if (project.SourceControlType === SourceControlType.GitHub) {
+      icon = 'vaadin:cloud';
+      title = 'GitHub';
+    } else if (project.SourceControlType === SourceControlType.FileShare) {
+      icon = 'vaadin:folder';
+      title = 'File Share';
+      color = 'var(--dorc-link-color)';
+    }
+
+    render(
+      html`<vaadin-icon icon="${icon}" title="${title}" style="color: ${color}; width: 18px; height: 18px;"></vaadin-icon>`,
+      root
+    );
+  }
+
+  _projectNameRenderer(
+    root: HTMLElement,
+    _column: HTMLElement,
+    { item }: GridItemModel<ProjectApiModel>
+  ) {
+    const project = item as ProjectApiModel;
+    render(
+      html`<span title="${project.ProjectDescription || ''}">${project.ProjectName}</span>`,
       root
     );
   }

@@ -61,8 +61,8 @@ export class ProjectControls extends LitElement {
         @click="${this.openComponents}"
       >
         <vaadin-icon
-          icon="vaadin:grid-big"
-          style="color: cornflowerblue"
+          icon="vaadin:package"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -81,7 +81,7 @@ export class ProjectControls extends LitElement {
         @click="${this.openAuditData}"
       >
         <vaadin-icon
-          icon="vaadin:list"
+          icon="icons:history"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
