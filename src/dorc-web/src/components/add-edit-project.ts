@@ -216,7 +216,7 @@ export class AddEditProject extends LitElement {
             required
             pattern="^(https?|file)?:\\/\\/(.*)"
             value="${this._project?.ArtefactsUrl ?? ''}"
-            @value-changed="${this._azureDevOpsUrlChanged}"
+            @value-changed="${this._artefactsUrlChanged}"
           ></vaadin-text-field>
           ${this.showSubPaths ? html`
           <vaadin-text-field
@@ -228,7 +228,7 @@ export class AddEditProject extends LitElement {
             required
             min-length="6"
             value="${this._project?.ArtefactsSubPaths ?? ''}"
-            @value-changed="${this._azureDevOpsProjectChanged}"
+            @value-changed="${this._artefactsSubPathsChanged}"
           ></vaadin-text-field>` : html``}
           ${this.showBuildRegex ? html`
           <vaadin-text-field
@@ -319,7 +319,7 @@ export class AddEditProject extends LitElement {
     }
   }
 
-  _azureDevOpsUrlChanged(data: any) {
+  _artefactsUrlChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 
@@ -329,7 +329,7 @@ export class AddEditProject extends LitElement {
     }
   }
 
-  _azureDevOpsProjectChanged(data: any) {
+  _artefactsSubPathsChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 

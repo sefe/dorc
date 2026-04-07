@@ -242,12 +242,12 @@ export class PageProjectsList extends PageElement {
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsUrl"
-                header="Azure DevOps Url"
+                header="Build Server URL"
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsSubPaths"
-                header="Azure DevOps Project(s)"
+                header="Build Server Project(s)"
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
