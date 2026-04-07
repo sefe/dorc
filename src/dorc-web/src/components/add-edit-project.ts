@@ -203,9 +203,9 @@ export class AddEditProject extends LitElement {
             style="width: 490px;"
             label="Source Control Type"
             .items="${[
-              { label: 'Azure DevOps', value: SourceControlType.AzureDevOps },
-              { label: 'GitHub', value: SourceControlType.GitHub },
-              { label: 'File Share', value: SourceControlType.FileShare }
+              { label: 'Azure DevOps', value: String(SourceControlType.AzureDevOps) },
+              { label: 'GitHub', value: String(SourceControlType.GitHub) },
+              { label: 'File Share', value: String(SourceControlType.FileShare) }
             ]}"
             item-label-path="label"
             item-value-path="value"
