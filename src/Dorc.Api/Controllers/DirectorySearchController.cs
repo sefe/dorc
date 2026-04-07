@@ -1,8 +1,7 @@
-﻿using System.DirectoryServices;
-using System.DirectoryServices.AccountManagement;
 using System.Net;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Microsoft.AspNetCore.Authorization;
@@ -17,12 +16,6 @@ namespace Dorc.Api.Controllers
     [SupportedOSPlatform("windows")]
     public class DirectorySearchController : Controller
     {
-        internal const int ClinetTimeoutInMinutes = 1;
-        internal const int ServerTimeoutInMinutes = 1;
-
-        internal const string DefaultDisplayName = "DEFAULT DISPLAY NAME";
-        internal const string DefaultLogonName = "DEFAULT LOGON NAME";
-
         internal const int UserSearchCriteriaMinimalLength = 3;
         internal const int UserSearchCriteriaMaximumLength = 100;
         internal const int GroupSearchCriteriaMinimalLength = 3;
@@ -43,34 +36,18 @@ namespace Dorc.Api.Controllers
         internal const string IncorrectCharactersInGroupSearchCriteriaMessage = "Incorrect characters in group search criteria.";
         internal const string IncorrectCharactersInGroupSearchCriteriaExplanationFormat = "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: {0}";
 
+        private readonly IDirectorySearchService _searchService;
         internal readonly string _domainName;
 
-        private const int ADS_UF_ACCOUNTDISABLE = 0x0002;
-
-        private DirectorySearcher directorySearcher { get; set; }
-
-        // Default parameterless constructor is intentionally hidden
-        // in order to make the controller instantiation possible
-        // only with certain services instances.
-        private DirectorySearchController() { }
-
-        public DirectorySearchController(DirectorySearcher directorySearcher, IConfigurationSettings configurationSettingsEngine)
+        public DirectorySearchController(IDirectorySearchService searchService, IConfigurationSettings configurationSettingsEngine)
         {
-            this.directorySearcher = directorySearcher;
-            this.directorySearcher.SearchScope = SearchScope.Subtree;
-            this.directorySearcher.CacheResults = true;
-            this.directorySearcher.ClientTimeout = TimeSpan.FromMinutes(ClinetTimeoutInMinutes);
-            this.directorySearcher.ServerTimeLimit = TimeSpan.FromMinutes(ServerTimeoutInMinutes);
-            this.directorySearcher.Tombstone = false;
-
+            _searchService = searchService;
             _domainName = configurationSettingsEngine.GetConfigurationDomainName();
         }
 
         /// <summary>
         /// Search for users in the Active Directory using the specified search criteria.
         /// </summary>
-        /// <param name="userSearchCriteria"></param>
-        /// <returns></returns>
         [HttpGet]
         [Route("users")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IList<UserSearchResult>))]
@@ -116,63 +93,13 @@ namespace Dorc.Api.Controllers
             }
             #endregion
 
-            const string samAccountNamePropertyName = "SAMAccountName";
-            const string userAccountControlPropertyName = "userAccountControl";
-            const string displayNamePropertyName = "DisplayName";
-
-            directorySearcher.PropertiesToLoad.Add(samAccountNamePropertyName);
-            directorySearcher.PropertiesToLoad.Add(userAccountControlPropertyName);
-            directorySearcher.PropertiesToLoad.Add(displayNamePropertyName);
-
-            directorySearcher.Filter = string.Format(
-            "(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))", userSearchCriteria);
-
-            List<UserSearchResult> output = [];
-            using (SearchResultCollection searchResults = directorySearcher.FindAll())
-            {
-                foreach (SearchResult searchResult in searchResults)
-                {
-                    DirectoryEntry foundUser = searchResult.GetDirectoryEntry();
-                    if (foundUser.NativeGuid == null)
-                    {
-                        // The object is not bound to the Active Directory Domain Services.
-                        // For more details see https://learn.microsoft.com/en-us/windows/win32/ad/binding-to-active-directory-domain-services.
-                        continue;
-                    }
-
-                    var userAccountFlags = (int)foundUser.Properties[userAccountControlPropertyName].Value;
-                    var isFoundUserAccountDisabled = Convert.ToBoolean(userAccountFlags & ADS_UF_ACCOUNTDISABLE);
-                    if (isFoundUserAccountDisabled)
-                    {
-                        continue;
-                    }
-
-                    var foundUserLogonName = foundUser.Properties.Contains(samAccountNamePropertyName)
-                        ? foundUser.Properties[samAccountNamePropertyName][0].ToString()
-                        : DefaultLogonName;
-
-                    var foundUserDisplayName = foundUser.Properties.Contains(displayNamePropertyName)
-                        ? foundUser.Properties[displayNamePropertyName][0].ToString()
-                        : foundUserLogonName.Equals(DefaultLogonName)
-                            ? DefaultDisplayName
-                            : foundUserLogonName;
-
-                    output.Add(new UserSearchResult
-                    {
-                        DisplayName = foundUserDisplayName,
-                        FullLogonName = $@"{_domainName}\{foundUserLogonName}"
-                    });
-                }
-            }
-
+            var output = _searchService.FindUsers(userSearchCriteria, _domainName);
             return Ok(output);
         }
 
         /// <summary>
         /// Search for groups in Active Directory using the specified search criteria.
         /// </summary>
-        /// <param name="groupSearchCriteria"></param>
-        /// <returns></returns>
         [HttpGet]
         [Route("groups")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IList<GroupSearchResult>))]
@@ -218,57 +145,22 @@ namespace Dorc.Api.Controllers
             }
             #endregion
 
-            const string namePropertyName = "Name";
-
-            directorySearcher.PropertiesToLoad.Add(namePropertyName);
-
-            directorySearcher.Filter = string.Format(
-            "(&(objectClass=group)(|(cn={0})(DisplayName={0}*)(sAMAccountName={0}*)))", groupSearchCriteria);
-
-            List<GroupSearchResult> output = [];
-            using (SearchResultCollection searchResults = directorySearcher.FindAll())
-            {
-                foreach (SearchResult searchResult in searchResults)
-                {
-                    DirectoryEntry foundGroup = searchResult.GetDirectoryEntry();
-                    if (foundGroup.NativeGuid == null)
-                    {
-                        // The object is not bound to the Active Directory Domain Services.
-                        // For more details see https://learn.microsoft.com/en-us/windows/win32/ad/binding-to-active-directory-domain-services.
-                        continue;
-                    }
-
-                    var foundGroupName = foundGroup.Properties.Contains(namePropertyName)
-                        ? foundGroup.Properties[namePropertyName][0].ToString()
-                        : DefaultDisplayName;
-
-                    output.Add(new GroupSearchResult
-                    {
-                        DisplayName = foundGroupName,
-                        FullLogonName = $@"{_domainName}\{foundGroupName}"
-                    });
-                }
-            }
+            var output = _searchService.FindGroups(groupSearchCriteria, _domainName);
             return Ok(output);
         }
 
         /// <summary>
         /// Determines whether the specified user is a member of the specified group.
         /// </summary>
-        /// <param name="groupName"></param>
-        /// <param name="account"></param>
-        /// <returns></returns>
         [HttpGet]
         [Route("isuseringroup")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
         public IActionResult IsUserInGroup(string groupName, string account)
         {
-            var result = new ApiBoolResult { Result = false };
-            if (string.IsNullOrEmpty(groupName) || string.IsNullOrEmpty(account)) return StatusCode(StatusCodes.Status400BadRequest);
-            var context = new PrincipalContext(ContextType.Domain, _domainName);
-            var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, account);
-            var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.Name, groupName);
-            result.Result = groupPrincipal != null && user.IsMemberOf(groupPrincipal);
+            if (string.IsNullOrEmpty(groupName) || string.IsNullOrEmpty(account))
+                return StatusCode(StatusCodes.Status400BadRequest);
+
+            var result = new ApiBoolResult { Result = _searchService.IsUserInGroup(groupName, account, _domainName) };
             return StatusCode(StatusCodes.Status200OK, result);
         }
     }

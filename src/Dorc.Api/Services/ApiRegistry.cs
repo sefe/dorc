@@ -25,11 +25,11 @@ namespace Dorc.Api.Services
             For<IRequestService>().Use<RequestService>();
 
             For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
-            For<DirectorySearcher>().Use(serviceContext =>
+            For<IDirectorySearchService>().Use(serviceContext =>
             {
                 var directoryEntry = new DirectoryEntry();
                 var directorySearcher = new DirectorySearcher(directoryEntry);
-                return directorySearcher;
+                return new ActiveDirectorySearchService(directorySearcher);
             }).Scoped();
             
             For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()

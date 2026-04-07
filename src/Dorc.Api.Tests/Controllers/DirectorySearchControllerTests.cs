@@ -1,372 +1,270 @@
-﻿using Dorc.ApiModel;
+using Dorc.Api.Controllers;
+using Dorc.Api.Services;
+using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Microsoft.QualityTools.Testing.Fakes;
-using System.Collections.Specialized;
-using System.DirectoryServices;
-using System.DirectoryServices.Fakes;
-using System.Reflection;
-using System.Text;
-using Dorc.Api.Controllers;
+using NSubstitute;
 
 namespace Dorc.Api.Tests.Controllers
 {
     [TestClass]
-    public partial class DirectorySearchControllerTests
+    public class DirectorySearchControllerTests
     {
-        public static IEnumerable<object[]> SearchUsersData
+        private IDirectorySearchService _searchService = null!;
+        private IConfigurationSettings _configSettings = null!;
+
+        [TestInitialize]
+        public void Setup()
         {
-            get
-            {
-                return new[]
-                {
-                    new object[] { "te", null, null, null, null, null, null, false, "User search criteria length should be not less then 3 characters. Actual length : 2." },
-                    new object[] { "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789" + "1", null, null, null, null, null, null, false, "User search criteria length should be not greater then 100 characters. Actual length : 101."},
-                    new object[] { "test!", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test@", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test#", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test$", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test%", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test^", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test*", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test+", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test*", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test/", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test[", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test]", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test{", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test}", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test|", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test:", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test?", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test<", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test>", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test;", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test,", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test/", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test\\", null, null, null, null, null, null, false, "User search criteria contains unacceptable characters. User search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test", null, null, null, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", null, 0x0002, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", null, 0x1112, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", "testSAMAccountName", 0x0001, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
-                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testSAMAccountName", 0, "testDisplayName", "testDisplayName", "DOMAIN\\testSAMAccountName", true, null },
-                };
-            }
+            _searchService = Substitute.For<IDirectorySearchService>();
+            _configSettings = Substitute.For<IConfigurationSettings>();
+            _configSettings.GetConfigurationDomainName().Returns("DOMAIN");
         }
 
-        public static string GetTestName(MethodInfo methodInfo, object[] data)
+        private DirectorySearchController CreateController()
         {
-            StringBuilder testNameBuilder = new StringBuilder(string.Format("{0} for search criteria '{1}'. Parameters: ", methodInfo.Name, data[0]));
+            return new DirectorySearchController(_searchService, _configSettings);
+        }
 
-            int parametersToOutput;
-            if (methodInfo.Name == "TestSearchUsers")
-            {
-                parametersToOutput = 4;
-            }
-            else
-            {
-                parametersToOutput = 2;
-            }
+        #region SearchUsers validation tests
 
-            for (int i = 1; i <= parametersToOutput; i++)
-            {
-                object testParameter = data[i];
-                testNameBuilder.Append(testParameter ?? "null");
+        [TestMethod]
+        [DataRow("te", "User search criteria length should be not less then 3 characters. Actual length : 2.")]
+        [DataRow("a", "User search criteria length should be not less then 3 characters. Actual length : 1.")]
+        public void SearchUsers_TooShort_Returns500(string criteria, string expectedMessage)
+        {
+            using var controller = CreateController();
+            var result = controller.SearchUsers(criteria) as ObjectResult;
 
-                if (i != parametersToOutput)
-                {
-                    testNameBuilder.Append(", ");
-                }
-                else
-                {
-                    testNameBuilder.Append(".");
-                }
-            }
-            return testNameBuilder.ToString();
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
+            var response = result.Value as HttpResponseMessage;
+            Assert.AreEqual(expectedMessage, response?.Content.ReadAsStringAsync().Result);
         }
 
         [TestMethod]
-        [DynamicData(nameof(SearchUsersData), DynamicDataDisplayName = nameof(GetTestName))]
-        public void TestSearchUsers(
-            string testUserSearchCriteria,
-            string testNativeGuid,
-            string testSAMAccountName,
-            int testUserAccountControlValue,
-            string testDisplayName,
-            string expectedDisplayName,
-            string expectedFullLogonName,
-            bool searchResultsExpected,
-            string expectedExceptionMessage)
+        public void SearchUsers_TooLong_Returns500()
         {
-            using (ShimsContext.Create())
-            {
-                ShimPropertyCollection shimPropertyCollection = new ShimPropertyCollection();
-                shimPropertyCollection.ItemGetString = (propertyName) =>
-                {
-                    switch (propertyName)
-                    {
-                        case "SAMAccountName":
-                            {
-                                ShimPropertyValueCollection shimPropertyValueCollection = new ShimPropertyValueCollection();
-                                shimPropertyValueCollection.ItemGetInt32 = (i) => testSAMAccountName;
-                                return shimPropertyValueCollection;
-                            }
-                        case "userAccountControl":
-                            {
-                                ShimPropertyValueCollection shimPropertyValueCollection = new ShimPropertyValueCollection();
-                                shimPropertyValueCollection.ValueGet = () => testUserAccountControlValue;
-                                return shimPropertyValueCollection;
-                            }
-                        case "DisplayName":
-                            {
-                                ShimPropertyValueCollection shimPropertyValueCollection = new ShimPropertyValueCollection();
-                                shimPropertyValueCollection.ItemGetInt32 = (i) => testDisplayName;
-                                return shimPropertyValueCollection;
-                            }
-                        default:
-                            {
-                                return null;
-                            }
-                    }
-                };
-                shimPropertyCollection.ContainsString = (propertyName) =>
-                {
-                    switch (propertyName)
-                    {
-                        case "SAMAccountName":
-                            {
-                                return true;
-                            }
-                        case "userAccountControl":
-                            {
-                                return true;
-                            }
-                        case "DisplayName":
-                            {
-                                return true;
-                            }
-                        default:
-                            {
-                                return false;
-                            }
-                    }
-                };
-                ShimDirectoryEntry shimDirectoryEntry = new ShimDirectoryEntry();
-                shimDirectoryEntry.PropertiesGet = () => shimPropertyCollection;
-                shimDirectoryEntry.NativeGuidGet = () => testNativeGuid;
+            var criteria = new string('a', 101);
+            using var controller = CreateController();
+            var result = controller.SearchUsers(criteria) as ObjectResult;
 
-                ShimSearchResult shimSearchResult = new ShimSearchResult();
-                shimSearchResult.GetDirectoryEntry = () => shimDirectoryEntry;
-
-                ShimSearchResultCollection shimSearchResultCollection = new ShimSearchResultCollection();
-                shimSearchResultCollection.GetEnumerator = () => new List<SearchResult>() { shimSearchResult }.GetEnumerator();
-
-                ShimDirectorySearcher shimDirectorySearcher = new ShimDirectorySearcher
-                {
-                    PropertiesToLoadGet = () => new StringCollection(),
-                    FilterSetString = (s) => { },
-                    FindAll = () => shimSearchResultCollection
-                };
-
-                IConfigurationRoot configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-                IConfigurationSettings configurationSettingsEngine = new ConfigurationSettings(configurationRoot);
-
-                using (var directorySearchController = new DirectorySearchController(shimDirectorySearcher, configurationSettingsEngine))
-                {
-                    if (!string.IsNullOrEmpty(expectedExceptionMessage))
-                    {
-                        var failedUsers = directorySearchController.SearchUsers(testUserSearchCriteria);
-                        var failedObjectResult = failedUsers as ObjectResult;
-
-                        Assert.IsNotNull(failedObjectResult);
-                        Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
-                        var responseMsg = failedObjectResult.Value as HttpResponseMessage;
-
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
-                        return;
-                    }
-
-                    var actualUserSearchResults = directorySearchController.SearchUsers(testUserSearchCriteria);
-                    var okObjectResult = actualUserSearchResults as OkObjectResult;
-                    var users = okObjectResult?.Value as IEnumerable<UserSearchResult>;
-
-                    Assert.IsNotNull(users, "Returned collection is null.");
-
-                    if (!searchResultsExpected)
-                    {
-                        Assert.IsFalse(users?.Any(), "Returned collection is not empty.");
-
-                        return;
-                    }
-
-                    Assert.IsNotNull(actualUserSearchResults, "Returned collection is null.");
-                    Assert.IsTrue(users.Any(), "Returned collection is empty.");
-                    Assert.AreEqual(expectedDisplayName, users.First().DisplayName, "DisplayName is incorrect.");
-                    Assert.AreEqual(expectedFullLogonName, users.First().FullLogonName, "FullLogonName is incorrect.");
-                }
-            }
-        }
-
-        public static IEnumerable<object[]> SearchGroupsData
-        {
-            get
-            {
-                return new[]
-                {
-                    new object[] { "te", null, null, null, null, false, "Group search criteria length should be not less then 3 characters. Actual length : 2." },
-                    new object[] { "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789"
-                    + "0123456789" + "1", null, null, null, null, false, "Group search criteria length should be not greater then 100 characters. Actual length : 101."},
-                    new object[] { "test!", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test@", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test#", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test$", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test%", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test^", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test*", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test+", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test*", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test/", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test[", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test]", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test{", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test}", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test|", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test:", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test?", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test<", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test>", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test;", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test,", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test/", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test\\", null, null, null, null, false, "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: ^[a-zA-Z0-9-_.' ()&]+$" },
-                    new object[] { "test", null, null, null, null, false, null },
-                    new object[] { "test", "testNativeGuid", "testName", "testName", "DOMAIN\\testName", true, null },
-                    new object[] { "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()", "testNativeGuid", "testName", "testName", "DOMAIN\\testName", true, null },
-                };
-            }
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
+            var response = result.Value as HttpResponseMessage;
+            Assert.IsTrue(response?.Content.ReadAsStringAsync().Result.Contains("not greater then 100"));
         }
 
         [TestMethod]
-        [DynamicData(nameof(SearchGroupsData), DynamicDataDisplayName = nameof(GetTestName))]
-        public void TestSearchGroups(
-            string testGroupSearchCriteria,
-            string testNativeGuid,
-            string testName,
-            string expectedDisplayName,
-            string expectedFullLogonName,
-            bool searchResultsExpected,
-            string expectedExceptionMessage)
+        [DataRow("test!")]
+        [DataRow("test@")]
+        [DataRow("test#")]
+        [DataRow("test$")]
+        [DataRow("test%")]
+        [DataRow("test^")]
+        [DataRow("test*")]
+        [DataRow("test+")]
+        [DataRow("test/")]
+        [DataRow("test[")]
+        [DataRow("test]")]
+        [DataRow("test{")]
+        [DataRow("test}")]
+        [DataRow("test|")]
+        [DataRow("test:")]
+        [DataRow("test?")]
+        [DataRow("test<")]
+        [DataRow("test>")]
+        [DataRow("test;")]
+        [DataRow("test,")]
+        [DataRow("test\\")]
+        public void SearchUsers_InvalidCharacters_Returns500(string criteria)
         {
-            using (ShimsContext.Create())
-            {
-                ShimPropertyCollection shimPropertyCollection = new ShimPropertyCollection();
-                shimPropertyCollection.ItemGetString = (propertyName) =>
-                {
-                    switch (propertyName)
-                    {
-                        case "Name":
-                            {
-                                ShimPropertyValueCollection shimPropertyValueCollection = new ShimPropertyValueCollection();
-                                shimPropertyValueCollection.ItemGetInt32 = (i) => testName;
-                                return shimPropertyValueCollection;
-                            }
-                        default:
-                            {
-                                return null;
-                            }
-                    }
-                };
-                shimPropertyCollection.ContainsString = (propertyName) =>
-                {
-                    switch (propertyName)
-                    {
-                        case "Name":
-                            {
-                                return true;
-                            }
-                        default:
-                            {
-                                return false;
-                            }
-                    }
-                };
+            using var controller = CreateController();
+            var result = controller.SearchUsers(criteria) as ObjectResult;
 
-                ShimDirectoryEntry shimDirectoryEntry = new ShimDirectoryEntry();
-                shimDirectoryEntry.PropertiesGet = () => shimPropertyCollection;
-                shimDirectoryEntry.NativeGuidGet = () => testNativeGuid;
-
-                ShimSearchResult shimSearchResult = new ShimSearchResult();
-                shimSearchResult.GetDirectoryEntry = () => shimDirectoryEntry;
-
-                ShimSearchResultCollection shimSearchResultCollection = new ShimSearchResultCollection();
-                shimSearchResultCollection.GetEnumerator = () => new List<SearchResult>() { shimSearchResult }.GetEnumerator();
-
-                ShimDirectorySearcher shimDirectorySearcher = new ShimDirectorySearcher
-                {
-                    PropertiesToLoadGet = () => new StringCollection(),
-                    FilterSetString = (s) => { },
-                    FindAll = () => shimSearchResultCollection
-                };
-
-                IConfigurationRoot configurationRoot = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-                IConfigurationSettings configurationSettingsEngine = new ConfigurationSettings(configurationRoot);
-
-                using (var directorySearchController = new DirectorySearchController(shimDirectorySearcher, configurationSettingsEngine))
-                {
-                    if (!string.IsNullOrEmpty(expectedExceptionMessage))
-                    {
-                        var failedUsers = directorySearchController.SearchGroups(testGroupSearchCriteria);
-                        var failedObjectResult = failedUsers as ObjectResult;
-
-                        Assert.IsNotNull(failedObjectResult);
-                        Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
-                        var responseMsg = failedObjectResult.Value as HttpResponseMessage;
-
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
-
-                        return;
-                    }
-
-                    var actualGroupSearchResults = directorySearchController.SearchGroups(testGroupSearchCriteria);
-
-                    var okObjectResult = actualGroupSearchResults as OkObjectResult;
-                    var groups = okObjectResult?.Value as IEnumerable<GroupSearchResult>;
-
-                    Assert.IsNotNull(actualGroupSearchResults, "Returned collection is null.");
-
-                    if (!searchResultsExpected)
-                    {
-                        Assert.IsFalse(groups.Any(), "Returned collection is not empty.");
-
-                        return;
-                    }
-
-                    Assert.IsNotNull(actualGroupSearchResults, "Returned collection is null.");
-                    Assert.IsTrue(groups.Any(), "Returned collection is empty.");
-                    Assert.AreEqual(expectedDisplayName, groups.First().DisplayName, "DisplayName is incorrect.");
-                    Assert.AreEqual(expectedFullLogonName, groups.First().FullLogonName, "FullLogonName is incorrect.");
-                }
-            }
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
+            var response = result.Value as HttpResponseMessage;
+            Assert.IsTrue(response?.Content.ReadAsStringAsync().Result.Contains("unacceptable characters"));
         }
 
+        [TestMethod]
+        public void SearchUsers_ValidCriteria_ReturnsOkWithResults()
+        {
+            var expectedUsers = new List<UserSearchResult>
+            {
+                new() { DisplayName = "Test User", FullLogonName = @"DOMAIN\testuser" }
+            };
+            _searchService.FindUsers("test", "DOMAIN").Returns(expectedUsers);
+
+            using var controller = CreateController();
+            var result = controller.SearchUsers("test") as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            var users = result.Value as IList<UserSearchResult>;
+            Assert.IsNotNull(users);
+            Assert.AreEqual(1, users.Count);
+            Assert.AreEqual("Test User", users[0].DisplayName);
+            Assert.AreEqual(@"DOMAIN\testuser", users[0].FullLogonName);
+        }
+
+        [TestMethod]
+        public void SearchUsers_ValidCriteria_NoResults_ReturnsEmptyList()
+        {
+            _searchService.FindUsers("test", "DOMAIN").Returns(new List<UserSearchResult>());
+
+            using var controller = CreateController();
+            var result = controller.SearchUsers("test") as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            var users = result.Value as IList<UserSearchResult>;
+            Assert.IsNotNull(users);
+            Assert.AreEqual(0, users.Count);
+        }
+
+        [TestMethod]
+        public void SearchUsers_AllValidCharacters_ReturnsOk()
+        {
+            var criteria = "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()&";
+            _searchService.FindUsers(criteria, "DOMAIN").Returns(new List<UserSearchResult>());
+
+            using var controller = CreateController();
+            var result = controller.SearchUsers(criteria);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+        }
+
+        #endregion
+
+        #region SearchGroups validation tests
+
+        [TestMethod]
+        [DataRow("te", "Group search criteria length should be not less then 3 characters. Actual length : 2.")]
+        public void SearchGroups_TooShort_Returns500(string criteria, string expectedMessage)
+        {
+            using var controller = CreateController();
+            var result = controller.SearchGroups(criteria) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
+            var response = result.Value as HttpResponseMessage;
+            Assert.AreEqual(expectedMessage, response?.Content.ReadAsStringAsync().Result);
+        }
+
+        [TestMethod]
+        public void SearchGroups_TooLong_Returns500()
+        {
+            var criteria = new string('a', 101);
+            using var controller = CreateController();
+            var result = controller.SearchGroups(criteria) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
+        }
+
+        [TestMethod]
+        [DataRow("test!")]
+        [DataRow("test@")]
+        [DataRow("test#")]
+        [DataRow("test$")]
+        [DataRow("test%")]
+        [DataRow("test^")]
+        [DataRow("test*")]
+        [DataRow("test+")]
+        [DataRow("test/")]
+        [DataRow("test[")]
+        [DataRow("test]")]
+        [DataRow("test{")]
+        [DataRow("test}")]
+        [DataRow("test|")]
+        [DataRow("test:")]
+        [DataRow("test?")]
+        [DataRow("test<")]
+        [DataRow("test>")]
+        [DataRow("test;")]
+        [DataRow("test,")]
+        [DataRow("test\\")]
+        public void SearchGroups_InvalidCharacters_Returns500(string criteria)
+        {
+            using var controller = CreateController();
+            var result = controller.SearchGroups(criteria) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void SearchGroups_ValidCriteria_ReturnsOkWithResults()
+        {
+            var expectedGroups = new List<GroupSearchResult>
+            {
+                new() { DisplayName = "Test Group", FullLogonName = @"DOMAIN\TestGroup" }
+            };
+            _searchService.FindGroups("test", "DOMAIN").Returns(expectedGroups);
+
+            using var controller = CreateController();
+            var result = controller.SearchGroups("test") as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            var groups = result.Value as IList<GroupSearchResult>;
+            Assert.IsNotNull(groups);
+            Assert.AreEqual(1, groups.Count);
+            Assert.AreEqual("Test Group", groups[0].DisplayName);
+        }
+
+        [TestMethod]
+        public void SearchGroups_AllValidCharacters_ReturnsOk()
+        {
+            var criteria = "abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.' ()&";
+            _searchService.FindGroups(criteria, "DOMAIN").Returns(new List<GroupSearchResult>());
+
+            using var controller = CreateController();
+            var result = controller.SearchGroups(criteria);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+        }
+
+        #endregion
+
+        #region IsUserInGroup tests
+
+        [TestMethod]
+        public void IsUserInGroup_NullGroupName_Returns400()
+        {
+            using var controller = CreateController();
+            var result = controller.IsUserInGroup(null, "account") as StatusCodeResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void IsUserInGroup_NullAccount_Returns400()
+        {
+            using var controller = CreateController();
+            var result = controller.IsUserInGroup("group", null) as StatusCodeResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void IsUserInGroup_ValidInput_ReturnsTrueResult()
+        {
+            _searchService.IsUserInGroup("myGroup", "myUser", "DOMAIN").Returns(true);
+
+            using var controller = CreateController();
+            var result = controller.IsUserInGroup("myGroup", "myUser") as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            var apiResult = result.Value as ApiBoolResult;
+            Assert.IsNotNull(apiResult);
+            Assert.IsTrue(apiResult.Result);
+        }
+
+        #endregion
     }
 }
