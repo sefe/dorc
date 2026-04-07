@@ -38,6 +38,10 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
     this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
+    // Set combo-box value for source control type
+    const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
+    if (comboBox) comboBox.value = String(this._project.SourceControlType ?? SourceControlType.AzureDevOps);
+
     this.requestUpdate('project', oldVal);
   }
 
