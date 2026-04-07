@@ -94,18 +94,14 @@ export class AddEditProject extends LitElement {
     if (textField) textField.value = value;
   }
 
-  private _lastComboBoxValue: string | null = null;
-
-  protected updated(changedProperties: Map<string, unknown>) {
-    super.updated(changedProperties);
+  protected updated(_changedProperties: Map<string, unknown>) {
+    super.updated(_changedProperties);
     // Set combo-box value after render since it may not exist in DOM during property setter.
-    // Guard against infinite loop: only set if the value actually changed.
     const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
     if (comboBox && this._project) {
-      const newValue = String(this._project.SourceControlType ?? SourceControlType.AzureDevOps);
-      if (comboBox.value !== newValue && this._lastComboBoxValue !== newValue) {
-        this._lastComboBoxValue = newValue;
-        comboBox.value = newValue;
+      const expected = String(this._project.SourceControlType ?? SourceControlType.AzureDevOps);
+      if (comboBox.value !== expected) {
+        comboBox.value = expected;
       }
     }
   }
@@ -131,15 +127,13 @@ export class AddEditProject extends LitElement {
 
   static get styles() {
     return css`
-      vaadin-text-field {
+      vaadin-text-field,
+      vaadin-combo-box {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 490px;
         padding: 5px;
-      }
-      vaadin-combo-box.vaadin-text-field {
-        --lumo-space-m: 0px;
       }
       .tooltip {
         position: relative;
