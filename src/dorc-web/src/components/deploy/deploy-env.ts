@@ -151,19 +151,19 @@ export class DeployEnv extends LitElement {
       .cr-section {
         margin: 12px 12px 0 12px;
         padding: 12px;
-        border-top: 6px solid cornflowerblue;
-        background-color: ghostwhite;
+        border-top: 6px solid var(--dorc-link-color);
+        background-color: var(--dorc-bg-secondary);
       }
       .cr-validation-success {
-        background: #e8f5e9;
+        background: var(--dorc-success-bg);
         border: 1px solid #4caf50;
         border-radius: 4px;
         padding: 12px;
         margin-top: 8px;
       }
       .cr-validation-error {
-        background: #ffebee;
-        border: 1px solid #ef5350;
+        background: var(--dorc-failure-bg);
+        border: 1px solid var(--dorc-error-color);
         border-radius: 4px;
         padding: 12px;
         margin-top: 8px;
@@ -176,12 +176,12 @@ export class DeployEnv extends LitElement {
       }
       .cr-details-grid dt {
         font-weight: 600;
-        color: #555;
+        color: var(--dorc-text-secondary);
         margin: 0;
       }
       .cr-details-grid dd {
         margin: 0;
-        color: #212529;
+        color: var(--dorc-text-primary);
       }
       .cr-override-row {
         display: flex;
@@ -192,7 +192,7 @@ export class DeployEnv extends LitElement {
       .cr-progress-bar {
         width: 100%;
         height: 4px;
-        background: #e0e0e0;
+        background: var(--dorc-bg-tertiary);
         border-radius: 2px;
         overflow: hidden;
         margin-top: 8px;
@@ -200,7 +200,7 @@ export class DeployEnv extends LitElement {
       .cr-progress-bar-inner {
         height: 100%;
         width: 40%;
-        background: linear-gradient(90deg, #1976d2, #42a5f5);
+        background: linear-gradient(90deg, var(--dorc-link-color), #42a5f5);
         border-radius: 2px;
         animation: cr-progress-slide 1.2s ease-in-out infinite;
       }
@@ -454,7 +454,7 @@ export class DeployEnv extends LitElement {
           <div class="cr-progress-bar">
             <div class="cr-progress-bar-inner"></div>
           </div>
-          <div style="color: #666; font-size: 13px; margin-top: 4px;">
+          <div style="color: var(--dorc-text-secondary); font-size: 13px; margin-top: 4px;">
             Creating Change Request in ServiceNow...
           </div>
         ` : html``}
@@ -466,7 +466,7 @@ export class DeployEnv extends LitElement {
               .checked="${this.overrideCr}"
               @checked-changed="${this._handleOverrideChange}"
             ></vaadin-checkbox>
-            <span style="color: #d32f2f; font-weight: 500;">
+            <span style="color: var(--dorc-error-color); font-weight: 500;">
               ⚠ Override CR — App Support will be notified by email
             </span>
           </div>
@@ -896,8 +896,7 @@ export class DeployEnv extends LitElement {
       );
     }
 
-    const checkedElems = hegsTree.getCheckedComponents();
-    const components = checkedElems.map(e => e.data.name);
+    const components = hegsTree.getCheckedComponentNames();
 
     this.req = { requestDto: {} };
     const requestBody: RequestDtoWithCr = {
