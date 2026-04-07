@@ -371,7 +371,6 @@
     <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\AuditScript.table.sql" />
     <None Include="Scripts\Pre-Deployment\AddCancelledFieldsToArchiveDeploymentRequests.sql" />
-    <None Include="Scripts\Pre-Deployment\AddSourceControlTypeToProject.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentRequestAttempt.table.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentResultAttempt.table.sql" />
   </ItemGroup>

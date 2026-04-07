@@ -9,5 +9,3 @@
                SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
-
-:r .\AddSourceControlTypeToProject.sql
