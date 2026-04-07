@@ -287,17 +287,7 @@ namespace Dorc.Core
         {
             var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
 
-            var artifactDownloadUrl = await buildClient.GetBuildArtifactDownloadUrlAsync(
-                project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                createRequest.BuildDefinitionName, createRequest.BuildUrl);
-
-            var buildDetail = new BuildDetail
-            {
-                DropLocation = artifactDownloadUrl,
-                Project = project.ProjectName
-            };
-
-            // For Azure DevOps, the build URI is in the buildUrl; for GitHub, it's the run ID
+            // Validate the build exists before fetching artifact URLs to fail fast
             var buildInfo = await buildClient.ValidateBuildAsync(
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
                 createRequest.BuildDefinitionName, null, createRequest.BuildUrl, false);
@@ -308,11 +298,18 @@ namespace Dorc.Core
                     $"Unable to validate build '{createRequest.BuildDefinitionName}' with URL '{createRequest.BuildUrl}'.");
             }
 
-            buildDetail.BuildNumber = buildInfo.BuildNumber;
-            buildDetail.Uri = buildInfo.BuildUri;
-            buildDetail.BuildId = buildInfo.BuildId;
+            var artifactDownloadUrl = await buildClient.GetBuildArtifactDownloadUrlAsync(
+                project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                createRequest.BuildDefinitionName, createRequest.BuildUrl);
 
-            return buildDetail;
+            return new BuildDetail
+            {
+                DropLocation = artifactDownloadUrl,
+                Project = project.ProjectName,
+                BuildNumber = buildInfo.BuildNumber,
+                Uri = buildInfo.BuildUri,
+                BuildId = buildInfo.BuildId
+            };
         }
 
         private BuildDetail ShareDetail(CreateRequest createRequest)

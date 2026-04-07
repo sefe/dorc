@@ -17,13 +17,15 @@ namespace Dorc.Core.BuildServer
         private readonly ILoggerFactory _loggerFactory;
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IGitHubHostValidator _hostValidator;
 
         public BuildServerClientFactory(ILoggerFactory loggerFactory, IConfiguration configuration,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory, IGitHubHostValidator hostValidator)
         {
             _loggerFactory = loggerFactory;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
+            _hostValidator = hostValidator;
         }
 
         public IBuildServerClient Create(SourceControlType sourceControlType)
@@ -32,7 +34,7 @@ namespace Dorc.Core.BuildServer
             {
                 SourceControlType.AzureDevOps => new AzureDevOpsBuildServerClient(_loggerFactory),
                 SourceControlType.GitHub => new GitHubActionsBuildServerClient(
-                    _loggerFactory.CreateLogger<GitHubActionsBuildServerClient>(), _configuration, _httpClientFactory),
+                    _loggerFactory.CreateLogger<GitHubActionsBuildServerClient>(), _configuration, _httpClientFactory, _hostValidator),
                 _ => throw new NotSupportedException($"Source control type '{sourceControlType}' is not supported.")
             };
         }

@@ -8,6 +8,12 @@ using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Services
 {
+    /// <remarks>
+    /// This class follows the same stateful pattern as <see cref="AzureDevOpsDeployableBuild"/>:
+    /// <see cref="IsValid"/> stores validated build info that <see cref="Process"/> later uses.
+    /// Instances are created per-request by <see cref="DeployableBuildFactory"/> and must NOT be
+    /// shared across threads or reused.
+    /// </remarks>
     public class GitHubDeployableBuild : IDeployableBuild
     {
         private readonly IBuildServerClient _buildServerClient;
@@ -16,7 +22,8 @@ namespace Dorc.Api.Services
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private string _validationMessage = string.Empty;
-        private BuildServerBuildInfo? _buildInfo;
+        private string _buildUri = string.Empty;
+        private string _definitionName = string.Empty;
 
         public GitHubDeployableBuild(IBuildServerClient buildServerClient, ILogger<GitHubDeployableBuild> log,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
@@ -47,18 +54,21 @@ namespace Dorc.Api.Services
                 return false;
             }
 
-            _buildInfo = _buildServerClient.ValidateBuildAsync(
+            var buildInfo = _buildServerClient.ValidateBuildAsync(
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
                 dorcBuild.BuildText, dorcBuild.BuildNum, dorcBuild.VstsUrl,
                 dorcBuild.Pinned ?? false)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
 
-            if (_buildInfo == null)
+            if (buildInfo == null)
             {
                 _validationMessage = "No matching GitHub Actions workflow run found";
                 _log.LogWarning(_validationMessage);
                 return false;
             }
+
+            _buildUri = buildInfo.BuildUri;
+            _definitionName = buildInfo.DefinitionName;
 
             _log.LogDebug("Successfully validated GitHub Actions build.");
             return true;
@@ -68,14 +78,14 @@ namespace Dorc.Api.Services
 
         public RequestStatusDto Process(RequestDto request, ClaimsPrincipal user)
         {
-            if (_buildInfo == null)
+            if (string.IsNullOrEmpty(_buildUri))
                 return new RequestStatusDto { Id = 0, Status = "Build validation must succeed before processing" };
 
             var requestId = _deployLibrary.SubmitRequest(
                 request.Project,
                 request.Environment,
-                _buildInfo.BuildUri,
-                _buildInfo.DefinitionName,
+                _buildUri,
+                _definitionName,
                 request.Components.ToList(),
                 request.RequestProperties.ToList(),
                 user);

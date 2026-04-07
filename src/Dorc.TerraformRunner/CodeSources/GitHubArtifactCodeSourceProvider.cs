@@ -40,6 +40,9 @@ namespace Dorc.TerraformRunner.CodeSources
                 ? "https://api.github.com"
                 : scriptGroup.GitHubApiBaseUrl;
 
+            // Validate the API base URL host to prevent SSRF / token exfiltration
+            ValidateApiBaseHost(apiBase);
+
             using var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
             httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DORC", "1.0"));
@@ -60,8 +63,9 @@ namespace Dorc.TerraformRunner.CodeSources
 
             _logger.FileLogger.LogInformation($"Found {artifactsResponse.Artifacts.Count} artifact(s) for run '{scriptGroup.GitHubRunId}'");
 
-            // Download the first artifact returned for the run
-            var artifact = artifactsResponse.Artifacts[0];
+            // Prefer an artifact named "drop" (consistent with AzDO convention), else take the first
+            var artifact = artifactsResponse.Artifacts.FirstOrDefault(a =>
+                "drop".Equals(a.Name, StringComparison.OrdinalIgnoreCase)) ?? artifactsResponse.Artifacts[0];
             var downloadUrl = artifact.ArchiveDownloadUrl;
 
             _logger.Information($"Downloading artifact '{artifact.Name}' from {downloadUrl}");
@@ -77,7 +81,7 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                ZipFile.ExtractToDirectory(tempZipFile, workingDir, true);
+                SafeExtractToDirectory(tempZipFile, workingDir);
                 _logger.Information($"Successfully extracted GitHub artifact '{artifact.Name}'");
             }
             finally
@@ -86,6 +90,43 @@ namespace Dorc.TerraformRunner.CodeSources
                 {
                     File.Delete(tempZipFile);
                 }
+            }
+        }
+
+        private static void ValidateApiBaseHost(string apiBase)
+        {
+            var uri = new Uri(apiBase);
+            if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // GitHub Enterprise hosts must use HTTPS
+            if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"GitHub API base URL must use HTTPS, got '{uri.Scheme}'");
+        }
+
+        private static void SafeExtractToDirectory(string zipPath, string destinationDir)
+        {
+            var fullDestination = Path.GetFullPath(destinationDir);
+            using var archive = ZipFile.OpenRead(zipPath);
+            foreach (var entry in archive.Entries)
+            {
+                if (string.IsNullOrEmpty(entry.Name))
+                    continue; // Skip directory entries
+
+                var destPath = Path.GetFullPath(Path.Combine(fullDestination, entry.FullName));
+                if (!destPath.StartsWith(fullDestination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                    !destPath.Equals(fullDestination, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Zip entry '{entry.FullName}' would extract outside the target directory. Aborting.");
+                }
+
+                var entryDir = Path.GetDirectoryName(destPath);
+                if (entryDir != null)
+                    Directory.CreateDirectory(entryDir);
+
+                entry.ExtractToFile(destPath, overwrite: true);
             }
         }
 

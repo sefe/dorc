@@ -1,6 +1,7 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
@@ -42,7 +43,8 @@ namespace Dorc.Monitor
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IScriptGroupPipeServer scriptGroupPipeServer,
             IAzureStorageAccountWorker azureStorageAccountWorker,
-            IProjectsPersistentSource projectsPersistentSource)
+            IProjectsPersistentSource projectsPersistentSource,
+            IGitHubHostValidator gitHubHostValidator)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -52,7 +54,7 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
-            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine);
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
         }
 
         public bool Dispatch(

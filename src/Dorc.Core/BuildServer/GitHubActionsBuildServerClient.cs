@@ -21,17 +21,17 @@ namespace Dorc.Core.BuildServer
     {
         private readonly ILogger<GitHubActionsBuildServerClient> _logger;
         private readonly string _gitHubToken;
-        private readonly string[]? _allowedGitHubEnterpriseHosts;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IGitHubHostValidator _hostValidator;
 
         public GitHubActionsBuildServerClient(ILogger<GitHubActionsBuildServerClient> logger, IConfiguration configuration,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory, IGitHubHostValidator hostValidator)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _hostValidator = hostValidator;
             var appSettings = configuration.GetSection("AppSettings");
             _gitHubToken = appSettings["GitHubToken"] ?? string.Empty;
-            _allowedGitHubEnterpriseHosts = appSettings.GetSection("AllowedGitHubEnterpriseHosts").Get<string[]>();
 
             if (string.IsNullOrEmpty(_gitHubToken))
             {
@@ -61,11 +61,11 @@ namespace Dorc.Core.BuildServer
 
             foreach (var workflowFile in workflowFiles)
             {
-                var url = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowFile.Trim()}";
+                var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowFile.Trim()}";
 
                 try
                 {
-                    var response = client.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
+                    using var response = client.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
                     response.EnsureSuccessStatusCode();
                     var json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                     var workflow = JsonSerializer.Deserialize<GitHubWorkflow>(json);
@@ -104,8 +104,8 @@ namespace Dorc.Core.BuildServer
                 return Enumerable.Empty<DeployableArtefact>();
             }
 
-            var runsUrl = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page=100";
-            var response = await client.GetAsync(runsUrl);
+            var runsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page=100";
+            using var response = await client.GetAsync(runsUrl);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -166,8 +166,8 @@ namespace Dorc.Core.BuildServer
             if (!long.TryParse(runId, out _))
                 throw new ArgumentException($"GitHub Actions run ID must be numeric, got '{runId}'");
 
-            var artifactsUrl = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
-            var response = await client.GetAsync(artifactsUrl);
+            var artifactsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
+            using var response = await client.GetAsync(artifactsUrl);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -176,8 +176,10 @@ namespace Dorc.Core.BuildServer
             if (artifactsResponse?.Artifacts == null || artifactsResponse.Artifacts.Count == 0)
                 throw new ApplicationException($"No artifacts found for GitHub Actions run {runId}");
 
-            // Return the first artifact's download URL
-            return artifactsResponse.Artifacts[0].ArchiveDownloadUrl;
+            // Prefer an artifact named "drop" (consistent with AzDO convention), else take the first
+            var artifact = artifactsResponse.Artifacts.FirstOrDefault(a =>
+                "drop".Equals(a.Name, StringComparison.OrdinalIgnoreCase)) ?? artifactsResponse.Artifacts[0];
+            return artifact.ArchiveDownloadUrl;
         }
 
         public async Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths,
@@ -204,8 +206,8 @@ namespace Dorc.Core.BuildServer
             if (workflowId == null)
                 return null;
 
-            var runsUrl = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page=100";
-            var response = await client.GetAsync(runsUrl);
+            var runsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page=100";
+            using var response = await client.GetAsync(runsUrl);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -245,8 +247,8 @@ namespace Dorc.Core.BuildServer
 
         private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId)
         {
-            var url = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}";
-            var response = await client.GetAsync(url);
+            var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}";
+            using var response = await client.GetAsync(url);
             if (!response.IsSuccessStatusCode)
                 return null;
 
@@ -268,8 +270,8 @@ namespace Dorc.Core.BuildServer
 
         private async Task<long?> GetWorkflowIdByNameAsync(HttpClient client, string serverUrl, string owner, string repo, string workflowName)
         {
-            var url = $"{GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows?per_page=100";
-            var response = await client.GetAsync(url);
+            var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows?per_page=100";
+            using var response = await client.GetAsync(url);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -310,41 +312,6 @@ namespace Dorc.Core.BuildServer
             throw new ArgumentException(
                 $"Cannot parse owner/repo from URL: {serverUrl}. " +
                 "Expected format: https://api.github.com/repos/{{owner}}/{{repo}}");
-        }
-
-        private static readonly HashSet<string> AllowedGitHubHosts = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "api.github.com",
-            "github.com"
-        };
-
-        private string GetApiBase(string serverUrl)
-        {
-            var uri = new Uri(serverUrl);
-            ValidateGitHubHost(uri.Host);
-
-            // For public GitHub (both api.github.com and github.com), use the API endpoint
-            if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) ||
-                uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
-                return "https://api.github.com";
-
-            // For GitHub Enterprise, return https://hostname/api/v3
-            return $"{uri.Scheme}://{uri.Host}/api/v3";
-        }
-
-        private void ValidateGitHubHost(string host)
-        {
-            if (AllowedGitHubHosts.Contains(host))
-                return;
-
-            // Allow GitHub Enterprise hosts configured via appsettings
-            var allowedGheHosts = _allowedGitHubEnterpriseHosts;
-            if (allowedGheHosts != null && allowedGheHosts.Contains(host, StringComparer.OrdinalIgnoreCase))
-                return;
-
-            throw new ArgumentException(
-                $"GitHub API host '{host}' is not in the allowed hosts list. " +
-                "Configure 'AllowedGitHubEnterpriseHosts' in AppSettings to allow GitHub Enterprise hosts.");
         }
 
         #region GitHub API Response Models

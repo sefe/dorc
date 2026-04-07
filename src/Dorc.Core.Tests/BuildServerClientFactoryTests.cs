@@ -12,6 +12,7 @@ namespace Dorc.Core.Tests
         private ILoggerFactory _loggerFactory = null!;
         private IConfiguration _configuration = null!;
         private IHttpClientFactory _httpClientFactory = null!;
+        private IGitHubHostValidator _hostValidator = null!;
 
         [TestInitialize]
         public void Setup()
@@ -28,12 +29,14 @@ namespace Dorc.Core.Tests
 
             _httpClientFactory = Substitute.For<IHttpClientFactory>();
             _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
+
+            _hostValidator = Substitute.For<IGitHubHostValidator>();
         }
 
         [TestMethod]
         public void Create_AzureDevOps_ReturnsAzureDevOpsBuildServerClient()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
             var client = factory.Create(SourceControlType.AzureDevOps);
 
             Assert.IsNotNull(client);
@@ -43,7 +46,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_GitHub_ReturnsGitHubActionsBuildServerClient()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
             var client = factory.Create(SourceControlType.GitHub);
 
             Assert.IsNotNull(client);
@@ -53,7 +56,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_UnsupportedType_ThrowsNotSupportedException()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
 
             Assert.Throws<NotSupportedException>(() =>
                 factory.Create((SourceControlType)999));
@@ -62,7 +65,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_AzureDevOps_MultipleCalls_ReturnsFreshInstances()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
             var client1 = factory.Create(SourceControlType.AzureDevOps);
             var client2 = factory.Create(SourceControlType.AzureDevOps);
 
@@ -72,7 +75,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_GitHub_MultipleCalls_ReturnsFreshInstances()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
             var client1 = factory.Create(SourceControlType.GitHub);
             var client2 = factory.Create(SourceControlType.GitHub);
 

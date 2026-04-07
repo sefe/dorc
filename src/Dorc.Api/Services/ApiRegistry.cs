@@ -44,6 +44,7 @@ namespace Dorc.Api.Services
             For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();
+            For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
             For<IBuildServerClientFactory>().Use<BuildServerClientFactory>().Singleton();
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();

@@ -24,6 +24,14 @@ namespace Tools.PostRestoreEndurCLI
                 var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json", optional: true).Build();
                 For<IConfiguration>().Use(configuration);
                 this.AddHttpClient();
+                this.AddHttpClient("GitHubActions", client =>
+                {
+                    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+                    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("DORC", "1.0"));
+                    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+                    client.Timeout = TimeSpan.FromSeconds(30);
+                });
+                For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
                 For<IBuildServerClientFactory>().Use<BuildServerClientFactory>().Singleton();
 
                 For<IRequestsManager>().Use<RequestsManager>();

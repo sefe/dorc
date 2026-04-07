@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -16,11 +17,14 @@ namespace Dorc.Monitor.TerraformSourceConfig
         
         private readonly ILogger _logger;
         private readonly IConfigurationSettings _configurationSettings;
+        private readonly IGitHubHostValidator _gitHubHostValidator;
 
-        public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings)
+        public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings,
+            IGitHubHostValidator gitHubHostValidator)
         {
             _logger = logger;
             _configurationSettings = configurationSettings;
+            _gitHubHostValidator = gitHubHostValidator;
         }
 
         public void ConfigureScriptGroup(
@@ -154,11 +158,8 @@ namespace Dorc.Monitor.TerraformSourceConfig
                         scriptGroup.GitHubRepo = segments[reposIndex + 2];
                     }
 
-                    // Derive API base URL
-                    if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase))
-                        scriptGroup.GitHubApiBaseUrl = "https://api.github.com";
-                    else
-                        scriptGroup.GitHubApiBaseUrl = $"{uri.Scheme}://{uri.Host}/api/v3";
+                    // Derive API base URL with host validation to prevent SSRF/token exfiltration
+                    scriptGroup.GitHubApiBaseUrl = _gitHubHostValidator.GetApiBase(project.ArtefactsUrl);
                 }
                 catch (Exception ex)
                 {
