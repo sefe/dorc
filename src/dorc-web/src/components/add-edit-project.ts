@@ -38,6 +38,8 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
     this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
+    // Reset so updated() will set the combo-box for the new project
+    this._comboBoxInitialized = false;
     this.requestUpdate('project', oldVal);
   }
 
@@ -94,14 +96,16 @@ export class AddEditProject extends LitElement {
     if (textField) textField.value = value;
   }
 
+  private _comboBoxInitialized = false;
+
   protected updated(_changedProperties: Map<string, unknown>) {
     super.updated(_changedProperties);
-    // Set combo-box value after render since it may not exist in DOM during property setter.
-    const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
-    if (comboBox && this._project) {
-      const expected = String(this._project.SourceControlType ?? SourceControlType.AzureDevOps);
-      if (comboBox.value !== expected) {
-        comboBox.value = expected;
+    // Set combo-box value once after it first appears in DOM
+    if (!this._comboBoxInitialized) {
+      const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
+      if (comboBox) {
+        comboBox.value = String(this._project?.SourceControlType ?? SourceControlType.AzureDevOps);
+        this._comboBoxInitialized = true;
       }
     }
   }
@@ -210,7 +214,6 @@ export class AddEditProject extends LitElement {
             ]}"
             item-label-path="label"
             item-value-path="value"
-            .value="${String(this._project?.SourceControlType ?? SourceControlType.AzureDevOps)}"
             @value-changed="${this._sourceControlTypeChanged}"
           ></vaadin-combo-box>
           <vaadin-text-field
@@ -357,9 +360,11 @@ export class AddEditProject extends LitElement {
 
   _sourceControlTypeChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
-      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
       const value = data.target.value;
-      model.SourceControlType = typeof value === 'string' ? parseInt(value, 10) : value;
+      const newType = typeof value === 'string' ? parseInt(value, 10) : value;
+      if (newType === this._project.SourceControlType) return; // No change, avoid re-render loop
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      model.SourceControlType = newType;
       this._project = model;
       this.requestUpdate();
     }

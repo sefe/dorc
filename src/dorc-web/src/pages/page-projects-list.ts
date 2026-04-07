@@ -322,10 +322,9 @@ export class PageProjectsList extends PageElement {
       // Folder icon for file shares
       render(html`<vaadin-icon icon="vaadin:folder-open" title="File Share" style="color: ${color}; width: ${size}px; height: ${size}px;"></vaadin-icon>`, root);
     } else {
-      // Azure DevOps logo
+      // Azure DevOps logo (use flat color to avoid SVG id conflicts across rows)
       render(html`<svg title="Azure DevOps" width="${size}" height="${size}" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
-        <defs><linearGradient id="azdo-grad" x1="9" y1="16.97" x2="9" y2="1.03" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0078d4"/><stop offset=".16" stop-color="#1380da"/><stop offset=".53" stop-color="#3c91e5"/><stop offset=".82" stop-color="#559cec"/><stop offset="1" stop-color="#5ea0ef"/></linearGradient></defs>
-        <path d="M17 4v10l-4 3-6.5-2.3V17l-3-4 10.5.8V3.5zm-1 1.5L8.5 1v2.3L2.5 5 1 6.5v5l2.5 1V5.8z" fill="url(#azdo-grad)"/>
+        <path d="M17 4v10l-4 3-6.5-2.3V17l-3-4 10.5.8V3.5zm-1 1.5L8.5 1v2.3L2.5 5 1 6.5v5l2.5 1V5.8z" fill="#0078d4"/>
       </svg>`, root);
     }
   }
