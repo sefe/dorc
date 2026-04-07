@@ -45,22 +45,34 @@ export class AddEditProject extends LitElement {
     return this._project?.SourceControlType === SourceControlType.GitHub;
   }
 
+  private get isFileShare(): boolean {
+    return this._project?.SourceControlType === SourceControlType.FileShare;
+  }
+
   private get urlLabel(): string {
-    return this.isGitHub
-      ? 'GitHub API URL (e.g., https://api.github.com/repos/owner/repo)'
-      : 'Azure DevOps Server URL / File Path';
+    if (this.isFileShare) return 'File Share Path (e.g., file://server/share/builds)';
+    if (this.isGitHub) return 'GitHub API URL (e.g., https://api.github.com/repos/owner/repo)';
+    return 'Azure DevOps Server URL';
   }
 
   private get subPathsLabel(): string {
-    return this.isGitHub
-      ? 'GitHub Workflow Files (semicolon-separated, e.g., build.yml;deploy.yml)'
-      : 'Azure DevOps Server Project';
+    if (this.isFileShare) return 'Sub-paths (semicolon-separated)';
+    if (this.isGitHub) return 'GitHub Workflow Files (semicolon-separated, e.g., build.yml;deploy.yml)';
+    return 'Azure DevOps Server Project';
   }
 
   private get buildRegexLabel(): string {
-    return this.isGitHub
-      ? 'Workflow Name Regex'
-      : 'Build Definition Regex';
+    if (this.isFileShare) return 'Build Filter Regex';
+    if (this.isGitHub) return 'Workflow Name Regex';
+    return 'Build Definition Regex';
+  }
+
+  private get showSubPaths(): boolean {
+    return !this.isFileShare;
+  }
+
+  private get showBuildRegex(): boolean {
+    return !this.isFileShare;
   }
 
   @property({ type: Array })
@@ -183,13 +195,12 @@ export class AddEditProject extends LitElement {
             label="Source Control Type"
             .items="${[
               { label: 'Azure DevOps', value: SourceControlType.AzureDevOps },
-              { label: 'GitHub', value: SourceControlType.GitHub }
+              { label: 'GitHub', value: SourceControlType.GitHub },
+              { label: 'File Share', value: SourceControlType.FileShare }
             ]}"
             item-label-path="label"
             item-value-path="value"
-            .value="${this.isGitHub
-              ? String(SourceControlType.GitHub)
-              : String(SourceControlType.AzureDevOps)}"
+            .value="${String(this._project?.SourceControlType ?? SourceControlType.AzureDevOps)}"
             @value-changed="${this._sourceControlTypeChanged}"
           ></vaadin-combo-box>
           <vaadin-text-field
@@ -199,10 +210,11 @@ export class AddEditProject extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            pattern="^(https|file)?:\\/\\/(.*)"
+            pattern="^(https?|file)?:\\/\\/(.*)"
             value="${this._project?.ArtefactsUrl ?? ''}"
             @value-changed="${this._azureDevOpsUrlChanged}"
           ></vaadin-text-field>
+          ${this.showSubPaths ? html`
           <vaadin-text-field
             id="proj-azure"
             style="width: 490px;"
@@ -213,14 +225,15 @@ export class AddEditProject extends LitElement {
             min-length="6"
             value="${this._project?.ArtefactsSubPaths ?? ''}"
             @value-changed="${this._azureDevOpsProjectChanged}"
-          ></vaadin-text-field>
+          ></vaadin-text-field>` : html``}
+          ${this.showBuildRegex ? html`
           <vaadin-text-field
             id="proj-regex"
             style="width: 490px;"
             label="${this.buildRegexLabel}"
             value="${this._project?.ArtefactsBuildRegex ?? ''}"
             @value-changed="${this._buildDefinitionRegexChanged}"
-          ></vaadin-text-field>
+          ></vaadin-text-field>` : html``}
           <vaadin-text-field
             id="proj-terraform-git-url"
             style="width: 490px;"

@@ -32,6 +32,7 @@ namespace Dorc.Api.Model
         {
             if (string.IsNullOrEmpty(url)) return BuildType.UnknownBuildType;
             if (url.StartsWith("file", StringComparison.OrdinalIgnoreCase)) return BuildType.FileShareBuild;
+            if (SourceControlType == SourceControlType.FileShare) return BuildType.FileShareBuild;
 
             if (SourceControlType == SourceControlType.GitHub)
             {
