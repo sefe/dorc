@@ -12,8 +12,6 @@ namespace Tools.DeployCopyEnvBuildCLI
 {
     internal class Program
     {
-        const string CopyEnvBuildTargetWhitelistPropertyName = "DORC_CopyEnvBuildTargetWhitelist";
-
         private static int Main(string[] args)
         {
 
@@ -28,13 +26,19 @@ namespace Tools.DeployCopyEnvBuildCLI
             {
                 int intReturnCode = 0;
                 var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
-                
-                var whiteList = api.Call<string>(Endpoints.ConfigValues, Method.Get, new Dictionary<string, string> { { "name", CopyEnvBuildTargetWhitelistPropertyName } }).Value;
 
-                if (!whiteList.Contains(arguments.TargetEnv))
+                var targetEnvResult = api.Call<EnvironmentApiModel>(Endpoints.RefDataEnvironments, Method.Get, new Dictionary<string, string> { { "env", arguments.TargetEnv } });
+
+                if (!targetEnvResult.IsModelValid || targetEnvResult.Value == null)
                 {
-                    Output(arguments.TargetEnv + " is not a supported target env...");
-                    return intReturnCode;
+                    Output(arguments.TargetEnv + " is not a valid target environment.");
+                    return 1;
+                }
+
+                if (targetEnvResult.Value.EnvironmentIsProd)
+                {
+                    Output(arguments.TargetEnv + " is a production environment and cannot be used as a target for CopyEnvBuild.");
+                    return 1;
                 }
 
                 var copyEnvBuildDto = new CopyEnvBuildDto
