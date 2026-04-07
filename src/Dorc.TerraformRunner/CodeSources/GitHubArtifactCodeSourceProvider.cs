@@ -81,32 +81,17 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                // Extract with Zip Slip protection: sanitize entry names to prevent directory traversal.
-                var fullDestination = Path.GetFullPath(workingDir);
+                // Extract flat to workingDir. Uses entry.Name (filename only) instead of
+                // entry.FullName to prevent directory traversal (Zip Slip).
                 using (var archive = ZipFile.OpenRead(tempZipFile))
                 {
                     foreach (var entry in archive.Entries)
                     {
+                        // entry.Name is the leaf filename only — no path separators, no ".."
                         if (string.IsNullOrEmpty(entry.Name))
                             continue;
 
-                        // Strip any leading path traversal components to sanitize the entry name
-                        var sanitizedName = SanitizeZipEntryName(entry.FullName);
-                        if (string.IsNullOrEmpty(sanitizedName))
-                            continue;
-
-                        var destPath = Path.GetFullPath(Path.Combine(fullDestination, sanitizedName));
-                        if (!destPath.StartsWith(fullDestination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-                            !destPath.Equals(fullDestination, StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw new InvalidOperationException(
-                                $"Zip entry '{entry.FullName}' would extract outside the target directory. Aborting.");
-                        }
-
-                        var entryDir = Path.GetDirectoryName(destPath);
-                        if (entryDir != null)
-                            Directory.CreateDirectory(entryDir);
-
+                        var destPath = Path.Combine(workingDir, entry.Name);
                         using var entryStream = entry.Open();
                         using var outputStream = File.Create(destPath);
                         entryStream.CopyTo(outputStream);
@@ -121,23 +106,6 @@ namespace Dorc.TerraformRunner.CodeSources
                     File.Delete(tempZipFile);
                 }
             }
-        }
-
-        /// <summary>
-        /// Strips directory traversal components (.., leading slashes/backslashes) from a zip entry name
-        /// to prevent Zip Slip attacks.
-        /// </summary>
-        private static string SanitizeZipEntryName(string entryFullName)
-        {
-            // Replace backslashes with forward slashes for consistent handling
-            var normalized = entryFullName.Replace('\\', '/');
-
-            // Split into segments and filter out traversal components
-            var segments = normalized.Split('/')
-                .Where(s => s != ".." && s != "." && !string.IsNullOrEmpty(s))
-                .ToArray();
-
-            return string.Join(Path.DirectorySeparatorChar.ToString(), segments);
         }
 
         private static void ValidateApiBaseHost(string apiBase)
