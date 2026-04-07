@@ -252,7 +252,7 @@ export class PageProjectsList extends PageElement {
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsBuildRegex"
-                header="Build Regex"
+                header="Filter Regex"
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
