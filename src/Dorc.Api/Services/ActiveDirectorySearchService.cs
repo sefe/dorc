@@ -1,6 +1,7 @@
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
+using System.Text;
 using Dorc.ApiModel;
 
 namespace Dorc.Api.Services
@@ -34,8 +35,9 @@ namespace Dorc.Api.Services
             _directorySearcher.PropertiesToLoad.Add(userAccountControlPropertyName);
             _directorySearcher.PropertiesToLoad.Add(displayNamePropertyName);
 
+            var escaped = EscapeLdapSearchFilter(searchCriteria);
             _directorySearcher.Filter = string.Format(
-                "(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))", searchCriteria);
+                "(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))", escaped);
 
             var output = new List<UserSearchResult>();
             using (SearchResultCollection searchResults = _directorySearcher.FindAll())
@@ -78,8 +80,9 @@ namespace Dorc.Api.Services
 
             _directorySearcher.PropertiesToLoad.Add(namePropertyName);
 
+            var escaped = EscapeLdapSearchFilter(searchCriteria);
             _directorySearcher.Filter = string.Format(
-                "(&(objectClass=group)(|(cn={0})(DisplayName={0}*)(sAMAccountName={0}*)))", searchCriteria);
+                "(&(objectClass=group)(|(cn={0})(DisplayName={0}*)(sAMAccountName={0}*)))", escaped);
 
             var output = new List<GroupSearchResult>();
             using (SearchResultCollection searchResults = _directorySearcher.FindAll())
@@ -103,6 +106,27 @@ namespace Dorc.Api.Services
             }
 
             return output;
+        }
+
+        /// <summary>
+        /// Escapes LDAP special characters per RFC 4515 to prevent LDAP injection.
+        /// </summary>
+        private static string EscapeLdapSearchFilter(string input)
+        {
+            var sb = new StringBuilder(input.Length);
+            foreach (var c in input)
+            {
+                switch (c)
+                {
+                    case '\\': sb.Append(@"\5c"); break;
+                    case '*': sb.Append(@"\2a"); break;
+                    case '(': sb.Append(@"\28"); break;
+                    case ')': sb.Append(@"\29"); break;
+                    case '\0': sb.Append(@"\00"); break;
+                    default: sb.Append(c); break;
+                }
+            }
+            return sb.ToString();
         }
 
         public bool IsUserInGroup(string groupName, string account, string domainName)

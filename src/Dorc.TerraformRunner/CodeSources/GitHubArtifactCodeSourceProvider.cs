@@ -81,7 +81,30 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                SafeExtractToDirectory(tempZipFile, workingDir);
+                // Extract with Zip Slip protection: validate each entry stays within workingDir
+                var fullDestination = Path.GetFullPath(workingDir);
+                using (var archive = ZipFile.OpenRead(tempZipFile))
+                {
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (string.IsNullOrEmpty(entry.Name))
+                            continue;
+
+                        var destPath = Path.GetFullPath(Path.Combine(fullDestination, entry.FullName));
+                        if (!destPath.StartsWith(fullDestination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                            !destPath.Equals(fullDestination, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException(
+                                $"Zip entry '{entry.FullName}' would extract outside the target directory. Aborting.");
+                        }
+
+                        var entryDir = Path.GetDirectoryName(destPath);
+                        if (entryDir != null)
+                            Directory.CreateDirectory(entryDir);
+
+                        entry.ExtractToFile(destPath, overwrite: true);
+                    }
+                }
                 _logger.Information($"Successfully extracted GitHub artifact '{artifact.Name}'");
             }
             finally
@@ -103,31 +126,6 @@ namespace Dorc.TerraformRunner.CodeSources
             // GitHub Enterprise hosts must use HTTPS
             if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"GitHub API base URL must use HTTPS, got '{uri.Scheme}'");
-        }
-
-        private static void SafeExtractToDirectory(string zipPath, string destinationDir)
-        {
-            var fullDestination = Path.GetFullPath(destinationDir);
-            using var archive = ZipFile.OpenRead(zipPath);
-            foreach (var entry in archive.Entries)
-            {
-                if (string.IsNullOrEmpty(entry.Name))
-                    continue; // Skip directory entries
-
-                var destPath = Path.GetFullPath(Path.Combine(fullDestination, entry.FullName));
-                if (!destPath.StartsWith(fullDestination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-                    !destPath.Equals(fullDestination, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException(
-                        $"Zip entry '{entry.FullName}' would extract outside the target directory. Aborting.");
-                }
-
-                var entryDir = Path.GetDirectoryName(destPath);
-                if (entryDir != null)
-                    Directory.CreateDirectory(entryDir);
-
-                entry.ExtractToFile(destPath, overwrite: true);
-            }
         }
 
         private class GitHubArtifactsListResponse
