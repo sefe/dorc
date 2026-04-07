@@ -81,8 +81,7 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                // Extract with Zip Slip protection: validate each entry stays within workingDir.
-                // Uses stream copy instead of ExtractToFile so CodeQL can trace the sanitized path.
+                // Extract with Zip Slip protection: sanitize entry names to prevent directory traversal.
                 var fullDestination = Path.GetFullPath(workingDir);
                 using (var archive = ZipFile.OpenRead(tempZipFile))
                 {
@@ -91,9 +90,12 @@ namespace Dorc.TerraformRunner.CodeSources
                         if (string.IsNullOrEmpty(entry.Name))
                             continue;
 
-                        // Sanitize: resolve to absolute path and reject traversal
-                        var candidatePath = Path.Combine(fullDestination, entry.FullName);
-                        var destPath = Path.GetFullPath(candidatePath);
+                        // Strip any leading path traversal components to sanitize the entry name
+                        var sanitizedName = SanitizeZipEntryName(entry.FullName);
+                        if (string.IsNullOrEmpty(sanitizedName))
+                            continue;
+
+                        var destPath = Path.GetFullPath(Path.Combine(fullDestination, sanitizedName));
                         if (!destPath.StartsWith(fullDestination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
                             !destPath.Equals(fullDestination, StringComparison.OrdinalIgnoreCase))
                         {
@@ -119,6 +121,23 @@ namespace Dorc.TerraformRunner.CodeSources
                     File.Delete(tempZipFile);
                 }
             }
+        }
+
+        /// <summary>
+        /// Strips directory traversal components (.., leading slashes/backslashes) from a zip entry name
+        /// to prevent Zip Slip attacks.
+        /// </summary>
+        private static string SanitizeZipEntryName(string entryFullName)
+        {
+            // Replace backslashes with forward slashes for consistent handling
+            var normalized = entryFullName.Replace('\\', '/');
+
+            // Split into segments and filter out traversal components
+            var segments = normalized.Split('/')
+                .Where(s => s != ".." && s != "." && !string.IsNullOrEmpty(s))
+                .ToArray();
+
+            return string.Join(Path.DirectorySeparatorChar.ToString(), segments);
         }
 
         private static void ValidateApiBaseHost(string apiBase)
