@@ -62,6 +62,9 @@ export class AddEditAccessControl extends LitElement {
   UserIsOwner = false;
 
   @state()
+  UserCanReadSecrets = false;
+
+  @state()
   private loading = true;
 
   static get styles() {
@@ -525,7 +528,7 @@ export class AddEditAccessControl extends LitElement {
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable}"
+        ?disabled="${!addEditAccessControl.UserEditable || !addEditAccessControl.UserCanReadSecrets}"
         .checked="${canReadSecrets}"
       ></vaadin-checkbox>`,
       root
@@ -640,6 +643,18 @@ export class AddEditAccessControl extends LitElement {
 
       const checked = e.detail.value as boolean;
       if (checked && !canOwner) {
+        const ownerCount = addEditAccessControl.Privileges?.filter(
+          p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0
+        ).length ?? 0;
+        if (ownerCount >= 2) {
+          checkbox.checked = false;
+          Notification.show(`Maximum of 2 owners allowed per environment`, {
+            theme: 'warning',
+            position: 'bottom-start',
+            duration: 3000
+          });
+          return;
+        }
         if (model.item.Allow !== undefined) {
           model.item.Allow |= AC_ALLOW_OWNER;
         }
@@ -677,6 +692,7 @@ export class AddEditAccessControl extends LitElement {
             this.Privileges = data.Privileges;
             this.UserEditable = data.UserEditable ?? false;
             this.UserIsOwner = data.UserIsOwner ?? false;
+            this.UserCanReadSecrets = data.UserCanReadSecrets ?? false;
             this.AccessControls = data;
 
             this.loading = false;
