@@ -11,7 +11,7 @@ import { Notification } from '@vaadin/notification';
 import { AddEditProject } from '../components/add-edit-project';
 import '../components/grid-button-groups/project-controls';
 import type { ProjectApiModel } from '../apis/dorc-api';
-import { AccessControlType, SourceControlType } from '../apis/dorc-api';
+import { AccessControlType } from '../apis/dorc-api';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
 import { PageElement } from '../helpers/page-element';
 import './page-project-envs';
@@ -307,11 +307,11 @@ export class PageProjectsList extends PageElement {
     const size = '20';
     const color = 'var(--dorc-link-color)';
 
-    // Determine type: use SourceControlType if set, fall back to URL pattern
-    const scType = Number(project.SourceControlType ?? 0);
+    // API returns enum as string ("AzureDevOps", "GitHub", "FileShare")
+    const sct = String(project.SourceControlType ?? '');
     const isFileUrl = project.ArtefactsUrl?.toLowerCase().startsWith('file') ?? false;
-    const isGitHub = scType === SourceControlType.GitHub;
-    const isFileShare = scType === SourceControlType.FileShare || (scType === SourceControlType.AzureDevOps && isFileUrl);
+    const isGitHub = sct === 'GitHub';
+    const isFileShare = sct === 'FileShare' || isFileUrl;
 
     if (isGitHub) {
       // GitHub Invertocat logo

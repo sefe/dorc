@@ -14,7 +14,7 @@ import { TextField } from '@vaadin/text-field';
 import { HegsDialog } from './hegs-dialog';
 import { RefDataProjectsApi } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
-import { SourceControlType } from '../apis/dorc-api';
+import type { SourceControlType } from '../apis/dorc-api';
 
 @customElement('add-edit-project')
 export class AddEditProject extends LitElement {
@@ -44,11 +44,11 @@ export class AddEditProject extends LitElement {
   }
 
   private get isGitHub(): boolean {
-    return this._project?.SourceControlType === SourceControlType.GitHub;
+    return String(this._project?.SourceControlType) === 'GitHub';
   }
 
   private get isFileShare(): boolean {
-    return this._project?.SourceControlType === SourceControlType.FileShare;
+    return String(this._project?.SourceControlType) === 'FileShare';
   }
 
   private get urlLabel(): string {
@@ -104,7 +104,7 @@ export class AddEditProject extends LitElement {
     if (!this._comboBoxInitialized) {
       const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
       if (comboBox) {
-        comboBox.value = String(this._project?.SourceControlType ?? SourceControlType.AzureDevOps);
+        comboBox.value = String(this._project?.SourceControlType ?? 'AzureDevOps');
         this._comboBoxInitialized = true;
       }
     }
@@ -208,9 +208,9 @@ export class AddEditProject extends LitElement {
             style="width: 490px;"
             label="Source Control Type"
             .items="${[
-              { label: 'Azure DevOps', value: String(SourceControlType.AzureDevOps) },
-              { label: 'GitHub', value: String(SourceControlType.GitHub) },
-              { label: 'File Share', value: String(SourceControlType.FileShare) }
+              { label: 'Azure DevOps', value: 'AzureDevOps' },
+              { label: 'GitHub', value: 'GitHub' },
+              { label: 'File Share', value: 'FileShare' }
             ]}"
             item-label-path="label"
             item-value-path="value"
@@ -282,7 +282,7 @@ export class AddEditProject extends LitElement {
       ArtefactsBuildRegex: '',
       ArtefactsSubPaths: '',
       ArtefactsUrl: '',
-      SourceControlType: SourceControlType.AzureDevOps
+      SourceControlType: 'AzureDevOps' as any
     };
   }
 
@@ -360,11 +360,10 @@ export class AddEditProject extends LitElement {
 
   _sourceControlTypeChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
-      const value = data.target.value;
-      const newType = typeof value === 'string' ? parseInt(value, 10) : value;
-      if (newType === this._project.SourceControlType) return; // No change, avoid re-render loop
+      const newValue = data.target.value;
+      if (newValue === String(this._project.SourceControlType)) return;
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
-      model.SourceControlType = newType;
+      model.SourceControlType = newValue as any;
       this._project = model;
       this.requestUpdate();
     }
