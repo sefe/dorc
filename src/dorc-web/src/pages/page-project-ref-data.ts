@@ -9,7 +9,7 @@ import { PageElement } from '../helpers/page-element';
 import { RefDataApi, RefDataApiModel, ComponentApiModel } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
-const ALLOWED_COMPONENT_NAME_REGEX = /^[a-zA-Z0-9 ,./?|:;'"<>()*&$#@!\-_=+]+$/;
+const ALLOWED_COMPONENT_NAME_REGEX = /^[a-zA-Z0-9 ,./?|:;'"<>()\[\]{}_*&$#@!\-=+]+$/;
 
 let editorValue: string | undefined = '';
 @customElement('page-project-ref-data')
