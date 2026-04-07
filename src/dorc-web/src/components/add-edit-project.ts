@@ -14,7 +14,7 @@ import { TextField } from '@vaadin/text-field';
 import { HegsDialog } from './hegs-dialog';
 import { RefDataProjectsApi } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
-import type { SourceControlType } from '../apis/dorc-api';
+
 
 @customElement('add-edit-project')
 export class AddEditProject extends LitElement {
