@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.1",
+  "openapi": "3.0.4",
   "info": {
     "title": "Dorc.Api",
     "version": "1.0"
@@ -790,125 +790,6 @@
                   "items": {
                     "$ref": "#/components/schemas/ServiceStatusApiModel"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/DelegatedUsers/GetUnallocatedUsers": {
-      "get": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/DelegatedUsers": {
-      "delete": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
                 }
               }
             }
@@ -2957,10 +2838,45 @@
                 "schema": {
                   "$ref": "#/components/schemas/ApiBoolResult"
                 }
-              },
-              "text/json": {
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiBoolResult"
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -3295,6 +3211,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       },
@@ -3500,32 +3419,72 @@
         }
       }
     },
-    "/RefDataEnvironments/IsEnvironmentOwnerOrDelegate": {
-      "get": {
+    "/RefDataEnvironments/Clone": {
+      "post": {
         "tags": [
           "RefDataEnvironments"
         ],
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneEnvironmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneEnvironmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneEnvironmentRequest"
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "boolean"
+                  "$ref": "#/components/schemas/EnvironmentApiModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "type": "boolean"
+                  "$ref": "#/components/schemas/EnvironmentApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -4705,7 +4664,54 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -6230,6 +6236,96 @@
         }
       }
     },
+    "/Request/{requestId}/attempts": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestAttemptApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestAttemptApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Request/{requestId}/attempts/log": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "deploymentResultId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/Request/cancel": {
       "put": {
         "tags": [
@@ -6272,6 +6368,134 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RequestStatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Request/pause": {
+      "put": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestStatusDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestStatusDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Request/resume": {
+      "put": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestStatusDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestStatusDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -6645,6 +6869,296 @@
           }
         }
       }
+    },
+    "/ScriptsAudit": {
+      "put": {
+        "tags": [
+          "ScriptsAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ServerDaemons/{serverId}": {
+      "get": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DaemonApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DaemonApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ServerDaemons": {
+      "post": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformPlanApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformPlanApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/confirm": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/decline": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6682,11 +7196,10 @@
       },
       "AccessControlType": {
         "enum": [
-          0,
-          1
+          "Project",
+          "Environment"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "AccessSecureApiModel": {
         "type": "object",
@@ -6705,6 +7218,9 @@
           "UserEditable": {
             "type": "boolean"
           },
+          "UserIsOwner": {
+            "type": "boolean"
+          },
           "Privileges": {
             "type": "array",
             "items": {
@@ -6717,13 +7233,12 @@
       },
       "AccountGranularity": {
         "enum": [
-          0,
-          1,
-          2,
-          -1
+          "UsersAndGroups",
+          "Users",
+          "Groups",
+          "NotSet"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "AnalyticsComponentUsageApiModel": {
         "type": "object",
@@ -6880,6 +7395,12 @@
           "OAuthUiRequestedScopes": {
             "type": "string",
             "nullable": true
+          },
+          "PauseDeploymentEnabled": {
+            "type": "boolean"
+          },
+          "IsProduction": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -6951,6 +7472,35 @@
         },
         "additionalProperties": false
       },
+      "CloneEnvironmentRequest": {
+        "type": "object",
+        "properties": {
+          "SourceEnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "NewEnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CopyPropertyValues": {
+            "type": "boolean"
+          },
+          "CopyServerMappings": {
+            "type": "boolean"
+          },
+          "CopyDatabaseMappings": {
+            "type": "boolean"
+          },
+          "CopyProjectMappings": {
+            "type": "boolean"
+          },
+          "CopyAccessControls": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "ComponentApiModel": {
         "type": "object",
         "properties": {
@@ -6978,10 +7528,23 @@
             "format": "int32"
           },
           "IsEnabled": {
-            "type": "boolean",
-            "nullable": true
+            "type": "boolean"
           },
           "PSVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentType": {
+            "$ref": "#/components/schemas/ComponentType"
+          },
+          "TerraformSourceType": {
+            "$ref": "#/components/schemas/TerraformSourceType"
+          },
+          "TerraformGitBranch": {
+            "type": "string",
+            "nullable": true
+          },
+          "TerraformSubPath": {
             "type": "string",
             "nullable": true
           }
@@ -7003,6 +7566,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "ComponentType": {
+        "enum": [
+          "PowerShell",
+          "Terraform"
+        ],
+        "type": "string"
       },
       "ConfigValueApiModel": {
         "type": "object",
@@ -7152,8 +7722,7 @@
             "nullable": true
           },
           "IsEnabled": {
-            "type": "boolean",
-            "nullable": true
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -7186,6 +7755,15 @@
           "CompletedTime": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "CancelledTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CancelledBy": {
+            "type": "string",
             "nullable": true
           },
           "Status": {
@@ -7229,6 +7807,57 @@
           },
           "UserEditable": {
             "type": "boolean"
+          },
+          "EnvironmentOwnerEmail": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentRequestAttemptApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DeploymentRequestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AttemptNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "Log": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentResultAttemptApiModel"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7272,6 +7901,51 @@
           "CompletedTime": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentResultAttemptApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DeploymentRequestAttemptId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "Log": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -7416,13 +8090,6 @@
             },
             "nullable": true
           },
-          "DelegatedUsers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserApiModel"
-            },
-            "nullable": true
-          },
           "MappedProjects": {
             "type": "array",
             "items": {
@@ -7490,6 +8157,13 @@
           },
           "EnvironmentOwnerId": {
             "type": "string",
+            "nullable": true
+          },
+          "EnvironmentOwnerEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           },
           "RestoredFromSourceDb": {
@@ -7742,6 +8416,31 @@
         },
         "additionalProperties": false
       },
+      "GetScriptsAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScriptAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "GetScriptsListResponseDto": {
         "type": "object",
         "properties": {
@@ -7949,6 +8648,10 @@
             "nullable": true
           },
           "ArtefactsBuildRegex": {
+            "type": "string",
+            "nullable": true
+          },
+          "TerraformGitRepoUrl": {
             "type": "string",
             "nullable": true
           },
@@ -8375,6 +9078,49 @@
         },
         "additionalProperties": false
       },
+      "ScriptAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ScriptId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "ScriptName": {
+            "type": "string",
+            "nullable": true
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Type": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectNames": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ServerApiModel": {
         "type": "object",
         "properties": {
@@ -8457,15 +9203,48 @@
         },
         "additionalProperties": false
       },
+      "TerraformPlanApiModel": {
+        "type": "object",
+        "properties": {
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PlanContent": {
+            "type": "string",
+            "nullable": true
+          },
+          "BlobUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "CreatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformSourceType": {
+        "enum": [
+          "SharedFolder",
+          "Git",
+          "AzureArtifact"
+        ],
+        "type": "string"
+      },
       "UserAccountType": {
         "enum": [
-          0,
-          1,
-          2,
-          -1
+          "Windows",
+          "Endur",
+          "Sql",
+          "NotSet"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "UserApiModel": {
         "type": "object",
@@ -8605,6 +9384,27 @@
         },
         "additionalProperties": false
       }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://identityserver:5200/connect/authorize",
+            "tokenUrl": "https://identityserver:5200/connect/token",
+            "scopes": {
+              "dorc-api-np.manage": "Access to DORC API"
+            }
+          }
+        }
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "oauth2": [
+        "dorc-api-np.manage"
+      ]
+    }
+  ]
 }

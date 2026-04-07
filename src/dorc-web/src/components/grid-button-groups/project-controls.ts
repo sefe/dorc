@@ -32,7 +32,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="lumo:edit"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -42,7 +42,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:lock"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -52,6 +52,16 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:records"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        title="Components"
+        theme="icon"
+        @click="${this.openComponents}"
+      >
+        <vaadin-icon
+          icon="vaadin:grid-big"
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
@@ -62,7 +72,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:curly-brackets"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -72,7 +82,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:list"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -83,7 +93,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="icons:delete"
-          style="color: red"
+          style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>
     `;
@@ -110,6 +120,18 @@ export class ProjectControls extends LitElement {
     });
     this.dispatchEvent(event);
   }
+
+  openComponents() {
+    const event = new CustomEvent('open-project-components', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
 
   openProjectMetadata() {
     const event = new CustomEvent('open-project-metadata', {

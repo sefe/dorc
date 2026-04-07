@@ -45,6 +45,17 @@ namespace Dorc.PersistentData.Sources
                     {
                         if (pagedDataFilter == null)
                             continue;
+
+                        // For env specific monitor
+                        if (pagedDataFilter.Path == "EnvironmentNameExact")
+                        {
+                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
+                                pagedDataFilter.FilterValue);
+                            if (containsExpression != null)
+                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                            continue;
+                        }
+
                         if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
                             pagedDataFilter.Path == "BuildNumber") // this isn't pleasant but given this is built specifically for the UI
                         {
@@ -145,11 +156,6 @@ namespace Dorc.PersistentData.Sources
             var reqStatusesQueryable = from req in context.DeploymentRequests
                                        join environment in context.Environments on req.Environment equals
                                            environment.Name
-                                       let isDelegate =
-                                           (from envDetail in context.Environments
-                                            join env in context.Environments on envDetail.Name equals env.Name
-                                            where env.Name == environment.Name && envDetail.Users.Select(u => u.LoginId).Contains(userName)
-                                            select envDetail.Name).Any()
                                        let permissions =
                                            (from env in context.Environments
                                             join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
@@ -176,7 +182,9 @@ namespace Dorc.PersistentData.Sources
                                            UserName = req.UserName,
                                            RequestDetails = req.RequestDetails,
                                            UncLogPath = req.UncLogPath,
-                                           UserEditable = isOwner || isDelegate || isPermissioned
+                                           CancelledBy = req.CancelledBy,
+                                           CancelledTime = req.CancelledTime,
+                                           UserEditable = isOwner  || isPermissioned
                                        };
 
             //var sql = reqStatusesQueryable.ToString();

@@ -10,6 +10,9 @@ import { RefDataPermissionApi } from '../apis/dorc-api';
 
 @customElement('add-permission')
 export class AddPermission extends LitElement {
+
+  private readonly maxFieldLength = 50;
+
   @property() private displayName = '';
 
   @property({ type: Boolean }) private displayNameValid = false;
@@ -61,6 +64,8 @@ export class AddPermission extends LitElement {
             class="block"
             id="display-name"
             label="Display Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._displayNameValueChanged}"
@@ -70,6 +75,8 @@ export class AddPermission extends LitElement {
             class="block"
             id="permission-name"
             label="Permission Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._daemonNameValueChanged}"

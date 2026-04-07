@@ -44,14 +44,14 @@ export class EnvDatabases extends PageEnvBase {
       }
       .buttons {
         font-size: 10px;
-        color: cornflowerblue;
+        color: var(--dorc-link-color);
         padding: 2px;
       }
       vaadin-details {
         overflow: auto;
         width: calc(100% - 4px);
         height: calc(100vh - 180px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
     `;
   }
@@ -61,7 +61,7 @@ export class EnvDatabases extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Database Details"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
         <div>
           <div class="inline">
@@ -151,9 +151,9 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
-    if (String(a.ServerName) > String(b.ServerName)) return 1;
-    if (a.ServerName === b.ServerName) {
-      if (String(a.Name) > String(b.Name)) return 1;
+    if (String(a.Name).toLowerCase() > String(b.Name).toLowerCase()) return 1;
+    if (a.Name?.toLowerCase() === b.Name?.toLowerCase()) {
+      if (String(a.ServerName).toLowerCase() > String(b.ServerName).toLowerCase()) return 1;
       return -1;
     }
     return -1;

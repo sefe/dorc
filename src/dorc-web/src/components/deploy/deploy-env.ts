@@ -122,7 +122,7 @@ export class DeployEnv extends LitElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(30vh - 110px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
@@ -350,14 +350,14 @@ export class DeployEnv extends LitElement {
       <vaadin-details
         opened
         summary="Components"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
       >
         <hegs-tree id="hegs-tree" .data="${this.data}"></hegs-tree>
       </vaadin-details>
       <vaadin-details
         closed
         summary="Property Overrides (Optional)"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
       >
         <vaadin-vertical-layout style="align-items: stretch">
           <vaadin-combo-box
@@ -418,7 +418,7 @@ export class DeployEnv extends LitElement {
         >Deploy
       </vaadin-button>
       ${this.deploymentStarting ? html` <div class="loader"></div> ` : html``}
-      <div style="color: #FF3131">${this.ErrorMessage}</div>
+      <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
     `;
   }
 

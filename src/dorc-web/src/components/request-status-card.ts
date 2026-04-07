@@ -62,6 +62,14 @@ export class RequestStatusCard extends LitElement {
       this.requestRestarted as EventListener
     );
     this.addEventListener(
+      'request-paused',
+      this.requestPaused as EventListener
+    );
+    this.addEventListener(
+      'request-resumed',
+      this.requestResumed as EventListener
+    );
+    this.addEventListener(
       'log-dialog-closed',
       this.logDialogClosed as EventListener
     );
@@ -82,13 +90,13 @@ export class RequestStatusCard extends LitElement {
       }
 
       .card-element__heading {
-        color: black;
+        color: var(--dorc-text-primary);
         margin-top: 0px;
         margin-bottom: 0px;
       }
 
       .card-element__text {
-        color: gray;
+        color: var(--dorc-text-secondary);
         margin: 2px;
       }
 
@@ -113,8 +121,8 @@ export class RequestStatusCard extends LitElement {
       color:
         this.deployRequest?.Status === 'Failed' ||
         this.deployRequest?.Status === 'Errored'
-          ? 'red'
-          : 'gray'
+          ? 'var(--dorc-error-color)'
+          : 'var(--dorc-text-secondary)'
     };
     return html`
       <log-dialog
@@ -137,7 +145,7 @@ export class RequestStatusCard extends LitElement {
               >
                 <vaadin-icon
                   icon="icons:refresh"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
             </td>
@@ -156,7 +164,7 @@ export class RequestStatusCard extends LitElement {
                   >
                     <vaadin-icon
                       icon="notification:sms-failed"
-                      style="color: indianred"
+                      style="color: var(--dorc-error-color)"
                     ></vaadin-icon>
                   </vaadin-button>
                 </td>`
@@ -182,7 +190,7 @@ export class RequestStatusCard extends LitElement {
                 >
                   <vaadin-icon
                     icon="hardware:developer-board"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </h4>
@@ -252,6 +260,28 @@ export class RequestStatusCard extends LitElement {
               </h4>
             </td>
           </tr>
+          ${this.deployRequest?.Status == 'Cancelled' || this.deployRequest?.Status == 'Cancelling'
+            ? html` <tr>
+                <td class="requested-titles card-element__text">Cancelled by:</td>
+                <td>
+                  <h4 class="card-element__text">
+                    ${this.deployRequest?.CancelledBy}
+              </h4>
+            </td>
+          </tr>
+          <tr>
+            <td class="requested-titles card-element__text">Cancelled Time:</td>
+            <td>
+              <h4 class="card-element__text">
+                ${this.convertToDate(
+                  this.deployRequest?.CancelledTime !== null
+                    ? this.deployRequest?.CancelledTime
+                    : undefined
+                )}
+              </h4>
+            </td>
+          </tr>
+        `: html``}
           ${this.deployRequest?.UncLogPath !== null
             ? html` <tr>
                 <td class="requested-titles card-element__text">Raw Log:</td>
@@ -265,7 +295,7 @@ export class RequestStatusCard extends LitElement {
                     >
                       <vaadin-icon
                         icon="icons:content-copy"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   </h4>
@@ -280,9 +310,15 @@ export class RequestStatusCard extends LitElement {
           (this.deployRequest.Status === 'Running' ||
             this.deployRequest.Status === 'Requesting' ||
             this.deployRequest.Status === 'Pending' ||
-            this.deployRequest.Status === 'Restarting')}"
+            this.deployRequest.Status === 'Restarting' ||
+            this.deployRequest.Status === 'Paused')}"
           .canRestart="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status !== 'Pending'}"
+          this.deployRequest.Status !== 'Pending' &&
+          this.deployRequest.Status !== 'Paused'}"
+          .canPause="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status === 'Pending'}"
+          .canResume="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status === 'Paused'}"
         ></request-controls>
       </div>
     `;
@@ -355,6 +391,24 @@ export class RequestStatusCard extends LitElement {
 
   requestRestarted(e: CustomEvent) {
     Notification.show(`Restarted request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+    this.refresh();
+  }
+
+  requestPaused(e: CustomEvent) {
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+    this.refresh();
+  }
+
+  requestResumed(e: CustomEvent) {
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
       theme: 'success',
       position: 'bottom-start',
       duration: 5000

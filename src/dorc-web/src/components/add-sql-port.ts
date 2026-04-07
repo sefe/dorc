@@ -13,6 +13,10 @@ import { RefDataDatabasesApi, RefDataSqlPortsApi } from '../apis/dorc-api';
 
 @customElement('add-sql-port')
 export class AddSqlPort extends LitElement {
+
+  private readonly maxPortValue = 9999999999;
+  private readonly maxPortLength = 10;
+
   @property({ type: Array }) databases: string[] = [];
 
   @property() private database: string = '';
@@ -87,8 +91,11 @@ export class AddSqlPort extends LitElement {
             style="width: 600px; display: flex; padding-left: 10px"
             id="port-number"
             label="Port Number"
+            max="${this.maxPortValue}"
+            title="Maximum: ${this.maxPortLength} symbols"
             value=""
             auto-validate
+            error-message="Port must be 1-${this.maxPortLength} symbols"
             @input="${this._portNumberValueChanged}"
             .value="${this.portNumber}"
           ></vaadin-number-field>
@@ -145,7 +152,7 @@ export class AddSqlPort extends LitElement {
 
   _portNumberValueChanged(data: any) {
     this.portNumber = data.currentTarget.value;
-    this.portNumberValid = Number(this.portNumber) > 0;
+    this.portNumberValid = Number(this.portNumber) > 0 && Number(this.portNumber) <= this.maxPortValue;
     this.validate();
   }
 

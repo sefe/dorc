@@ -10,6 +10,8 @@ namespace Dorc.ApiModel
         public DateTimeOffset? RequestedTime { get; set; }
         public DateTimeOffset? StartedTime { get; set; }
         public DateTimeOffset? CompletedTime { get; set; }
+        public DateTimeOffset? CancelledTime { get; set; }
+        public string CancelledBy { get; set; }
         public string Status { get; set; }
         public string Log { get; set; }
         public string EnvironmentName { get; set; }
@@ -21,5 +23,6 @@ namespace Dorc.ApiModel
         public bool IsProd { get; set; }
         public string UncLogPath { get; set; }
         public bool UserEditable { set; get; }
+        public string EnvironmentOwnerEmail { set; get; }
     }
 }

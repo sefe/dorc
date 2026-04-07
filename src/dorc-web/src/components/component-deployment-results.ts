@@ -70,8 +70,7 @@ export class ComponentDeploymentResults extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
-        height: calc(100vh - 410px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid-cell-content {
         padding-top: 0px;
@@ -135,9 +134,9 @@ export class ComponentDeploymentResults extends LitElement {
         id="grid"
         column-reordering-allowed
         multi-sort
+        all-rows-visible
         theme="compact row-stripes no-row-borders no-border"
         .items="${this.resultItems}"
-        all-rows-visible
       >
         <vaadin-grid-column
           .renderer="${this.componentNameRenderer}"
@@ -211,7 +210,7 @@ export class ComponentDeploymentResults extends LitElement {
             >
               <vaadin-icon
                 icon="vaadin:ellipsis-dots-h"
-                style="color: cornflowerblue"
+                style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
           </td>

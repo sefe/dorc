@@ -18,6 +18,9 @@ export class ApplicationDaemons extends LitElement {
   @property({ type: Array })
   private daemonsAndStatuses: ServiceStatusApiModel[] | undefined;
 
+  @property({ type: Boolean })
+  private userEditable = false;
+
   get envName() {
     return this._envName;
   }
@@ -94,11 +97,11 @@ export class ApplicationDaemons extends LitElement {
     const daemon = model.item as ServiceStatusApiModel;
     const status = daemon?.ServiceStatus?.toLowerCase();
     if (status === 'running') {
-      root.style.color = 'green';
+      root.style.color = 'var(--dorc-success-bg)';
     } else if (status === 'stopped') {
-      root.style.color = 'black';
+      root.style.color = 'var(--dorc-text-primary)';
     } else {
-      root.style.color = 'red';
+      root.style.color = 'var(--dorc-error-color)';
     }
     render(
       html`<span>${daemon?.ServiceStatus}</span>`,
@@ -113,7 +116,7 @@ export class ApplicationDaemons extends LitElement {
   ) {
     const daemon = model.item as ServiceStatusApiModel;
     render(
-      html`<daemon-controls .daemonDetails="${daemon}"></daemon-controls>`,
+      html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${this.userEditable}"></daemon-controls>`,
       root
     );
   }

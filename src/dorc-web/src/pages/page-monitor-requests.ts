@@ -84,7 +84,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
       vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
 
       vaadin-text-field {
@@ -122,8 +122,8 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -306,7 +306,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         <vaadin-grid-column
           .renderer="${this._requestControlsRenderer}"
           resizable
-          width="100px"
+          width="160px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -343,6 +343,14 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     this.addEventListener(
       'request-restarted',
       this.requestRestarted as EventListener
+    );
+    this.addEventListener(
+      'request-paused',
+      this.requestPaused as EventListener
+    );
+    this.addEventListener(
+      'request-resumed',
+      this.requestResumed as EventListener
     );
     this.addEventListener('refresh-requests', this.updateGrid as EventListener);
     this.addEventListener(
@@ -507,12 +515,28 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     });
   }
 
+  requestPaused(e: CustomEvent) {
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
+  requestResumed(e: CustomEvent) {
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
   private componentsRenderer(root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<DeploymentRequestApiModel>) {
 
     const request = model.item as DeploymentRequestApiModel;
-    const elements = request.Components?.split('|');
+    const elements = request.Components?.split('|').sort((a, b) => a.localeCompare(b));
 
     render(html`
       <vaadin-vertical-layout>
@@ -631,7 +655,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           >
             <vaadin-icon
               icon="vaadin:ellipsis-dots-h"
-              style="color: cornflowerblue"
+              style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
         </vaadin-horizontal-layout>
@@ -652,8 +676,11 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting')}
-        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
+          item.Status === 'Restarting' ||
+          item.Status === 'Paused')}
+        .canRestart=${!!item.UserEditable && item.Status !== 'Pending' && item.Status !== 'Paused'}
+        .canPause=${!!item.UserEditable && item.Status === 'Pending'}
+        .canResume=${!!item.UserEditable && item.Status === 'Paused'}
       ></request-controls>`,
       root
     );
@@ -695,7 +722,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           >
             <vaadin-icon
             icon="icons:refresh"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
           `

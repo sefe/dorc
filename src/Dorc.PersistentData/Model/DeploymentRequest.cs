@@ -29,6 +29,8 @@ namespace Dorc.PersistentData.Model
 
         public ICollection<DeploymentRequestProcess>? DeploymentRequestProcesses { get; set; }
 
+        public ICollection<DeploymentRequestAttempt>? DeploymentRequestAttempts { get; set; }
+
         public string? Log { get; set; }
 
         public string? Project { get; set; }
@@ -39,6 +41,12 @@ namespace Dorc.PersistentData.Model
 
         public string? Components { get; set; }
         public string? UncLogPath { get; set; }
+
+        [StringLength(128)] public string? CancelledBy { get; set; }
+
+        public DateTimeOffset? CancelledTime { get; set; }
+        [StringLength(256)] public string? EnvironmentOwnerEmail { get; set; }
+
 
         public string DropLocation
         {

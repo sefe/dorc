@@ -269,6 +269,19 @@ namespace Dorc.Monitor
             }
         }
 
+        public int LockReacquisitionRetryWindowSeconds
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:LockReacquisitionRetryWindowSeconds"];
+                if (int.TryParse(str, out int seconds) && seconds > 0)
+                {
+                    return seconds;
+                }
+                return 150; // Default 150 seconds (2m30s) — midpoint of observed ~2–3 min broker recovery window
+            }
+        }
+
         public int OAuthTokenRefreshCheckIntervalMinutes
         {
             get

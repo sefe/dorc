@@ -36,6 +36,10 @@ export class ShortcutsStore extends LitElement {
       this.openProjectEnvs as EventListener
     );
     this.addEventListener(
+      'open-project-components',
+      this.openProjectComponents as EventListener
+    );
+    this.addEventListener(
       'open-project-ref-data',
       this.openProjectRefData as EventListener
     );
@@ -48,7 +52,7 @@ export class ShortcutsStore extends LitElement {
   environmentDeleted(e: CustomEvent) {
     this.dorcNavbar?.closeEnvDetail(e);
 
-    const path = '/projects';
+    const path = '/environments';
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);
@@ -113,6 +117,14 @@ export class ShortcutsStore extends LitElement {
 
     const path = `/project-ref-data/${project?.ProjectId}`;
 
+    Router.go(path);
+  }
+
+  private openProjectComponents(e: CustomEvent) {
+    const project = e.detail.Project as ProjectApiModel;
+    
+    const path = `/project-components/${project?.ProjectId}`;
+    
     Router.go(path);
   }
 

@@ -59,8 +59,8 @@ export class EnvDeployments extends PageEnvBase {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -86,11 +86,13 @@ export class EnvDeployments extends PageEnvBase {
       }
 
       vaadin-grid::part(success) {
-        background-color: #90ee90;
+        background-color: var(--dorc-success-bg);
+        color: var(--dorc-text-primary);
       }
 
       vaadin-grid::part(failure) {
-        background-color: #f08080;
+        background-color: var(--dorc-failure-bg);
+        color: var(--dorc-text-primary);
       }
     `;
   }
@@ -109,7 +111,7 @@ export class EnvDeployments extends PageEnvBase {
             <vaadin-details
               opened
               summary="Application Deployment Filter"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
             >
               <vaadin-date-time-picker
                 id="deployments-filter"

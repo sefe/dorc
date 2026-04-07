@@ -326,7 +326,6 @@
     <Build Include="Schema Objects\Schemas\deploy\Tables\AuditProperty.table.sql" />
     <Build Include="deploy\Tables\DeploymentsByProjectDate.sql" />
     <Build Include="deploy\Tables\DeploymentsByProjectMonth.sql" />
-    <Build Include="deploy\Tables\EnvironmentDelegatedUser.sql" />
     <Build Include="deploy\Tables\EnvironmentServer.sql" />
     <Build Include="deploy\Tables\EnvironmentHistory.sql" />
     <Build Include="deploy\Tables\EnvironmentDatabase.sql" />
@@ -370,6 +369,10 @@
     <Build Include="deploy\Tables\AnalyticsTimePattern.sql" />
     <Build Include="deploy\Tables\AnalyticsUserActivity.sql" />
     <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\AuditScript.table.sql" />
+    <None Include="Scripts\Pre-Deployment\AddCancelledFieldsToArchiveDeploymentRequests.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentRequestAttempt.table.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentResultAttempt.table.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Schema Comparisons\LocalToProject.scmp">

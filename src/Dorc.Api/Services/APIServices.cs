@@ -116,7 +116,6 @@ namespace Dorc.Api.Services
                 result.Builds =
                     _environmentsPersistentSource.GetEnvironmentComponentStatuses(env.EnvironmentName, DateTime.Now);
                 result.EndurUsers = _manageUsers.GetUsersForEnvironment(id, UserAccountType.Endur);
-                result.DelegatedUsers = _manageUsers.GetUsersForEnvironment(id, UserAccountType.NotSet);
                 result.MappedProjects = _environmentsPersistentSource.GetMappedProjects(env.EnvironmentName);
             }
             else

@@ -31,5 +31,8 @@
         string GetAzureStorageAccountClientSecret();
         string GetAzureStorageAccounUri();
         string GetAzureStorageAccountTerraformBlobsContainerName();
+
+        bool GetPauseDeploymentEnabled();
+        bool GetIsProduction();
     }
 }

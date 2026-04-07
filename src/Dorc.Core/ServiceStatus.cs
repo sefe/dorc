@@ -66,7 +66,8 @@ namespace Dorc.Core
 
             var domainName = _domainName;
 
-            var sas = GetServicesEnvironment(environment);
+            var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
+            var sas = BuildServicesEnvironment(environment, servers);
 
             if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
             {
@@ -85,14 +86,18 @@ namespace Dorc.Core
                     throw new System.ComponentModel.Win32Exception(ret);
                 }
 
+                List<ServicesAndStatus> probeResults = [];
                 WindowsIdentity.RunImpersonated(
                     safeAccessTokenHandle,
                     // User action  
                     () =>
                     {
-                        sas = GetServicesAndStatusForEnvironment(sas);
+                        probeResults = ProbeServiceStatuses(sas);
                     }
                 );
+
+                PersistDiscoveredMappings(probeResults, servers);
+                return probeResults;
             }
 
             return sas;
@@ -114,12 +119,10 @@ namespace Dorc.Core
             }
         }
 
-        private List<ServicesAndStatus> GetServicesEnvironment(EnvironmentApiModel? environment)
+        private List<ServicesAndStatus> BuildServicesEnvironment(EnvironmentApiModel? environment,
+            List<ServerApiModel> servers)
         {
             var iResults = new List<ServicesAndStatus>();
-
-            var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId);
-            var daemons = _daemonsPersistentSource.GetDaemons();
 
             try
             {
@@ -127,16 +130,24 @@ namespace Dorc.Core
                 {
                     try
                     {
+                        var daemons = _daemonsPersistentSource.GetDaemonsForServer(serverApiModel.ServerId);
+
+                        // No mappings yet — fall back to all daemons so discovery can happen
+                        if (!daemons.Any())
+                        {
+                            daemons = _daemonsPersistentSource.GetDaemons();
+                        }
+
                         foreach (var daemonApiModel in daemons)
                         {
-                            var servicesAndStatus = new ServicesAndStatus();
                             try
                             {
-                                servicesAndStatus.ServerName = serverApiModel.Name;
-                                servicesAndStatus.ServiceName = daemonApiModel.Name;
-                                servicesAndStatus.EnvName = environment.EnvironmentName;
-
-                                iResults.Add(servicesAndStatus);
+                                iResults.Add(new ServicesAndStatus
+                                {
+                                    ServerName = serverApiModel.Name,
+                                    ServiceName = daemonApiModel.Name,
+                                    EnvName = environment.EnvironmentName
+                                });
                             }
                             catch (Exception ex)
                             {
@@ -162,10 +173,9 @@ namespace Dorc.Core
             return iResults;
         }
 
-        private List<ServicesAndStatus> GetServicesAndStatusForEnvironment(List<ServicesAndStatus> sas)
+        private List<ServicesAndStatus> ProbeServiceStatuses(List<ServicesAndStatus> sas)
         {
             var resultsDict = new ConcurrentDictionary<int, ServicesAndStatus>();
-            var originalOrder = sas.Select((item, index) => new { item, index }).ToDictionary(x => x.item, x => x.index);
 
             try
             {
@@ -217,6 +227,31 @@ namespace Dorc.Core
             return resultsDict.OrderBy(kvp => kvp.Key)
                       .Select(kvp => kvp.Value)
                       .ToList();
+        }
+
+        private void PersistDiscoveredMappings(List<ServicesAndStatus> confirmedResults,
+            List<ServerApiModel> servers)
+        {
+            try
+            {
+                var confirmedByServer = confirmedResults
+                    .GroupBy(r => r.ServerName)
+                    .ToDictionary(g => g.Key!, g => g.Select(r => r.ServiceName));
+
+                foreach (var (serverName, serviceNames) in confirmedByServer)
+                {
+                    var server = servers.FirstOrDefault(s => s.Name == serverName);
+                    if (server != null)
+                    {
+                        _daemonsPersistentSource.DiscoverAndMapDaemonsForServer(
+                            server.ServerId, serviceNames);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist discovered daemon mappings");
+            }
         }
 
         /// <summary>

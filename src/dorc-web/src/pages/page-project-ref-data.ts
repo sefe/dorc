@@ -6,8 +6,10 @@ import '../icons/iron-icons';
 import { Notification } from '@vaadin/notification';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
-import { RefDataApi, RefDataApiModel } from '../apis/dorc-api';
+import { RefDataApi, RefDataApiModel, ComponentApiModel } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+
+const ALLOWED_COMPONENT_NAME_REGEX = /^[a-zA-Z0-9 ,./?|:;'"<>()*&$#@!\-_=+]+$/;
 
 let editorValue: string | undefined = '';
 @customElement('page-project-ref-data')
@@ -28,15 +30,15 @@ export class PageProjectRefData extends PageElement {
         color: white;
         cursor: pointer;
         border: 0;
-        background-color: cornflowerblue;
+        background-color: var(--dorc-link-color);
       }
       .btn:hover {
         background-color: RoyalBlue;
       }
       button:disabled,
       button[disabled] {
-        background-color: #cccccc;
-        color: #666666;
+        background-color: var(--dorc-bg-tertiary);
+        color: var(--dorc-text-secondary);
       }
       .loader {
         position: fixed;
@@ -137,6 +139,17 @@ export class PageProjectRefData extends PageElement {
 
     try {
       const rd: RefDataApiModel = JSON.parse(editorValue || '');
+
+      const invalidNames = this.findInvalidComponentNames(rd.Components ?? []);
+      if (invalidNames.length > 0) {
+        this.errorAlert(
+          `Component name(s) contain invalid characters: ${invalidNames.join(', ')}. ` +
+          `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()*&$#@!-_=+`
+        );
+        this.refDataLoading = false;
+        return;
+      }
+
       const api = new RefDataApi();
       api.refDataPut({ refDataApiModel: rd }).subscribe({
         next: () => {
@@ -174,5 +187,20 @@ export class PageProjectRefData extends PageElement {
     notification.setAttribute('errorMessage', err);
     this.shadowRoot?.appendChild(notification);
     notification.open();
+  }
+
+  private findInvalidComponentNames(
+    components: ComponentApiModel[]
+  ): string[] {
+    const invalid: string[] = [];
+    for (const component of components) {
+      if (
+        component.ComponentName &&
+        !ALLOWED_COMPONENT_NAME_REGEX.test(component.ComponentName)
+      ) {
+        invalid.push(component.ComponentName);
+      }
+    }
+    return invalid;
   }
 }
