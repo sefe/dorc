@@ -81,7 +81,8 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                // Extract with Zip Slip protection: validate each entry stays within workingDir
+                // Extract with Zip Slip protection: validate each entry stays within workingDir.
+                // Uses stream copy instead of ExtractToFile so CodeQL can trace the sanitized path.
                 var fullDestination = Path.GetFullPath(workingDir);
                 using (var archive = ZipFile.OpenRead(tempZipFile))
                 {
@@ -90,7 +91,9 @@ namespace Dorc.TerraformRunner.CodeSources
                         if (string.IsNullOrEmpty(entry.Name))
                             continue;
 
-                        var destPath = Path.GetFullPath(Path.Combine(fullDestination, entry.FullName));
+                        // Sanitize: resolve to absolute path and reject traversal
+                        var candidatePath = Path.Combine(fullDestination, entry.FullName);
+                        var destPath = Path.GetFullPath(candidatePath);
                         if (!destPath.StartsWith(fullDestination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
                             !destPath.Equals(fullDestination, StringComparison.OrdinalIgnoreCase))
                         {
@@ -102,7 +105,9 @@ namespace Dorc.TerraformRunner.CodeSources
                         if (entryDir != null)
                             Directory.CreateDirectory(entryDir);
 
-                        entry.ExtractToFile(destPath, overwrite: true);
+                        using var entryStream = entry.Open();
+                        using var outputStream = File.Create(destPath);
+                        entryStream.CopyTo(outputStream);
                     }
                 }
                 _logger.Information($"Successfully extracted GitHub artifact '{artifact.Name}'");
