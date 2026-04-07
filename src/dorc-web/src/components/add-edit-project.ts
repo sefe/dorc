@@ -94,12 +94,19 @@ export class AddEditProject extends LitElement {
     if (textField) textField.value = value;
   }
 
+  private _lastComboBoxValue: string | null = null;
+
   protected updated(changedProperties: Map<string, unknown>) {
     super.updated(changedProperties);
-    // Set combo-box value after render since it may not exist in DOM during property setter
+    // Set combo-box value after render since it may not exist in DOM during property setter.
+    // Guard against infinite loop: only set if the value actually changed.
     const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
     if (comboBox && this._project) {
-      comboBox.value = String(this._project.SourceControlType ?? SourceControlType.AzureDevOps);
+      const newValue = String(this._project.SourceControlType ?? SourceControlType.AzureDevOps);
+      if (comboBox.value !== newValue && this._lastComboBoxValue !== newValue) {
+        this._lastComboBoxValue = newValue;
+        comboBox.value = newValue;
+      }
     }
   }
 
