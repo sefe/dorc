@@ -146,7 +146,7 @@ export class PageProjectRefData extends PageElement {
       if (invalidNames.length > 0) {
         this.errorAlert(
           `Component name(s) contain invalid characters: ${invalidNames.join(', ')}. ` +
-          `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()*&$#@!-_=+`
+          `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()[]{}*&$#@!-_=+`
         );
         this.refDataLoading = false;
         return;
