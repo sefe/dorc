@@ -6,14 +6,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Dorc.Monitor.Connectivity
 {
-    public class ConnectivityCheckService : IHostedService, IDisposable
+    public sealed class ConnectivityCheckService : BackgroundService
     {
+        private const int InitialDelaySeconds = 30;
+
         private readonly ILogger<ConnectivityCheckService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IConnectivityChecker _connectivityChecker;
         private readonly IMonitorConfiguration _configuration;
-        private System.Threading.Timer? _timer;
-        private int _isCheckRunning = 0;
 
         public ConnectivityCheckService(
             ILogger<ConnectivityCheckService> logger,
@@ -27,64 +27,73 @@ namespace Dorc.Monitor.Connectivity
             _configuration = configuration;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public override Task StartAsync(CancellationToken cancellationToken)
         {
-            if (!_configuration.EnableConnectivityCheck)
-            {
-                _logger.LogInformation("Connectivity Check Service is disabled in configuration.");
-                return Task.CompletedTask;
-            }
-
-            var intervalMinutes = _configuration.ConnectivityCheckIntervalMinutes;
-            var interval = TimeSpan.FromMinutes(intervalMinutes);
-            var initialDelay = TimeSpan.FromSeconds(30);
-
-            _logger.LogInformation("Connectivity Check Service is starting. Check interval: {IntervalMinutes} minutes.", intervalMinutes);
-            _logger.LogInformation("Waiting {Seconds} seconds before first connectivity check...", initialDelay.TotalSeconds);
-
-            _timer = new System.Threading.Timer(RunCheckCycle, null, initialDelay, interval);
-
-            return Task.CompletedTask;
+            return base.StartAsync(cancellationToken);
         }
 
-        private void RunCheckCycle(object? state)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            if (Interlocked.CompareExchange(ref _isCheckRunning, 1, 0) != 0)
+            try
             {
-                _logger.LogInformation("Connectivity check cycle skipped - previous cycle still running.");
-                return;
-            }
+                if (!_configuration.EnableConnectivityCheck)
+                {
+                    _logger.LogWarning("Connectivity Check Service is DISABLED in configuration. Service will not run.");
+                    return;
+                }
 
-            _ = Task.Run(async () =>
-            {
+                var intervalMinutes = _configuration.ConnectivityCheckIntervalMinutes;
+                var interval = TimeSpan.FromMinutes(intervalMinutes);
+                var initialDelay = TimeSpan.FromSeconds(InitialDelaySeconds);
+
                 try
                 {
-                    _logger.LogInformation("Starting connectivity check cycle...");
-                    await CheckAllServersAsync();
-                    await CheckAllDatabasesAsync();
-                    _logger.LogInformation("Connectivity check cycle completed.");
+                    await Task.Delay(initialDelay, stoppingToken);
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
                 {
-                    _logger.LogError(ex, "Error during connectivity check");
+                    _logger.LogInformation("Connectivity Check Service cancelled during initial delay.");
+                    return;
                 }
-                finally
+
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    Interlocked.Exchange(ref _isCheckRunning, 0);
+                    try
+                    {
+                        _logger.LogInformation("Starting connectivity check cycle...");
+                        await CheckAllServersAsync();
+                        await CheckAllDatabasesAsync();
+                        _logger.LogInformation("Connectivity check cycle completed.");
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        _logger.LogInformation("Connectivity check cycle cancelled.");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error during connectivity check cycle");
+                    }
+
+                    // Wait for next cycle
+                    try
+                    {
+                        await Task.Delay(interval, stoppingToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.LogInformation("Connectivity Check Service stopping.");
+                        break;
+                    }
                 }
-            });
-        }
 
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("Connectivity Check Service is stopping.");
-            _timer?.Change(Timeout.Infinite, 0);
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            _timer?.Dispose();
+                _logger.LogInformation("Connectivity Check Service has stopped.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical(ex, "FATAL ERROR in ConnectivityCheckService.ExecuteAsync - service crashed!");
+                throw;
+            }
         }
 
         private async Task CheckAllServersAsync()

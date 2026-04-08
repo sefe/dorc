@@ -39,6 +39,8 @@ namespace Dorc.Monitor
 
         protected override async Task ExecuteAsync(CancellationToken monitorCancellationToken)
         {
+            await Task.Yield(); 
+
             logger.LogInformation("Deployment Monitor service is started.");
 
             var deploymentEngine = serviceProvider.GetService(typeof(IDeploymentEngine)) as IDeploymentEngine;
