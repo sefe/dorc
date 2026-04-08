@@ -117,24 +117,6 @@ namespace Dorc.Core.BuildServer
             var filteredRuns = runsResponse.WorkflowRuns
                 .Where(r => r.Conclusion == "success");
 
-            if (!string.IsNullOrEmpty(buildRegex))
-            {
-                try
-                {
-                    var regex = new Regex(buildRegex, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
-                    // Materialize immediately to catch RegexMatchTimeoutException within this try/catch
-                    filteredRuns = filteredRuns.Where(r => regex.IsMatch(r.DisplayTitle ?? r.RunNumber.ToString())).ToList();
-                }
-                catch (ArgumentException)
-                {
-                    // Invalid regex pattern - skip filtering
-                }
-                catch (RegexMatchTimeoutException)
-                {
-                    _logger.LogWarning("Build regex pattern matching timed out, skipping regex filter");
-                }
-            }
-
             // GitHub Actions does not have a direct equivalent to Azure DevOps "KeepForever" (pinned).
             if (filterPinnedOnly)
             {

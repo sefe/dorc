@@ -8666,12 +8666,11 @@
       },
       "SourceControlType": {
         "enum": [
-          0,
-          1,
-          2
+          "AzureDevOps",
+          "GitHub",
+          "FileShare"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "Property": {
         "type": "object",
