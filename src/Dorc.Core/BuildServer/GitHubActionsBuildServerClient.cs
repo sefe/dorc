@@ -287,7 +287,7 @@ namespace Dorc.Core.BuildServer
         {
             try
             {
-                return DeserializeResponse<T>(json);
+                return JsonSerializer.Deserialize<T>(json);
             }
             catch (JsonException ex)
             {
