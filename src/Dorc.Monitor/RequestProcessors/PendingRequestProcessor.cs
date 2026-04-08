@@ -7,6 +7,8 @@ using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using System;
+using System.Linq;
 using System.Text;
 
 namespace Dorc.Monitor.RequestProcessors
@@ -163,6 +165,9 @@ namespace Dorc.Monitor.RequestProcessors
                     {
                         logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
+                        // All components are disabled, so mark as completed with disabled steps
+                        deploymentRequestStatus = DeploymentRequestStatus.CompletedWithDisabledSteps;
+                        
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
@@ -241,7 +246,22 @@ namespace Dorc.Monitor.RequestProcessors
                         }
                     }
 
+                    // Check if deployment completed successfully but has disabled steps
+                    if (deploymentRequestStatus == DeploymentRequestStatus.Completed)
+                    {
+                        var allDeploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id);
+                        var hasDisabledSteps = allDeploymentResults.Any(result =>
+                            result.Status.Equals(DeploymentResultStatus.Disabled.ToString(), StringComparison.OrdinalIgnoreCase));
+
+                        if (hasDisabledSteps)
+                        {
+                            deploymentRequestStatus = DeploymentRequestStatus.CompletedWithDisabledSteps;
+                            logger.LogInformation($"Request {requestToExecute.Request.Id} completed with disabled steps.");
+                        }
+                    }
+
                     if (deploymentRequestStatus != DeploymentRequestStatus.Completed &&
+                        deploymentRequestStatus != DeploymentRequestStatus.CompletedWithDisabledSteps &&
                         deploymentRequestStatus != DeploymentRequestStatus.WaitingConfirmation)
                     {
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, deploymentRequestStatus);
