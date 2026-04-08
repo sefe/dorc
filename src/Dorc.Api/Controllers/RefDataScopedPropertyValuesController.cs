@@ -55,11 +55,15 @@ namespace Dorc.Api.Controllers
 
 
             var canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, scope);
-            foreach (var prop in getScopedPropertyValuesResponseDto.Items)
+            if (!canReadSecrets)
             {
-                if (prop.Secure == true && !canReadSecrets)
+                foreach (var prop in getScopedPropertyValuesResponseDto.Items)
                 {
-                    prop.PropertyValue = null;
+                    if (prop.Secure)
+                    {
+                        prop.PropertyValue = null;
+                        prop.PropertyArrayValue = null;
+                    }
                 }
             }
 
