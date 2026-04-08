@@ -16,6 +16,7 @@ import {
   RefDataEnvironmentsApi,
   RefDataProjectEnvironmentMappingsApi
 } from '../apis/dorc-api';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('attach-environment')
 export class AttachEnvironment extends LitElement {
@@ -75,14 +76,14 @@ export class AttachEnvironment extends LitElement {
         >
           <vaadin-icon
             icon="vaadin:list-select"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
       <vaadin-horizontal-layout>
         <vaadin-list-box
           id="shortlist"
-          style="height: 200px; width:300px; background-color: #f3f5f7"
+          style="height: 200px; width:300px; background-color: var(--dorc-bg-secondary)"
         >
           ${this.shortlist?.map(
             env =>
@@ -99,7 +100,7 @@ export class AttachEnvironment extends LitElement {
         >
           <vaadin-icon
             icon="vaadin:close-small"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
@@ -111,7 +112,7 @@ export class AttachEnvironment extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:link"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
         Attach Environment(s)
       </vaadin-button>
@@ -223,15 +224,7 @@ export class AttachEnvironment extends LitElement {
         error: (err: any) => {
           const notification = new ErrorNotification();
           
-          // Handle different error response structures
-          let errorMessage = 'An error occurred while attaching environment';
-          if (err.response?.ExceptionMessage) {
-            errorMessage = err.response.ExceptionMessage;
-          } else if (err.response && typeof err.response === 'string') {
-            errorMessage = err.response;
-          } else if (err.message) {
-            errorMessage = err.message;
-          }
+          const errorMessage = retrieveErrorMessage(err);
           
           notification.setAttribute('errorMessage', errorMessage);
           this.shadowRoot?.appendChild(notification);

@@ -11,6 +11,7 @@ import { Router } from '@vaadin/router';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
+import { AccessControlApi, AccessSecureApiModel, AccessControlType } from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
@@ -53,6 +54,9 @@ export class PageProjectEnvs extends PageElement {
   @state()
   private projects: ProjectApiModel[] | undefined;
 
+  @state()
+  private projectUserEditable = false;
+
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
   static get styles() {
@@ -86,7 +90,7 @@ export class PageProjectEnvs extends PageElement {
       .statistics-cards__item {
         margin: 5px;
         flex-shrink: 0;
-        background-color: #f5f6f8;
+        background-color: var(--dorc-bg-secondary);
       }
 
       .environments {
@@ -100,7 +104,7 @@ export class PageProjectEnvs extends PageElement {
       }
 
       a {
-        color: blue;
+        color: var(--dorc-link-color);
         text-decoration: none; /* no underline */
       }
 
@@ -128,8 +132,8 @@ export class PageProjectEnvs extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -194,7 +198,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="icons:link"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
                 <vaadin-button
@@ -202,10 +206,11 @@ export class PageProjectEnvs extends PageElement {
                   theme="icon"
                   @click="${this.openBundles}"
                   style="margin: 0;"
+                  ?hidden="${!this.projectUserEditable}"
                 >
                   <vaadin-icon
                     icon="vaadin:package"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
@@ -218,7 +223,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="vaadin:curly-brackets"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
                 <vaadin-button
@@ -229,7 +234,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="lumo:edit"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
@@ -404,6 +409,27 @@ export class PageProjectEnvs extends PageElement {
   private setEnvironments(data: EnvironmentApiModelTemplateApiModel) {
     this.projectData = data.Project;
     this.environments = data.Items?.sort(this.sortEnvironments);
+    this.checkProjectAccess();
+  }
+
+  private checkProjectAccess() {
+    if (this.project) {
+      const api = new AccessControlApi();
+      api
+        .accessControlGet({
+          accessControlType: AccessControlType.NUMBER_0,
+          accessControlName: this.project
+        })
+        .subscribe({
+          next: (data: AccessSecureApiModel) => {
+            this.projectUserEditable = data.UserEditable ?? false;
+          },
+          error: (err: string) => {
+            console.error('Error fetching project access control:', err);
+            this.projectUserEditable = false;
+          }
+        });
+    }
   }
 
   sortEnvironments(a: EnvironmentApiModel, b: EnvironmentApiModel): number {

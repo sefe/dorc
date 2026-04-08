@@ -22,12 +22,15 @@ namespace Dorc.PersistentData.Contexts
         DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         DbSet<DeploymentResult> DeploymentResults { get; set; }
+        DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
+        DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
         DbSet<Environment> Environments { get; set; }
         DbSet<AccessControl> AccessControls { get; set; }
         DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         DbSet<ConfigValue> ConfigValues { get; set; }
         DbSet<Audit> Audits { get; set; }
         DbSet<AuditProperty> AuditProperties { get; set; }
+        DbSet<AuditScript> AuditScripts { get; set; }
         DbSet<PropertyValueFilter> PropertyValueFilters { get; set; }
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
@@ -44,6 +47,11 @@ namespace Dorc.PersistentData.Contexts
         DbSet<RequestStatuses> RequestStatuses { get; set; }
         DbSet<DeploymentsByProjectDate> AnalyticsDeploymentsByProjectDate { get; set; }
         DbSet<DeploymentsByProjectMonth> AnalyticsDeploymentsByProjectMonth { get; set; }
+        DbSet<AnalyticsEnvironmentUsage> AnalyticsEnvironmentUsage { get; set; }
+        DbSet<AnalyticsUserActivity> AnalyticsUserActivity { get; set; }
+        DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
+        DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
+        DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
         DbSet<BundledRequests> BundledRequests { get; set; }
 
         int SaveChanges();

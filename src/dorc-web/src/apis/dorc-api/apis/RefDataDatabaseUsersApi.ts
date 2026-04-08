@@ -17,11 +17,18 @@ import { BaseAPI } from '../runtime';
 import type { OperationOpts, HttpQuery } from '../runtime';
 import type {
     UserApiModel,
+    UserDbPermissionApiModel,
 } from '../models';
 
 export interface RefDataDatabaseUsersGetRequest {
     id?: number;
     envId?: number;
+}
+
+export interface RefDataDatabaseUsersGetDbUsersPermissionsGetRequest {
+    serverName?: string;
+    databaseName?: string;
+    dbType?: string;
 }
 
 /**
@@ -42,6 +49,25 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
 
         return this.request<Array<UserApiModel>>({
             url: '/RefDataDatabaseUsers',
+            method: 'GET',
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest): Observable<Array<UserDbPermissionApiModel>>
+    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserDbPermissionApiModel>>>
+    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<Array<UserDbPermissionApiModel> | AjaxResponse<Array<UserDbPermissionApiModel>>> {
+
+        const query: HttpQuery = {};
+
+        if (serverName != null) { query['serverName'] = serverName; }
+        if (databaseName != null) { query['databaseName'] = databaseName; }
+        if (dbType != null) { query['dbType'] = dbType; }
+
+        return this.request<Array<UserDbPermissionApiModel>>({
+            url: '/RefDataDatabaseUsers/GetDbUsersPermissions',
             method: 'GET',
             query,
         }, opts?.responseOpts);

@@ -36,6 +36,38 @@ namespace Tests.Acceptance.Support
             }
         }
 
+        public int CreateDatabase(string databaseName, string serverName, string databaseType, string adGroup)
+        {
+            using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
+            using (SqlCommand insertCommand = new SqlCommand(
+                "INSERT INTO [dbo].[DATABASE] (DB_Name, DB_Type, Server_Name, Group_ID) " +
+                "OUTPUT INSERTED.DB_ID " +
+                "VALUES (@dbName, @dbType, @serverName, (SELECT Group_ID FROM [dbo].[AD_GROUP] WHERE Display_Name = @adGroup));", sqlConnection))
+            {
+                SqlParameter dbNameParameter = new SqlParameter("@dbName", SqlDbType.NVarChar, 250);
+                dbNameParameter.Value = databaseName;
+                insertCommand.Parameters.Add(dbNameParameter);
+
+                SqlParameter dbTypeParameter = new SqlParameter("@dbType", SqlDbType.NVarChar, 250);
+                dbTypeParameter.Value = databaseType;
+                insertCommand.Parameters.Add(dbTypeParameter);
+
+                SqlParameter serverNameParameter = new SqlParameter("@serverName", SqlDbType.NVarChar, 250);
+                serverNameParameter.Value = serverName;
+                insertCommand.Parameters.Add(serverNameParameter);
+
+                SqlParameter adGroupParameter = new SqlParameter("@adGroup", SqlDbType.NVarChar, 250);
+                adGroupParameter.Value = adGroup;
+                insertCommand.Parameters.Add(adGroupParameter);
+
+                sqlConnection.Open();
+
+                var insertedRowId = insertCommand.ExecuteScalar();
+
+                return (int)insertedRowId;
+            }
+        }
+
         public IEnumerable<int> GetEnvironments(string environmentName)
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
@@ -129,24 +161,6 @@ namespace Tests.Acceptance.Support
                 var rowsDeleted = deleteCommand.ExecuteNonQuery();
 
                 return (int)rowsDeleted;
-            }
-        }
-
-        public int GetEnvironmentUserCount(int environmentId)
-        {
-            using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
-            using (SqlCommand selectCommand = new SqlCommand(
-                "SELECT COUNT(*) FROM [deploy].[EnvironmentDelegatedUser] WHERE [EnvId] = @environmentId ;", sqlConnection))
-            {
-                SqlParameter parameter = new SqlParameter("@environmentId", SqlDbType.Int);
-                parameter.Value = environmentId;
-                selectCommand.Parameters.Add(parameter);
-
-                sqlConnection.Open();
-
-                var rowCunt = selectCommand.ExecuteScalar();
-
-                return (int)rowCunt;
             }
         }
 

@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
 
@@ -127,6 +128,32 @@ namespace Tests.Acceptance.StepDefinitions
             Assert.IsNotNull(model);
             Assert.AreEqual(name, model.Name);
             Assert.IsTrue(model.Id > 0);
+        }
+        #endregion
+
+        #region Scenario: Attempt to create duplicate Database entry
+        [Given(@"There is a database named '(.*)' on the server named '(.*)'")]
+        public void GivenThereIsADatabaseNamedOnTheServerNamed(string databaseName, string serverName)
+        {
+            try
+            {
+                // First ensure it doesn't exist, then create it
+                this.dataAccessor.DeleteDatabase(databaseName);
+                this.dataAccessor.CreateDatabase(databaseName, serverName, "TestType", "OTHER");
+            }
+            catch (Exception exception)
+            {
+                Assert.Fail($"Scenario preconditions are not met {exception}.");
+            }
+        }
+
+        [Then(@"The result should be error '(.*)'")]
+        public void ThenTheResultShouldBeError(string expectedError)
+        {
+            Assert.IsNotNull(dbAddApiResult, "Api request should have been made!");
+            Assert.IsFalse(dbAddApiResult.IsModelValid, "Request should have failed!");
+            Assert.IsTrue(dbAddApiResult.Message.Contains(expectedError), 
+                $"Expected error message '{expectedError}' but got '{dbAddApiResult.Message}'");
         }
         #endregion
     }

@@ -36,4 +36,14 @@ export interface ApiConfigModel {
      * @memberof ApiConfigModel
      */
     OAuthUiRequestedScopes?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof ApiConfigModel
+     */
+    PauseDeploymentEnabled?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof ApiConfigModel
+     */
+    IsProduction?: boolean;
 }

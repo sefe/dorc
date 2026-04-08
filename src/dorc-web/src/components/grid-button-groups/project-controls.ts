@@ -4,6 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../../icons/iron-icons.js';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -11,6 +12,7 @@ import { ProjectApiModel } from '../../apis/dorc-api';
 @customElement('project-controls')
 export class ProjectControls extends LitElement {
   @property({ type: Object }) project: ProjectApiModel | undefined;
+  @property({ type: Boolean }) deleteHidden: boolean = true;
 
   static get styles() {
     return css`
@@ -30,7 +32,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="lumo:edit"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -40,7 +42,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:lock"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -50,6 +52,16 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:records"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        title="Components"
+        theme="icon"
+        @click="${this.openComponents}"
+      >
+        <vaadin-icon
+          icon="vaadin:grid-big"
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
@@ -60,7 +72,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:curly-brackets"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -70,7 +82,18 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:list"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        title="Delete Project"
+        theme="icon"
+        @click="${this.deleteProject}"
+        ?hidden="${this.deleteHidden}"
+      >
+        <vaadin-icon
+          icon="icons:delete"
+          style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>
     `;
@@ -98,6 +121,18 @@ export class ProjectControls extends LitElement {
     this.dispatchEvent(event);
   }
 
+  openComponents() {
+    const event = new CustomEvent('open-project-components', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+
   openProjectMetadata() {
     const event = new CustomEvent('open-project-metadata', {
       detail: {
@@ -122,6 +157,17 @@ export class ProjectControls extends LitElement {
 
   openAuditData() {
     const event = new CustomEvent('open-project-audit-data', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  deleteProject() {
+    const event = new CustomEvent('delete-project', {
       detail: {
         Project: this.project
       },

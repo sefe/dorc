@@ -15,6 +15,9 @@ namespace Dorc.ApiModel
         Errored,
         Failed,
         Abandoned,
+        WaitingConfirmation,
+        Confirmed,
+        Paused
 
 #if DeploymentRequestTesting
         PendingTesting,

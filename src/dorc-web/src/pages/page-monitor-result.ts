@@ -12,10 +12,13 @@ import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/component-deployment-results';
+import '../components/component-previous-attempts';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
 import {
+  DeploymentRequestAttemptApiModel,
   DeploymentResultApiModel,
+  RequestApi,
   RequestStatusesApi,
   ResultStatusesApi
 } from '../apis/dorc-api';
@@ -25,13 +28,29 @@ import '../components/request-status-card';
 
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { updateMetadata } from '../helpers/html-meta-manager';
+import { HubConnection, HubConnectionState } from '@microsoft/signalr';
+import {
+  DeploymentHub,
+  getReceiverRegister,
+  IDeploymentsEventsClient,
+  DeploymentRequestEventData,
+  DeploymentResultEventData,
+  getHubProxyFactory
+ } from '../services/ServerEvents';
+ 
+const asUndef = (t: string | null | undefined): string | undefined => t ?? undefined;
 
 @customElement('page-monitor-result')
-export class PageMonitorResult extends PageElement {
+export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
   @property({ type: Boolean }) loading = true;
+
+  @property({ type: Boolean }) notFound = false;
 
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
+
+  @property({ type: Array })
+  attemptItems: DeploymentRequestAttemptApiModel[] | undefined;
 
   @property({ type: Number })
   requestId = 0;
@@ -43,9 +62,20 @@ export class PageMonitorResult extends PageElement {
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
+  @property({ type: Boolean }) attemptsLoading = true;
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
+  
+  private hubConnection: HubConnection | undefined;
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
       .overlay {
         width: 100%;
         height: 100%;
@@ -70,8 +100,8 @@ export class PageMonitorResult extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -134,23 +164,46 @@ export class PageMonitorResult extends PageElement {
       .vaadin-dialog-overlay {
         width: calc(100vw - (4 * var(--lumo-space-m)));
       }
+
+      .results-section {
+        flex: 1 1 0;
+        overflow-y: auto;
+        min-height: 0;
+      }
     `;
   }
 
-  protected firstUpdated(_changedProperties: PropertyValues) {
+  protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    const resultId = location.pathname.substring(
-      location.pathname.lastIndexOf('/') + 1
+    const resultId = decodeURIComponent(
+      location.pathname.substring(location.pathname.lastIndexOf('/') + 1)
     );
-    this.requestId = Number.parseInt(decodeURIComponent(resultId), 10);
 
+    if (!/^\d+$/.test(resultId) || Number(resultId) > 2147483647 || Number(resultId) < 1) {
+      this.notFound = true;
+      this.loading = false;
+      this.showNotFoundError(`The deployment request '${resultId}' is not found.`);
+      return;
+    }
+
+    this.requestId = Number.parseInt(resultId, 10);
     this.refreshData();
+
+    // Initialize SignalR connection for real-time updates scoped to this request
+    await this.initializeSignalR();
 
     this.addEventListener(
       'refresh-monitor-result',
       this.refreshPage as EventListener
     );
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
+      this.hubConnection.stop().catch(() => {});
+    }
   }
 
   updated(_changedProperties: PropertyValues) {
@@ -182,43 +235,181 @@ export class PageMonitorResult extends PageElement {
     });
   }
 
+  requestPaused(e: CustomEvent) {
+    this.refreshData();
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
+  requestResumed(e: CustomEvent) {
+    this.refreshData();
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
   private refreshData() {
     this.resultsLoading = true;
+    const apiRequests = new RequestStatusesApi();
+    apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
+      next: (data: DeploymentRequestApiModel) => {
+        this.selectedProject = data.Project ?? '';  
+        const normalised: DeploymentRequestApiModel = {
+          ...data,
+          CompletedTime: this.isTerminal(data.Status) ? asUndef(data.CompletedTime) : undefined,
+          StartedTime: asUndef((data as any).StartedTime)
+
+        };
+        this.deployRequest = normalised;
+      },
+      error: (err: any) => {
+        if (err.status === 404 || err.status === 400) {
+          this.notFound = true;
+          this.loading = false;
+          this.showNotFoundError(`The deployment request with id ${this.requestId} is not found.`);
+          return;
+        }
+        const notification = new ErrorNotification();
+        notification.setAttribute(
+          'errorMessage',
+          typeof err.response === 'string'
+            ? err.response
+            : `Failed to load request ${this.requestId}`
+        );
+        this.shadowRoot?.appendChild(notification);
+        notification.open();
+        console.error(err);
+      },
+      complete: () => {
+        console.log('done loading request');
+        this.loading = false;
+        this.resultsLoading = false;
+      }
+    });
+
+    this.refreshResultItems();
+    this.refreshAttemptItems();
+  }
+
+  refreshResultItems = () => {
+    this.resultsLoading = true;
+
     const api = new ResultStatusesApi();
     api.resultStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: Array<DeploymentResultApiModel>) => {
         this.resultItems = data;
-        this.resultsLoading = false;
       },
       error: (err: any) => {
         console.error(err);
-        this.resultsLoading = false;
       },
-      complete: () => console.log('done loading result Statuses')
-    });
+      complete: () => {
+        console.log('done loading result Statuses');
+        this.loading = false;
+        this.resultsLoading = false;
+      }
+    });    
+  }
 
-    const apiRequests = new RequestStatusesApi();
-    apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
-      next: (data: DeploymentRequestApiModel) => {
-        this.selectedProject = data.Project ?? '';
-        this.deployRequest = data;
-        this.loading = false;
+  refreshAttemptItems = () => {
+    this.attemptsLoading = true;
+
+    const api = new RequestApi();
+    api.requestRequestIdAttemptsGet({ requestId: this.requestId }).subscribe({
+      next: (data: Array<DeploymentRequestAttemptApiModel>) => {
+        this.attemptItems = data;
       },
       error: (err: any) => {
-        const notification = new ErrorNotification();
-        notification.setAttribute('errorMessage', err.response);
-        this.shadowRoot?.appendChild(notification);
-        notification.open();
-        console.error(err);
-        this.loading = false;
+        console.error('Failed to load attempts:', err);
+        this.attemptItems = [];
       },
-      complete: () => console.log('done loading request')
+      complete: () => {
+        console.log('done loading attempts');
+        this.attemptsLoading = false;
+      }
     });
+  }
+
+  private async initializeSignalR() {
+    if (!this.hubConnection)
+      this.hubConnection = DeploymentHub.getConnection();
+
+    getReceiverRegister('IDeploymentsEventsClient')
+      .register(this.hubConnection, this);
+
+    const hubProxy = getHubProxyFactory('IDeploymentEventsHub')
+        .createHubProxy(this.hubConnection);
+
+    this.hubConnection.onreconnected(async () => {
+       await hubProxy.joinRequestGroup(this.requestId);
+       this.refreshData();
+       this.hubConnectionState = this.hubConnection!.state;
+     });
+
+    if (this.hubConnection.state === HubConnectionState.Disconnected) {
+      try
+      {
+        await this.hubConnection.start();
+        await hubProxy.joinRequestGroup(this.requestId);
+        this.hubConnectionState = this.hubConnection.state;
+      }
+      catch (err)
+      {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.hubConnectionState = errorMessage;
+        console.error(err);
+      }
+    }
+  }
+
+  private isTerminal(status: string | null | undefined) {
+    return ['Completed', 'Failed', 'Cancelled', 'Skipped'].includes(status ?? '');
+  }
+ 
+  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
+    if (!data || data.requestId !== this.requestId) return Promise.resolve();
+    const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
+    const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
+
+    this.deployRequest = {
+      ...this.deployRequest,
+      Status: data.status,
+      StartedTime: startedTime !== undefined ? asUndef(startedTime) : this.deployRequest?.StartedTime,
+      CompletedTime: this.isTerminal(data.status)
+    ? (completedTime !== undefined ? asUndef(completedTime) : this.deployRequest?.CompletedTime)
+    : undefined
+  };
+  return Promise.resolve();
+}
+  
+  onDeploymentRequestStarted(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void> {
+    if (this.isEventForRequest(data, this.requestId)) {
+      this.refreshResultItems();
+    }
+    return Promise.resolve();
+  }
+
+  isEventForRequest(event: DeploymentResultEventData, requestId: number): boolean {
+    if (!event || typeof event !== 'object') {
+      return false;
+    }
+    const eventRequestId = Number(event.requestId);
+    return eventRequestId === requestId;
   }
 
   render() {
     return html`
-      ${this.loading
+      ${this.notFound
+        ? html``
+        : this.loading
         ? html`
             <div class="overlay" style="z-index: 2">
               <div class="overlay__inner">
@@ -232,22 +423,45 @@ export class PageMonitorResult extends PageElement {
             <request-status-card
               .deployRequest="${this.deployRequest}"
               .selectedProject="${this.selectedProject}"
+              .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
-            ${this.resultsLoading
-              ? html` <div class="small-loader"></div>`
-              : html`
-                  <vaadin-details
-                    opened
-                    summary="Deployment Component Results"
-                    style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
-                  >
-                    <component-deployment-results
-                      .resultItems="${this.resultItems}"
-                    ></component-deployment-results>
-                  </vaadin-details>
-                `}
+            <div class="results-section">
+              ${this.resultsLoading
+                ? html` <div class="small-loader"></div>`
+                : html`
+                    <vaadin-details
+                      opened
+                      summary="Deployment Component Results"
+                      style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                    >
+                      <component-deployment-results
+                        .resultItems="${this.resultItems}"
+                      ></component-deployment-results>
+                    </vaadin-details>
+                  `}
+              ${!this.attemptsLoading && this.attemptItems && this.attemptItems.length > 0
+                ? html`
+                    <vaadin-details
+                      summary="Previous Attempts (${this.attemptItems.length})"
+                      style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                    >
+                      <component-previous-attempts
+                        .attemptItems="${this.attemptItems}"
+                        .requestId="${this.requestId}"
+                      ></component-previous-attempts>
+                    </vaadin-details>
+                  `
+                : html``}
+            </div>
           `}
     `;
+  }
+
+  private showNotFoundError(message: string) {
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
   }
 
   private refreshPage() {

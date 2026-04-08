@@ -2,9 +2,11 @@ import { css, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property, query } from 'lit/decorators.js';
 import '@vaadin/button';
-import { MakeLikeProdApi, RefDataRolesApi } from '../apis/dorc-api';
+import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
 import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
+import './theme-toggle.ts';
+import { themeManager } from '../theme/theme-manager.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
@@ -38,7 +40,7 @@ export class DorcApp extends ShortcutsStore {
         display: inline;
         height: 100%;
         margin: 0;
-        background: black;
+        background: var(--dorc-bg-primary);
         font-family: Arial, monospace;
       }
 
@@ -46,7 +48,7 @@ export class DorcApp extends ShortcutsStore {
         height: 50px;
         display: flex;
         align-items: center;
-        background: #f5f6f8;
+        background: var(--dorc-bg-secondary);
         color: #bbbbbb;
       }
 
@@ -58,7 +60,7 @@ export class DorcApp extends ShortcutsStore {
 
       #sideBar {
         width: 300px;
-        background: blue;
+        background: var(--dorc-link-color);
       }
 
       #splitter {
@@ -69,11 +71,11 @@ export class DorcApp extends ShortcutsStore {
         top: 0;
         right: 0;
         bottom: 0;
-        background-color: #f5f6f8;
+        background-color: var(--dorc-bg-secondary);
       }
 
       #page-content {
-        background: white;
+        background: var(--dorc-bg-primary);
         overflow-x: scroll;
         overflow-y: hidden;
         width: 100%;
@@ -83,6 +85,7 @@ export class DorcApp extends ShortcutsStore {
 
   @property() userEmail = '';
   @property() userRoles = '';
+  @property() dorcEnv = '';
 
   @query('#splitter') splitter!: HTMLDivElement;
 
@@ -102,12 +105,18 @@ export class DorcApp extends ShortcutsStore {
           style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px;  color: black" title="Deployment Orchestrator">
-          DOrc
-        </h2>
-
+        ${!appConfig.isProduction ? html`
+          <h2 style="padding: 5px; color: white; background: var(--dorc-error-color); white-space: nowrap" title="DevOps Orchestrator">
+            ${this.dorcEnv} - You Are Using A Non-Prod DOrc Instance!
+          </h2>
+        ` : ''}
+        ${appConfig.isProduction ? html`
+            <h2 style="padding: 5px; color: var(--dorc-text-primary); white-space: nowrap" title="DevOps Orchestrator">
+              DOrc
+            </h2>
+        ` : ''}
         <div style="width: calc(100% - 800px)"></div>
-        <table style="color: #747f8d; font-size: x-small">
+        <table style="color: var(--dorc-text-secondary); font-size: x-small">
           <tr>
             ${this.userEmail}
           </tr>
@@ -116,6 +125,7 @@ export class DorcApp extends ShortcutsStore {
           </tr>
         </table>
         <vaadin-button ?hidden="${!this.showSignOutButton}" @click="${this.signOut}">Sign Out</vaadin-button>
+        <theme-toggle></theme-toggle>
         <a
           class="plain"
           href="${this.dorcHelperPage}"
@@ -139,18 +149,21 @@ export class DorcApp extends ShortcutsStore {
 
   constructor() {
     super();
+    themeManager.init();
     this.getUserEmail();
     this.getUserRoles();
+    this.getDorcEnv();
     this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
-
+    // Assign dorcNavbar BEFORE calling super to ensure it's available for event handlers
     this.dorcNavbar = this.shadowRoot?.getElementById(
       'dorcNavbar'
     ) as DorcNavbar;
     dorcNavbar = this.dorcNavbar;
+
+    super.firstUpdated(_changedProperties);
 
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {
@@ -189,6 +202,16 @@ export class DorcApp extends ShortcutsStore {
         this.userEmail = value;
       },
       error: (err: string) => console.error(err),
+    });
+  }
+
+  private getDorcEnv() {
+    const api = new MetadataApi();
+    api.metadataGet().subscribe({
+      next: (data: string) => {
+        this.dorcEnv = data.split('-')[0].trim();
+      },
+      error: (err: string) => console.error(err)
     });
   }
 

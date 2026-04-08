@@ -1,9 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
+    <script>
+        // Apply dark theme immediately to prevent flash of white on reload
+        var s = localStorage.getItem('dorc-theme');
+        if (s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.setAttribute('theme', 'dark');
+        }
+    </script>
     <title>DOrc</title>
 
     <base href="/"/>
+
+    <!-- Vaadin 25 Lumo Theme CSS - served via Vite plugin from node_modules to avoid CSS bundling -->
+    <link rel="stylesheet" href="/vaadin-theme/lumo.css"/>
 
     <link rel="icon" href="images/icon.ico"/>
 
@@ -23,11 +33,100 @@
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.38.0/src-min/ext-language_tools.js" type="text/javascript"
             charset="utf-8"></script>
     <style>
+        /* ── DOrc theme custom properties ── */
+        html {
+            --dorc-bg-primary: #ffffff;
+            --dorc-bg-secondary: #f5f6f8;
+            --dorc-bg-tertiary: #eee;
+            --dorc-text-primary: #000000;
+            --dorc-text-secondary: #747f8d;
+            --dorc-border-color: #dde2e8;
+            --dorc-link-color: cornflowerblue;
+            --dorc-overlay-bg: rgba(0, 0, 0, 0.5);
+            --dorc-dialog-bg: #ffffff;
+            --dorc-chip-bg: #c7e0ff;
+            --dorc-chip-text: #1a1a1a;
+            --dorc-input-bg: #f7f7f7;
+            --dorc-warning-bg: #fff3cd;
+            --dorc-warning-text: #856404;
+            --dorc-error-color: #FF3131;
+            --dorc-success-bg: #b1ffb7;
+            --dorc-failure-bg: #ffd9d9;
+            --dorc-highlight-bg: #ffddb7;
+            --dorc-badge-bg: #444;
+            --dorc-badge-text: #fea40f;
+        }
+
+        html[theme~="dark"] {
+            --dorc-bg-primary: #1e1e1e;
+            --dorc-bg-secondary: #2b2b2b;
+            --dorc-bg-tertiary: #383838;
+            --dorc-text-primary: #e0e0e0;
+            --dorc-text-secondary: #a0a8b4;
+            --dorc-border-color: #444444;
+            --dorc-link-color: #6fa8ff;
+            --dorc-overlay-bg: rgba(0, 0, 0, 0.7);
+            --dorc-dialog-bg: #2b2b2b;
+            --dorc-chip-bg: #3d5a80;
+            --dorc-chip-text: #e0e0e0;
+            --dorc-input-bg: #333333;
+            --dorc-warning-bg: #4a3a1a;
+            --dorc-warning-text: #ffc107;
+            --dorc-error-color: #ff6b6b;
+            --dorc-success-bg: #2d6a2d;
+            --dorc-failure-bg: #8b3030;
+            --dorc-highlight-bg: #4a3520;
+            --dorc-badge-bg: #555;
+            --dorc-badge-text: #ffc453;
+
+            /* Dark-mode overrides for env-control-center */
+            --dorc-ctrl-btn-bg: #4a3a1a;
+            --dorc-ctrl-btn-text: #e0e0e0;
+            --dorc-ctrl-disabled-bg: #383838;
+            --dorc-ctrl-disabled-text: #a0a8b4;
+            --dorc-ctrl-section-bg: #3a3020;
+            --dorc-ctrl-section-border: #ffc107;
+
+            /* Override Vaadin Lumo dark base to neutral gray (remove blue tint) */
+            --lumo-base-color: #1e1e1e;
+
+            --lumo-tint-5pct: hsla(0, 0%, 100%, 0.06);
+            --lumo-tint-10pct: hsla(0, 0%, 100%, 0.14);
+            --lumo-tint-20pct: hsla(0, 0%, 100%, 0.23);
+            --lumo-tint-30pct: hsla(0, 0%, 100%, 0.32);
+            --lumo-tint-40pct: hsla(0, 0%, 100%, 0.41);
+            --lumo-tint-50pct: hsla(0, 0%, 100%, 0.50);
+            --lumo-tint-60pct: hsla(0, 0%, 100%, 0.58);
+            --lumo-tint-70pct: hsla(0, 0%, 100%, 0.69);
+            --lumo-tint-80pct: hsla(0, 0%, 100%, 0.80);
+            --lumo-tint-90pct: hsla(0, 0%, 100%, 0.90);
+            --lumo-tint: #fafafa;
+
+            --lumo-shade-5pct: hsla(0, 0%, 0%, 0.07);
+            --lumo-shade-10pct: hsla(0, 0%, 0%, 0.15);
+            --lumo-shade-20pct: hsla(0, 0%, 0%, 0.23);
+            --lumo-shade-30pct: hsla(0, 0%, 0%, 0.32);
+            --lumo-shade-40pct: hsla(0, 0%, 0%, 0.41);
+            --lumo-shade-50pct: hsla(0, 0%, 0%, 0.50);
+            --lumo-shade-60pct: hsla(0, 0%, 0%, 0.60);
+            --lumo-shade-70pct: hsla(0, 0%, 0%, 0.70);
+            --lumo-shade-80pct: hsla(0, 0%, 0%, 0.80);
+            --lumo-shade-90pct: hsla(0, 0%, 0%, 0.90);
+            --lumo-shade: #111;
+
+            /* Override Paper Dialog colors for dark mode */
+            --paper-dialog-background-color: #2b2b2b;
+            --paper-dialog-color: #e0e0e0;
+            --primary-background-color: #2b2b2b;
+            --primary-text-color: #e0e0e0;
+        }
+
         html,
-        body,
         body {
             margin: 0;
             overflow: hidden;
+            background: var(--dorc-bg-primary);
+            color: var(--dorc-text-primary);
         }
 
         noscript {

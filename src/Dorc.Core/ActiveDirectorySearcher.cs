@@ -1,6 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
@@ -17,10 +17,10 @@ namespace Dorc.Core
     public class ActiveDirectorySearcher : IActiveDirectorySearcher
     {
         private readonly DirectoryEntry _activeDirectoryRoot;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private static readonly string[] adProps = { "cn", "displayname", "objectsid", "mail" };
 
-        public ActiveDirectorySearcher(string domainName, ILog log)
+        public ActiveDirectorySearcher(string domainName, ILogger<ActiveDirectorySearcher> log)
         {
             _log = log;
 

@@ -1,6 +1,5 @@
 {
   "api": "https://localhost:7159",
   "routePrefix": "",
-  "AzureDevOpsAccessToken": "",
   "dorcHelperPage" : ""
 }

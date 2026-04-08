@@ -1,0 +1,281 @@
+name: DOrc Release Build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+      - 'migration/**'
+      - 'copilot/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  BUILD_PLATFORM: 'Any CPU'
+  BUILD_CONFIGURATION: 'Release'
+  SOLUTION_PATH: 'src/Dorc.sln'
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/dorc-web/package-lock.json
+        
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Install WiX Toolset
+      run: |
+        dotnet tool install --global wix --version 6.0.1
+        wix --version
+        
+    - name: Generate version number
+      id: version
+      shell: pwsh
+      run: |
+        $date = Get-Date -Format "yy.MM.dd"
+        $patch = "${{ github.run_number }}"
+        $version = "$date.$patch"
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Build version: $version"
+        
+    - name: Install web dependencies
+      working-directory: src/dorc-web
+      run: npm ci --loglevel=error
+      
+    - name: Build web site
+      working-directory: src/dorc-web
+      run: npm run build
+      
+    - name: Version AssemblyInfo files
+      shell: pwsh
+      env:
+        BUILD_SOURCESDIRECTORY: ${{ github.workspace }}
+        BUILD_BUILDNUMBER: ${{ steps.version.outputs.VERSION }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $BuildNumber = "${{ steps.version.outputs.VERSION }}"
+        $SourcesPath = "${{ github.workspace }}"
+        $VersionRegex = "\d+\.\d+\.\d+\.\d+"
+        
+        Write-Host "BUILD_SOURCESDIRECTORY: $SourcesPath"
+        Write-Host "BUILD_BUILDNUMBER: $BuildNumber"
+        Write-Host "Version: $BuildNumber"
+        
+        $files = Get-ChildItem $SourcesPath -Recurse -Include "*Properties*","*Includes*" |
+            Where-Object { $_.PSIsContainer } |
+            ForEach-Object { Get-ChildItem -Path $_.FullName -Recurse -Include *AssemblyInfo.* }
+        
+        if ($files) {
+            Write-Host "Will check $($files.count) files."
+            foreach ($file in $files) {
+                Write-Host "  $($file.FullName)" -NoNewline
+                $filecontent = Get-Content($file)
+                $versionInstances = Select-String $VersionRegex -InputObject $filecontent -AllMatches
+                if ($versionInstances.Count -gt 0) {
+                    attrib $file -r
+                    $filecontent -replace $VersionRegex, $BuildNumber | Out-File $file
+                    Write-Host " **version $BuildNumber applied**"
+                } else {
+                    Write-Host " No matches"
+                }
+            }
+        } else {
+            Write-Warning "Found no files."
+        }
+        
+    - name: Version Cmdlet
+      shell: pwsh
+      env:
+        BUILD_SOURCESDIRECTORY: ${{ github.workspace }}
+        BUILD_BUILDNUMBER: ${{ steps.version.outputs.VERSION }}
+      working-directory: src/Tools.DOrc.Cmdlet
+      run: |
+        if (Test-Path "UpdateVersion.ps1") {
+          .\UpdateVersion.ps1
+        } else {
+          Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
+        }
+      
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+      
+    - name: Restore packages
+      run: |
+        nuget restore ${{ env.SOLUTION_PATH }} -ConfigFile pipelines/NuGet.config
+        dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+      
+    - name: Build solution
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /clp:ErrorsOnly /nologo
+      
+    - name: Run tests
+      shell: pwsh
+      run: |
+        # Create TestResults directory if it doesn't exist
+        $resultsDir = "${{ github.workspace }}\TestResults"
+        if (-not (Test-Path $resultsDir)) {
+          New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+        }
+        
+        # Find test assemblies, excluding integration tests that require external dependencies
+        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
+          Where-Object { 
+            $_.FullName -notmatch "\\obj\\" -and 
+            $_.FullName -notmatch "IntegrationTests" -and
+            $_.FullName -notmatch "Acceptance"
+          }
+        
+        if ($testAssemblies.Count -gt 0) {
+          Write-Host "Found $($testAssemblies.Count) test assemblies (excluding integration/acceptance tests):"
+          $testAssemblies | ForEach-Object { Write-Host "  - $($_.FullName)" }
+          
+          # Use full path to vstest.console.exe
+          $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          if (-not (Test-Path $vstestPath)) {
+            # Try Community edition
+            $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          }
+          if (-not (Test-Path $vstestPath)) {
+            Write-Host "VSTest not found at expected locations, trying PATH..."
+            $vstestPath = "vstest.console.exe"
+          }
+          
+          Write-Host "Using VSTest from: $vstestPath"
+          & $vstestPath $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:$resultsDir
+        } else {
+          Write-Host "No test assemblies found"
+        }
+      continue-on-error: true
+      
+    - name: Fail workflow if tests failed (main/release branches)
+      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+      shell: pwsh
+      run: |
+        $resultsDir = "${{ github.workspace }}\TestResults"
+        if (-not (Test-Path $resultsDir)) {
+          Write-Host "No test results directory found, skipping test failure check"
+          exit 0
+        }
+        
+        $trxFiles = Get-ChildItem -Path $resultsDir -Recurse -Include *.trx -ErrorAction SilentlyContinue
+        if (-not $trxFiles) {
+          Write-Host "No test result files found, skipping test failure check"
+          exit 0
+        }
+        
+        $failed = $false
+        foreach ($file in $trxFiles) {
+          [xml]$xml = Get-Content $file.FullName
+          $failCount = ($xml.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq "Failed" }).Count
+          if ($failCount -gt 0) {
+            Write-Host "$($file.FullName): $failCount test(s) failed"
+            $failed = $true
+          }
+        }
+        if ($failed) {
+          Write-Error "Test failures detected. Failing workflow."
+          exit 1
+        } else {
+          Write-Host "No test failures detected."
+        }
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      if: always()
+      with:
+        files: |
+          TestResults/**/*.trx
+      continue-on-error: true
+      
+    - name: Collect build artifacts
+      shell: pwsh
+      run: |
+        $artifactsRoot = "${{ github.workspace }}\artifacts"
+        
+        # Install scripts
+        $target = "$artifactsRoot"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item -Path "${{ github.workspace }}\src\install-scripts\*.ps1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "${{ github.workspace }}\src\install-scripts\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+        Write-Host "Copied install scripts"
+        
+        # Database files
+        $source = "${{ github.workspace }}\src\Dorc.Database\sql\${{ env.BUILD_CONFIGURATION }}"
+        $target = "$artifactsRoot\Database"
+        if (Test-Path $source) {
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          Copy-Item -Path "$source\*.dacpac" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.sql" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied database files"
+        }
+        
+        # MSI installers
+        $target = "$artifactsRoot\Server"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        
+        $source = "${{ github.workspace }}\src\Setup.Dorc\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc MSI installer"
+        }
+        
+        $source = "${{ github.workspace }}\src\Setup.Acceptance\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied Test Acceptance MSI installer"
+        }
+        
+        # PowerShell Cmdlet
+        $source = "${{ github.workspace }}\src\Tools.DOrc.Cmdlet"
+        $target = "$artifactsRoot\DOrc.Cmdlet"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item -Path "$source\*.ps1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$source\*.psm1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$source\*.psd1" -Destination $target -Force -ErrorAction SilentlyContinue
+        Write-Host "Copied PowerShell Cmdlet"
+        
+    - name: Set artifact retention period
+      id: set_retention
+      shell: pwsh
+      run: |
+        $ref = "${{ github.ref }}"
+        if ($ref -eq "refs/heads/main" -or $ref -like "refs/heads/release/*") {
+          echo "RETENTION_DAYS=400" >> $env:GITHUB_ENV
+        } else {
+          echo "RETENTION_DAYS=14" >> $env:GITHUB_ENV
+        }
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dorc-release-${{ steps.version.outputs.VERSION }}
+        path: artifacts/
+        retention-days: ${{ env.RETENTION_DAYS }}

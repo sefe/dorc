@@ -64,7 +64,7 @@ export class ViewDatabasePermissions extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
     };
     return html`
       <div>            
@@ -170,7 +170,7 @@ export class ViewDatabasePermissions extends LitElement {
   }
 
   sortUsers(a: UserApiModel, b: UserApiModel): number {
-    if (String(a.DisplayName) > String(b.DisplayName)) return 1;
+    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
 
     return -1;
   }

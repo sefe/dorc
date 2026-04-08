@@ -1,6 +1,4 @@
 using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData.Model;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Dorc.Api.Tests
 {
@@ -140,14 +138,16 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void ContainsExpression_ShouldThrowForInvalidPropertyName()
         {
             // Arrange
             var data = new List<TestModel>().AsQueryable();
 
-            // Act
-            var expression = data.ContainsExpression("InvalidProperty", "Test");
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() =>
+            {
+                var expression = data.ContainsExpression("InvalidProperty", "Test");
+            });
         }
     }
 }

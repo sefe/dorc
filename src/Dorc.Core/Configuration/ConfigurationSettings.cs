@@ -128,5 +128,55 @@ namespace Dorc.Core.Configuration
             var isUseAdSidsForAccessControlConfig = _configuration.GetSection("AppSettings")["IsUseAdSidsForAccessControl"];
             return bool.TryParse(isUseAdSidsForAccessControlConfig, out bool isUseAdSidsForAccessControl) && isUseAdSidsForAccessControl;
         }
+
+        public string GetEnvironment(bool removeSpaces = false)
+        {
+            var env = _configuration.GetSection("AppSettings")["environment"] ?? "Local";
+            if (removeSpaces)
+            {
+                env = env.Replace(" ", "_");
+            }
+
+            return env;
+        }
+
+        #region Azure Storage Account
+        public string GetAzureStorageAccountTenantId()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["TenantId"];
+        }
+
+        public string GetAzureStorageAccountClientId()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["ClientId"];
+        }
+
+        public string GetAzureStorageAccountClientSecret()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["ClientSecret"];
+        }
+
+        public string GetAzureStorageAccounUri()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["StorageAccountUri"];
+        }
+
+        public string GetAzureStorageAccountTerraformBlobsContainerName()
+        {
+            return _configuration.GetSection("AzureStorageAccount")["TerraformBlobsContainerName"];
+        }
+
+        public bool GetPauseDeploymentEnabled()
+        {
+            var value = _configuration.GetSection("AppSettings")["PauseDeploymentEnabled"];
+            return bool.TryParse(value, out bool enabled) && enabled;
+        }
+
+        public bool GetIsProduction()
+        {
+            var value = _configuration.GetSection("AppSettings")["IsProduction"];
+            return bool.TryParse(value, out bool isProduction) && isProduction;
+        }
+        #endregion
     }
 }

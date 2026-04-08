@@ -33,6 +33,11 @@ export interface RefDataEnvironmentsDetailsGetComponentStatuesGetRequest {
     cutoffDateTime?: string;
 }
 
+export interface RefDataEnvironmentsDetailsGetEnvironmentsForDatabaseGetRequest {
+    serverName?: string;
+    databaseName?: string;
+}
+
 export interface RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest {
     id?: number;
 }
@@ -89,6 +94,24 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
 
         return this.request<Array<EnvironmentContentBuildsApiModel>>({
             url: '/RefDataEnvironmentsDetails/GetComponentStatues',
+            method: 'GET',
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataEnvironmentsDetailsGetEnvironmentsForDatabaseGet({ serverName, databaseName }: RefDataEnvironmentsDetailsGetEnvironmentsForDatabaseGetRequest): Observable<Array<EnvironmentApiModel>>
+    refDataEnvironmentsDetailsGetEnvironmentsForDatabaseGet({ serverName, databaseName }: RefDataEnvironmentsDetailsGetEnvironmentsForDatabaseGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentApiModel>>>
+    refDataEnvironmentsDetailsGetEnvironmentsForDatabaseGet({ serverName, databaseName }: RefDataEnvironmentsDetailsGetEnvironmentsForDatabaseGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentApiModel> | AjaxResponse<Array<EnvironmentApiModel>>> {
+
+        const query: HttpQuery = {};
+
+        if (serverName != null) { query['serverName'] = serverName; }
+        if (databaseName != null) { query['databaseName'] = databaseName; }
+
+        return this.request<Array<EnvironmentApiModel>>({
+            url: '/RefDataEnvironmentsDetails/GetEnvironmentsForDatabase',
             method: 'GET',
             query,
         }, opts?.responseOpts);

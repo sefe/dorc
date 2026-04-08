@@ -9,7 +9,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using Environment = System.Environment;
 
@@ -23,7 +23,7 @@ namespace Dorc.Core
         private const string DORCNonProdDeployUsername = "DORC_NonProdDeployUsername";
         private const string DORCNonProdDeployPassword = "DORC_NonProdDeployPassword";
 
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
@@ -31,7 +31,7 @@ namespace Dorc.Core
         private readonly string _domainName;
 
         public ServiceStatus(IConfigValuesPersistentSource configValuesPersistentSource,
-            ILog logger, IEnvironmentsPersistentSource environmentsPersistentSource,
+            ILogger<ServiceStatus> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IConfigurationSettings configurationSettingsEngine)
@@ -66,7 +66,8 @@ namespace Dorc.Core
 
             var domainName = _domainName;
 
-            var sas = GetServicesEnvironment(environment);
+            var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
+            var sas = BuildServicesEnvironment(environment, servers);
 
             if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
             {
@@ -85,14 +86,18 @@ namespace Dorc.Core
                     throw new System.ComponentModel.Win32Exception(ret);
                 }
 
+                List<ServicesAndStatus> probeResults = [];
                 WindowsIdentity.RunImpersonated(
                     safeAccessTokenHandle,
                     // User action  
                     () =>
                     {
-                        sas = GetServicesAndStatusForEnvironment(sas);
+                        probeResults = ProbeServiceStatuses(sas);
                     }
                 );
+
+                PersistDiscoveredMappings(probeResults, servers);
+                return probeResults;
             }
 
             return sas;
@@ -114,12 +119,10 @@ namespace Dorc.Core
             }
         }
 
-        private List<ServicesAndStatus> GetServicesEnvironment(EnvironmentApiModel? environment)
+        private List<ServicesAndStatus> BuildServicesEnvironment(EnvironmentApiModel? environment,
+            List<ServerApiModel> servers)
         {
             var iResults = new List<ServicesAndStatus>();
-
-            var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId);
-            var daemons = _daemonsPersistentSource.GetDaemons();
 
             try
             {
@@ -127,20 +130,28 @@ namespace Dorc.Core
                 {
                     try
                     {
+                        var daemons = _daemonsPersistentSource.GetDaemonsForServer(serverApiModel.ServerId);
+
+                        // No mappings yet — fall back to all daemons so discovery can happen
+                        if (!daemons.Any())
+                        {
+                            daemons = _daemonsPersistentSource.GetDaemons();
+                        }
+
                         foreach (var daemonApiModel in daemons)
                         {
-                            var servicesAndStatus = new ServicesAndStatus();
                             try
                             {
-                                servicesAndStatus.ServerName = serverApiModel.Name;
-                                servicesAndStatus.ServiceName = daemonApiModel.Name;
-                                servicesAndStatus.EnvName = environment.EnvironmentName;
-
-                                iResults.Add(servicesAndStatus);
+                                iResults.Add(new ServicesAndStatus
+                                {
+                                    ServerName = serverApiModel.Name,
+                                    ServiceName = daemonApiModel.Name,
+                                    EnvName = environment.EnvironmentName
+                                });
                             }
                             catch (Exception ex)
                             {
-                                _logger.Info("Error retrieving servicesAndStatus info for " +
+                                _logger.LogInformation("Error retrieving servicesAndStatus info for " +
                                              daemonApiModel.Name + Environment.NewLine +
                                              "        " + ex.Message + Environment.NewLine +
                                              "        " + ex.InnerException);
@@ -149,23 +160,22 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.Info("Error, couldn't ping: " + serverApiModel.Name +
+                        _logger.LogInformation("Error, couldn't ping: " + serverApiModel.Name +
                                      Environment.NewLine + ex.Message);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.Info("Error building list of servers/services" + Environment.NewLine + ex.Message);
+                _logger.LogInformation("Error building list of servers/services" + Environment.NewLine + ex.Message);
             }
 
             return iResults;
         }
 
-        private List<ServicesAndStatus> GetServicesAndStatusForEnvironment(List<ServicesAndStatus> sas)
+        private List<ServicesAndStatus> ProbeServiceStatuses(List<ServicesAndStatus> sas)
         {
             var resultsDict = new ConcurrentDictionary<int, ServicesAndStatus>();
-            var originalOrder = sas.Select((item, index) => new { item, index }).ToDictionary(x => x.item, x => x.index);
 
             try
             {
@@ -180,7 +190,7 @@ namespace Dorc.Core
 
                         try
                         {
-                            _logger.Debug("Server is alive: " + sa.ServerName);
+                            _logger.LogDebug("Server is alive: " + sa.ServerName);
 
                             using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName))
                             {
@@ -196,7 +206,7 @@ namespace Dorc.Core
                         }
                         catch (Exception ex)
                         {
-                            _logger.Debug("Error retrieving servicesAndStatus info for " +
+                            _logger.LogDebug("Error retrieving servicesAndStatus info for " +
                                          sa.ServiceName + Environment.NewLine +
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
@@ -204,19 +214,44 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.Debug("Error, couldn't ping: " + sa.ServerName +
+                        _logger.LogDebug("Error, couldn't ping: " + sa.ServerName +
                                      Environment.NewLine + ex.Message);
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.Info("Error building list of servers/services" + Environment.NewLine + ex.Message);
+                _logger.LogInformation("Error building list of servers/services" + Environment.NewLine + ex.Message);
             }
 
             return resultsDict.OrderBy(kvp => kvp.Key)
                       .Select(kvp => kvp.Value)
                       .ToList();
+        }
+
+        private void PersistDiscoveredMappings(List<ServicesAndStatus> confirmedResults,
+            List<ServerApiModel> servers)
+        {
+            try
+            {
+                var confirmedByServer = confirmedResults
+                    .GroupBy(r => r.ServerName)
+                    .ToDictionary(g => g.Key!, g => g.Select(r => r.ServiceName));
+
+                foreach (var (serverName, serviceNames) in confirmedByServer)
+                {
+                    var server = servers.FirstOrDefault(s => s.Name == serverName);
+                    if (server != null)
+                    {
+                        _daemonsPersistentSource.DiscoverAndMapDaemonsForServer(
+                            server.ServerId, serviceNames);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist discovered daemon mappings");
+            }
         }
 
         /// <summary>

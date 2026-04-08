@@ -33,7 +33,7 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
           ? html`
               <paper-menu-button id="actions">
                 <paper-icon-button
-                  style="color: #747f8d;"
+                  style="color: var(--dorc-text-secondary);"
                   class="giant"
                   icon="lumo:edit"
                   noink

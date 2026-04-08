@@ -1,16 +1,16 @@
-﻿using System.Data;
-using Dorc.PersistentData.EntityTypeConfigurations;
-using Microsoft.EntityFrameworkCore;
+﻿using Dorc.PersistentData.EntityTypeConfigurations;
+using Dorc.PersistentData.Model;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Data;
 using Audit = Dorc.PersistentData.Model.Audit;
 using Database = Dorc.PersistentData.Model.Database;
 using Environment = Dorc.PersistentData.Model.Environment;
+using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 using Property = Dorc.PersistentData.Model.Property;
 using Server = Dorc.PersistentData.Model.Server;
 using User = Dorc.PersistentData.Model.User;
-using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Contexts
 {
@@ -35,6 +35,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<AdGroup> AdGroups { get; set; }
         public DbSet<Audit> Audits { get; set; }
         public DbSet<AuditProperty> AuditProperties { get; set; }
+        public DbSet<AuditScript> AuditScripts { get; set; }
         public DbSet<BundledRequests> BundledRequests { get; set; }
         public DbSet<Component> Components { get; set; }
         public DbSet<ConfigValue> ConfigValues { get; set; }
@@ -45,6 +46,11 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<DeploymentResult> DeploymentResults { get; set; }
         public DbSet<DeploymentsByProjectDate> AnalyticsDeploymentsByProjectDate { get; set; }
         public DbSet<DeploymentsByProjectMonth> AnalyticsDeploymentsByProjectMonth { get; set; }
+        public DbSet<AnalyticsEnvironmentUsage> AnalyticsEnvironmentUsage { get; set; }
+        public DbSet<AnalyticsUserActivity> AnalyticsUserActivity { get; set; }
+        public DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
+        public DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
+        public DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
         public DbSet<Environment> Environments { get; set; }
         public DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         public DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
@@ -63,10 +69,19 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Server> Servers { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
+        public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer(nameOrConnectionString);
+            optionsBuilder.UseSqlServer(nameOrConnectionString, sqlOptions =>
+            {
+                sqlOptions.CommandTimeout(60);
+                sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(2),
+                    errorNumbersToAdd: null);
+            });
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -105,9 +120,30 @@ namespace Dorc.PersistentData.Contexts
                 .ToTable("DeploymentsByProjectDate", "deploy")
                 .HasKey(x => x.Id);
 
+            modelBuilder.Entity<AnalyticsEnvironmentUsage>()
+                .ToTable("AnalyticsEnvironmentUsage", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsUserActivity>()
+                .ToTable("AnalyticsUserActivity", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsTimePattern>()
+                .ToTable("AnalyticsTimePattern", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsComponentUsage>()
+                .ToTable("AnalyticsComponentUsage", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsDuration>()
+                .ToTable("AnalyticsDuration", "deploy")
+                .HasKey(x => x.Id);
+
             new AdGroupEntityTypeConfiguration().Configure(modelBuilder.Entity<AdGroup>());
             new AuditEntityTypeConfiguration().Configure(modelBuilder.Entity<Audit>());
             new AuditPropertyEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditProperty>());
+            new AuditScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditScript>());
             new BundledRequestsEntityTypeConfiguration().Configure(modelBuilder.Entity<BundledRequests>());
             new ComponentEntityTypeConfiguration().Configure(modelBuilder.Entity<Component>());
             new DaemonEntityTypeConfiguration().Configure(modelBuilder.Entity<Daemon>());
@@ -129,6 +165,8 @@ namespace Dorc.PersistentData.Contexts
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
             new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
+            new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());
+            new DeploymentResultAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResultAttempt>());
         }
 
         public new DbSet<TEntity> Set<TEntity>() where TEntity : class => base.Set<TEntity>();
@@ -252,8 +290,8 @@ namespace Dorc.PersistentData.Contexts
 
         public DataSet RunSp(string spName, List<SqlParameter> parameters)
         {
-            var connection = new SqlConnection(Database.GetConnectionString());
-            var cmd = new SqlCommand
+            using var connection = new SqlConnection(Database.GetConnectionString());
+            using var cmd = new SqlCommand
             {
                 CommandText = spName,
                 CommandType = CommandType.StoredProcedure,

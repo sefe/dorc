@@ -13,6 +13,7 @@ import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
+import GlobalCache from '../global-cache';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
@@ -24,12 +25,36 @@ export class PageSqlPortsList extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
+  @property({ type: Boolean }) private isAdmin = false;
+
+  public userRoles!: string[];
+
   private loading = true;
 
   constructor() {
     super();
+    this.getUserRoles();
     this.getSqlPortsList();
   }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        }
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
+  }
+
   
   private getSqlPortsList() {
     const api = new RefDataSqlPortsApi();
@@ -48,7 +73,7 @@ export class PageSqlPortsList extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 110px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       .overlay {
         width: 100%;
@@ -71,8 +96,8 @@ export class PageSqlPortsList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -104,11 +129,12 @@ export class PageSqlPortsList extends PageElement {
         <vaadin-button
           title="Add SQL Port"
           style="width: 250px"
+          .disabled="${!this.isAdmin}"
           @click="${this.addSqlPort}"
         >
           <vaadin-icon
             icon="vaadin:connect"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add SQL Port...
         </vaadin-button>
@@ -177,7 +203,7 @@ export class PageSqlPortsList extends PageElement {
     const filters = value
       .trim()
       .split('|')
-      .map(filter => new RegExp(filter, 'i'));
+      .map(filter => new RegExp(filter.replace("\\","\\\\"), 'i'));
 
     this.filteredSqlPorts = this.sqlPorts.filter(({ InstanceName, SqlPort }) =>
       filters.some(

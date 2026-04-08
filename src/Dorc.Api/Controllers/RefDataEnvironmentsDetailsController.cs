@@ -2,7 +2,6 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -19,22 +18,19 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource databasesPersistentSource;
         private readonly IEnvironmentsPersistentSource environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker securityService;
-        private readonly ILog logger;
 
         public RefDataEnvironmentsDetailsController(
             IApiServices apiServices,
             IServersPersistentSource serversPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ISecurityPrivilegesChecker securityService,
-            ILog logger)
+            ISecurityPrivilegesChecker securityService)
         {
             this.securityService = securityService;
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.databasesPersistentSource = databasesPersistentSource;
             this.serversPersistentSource = serversPersistentSource;
             this.apiServices = apiServices;
-            this.logger = logger;
         }
 
         /// <summary>
@@ -47,6 +43,14 @@ namespace Dorc.Api.Controllers
         public IActionResult Get(int id)
         {
             var environmentsDetails = apiServices.GetEnvironmentsDetails(id, User);
+            return StatusCode(StatusCodes.Status200OK, environmentsDetails);
+        }
+
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<EnvironmentApiModel>))]
+        [HttpGet("GetEnvironmentsForDatabase")]
+        public IActionResult GetEnvironmentsForDatabase(string serverName, string databaseName)
+        {
+            var environmentsDetails = environmentsPersistentSource.GetEnvironmentsForDatabase(databaseName, serverName, User);
             return StatusCode(StatusCodes.Status200OK, environmentsDetails);
         }
 

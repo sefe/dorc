@@ -1,30 +1,30 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Security.Principal;
-using log4net;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
-using Dorc.PersistentData.Extensions;
-using Dorc.PersistentData.Contexts;
 
 namespace Dorc.PersistentData.Sources
 {
     public class ScriptsPersistentSource : IScriptsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private readonly ILog _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
 
         public ScriptsPersistentSource(
             IDeploymentContextFactory contextFactory,
-            ILog logger,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IScriptsAuditPersistentSource scriptsAuditPersistentSource
             )
         {
-            _logger = logger;
             _contextFactory = contextFactory;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
         }
 
         public GetScriptsListResponseDto GetScriptsByPage(int limit, int page, PagedDataOperators operators)
@@ -32,21 +32,34 @@ namespace Dorc.PersistentData.Sources
             PagedModel<Script> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var scriptsQuery = context.Scripts.Include(s => s.Components).AsQueryable();
+                var scriptsQuery = context.Scripts.Include(s => s.Components).ThenInclude(x => x.Projects).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
+                    var filterLambdas = new List<Expression<Func<Script, bool>>>();
+                    
                     foreach (var pagedDataFilter in operators.Filters)
                     {
                         if (pagedDataFilter == null)
                             continue;
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                         {
-                            scriptsQuery =
-                                scriptsQuery.Where(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
+                            // Special handling for ProjectNames filter
+                            if (pagedDataFilter.Path == "ProjectNames")
+                            {
+                                filterLambdas.Add(s => 
+                                    s.Components.Any(c => 
+                                        c.Projects.Any(p => p.Name.Contains(pagedDataFilter.FilterValue))));
+                            }
+                            else
+                            {
+                                filterLambdas.Add(scriptsQuery.ContainsExpression(pagedDataFilter.Path,
                                     pagedDataFilter.FilterValue));
+                            }
                         }
                     }
+                    
+                    scriptsQuery = WhereAll(scriptsQuery, filterLambdas.ToArray());
                 }
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
@@ -115,26 +128,43 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var foundScript = context.Scripts.Include(s => s.Components).FirstOrDefault(s => s.Id == script.Id);
+                var foundScript = context.Scripts.Include(s => s.Components).ThenInclude(c => c.Projects).FirstOrDefault(s => s.Id == script.Id);
 
                 if (foundScript == null)
                     return false;
 
                 string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                _logger.Warn(
-                    $"Script {script.Name} {script.InstallScriptName} updated from {foundScript.Components.FirstOrDefault()?.IsEnabled} to {script.IsEnabled} by {username} at {DateTime.Now:o}");
 
+                // Capture old values for audit
+                var oldApiModel = MapToScriptApiModel(foundScript);
+                var oldIsEnabled = foundScript.Components.FirstOrDefault()?.IsEnabled ?? false;
+                var projectNames = string.Join(", ", foundScript.Components
+                    .SelectMany(c => c.Projects)
+                    .Select(p => p.Name)
+                    .Distinct());
+
+
+                // Build from/to value strings for audit
+                var fromValue = $"Name={oldApiModel?.Name}; Path={oldApiModel?.Path}; NonProdOnly={oldApiModel?.NonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldApiModel?.PowerShellVersionNumber}";
+                
                 foundScript.Name = script.Name;
                 foundScript.Path = script.Path;
                 foundScript.NonProdOnly = script.NonProdOnly;
                 foundScript.IsPathJSON = script.IsPathJSON;
-                foundScript.PowerShellVersionNumber = script.PowerShellVersionNumber;
+                foundScript.PowerShellVersionNumber = script.PowerShellVersionNumber.ToSafePsVersionString();
                 foreach (var scriptComponent in foundScript.Components)
                 {
                     scriptComponent.IsEnabled = script.IsEnabled;
                 }
 
+                var toValue = $"Name={script.Name}; Path={script.Path}; NonProdOnly={script.NonProdOnly}; IsEnabled={script.IsEnabled}; PSVersion={script.PowerShellVersionNumber}";
+
                 context.SaveChanges();
+
+                _scriptsAuditPersistentSource.AddRecord(
+                    script.Id, script.Name, fromValue, toValue,
+                    username, "Update", projectNames);
+
                 return true;
             }
         }
@@ -149,7 +179,7 @@ namespace Dorc.PersistentData.Sources
             {
                 foreach (var component in script.Components)
                 {
-                    isEnabled = component.IsEnabled ?? true;
+                    isEnabled = component.IsEnabled == true;
                 }
             }
 
@@ -161,7 +191,8 @@ namespace Dorc.PersistentData.Sources
                 NonProdOnly = script.NonProdOnly,
                 IsPathJSON = script.IsPathJSON,
                 IsEnabled = isEnabled,
-                PowerShellVersionNumber = script.PowerShellVersionNumber
+                PowerShellVersionNumber = script.PowerShellVersionNumber,
+                ProjectNames = script.Components?.SelectMany(s => s.Projects).Select(p => p.Name).ToList()
             };
         }
 
@@ -197,6 +228,25 @@ namespace Dorc.PersistentData.Sources
         private static Expression<Func<Script, R>> GetExpressionForOrdering<R>(MemberExpression prop, ParameterExpression param)
         {
             return Expression.Lambda<Func<Script, R>>(prop, param);
+        }
+
+        private IQueryable<T> WhereAll<T>(
+            IQueryable<T> source,
+            params Expression<Func<T, bool>>[] predicates)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (predicates == null) throw new ArgumentNullException(nameof(predicates));
+            if (predicates.Length == 0) return source; // no filters, return unfiltered
+            if (predicates.Length == 1) return source.Where(predicates[0]); // simple
+
+            Expression<Func<T, bool>> pred = null;
+            for (var i = 0; i < predicates.Length; i++)
+            {
+                pred = pred == null
+                    ? predicates[i]
+                    : pred.And(predicates[i]);
+            }
+            return source.Where(pred);
         }
     }
 }

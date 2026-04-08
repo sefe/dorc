@@ -1,6 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Dorc.ApiModel.MonitorRunnerApi;
 
@@ -8,14 +8,14 @@ namespace Dorc.Monitor.Pipes
 {
     internal class ScriptGroupFileWriter : IScriptGroupPipeServer
     {
-        private ILog logger;
+        private ILogger logger;
 
-        public ScriptGroupFileWriter(ILog logger)
+        public ScriptGroupFileWriter(ILogger<ScriptGroupFileWriter> logger)
         {
             this.logger = logger;
         }
 
-        public async Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
+        public Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
         {
             string filesPath = RunnerConstants.ScriptGroupFilesPath;
             string filename = $"{filesPath}{pipeName}.json";
@@ -35,12 +35,15 @@ namespace Dorc.Monitor.Pipes
                                 }
                 };
 
-                await using FileStream createStream = File.Create(filename);
-                await JsonSerializer.SerializeAsync(createStream, scriptGroup, serializeOptions, cancellationToken);
+                using FileStream createStream = File.Create(filename);
+
+                JsonSerializer.Serialize(createStream, scriptGroup, serializeOptions);
+                
+                return Task.CompletedTask;
             }
             catch (Exception ex)
             {
-                logger.Error($"File creation has failed. File name: '{filename}'. Exception: {ex}");
+                logger.LogError($"File creation has failed. File name: '{filename}'. Exception: {ex}");
                 throw;
             }
         }

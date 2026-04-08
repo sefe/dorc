@@ -45,17 +45,17 @@ export interface EnvironmentHistoryApiModel {
      * @type {string}
      * @memberof EnvironmentHistoryApiModel
      */
-    OldVersion?: string | null;
+    FromValue?: string | null;
     /**
      * @type {string}
      * @memberof EnvironmentHistoryApiModel
      */
-    NewVersion?: string | null;
+    ToValue?: string | null;
     /**
      * @type {string}
      * @memberof EnvironmentHistoryApiModel
      */
-    TfsId?: string | null;
+    Details?: string | null;
     /**
      * @type {string}
      * @memberof EnvironmentHistoryApiModel

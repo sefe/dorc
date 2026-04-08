@@ -4,7 +4,6 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
 import '../add-edit-environment';
-import { Router } from '@vaadin/router';
 import {
   EnvironmentContentApiModel,
   RefDataEnvironmentsApi,
@@ -23,6 +22,10 @@ export class PageEnvBase extends LitElement {
   @property({ type: Boolean }) protected envLoaded = false;
 
   @property({ type: Boolean }) protected slotLoaded = false;
+
+  @property({ type: Boolean }) protected envNotFound = false;
+
+  @property({ type: String }) protected envNotFoundMessage = '';
 
   protected environmentName = '';
 
@@ -95,7 +98,7 @@ export class PageEnvBase extends LitElement {
     const api2 = new RefDataEnvironmentsApi();
     api2.refDataEnvironmentsGet({ env: this.environmentName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
-        if (data[0] !== null) {
+        if (data && data.length > 0 && data[0] != null) {
           this.environment = data[0];
           this.envFilter =
             this.environment?.Details?.ThinClient !== null
@@ -110,7 +113,19 @@ export class PageEnvBase extends LitElement {
               this.environmentName
             }`
           );
-          Router.go('not-found');
+          this.envNotFound = true;
+          this.envNotFoundMessage = `The environment '${this.environmentName}' is not found.`;
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', this.envNotFoundMessage);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          this.dispatchEvent(
+            new CustomEvent('environment-not-found', {
+              bubbles: true,
+              composed: true,
+              detail: { message: this.envNotFoundMessage }
+            })
+          );
         }
       },
       error: (err: any) => {
@@ -119,6 +134,20 @@ export class PageEnvBase extends LitElement {
           notification.setAttribute('errorMessage', err.response);
           this.shadowRoot?.appendChild(notification);
           notification.open();
+        } else {
+          this.envNotFound = true;
+          this.envNotFoundMessage = `The environment '${this.environmentName}' is not found.`;
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', this.envNotFoundMessage);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          this.dispatchEvent(
+            new CustomEvent('environment-not-found', {
+              bubbles: true,
+              composed: true,
+              detail: { message: this.envNotFoundMessage }
+            })
+          );
         }
         console.error(err);
       },
@@ -176,7 +205,7 @@ export class PageEnvBase extends LitElement {
     const year: number = parseInt(splitDate[0], 10);
     const month: number = parseInt(splitDate[1], 10) - 1;
     const day: number = parseInt(splitDate[2], 10);
-    const hour: number = parseInt(splitTime[0], 10) - 1;
+    const hour: number = parseInt(splitTime[0], 10);
     const minutes: number = parseInt(splitTime[1], 10);
     const seconds = parseInt(splitTime[2].split('.')[0], 10);
 

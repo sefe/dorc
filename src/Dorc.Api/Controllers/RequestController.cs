@@ -1,12 +1,15 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.Core.Configuration;
+using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using Dorc.OpenSearchData.Sources.Interfaces;
 
 namespace Dorc.Api.Controllers
 {
@@ -17,16 +20,26 @@ namespace Dorc.Api.Controllers
     {
         private readonly IRequestService _service;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private readonly IRequestsManager _requestsManager;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IConfigurationSettings _configurationSettings;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IActiveDirectorySearcher _directorySearcher;
+        private readonly IDeploymentLogService _deploymentLogService;
 
-        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILog log,
+        public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IConfigurationSettings configurationSettings,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDirectorySearcherFactory directorySearcherFactory,
+            IDeploymentLogService deploymentLogService
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
@@ -36,6 +49,11 @@ namespace Dorc.Api.Controllers
             _apiSecurityService = apiSecurityService;
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _deploymentEventsPublisher = deploymentEventsPublisher;
+            _configurationSettings = configurationSettings;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _deploymentLogService = deploymentLogService;
         }
 
         /// <summary>
@@ -59,7 +77,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/:id", e);
+                _log.LogError(e, "api/Request/:id");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -94,7 +112,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/BuildDefinitions", e);
+                _log.LogError(e, "api/Request/BuildDefinitions");
                 var unrollException = UnrollException(e);
                 var result = StatusCode(StatusCodes.Status500InternalServerError, unrollException);
                 return result;
@@ -130,7 +148,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/Builds", e);
+                _log.LogError(e, "api/Request/Builds");
                 var unrollException = UnrollException(e);
                 var result = StatusCode(StatusCodes.Status500InternalServerError, unrollException);
                 return result;
@@ -176,7 +194,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/Components", e);
+                _log.LogError(e, "api/Request/Components");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -200,28 +218,143 @@ namespace Dorc.Api.Controllers
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
                 {
-                    _log.Info($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
-                if (deploymentRequest.Status != DeploymentRequestStatus.Cancelling.ToString()
-                    || deploymentRequest.Status != DeploymentRequestStatus.Cancelled.ToString())
-                    _requestsPersistentSource.UpdateRequestStatus(
-                        requestId,
-                        DeploymentRequestStatus.Restarting,
-                        username);
+                // Archive the current attempt before restarting
+                try
+                {
+                    _requestsPersistentSource.ArchiveCurrentAttempt(requestId);
+                }
+                catch (Exception ex)
+                {
+                    _log.LogWarning(ex, "Failed to archive attempt for request {RequestId} before restart", requestId);
+                }
+
+                // Always update status to Restarting so the Monitor picks it up
+                _requestsPersistentSource.UpdateRequestStatus(
+                    requestId,
+                    DeploymentRequestStatus.Restarting,
+                    username);
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                // Broadcast restart -> Restarting
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentRequestEventData(updated));
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/restart", e);
+                _log.LogError(e, "api/Request/restart");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
+            }
+        }
+
+        /// <summary>
+        /// Gets all attempts for a deployment request
+        /// </summary>
+        /// <param name="requestId"></param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DeploymentRequestAttemptApiModel>))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [Route("{requestId}/attempts")]
+        [HttpGet]
+        public IActionResult GetAttempts(int requestId)
+        {
+            try
+            {
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
+
+                var attempts = _requestsPersistentSource.GetAttemptsForRequest(requestId);
+
+                // Enrich component results with log snippets from OpenSearch
+                foreach (var attempt in attempts)
+                {
+                    var resultsWithDeploymentResultId = attempt.ComponentResults
+                        .Where(r => r.DeploymentResultId.HasValue)
+                        .ToList();
+
+                    if (resultsWithDeploymentResultId.Any())
+                    {
+                        // Create temporary DeploymentResultApiModel objects for the enrichment service
+                        var tempResults = resultsWithDeploymentResultId.Select(r => new DeploymentResultApiModel
+                        {
+                            Id = r.DeploymentResultId!.Value,
+                            RequestId = requestId,
+                            ComponentName = r.ComponentName
+                        }).ToList();
+
+                        _deploymentLogService.EnrichDeploymentResultsWithLogs(tempResults, 3);
+
+                        // Map the enriched logs back to the attempt results
+                        foreach (var tempResult in tempResults)
+                        {
+                            var attemptResult = resultsWithDeploymentResultId
+                                .FirstOrDefault(r => r.DeploymentResultId == tempResult.Id);
+                            if (attemptResult != null)
+                            {
+                                attemptResult.Log = tempResult.Log;
+                            }
+                        }
+                    }
+                }
+
+                return Ok(attempts);
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/{requestId}/attempts");
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Gets the full log for a component result from a previous attempt, fetched from OpenSearch.
+        /// The deploymentResultId is the original DeploymentResult.Id captured at archive time.
+        /// OpenSearch retains logs indexed by (requestId, deploymentResultId) even after
+        /// DeploymentResult rows are deleted during restart.
+        /// </summary>
+        /// <param name="requestId">The deployment request ID</param>
+        /// <param name="deploymentResultId">The original DeploymentResult.Id stored in the attempt</param>
+        /// <returns>Full log text from OpenSearch</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [Route("{requestId}/attempts/log")]
+        [HttpGet]
+        public IActionResult GetAttemptResultLog(int requestId, int deploymentResultId)
+        {
+            try
+            {
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
+
+                var log = _deploymentLogService.GetLogsForSingleResult(requestId, deploymentResultId);
+
+                if (string.IsNullOrEmpty(log))
+                {
+                    return Ok("No logs found in OpenSearch for this result.");
+                }
+
+                return Ok(log);
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/{RequestId}/attempts/log?deploymentResultId={DeploymentResultId}", requestId, deploymentResultId);
+                return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
 
@@ -239,36 +372,152 @@ namespace Dorc.Api.Controllers
             try
             {
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
-
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.Info($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {username}");
+                    _log.LogInformation($"Forbidden request to cancel {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
+                var cancelledTime = DateTimeOffset.UtcNow;
+
                 if (deploymentRequest.Status == DeploymentRequestStatus.Running.ToString()
                     || deploymentRequest.Status == DeploymentRequestStatus.Requesting.ToString())
                 {
-                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelling);
+                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelling, username, cancelledTime);
                 }
 
                 if (deploymentRequest.Status == DeploymentRequestStatus.Pending.ToString()
-                    || deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString())
+                    || deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString()
+                    || deploymentRequest.Status == DeploymentRequestStatus.Paused.ToString())
                 {
-                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelled);
+                    _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelled, username, cancelledTime);
                 }
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                // Broadcast cancel -> Cancelling/Cancelled
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentRequestEventData(updated));
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/cancel", e);
+                _log.LogError(e, "api/Request/cancel");
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Pause a pending request
+        /// </summary>
+        /// <param name="requestId"></param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("pause")]
+        [HttpPut]
+        public IActionResult PausePut(int requestId)
+        {
+            try
+            {
+                if (!_configurationSettings.GetPauseDeploymentEnabled())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Pause deployment feature is disabled.");
+                }
+
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                if (!canModifyEnv)
+                {
+                    _log.LogInformation($"Forbidden request to pause {requestId} for {deploymentRequest.EnvironmentName}");
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Forbidden request to {deploymentRequest.EnvironmentName}");
+                }
+
+                // Only Pending requests can be paused
+                if (deploymentRequest.Status != DeploymentRequestStatus.Pending.ToString())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        $"Only Pending requests can be paused. Current status: {deploymentRequest.Status}");
+                }
+
+                _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Paused);
+
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                // Broadcast pause -> Paused
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentRequestEventData(updated));
+
+                return StatusCode(StatusCodes.Status200OK,
+                    new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/pause");
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Resume a paused request
+        /// </summary>
+        /// <param name="requestId"></param>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RequestStatusDto))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("resume")]
+        [HttpPut]
+        public IActionResult ResumePut(int requestId)
+        {
+            try
+            {
+                if (!_configurationSettings.GetPauseDeploymentEnabled())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Pause deployment feature is disabled.");
+                }
+
+                var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
+                if (!canModifyEnv)
+                {
+                    _log.LogInformation($"Forbidden request to resume {requestId} for {deploymentRequest.EnvironmentName}");
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Forbidden request to {deploymentRequest.EnvironmentName}");
+                }
+
+                // Only Paused requests can be resumed
+                if (deploymentRequest.Status != DeploymentRequestStatus.Paused.ToString())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        $"Only Paused requests can be resumed. Current status: {deploymentRequest.Status}");
+                }
+
+                _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Pending);
+
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+
+                // Broadcast resume -> Pending
+                _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+                    new DeploymentRequestEventData(updated));
+
+                return StatusCode(StatusCodes.Status200OK,
+                    new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/resume");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
@@ -290,7 +539,7 @@ namespace Dorc.Api.Controllers
                 if (!canModifyEnv)
                 {
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.Info($"Forbidden request to {requestDto.Environment} from {username}");
+                    _log.LogInformation($"Forbidden request to {requestDto.Environment} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                             $"Forbidden request to {requestDto.Environment} from {username}");
                 }
@@ -304,20 +553,74 @@ namespace Dorc.Api.Controllers
                     if (result.Id <= 0)
                         return BadRequest(result.Status);
 
-                    _log.Info($"Request {result.Id} created");
+                    _log.LogInformation($"Request {result.Id} created");
+
+                    StoreEnvironmentOwnerEmail(result.Id, requestDto.Environment);
+
                     return Ok(result);
                 }
                 catch (Exception e)
                 {
-                    _log.Error(e.Message);
+                    _log.LogError(e.Message);
                     return BadRequest(e.Message);
                 }
             }
             catch (Exception e)
             {
-                _log.Error("api/Request/post", e);
+                _log.LogError(e, "api/Request/post");
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
+            }
+        }
+
+        private void StoreEnvironmentOwnerEmail(int requestId, string environmentName)
+        {
+            try
+            {
+                var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
+                if (environment == null)
+                {
+                    _log.LogWarning("Unable to resolve environment for storing owner email");
+                    return;
+                }
+
+                var ownerIds = _environmentsPersistentSource.GetEnvironmentOwnerIds(environment.EnvironmentId);
+                if (ownerIds.Count == 0)
+                {
+                    _log.LogWarning("No owners found for environment");
+                    return;
+                }
+
+                var emails = new List<string>();
+                foreach (var ownerId in ownerIds)
+                {
+                    try
+                    {
+                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        if (!string.IsNullOrEmpty(ownerData?.Email))
+                        {
+                            emails.Add(ownerData.Email);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.LogWarning(ex, "Failed to resolve owner email");
+                    }
+                }
+
+                if (emails.Count > 0)
+                {
+                    _requestsPersistentSource.UpdateEnvironmentOwnerEmail(requestId, string.Join(";", emails));
+                    _log.LogInformation("Stored environment owner email(s) for request {RequestId}", requestId);
+                }
+                else
+                {
+                    _log.LogWarning("No email addresses found for environment owners");
+                }
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "Failed to store environment owner email for request {RequestId}", requestId);
             }
         }
     }

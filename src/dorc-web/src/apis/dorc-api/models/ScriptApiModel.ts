@@ -56,4 +56,9 @@ export interface ScriptApiModel {
      * @memberof ScriptApiModel
      */
     PowerShellVersionNumber?: string | null;
+    /**
+     * @type {Array<string>}
+     * @memberof ScriptApiModel
+     */
+    ProjectNames?: Array<string> | null;
 }

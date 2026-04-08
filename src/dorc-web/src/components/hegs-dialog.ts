@@ -21,7 +21,6 @@ export class HegsDialog extends LitElement {
 
       .wrapper {
         opacity: 0;
-        position: absolute;
         z-index: 10;
         transition: opacity 0.25s ease-in;
       }
@@ -34,8 +33,6 @@ export class HegsDialog extends LitElement {
         align-items: start;
         display: flex;
         justify-content: center;
-        width: calc(100% - 300px);
-        height: 100%;
         opacity: 1;
         visibility: visible;
       }
@@ -53,7 +50,8 @@ export class HegsDialog extends LitElement {
       }
 
       .dialog {
-        background: #ffffff;
+        background: var(--dorc-dialog-bg, #ffffff);
+        color: var(--dorc-text-primary, #000000);
         border-radius: 13px;
         padding: 1rem;
         position: absolute;

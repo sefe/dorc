@@ -6,5 +6,10 @@ namespace Dorc.PersistentData.Sources.Interfaces
     {
         IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectMonth();
         IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectDate();
+        IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage();
+        IEnumerable<AnalyticsUserActivityApiModel> GetUserActivity();
+        IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns();
+        IEnumerable<AnalyticsComponentUsageApiModel> GetComponentUsage();
+        AnalyticsDurationApiModel GetDeploymentDuration();
     }
 }
