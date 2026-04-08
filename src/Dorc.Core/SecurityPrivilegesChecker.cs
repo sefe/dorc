@@ -54,8 +54,8 @@ namespace Dorc.Core
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
-            // Use HasPrivilegeStrict to ensure admins don't bypass - they need explicit "Read Secrets" permission
-            return env != null && _securityObjectFilter.HasPrivilegeStrict(env, user, AccessLevel.ReadSecrets | AccessLevel.Owner);
+            // Only explicit "Read Secrets" permission grants access - no bypass for admins or owners
+            return env != null && _securityObjectFilter.HasPrivilegeStrict(env, user, AccessLevel.ReadSecrets);
         }
 
         public bool CanModifyProject(ClaimsPrincipal user, string projectName)
