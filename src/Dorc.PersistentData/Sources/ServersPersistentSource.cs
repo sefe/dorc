@@ -189,6 +189,9 @@ namespace Dorc.PersistentData.Sources
                         ApplicationTags = s.ApplicationTags,
                         OsName = s.OsName,
                         ServerId = s.Id,
+                        LastChecked = s.LastChecked,
+                        IsReachable = s.IsReachable,
+                        UnreachableSince = s.UnreachableSince,
                         UserEditable = (from environmentDetail in s.Environments
                                         select envPrivilegeInfos[environmentDetail.Name]
                                             into privilegeInfo
@@ -206,7 +209,15 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return context.Servers.Select(s => new ServerApiModel
-                { Name = s.Name, ServerId = s.Id, ApplicationTags = s.ApplicationTags, OsName = s.OsName })
+                { 
+                    Name = s.Name, 
+                    ServerId = s.Id, 
+                    ApplicationTags = s.ApplicationTags, 
+                    OsName = s.OsName,
+                    LastChecked = s.LastChecked,
+                    IsReachable = s.IsReachable,
+                    UnreachableSince = s.UnreachableSince
+                })
                     .ToList();
             }
         }
@@ -230,6 +241,9 @@ namespace Dorc.PersistentData.Sources
                     ApplicationTags = svr.ApplicationTags,
                     OsName = svr.OsName,
                     ServerId = svr.Id,
+                    LastChecked = svr.LastChecked,
+                    IsReachable = svr.IsReachable,
+                    UnreachableSince = svr.UnreachableSince
                 };
 
                 var totalEdit = (from environmentDetail in svr.Environments

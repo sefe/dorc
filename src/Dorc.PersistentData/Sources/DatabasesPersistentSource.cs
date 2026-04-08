@@ -301,6 +301,9 @@ namespace Dorc.PersistentData.Sources
                         AdGroup = s.Group?.Name,
                         ArrayName = s.ArrayName,
                         EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
+                        LastChecked = s.LastChecked,
+                        IsReachable = s.IsReachable,
+                        UnreachableSince = s.UnreachableSince,
                         UserEditable = (from environmentDetail in s.Environments
                                         select envPrivilegeInfos[environmentDetail.Name]
                                             into privilegeInfo
