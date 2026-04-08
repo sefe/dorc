@@ -16,7 +16,7 @@
  * @enum {number}
  */
 export enum SourceControlType {
-    AzureDevOps = 0,
-    GitHub = 1,
-    FileShare = 2
+    AzureDevOps = 'AzureDevOps',
+    GitHub = 'GitHub',
+    FileShare = 'FileShare'
 }

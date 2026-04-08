@@ -145,7 +145,7 @@ namespace Dorc.Core.BuildServer
 
             foreach (var build in builds)
             {
-                if (buildNum != null && buildNum.ToLower().Equals("latest"))
+                if (buildNum != null && buildNum.Equals("latest", StringComparison.OrdinalIgnoreCase))
                 {
                     return new BuildServerBuildInfo
                     {

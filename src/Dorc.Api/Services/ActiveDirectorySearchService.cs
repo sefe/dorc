@@ -131,10 +131,10 @@ namespace Dorc.Api.Services
 
         public bool IsUserInGroup(string groupName, string account, string domainName)
         {
-            var context = new PrincipalContext(ContextType.Domain, domainName);
-            var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, account);
-            var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.Name, groupName);
-            return groupPrincipal != null && user.IsMemberOf(groupPrincipal);
+            using var context = new PrincipalContext(ContextType.Domain, domainName);
+            using var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, account);
+            using var groupPrincipal = GroupPrincipal.FindByIdentity(context, IdentityType.Name, groupName);
+            return user != null && groupPrincipal != null && user.IsMemberOf(groupPrincipal);
         }
     }
 }

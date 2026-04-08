@@ -35,6 +35,8 @@ namespace Dorc.Core.BuildServer
                 SourceControlType.AzureDevOps => new AzureDevOpsBuildServerClient(_loggerFactory),
                 SourceControlType.GitHub => new GitHubActionsBuildServerClient(
                     _loggerFactory.CreateLogger<GitHubActionsBuildServerClient>(), _configuration, _httpClientFactory, _hostValidator),
+                SourceControlType.FileShare => throw new InvalidOperationException(
+                    "FileShare projects do not use a build server client. Check SourceControlType before calling Create()."),
                 _ => throw new NotSupportedException($"Source control type '{sourceControlType}' is not supported.")
             };
         }

@@ -61,14 +61,14 @@ namespace Dorc.Core.BuildServer
 
             foreach (var workflowFile in workflowFiles)
             {
-                var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowFile.Trim()}";
+                var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(workflowFile.Trim())}";
 
                 try
                 {
                     using var response = client.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
                     response.EnsureSuccessStatusCode();
                     var json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
-                    var workflow = JsonSerializer.Deserialize<GitHubWorkflow>(json);
+                    var workflow = DeserializeResponse<GitHubWorkflow>(json);
 
                     if (workflow != null && regex.IsMatch(workflow.Name ?? workflowFile))
                     {
@@ -109,7 +109,7 @@ namespace Dorc.Core.BuildServer
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var runsResponse = JsonSerializer.Deserialize<GitHubWorkflowRunsResponse>(json);
+            var runsResponse = DeserializeResponse<GitHubWorkflowRunsResponse>(json);
 
             if (runsResponse?.WorkflowRuns == null)
                 return Enumerable.Empty<DeployableArtefact>();
@@ -171,7 +171,7 @@ namespace Dorc.Core.BuildServer
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var artifactsResponse = JsonSerializer.Deserialize<GitHubArtifactsResponse>(json);
+            var artifactsResponse = DeserializeResponse<GitHubArtifactsResponse>(json);
 
             if (artifactsResponse?.Artifacts == null || artifactsResponse.Artifacts.Count == 0)
                 throw new ApplicationException($"No artifacts found for GitHub Actions run {runId}");
@@ -211,7 +211,7 @@ namespace Dorc.Core.BuildServer
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var runsResponse = JsonSerializer.Deserialize<GitHubWorkflowRunsResponse>(json);
+            var runsResponse = DeserializeResponse<GitHubWorkflowRunsResponse>(json);
 
             if (runsResponse?.WorkflowRuns == null || !runsResponse.WorkflowRuns.Any())
                 return null;
@@ -228,7 +228,7 @@ namespace Dorc.Core.BuildServer
             {
                 var cleanBuildNum = buildNum.Replace(" [PINNED]", "");
 
-                if (cleanBuildNum.ToLower().Equals("latest"))
+                if (cleanBuildNum.Equals("latest", StringComparison.OrdinalIgnoreCase))
                 {
                     var latest = successfulRuns.First();
                     return MapRunToInfo(latest, buildText);
@@ -253,7 +253,7 @@ namespace Dorc.Core.BuildServer
                 return null;
 
             var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<GitHubWorkflowRun>(json);
+            return DeserializeResponse<GitHubWorkflowRun>(json);
         }
 
         private static BuildServerBuildInfo MapRunToInfo(GitHubWorkflowRun run, string workflowName)
@@ -275,12 +275,26 @@ namespace Dorc.Core.BuildServer
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var workflowsResponse = JsonSerializer.Deserialize<GitHubWorkflowsResponse>(json);
+            var workflowsResponse = DeserializeResponse<GitHubWorkflowsResponse>(json);
 
             var workflow = workflowsResponse?.Workflows?.FirstOrDefault(w =>
                 (w.Name ?? "").Equals(workflowName, StringComparison.OrdinalIgnoreCase));
 
             return workflow?.Id;
+        }
+
+        private static T? DeserializeResponse<T>(string json) where T : class
+        {
+            try
+            {
+                return DeserializeResponse<T>(json);
+            }
+            catch (JsonException ex)
+            {
+                throw new ApplicationException(
+                    $"Failed to parse GitHub API response as {typeof(T).Name}: {ex.Message}. " +
+                    $"Response begins with: {json[..Math.Min(json.Length, 200)]}", ex);
+            }
         }
 
         private HttpClient CreateHttpClient()

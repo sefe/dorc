@@ -115,12 +115,19 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
 
             scriptGroup.ScriptsLocation = request.DropLocation;
-            scriptGroup.AzureProjects = project.ArtefactsSubPaths;
-            
+
             // Get bearer token for Azure DevOps
             scriptGroup.AzureBearerToken = GetAzureBearerToken();
-            
-            if (project != null && !string.IsNullOrEmpty(project.ArtefactsUrl))
+
+            if (project == null)
+            {
+                _logger.LogWarning("Project information not available for Azure artifact source configuration");
+                return;
+            }
+
+            scriptGroup.AzureProjects = project.ArtefactsSubPaths;
+
+            if (!string.IsNullOrEmpty(project.ArtefactsUrl))
             {
                 // Extract organization from ArtefactsUrl
                 var match = System.Text.RegularExpressions.Regex.Match(

@@ -21,6 +21,11 @@ namespace Dorc.Core.BuildServer
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            // Only retry idempotent requests without a body — retrying POST/PUT with a consumed
+            // content stream would send an empty body, silently corrupting the request.
+            if (request.Content != null)
+                return await base.SendAsync(request, cancellationToken);
+
             for (var attempt = 0; attempt <= MaxRetries; attempt++)
             {
                 var response = await base.SendAsync(request, cancellationToken);
