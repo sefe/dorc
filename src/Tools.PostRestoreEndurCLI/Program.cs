@@ -46,20 +46,36 @@ namespace Tools.PostRestoreEndurCLI
 
             if (bolParamsCorrect)
             {
-                var apiCaller = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
-                var libRefreshEndur = new RefreshEndur(_logger, apiCaller);
+                try
+                {
+                    var apiCaller = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
+                    var libRefreshEndur = new RefreshEndur(_logger, apiCaller);
 
-                Output("Updating User tables to Dummy Values for: " + strEnvironment);
-                libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);
+                    Output("Updating User tables to Dummy Values for: " + strEnvironment);
+                    libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);
 
-                libRefreshEndur.UpdateAppServerDetails(strEnvironment, strSVCAccount);
-                libRefreshEndur.UpdateEndurDBVars(strEnvironment);
-                libRefreshEndur.UpdateTPMConfig(strEnvironment);
-                if (bolFoldDownAppServers || bolOnlyClearSchedules)
-                    libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
-                libRefreshEndur.UpdateEnvironmentHistory(strEnvironment, strBackupFile, "Self service refresh", strEmailAddress,
-                    "SelfService");
-                libRefreshEndur.UpdateEndurUsers(strEnvironment);
+                    libRefreshEndur.UpdateAppServerDetails(strEnvironment, strSVCAccount);
+                    libRefreshEndur.UpdateEndurDBVars(strEnvironment);
+                    libRefreshEndur.UpdateTPMConfig(strEnvironment);
+                    if (bolFoldDownAppServers || bolOnlyClearSchedules)
+                        libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
+                    libRefreshEndur.UpdateEnvironmentHistory(strEnvironment, strBackupFile, "Self service refresh", strEmailAddress,
+                        "SelfService");
+                    libRefreshEndur.UpdateEndurUsers(strEnvironment);
+                }
+                catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
+                {
+                    Output("Configuration Error: " + configEx.Message);
+                    Output("appsettings error");
+                }
+                catch (Exception e)
+                {
+                    Output("Error: " + e.Message);
+                    if (e.InnerException != null)
+                    {
+                        Output("Inner Error: " + e.InnerException.Message);
+                    }
+                }
             }
             else
             {

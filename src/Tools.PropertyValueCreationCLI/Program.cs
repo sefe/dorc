@@ -19,19 +19,35 @@ namespace Tools.PropertyValueCreationCLI
     {
         private static void Main(string[] args)
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
-                .Build();
+            try
+            {
+                var configuration = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+                    .Build();
 
-            var registry = new ConsoleRegistry(configuration);
-            registry.For<IConfiguration>().Use(configuration);
+                var registry = new ConsoleRegistry(configuration);
+                registry.For<IConfiguration>().Use(configuration);
 
-            var container = new Container(registry);
-            var app = container.GetInstance<Application>();
-            app.CheckFile(args[0]);
-            app.Run(args[0]);
+                var container = new Container(registry);
+                var app = container.GetInstance<Application>();
+                app.CheckFile(args[0]);
+                app.Run(args[0]);
+            }
+            catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
+            {
+                Console.WriteLine(DateTime.Now + " - Configuration Error: " + configEx.Message);
+                Console.WriteLine(DateTime.Now + " - appsettings error");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(DateTime.Now + " - Error: " + e.Message);
+                if (e.InnerException != null)
+                {
+                    Console.WriteLine(DateTime.Now + " - Inner Error: " + e.InnerException.Message);
+                }
+            }
         }
 
         public class ConsoleRegistry : ServiceRegistry
