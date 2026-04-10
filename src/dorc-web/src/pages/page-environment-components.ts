@@ -1,10 +1,11 @@
 import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { Router } from '@vaadin/router';
+import { Router, RouterLocation } from '@vaadin/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
+import { RouteMeta } from '../router/routes';
 
 export enum EnvComponentTabNames {
   Servers = 'servers',
@@ -85,6 +86,24 @@ export class PageEnvironmentComponents extends PageElement {
 
   public slotChangeComplete() {
     // No-op — required by page-environment's handleSlotChange
+  }
+
+  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+    this.location = location;
+
+    const componentTabName = location.pathname.split('/')[4];
+    if (componentTabName) {
+      const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
+      if (foundIndex >= 0 && foundIndex !== this.tabId) {
+        this.tabId = foundIndex;
+        const tabs = this.shadowRoot?.getElementById(
+          'component-tabs'
+        ) as unknown as Tabs;
+        if (tabs) {
+          tabs.selected = this.tabId;
+        }
+      }
+    }
   }
 
   handleSlotChange(e: Event) {

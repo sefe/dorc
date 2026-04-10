@@ -175,7 +175,6 @@ export class EnvControlCenter extends PageEnvBase {
   constructor() {
     super();
 
-    super.loadEnvironmentInfo();
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
       gc.allRolesResp?.subscribe({

@@ -5,6 +5,11 @@ import { PageEnvBase } from './page-env-base';
 
 @customElement('env-containers')
 export class EnvContainers extends PageEnvBase {
+  constructor() {
+    super();
+    super.loadEnvironmentInfo();
+  }
+
   static get styles() {
     return css`
       :host {

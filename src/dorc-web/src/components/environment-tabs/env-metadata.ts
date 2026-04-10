@@ -6,6 +6,7 @@ import { html } from 'lit/html.js';
 import { PageEnvBase } from './page-env-base';
 import '../add-edit-environment';
 import './env-control-center';
+import { EnvControlCenter } from './env-control-center';
 
 @customElement('env-metadata')
 export class EnvMetadata extends PageEnvBase {
@@ -71,8 +72,23 @@ export class EnvMetadata extends PageEnvBase {
     `;
   }
 
+  notifyEnvironmentReady() {
+    this.notifyEmbeddedControlCenter();
+  }
+
   notifyEnvironmentContentReady() {
     this.loading = false;
+    this.notifyEmbeddedControlCenter();
+  }
+
+  private notifyEmbeddedControlCenter() {
+    const cc = this.shadowRoot?.querySelector(
+      'env-control-center'
+    ) as EnvControlCenter | null;
+    if (cc) {
+      cc.notifyEnvironmentReady();
+      cc.notifyEnvironmentContentReady();
+    }
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
