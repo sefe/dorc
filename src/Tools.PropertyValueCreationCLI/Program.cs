@@ -1,7 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Configuration;
-using Lamar;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RestSharp;
@@ -27,11 +26,15 @@ namespace Tools.PropertyValueCreationCLI
                     .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
                     .Build();
 
-                var registry = new ConsoleRegistry(configuration);
-                registry.For<IConfiguration>().Use(configuration);
+                Log.Logger = new LoggerConfiguration()
+                    .ReadFrom.Configuration(configuration)
+                    .CreateLogger();
 
-                var container = new Container(registry);
-                var app = container.GetInstance<Application>();
+                var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddSerilog(Log.Logger));
+                var logger = loggerFactory.CreateLogger("PropertyValueCreationCLI");
+
+                var api = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
+                var app = new Application(api, logger);
                 app.CheckFile(args[0]);
                 app.Run(args[0]);
             }
@@ -50,43 +53,12 @@ namespace Tools.PropertyValueCreationCLI
             }
         }
 
-        public class ConsoleRegistry : ServiceRegistry
-        {
-            public ConsoleRegistry(IConfigurationRoot config)
-            {
-                Scan(scan =>
-                {
-                    scan.TheCallingAssembly();
-                    scan.WithDefaultConventions();
-                });
-
-                Log.Logger = new LoggerConfiguration()
-                    .ReadFrom.Configuration(config)
-                    .CreateLogger();
-
-                var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddSerilog(Log.Logger));
-                For<ILoggerFactory>().Use(_ => loggerFactory);
-                For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
-                For(typeof(ILogger<>)).Use(typeof(Logger<>));
-
-                For<IPropertyEncryptor>().Use(x => { 
-                    var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
-                    return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
-                        secureKeyPersistentDataSource.GetSymmetricKey());
-                });
-                For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
-                For<DorcOAuthClientConfiguration>().Use(ctx => new DorcOAuthClientConfiguration(config));
-                For<IApiCaller>().Use(ctx => new ApiCaller(ctx.GetInstance<DorcOAuthClientConfiguration>()));
-                For<Application>().Use<Application>();
-            }
-        }
-
         public class Application
         {
             private readonly ILogger _log;
             private readonly IApiCaller _api;
 
-            public Application(IApiCaller api, ILogger<Application> log)
+            public Application(IApiCaller api, ILogger log)
             {
                 _log = log;
                 _api = api;
@@ -198,7 +170,7 @@ namespace Tools.PropertyValueCreationCLI
                 foreach (var pv in propertyValuesToCreate)
                 {
                     _log.LogInformation(
-                        $"===== PropertyName: {pv.Property?.Name}  Secure: {pv.Property?.Secure}  Value: {pv.Value}  Environment: {pv.PropertyValueFilter ?? "Default"} ====");
+                        $"===== PropertyName: {pv.Property?.Name}  Secure: {pv.Property?.Secure}  Value: {(pv.Property?.Secure == true ? "****" : pv.Value)}  Environment: {pv.PropertyValueFilter ?? "Default"} ====");
                 }
 
                 var valueBody = JsonSerializer.Serialize(propertyValuesToCreate);
