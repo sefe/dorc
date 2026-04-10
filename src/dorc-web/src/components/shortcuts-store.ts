@@ -18,7 +18,7 @@ export class ShortcutsStore extends LitElement {
 
   @property() metaData = '';
   protected dorcNavbar: DorcNavbar | undefined;
-  protected dorcHelperPage: string | undefined;
+  @property() protected dorcHelperPage = '';
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
