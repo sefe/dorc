@@ -2,7 +2,7 @@ import type { Route } from '@vaadin/router';
 import {appConfig} from '../app-config';
 
 import '../components/dorc-app.ts'
-import '../components/environment-tabs/env-control-center.ts'
+
 import '../components/environment-tabs/env-daemons.ts'
 import '../components/environment-tabs/env-databases.ts'
 import '../components/environment-tabs/env-deployments.ts'
@@ -388,6 +388,39 @@ export const routes: Route<RouteMeta>[] = [
               title: 'Monitor',
               description: 'Monitor for the environment'
             }
+          },
+          // Legacy redirects for old bookmarks/links
+          {
+            path: '/servers',
+            action: (context, commands) =>
+              commands.redirect(
+                `/environment/${(context as any).params.id}/components/servers`
+              ),
+            metadata: { title: 'Servers', description: 'Redirect' }
+          },
+          {
+            path: '/databases',
+            action: (context, commands) =>
+              commands.redirect(
+                `/environment/${(context as any).params.id}/components/databases`
+              ),
+            metadata: { title: 'Databases', description: 'Redirect' }
+          },
+          {
+            path: '/daemons',
+            action: (context, commands) =>
+              commands.redirect(
+                `/environment/${(context as any).params.id}/components/daemons`
+              ),
+            metadata: { title: 'Daemons', description: 'Redirect' }
+          },
+          {
+            path: '/control-center',
+            action: (context, commands) =>
+              commands.redirect(
+                `/environment/${(context as any).params.id}/metadata`
+              ),
+            metadata: { title: 'Control Center', description: 'Redirect' }
           }
         ]
       },

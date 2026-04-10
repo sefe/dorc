@@ -60,7 +60,7 @@ export class PageEnvironmentComponents extends PageElement {
     const pathParts = location.pathname.split('/');
     const envName = pathParts[2];
     if (envName) {
-      this.environmentName = decodeURIComponent(envName);
+      this.environmentName = this.safeDecodeURI(envName);
     }
 
     // URL: /environment/{env}/components/{component}
@@ -93,6 +93,9 @@ export class PageEnvironmentComponents extends PageElement {
 
     const pathParts = location.pathname.split('/');
     const envName = pathParts[2];
+    if (envName) {
+      this.environmentName = this.safeDecodeURI(envName);
+    }
     const componentTabName = pathParts[4];
 
     if (!componentTabName && envName) {
@@ -127,7 +130,14 @@ export class PageEnvironmentComponents extends PageElement {
     });
   }
 
+  private static readonly displayNames: Record<string, string> = {
+    apis: 'APIs'
+  };
+
   convertUriToHuman(tabName: EnvComponentTabNames): TemplateResult {
+    const override =
+      PageEnvironmentComponents.displayNames[tabName];
+    if (override) return html`<vaadin-tab>${override}</vaadin-tab>`;
     let newTabName: string = tabName.replace('-', ' ');
     const re = /(\b[a-z](?!\s))/g;
     newTabName = newTabName.replace(re, x => x.toUpperCase());
@@ -141,7 +151,7 @@ export class PageEnvironmentComponents extends PageElement {
     let envName = this.environmentName;
     if (envName === '') {
       envName = location.pathname.split('/')[2];
-      this.environmentName = decodeURIComponent(envName);
+      this.environmentName = this.safeDecodeURI(envName);
     }
 
     const tabName = this.tabNames[tabIdx];
@@ -152,5 +162,13 @@ export class PageEnvironmentComponents extends PageElement {
     }
 
     Router.go(`/environment/${envName}/components/${tabName}`);
+  }
+
+  private safeDecodeURI(value: string): string {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
   }
 }
