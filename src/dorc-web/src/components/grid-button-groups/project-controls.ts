@@ -1,13 +1,20 @@
 import { css, LitElement } from 'lit';
-import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/grid/vaadin-grid';
-import '@vaadin/button';
+import '@vaadin/menu-bar';
+import type { MenuBarItemSelectedEvent } from '@vaadin/menu-bar';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
+
+interface ActionMenuItem {
+  text: string;
+  eventName: string;
+  icon: string;
+  detail: () => Record<string, unknown>;
+  isDelete?: boolean;
+}
 
 @customElement('project-controls')
 export class ProjectControls extends LitElement {
@@ -16,164 +23,140 @@ export class ProjectControls extends LitElement {
 
   static get styles() {
     return css`
-      vaadin-button {
-        padding: 0px;
-        margin: 0px;
+      :host {
+        display: inline-block;
+      }
+
+      vaadin-menu-bar {
+        --lumo-space-xs: 0px;
+        --lumo-space-s: 0px;
       }
     `;
   }
 
+  private get menuActions(): ActionMenuItem[] {
+    const actions: ActionMenuItem[] = [
+      {
+        text: 'Edit Metadata',
+        eventName: 'open-project-metadata',
+        icon: 'lumo:edit',
+        detail: () => ({ Project: this.project })
+      },
+      {
+        text: 'Project Access',
+        eventName: 'open-access-control',
+        icon: 'vaadin:lock',
+        detail: () => ({ Name: this.project?.ProjectName })
+      },
+      {
+        text: 'Environments',
+        eventName: 'open-project-envs',
+        icon: 'vaadin:records',
+        detail: () => ({ Project: this.project })
+      },
+      {
+        text: 'Components',
+        eventName: 'open-project-components',
+        icon: 'vaadin:package',
+        detail: () => ({ Project: this.project })
+      },
+      {
+        text: 'Reference Data',
+        eventName: 'open-project-ref-data',
+        icon: 'vaadin:curly-brackets',
+        detail: () => ({ Project: this.project })
+      },
+      {
+        text: 'Audit',
+        eventName: 'open-project-audit-data',
+        icon: 'vaadin:calendar-user',
+        detail: () => ({ Project: this.project })
+      }
+    ];
+
+    if (!this.deleteHidden) {
+      actions.push({
+        text: 'Delete Project',
+        eventName: 'delete-project',
+        icon: 'icons:delete',
+        detail: () => ({ Project: this.project }),
+        isDelete: true
+      });
+    }
+
+    return actions;
+  }
+
+  private get menuItems() {
+    return [
+      {
+        component: this.createTriggerButton(),
+        children: this.menuActions.map(action => ({
+          text: action.eventName,
+          component: this.createMenuItem(action)
+        }))
+      }
+    ];
+  }
+
   render() {
     return html`
-      <vaadin-button
-        title="Edit Metadata..."
-        theme="icon"
-        @click="${this.openProjectMetadata}"
-      >
-        <vaadin-icon
-          icon="lumo:edit"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Project Access..."
-        theme="icon"
-        @click="${this.openAccessControl}"
-      >
-        <vaadin-icon
-          icon="vaadin:lock"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Environments"
-        theme="icon"
-        @click="${this.openEnvironmentDetails}"
-      >
-        <vaadin-icon
-          icon="vaadin:records"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Components"
-        theme="icon"
-        @click="${this.openComponents}"
-      >
-        <vaadin-icon
-          icon="vaadin:package"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Reference Data"
-        theme="icon"
-        @click="${this.openRefData}"
-      >
-        <vaadin-icon
-          icon="vaadin:curly-brackets"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Audit"
-        theme="icon"
-        @click="${this.openAuditData}"
-      >
-        <vaadin-icon
-          icon="vaadin:calendar-user"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        title="Delete Project"
-        theme="icon"
-        @click="${this.deleteProject}"
-        ?hidden="${this.deleteHidden}"
-      >
-        <vaadin-icon
-          icon="icons:delete"
-          style="color: var(--dorc-error-color)"
-        ></vaadin-icon>
-      </vaadin-button>
+      <vaadin-menu-bar
+        theme="icon tertiary small"
+        .items="${this.menuItems}"
+        @item-selected="${this.onItemSelected}"
+      ></vaadin-menu-bar>
     `;
   }
 
-  openAccessControl() {
-    const event = new CustomEvent('open-access-control', {
-      detail: {
-        Name: this.project?.ProjectName
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
+  private createTriggerButton(): HTMLElement {
+    const item = document.createElement('vaadin-menu-bar-item');
+    const icon = document.createElement('vaadin-icon');
+    icon.setAttribute('icon', 'vaadin:ellipsis-dots-h');
+    icon.style.color = 'var(--dorc-link-color)';
+    item.appendChild(icon);
+    return item;
   }
 
-  openEnvironmentDetails() {
-    const event = new CustomEvent('open-project-envs', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
+  private createMenuItem(action: ActionMenuItem): HTMLElement {
+    const item = document.createElement('vaadin-menu-bar-item');
+    item.style.display = 'flex';
+    item.style.alignItems = 'center';
+    item.style.gap = '8px';
+
+    const icon = document.createElement('vaadin-icon');
+    icon.setAttribute('icon', action.icon);
+    icon.style.width = '18px';
+    icon.style.height = '18px';
+    icon.style.color = action.isDelete
+      ? 'var(--dorc-error-color)'
+      : 'var(--dorc-link-color)';
+    item.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.textContent = action.text;
+    if (action.isDelete) {
+      label.style.color = 'var(--dorc-error-color)';
+    }
+    item.appendChild(label);
+
+    return item;
   }
 
-  openComponents() {
-    const event = new CustomEvent('open-project-components', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
-  }
+  private onItemSelected(e: MenuBarItemSelectedEvent) {
+    const selectedItem = e.detail.value as { text?: string };
+    const eventName = selectedItem?.text;
+    if (!eventName) return;
 
+    const action = this.menuActions.find(a => a.eventName === eventName);
+    if (!action) return;
 
-  openProjectMetadata() {
-    const event = new CustomEvent('open-project-metadata', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
-  }
-
-  openRefData() {
-    const event = new CustomEvent('open-project-ref-data', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
-  }
-
-  openAuditData() {
-    const event = new CustomEvent('open-project-audit-data', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
-  }
-
-  deleteProject() {
-    const event = new CustomEvent('delete-project', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
+    this.dispatchEvent(
+      new CustomEvent(action.eventName, {
+        detail: action.detail(),
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 }

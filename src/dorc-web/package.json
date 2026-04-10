@@ -45,6 +45,7 @@
     "@vaadin/icons": "^25.0.0",
     "@vaadin/item": "^25.0.0",
     "@vaadin/list-box": "^25.0.0",
+    "@vaadin/menu-bar": "^25.0.0",
     "@vaadin/notification": "^25.0.0",
     "@vaadin/number-field": "^25.0.0",
     "@vaadin/password-field": "^25.0.0",
