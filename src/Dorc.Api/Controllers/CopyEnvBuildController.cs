@@ -47,10 +47,8 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, copyEnvBuildDto.TargetEnv);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation($"Forbidden CopyEnvBuild request to {copyEnvBuildDto.TargetEnv} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Forbidden request to {copyEnvBuildDto.TargetEnv} from {username}");
+                        "You do not have permission to modify the target environment.");
                 }
 
                 List<int> requestIds;
@@ -72,8 +70,6 @@ namespace Dorc.Api.Controllers
                         copyEnvBuildDto.Project,
                         User);
                 }
-
-                _log.LogInformation($"CopyEnvBuild created {requestIds.Count} request(s) from {copyEnvBuildDto.SourceEnv} to {copyEnvBuildDto.TargetEnv}");
 
                 return Ok(new CopyEnvBuildResponseDto
                 {
