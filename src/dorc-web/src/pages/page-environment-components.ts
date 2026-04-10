@@ -91,7 +91,15 @@ export class PageEnvironmentComponents extends PageElement {
   public onAfterEnter(location: RouterLocation<RouteMeta>) {
     this.location = location;
 
-    const componentTabName = location.pathname.split('/')[4];
+    const pathParts = location.pathname.split('/');
+    const envName = pathParts[2];
+    const componentTabName = pathParts[4];
+
+    if (!componentTabName && envName) {
+      Router.go(`/environment/${envName}/components/servers`);
+      return;
+    }
+
     if (componentTabName) {
       const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
       if (foundIndex >= 0 && foundIndex !== this.tabId) {

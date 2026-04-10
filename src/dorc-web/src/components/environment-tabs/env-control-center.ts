@@ -306,6 +306,11 @@ export class EnvControlCenter extends PageEnvBase {
       this.isEndur = false;
     }
 
+    this.envFilter =
+      this.environment?.Details?.ThinClient !== null
+        ? this.environment?.Details?.ThinClient
+        : undefined;
+
     this.mappedProjects = this.envContent?.MappedProjects?.map(
       p => p.ProjectName ?? ''
     );

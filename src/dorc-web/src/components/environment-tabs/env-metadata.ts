@@ -73,22 +73,18 @@ export class EnvMetadata extends PageEnvBase {
   }
 
   notifyEnvironmentReady() {
-    this.notifyEmbeddedControlCenter();
+    const cc = this.shadowRoot?.querySelector(
+      'env-control-center'
+    ) as EnvControlCenter | null;
+    if (cc) cc.notifyEnvironmentReady();
   }
 
   notifyEnvironmentContentReady() {
     this.loading = false;
-    this.notifyEmbeddedControlCenter();
-  }
-
-  private notifyEmbeddedControlCenter() {
     const cc = this.shadowRoot?.querySelector(
       'env-control-center'
     ) as EnvControlCenter | null;
-    if (cc) {
-      cc.notifyEnvironmentReady();
-      cc.notifyEnvironmentContentReady();
-    }
+    if (cc) cc.notifyEnvironmentContentReady();
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -98,6 +94,8 @@ export class EnvMetadata extends PageEnvBase {
       'environment-details-updated',
       this.environmentDetailsUpdated as EventListener
     );
+
+    super.loadEnvironmentInfo();
   }
 
   environmentDetailsUpdated() {
@@ -106,7 +104,5 @@ export class EnvMetadata extends PageEnvBase {
 
   connectedCallback() {
     super.connectedCallback?.();
-
-    super.loadEnvironmentInfo();
   }
 }
