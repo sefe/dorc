@@ -1,4 +1,4 @@
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { LitElement, PropertyValues } from 'lit';
 import {
   DeploymentRequestApiModel,
@@ -18,7 +18,7 @@ export class ShortcutsStore extends LitElement {
 
   @property() metaData = '';
   protected dorcNavbar: DorcNavbar | undefined;
-  @property() protected dorcHelperPage = '';
+  @state() protected dorcHelperPage = '';
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);

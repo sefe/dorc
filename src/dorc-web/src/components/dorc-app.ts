@@ -78,7 +78,7 @@ export class DorcApp extends ShortcutsStore {
         padding: 4px 10px;
         border-radius: 4px;
         color: #fff;
-        background: #b71c1c;
+        background: var(--dorc-error-color);
         white-space: nowrap;
       }
 
