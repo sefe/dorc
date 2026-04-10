@@ -69,6 +69,9 @@ namespace Dorc.PersistentData.Sources
                         if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
                             pagedDataFilter.Path == "BuildNumber")
                         {
+                            if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                                continue;
+
                             var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
                                 pagedDataFilter.FilterValue);
                             if (containsExpression != null)
