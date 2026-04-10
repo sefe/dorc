@@ -98,6 +98,14 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         margin: 0px;
       }
 
+      vaadin-grid::part(row) {
+        cursor: pointer;
+      }
+
+      vaadin-grid::part(row:hover) {
+        background-color: var(--lumo-primary-color-10pct);
+      }
+
       .overlay {
         width: 100%;
         height: 100%;
@@ -161,6 +169,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         multi-sort
         .size=${200}
         theme="compact row-stripes no-row-borders no-border"
+        @active-item-changed="${this.onRowClick}"
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -636,31 +645,29 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     const request = model.item;
     render(
       html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
-          <vaadin-button
-            title="View Detailed Results"
-            theme="icon small"
-            @click="${() => {
-          const event = new CustomEvent('open-monitor-result', {
-            detail: {
-              request,
-              message: 'Show results for Request'
-            },
-            bubbles: true,
-            composed: true
-          });
-          this.dispatchEvent(event);
-        }}"
-          >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
+        <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
       `,
       root
+    );
+  };
+
+  private onRowClick = (e: CustomEvent) => {
+    const request = e.detail.value as DeploymentRequestApiModel | null;
+    if (!request) return;
+
+    // Reset active item to allow re-clicking the same row
+    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
+    if (grid) grid.activeItem = null;
+
+    this.dispatchEvent(
+      new CustomEvent('open-monitor-result', {
+        detail: {
+          request,
+          message: 'Show results for Request'
+        },
+        bubbles: true,
+        composed: true
+      })
     );
   };
 
