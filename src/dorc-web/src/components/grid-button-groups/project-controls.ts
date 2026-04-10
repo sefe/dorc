@@ -111,6 +111,8 @@ export class ProjectControls extends LitElement {
 
   private createTriggerButton(): HTMLElement {
     const item = document.createElement('vaadin-menu-bar-item');
+    item.setAttribute('aria-label', 'Project actions');
+    item.setAttribute('title', 'Project actions');
     const icon = document.createElement('vaadin-icon');
     icon.setAttribute('icon', 'vaadin:ellipsis-dots-h');
     icon.style.color = 'var(--dorc-link-color)';

@@ -57,6 +57,9 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
 
   private hubConnection: HubConnection | undefined;
 
+  // Gate to only open details on pointer interactions, not keyboard navigation
+  private _pointerActive = false;
+
   @property({ type: Boolean }) isLoading = true;
 
   @property({ type: Boolean }) isSearching = false;
@@ -170,6 +173,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         .size=${200}
         theme="compact row-stripes no-row-borders no-border"
         @active-item-changed="${this.onRowClick}"
+        @mousedown="${() => { this._pointerActive = true; }}"
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -652,6 +656,10 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
   };
 
   private onRowClick = (e: CustomEvent) => {
+    // Only open details for pointer-initiated interactions, not keyboard navigation
+    if (!this._pointerActive) return;
+    this._pointerActive = false;
+
     const request = e.detail.value as DeploymentRequestApiModel | null;
     if (!request) return;
 

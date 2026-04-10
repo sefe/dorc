@@ -105,8 +105,10 @@ namespace Dorc.Core.BuildServer
 
             if (buildText != null && buildText.Contains(";"))
             {
-                var buildDef = buildText.Split(';')[1].Trim();
-                var bDef = buildDefsForProject.Where(def => buildDef.Equals(def.Name)).ToList();
+                var (projectName, buildDef) = ParseDefinitionName(buildText);
+                var bDef = buildDefsForProject
+                    .Where(def => buildDef.Equals(def.Name) && projectName.Equals(def.Project.Name))
+                    .ToList();
                 if (!bDef.Any()) return null;
 
                 var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl, bDef);

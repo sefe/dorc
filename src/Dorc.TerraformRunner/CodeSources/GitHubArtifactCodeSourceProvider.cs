@@ -16,11 +16,11 @@ namespace Dorc.TerraformRunner.CodeSources
         private readonly IHttpClientFactory? _httpClientFactory;
 
         /// <summary>
-        /// Allowed GitHub API hostnames. The upstream TerraformSourceConfigurator validates
-        /// enterprise hosts via IGitHubHostValidator before setting GitHubApiBaseUrl, but
-        /// we enforce a strict allow-list here as defense-in-depth.
+        /// Default GitHub API hostnames that are always allowed.
+        /// Enterprise hosts are accepted when they match the GitHubApiBaseUrl that has
+        /// already been validated upstream by IGitHubHostValidator in the Monitor service.
         /// </summary>
-        private static readonly HashSet<string> AllowedHosts = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> DefaultAllowedHosts = new(StringComparer.OrdinalIgnoreCase)
         {
             "api.github.com",
             "github.com"
@@ -54,7 +54,8 @@ namespace Dorc.TerraformRunner.CodeSources
                 ? "https://api.github.com"
                 : scriptGroup.GitHubApiBaseUrl;
 
-            // Validate the API base URL host against strict allow-list to prevent SSRF
+            // Validate the API base URL to prevent SSRF. Enterprise hosts are accepted
+            // because the upstream Monitor/API already validated them via IGitHubHostValidator.
             ValidateApiBaseHost(apiBase);
 
             using var httpClient = CreateHttpClient(scriptGroup.GitHubToken);
@@ -100,16 +101,31 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                // Extract flat to workingDir. Uses entry.Name (filename only) instead of
-                // entry.FullName to prevent directory traversal (Zip Slip).
+                // Extract preserving relative directory structure. Validates that resolved
+                // paths stay within workingDir to prevent Zip Slip directory traversal.
                 using (var archive = ZipFile.OpenRead(tempZipFile))
                 {
+                    var fullWorkingDir = Path.GetFullPath(workingDir);
                     foreach (var entry in archive.Entries)
                     {
                         if (string.IsNullOrEmpty(entry.Name))
                             continue;
 
-                        var destPath = Path.Combine(workingDir, entry.Name);
+                        var destPath = Path.GetFullPath(Path.Combine(workingDir, entry.FullName));
+
+                        // Zip Slip prevention: ensure the resolved path is within workingDir
+                        if (!destPath.StartsWith(fullWorkingDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                            && !destPath.Equals(fullWorkingDir, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException(
+                                $"Zip entry '{entry.FullName}' resolves outside the target directory. Extraction aborted.");
+                        }
+
+                        // Create subdirectories if needed
+                        var destDir = Path.GetDirectoryName(destPath);
+                        if (destDir != null && !Directory.Exists(destDir))
+                            Directory.CreateDirectory(destDir);
+
                         using var entryStream = entry.Open();
                         using var outputStream = File.Create(destPath);
                         entryStream.CopyTo(outputStream);
@@ -145,6 +161,13 @@ namespace Dorc.TerraformRunner.CodeSources
             return client;
         }
 
+        /// <summary>
+        /// Validates the API base URL is HTTPS. Default github.com hosts are always allowed.
+        /// Enterprise hosts (e.g. github.mycompany.com) are accepted because the upstream
+        /// Monitor/API service already validated them via <c>IGitHubHostValidator</c> before
+        /// setting <c>GitHubApiBaseUrl</c>. We still enforce HTTPS and valid URI format as
+        /// defense-in-depth.
+        /// </summary>
         private static void ValidateApiBaseHost(string apiBase)
         {
             Uri uri;
@@ -159,12 +182,6 @@ namespace Dorc.TerraformRunner.CodeSources
 
             if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"GitHub API base URL must use HTTPS, got '{uri.Scheme}'");
-
-            if (!AllowedHosts.Contains(uri.Host))
-                throw new ArgumentException(
-                    $"GitHub API host '{uri.Host}' is not allowed. " +
-                    "Only api.github.com and github.com are permitted. " +
-                    "GitHub Enterprise hosts must be validated upstream by the Monitor service.");
         }
 
         private class GitHubArtifactsListResponse

@@ -31,6 +31,7 @@ namespace Dorc.Api.Services
             const string userAccountControlPropertyName = "userAccountControl";
             const string displayNamePropertyName = "DisplayName";
 
+            _directorySearcher.PropertiesToLoad.Clear();
             _directorySearcher.PropertiesToLoad.Add(samAccountNamePropertyName);
             _directorySearcher.PropertiesToLoad.Add(userAccountControlPropertyName);
             _directorySearcher.PropertiesToLoad.Add(displayNamePropertyName);
@@ -44,7 +45,7 @@ namespace Dorc.Api.Services
             {
                 foreach (SearchResult searchResult in searchResults)
                 {
-                    DirectoryEntry foundUser = searchResult.GetDirectoryEntry();
+                    using DirectoryEntry foundUser = searchResult.GetDirectoryEntry();
                     if (foundUser.NativeGuid == null)
                         continue;
 
@@ -78,6 +79,7 @@ namespace Dorc.Api.Services
         {
             const string namePropertyName = "Name";
 
+            _directorySearcher.PropertiesToLoad.Clear();
             _directorySearcher.PropertiesToLoad.Add(namePropertyName);
 
             var escaped = EscapeLdapSearchFilter(searchCriteria);
@@ -89,7 +91,7 @@ namespace Dorc.Api.Services
             {
                 foreach (SearchResult searchResult in searchResults)
                 {
-                    DirectoryEntry foundGroup = searchResult.GetDirectoryEntry();
+                    using DirectoryEntry foundGroup = searchResult.GetDirectoryEntry();
                     if (foundGroup.NativeGuid == null)
                         continue;
 

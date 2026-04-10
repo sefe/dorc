@@ -4,8 +4,9 @@ using Microsoft.Extensions.Logging;
 namespace Dorc.Core.BuildServer
 {
     /// <summary>
-    /// DelegatingHandler that retries GitHub API requests on transient failures (429, 502, 503)
-    /// with exponential backoff. Respects GitHub's Retry-After header for rate limiting.
+    /// DelegatingHandler that retries GitHub API requests on transient failures
+    /// (429, 502, 503, 504) with exponential backoff. Respects GitHub's Retry-After
+    /// header for rate limiting.
     /// </summary>
     public class GitHubRetryHandler : DelegatingHandler
     {
