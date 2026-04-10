@@ -175,6 +175,11 @@ export class EnvControlCenter extends PageEnvBase {
   constructor() {
     super();
 
+    this.addEventListener(
+      'close-mlp-dialog',
+      this.closeMlpDialog as EventListener
+    );
+
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
       gc.allRolesResp?.subscribe({
@@ -212,11 +217,6 @@ export class EnvControlCenter extends PageEnvBase {
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
-    this.addEventListener(
-      'close-mlp-dialog',
-      this.closeMlpDialog as EventListener
-    );
   }
 
   openAccessControl() {

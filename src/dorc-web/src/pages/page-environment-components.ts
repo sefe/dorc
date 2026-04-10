@@ -63,17 +63,12 @@ export class PageEnvironmentComponents extends PageElement {
       this.environmentName = this.safeDecodeURI(envName);
     }
 
-    // URL: /environment/{env}/components/{component}
     const componentTabName = pathParts[4];
     if (componentTabName) {
       const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
       this.tabId = foundIndex >= 0 ? foundIndex : 0;
     } else {
       this.tabId = 0;
-      if (envName) {
-        Router.go(`/environment/${envName}/components/servers`);
-        return;
-      }
     }
 
     const tabs = this.shadowRoot?.getElementById(
@@ -97,11 +92,6 @@ export class PageEnvironmentComponents extends PageElement {
       this.environmentName = this.safeDecodeURI(envName);
     }
     const componentTabName = pathParts[4];
-
-    if (!componentTabName && envName) {
-      Router.go(`/environment/${envName}/components/servers`);
-      return;
-    }
 
     if (componentTabName) {
       const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
