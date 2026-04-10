@@ -17,7 +17,7 @@ registerStyles(
   'vaadin-notification-card',
   css`
     :host([slot^='bottom-start'][theme~='warning']) [part='overlay'] {
-      background: orange;
+      background: var(--dorc-badge-text);
     }
   `
 );
@@ -28,5 +28,15 @@ registerStyles(
       :host([orientation^='vertical']) {
           min-height: var(--lumo-size-s);
       }
+  `
+);
+
+registerStyles(
+  'vaadin-dialog-overlay',
+  css`
+    [part='overlay'] {
+      background: var(--lumo-base-color);
+      color: var(--lumo-body-text-color);
+    }
   `
 );

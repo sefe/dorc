@@ -34,7 +34,8 @@ namespace Dorc.Api.Controllers
                 OAuthAuthority = _configurationSettings.GetOAuthAuthority(),
                 OAuthUiClientId = _configurationSettings.GetOAuthUiClientId(),
                 OAuthUiRequestedScopes = _configurationSettings.GetOAuthUiRequestedScopes(),
-                PauseDeploymentEnabled = _configurationSettings.GetPauseDeploymentEnabled()
+                PauseDeploymentEnabled = _configurationSettings.GetPauseDeploymentEnabled(),
+                IsProduction = _configurationSettings.GetIsProduction()
             };
         }
     }

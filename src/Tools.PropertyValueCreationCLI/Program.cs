@@ -69,6 +69,12 @@ namespace Tools.PropertyValueCreationCLI
                 For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
                 For(typeof(ILogger<>)).Use(typeof(Logger<>));
 
+                For<IPropertyEncryptor>().Use(x => { 
+                    var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
+                    return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+                        secureKeyPersistentDataSource.GetSymmetricKey());
+                });
+                For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
                 For<DorcOAuthClientConfiguration>().Use(ctx => new DorcOAuthClientConfiguration(config));
                 For<IApiCaller>().Use(ctx => new ApiCaller(ctx.GetInstance<DorcOAuthClientConfiguration>()));
                 For<Application>().Use<Application>();

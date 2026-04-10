@@ -90,7 +90,7 @@ export class PageProjectEnvs extends PageElement {
       .statistics-cards__item {
         margin: 5px;
         flex-shrink: 0;
-        background-color: #f5f6f8;
+        background-color: var(--dorc-bg-secondary);
       }
 
       .environments {
@@ -104,7 +104,7 @@ export class PageProjectEnvs extends PageElement {
       }
 
       a {
-        color: blue;
+        color: var(--dorc-link-color);
         text-decoration: none; /* no underline */
       }
 
@@ -132,8 +132,8 @@ export class PageProjectEnvs extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -198,7 +198,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="icons:link"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
                 <vaadin-button
@@ -210,7 +210,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="vaadin:package"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>
@@ -223,7 +223,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="vaadin:curly-brackets"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
                 <vaadin-button
@@ -234,7 +234,7 @@ export class PageProjectEnvs extends PageElement {
                 >
                   <vaadin-icon
                     icon="lumo:edit"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </vaadin-horizontal-layout>

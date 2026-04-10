@@ -50,7 +50,7 @@ export class PageEnvironmentHistory extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 65px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-button {
         padding: 0px;
@@ -114,7 +114,7 @@ export class PageEnvironmentHistory extends PageElement {
         <vaadin-grid-sort-column
           resizable
           path="Details"
-          header="Tfs Id"
+          header="Details"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           resizable

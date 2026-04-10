@@ -193,7 +193,7 @@ export class AddEditProject extends LitElement {
             @value-changed="${this._terraformGitRepoUrlChanged}"
             helper-text="Git repository URL for Terraform code (e.g., https://github.com/org/repo.git)"
           ></vaadin-text-field>
-          <div style="color: #FF3131">${this.ErrorMessage}</div>
+          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
           <vaadin-horizontal-layout style="margin-right: 30px">
             <vaadin-button
               style="margin: 2px"

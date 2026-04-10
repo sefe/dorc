@@ -35,6 +35,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<AdGroup> AdGroups { get; set; }
         public DbSet<Audit> Audits { get; set; }
         public DbSet<AuditProperty> AuditProperties { get; set; }
+        public DbSet<AuditScript> AuditScripts { get; set; }
         public DbSet<BundledRequests> BundledRequests { get; set; }
         public DbSet<Component> Components { get; set; }
         public DbSet<ConfigValue> ConfigValues { get; set; }
@@ -68,6 +69,8 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Server> Servers { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
+        public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -140,6 +143,7 @@ namespace Dorc.PersistentData.Contexts
             new AdGroupEntityTypeConfiguration().Configure(modelBuilder.Entity<AdGroup>());
             new AuditEntityTypeConfiguration().Configure(modelBuilder.Entity<Audit>());
             new AuditPropertyEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditProperty>());
+            new AuditScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditScript>());
             new BundledRequestsEntityTypeConfiguration().Configure(modelBuilder.Entity<BundledRequests>());
             new ComponentEntityTypeConfiguration().Configure(modelBuilder.Entity<Component>());
             new DaemonEntityTypeConfiguration().Configure(modelBuilder.Entity<Daemon>());
@@ -161,6 +165,8 @@ namespace Dorc.PersistentData.Contexts
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
             new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
+            new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());
+            new DeploymentResultAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResultAttempt>());
         }
 
         public new DbSet<TEntity> Set<TEntity>() where TEntity : class => base.Set<TEntity>();

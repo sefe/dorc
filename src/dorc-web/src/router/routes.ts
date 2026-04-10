@@ -5,7 +5,6 @@ import '../components/dorc-app.ts'
 import '../components/environment-tabs/env-control-center.ts'
 import '../components/environment-tabs/env-daemons.ts'
 import '../components/environment-tabs/env-databases.ts'
-import '../components/environment-tabs/env-delegated-users.ts'
 import '../components/environment-tabs/env-deployments.ts'
 import '../components/environment-tabs/env-metadata.ts'
 import '../components/environment-tabs/env-projects.ts'
@@ -28,9 +27,11 @@ import '../pages/page-not-found.ts'
 import '../pages/page-permissions-list.ts'
 import '../pages/page-project-envs.ts'
 import '../pages/page-project-bundles.ts'
+import '../pages/page-project-components.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
+import '../pages/page-scripts-audit.ts'
 import '../pages/page-servers-list.ts'
 import '../pages/page-sql-ports-list.ts'
 import '../pages/page-users-list.ts'
@@ -154,6 +155,15 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/scripts/audit',
+        name: 'scripts-audit',
+        component: 'page-scripts-audit',
+        metadata: {
+          title: 'Scripts Values Audit',
+          description: 'List of all scripts value changes'
+        }
+      },
+      {
         path: '/variables',
         name: 'variables',
         component: 'page-variables',
@@ -244,6 +254,15 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/project-components/:id',
+        name: 'project-components',
+        component: 'page-project-components',
+        metadata: {
+          title: 'Project Components',
+          description: 'View component deployments for a project'
+        }
+      },
+      {
         path: '/environment/:id',
         name: 'environment',
         component: 'page-environment',
@@ -298,14 +317,6 @@ export const routes: Route<RouteMeta>[] = [
             metadata: {
               title: 'Users',
               description: 'Environment user details'
-            }
-          },
-          {
-            path: '/delegated-users',
-            component: 'env-delegated-users',
-            metadata: {
-              title: 'Delegated Users',
-              description: 'Environment delegated User details'
             }
           },
           {

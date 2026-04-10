@@ -891,125 +891,6 @@
         }
       }
     },
-    "/DelegatedUsers/GetUnallocatedUsers": {
-      "get": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/DelegatedUsers": {
-      "delete": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "DelegatedUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/DeploymentV2": {
       "get": {
         "tags": [
@@ -3479,6 +3360,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       },
@@ -3684,32 +3568,72 @@
         }
       }
     },
-    "/RefDataEnvironments/IsEnvironmentOwnerOrDelegate": {
-      "get": {
+    "/RefDataEnvironments/Clone": {
+      "post": {
         "tags": [
           "RefDataEnvironments"
         ],
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "query",
-            "schema": {
-              "type": "string"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneEnvironmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneEnvironmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneEnvironmentRequest"
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "boolean"
+                  "$ref": "#/components/schemas/EnvironmentApiModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "type": "boolean"
+                  "$ref": "#/components/schemas/EnvironmentApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -6677,6 +6601,96 @@
         }
       }
     },
+    "/Request/{requestId}/attempts": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestAttemptApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentRequestAttemptApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Request/{requestId}/attempts/log": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "deploymentResultId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/Request/cancel": {
       "put": {
         "tags": [
@@ -7221,6 +7235,77 @@
         }
       }
     },
+    "/ScriptsAudit": {
+      "put": {
+        "tags": [
+          "ScriptsAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "useAndLogic",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScriptsAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ServerDaemons/{serverId}": {
       "get": {
         "tags": [
@@ -7498,6 +7583,9 @@
           "UserEditable": {
             "type": "boolean"
           },
+          "UserIsOwner": {
+            "type": "boolean"
+          },
           "Privileges": {
             "type": "array",
             "items": {
@@ -7674,6 +7762,9 @@
             "nullable": true
           },
           "PauseDeploymentEnabled": {
+            "type": "boolean"
+          },
+          "IsProduction": {
             "type": "boolean"
           }
         },
@@ -8124,6 +8215,57 @@
           },
           "UserEditable": {
             "type": "boolean"
+          },
+          "EnvironmentOwnerEmail": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentRequestAttemptApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DeploymentRequestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AttemptNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "Log": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentResultAttemptApiModel"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8167,6 +8309,51 @@
           "CompletedTime": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentResultAttemptApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DeploymentRequestAttemptId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "StartedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CompletedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "Log": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -8311,13 +8498,6 @@
             },
             "nullable": true
           },
-          "DelegatedUsers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserApiModel"
-            },
-            "nullable": true
-          },
           "MappedProjects": {
             "type": "array",
             "items": {
@@ -8385,6 +8565,13 @@
           },
           "EnvironmentOwnerId": {
             "type": "string",
+            "nullable": true
+          },
+          "EnvironmentOwnerEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           },
           "RestoredFromSourceDb": {
@@ -8631,6 +8818,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FlatPropertyValueApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetScriptsAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScriptAuditApiModel"
             },
             "nullable": true
           }
@@ -9269,6 +9481,49 @@
             "items": {
               "type": "string"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScriptAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ScriptId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "ScriptName": {
+            "type": "string",
+            "nullable": true
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Type": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectNames": {
+            "type": "string",
             "nullable": true
           }
         },

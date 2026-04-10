@@ -6,7 +6,6 @@ export * from './ApiConfigApi';
 export * from './ApiRootApi';
 export * from './BundledRequestsApi';
 export * from './DaemonStatusApi';
-export * from './DelegatedUsersApi';
 export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';
 export * from './MakeLikeProdApi';
@@ -46,6 +45,7 @@ export * from './RequestApi';
 export * from './RequestStatusesApi';
 export * from './ResetAppPasswordApi';
 export * from './ResultStatusesApi';
+export * from './ScriptsAuditApi'
 export * from './AnalyticsEnvironmentUsageApi';
 export * from './AnalyticsUserActivityApi';
 export * from './AnalyticsTimePatternApi';

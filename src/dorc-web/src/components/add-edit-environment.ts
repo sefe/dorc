@@ -114,7 +114,7 @@ export class AddEditEnvironment extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
@@ -170,7 +170,7 @@ export class AddEditEnvironment extends LitElement {
           opened=${ifDefined(
             this.isEmptyOrSpaces(this.EnvOwnerDisplayName) ? true : undefined
           )}
-          style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+          style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
         >
           <vaadin-details-summary slot="summary">
             <vaadin-horizontal-layout>
@@ -180,7 +180,7 @@ export class AddEditEnvironment extends LitElement {
                 style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
               ></vaadin-icon>
               ${this.isEmptyOrSpaces(this.EnvOwnerDisplayName)
-                ? html`<div style="font-style: italic; color: red">
+                ? html`<div style="font-style: italic; color: var(--dorc-error-color)">
                     Press 'Set Owner' to fill
                   </div>`
                 : html` <div style="font-weight: bold;">
@@ -222,7 +222,7 @@ export class AddEditEnvironment extends LitElement {
         <vaadin-details
           opened
           summary="Environment Required Settings"
-          style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+          style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px"
         >
           <vaadin-text-field
             id="env-name"
@@ -288,7 +288,7 @@ export class AddEditEnvironment extends LitElement {
         <vaadin-details
           closed
           summary="Environment Optional Settings"
-          style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
+          style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px"
         >
           <vaadin-text-field
             id="opt-backup"
@@ -339,7 +339,7 @@ export class AddEditEnvironment extends LitElement {
             ? html` <div class="small-loader"></div> `
             : html``}
         </div>
-        <div style="color: #FF3131">${this.ErrorMessage}</div>
+        <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
       </div>
     `;
   }

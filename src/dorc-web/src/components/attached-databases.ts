@@ -51,14 +51,14 @@ export class AttachedDatabases extends LitElement {
       vaadin-grid#grid {
         overflow: hidden;
         width: calc(100% - 4px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
 
       .tag {
         font-size: 14px;
         font-family: monospace;
-        background-color: cornflowerblue;
-        color: white;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
         display: inline-block;
         padding: 3px;
         margin: 3px;
@@ -67,8 +67,8 @@ export class AttachedDatabases extends LitElement {
       }
 
       .tag:hover {
-        background-color: #444;
-        color: #fea40f;
+        background-color: var(--dorc-badge-bg);
+        color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
       }

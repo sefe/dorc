@@ -49,7 +49,7 @@ export class DorcNavbar extends LitElement {
       footer {
         padding: 1rem;
         text-align: center;
-        background-color: #eee;
+        background-color: var(--dorc-bg-tertiary);
       }
 
       vaadin-icon {
@@ -67,7 +67,7 @@ export class DorcNavbar extends LitElement {
 
       a.plain {
         text-decoration: underline;
-        color: blue;
+        color: var(--dorc-link-color);
       }
 
       vaadin-tab {
@@ -188,6 +188,15 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
+          <a href="${urlForName('scripts-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+              Audit
+            </div>
+          </a>
+        </vaadin-tab>
+
+        <vaadin-tab>
           <a href="${urlForName('variables')}">
             <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
             Variables
@@ -220,7 +229,7 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
       </vaadin-tabs>
       <div
-        style="position: fixed; top: calc(100% - 13px); text-align: center; left: 50px; color: #747f8d; font-size: x-small"
+        style="position: fixed; top: calc(100% - 13px); text-align: center; left: 50px; color: var(--dorc-text-secondary); font-size: x-small"
       >
         ${this.metaData}
       </div>
