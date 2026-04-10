@@ -5,6 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageEnvBase } from './page-env-base';
 import '../add-edit-environment';
+import './env-control-center';
 
 @customElement('env-metadata')
 export class EnvMetadata extends PageEnvBase {
@@ -66,6 +67,7 @@ export class EnvMetadata extends PageEnvBase {
         .environment="${this.environment}"
         .addMode="${false}"
       ></add-edit-environment>
+      <env-control-center ?hidden="${this.loading}"></env-control-center>
     `;
   }
 
