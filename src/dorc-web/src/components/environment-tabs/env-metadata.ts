@@ -16,7 +16,7 @@ export class EnvMetadata extends PageEnvBase {
     return css`
       :host {
         width: 100%;
-        overflow: hidden;
+        overflow-y: auto;
       }
       .overlay {
         width: 100%;
@@ -62,13 +62,13 @@ export class EnvMetadata extends PageEnvBase {
           </div>
         </div>
       </div>
+      <env-control-center ?hidden="${this.loading}"></env-control-center>
       <add-edit-environment
         .readonly="${!this.environment?.UserEditable}"
         ?hidden="${this.loading}"
         .environment="${this.environment}"
         .addMode="${false}"
       ></add-edit-environment>
-      <env-control-center ?hidden="${this.loading}"></env-control-center>
     `;
   }
 
