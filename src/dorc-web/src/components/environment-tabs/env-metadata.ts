@@ -6,7 +6,7 @@ import { html } from 'lit/html.js';
 import { PageEnvBase } from './page-env-base';
 import '../add-edit-environment';
 import './env-control-center';
-import { EnvControlCenter } from './env-control-center';
+import type { EnvControlCenter } from './env-control-center';
 
 @customElement('env-metadata')
 export class EnvMetadata extends PageEnvBase {
