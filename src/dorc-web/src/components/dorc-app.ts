@@ -37,7 +37,7 @@ export class DorcApp extends ShortcutsStore {
   static get styles() {
     return css`
       :host {
-        --header-height: 68px;
+        --header-height: 50px;
         display: inline;
         height: 100%;
         margin: 0;
@@ -61,7 +61,8 @@ export class DorcApp extends ShortcutsStore {
       }
 
       #header .mascot {
-        height: calc(var(--header-height) - 2px);
+        height: 65px;
+        padding: 3px 0;
         flex-shrink: 0;
       }
 
