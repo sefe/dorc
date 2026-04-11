@@ -821,91 +821,83 @@ export class PageMonitorRequests
   detailsHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout style="width: 100%;">
-            <vaadin-horizontal-layout
-              style="align-items: center; gap: 4px;"
-            >
-              <vaadin-grid-sorter
-                path="Project"
-                style="align-items: normal; flex: 0 0 auto;"
-              ></vaadin-grid-sorter>
-              <vaadin-text-field
-                placeholder="Project"
-                clear-button-visible
-                focus-target
-                style="flex: 1 1 auto;"
-                theme="small"
-                @input="${(e: InputEvent) => {
-                  const textField = e.target as any;
-                  this.dispatchEvent(
-                    new CustomEvent('searching-requests-started', {
-                      detail: {
-                        field: project,
-                        value: textField?.value
-                      },
-                      bubbles: true,
-                      composed: true
-                    })
-                  );
-                }}"
-              ></vaadin-text-field>
-              <span style="flex: 0 0 auto;">-</span>
-              <vaadin-grid-sorter
-                path="EnvironmentName"
-                style="align-items: normal; flex: 0 0 auto;"
-              ></vaadin-grid-sorter>
-              <vaadin-text-field
-                placeholder="Environment"
-                clear-button-visible
-                focus-target
-                style="flex: 1 1 auto;"
-                theme="small"
-                @input="${(e: InputEvent) => {
-                  const textField = e.target as any;
-                  this.dispatchEvent(
-                    new CustomEvent('searching-requests-started', {
-                      detail: {
-                        field: environment,
-                        value: textField?.value
-                      },
-                      bubbles: true,
-                      composed: true
-                    })
-                  );
-                }}"
-              ></vaadin-text-field>
-            </vaadin-horizontal-layout>
-            <vaadin-horizontal-layout
-              style="align-items: center; gap: 4px; font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              <vaadin-grid-sorter
-                path="BuildNumber"
-                style="align-items: normal; flex: 0 0 auto;"
-              ></vaadin-grid-sorter>
-              <vaadin-text-field
-                placeholder="Build"
-                clear-button-visible
-                focus-target
-                style="flex: 1 1 auto;"
-                theme="small"
-                @input="${(e: InputEvent) => {
-                  const textField = e.target as any;
-                  this.dispatchEvent(
-                    new CustomEvent('searching-requests-started', {
-                      detail: {
-                        field: buildNumber,
-                        value: textField?.value
-                      },
-                      bubbles: true,
-                      composed: true
-                    })
-                  );
-                }}"
-              ></vaadin-text-field>
-            </vaadin-horizontal-layout>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
+        <div style="display: flex; align-items: center; gap: 2px;">
+          <vaadin-grid-sorter
+            path="Project"
+            style="align-items: normal; flex: 0 0 auto;"
+          ></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Project"
+            clear-button-visible
+            focus-target
+            style="width: 90px;"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as any;
+              this.dispatchEvent(
+                new CustomEvent('searching-requests-started', {
+                  detail: {
+                    field: project,
+                    value: textField?.value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            }}"
+          ></vaadin-text-field>
+          <span style="flex: 0 0 auto; color: var(--lumo-secondary-text-color);"
+            >-</span
+          >
+          <vaadin-grid-sorter
+            path="EnvironmentName"
+            style="align-items: normal; flex: 0 0 auto;"
+          ></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Environment"
+            clear-button-visible
+            focus-target
+            style="width: 110px;"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as any;
+              this.dispatchEvent(
+                new CustomEvent('searching-requests-started', {
+                  detail: {
+                    field: environment,
+                    value: textField?.value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            }}"
+          ></vaadin-text-field>
+          <vaadin-grid-sorter
+            path="BuildNumber"
+            style="align-items: normal; flex: 0 0 auto;"
+          ></vaadin-grid-sorter>
+          <vaadin-text-field
+            placeholder="Build"
+            clear-button-visible
+            focus-target
+            style="width: 80px;"
+            theme="small"
+            @input="${(e: InputEvent) => {
+              const textField = e.target as any;
+              this.dispatchEvent(
+                new CustomEvent('searching-requests-started', {
+                  detail: {
+                    field: buildNumber,
+                    value: textField?.value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              );
+            }}"
+          ></vaadin-text-field>
+        </div>
       `,
       root
     );

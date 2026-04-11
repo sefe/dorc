@@ -18,7 +18,7 @@ vi.mock('@vaadin/grid/vaadin-grid-sorter', () => ({}));
 vi.mock('@vaadin/icons/vaadin-icons', () => ({}));
 vi.mock('@vaadin/text-field', () => ({}));
 vi.mock('@vaadin/notification', () => ({
-  Notification: { show: vi.fn() },
+  Notification: { show: vi.fn() }
 }));
 vi.mock('@vaadin/grid', () => ({}));
 
@@ -27,7 +27,7 @@ vi.mock('../components/grid-button-groups/request-controls', () => ({}));
 vi.mock('../icons/iron-icons.js', () => ({}));
 vi.mock('../icons/custom-icons.js', () => ({}));
 vi.mock('../components/notifications/error-notification', () => ({
-  ErrorNotification: class {},
+  ErrorNotification: class {}
 }));
 vi.mock('../components/connection-status-indicator', () => ({}));
 
@@ -35,8 +35,8 @@ vi.mock('../components/connection-status-indicator', () => ({}));
 vi.mock('@microsoft/signalr', () => ({
   HubConnectionState: {
     Disconnected: 'Disconnected',
-    Connected: 'Connected',
-  },
+    Connected: 'Connected'
+  }
 }));
 vi.mock('../services/ServerEvents', () => ({
   DeploymentHub: {
@@ -46,21 +46,21 @@ vi.mock('../services/ServerEvents', () => ({
       onreconnected: vi.fn(),
       start: vi.fn(() => Promise.resolve()),
       stop: vi.fn(() => Promise.resolve()),
-      state: 'Disconnected',
-    })),
+      state: 'Disconnected'
+    }))
   },
-  getReceiverRegister: vi.fn(() => ({ register: vi.fn() })),
+  getReceiverRegister: vi.fn(() => ({ register: vi.fn() }))
 }));
 
 // Helpers & router
 vi.mock('../helpers/user-extensions.js', () => ({
-  getShortLogonName: vi.fn((name: string) => name),
+  getShortLogonName: vi.fn((name: string) => name)
 }));
 vi.mock('../helpers/errorMessage-retriever.js', () => ({
-  retrieveErrorMessage: vi.fn((err: unknown) => String(err)),
+  retrieveErrorMessage: vi.fn((err: unknown) => String(err))
 }));
 vi.mock('../helpers/html-meta-manager', () => ({
-  updateMetadata: vi.fn(),
+  updateMetadata: vi.fn()
 }));
 vi.mock('../router/routes.ts', () => ({}));
 vi.mock('@vaadin/router', () => ({}));
@@ -69,7 +69,7 @@ vi.mock('@vaadin/router', () => ({}));
 vi.mock('../apis/dorc-api', () => ({
   RequestStatusesApi: class {
     requestStatusesPut = mockRequestStatusesPut;
-  },
+  }
 }));
 
 // --- Import component after mocks are defined ---
@@ -77,7 +77,7 @@ import { PageMonitorRequests } from './page-monitor-requests';
 
 /** Flush microtask queue so async firstUpdated (SignalR init) completes. */
 async function flushAsync(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
 }
 
 describe('PageMonitorRequests', () => {
@@ -142,7 +142,7 @@ describe('PageMonitorRequests', () => {
     it('routes Project field to projectFilter', () => {
       el.dispatchEvent(
         new CustomEvent('searching-requests-started', {
-          detail: { field: 'Project', value: 'MyProject' },
+          detail: { field: 'Project', value: 'MyProject' }
         })
       );
       vi.advanceTimersByTime(500);
@@ -152,7 +152,7 @@ describe('PageMonitorRequests', () => {
     it('routes EnvironmentName field to envFilter', () => {
       el.dispatchEvent(
         new CustomEvent('searching-requests-started', {
-          detail: { field: 'EnvironmentName', value: 'staging' },
+          detail: { field: 'EnvironmentName', value: 'staging' }
         })
       );
       vi.advanceTimersByTime(500);
@@ -162,7 +162,7 @@ describe('PageMonitorRequests', () => {
     it('routes BuildNumber field to buildFilter', () => {
       el.dispatchEvent(
         new CustomEvent('searching-requests-started', {
-          detail: { field: 'BuildNumber', value: '1.2.3' },
+          detail: { field: 'BuildNumber', value: '1.2.3' }
         })
       );
       vi.advanceTimersByTime(500);
@@ -172,7 +172,7 @@ describe('PageMonitorRequests', () => {
     it('still routes Username field correctly', () => {
       el.dispatchEvent(
         new CustomEvent('searching-requests-started', {
-          detail: { field: 'Username', value: 'testuser' },
+          detail: { field: 'Username', value: 'testuser' }
         })
       );
       vi.advanceTimersByTime(500);
@@ -182,7 +182,7 @@ describe('PageMonitorRequests', () => {
     it('still routes Status field correctly', () => {
       el.dispatchEvent(
         new CustomEvent('searching-requests-started', {
-          detail: { field: 'Status', value: 'Running' },
+          detail: { field: 'Status', value: 'Running' }
         })
       );
       vi.advanceTimersByTime(500);
@@ -207,9 +207,7 @@ describe('PageMonitorRequests', () => {
         page: 0,
         pageSize: 50,
         filters: overrides.filters ?? [],
-        sortOrders: overrides.sortOrders ?? [
-          { path: 'Id', direction: 'desc' },
-        ],
+        sortOrders: overrides.sortOrders ?? [{ path: 'Id', direction: 'desc' }]
       };
       const callback = vi.fn();
       dp(params, callback);
@@ -234,7 +232,7 @@ describe('PageMonitorRequests', () => {
       expect(args.pagedDataOperators.Filters).toContainEqual(
         expect.objectContaining({
           Path: 'EnvironmentName',
-          FilterValue: 'staging',
+          FilterValue: 'staging'
         })
       );
     });
@@ -247,7 +245,7 @@ describe('PageMonitorRequests', () => {
       expect(args.pagedDataOperators.Filters).toContainEqual(
         expect.objectContaining({
           Path: 'BuildNumber',
-          FilterValue: '2.0.1',
+          FilterValue: '2.0.1'
         })
       );
     });
@@ -267,13 +265,13 @@ describe('PageMonitorRequests', () => {
       expect(filters).toContainEqual(
         expect.objectContaining({
           Path: 'EnvironmentName',
-          FilterValue: 'production',
+          FilterValue: 'production'
         })
       );
       expect(filters).toContainEqual(
         expect.objectContaining({
           Path: 'BuildNumber',
-          FilterValue: '5.0',
+          FilterValue: '5.0'
         })
       );
     });
@@ -290,7 +288,7 @@ describe('PageMonitorRequests', () => {
       expect(filters).toContainEqual(
         expect.objectContaining({
           Path: 'EnvironmentName',
-          FilterValue: 'staging',
+          FilterValue: 'staging'
         })
       );
       expect(filters).not.toContainEqual(
@@ -320,8 +318,8 @@ describe('PageMonitorRequests', () => {
           filters: [],
           sortOrders: [
             { path: 'Project', direction: 'asc' },
-            { path: 'EnvironmentName', direction: 'desc' },
-          ],
+            { path: 'EnvironmentName', direction: 'desc' }
+          ]
         },
         vi.fn()
       );
@@ -334,10 +332,7 @@ describe('PageMonitorRequests', () => {
 
     it('allows zero sort orders', () => {
       const dp = getDataProvider();
-      dp(
-        { page: 0, pageSize: 50, filters: [], sortOrders: [] },
-        vi.fn()
-      );
+      dp({ page: 0, pageSize: 50, filters: [], sortOrders: [] }, vi.fn());
 
       expect(mockRequestStatusesPut).toHaveBeenCalled();
     });
@@ -349,7 +344,7 @@ describe('PageMonitorRequests', () => {
           page: 0,
           pageSize: 50,
           filters: [],
-          sortOrders: [{ path: 'BuildNumber', direction: 'asc' }],
+          sortOrders: [{ path: 'BuildNumber', direction: 'asc' }]
         },
         vi.fn()
       );
@@ -397,30 +392,18 @@ describe('PageMonitorRequests', () => {
       expect(sorters[2].getAttribute('path')).toBe('BuildNumber');
     });
 
-    it('groups Project and Environment on first row, Build on second row matching cell layout', () => {
-      const outerLayout = root.querySelector(
-        'vaadin-horizontal-layout > vaadin-vertical-layout'
-      );
-      expect(outerLayout).not.toBeNull();
+    it('lays out all filters in a single row with a dash separator', () => {
+      const container = root.querySelector('div');
+      expect(container).not.toBeNull();
+      expect(container!.style.display).toBe('flex');
 
-      const rows = outerLayout!.querySelectorAll(
-        ':scope > vaadin-horizontal-layout'
-      );
-      expect(rows.length).toBe(2);
+      const inputs = container!.querySelectorAll('vaadin-text-field');
+      expect(inputs.length).toBe(3);
+      expect(inputs[0].getAttribute('placeholder')).toBe('Project');
+      expect(inputs[1].getAttribute('placeholder')).toBe('Environment');
+      expect(inputs[2].getAttribute('placeholder')).toBe('Build');
 
-      // First row: Project sorter + filter, dash separator, Environment sorter + filter
-      const firstRowInputs = rows[0].querySelectorAll('vaadin-text-field');
-      expect(firstRowInputs.length).toBe(2);
-      expect(firstRowInputs[0].getAttribute('placeholder')).toBe('Project');
-      expect(firstRowInputs[1].getAttribute('placeholder')).toBe(
-        'Environment'
-      );
-      expect(rows[0].querySelector('span')?.textContent).toBe('-');
-
-      // Second row: Build sorter + filter (secondary styling)
-      const secondRowInputs = rows[1].querySelectorAll('vaadin-text-field');
-      expect(secondRowInputs.length).toBe(1);
-      expect(secondRowInputs[0].getAttribute('placeholder')).toBe('Build');
+      expect(container!.querySelector('span')?.textContent).toBe('-');
     });
   });
 
@@ -434,15 +417,11 @@ describe('PageMonitorRequests', () => {
         item: {
           Project: 'TestProject',
           EnvironmentName: 'production',
-          BuildNumber: '3.1.4',
-        },
+          BuildNumber: '3.1.4'
+        }
       };
 
-      (el as any).detailsRenderer(
-        root,
-        document.createElement('div'),
-        model
-      );
+      (el as any).detailsRenderer(root, document.createElement('div'), model);
 
       const text = root.textContent ?? '';
       expect(text).toContain('TestProject');
