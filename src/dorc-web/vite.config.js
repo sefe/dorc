@@ -104,5 +104,13 @@ export default defineConfig({
   },
   server: {
     port: 8888
+  },
+  test: {
+    environment: 'happy-dom',
+    include: ['src/**/*.test.ts'],
+    setupFiles: ['src/test-setup.ts'],
+    typecheck: {
+      tsconfig: './tsconfig.test.json'
+    }
   }
 });
