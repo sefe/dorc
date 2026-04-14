@@ -107,7 +107,7 @@ namespace Dorc.Core
             }
         }
 
-        public async Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(int? projectId, string environment, string buildDefinitionName)
+        public async Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(int? projectId, string environment, string buildDefinitionName, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -128,7 +128,7 @@ namespace Dorc.Core
                     var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
                     var builds = await buildClient.GetBuildsAsync(project.ArtefactsUrl,
                         project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                        buildDefinitionName, filterOnlyPinned);
+                        buildDefinitionName, filterOnlyPinned, cancellationToken);
                     output = builds.ToList();
                 }
                 else if (project.ArtefactsUrl.StartsWith("file"))
@@ -172,7 +172,7 @@ namespace Dorc.Core
             }
         }
 
-        public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest)
+        public async Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest, CancellationToken cancellationToken = default)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
             if (project == null)
@@ -199,7 +199,7 @@ namespace Dorc.Core
 
                     var builds = await buildClient.GetBuildsAsync(project.ArtefactsUrl,
                         project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                        buildDefinitionName, false);
+                        buildDefinitionName, false, cancellationToken);
 
                     var matchedBuild = builds.FirstOrDefault(b =>
                         (b.Name ?? "").Replace(" [PINNED]", "").Equals(buildItem.Key));
@@ -283,14 +283,14 @@ namespace Dorc.Core
             return requestDetail;
         }
 
-        private async Task<BuildDetail> BuildServerDetailAsync(CreateRequest createRequest, ProjectApiModel project)
+        private async Task<BuildDetail> BuildServerDetailAsync(CreateRequest createRequest, ProjectApiModel project, CancellationToken cancellationToken = default)
         {
             var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
 
             // Validate the build exists before fetching artifact URLs to fail fast
             var buildInfo = await buildClient.ValidateBuildAsync(
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                createRequest.BuildDefinitionName, null, createRequest.BuildUrl, false);
+                createRequest.BuildDefinitionName, null, createRequest.BuildUrl, false, cancellationToken);
 
             if (buildInfo == null)
             {
@@ -300,7 +300,7 @@ namespace Dorc.Core
 
             var artifactDownloadUrl = await buildClient.GetBuildArtifactDownloadUrlAsync(
                 project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                createRequest.BuildDefinitionName, createRequest.BuildUrl);
+                createRequest.BuildDefinitionName, createRequest.BuildUrl, cancellationToken);
 
             return new BuildDetail
             {

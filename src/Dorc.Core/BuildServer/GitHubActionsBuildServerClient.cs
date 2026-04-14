@@ -89,14 +89,14 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(string serverUrl, string projectPaths,
-            string buildRegex, string definitionName, bool filterPinnedOnly)
+            string buildRegex, string definitionName, bool filterPinnedOnly, CancellationToken cancellationToken = default)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
             var client = CreateHttpClient();
 
             // Find the workflow ID by name
-            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, definitionName);
+            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, definitionName, cancellationToken);
 
             if (workflowId == null)
             {
@@ -105,10 +105,10 @@ namespace Dorc.Core.BuildServer
             }
 
             var runsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page=100";
-            using var response = await client.GetAsync(runsUrl);
+            using var response = await client.GetAsync(runsUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var runsResponse = DeserializeResponse<GitHubWorkflowRunsResponse>(json);
 
             if (runsResponse?.WorkflowRuns == null)
@@ -137,7 +137,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<string> GetBuildArtifactDownloadUrlAsync(string serverUrl, string projectPaths,
-            string buildRegex, string definitionName, string buildUrl)
+            string buildRegex, string definitionName, string buildUrl, CancellationToken cancellationToken = default)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
@@ -149,10 +149,10 @@ namespace Dorc.Core.BuildServer
                 throw new ArgumentException($"GitHub Actions run ID must be numeric, got '{runId}'");
 
             var artifactsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
-            using var response = await client.GetAsync(artifactsUrl);
+            using var response = await client.GetAsync(artifactsUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var artifactsResponse = DeserializeResponse<GitHubArtifactsResponse>(json);
 
             if (artifactsResponse?.Artifacts == null || artifactsResponse.Artifacts.Count == 0)
@@ -165,7 +165,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths,
-            string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly)
+            string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly, CancellationToken cancellationToken = default)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
@@ -178,21 +178,21 @@ namespace Dorc.Core.BuildServer
             // If a specific run ID was provided, fetch it directly instead of listing all runs
             if (!string.IsNullOrEmpty(vstsUrl) && long.TryParse(vstsUrl, out _))
             {
-                var run = await GetRunByIdAsync(client, serverUrl, owner, repo, vstsUrl);
+                var run = await GetRunByIdAsync(client, serverUrl, owner, repo, vstsUrl, cancellationToken);
                 if (run != null && run.Conclusion == "success")
                     return MapRunToInfo(run, buildText);
                 return null;
             }
 
-            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, buildText);
+            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, buildText, cancellationToken);
             if (workflowId == null)
                 return null;
 
             var runsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page=100";
-            using var response = await client.GetAsync(runsUrl);
+            using var response = await client.GetAsync(runsUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var runsResponse = DeserializeResponse<GitHubWorkflowRunsResponse>(json);
 
             if (runsResponse?.WorkflowRuns == null || !runsResponse.WorkflowRuns.Any())
@@ -227,14 +227,14 @@ namespace Dorc.Core.BuildServer
             return null;
         }
 
-        private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId)
+        private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId, CancellationToken cancellationToken)
         {
             var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}";
-            using var response = await client.GetAsync(url);
+            using var response = await client.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             return DeserializeResponse<GitHubWorkflowRun>(json);
         }
 
@@ -250,13 +250,13 @@ namespace Dorc.Core.BuildServer
             };
         }
 
-        private async Task<long?> GetWorkflowIdByNameAsync(HttpClient client, string serverUrl, string owner, string repo, string workflowName)
+        private async Task<long?> GetWorkflowIdByNameAsync(HttpClient client, string serverUrl, string owner, string repo, string workflowName, CancellationToken cancellationToken)
         {
             var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows?per_page=100";
-            using var response = await client.GetAsync(url);
+            using var response = await client.GetAsync(url, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var workflowsResponse = DeserializeResponse<GitHubWorkflowsResponse>(json);
 
             var workflow = workflowsResponse?.Workflows?.FirstOrDefault(w =>

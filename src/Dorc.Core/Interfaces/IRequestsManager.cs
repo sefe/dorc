@@ -7,8 +7,8 @@ namespace Dorc.Core.Interfaces
     {
         IEnumerable<DeployableComponent> GetComponents(int? projectId, int? parentId);
         IEnumerable<DeployableArtefact> GetBuildDefinitions(ProjectApiModel project);
-        Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(int? projectId, string environment, string buildDefinitionName);
-        Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest);
+        Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(int? projectId, string environment, string buildDefinitionName, CancellationToken cancellationToken = default);
+        Task<List<DeploymentRequestDetail>> BundleRequestDetailAsync(CreateRequest createRequest, CancellationToken cancellationToken = default);
         DeploymentRequestDetail RequestDetail(CreateRequest createRequest);
         IEnumerable<DeployableComponent> GetComponents(int? projectId);
     }
