@@ -275,6 +275,10 @@ export class DorcNavbar extends LitElement {
       'close-project-envs',
       this.closeProjectEnvs as EventListener
     );
+    this.addEventListener(
+      'environment-renamed',
+      this.renameEnvDetail as EventListener
+    );
 
     this.loadFromEnvDetailCookie();
     this.loadFromProjEnvsCookie();
@@ -466,6 +470,37 @@ export class DorcNavbar extends LitElement {
     const idx = this.getIndexOfPath(tabs, path);
     const tabsArray = [].slice.call(tabs.children) as Tab[];
     tabs.removeChild(tabsArray[idx]);
+    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+  }
+
+  public renameEnvDetail(e: CustomEvent) {
+    const oldName = e.detail.oldName as string;
+    const newEnv = e.detail.environment as EnvironmentApiModel;
+
+    // Build the old path to find the existing tab
+    const oldEnvModel: EnvironmentApiModel = { EnvironmentName: oldName };
+    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
+    const oldPath = this.getEnvDetailPath(oldEnvModel);
+    const idx = this.getIndexOfPath(tabs, oldPath);
+
+    // Remove the old sidebar tab if it exists
+    if (idx >= 0) {
+      const tabsArray = [].slice.call(tabs.children) as Tab[];
+      tabs.removeChild(tabsArray[idx]);
+    }
+
+    // Update the entry in openEnvTabs
+    for (let i = 0; i < this.openEnvTabs.length; i += 1) {
+      if (this.openEnvTabs[i].EnvironmentName === oldName) {
+        this.openEnvTabs[i] = newEnv;
+        break;
+      }
+    }
+
+    // Insert a new sidebar tab with the updated name
+    this.insertEnvTab(newEnv);
+
+    // Persist to cookie
     setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
   }
 

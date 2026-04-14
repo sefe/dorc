@@ -22,6 +22,7 @@ import {
   RefDataEnvironmentsUsersApi
 } from '../apis/dorc-api';
 import type { EnvironmentApiModel } from '../apis/dorc-api';
+import { Router } from '@vaadin/router/dist/router.js';
 
 @customElement('add-edit-environment')
 export class AddEditEnvironment extends LitElement {
@@ -667,14 +668,48 @@ export class AddEditEnvironment extends LitElement {
               if (data !== null) {
                 this.hasUserChanges = false;
                 this.envUpdated(data);
-                Notification.show(
-                  `Updated Environment ${data.EnvironmentName}`,
-                  {
-                    theme: 'success',
-                    position: 'bottom-start',
-                    duration: 5000
-                  }
-                );
+                const nameChanged =
+                  this.originalEnvName &&
+                  data.EnvironmentName &&
+                  this.originalEnvName !== data.EnvironmentName;
+
+                if (nameChanged) {
+                  const renameEvent = new CustomEvent('environment-renamed', {
+                    detail: {
+                      oldName: this.originalEnvName,
+                      environment: data
+                    },
+                    bubbles: true,
+                    composed: true
+                  });
+                  this.dispatchEvent(renameEvent);
+
+                  this.originalEnvName = data.EnvironmentName ?? '';
+
+                  const currentTab =
+                    location.pathname.split('/')[3] || 'metadata';
+                  Router.go(
+                    `/environment/${data.EnvironmentName}/${currentTab}`
+                  );
+
+                  Notification.show(
+                    `Renamed Environment to ${data.EnvironmentName}`,
+                    {
+                      theme: 'success',
+                      position: 'bottom-start',
+                      duration: 5000
+                    }
+                  );
+                } else {
+                  Notification.show(
+                    `Updated Environment ${data.EnvironmentName}`,
+                    {
+                      theme: 'success',
+                      position: 'bottom-start',
+                      duration: 5000
+                    }
+                  );
+                }
                 this.savingMetadata = false;
               }
             },

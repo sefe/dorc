@@ -125,6 +125,10 @@ export class PageEnvironment extends PageElement {
       'environment-not-found',
       this.environmentNotFound as EventListener
     );
+    this.addEventListener(
+      'environment-renamed',
+      this.environmentRenamed as EventListener
+    );
 
     const tabName = location.pathname.split('/')[3];
     if (tabName) this.tabId = this.tabNames.findIndex(p => p === tabName);
@@ -150,6 +154,11 @@ export class PageEnvironment extends PageElement {
   environmentNotFound() {
     this.notFound = true;
     this.loading = false;
+  }
+
+  environmentRenamed(e: CustomEvent) {
+    const env = e.detail.environment as EnvironmentApiModel;
+    this.environmentName = env.EnvironmentName ?? '';
   }
 
   environmentDetailsUpdated() {
