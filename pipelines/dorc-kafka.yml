@@ -1,0 +1,79 @@
+name: $(Build.DefinitionName).$(Build.SourceBranchName)_$(Date:yy).$(Date:MM).$(Date:dd)$(rev:.r)
+
+# S-001 AT-3 CI gate. Brings up the local Kafka+Karapace stack via Podman,
+# runs the Dorc.Kafka.SmokeTests round-trip test, tears the stack down.
+
+trigger:
+  branches:
+    include:
+      - feat/kafka-migration
+
+pr: none
+
+pool:
+  name: TRADING-DOTNET-03
+  demands:
+  - DotNetFramework
+  - podman
+
+variables:
+- name: buildConfiguration
+  value: 'Release'
+- name: composeFile
+  value: 'compose.kafka.yml'
+- name: smokeTestProject
+  value: 'src/Dorc.Kafka.SmokeTests/Dorc.Kafka.SmokeTests.csproj'
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Use .NET 8 SDK'
+  inputs:
+    version: '8.x'
+
+- script: |
+    podman compose -f $(composeFile) up -d
+  displayName: 'Podman compose up (Kafka + Karapace)'
+
+- script: |
+    podman compose -f $(composeFile) ps
+  displayName: 'Podman compose status (diagnostic)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore smoke-test project'
+  inputs:
+    command: 'restore'
+    projects: '$(smokeTestProject)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Build smoke-test project'
+  inputs:
+    command: 'build'
+    projects: '$(smokeTestProject)'
+    arguments: '--configuration $(buildConfiguration) --no-restore'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Run Kafka round-trip smoke test (AT-2 / AT-3)'
+  inputs:
+    command: 'test'
+    projects: '$(smokeTestProject)'
+    arguments: '--configuration $(buildConfiguration) --no-build --logger trx'
+    publishTestResults: true
+  env:
+    KAFKA_BOOTSTRAP: 'localhost:9092'
+
+- script: |
+    podman compose -f $(composeFile) logs --no-color > $(Build.ArtifactStagingDirectory)/compose.log || true
+  displayName: 'Capture compose logs (diagnostic)'
+  condition: always()
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish compose logs'
+  condition: always()
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/compose.log'
+    ArtifactName: 'kafka-smoke-logs'
+
+- script: |
+    podman compose -f $(composeFile) down -v
+  displayName: 'Podman compose down (teardown)'
+  condition: always()

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.0.11222.15 d18.0
+VisualStudioVersion = 18.0.11222.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{75E4D3EA-7177-46E3-A85E-20EA09435A29}"
 	ProjectSection(SolutionItems) = preProject
@@ -70,6 +70,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.TerraformRunner", "Dorc.TerraformRunner\Dorc.TerraformRunner.csproj", "{A834D54E-D9F9-42D9-9960-58F1CC84B84F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tools.RabbitMqOAuthTest", "Tools.RabbitMqOAuthTest\Tools.RabbitMqOAuthTest.csproj", "{9F8A1B2C-4A5E-4C3F-B9D8-1E2A3B4C5D6E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.Kafka.SmokeTests", "Dorc.Kafka.SmokeTests\Dorc.Kafka.SmokeTests.csproj", "{F4906E24-EA1B-466F-BBF2-C6BD3204191C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -523,6 +525,22 @@ Global
 		{9F8A1B2C-4A5E-4C3F-B9D8-1E2A3B4C5D6E}.Release|x64.Build.0 = Release|Any CPU
 		{9F8A1B2C-4A5E-4C3F-B9D8-1E2A3B4C5D6E}.Release|x86.ActiveCfg = Release|Any CPU
 		{9F8A1B2C-4A5E-4C3F-B9D8-1E2A3B4C5D6E}.Release|x86.Build.0 = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|x64.Build.0 = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Debug|x86.Build.0 = Debug|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|ARM64.Build.0 = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|x64.ActiveCfg = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|x64.Build.0 = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|x86.ActiveCfg = Release|Any CPU
+		{F4906E24-EA1B-466F-BBF2-C6BD3204191C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
