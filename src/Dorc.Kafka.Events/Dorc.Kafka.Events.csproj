@@ -12,4 +12,9 @@
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dorc.Kafka.Events.Tests" />
+    <InternalsVisibleTo Include="Dorc.Kafka.Events.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
