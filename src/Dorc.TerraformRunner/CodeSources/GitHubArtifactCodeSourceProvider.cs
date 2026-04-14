@@ -101,36 +101,9 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                // Extract preserving relative directory structure. Validates that resolved
-                // paths stay within workingDir to prevent Zip Slip directory traversal.
-                using (var archive = ZipFile.OpenRead(tempZipFile))
-                {
-                    var fullWorkingDir = Path.GetFullPath(workingDir);
-                    foreach (var entry in archive.Entries)
-                    {
-                        if (string.IsNullOrEmpty(entry.Name))
-                            continue;
-
-                        var destPath = Path.GetFullPath(Path.Combine(workingDir, entry.FullName));
-
-                        // Zip Slip prevention: ensure the resolved path is within workingDir
-                        if (!destPath.StartsWith(fullWorkingDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                            && !destPath.Equals(fullWorkingDir, StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw new InvalidOperationException(
-                                $"Zip entry '{entry.FullName}' resolves outside the target directory. Extraction aborted.");
-                        }
-
-                        // Create subdirectories if needed
-                        var destDir = Path.GetDirectoryName(destPath);
-                        if (destDir != null && !Directory.Exists(destDir))
-                            Directory.CreateDirectory(destDir);
-
-                        using var entryStream = entry.Open();
-                        using var outputStream = File.Create(destPath);
-                        entryStream.CopyTo(outputStream);
-                    }
-                }
+                // ExtractToDirectory has built-in Zip Slip prevention in .NET 6+:
+                // it validates that all resolved entry paths stay within the target directory.
+                ZipFile.ExtractToDirectory(tempZipFile, workingDir, overwriteFiles: true);
                 _logger.Information($"Successfully extracted GitHub artifact '{artifact.Name}'");
             }
             finally
