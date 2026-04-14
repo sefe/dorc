@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED — Pending user approval (R3 Implementation-Discovery revision) |
+| **Status** | APPROVED (R3 user-approved 2026-04-14; SC-3 interpretation binding confirmed) |
 | **Author** | Claude (Opus 4.6) |
 | **Created** | 2026-04-13 |
 | **Target completion** | 2026-12-31 (per HLPS C-5) |
