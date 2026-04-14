@@ -17,20 +17,20 @@ namespace Dorc.Core.BuildServer
         /// Gets completed builds/runs for a specific workflow/pipeline definition.
         /// </summary>
         Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(string serverUrl, string projectPaths, string buildRegex,
-            string definitionName, bool filterPinnedOnly);
+            string definitionName, bool filterPinnedOnly, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets the artifact download URL for a specific build.
         /// </summary>
         Task<string> GetBuildArtifactDownloadUrlAsync(string serverUrl, string projectPaths, string buildRegex,
-            string definitionName, string buildUrl);
+            string definitionName, string buildUrl, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Validates that a build exists and returns its URI identifier.
         /// Returns null if the build cannot be found.
         /// </summary>
         Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths, string buildRegex,
-            string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly);
+            string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

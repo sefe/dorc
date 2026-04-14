@@ -117,7 +117,7 @@ namespace Dorc.Core.AzureDevOpsServer
             return coll;
         }
 
-        public async Task<List<Build>> GetBuildsFromDefinitionsAsync(string collection, List<BuildDefinitionReference> buildDefinitions, int requestSize = 10)
+        public async Task<List<Build>> GetBuildsFromDefinitionsAsync(string collection, List<BuildDefinitionReference> buildDefinitions, int requestSize = 10, CancellationToken cancellationToken = default)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
@@ -154,11 +154,12 @@ namespace Dorc.Core.AzureDevOpsServer
                 string? continuationToken = null;
                 do
                 {
-                    var response = instance.BuildsListWithHttpInfoAsync(coll, project, ApiVersion,
+                    var response = await instance.BuildsListWithHttpInfoAsync(coll, project, ApiVersion,
                         definitions: string.Join(",", defIds),
-                        continuationToken: continuationToken);
+                        continuationToken: continuationToken,
+                        cancellationToken: cancellationToken);
 
-                    foreach (var header in response.Result.Headers)
+                    foreach (var header in response.Headers)
                     {
                         if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
                         {
@@ -167,7 +168,7 @@ namespace Dorc.Core.AzureDevOpsServer
                         }
                     }
 
-                    builds.AddRange(response.Result.Data);
+                    builds.AddRange(response.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
             }
@@ -175,7 +176,7 @@ namespace Dorc.Core.AzureDevOpsServer
         }
 
 
-        public async Task<List<Build>> GetBuildsFromBuildNumberAsync(string collection, string buildNumber, string projectName, int requestSize = 10)
+        public async Task<List<Build>> GetBuildsFromBuildNumberAsync(string collection, string buildNumber, string projectName, int requestSize = 10, CancellationToken cancellationToken = default)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
@@ -214,13 +215,14 @@ namespace Dorc.Core.AzureDevOpsServer
                 string? continuationToken = null;
                 do
                 {
-                    var response = instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
+                    var response = await instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
                         buildNumber: buildNumber + "*",
                         statusFilter: filter.Status != null ? filter.Status.ToString() : null,
                         resultFilter: filter.Result != null ? filter.Result.ToString() : null,
-                        continuationToken: continuationToken);
+                        continuationToken: continuationToken,
+                        cancellationToken: cancellationToken);
 
-                    foreach (var header in response.Result.Headers)
+                    foreach (var header in response.Headers)
                     {
                         if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
                         {
@@ -229,7 +231,7 @@ namespace Dorc.Core.AzureDevOpsServer
                         }
                     }
 
-                    builds.AddRange(response.Result.Data);
+                    builds.AddRange(response.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
             }

@@ -139,7 +139,7 @@ namespace Dorc.Core.Tests
             _environmentsPds.EnvironmentIsSecure("dev").Returns(false);
 
             _mockBuildClient.GetBuildsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                    Arg.Any<string>(), false)
+                    Arg.Any<string>(), false, Arg.Any<CancellationToken>())
                 .Returns(new List<DeployableArtefact>
                 {
                     new() { Id = "1", Name = "Build 1", Date = DateTime.Now },
@@ -167,7 +167,7 @@ namespace Dorc.Core.Tests
             _environmentsPds.EnvironmentIsProd("prod").Returns(true);
 
             _mockBuildClient.GetBuildsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                    Arg.Any<string>(), true)
+                    Arg.Any<string>(), true, Arg.Any<CancellationToken>())
                 .Returns(new List<DeployableArtefact>());
 
             var sut = CreateSut();
@@ -175,7 +175,7 @@ namespace Dorc.Core.Tests
 
             await _mockBuildClient.Received(1).GetBuildsAsync(
                 Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<string>(), true);
+                Arg.Any<string>(), true, Arg.Any<CancellationToken>());
         }
 
         [TestMethod]
@@ -193,7 +193,7 @@ namespace Dorc.Core.Tests
             _environmentsPds.EnvironmentIsSecure("dev").Returns(false);
 
             _mockBuildClient.GetBuildsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                    Arg.Any<string>(), false)
+                    Arg.Any<string>(), false, Arg.Any<CancellationToken>())
                 .Returns(new List<DeployableArtefact> { new() { Id = "100", Name = "Run #1" } });
 
             var sut = CreateSut();
@@ -201,6 +201,37 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(1, result.Count);
             _buildServerClientFactory.Received(1).Create(SourceControlType.GitHub);
+        }
+
+        [TestMethod]
+        public async Task GetBuildsAsync_CancelledToken_PropagatesCancellation()
+        {
+            var project = new ProjectApiModel
+            {
+                ArtefactsUrl = "https://dev.azure.com/org",
+                ArtefactsSubPaths = "MyProject",
+                ArtefactsBuildRegex = ".*",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject(1).Returns(project);
+            _environmentsPds.EnvironmentIsProd("dev").Returns(false);
+            _environmentsPds.EnvironmentIsSecure("dev").Returns(false);
+
+            _mockBuildClient.GetBuildsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var ct = callInfo.Arg<CancellationToken>();
+                    ct.ThrowIfCancellationRequested();
+                    return new List<DeployableArtefact>();
+                });
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            var sut = CreateSut();
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                () => sut.GetBuildsAsync(1, "dev", "MyProject; MyDef", cts.Token));
         }
 
         // --- GetComponents ---

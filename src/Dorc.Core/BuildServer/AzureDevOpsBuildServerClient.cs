@@ -30,7 +30,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(string serverUrl, string projectPaths,
-            string buildRegex, string definitionName, bool filterPinnedOnly)
+            string buildRegex, string definitionName, bool filterPinnedOnly, CancellationToken cancellationToken = default)
         {
             var client = CreateClient(serverUrl);
 
@@ -42,7 +42,7 @@ namespace Dorc.Core.BuildServer
                 def.Name.Equals(azureDevOpsBuildDefinitionName) && def.Project.Name.Equals(azureDevOpsProjectName));
 
             var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl,
-                new List<BuildDefinitionReference> { buildDefinitionReference }).ConfigureAwait(false);
+                new List<BuildDefinitionReference> { buildDefinitionReference }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var builds = (from build in buildsFromDefinitionsAsync
                 where (!filterPinnedOnly || build.KeepForever) &&
@@ -59,7 +59,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<string> GetBuildArtifactDownloadUrlAsync(string serverUrl, string projectPaths,
-            string buildRegex, string definitionName, string buildUrl)
+            string buildRegex, string definitionName, string buildUrl, CancellationToken cancellationToken = default)
         {
             var client = CreateClient(serverUrl);
 
@@ -71,7 +71,7 @@ namespace Dorc.Core.BuildServer
                 def.Name.Equals(azureDevOpsBuildDefinitionName) && def.Project.Name.Equals(azureDevOpsProjectName));
 
             var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl,
-                new List<BuildDefinitionReference> { buildDefinitionReference }).ConfigureAwait(false);
+                new List<BuildDefinitionReference> { buildDefinitionReference }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build => build.Url.Equals(buildUrl));
             if (buildValue == null)
@@ -96,7 +96,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths,
-            string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly)
+            string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly, CancellationToken cancellationToken = default)
         {
             var client = CreateClient(serverUrl);
             var builds = new List<Build>();
@@ -109,7 +109,7 @@ namespace Dorc.Core.BuildServer
                 var bDef = buildDefsForProject.Where(def => buildDef.Equals(def.Name)).ToList();
                 if (!bDef.Any()) return null;
 
-                var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl, bDef);
+                var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl, bDef, cancellationToken: cancellationToken);
                 var filtered = pinnedOnly ? buildsFromDefinitionsAsync.Where(b => b.KeepForever) : buildsFromDefinitionsAsync;
                 builds.AddRange(filtered);
             }
@@ -119,7 +119,7 @@ namespace Dorc.Core.BuildServer
                 var projects = projectPaths.Split(';');
                 foreach (var proj in projects)
                 {
-                    var buildsFromBuildNumber = await client.GetBuildsFromBuildNumberAsync(serverUrl, buildText, proj);
+                    var buildsFromBuildNumber = await client.GetBuildsFromBuildNumberAsync(serverUrl, buildText, proj, cancellationToken: cancellationToken);
                     var filtered = pinnedOnly ? buildsFromBuildNumber.Where(b => b.KeepForever) : buildsFromBuildNumber;
                     builds.AddRange(filtered);
                 }

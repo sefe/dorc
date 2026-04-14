@@ -129,12 +129,12 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<DeployArtefactDto>))]
         [Route("Builds")]
         [HttpGet]
-        public IActionResult GetBuilds(int projectId, string? environment, string? buildDefinitionName)
+        public async Task<IActionResult> GetBuilds(int projectId, string? environment, string? buildDefinitionName, CancellationToken cancellationToken)
         {
             try
             {
                 var artifacts =
-                    _requestsManager.GetBuildsAsync(projectId, environment, buildDefinitionName).Result;
+                    await _requestsManager.GetBuildsAsync(projectId, environment, buildDefinitionName, cancellationToken);
 
                 if (artifacts == null)
                 {
