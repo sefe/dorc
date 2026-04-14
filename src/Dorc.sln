@@ -77,6 +77,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.Kafka.Client", "Dorc.K
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.Kafka.Client.Tests", "Dorc.Kafka.Client.Tests\Dorc.Kafka.Client.Tests.csproj", "{C5C18DA9-9DC0-45E9-B8D3-F456E0B9F11A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.Kafka.Client.IntegrationTests", "Dorc.Kafka.Client.IntegrationTests\Dorc.Kafka.Client.IntegrationTests.csproj", "{313F51F0-BB67-448E-AF34-9B5C5529B61D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -577,6 +579,22 @@ Global
 		{C5C18DA9-9DC0-45E9-B8D3-F456E0B9F11A}.Release|x64.Build.0 = Release|Any CPU
 		{C5C18DA9-9DC0-45E9-B8D3-F456E0B9F11A}.Release|x86.ActiveCfg = Release|Any CPU
 		{C5C18DA9-9DC0-45E9-B8D3-F456E0B9F11A}.Release|x86.Build.0 = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|x64.Build.0 = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Debug|x86.Build.0 = Debug|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|ARM64.Build.0 = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|x64.ActiveCfg = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|x64.Build.0 = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|x86.ActiveCfg = Release|Any CPU
+		{313F51F0-BB67-448E-AF34-9B5C5529B61D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
