@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | PROPOSED (pending user approval) |
+| **Status** | APPROVED — Pending user approval (R2 unanimous 2026-04-14) |
 | **Author** | Claude (Opus 4.6) |
 | **Date** | 2026-04-14 |
 | **Governing Spec** | `SPEC-S-005a-Leader-Election-Decision-Spike.md` (APPROVED R1, user-approved 2026-04-14) |
@@ -194,6 +194,18 @@ Panel: Sonnet-4.6, Gemini-Pro-3.1, GPT-5.3-codex. Verdicts: APPROVE WITH MINOR �
 | Gemini-F4 / F5 / F6 | Gemini | LOW / non-finding | POC n=1, `poc-r1` no-op reading, three-outcome reconcile | Non-findings — acknowledged. |
 
 Status after R1 fixes: `PROPOSED` → `APPROVED — Pending user approval` once verified in R2.
+
+### R2 (2026-04-14) — UNANIMOUS APPROVE
+
+Same panel. Verdicts: APPROVE / APPROVE / APPROVE. No CRITICAL/HIGH/MEDIUM/LOW findings. No regressions on unchanged text.
+
+| Reviewer | Verdict | R1 fixes verified | Notes |
+|---|---|---|---|
+| Sonnet-4.6 | **APPROVE** | Sonnet-F1, Sonnet-F2 both addressed via §5.2 Scope caveat + §4 caller-survey block + §6 mirrors | Surgical fixes; Delivery-level detail correctly deferred to S-005b. |
+| Gemini-Pro-3.1 | **APPROVE** | Gemini-F1 (heartbeat factual), F2 (both lock-loss handlers), F3 (false-sharing risk row) all addressed | Rewritten §4 #1 is technically accurate (KIP-62 heartbeat thread); §4 #4 matches Confluent.Kafka three-handler API; §6 row correctly scopes false-sharing as latency not safety. |
+| GPT-5.3-codex | **APPROVE** | GPT-F1 (monotonic handler binding), F2 (scope caveat), F3 (partition-count immutability) all addressed | §4 #3 converts the stale-leader-write concern into an enforceable S-005b audit obligation at the right abstraction. |
+
+No regressions. No unchanged text mined. Status transitions: `PROPOSED` → `APPROVED — Pending user approval`.
 
 ## 8. References
 
