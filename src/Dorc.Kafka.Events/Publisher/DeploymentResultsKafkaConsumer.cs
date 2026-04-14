@@ -57,7 +57,15 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         _logger = logger;
     }
 
-    public string ConsumerGroupId => $"{ConsumerGroupPrefix}.{HostInstanceId.Value}";
+    public string ConsumerGroupId { get; init; } = $"{ConsumerGroupPrefix}.{HostInstanceId.Value}";
+
+    /// <summary>
+    /// The topic the consumer subscribes to. Defaults to the production
+    /// <see cref="TopicName"/>; tests can
+    /// override via object initializer to subscribe to a unique topic for
+    /// isolation.
+    /// </summary>
+    public string TopicName { get; init; } = KafkaSubjectNames.ResultsStatusTopic;
 
     public int InsertTimeoutMs { get; init; } = 5_000;
 
@@ -67,10 +75,10 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     private void RunLoop(CancellationToken stoppingToken)
     {
         using var consumer = BuildConsumer();
-        consumer.Subscribe(KafkaSubjectNames.ResultsStatusTopic);
+        consumer.Subscribe(TopicName);
         _logger.LogInformation(
             "Kafka results-status consumer subscribed: topic={Topic} group={GroupId}",
-            KafkaSubjectNames.ResultsStatusTopic, ConsumerGroupId);
+            TopicName, ConsumerGroupId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -140,7 +148,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     {
         var entry = new KafkaErrorLogEntry
         {
-            Topic = rawRecord?.Topic ?? KafkaSubjectNames.ResultsStatusTopic,
+            Topic = rawRecord?.Topic ?? TopicName,
             Partition = rawRecord?.Partition.Value ?? -1,
             Offset = rawRecord?.Offset.Value ?? -1,
             ConsumerGroup = ConsumerGroupId,
