@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED — Pending user approval |
+| **Status** | APPROVED — Pending user approval (R3 Implementation-Discovery revision) |
 | **Author** | Claude (Opus 4.6) |
 | **Created** | 2026-04-13 |
 | **Target completion** | 2026-12-31 (per HLPS C-5) |
@@ -72,9 +72,9 @@
 
 ---
 
-### S-003 — Avro schemas for current message types + subject registration
+### S-003 — Avro schemas for the SC-3 event contracts + subject registration
 
-**What:** Define Avro schemas (via Chr.Avro generation from .NET contract types) for every message type currently carried by RabbitMQ. Implement auto-registration on producer init against the schema registry. Subject naming aligned to topic per HLPS §5.3. Document compatibility mode per subject (default BACKWARD). The PR-gate implementation may land on a separable sub-branch from schema definitions.
+**What:** Define Avro schemas (via Chr.Avro generation from .NET record types) for the SC-3-in-scope event contracts: `DeploymentRequestEventData` (→ `dorc.requests.new-value` + `dorc.requests.status-value` subjects) and `DeploymentResultEventData` (→ `dorc.results.status-value` subject). Both contracts live at `src/Dorc.Core/Models/Events/` under the `Dorc.Core.Events` namespace (see IS §6 Implementation-Discovery note). Implement auto-registration on producer init against the Karapace schema registry. Subject naming aligned to topic per HLPS §5.3 (topic + `-value` Confluent convention). Document compatibility mode per subject (default BACKWARD). A PR-gate implementation that rejects incompatible schema changes lands on the same branch and may be authored as a separable commit from the schema definitions.
 
 **Why:** HLPS C-4 (Avro mandated), SC-4 (schema registry + compatibility mode + PR gate), R-6 (schema governance).
 
@@ -82,7 +82,7 @@
 
 **Descope gate (R-4b):** Schema-governance + PR-gate must be ready by **2026-06-15**. If not, R-4(b) JSON-on-Kafka fallback is evaluated and decision recorded in IS §6. This is the dated trigger for lever (b).
 
-**Verification intent:** A producer-init integration test registers every subject against Karapace; an attempt to register an incompatible schema is rejected by the PR gate.
+**Verification intent:** A producer-init integration test registers every in-scope subject against Karapace; an attempt to register an incompatible schema is rejected by the PR gate; S-002 AT-7 (Aiven SASL/SCRAM connectivity) executes as the first entry-gate of this step if it was carried forward from S-002.
 
 ---
 
@@ -118,45 +118,64 @@
 
 ---
 
-### S-006 — Migrate Request-lifecycle pub/sub
+### S-006 — Request-lifecycle pub/sub on Kafka
 
-**What:** Port the Request-lifecycle message flow (API → Monitor and related) from RabbitMQ to Kafka. Producers set **message key = Deployment Request ID** per HLPS §5.2 / U-12. Consumers adopt manual-commit, at-least-once + idempotent handling per C-7. Wire the S-004 DAL into the consumer failure path (including the DB-unavailable structured-log fallback) for this flow. Create the Kafka topic at the placeholder name (U-10) with default **12 partitions**, RF=3, min.insync.replicas=2.
+**What:** Establish Kafka as the durable pub/sub substrate for Request-lifecycle events (API → Monitor, and API → UI via downstream projection). Per IS §6 Implementation-Discovery, Request-lifecycle events today flow via **SignalR WebSocket** (`DeploymentsHub`), not RabbitMQ, and Monitor consumes Request state by **polling the database**. This step therefore introduces a new Kafka-driven substrate rather than porting an existing Rabbit flow:
 
-A substrate-selector **feature flag** (Rabbit vs Kafka) is introduced in DOrc config to allow test-environment comparison; this is a **substrate selector, not dual-publish** — exactly one substrate is live at a time per environment, preserving HLPS §3's no-dual-broker stance. The flag and its inactive branch are both removed in S-009.
+- **Producer side (API):** Publish `DeploymentRequestEventData` onto the new Kafka topic **and** continue emitting on the existing SignalR hub. This is **dual-transport** (Kafka + SignalR), **not** dual-broker — SignalR is a WebSocket fan-out, not an authoritative broker, so HLPS §3's no-dual-broker stance is preserved. Kafka is the **authoritative** path for Monitor consumption; SignalR is kept only to preserve the UI's current real-time story until S-007 migrates the UI substrate.
+- **Consumer side (Monitor):** Subscribe to the Kafka topic and react to Request state commands. Manual-commit + idempotent handling per C-7. The legacy DB-poll path (`PendingRequestProcessor`, `DeploymentRequestStateProcessor`) is **retained as a fallback** through S-006 and is only removed in S-009 after the Rabbit / SignalR-producer code is purged — this removal is called out explicitly in S-009 below. S-006's verification intent therefore asserts *Kafka-driven consumption works end-to-end*; it does not assert DB-poll removal.
+- Producers set **message key = Deployment Request ID** per HLPS §5.2 / U-12.
+- Wire the S-004 DAL into the consumer failure path (including DB-unavailable structured-log fallback).
+- Create the Kafka topics (`dorc.requests.new`, `dorc.requests.status`) with default **12 partitions**, RF=3, min.insync.replicas=2.
+
+A DOrc config **substrate-selector feature flag** is introduced to let staging toggle between "SignalR-only" (today) and "SignalR + Kafka dual-emit" — exactly one substrate is live as the Monitor's authoritative source at a time per environment, preserving HLPS §3's no-dual-broker stance. The flag and its inactive branch are both removed in S-009.
 
 **Why:** HLPS §5.2, SC-3, C-7, U-12.
 
 **Dependencies:** S-002, S-003, S-004, S-005 ADR (so keying strategy and leader-semantics are known).
 
-**Verification intent:** End-to-end deployment test — a Request submitted via API is picked up by Monitor via Kafka, processed, and status recorded; ordering verified across a burst of status changes for a single Request; injection of a poison message for this flow produces an error-log row and offset advances.
+**Verification intent:** End-to-end deployment test — a Request submitted via API is picked up by Monitor via Kafka (not by DB poll), processed, and status recorded; ordering verified across a burst of status changes for a single Request; injection of a poison message for this flow produces an error-log row and offset advances.
 
 ---
 
-### S-007 — Migrate Status-event pub/sub
+### S-007 — Status-event pub/sub on Kafka (UI substrate migration)
 
-**What:** Port status-event pub/sub (Monitor → API / UI consumers) from RabbitMQ to Kafka. Same keying + semantics as S-006 where Request-scoped. Wire the S-004 DAL into consumer failure paths for this flow. Create Kafka topic(s) with 12 partitions default (U-10), RF=3, min.insync.replicas=2.
+**What:** Establish Kafka as the authoritative substrate for `DeploymentResultEventData` (Monitor → UI). Per IS §6 Implementation-Discovery, these events today flow via **SignalR WebSocket** (`DeploymentsHub`); this step does **not** port a Rabbit flow, it migrates the UI-facing event stream from SignalR to a Kafka-backed projection. Approach:
 
-JIT Spec must enumerate the specific status-event sub-flows migrated in this step and pick a keying strategy per sub-flow (most will naturally carry a Deployment Request ID; any that do not are selected per HLPS §5.2 addendum against SC-3).
+- **Producer side (Monitor):** Emit `DeploymentResultEventData` to the Kafka topic (`dorc.results.status`); key = Deployment Request ID per HLPS §5.2.
+- **UI-facing side:** A projection layer (API-side consumer + SignalR re-broadcast) bridges Kafka → the existing SignalR hub so the web UI keeps working unchanged during the cutover window. Removal of the SignalR re-broadcast is a post-cutover follow-up, **not** in scope of S-007 or S-009.
+
+**SC-3 interpretation (binding):** HLPS SC-3 says request / status events "function end-to-end on Kafka." HLPS §5.2 describes Kafka as the **durable pub/sub substrate**, not the UI wire transport. This IS interprets SC-3 as "Kafka is the authoritative substrate of record for request / status events"; downstream projection onto transports the UI already understands (SignalR today; anything else later) does not re-introduce a competing broker and therefore satisfies SC-3. User confirmation of this interpretation is requested at CHECKPOINT-2.
+- Wire the S-004 DAL into consumer failure paths.
+- Create Kafka topic with 12 partitions default (U-10), RF=3, min.insync.replicas=2.
 
 **Why:** HLPS §5.2, SC-3.
 
 **Dependencies:** S-002, S-003, S-004.
 
-**Verification intent:** E2E test: a deployment's status transitions appear in the UI in the same order they were emitted by Monitor; poison-message injection produces error-log row with offset advance.
+**Verification intent:** E2E test: a deployment's status transitions appear in the UI in the same order they were emitted by Monitor (via Kafka → SignalR projection); poison-message injection produces an error-log row with offset advance.
 
 ---
 
-### S-008 — Migrate DataService pub/sub (descope-last)
+### S-008 — DataService pub/sub (likely no-op; confirmation + scope decision)
 
-**What:** Port `RabbitDataService` pub/sub flows to Kafka. Per HLPS R-4(a), this is the last functional migration, giving descope headroom against the deadline. Keying strategy selected per-flow against SC-3 (DataService events likely have no natural Request ID — JIT Spec enumerates and justifies). Wire the S-004 DAL into consumer failure paths. Create topics with 12 partitions default, RF=3, min.insync.replicas=2.
+**What:** Per IS §6 Implementation-Discovery, **no `RabbitDataService` pub/sub implementation exists** in the current codebase — the type referenced by the original HLPS draft is not present. S-008's scope is therefore:
 
-**Why:** HLPS §5.2, SC-3; R-4(a) schedule-risk lever.
+1. **Confirm-and-document** the discovery with a targeted code audit at step entry. The audit must, at minimum, record:
+   - Grep results across `src/` for the patterns `RabbitDataService`, `DataService.*Queue`, `DataService.*Subscribe`, `DataService.*Publish`, `data-service.*amqp`, `IDataService.*(Publish|Subscribe|Consume)`, and any project named `*DataService*` (empty result set = pass).
+   - Inspection of `appsettings*.json` across `src/` and `install-scripts/` + any Helm chart values files for queue / exchange / routing-key entries referencing a DataService surface (empty result set = pass).
+   - A reflection sweep: instances of `Activator.CreateInstance`, `Type.GetType`, or DI open-generic registrations whose target types include a DataService name match (empty / explained = pass).
+   Each check records the exact pattern/path and raw match count. A reviewer must be able to reproduce the audit from the note alone.
+2. If confirmed empty → S-008 closes as a **no-op** delivering a short "DataService-Rabbit-absence confirmation" audit note under `docs/kafka-migration/`; no code changes.
+3. If a forgotten DataService pub/sub surface is found → the JIT Spec is authored at that point to port it; the descope gate below still applies.
 
-**Descope gate (R-4a):** If the aggregate of S-005b + S-006 + S-007 is not complete by **2026-10-15**, S-008 is deferred and rescoped: DataService remains on RabbitMQ through cutover, and the Rabbit-removal step (S-009) omits the DataService module until a post-cutover follow-up. This invokes R-4(a) as a named lever rather than a mid-flight improvisation.
+**Why:** HLPS §5.2, SC-3; R-4(a) schedule-risk lever retained as a safety net.
+
+**Descope gate (R-4a):** If the aggregate of S-005b + S-006 + S-007 is not complete by **2026-10-15**, and S-008 turns out to have non-trivial scope (case 3 above), S-008 is deferred and rescoped per R-4(a). If S-008 resolves as a no-op (case 2), R-4(a) is never triggered for it and the gate simply elapses.
 
 **Dependencies:** S-002, S-003, S-004.
 
-**Verification intent:** E2E test: DataService pub/sub paths exercise all existing subscriptions with no functional regression; poison-message injection produces error-log row with offset advance.
+**Verification intent:** Either (case 2) a published audit note verifying absence + the corresponding SC-1 grep-target narrowing; or (case 3) an E2E test of any newly-discovered DataService surface with poison-message handling.
 
 ---
 
@@ -165,7 +184,7 @@ JIT Spec must enumerate the specific status-event sub-flows migrated in this ste
 **What:** Two-phase step on the integration branch:
 
 1. **Cut and archive the `release/pre-kafka-cutover` tag** from the last green S-008 build (or S-007 if R-4(a) was invoked). This tag is the canonical rollback target per HLPS R-3 / C-9. Verify the tag deploys cleanly into staging as a standalone artifact.
-2. **Remove all RabbitMQ code**, NuGet package references, config keys, queue/exchange names, Helm/IaC references, and the substrate-selector feature flag introduced in S-006 along with its now-inactive Rabbit branch.
+2. **Remove all RabbitMQ code**, NuGet package references, config keys, queue/exchange names, Helm/IaC references, and the substrate-selector feature flag introduced in S-006 along with its now-inactive branch. Per IS §6 Implementation-Discovery, the primary Rabbit-bearing surfaces are the Monitor HA distributed-lock service (replaced in S-005) and the `Tools.RabbitMqOAuthTest` tooling project (deleted); request/status pub/sub carried no Rabbit code to remove (it ran on SignalR). The narrative removal list is illustrative — **the authoritative removal surface is whatever the S-009 Verification grep suite below identifies** (that suite is unchanged from R2 and remains SC-1's teeth).
 
 After S-009 the integration branch is Kafka-only; the only Rabbit-capable artifact is the archived tag.
 
@@ -325,3 +344,47 @@ Same panel, scoped strictly per CLAUDE.md §4 R2+ rules: verify R1 fixes, check 
 | GPT 5.3-codex | APPROVE | None | All 9 R1 findings resolved. S-013 extending into Q1 2027 is observational, not delivery — SC-6 remains bounded by S-011 and the 2026-12-31 contract. |
 
 No Critical/High/Medium/Low findings. No regressions. **Unanimous clean approval** — status transitions to `APPROVED — Pending user approval`.
+
+### R3 (2026-04-14) — Implementation-Discovery Revision — IN REVIEW
+
+**Trigger:** During S-003 JIT-Spec prep, a code-inventory sub-agent found that the current DOrc codebase diverges from the HLPS-era assumption that RabbitMQ actively carries Request/status pub/sub and that a `RabbitDataService` exists:
+
+1. **Request-lifecycle events** (`DeploymentRequestEventData` in `src/Dorc.Core/Models/Events/DeploymentRequestEventData.cs`) flow via **SignalR WebSocket** (`DeploymentsHub`), not RabbitMQ. Published by `Dorc.Api` (`RequestController`) + `Dorc.Core` (`DeployLibrary`); consumed by the web UI via `IDeploymentsEventsClient`. Monitor consumes Request state by **polling the database**, not by subscribing to any broker.
+2. **Status events** (`DeploymentResultEventData` in `src/Dorc.Core/Models/Events/DeploymentResultEventData.cs`) also flow via SignalR; same pattern.
+3. **No `RabbitDataService` implementation exists** in the codebase — zero RabbitDataService.cs / equivalent surface; no DataService queue names in config; S-008's target is absent.
+4. **Only active RabbitMQ usage** is `RabbitMqDistributedLockService` in `src/Dorc.Monitor/HighAvailability/` — the Monitor HA lock, already owned by S-005.
+
+**Impact on HLPS:** None. Target state (Kafka carrying request-lifecycle + status events under Avro + Karapace) is unchanged. SC-1..SC-8 and all constraints remain valid.
+
+**Impact on IS:** S-003 scope narrows to the 2 `Dorc.Core.Models.Events` records (both flat scalar DTOs, Avro-ready with no customisation). S-006 / S-007 reshape from "port Rabbit flow" to "introduce Kafka substrate alongside SignalR, with dual-emit during transition and SignalR projection for UI continuity." S-008 is likely a confirmed no-op delivering a short absence-confirmation note; R-4(a) descope gate is retained as a safety net only for the "discovered DataService surface" case. S-009 Rabbit-removal grep-target list is narrower: distributed-lock service + NuGet refs only (no request/status pub/sub code to remove; no DataService code to remove).
+
+**Schedule impact:** Net schedule unchanged or slightly reduced — S-003 is smaller, S-008 is likely a no-op, S-009 is narrower. S-006 / S-007 are roughly the same effort (dual-emit + projection glue offsets the absent "Rabbit code to port" saving).
+
+**R-4(b) descope-gate posture (JSON-on-Kafka):** Unchanged. 2026-06-15 trigger still applies to S-003.
+
+**R-4(a) descope-gate posture (defer DataService):** Logically dormant — S-008 lever only fires if a DataService surface is discovered.
+
+| Step | Change | Severity of change |
+|---|---|---|
+| S-003 | Scope narrowed from "every RabbitMQ message type" to the 2 identified event contracts | Refinement, not reduction |
+| S-006 | Character changed: introduce Kafka substrate (not port Rabbit); dual-emit + flag | Refinement of "what" and "how" |
+| S-007 | Character changed: Monitor→UI substrate migration via Kafka→SignalR projection; SignalR removal is post-cutover | Refinement of "what" and "how" |
+| S-008 | Likely no-op with confirmation audit; JIT Spec deferred until step entry | Scope reduction under verification |
+| S-009 | Rabbit-removal grep-target list narrowed | Scope refinement |
+
+R3 is an Adversarial-Review round targeting these revisions only. All unchanged text (S-001, S-002, S-004, S-005, S-010–S-013, §4, §4a) is accepted by prior approval and not in scope for this round.
+
+**R3 review panel (2026-04-14) — UNANIMOUS APPROVE WITH MINOR.** Panel: Claude Sonnet 4.6, Gemini Pro 3.1, GPT 5.3-codex. All three verified the factual claims against the live codebase. No HIGH/CRITICAL findings.
+
+| ID | Reviewer | Severity | Finding | Disposition |
+|---|---|---|---|---|
+| Sonnet-F1 | Sonnet | LOW | S-003 cited "`Dorc.Core.Models.Events`" namespace — actual namespace is `Dorc.Core.Events` (path `src/Dorc.Core/Models/Events/`) | **Accepted** — S-003 "What" corrected. |
+| Sonnet-F2 / Gemini-G-R3-1 | Sonnet, Gemini | LOW | S-009 narrative omits `Tools.RabbitMqOAuthTest` and install-script OAuth template entries; verification grep still catches them | **Accepted** — S-009 narrative now cites `Tools.RabbitMqOAuthTest` + one-line caveat that the grep suite is authoritative. |
+| Sonnet-F3 | Sonnet | LOW | Dual-emit framing vs no-dual-broker stance — acknowledgment only | Acknowledged — S-006 now explicitly labels the approach "dual-transport, not dual-broker." |
+| GPT-F1 | GPT | **MEDIUM** | SC-3 interpretation: S-007 leaves SignalR as UI transport indefinitely; needs explicit interpretation note + user sign-off | **Accepted** — S-007 adds a "SC-3 interpretation (binding)" paragraph citing HLPS §5.2 and flagging CHECKPOINT-2 user confirmation. |
+| GPT-F2 | GPT | **MEDIUM** | S-008 "confirmation audit" too soft — grep patterns and inspection scopes not enumerated | **Accepted** — S-008 step 1 now enumerates exact grep patterns, config/IaC paths, and a reflection sweep with reproducibility requirement. |
+| GPT-F3 | GPT | LOW | "Dual-emit" wording could read as dual-broker | **Accepted** — subsumed by Sonnet-F3 fix (explicit "dual-transport, not dual-broker"). |
+| GPT-F4 | GPT | LOW | S-006 doesn't state whether legacy DB-poll path is removed or retained | **Accepted** — S-006 now explicitly retains DB-poll as fallback through S-006, removed in S-009. |
+| Gemini-G-R3-2 | Gemini | LOW | S-008 teeth acknowledgment | Acknowledged — S-008 step 1 now explicit enough. |
+
+All MEDIUM findings resolved via surgical edits. All LOWs either accepted + subsumed or acknowledgment-only. No re-litigation of prior rounds. R3 transitions: `IN REVIEW (R3)` → `APPROVED — Pending user approval`.
