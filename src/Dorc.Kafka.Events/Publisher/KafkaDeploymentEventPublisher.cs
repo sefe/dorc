@@ -1,7 +1,6 @@
 using Confluent.Kafka;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Kafka.Client.Producers;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Kafka.Events.Publisher;
@@ -25,11 +24,11 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
     private readonly ILogger<KafkaDeploymentEventPublisher> _logger;
 
     public KafkaDeploymentEventPublisher(
-        IKafkaProducerBuilder<string, DeploymentResultEventData> resultsBuilder,
+        IProducer<string, DeploymentResultEventData> resultsProducer,
         IFallbackDeploymentEventPublisher fallback,
         ILogger<KafkaDeploymentEventPublisher> logger)
     {
-        _resultsProducer = resultsBuilder.Build("dorc-results-status-publisher");
+        _resultsProducer = resultsProducer;
         _fallback = fallback;
         _logger = logger;
     }

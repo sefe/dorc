@@ -1,5 +1,7 @@
+using Confluent.Kafka;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.Events.Publisher;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,11 +52,14 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
             return services;
 
         // --- Kafka mode ---
-        // Producer: register the Kafka publisher as THE IDeploymentEventsPublisher.
-        // Caller is responsible for registering IFallbackDeploymentEventPublisher
-        // (production wiring binds it to DirectDeploymentEventPublisher so the
-        // two request-lifecycle methods keep flowing on SignalR until S-006).
-        services.AddSingleton<KafkaDeploymentEventPublisher>();
+        // The Confluent IProducer is a singleton built once from S-002's
+        // builder; the publisher wrapping it is likewise a singleton.
+        services.TryAddSingleton<IProducer<string, DeploymentResultEventData>>(sp =>
+        {
+            var builder = sp.GetRequiredService<IKafkaProducerBuilder<string, DeploymentResultEventData>>();
+            return builder.Build("dorc-results-status-publisher");
+        });
+        services.TryAddSingleton<KafkaDeploymentEventPublisher>();
         services.Replace(ServiceDescriptor.Scoped<IDeploymentEventsPublisher>(sp =>
             sp.GetRequiredService<KafkaDeploymentEventPublisher>()));
 
@@ -74,9 +79,18 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
     {
         var raw = configuration[$"{KafkaSubstrateOptions.SectionName}:{nameof(KafkaSubstrateOptions.ResultsStatus)}"];
         if (string.IsNullOrWhiteSpace(raw)) return KafkaSubstrateMode.Direct;
-        return Enum.TryParse<KafkaSubstrateMode>(raw, ignoreCase: true, out var parsed)
-            ? parsed
-            : KafkaSubstrateMode.Direct;
+        if (!Enum.TryParse<KafkaSubstrateMode>(raw, ignoreCase: true, out var parsed)
+            || !Enum.IsDefined(typeof(KafkaSubstrateMode), parsed))
+        {
+            // .NET's config binder silently falls back on invalid enum
+            // strings; we don't — per SPEC-S-007 R-7 the substrate flag
+            // must fail at host build with the failing key named, not
+            // silently land on a default.
+            throw new InvalidOperationException(
+                $"{KafkaSubstrateOptions.SectionName}:{nameof(KafkaSubstrateOptions.ResultsStatus)}"
+                + $" has invalid value '{raw}'. Allowed: {string.Join(", ", Enum.GetNames<KafkaSubstrateMode>())}.");
+        }
+        return parsed;
     }
 
     internal sealed class DorcKafkaResultsStatusSubstrateMarker { }
