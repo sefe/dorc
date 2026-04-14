@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED — Pending user approval |
+| **Status** | APPROVED (user-approved 2026-04-14) |
 | **Author** | Claude (Opus 4.6) |
 | **Created** | 2026-04-14 |
 | **Step ID** | S-004 |

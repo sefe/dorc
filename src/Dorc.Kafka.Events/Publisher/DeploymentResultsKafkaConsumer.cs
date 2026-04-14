@@ -94,6 +94,14 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             catch (ConsumeException ex)
             {
                 HandleFailure(consumer, ex.ConsumerRecord, ex, stoppingToken);
+                // On pure transport-failure ConsumeException (no ConsumerRecord),
+                // back off briefly so a dead broker doesn't busy-spin the loop
+                // and flood the error-log DAL.
+                if (ex.ConsumerRecord is null)
+                {
+                    try { Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).Wait(stoppingToken); }
+                    catch (OperationCanceledException) { break; }
+                }
                 continue;
             }
 

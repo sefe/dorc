@@ -97,18 +97,40 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
         }
         catch (CreateTopicsException ex)
         {
-            // RF-rejection on dev (fewer brokers than requested RF) or any
-            // other broker-side validation — log and continue; producer will
-            // fail-loud on first publish if topic genuinely missing.
-            _logger.LogWarning(
-                "Kafka topic create rejected by broker: topic={Topic} reason={Reason}. Continuing; producer will fail-loud on first publish if topic is absent.",
-                topic, ex.Results[0].Error.Reason);
+            var code = ex.Results[0].Error.Code;
+            var reason = ex.Results[0].Error.Reason;
+            // Distinguish broker-side rejection classes so an ACL
+            // misconfiguration is loud (LogError), while RF-rejection on
+            // single-broker dev is expected noise (LogWarning). Either way
+            // the provisioner does NOT throw — startup continues and the
+            // producer fail-loud on first publish is the backstop.
+            if (code is ErrorCode.TopicAuthorizationFailed
+                     or ErrorCode.ClusterAuthorizationFailed)
+            {
+                _logger.LogError(
+                    "Kafka topic create denied by broker ACL: topic={Topic} code={Code} reason={Reason}. Check service-account permissions.",
+                    topic, code, reason);
+            }
+            else if (code is ErrorCode.InvalidReplicationFactor
+                          or ErrorCode.PolicyViolation)
+            {
+                _logger.LogWarning(
+                    "Kafka topic create rejected (dev-style config issue): topic={Topic} code={Code} reason={Reason}.",
+                    topic, code, reason);
+            }
+            else
+            {
+                _logger.LogError(
+                    "Kafka topic create failed: topic={Topic} code={Code} reason={Reason}.",
+                    topic, code, reason);
+            }
         }
     }
 
     private async Task VerifyPartitionCountAsync(IAdminClient admin, string topic, int expected, CancellationToken cancellationToken)
     {
-        var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(10));
+        cancellationToken.ThrowIfCancellationRequested();
+        var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(3));
         var meta = metadata.Topics.FirstOrDefault(t => t.Topic == topic);
         if (meta is null)
         {

@@ -112,13 +112,16 @@ internal sealed class S007TestHarness : IAsyncDisposable
 
     internal sealed class RecordingErrorLog : IKafkaErrorLog
     {
-        public List<KafkaErrorLogEntry> Entries { get; } = new();
+        private int _seq;
+        private readonly object _lock = new();
+        public List<(int Sequence, KafkaErrorLogEntry Entry)> Recorded { get; } = new();
+        public List<KafkaErrorLogEntry> Entries => Recorded.Select(r => r.Entry).ToList();
         public Func<KafkaErrorLogEntry, CancellationToken, Task>? InsertOverride { get; set; }
 
         public Task InsertAsync(KafkaErrorLogEntry entry, CancellationToken cancellationToken)
         {
             if (InsertOverride is not null) return InsertOverride(entry, cancellationToken);
-            Entries.Add(entry);
+            lock (_lock) Recorded.Add((Interlocked.Increment(ref _seq), entry));
             return Task.CompletedTask;
         }
 

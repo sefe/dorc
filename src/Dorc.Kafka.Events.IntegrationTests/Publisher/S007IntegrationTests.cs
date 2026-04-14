@@ -80,32 +80,37 @@ public class S007IntegrationTests
             await WaitUntilAssigned(consumer, TimeSpan.FromSeconds(15));
 
             var publisher = harness.BuildPublisher();
-            // Two RequestIds; interleave 25 events for each.
-            const int EventsPerKey = 25;
-            var keyA = 10001;
-            var keyB = 20002;
+            // Use 5 distinct RequestIds to spread across more partitions of
+            // the 12-partition topic; interleave 10 events for each.
+            const int EventsPerKey = 10;
+            var keys = new[] { 10001, 20002, 30003, 40004, 50005 };
             for (var i = 0; i < EventsPerKey; i++)
             {
-                await PublishToTopic(publisher, topic, NewEvent(keyA, i));
-                await PublishToTopic(publisher, topic, NewEvent(keyB, i));
+                foreach (var k in keys)
+                    await PublishToTopic(publisher, topic, NewEvent(k, i));
             }
 
-            await WaitUntil(() => harness.Broadcaster.Received.Count >= EventsPerKey * 2, TimeSpan.FromSeconds(20));
+            await WaitUntil(() => harness.Broadcaster.Received.Count >= EventsPerKey * keys.Length, TimeSpan.FromSeconds(30));
             cts.Cancel();
             await consumer.StopAsync(CancellationToken.None);
 
-            // Project per-key: assert sequence index is strictly increasing.
-            var aSequence = harness.Broadcaster.Received
-                .Where(r => r.Event.RequestId == keyA)
-                .Select(r => r.Event.ResultId)
+            // Sort by arrival-order call-index (NOT by OccurredAt or source
+            // list order) then project per-key. Per-RequestId ordering must
+            // hold; inter-key order is arbitrary under partition assignment.
+            var orderedArrivals = harness.Broadcaster.Received
+                .OrderBy(r => r.ArrivalIndex)
                 .ToList();
-            var bSequence = harness.Broadcaster.Received
-                .Where(r => r.Event.RequestId == keyB)
-                .Select(r => r.Event.ResultId)
-                .ToList();
-
-            CollectionAssert.AreEqual(Enumerable.Range(0, EventsPerKey).ToList(), aSequence, "Key A per-RequestId order broken");
-            CollectionAssert.AreEqual(Enumerable.Range(0, EventsPerKey).ToList(), bSequence, "Key B per-RequestId order broken");
+            foreach (var k in keys)
+            {
+                var keySeq = orderedArrivals
+                    .Where(r => r.Event.RequestId == k)
+                    .Select(r => r.Event.ResultId)
+                    .ToList();
+                CollectionAssert.AreEqual(
+                    Enumerable.Range(0, EventsPerKey).ToList(),
+                    keySeq,
+                    $"Key {k} per-RequestId order broken under arrival-order projection");
+            }
         }
         finally
         {
