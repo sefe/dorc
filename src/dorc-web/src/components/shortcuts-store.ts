@@ -47,6 +47,10 @@ export class ShortcutsStore extends LitElement {
       'environment-deleted',
       this.environmentDeleted as EventListener
     );
+    this.addEventListener(
+      'environment-renamed',
+      this.environmentRenamed as EventListener
+    );
   }
 
   environmentDeleted(e: CustomEvent) {
@@ -56,6 +60,10 @@ export class ShortcutsStore extends LitElement {
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);
+  }
+
+  environmentRenamed(e: CustomEvent) {
+    this.dorcNavbar?.renameEnvDetail(e);
   }
 
   updated() {

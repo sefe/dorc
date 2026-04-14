@@ -275,11 +275,6 @@ export class DorcNavbar extends LitElement {
       'close-project-envs',
       this.closeProjectEnvs as EventListener
     );
-    this.addEventListener(
-      'environment-renamed',
-      this.renameEnvDetail as EventListener
-    );
-
     this.loadFromEnvDetailCookie();
     this.loadFromProjEnvsCookie();
     this.loadFromMonitorResultsCookie();
