@@ -62,6 +62,15 @@ steps:
     KAFKA_BOOTSTRAP: 'localhost:9092'
 
 - script: |
+    dotnet run --project tools/schema-gate/schema-gate.csproj -- \
+      docs/kafka-migration/schemas/current \
+      docs/kafka-migration/schemas/latest \
+      http://localhost:8081
+  displayName: 'S-003 AT-5: Avro schema PR-gate (BACKWARD, live-preferred + snapshot fallback)'
+  env:
+    KAFKA_SCHEMA_REGISTRY: 'http://localhost:8081'
+
+- script: |
     podman compose -f $(composeFile) logs --no-color > $(Build.ArtifactStagingDirectory)/compose.log || true
   displayName: 'Capture compose logs (diagnostic)'
   condition: always()

@@ -22,10 +22,12 @@ namespace Dorc.Kafka.Events.Serialization;
 /// that topic is serialised to.
 /// </para>
 /// </summary>
-public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory
+public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDisposable
 {
     private readonly ISchemaRegistryClient _registry;
     private readonly HashSet<Type> _inScope;
+    private readonly List<IDisposable> _disposables = new();
+    private readonly object _disposableLock = new();
 
     public AvroKafkaSerializerFactory(
         ISchemaRegistryClient registry,
@@ -47,22 +49,57 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory
     public IDeserializer<T>? GetKeyDeserializer<T>() => null;
 
     public ISerializer<T>? GetValueSerializer<T>()
-        => _inScope.Contains(typeof(T))
-            ? new TopicDispatchingSerializer<T>(_registry)
-            : null;
+    {
+        if (!_inScope.Contains(typeof(T))) return null;
+        var serializer = new TopicDispatchingSerializer<T>(_registry);
+        lock (_disposableLock) _disposables.Add(serializer);
+        return serializer;
+    }
 
     public IDeserializer<T>? GetValueDeserializer<T>()
-        => _inScope.Contains(typeof(T))
-            ? new TopicDispatchingDeserializer<T>(_registry)
-            : null;
+    {
+        if (!_inScope.Contains(typeof(T))) return null;
+        var deserializer = new TopicDispatchingDeserializer<T>(_registry);
+        lock (_disposableLock) _disposables.Add(deserializer);
+        return deserializer;
+    }
 
-    private sealed class TopicDispatchingSerializer<T> : ISerializer<T>
+    public void Dispose()
+    {
+        List<IDisposable> snapshot;
+        lock (_disposableLock)
+        {
+            snapshot = new List<IDisposable>(_disposables);
+            _disposables.Clear();
+        }
+        foreach (var d in snapshot)
+        {
+            try { d.Dispose(); } catch { /* best-effort */ }
+        }
+    }
+
+    private sealed class TopicDispatchingSerializer<T> : ISerializer<T>, IDisposable
     {
         private readonly ISchemaRegistryClient _registry;
         private readonly Dictionary<string, ISerializer<T>> _byTopic = new();
         private readonly object _lock = new();
 
         public TopicDispatchingSerializer(ISchemaRegistryClient registry) => _registry = registry;
+
+        public void Dispose()
+        {
+            lock (_lock)
+            {
+                foreach (var inner in _byTopic.Values)
+                {
+                    if (inner is IDisposable d)
+                    {
+                        try { d.Dispose(); } catch { /* best-effort */ }
+                    }
+                }
+                _byTopic.Clear();
+            }
+        }
 
         public byte[] Serialize(T data, SerializationContext context)
         {
@@ -87,13 +124,28 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory
         }
     }
 
-    private sealed class TopicDispatchingDeserializer<T> : IDeserializer<T>
+    private sealed class TopicDispatchingDeserializer<T> : IDeserializer<T>, IDisposable
     {
         private readonly ISchemaRegistryClient _registry;
         private readonly Dictionary<string, IDeserializer<T>> _byTopic = new();
         private readonly object _lock = new();
 
         public TopicDispatchingDeserializer(ISchemaRegistryClient registry) => _registry = registry;
+
+        public void Dispose()
+        {
+            lock (_lock)
+            {
+                foreach (var inner in _byTopic.Values)
+                {
+                    if (inner is IDisposable d)
+                    {
+                        try { d.Dispose(); } catch { /* best-effort */ }
+                    }
+                }
+                _byTopic.Clear();
+            }
+        }
 
         public T Deserialize(ReadOnlySpan<byte> data, bool isNull, SerializationContext context)
         {

@@ -41,6 +41,22 @@ public class KafkaAvroServiceCollectionExtensionsTests
     }
 
     [TestMethod]
+    public void AddDorcKafkaAvro_BeforeClient_FactoryCanSerialiseInScopeType()
+    {
+        // Stronger variant of the above: prove the Avro factory is not just
+        // registered first, but is actually the one resolved and usable.
+        var services = BuildBaseServices();
+        services.AddDorcKafkaAvro(ValidConfig());
+        services.AddDorcKafkaClient(ValidConfig());
+
+        var sp = services.BuildServiceProvider();
+        var factory = sp.GetRequiredService<IKafkaSerializerFactory>();
+
+        Assert.IsNotNull(factory.GetValueSerializer<DeploymentRequestEventData>());
+        Assert.IsNull(factory.GetValueSerializer<string>());
+    }
+
+    [TestMethod]
     public void AddDorcKafkaAvro_CalledTwice_IsIdempotent()
     {
         var services = BuildBaseServices();

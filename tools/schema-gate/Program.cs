@@ -20,20 +20,28 @@ var registryUrl = args.Length > 2
 HttpClient? registryHttp = null;
 try
 {
-    registryHttp = new HttpClient
+    var probeClient = new HttpClient
     {
         BaseAddress = new Uri(registryUrl),
         Timeout = TimeSpan.FromSeconds(5)
     };
-    // Probe — if the ping fails we keep registryHttp non-null; SchemaGate will
-    // fall through to snapshot on the actual POST failure.
     using var probeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-    _ = await registryHttp.GetAsync("/subjects", probeCts.Token);
-    Console.WriteLine($"[schema-gate] Using live registry at {registryUrl}");
+    var probe = await probeClient.GetAsync("/subjects", probeCts.Token);
+    if (probe.IsSuccessStatusCode)
+    {
+        registryHttp = probeClient;
+        Console.WriteLine($"[schema-gate] Using live registry at {registryUrl}");
+    }
+    else
+    {
+        probeClient.Dispose();
+        Console.WriteLine($"[schema-gate] Live registry at {registryUrl} returned {(int)probe.StatusCode}; falling back to snapshot at {snapshotDir}.");
+    }
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"[schema-gate] Live registry at {registryUrl} unreachable: {ex.GetType().Name}; will try snapshot at {snapshotDir}.");
+    registryHttp = null;
+    Console.WriteLine($"[schema-gate] Live registry at {registryUrl} unreachable ({ex.GetType().Name}); falling back to snapshot at {snapshotDir}.");
 }
 
 var gate = new AvroSchemaGate(registryHttp, canonicalDir, Directory.Exists(snapshotDir) ? snapshotDir : null);

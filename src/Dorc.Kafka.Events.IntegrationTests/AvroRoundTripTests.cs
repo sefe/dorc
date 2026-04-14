@@ -68,6 +68,47 @@ public class AvroRoundTripTests
     }
 
     [TestMethod]
+    public async Task AT2_SubjectRegisters_ForResultEventDataToo()
+    {
+        // Literal coverage of the third subject (dorc.results.status-value) —
+        // the mechanic is covered by AT2_ProduceRegistersSubject_... but that
+        // test only exercises the request-event shape.
+        var topic = AvroKafkaTestHarness.NewTopic("at2-result");
+        var subject = topic + "-value";
+
+        await AvroKafkaTestHarness.CreateTopicAsync(topic);
+        try
+        {
+            using var registry = AvroKafkaTestHarness.BuildRegistry();
+            using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
+            var factory = AvroKafkaTestHarness.BuildFactory(registry);
+
+            using (var producer = AvroKafkaTestHarness.ProducerBuilder<DeploymentResultEventData>(factory).Build("at2-result-p"))
+            {
+                var result = await producer.ProduceAsync(topic, new Message<string, DeploymentResultEventData>
+                {
+                    Key = "42",
+                    Value = new DeploymentResultEventData(1, 42, 7, "Running", DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow)
+                });
+                Assert.AreEqual(PersistenceStatus.Persisted, result.Status);
+            }
+
+            var subjects = await http.GetStringAsync("/subjects");
+            StringAssert.Contains(subjects, subject);
+
+            var latestJson = await http.GetStringAsync($"/subjects/{subject}/versions/latest");
+            var registeredSchema = System.Text.Json.JsonDocument.Parse(latestJson)
+                .RootElement.GetProperty("schema").GetString()!;
+            AssertSchemasEquivalent(DorcEventSchemas.GenerateResultEventSchema(), registeredSchema);
+        }
+        finally
+        {
+            await AvroKafkaTestHarness.DeleteSubjectAsync(subject);
+            await AvroKafkaTestHarness.DeleteTopicAsync(topic);
+        }
+    }
+
+    [TestMethod]
     public async Task AT6_ConsumerRoundTripsAvroPayload_PropertyEqual()
     {
         var topic = AvroKafkaTestHarness.NewTopic("at6-avro");

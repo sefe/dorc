@@ -56,7 +56,10 @@ public sealed class AvroSchemaGate
             return new GateReport(GateOutcome.Fail, subject, $"Canonical schema file not found at {canonicalPath}.");
 
         var canonical = await File.ReadAllTextAsync(canonicalPath, cancellationToken);
-        if (!SchemasEquivalent(canonical, regenerated))
+        // Strict byte equality: the canonical is produced by tools/generate-schemas
+        // and must be exactly what the generator emits. Canonicalisation lives on
+        // the *registry*-returned schema (where Karapace reorders keys on storage).
+        if (!string.Equals(canonical, regenerated, StringComparison.Ordinal))
             return new GateReport(GateOutcome.Fail, subject,
                 $"Regenerated schema does not match canonical file {canonicalPath}. Run tools/generate-schemas to refresh.");
 
@@ -93,8 +96,19 @@ public sealed class AvroSchemaGate
                     "Subject not yet registered in live registry; compatibility check skipped (first version is always compatible).",
                     Source: "live");
 
+            if ((int)response.StatusCode >= 500)
+                return null; // 5xx: transient, fall through to snapshot
+
             if (!response.IsSuccessStatusCode)
-                return null; // live unreachable / transient; fall through to snapshot
+            {
+                // 4xx other than 404: the registry rejected the request itself
+                // (malformed body, validation error). Fail closed rather than
+                // falling through to a snapshot that could mask a real problem.
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                return new GateReport(GateOutcome.Fail, subject,
+                    $"Live registry rejected compatibility request ({(int)response.StatusCode}): {errorBody}",
+                    Source: "live");
+            }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var doc = JsonDocument.Parse(json);
@@ -114,6 +128,10 @@ public sealed class AvroSchemaGate
             return null;
         }
         catch (TaskCanceledException)
+        {
+            return null;
+        }
+        catch (System.Net.Sockets.SocketException)
         {
             return null;
         }

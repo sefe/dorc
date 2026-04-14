@@ -179,6 +179,8 @@ If credentials are available, a single metadata-fetch against Aiven non-prod suc
 | BACKWARD-only compatibility | §3 Out of scope | Accepted — HLPS §5.3 default; FORWARD/FULL reserved for a post-initiative runbook. |
 | PR-gate snapshot of "latest" in-repo risks drifting from Karapace reality | R-5 | Accepted — the snapshot is advisory; the authoritative check happens at subject-registration time against the live registry. |
 | Chr.Avro codegen output is schema-stable across 10.11.x patch versions | Chr.Avro semver | Accepted — package pin is at 10.11.1 per S-002 / AT-6 audit; upgrades require re-regeneration + PR-gate pass. |
+| **R-4 mapping is Type-in-scope + TopicNameStrategy, not a direct Type → Subject map.** Delivery interpretation: `AvroKafkaSerializerFactory` keeps a `HashSet<Type>` of in-scope value types; each returned serializer dispatches by `SerializationContext.Topic` → subject via Confluent TopicNameStrategy (`topic + "-value"`). `KafkaAvroOptions.SubjectOverrides` is carried in the type system but not wired through (the spec's "overridable via KafkaAvroOptions" clause is deferred until a real override need arises — if S-006 needs it, it lifts this disposition). Reason: a single CLR type (`DeploymentRequestEventData`) maps to two subjects (`dorc.requests.new-value` + `dorc.requests.status-value`), so a Type→Subject dictionary is ambiguous; per-topic dispatch is the correct shape. | §2 R-4 + Delivery phase |
+| **Snapshot-path compat fallback is byte-equality, not full Avro BACKWARD.** Delivery interpretation: when the live registry is unreachable, the gate accepts only candidates byte-identical to the committed snapshot (after JSON canonicalisation); anything else fails closed. This is **stricter** than "always enforce BACKWARD" — legitimately BACKWARD-compatible additive changes fail the snapshot path and require either a live-registry run or a dedicated snapshot-refresh PR. Rationale: no Avro compat engine ships in the S-002/S-003 dependency set; the closed posture matches the spec's "fail closed" language in R-5 step 3. If CI frequently runs offline and this becomes friction, wire an Avro compat engine into the gate as a follow-up. | §2 R-5 + Delivery phase |
 
 ---
 
@@ -210,6 +212,31 @@ Reviewers should **NOT**:
 ---
 
 ## 8. Review History
+
+### Code Review R1 (2026-04-14) — UNANIMOUS APPROVE WITH MINOR
+
+Panel: Sonnet-4.6, Gemini-Pro-3.1, GPT-5.3-codex. Diff range `cefc426a..HEAD` (5 increments). Verdicts: APPROVE WITH MINOR × 3. No HIGH/CRITICAL findings.
+
+| ID | Reviewer(s) | Severity | Finding | Disposition |
+|---|---|---|---|---|
+| Gemini-G1 / GPT-F5 | Gemini, GPT | MEDIUM | PR-gate probe-path fail-open risk: `registryHttp` non-null on probe failure; 4xx from registry treated as "transient → fall through to snapshot" | **Accepted** — probe now nulls `registryHttp` on failure; gate splits 5xx (transient, fall-through) from 4xx-other-than-404 (explicit Fail with registry error body); `SocketException` added to catch list. |
+| Gemini-G2 | Gemini | MEDIUM | Reverse DI call-order (Avro-before-Client) untested | **Accepted** — new test `AddDorcKafkaAvro_BeforeClient_FactoryCanSerialiseInScopeType` proves the Avro factory is resolvable **and usable** after both extensions run in either order. |
+| Sonnet-F1 | Sonnet | MEDIUM | Probe failure path can still throw `SocketException` past the gate | **Accepted** — subsumed by Gemini-G1 fix (probe now nulls client on failure + gate catches `SocketException`). |
+| Sonnet-F2 | Sonnet | MEDIUM | Gate canonical-match uses `SchemasEquivalent` (canonicalised); unit test uses strict string equality — semantic mismatch | **Accepted** — gate canonical check now uses strict string equality. `DorcEventSchemas` now emits canonicalised output at source, so strict equality applies everywhere and canonical `.avsc` files are human-diffable against `latest/*.avsc`. |
+| Sonnet-F3 | Sonnet | MEDIUM | `AvroKafkaSerializerFactory` cache never disposes | **Accepted** — factory implements `IDisposable`; tracks dispatchers and disposes cached Chr.Avro serializers on shutdown. |
+| Sonnet-F5 | Sonnet | MEDIUM (LOW) | PR-gate not wired into `pipelines/dorc-kafka.yml` | **Accepted** — new step `S-003 AT-5: Avro schema PR-gate (BACKWARD, live-preferred + snapshot fallback)` runs the gate against the compose-stack registry after smoke tests. |
+| GPT-F1 / Sonnet-F7 | GPT, Sonnet | MEDIUM | Spec R-4 wording says "Type → Subject map overridable via `KafkaAvroOptions`"; code uses Type-in-scope + TopicNameStrategy; `SubjectOverrides` is dead config | **Accepted** — §5 Accepted Risks now records the Delivery interpretation: a single CLR type maps to two subjects, so per-topic dispatch is the correct shape; `SubjectOverrides` is deferred as a type-system hook until a concrete override need arises. |
+| GPT-F2 | GPT | MEDIUM | AT-5 `IncompatibleChange` test covers only "add required field"; not a type-change variant | **Accepted** — new `AT5_LivePath_TypeChange_FailsAsBackwardIncompatible` test covers a type change (int → string on `RequestId`). Two independent BACKWARD-break shapes now proven. |
+| GPT-F3 | GPT | MEDIUM | Snapshot-path byte-equality is stricter than spec's "always enforce BACKWARD" — BACKWARD-valid additive changes fail | **Accepted** — §5 Accepted Risks now records the stricter interpretation (fail closed) as intentional, with follow-up to wire an Avro compat engine if offline friction appears. |
+| GPT-F4 | GPT | LOW | AT-2 literal enumeration covers `DeploymentRequestEventData` only | **Accepted** — new `AT2_SubjectRegisters_ForResultEventDataToo` covers the third subject. |
+| Gemini-G3 | Gemini | LOW | `TopicDispatchingSerializer.GetOrCreate` holds `_lock` across sync-wait on registry | Defer to Delivery — low-contention topology (few topics, one first-use per topic); per-topic `Lazy<Task<>>` is a future perf polish. |
+| Gemini-G4 / Sonnet-F6 | Gemini, Sonnet | LOW | `tools/generate-schemas` used relative `..` hops; inconsistent with the other two tools | **Accepted** — `generate-schemas` now uses the same `RepoRoot()` walk as `schema-gate` and `snapshot-schemas`. |
+| Gemini-G5 | Gemini | LOW | `generate-schemas` wrote Chr.Avro natural-order; `snapshot-schemas` wrote canonicalised — spurious diff noise | **Accepted** — `DorcEventSchemas` now emits canonicalised by default; canonical + latest files are byte-diffable. |
+| Sonnet-F4 | Sonnet | LOW | R-3 warning-path (mismatched registry mode) not covered by a test | Defer to Delivery — the happy path is sufficient for AT-3; warning emission is covered by spec text and is operator-facing. |
+
+All 9 MEDIUM findings accepted and fixed. LOW items mostly accepted; 2 deferred with documented rationale. All fixes surgical; no scope expansion. Totals after fixes: **20 unit + 9 integration tests green**.
+
+Per CLAUDE.md §4: three APPROVE-tier verdicts with all MEDIUMs resolved = **unanimous approval** of the S-003 code diff. S-003 is complete pending the AT-7 carry-forward (Aiven SASL/SCRAM credentials, hard-date 2026-05-01).
 
 ### R1 (2026-04-14) — UNANIMOUS APPROVE WITH MINOR
 

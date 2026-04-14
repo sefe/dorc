@@ -90,6 +90,41 @@ public class SchemaGateIntegrationTests
     }
 
     [TestMethod]
+    public async Task AT5_LivePath_TypeChange_FailsAsBackwardIncompatible()
+    {
+        // Complementary to AT5_LivePath_IncompatibleChange_...: a type change
+        // (int → string on RequestId) is a different flavour of BACKWARD-break
+        // than adding a required field. Together they demonstrate the gate
+        // catches both shapes the spec's AT-5 alludes to.
+        var topic = AvroKafkaTestHarness.NewTopic("gate-typechange");
+        var subject = topic + "-value";
+        await AvroKafkaTestHarness.CreateTopicAsync(topic);
+        try
+        {
+            await ProduceBaselineAsync(topic);
+
+            var breakingType = """
+            {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"string"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"}]}
+            """.Trim();
+            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, $"{subject}.avsc"), breakingType);
+
+            using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
+            var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+            var report = await gate.CheckSubjectAsync(subject, breakingType, CancellationToken.None);
+
+            Assert.AreEqual(GateOutcome.Fail, report.Outcome);
+            Assert.AreEqual("live", report.Source);
+            Assert.AreEqual(subject, report.Subject);
+            StringAssert.Contains(report.Message, "BACKWARD incompatibility");
+        }
+        finally
+        {
+            await AvroKafkaTestHarness.DeleteSubjectAsync(subject);
+            await AvroKafkaTestHarness.DeleteTopicAsync(topic);
+        }
+    }
+
+    [TestMethod]
     public async Task AT5_LivePath_CompatibleAdditionWithDefault_Passes()
     {
         var topic = AvroKafkaTestHarness.NewTopic("gate-additive");
