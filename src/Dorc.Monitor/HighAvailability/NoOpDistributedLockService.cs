@@ -1,3 +1,5 @@
+using Dorc.Core.HighAvailability;
+
 namespace Dorc.Monitor.HighAvailability
 {
     /// <summary>

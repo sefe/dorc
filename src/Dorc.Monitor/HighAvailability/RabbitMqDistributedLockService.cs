@@ -1,3 +1,4 @@
+using Dorc.Core.HighAvailability;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;

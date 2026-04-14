@@ -14,6 +14,9 @@ public sealed class KafkaSubstrateOptionsValidator : IValidateOptions<KafkaSubst
         if (!Enum.IsDefined(typeof(KafkaSubstrateMode), options.RequestLifecycle))
             errors.Add($"{KafkaSubstrateOptions.SectionName}:{nameof(KafkaSubstrateOptions.RequestLifecycle)} must be a defined {nameof(KafkaSubstrateMode)} value.");
 
+        if (!Enum.IsDefined(typeof(KafkaSubstrateMode), options.DistributedLock))
+            errors.Add($"{KafkaSubstrateOptions.SectionName}:{nameof(KafkaSubstrateOptions.DistributedLock)} must be a defined {nameof(KafkaSubstrateMode)} value.");
+
         if (options.ResultsStatusReplicationFactor < 1)
             errors.Add($"{KafkaSubstrateOptions.SectionName}:{nameof(KafkaSubstrateOptions.ResultsStatusReplicationFactor)} must be >= 1.");
 

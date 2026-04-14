@@ -39,4 +39,12 @@ public sealed class KafkaSubstrateOptions
     /// dev compose overrides to 1.
     /// </summary>
     public short ResultsStatusReplicationFactor { get; set; } = 3;
+
+    /// <summary>
+    /// Substrate selector for the distributed-lock service used by Dorc.Monitor.
+    /// S-005b owns this slot. Default <see cref="KafkaSubstrateMode.Direct"/>
+    /// retains the upstream-registered implementation (RabbitMQ); <see cref="KafkaSubstrateMode.Kafka"/>
+    /// replaces it with the consumer-group-partition-ownership implementation.
+    /// </summary>
+    public KafkaSubstrateMode DistributedLock { get; set; } = KafkaSubstrateMode.Direct;
 }

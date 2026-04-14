@@ -3,6 +3,7 @@ using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
+using Dorc.Core.HighAvailability;
 using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;

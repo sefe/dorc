@@ -1,3 +1,4 @@
+using Dorc.Core.HighAvailability;
 using Dorc.Monitor.HighAvailability;
 using Microsoft.Extensions.Logging;
 using NSubstitute;

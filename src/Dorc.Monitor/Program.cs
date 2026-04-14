@@ -6,6 +6,8 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
+using Dorc.Core.HighAvailability;
+using Dorc.Kafka.Lock.DependencyInjection;
 using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
@@ -85,6 +87,12 @@ builder.Services.AddTransient<ScriptDispatcher>();
 
 // Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
 builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
+
+// SPEC-S-005b: Kafka-based distributed lock substrate. When
+// Kafka:Substrate:DistributedLock == Kafka, this replaces the registration
+// above with KafkaDistributedLockService + KafkaLockCoordinator (hosted).
+// Default Direct keeps the RabbitMQ registration unchanged.
+builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
 
 PersistentSourcesRegistry.Register(builder.Services);
 
