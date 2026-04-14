@@ -1,3 +1,5 @@
+using Confluent.Kafka;
+using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Lock.Configuration;
@@ -24,6 +26,28 @@ internal sealed class HAHarness : IAsyncDisposable
         _topic = topic;
         _groupId = groupId;
         _partitionCount = partitionCount;
+    }
+
+    public async Task EnsureTopicAsync()
+    {
+        var adminConfig = new AdminClientConfig { BootstrapServers = HATestPrereq.Bootstrap };
+        if (HATestPrereq.SaslUser is not null)
+        {
+            adminConfig.SecurityProtocol = SecurityProtocol.SaslSsl;
+            adminConfig.SaslMechanism = SaslMechanism.ScramSha256;
+            adminConfig.SaslUsername = HATestPrereq.SaslUser;
+            adminConfig.SaslPassword = HATestPrereq.SaslPass;
+            if (!string.IsNullOrWhiteSpace(HATestPrereq.SaslCa)) adminConfig.SslCaLocation = HATestPrereq.SaslCa;
+        }
+        using var admin = new AdminClientBuilder(adminConfig).Build();
+        try
+        {
+            await admin.CreateTopicsAsync(new[] { new TopicSpecification
+            {
+                Name = _topic, NumPartitions = _partitionCount, ReplicationFactor = 1
+            }});
+        }
+        catch (CreateTopicsException ex) when (ex.Results[0].Error.Code == ErrorCode.TopicAlreadyExists) { }
     }
 
     public async Task<(KafkaLockCoordinator Coord, KafkaDistributedLockService Svc)> AddCandidateAsync()

@@ -22,12 +22,13 @@ public class HAScenarioTests
     {
         HATestPrereq.SkipIfDisabled();
         await using var h = new HAHarness(UniqueTopic("sc2a"), UniqueGroup("sc2a"), partitionCount: 3);
+        await h.EnsureTopicAsync();
 
         var (c1, s1) = await h.AddCandidateAsync();
         var (c2, s2) = await h.AddCandidateAsync();
 
-        // Wait briefly for rebalance to spread partitions.
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        // Wait for initial rebalance to spread partitions.
+        await Task.Delay(TimeSpan.FromSeconds(15));
 
         var resourceKey = "env:Production";
         var l1 = await s1.TryAcquireLockAsync(resourceKey, 20_000, CancellationToken.None);
@@ -54,9 +55,10 @@ public class HAScenarioTests
     {
         HATestPrereq.SkipIfDisabled();
         await using var h = new HAHarness(UniqueTopic("sc2b"), UniqueGroup("sc2b"), partitionCount: 3);
+        await h.EnsureTopicAsync();
         var (c1, s1) = await h.AddCandidateAsync();
         var (c2, s2) = await h.AddCandidateAsync();
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        await Task.Delay(TimeSpan.FromSeconds(15));
 
         var key = "env:Staging";
         var original = await s1.TryAcquireLockAsync(key, 20_000, CancellationToken.None);
@@ -82,6 +84,7 @@ public class HAScenarioTests
     {
         HATestPrereq.SkipIfDisabled();
         await using var h = new HAHarness(UniqueTopic("sc2c"), UniqueGroup("sc2c"), partitionCount: 3);
+        await h.EnsureTopicAsync();
 
         var connStr = $"DataSource=file:ha-{Guid.NewGuid():N}?mode=memory&cache=shared";
         using var keeper = new SqliteConnection(connStr);
