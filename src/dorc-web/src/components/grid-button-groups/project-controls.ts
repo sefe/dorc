@@ -92,7 +92,7 @@ export class ProjectControls extends LitElement {
       {
         component: this.createTriggerButton(),
         children: this.menuActions.map(action => ({
-          text: action.eventName,
+          text: action.text,
           component: this.createMenuItem(action)
         }))
       }
@@ -102,7 +102,7 @@ export class ProjectControls extends LitElement {
   render() {
     return html`
       <vaadin-menu-bar
-        theme="icon tertiary small"
+        theme="icon small"
         .items="${this.menuItems}"
         @item-selected="${this.onItemSelected}"
       ></vaadin-menu-bar>
@@ -115,42 +115,42 @@ export class ProjectControls extends LitElement {
     item.setAttribute('title', 'Project actions');
     const icon = document.createElement('vaadin-icon');
     icon.setAttribute('icon', 'vaadin:ellipsis-dots-h');
-    icon.style.color = 'var(--dorc-link-color)';
     item.appendChild(icon);
     return item;
   }
 
   private createMenuItem(action: ActionMenuItem): HTMLElement {
-    const item = document.createElement('vaadin-menu-bar-item');
-    item.style.display = 'flex';
-    item.style.alignItems = 'center';
-    item.style.gap = '8px';
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.gap = '8px';
+    wrapper.setAttribute('data-event', action.eventName);
 
     const icon = document.createElement('vaadin-icon');
     icon.setAttribute('icon', action.icon);
     icon.style.width = '18px';
     icon.style.height = '18px';
-    icon.style.color = action.isDelete
-      ? 'var(--dorc-error-color)'
-      : 'var(--dorc-link-color)';
-    item.appendChild(icon);
+    if (action.isDelete) {
+      icon.style.color = 'var(--dorc-error-color)';
+    }
+    wrapper.appendChild(icon);
 
     const label = document.createElement('span');
     label.textContent = action.text;
     if (action.isDelete) {
       label.style.color = 'var(--dorc-error-color)';
     }
-    item.appendChild(label);
+    wrapper.appendChild(label);
 
-    return item;
+    return wrapper;
   }
 
   private onItemSelected(e: MenuBarItemSelectedEvent) {
     const selectedItem = e.detail.value as { text?: string };
-    const eventName = selectedItem?.text;
-    if (!eventName) return;
+    const text = selectedItem?.text;
+    if (!text) return;
 
-    const action = this.menuActions.find(a => a.eventName === eventName);
+    const action = this.menuActions.find(a => a.text === text);
     if (!action) return;
 
     this.dispatchEvent(
