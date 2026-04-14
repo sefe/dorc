@@ -318,3 +318,17 @@ Panel (diff `872ebfe1..HEAD`): Sonnet-4.6, Gemini-Pro-3.1, GPT-5.3-codex. All th
 | GPT-F5 | GPT | LOW | Dead parameter in `PublishToTopic` test helper | Defer — internal test helper; aesthetic only. |
 
 All CRITICAL + HIGH + relevant MEDIUM findings addressed via surgical edits; LOWs deferred to Delivery or acknowledged. Re-submitting for R2.
+
+### Code Review R2 (2026-04-14) — UNANIMOUS APPROVE
+
+Panel: Sonnet-4.6, Gemini-Pro-3.1, GPT-5.3-codex. Diff range `872ebfe1..HEAD`. All three verdicts: **APPROVE**. R1 CRITICAL + HIGH + MEDIUM findings verified fixed; no regressions.
+
+| Reviewer | Verdict | R1 fixes verified | Notes |
+|---|---|---|---|
+| Sonnet-4.6 | **APPROVE** | Shared CRITICAL + all own R1 findings | Substrate flag is now a live switch; provisioner error discrimination correct; AT-3 multi-key + OrderBy(ArrivalIndex) defeats batch-reorder attack. Super-degraded test's duplicated-shape acknowledged as accepted risk per GPT-F3 Defer. |
+| Gemini-Pro-3.1 | **APPROVE** | G1–G5 all fixed | Program.cs wiring deterministic; concrete DirectDeploymentEventPublisher separate from interface mapping so Fallback adapter resolves; provisioner ACL/RF split + cancellation honoured. Minor residual on `CreateTopicsAsync` no-CT overload is Confluent Admin API constraint, not a defect. |
+| GPT-5.3-codex | **APPROVE** | F1–F4 fixed; F3/F5/F6 Defer accepted | Production `WriteErrorLogAndCommit` is linear: `InsertAsync` awaited in same method scope as `Commit()` that follows at line 229 — commit-interceptor wiring would add test surface without buying correctness. F-3 deferral defensible by inspection. |
+
+No Critical/High/Medium/Low findings. No regressions. **Unanimous clean approval.** Status: S-007 code review **complete**.
+
+S-007 delivery state: spec APPROVED R2 (user-approved 2026-04-14); code R2 unanimous APPROVE; 30 unit + 14 integration tests green; PR #611 reflects all of it. Remaining: user sign-off before flipping staging to `Kafka:Substrate:ResultsStatus = Kafka`.
