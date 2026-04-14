@@ -92,8 +92,8 @@ export class ProjectControls extends LitElement {
       {
         component: this.createTriggerButton(),
         children: this.menuActions.map(action => ({
-          text: action.text,
-          component: this.createMenuItem(action)
+          component: this.createMenuItem(action),
+          eventName: action.eventName
         }))
       }
     ];
@@ -146,11 +146,11 @@ export class ProjectControls extends LitElement {
   }
 
   private onItemSelected(e: MenuBarItemSelectedEvent) {
-    const selectedItem = e.detail.value as { text?: string };
-    const text = selectedItem?.text;
-    if (!text) return;
+    const selectedItem = e.detail.value as { eventName?: string };
+    const eventName = selectedItem?.eventName;
+    if (!eventName) return;
 
-    const action = this.menuActions.find(a => a.text === text);
+    const action = this.menuActions.find(a => a.eventName === eventName);
     if (!action) return;
 
     this.dispatchEvent(
