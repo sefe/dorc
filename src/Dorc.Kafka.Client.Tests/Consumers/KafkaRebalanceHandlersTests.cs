@@ -86,6 +86,34 @@ public class KafkaRebalanceHandlersTests
     }
 
     [TestMethod]
+    public void OnPartitionsAssigned_AssignmentAlreadyIncludesIncoming_NoDuplicateInAll()
+    {
+        // R-4 robustness: if a future librdkafka version exposes Assignment post-merge,
+        // the rendered 'all' set must still be the correct post-assignment set, not a
+        // double-counted view.
+        var logger = new CapturingLogger();
+        var handlers = new KafkaRebalanceHandlers<string, byte[]>(logger, "monitor-overlap");
+        var existing = new[]
+        {
+            new TopicPartition(Topic, 0),
+            new TopicPartition(Topic, 1),
+            new TopicPartition(Topic, 2)
+        };
+        var consumer = new StubConsumer<string, byte[]>(existing);
+        var incoming = new List<TopicPartition>
+        {
+            new(Topic, 1),  // already in Assignment
+            new(Topic, 2)   // already in Assignment
+        };
+
+        handlers.OnPartitionsAssigned(consumer, incoming);
+
+        var entry = logger.Entries.Single();
+        Assert.AreEqual("1,2", entry.Properties["AssignedPartitions"]);
+        Assert.AreEqual("0,1,2", entry.Properties["AllPartitions"]);
+    }
+
+    [TestMethod]
     public void OnPartitionsAssigned_EmptyDelta_StillLogsWithShape()
     {
         // Cooperative-sticky edge case covered in AT-3: empty deltas are permitted

@@ -242,3 +242,24 @@ Panel: Claude Sonnet 4.6, Gemini Pro 3.1, GPT 5.3-codex. Verdicts: APPROVE WITH 
 All MEDIUM findings accepted and resolved via surgical edits. 6 LOWs accepted (mostly subsumed); 5 LOWs deferred to Delivery per CLAUDE.md §4 dispositions. No text material to a code-correctness concern remains unaddressed.
 
 Per CLAUDE.md §4, three APPROVE-tier verdicts with no HIGH/CRITICAL constitute **unanimous approval**. Status transitions: `IN REVIEW (R1)` → `APPROVED — Pending user approval`.
+
+### Code Review — R1 (2026-04-14) — UNANIMOUS APPROVE WITH MINOR
+
+Panel: Claude Sonnet 4.6, Gemini Pro 3.1, GPT 5.3-codex. Diff range: `cd0e03fc..HEAD` (8 commits, all S-002 execution). Verdicts: APPROVE WITH MINOR × 3. No HIGH/CRITICAL findings.
+
+| ID | Reviewer | Severity | Finding | Disposition |
+|---|---|---|---|---|
+| S46-F1 / G3.1 / GPT-2 | Sonnet, Gemini, GPT | **MEDIUM** (×2) / LOW (×1) | `OnPartitionsAssigned` `.Concat()` double-counts if a future librdkafka version merges incoming partitions into `Assignment` before the callback fires | **Accepted** — `Concat` → `Union` + `OrderBy` so the rendered post-assignment set is stable across librdkafka versions. New unit test `OnPartitionsAssigned_AssignmentAlreadyIncludesIncoming_NoDuplicateInAll` covers the overlap path. |
+| S46-F2 | Sonnet | LOW | Nested options types are public mutable; no `init` accessors | Defer to Delivery — no spec violation. |
+| S46-F3 / GPT-1 | Sonnet, GPT | LOW | AT-2 resume test could additionally assert `{1}` is not redelivered | Defer to Delivery — synchronous `Commit` is sufficient; AT-2 wording satisfied. |
+| S46-F4 / G3.3 | Sonnet, Gemini | LOW | AT-3 live test *could* be flaky under cooperative-sticky if the second rebalance is lazy | Defer to Delivery — if CI flakes, extend pump window; spec AT-3 explicitly permits empty deltas. |
+| S46-F5 / G3.6 | Sonnet, Gemini | LOW | `WithEnvelope` is non-idempotent if called twice on same `Message` | Defer to Delivery — opt-in API; idempotency not in R-6. |
+| S46-F6 | Sonnet | LOW | Per-component `EnableAutoCommit`/`AutoOffsetReset` overrides not exposed on `GetConsumerConfig` | Defer to Delivery — no S-002 consumer needs them; S-005/S-006 can extend. |
+| S46-F7 / GPT-5 | Sonnet, GPT | LOW | License-audit method is manual `nuspec` cross-reference, relies on local NuGet cache | Defer to Delivery — AT-6 explicitly leaves method as a Delivery-phase choice. |
+| G3.2 | Gemini | LOW | Partition numbers rendered by raw value; multi-topic consumers produce ambiguous integers | Defer to S-005 — §4.3 mandates partition-number lists; operational nuance for multi-topic consumers noted. |
+| G3.4 | Gemini | LOW | `DeleteTopicAsync` swallows exceptions silently | Defer to Delivery — transient compose stack; log-on-failure is a nice-to-have. |
+| G3.5 | Gemini | LOW | AT-2 phase-1 consumer has redundant `Close()` + `Dispose()` | Defer to Delivery — tolerated by Confluent.Kafka. |
+| GPT-3 | GPT | LOW | `DefaultKafkaSerializerFactory` returns null for arbitrary `TValue`; `Build()` throws at construction for non-primitives | Defer to S-003 — S-003 ships the Avro factory; the extension point is in place. |
+| GPT-4 | GPT | LOW | DI marker idempotency doesn't prevent clobber of pre-registered `IKafkaSerializerFactory` | No change — `TryAddSingleton` preserves pre-existing registrations; this is the intended override path for S-003. |
+
+One MEDIUM accepted and fixed (one-line code change + one unit test). All LOWs dispositioned. Per CLAUDE.md §4, three APPROVE-tier verdicts with the only MEDIUM resolved constitutes **unanimous approval of the code diff**. S-002 is complete pending the AT-7 carry-forward (Aiven credentials, hard-date 2026-05-01).

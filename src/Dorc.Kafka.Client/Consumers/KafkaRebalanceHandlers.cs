@@ -24,11 +24,18 @@ public sealed class KafkaRebalanceHandlers<TKey, TValue>
 
     public void OnPartitionsAssigned(IConsumer<TKey, TValue> consumer, List<TopicPartition> partitions)
     {
+        // Use Union so the rendered post-assignment set is correct regardless of whether
+        // librdkafka has merged the incoming partitions into Assignment by the time the
+        // callback fires (the behaviour is version-sensitive).
+        var all = consumer.Assignment
+            .Union(partitions)
+            .Select(p => p.Partition.Value)
+            .OrderBy(v => v);
         _logger.LogInformation(
             "Kafka consumer '{ConsumerName}' partitions incrementally assigned: [{AssignedPartitions}], all: [{AllPartitions}]",
             _consumerName,
             string.Join(",", partitions.Select(p => p.Partition.Value)),
-            string.Join(",", consumer.Assignment.Concat(partitions).Select(p => p.Partition.Value)));
+            string.Join(",", all));
     }
 
     public void OnPartitionsRevoked(IConsumer<TKey, TValue> consumer, List<TopicPartitionOffset> partitions)
