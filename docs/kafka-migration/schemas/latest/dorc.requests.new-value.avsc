@@ -1,0 +1,1 @@
+{"fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"int"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"}],"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record"}
