@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED — Pending user approval (R2 unanimous 2026-04-14) |
+| **Status** | APPROVED (user-approved 2026-04-14; R2 unanimous adversarial panel) |
 | **Author** | Claude (Opus 4.6) |
 | **Date** | 2026-04-14 |
 | **Governing Spec** | `SPEC-S-005a-Leader-Election-Decision-Spike.md` (APPROVED R1, user-approved 2026-04-14) |
