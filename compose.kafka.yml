@@ -23,11 +23,14 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:${KAFKA_PORT:-9092}
+      # Two listeners: INTERNAL for container-to-container (kafka:29092), EXTERNAL for host (localhost:9092).
+      # Karapace, kafka-ui, and any other compose-internal client must use INTERNAL; host-side tests use EXTERNAL.
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -44,7 +47,7 @@ services:
       start_period: 15s
 
   karapace:
-    image: ghcr.io/aiven-open/karapace:3.11.1
+    image: ghcr.io/aiven-open/karapace:4.1.1
     container_name: dorc-karapace
     depends_on:
       kafka:
@@ -52,7 +55,7 @@ services:
     ports:
       - "${KARAPACE_PORT:-8081}:8081"
     environment:
-      KARAPACE_BOOTSTRAP_URI: kafka:9092
+      KARAPACE_BOOTSTRAP_URI: kafka:29092
       KARAPACE_HOST: 0.0.0.0
       KARAPACE_PORT: 8081
       KARAPACE_ADVERTISED_HOSTNAME: karapace
@@ -64,7 +67,7 @@ services:
       KARAPACE_COMPATIBILITY: BACKWARD
     command: ["/opt/karapace/start.sh", "registry"]
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8081/subjects"]
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8081/subjects',timeout=3); sys.exit(0 if r.status==200 else 1)"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -82,7 +85,7 @@ services:
       - "${KAFKA_UI_PORT:-8080}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: dorc-local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://karapace:8081
       DYNAMIC_CONFIG_ENABLED: "true"
     profiles: ["ui"]
