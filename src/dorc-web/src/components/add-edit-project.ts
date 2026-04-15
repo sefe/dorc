@@ -334,6 +334,7 @@ export class AddEditProject extends LitElement {
 
       model.ArtefactsUrl = data.target.value;
       this._project = model;
+      this._validateUrlForProvider();
       this._inputValueChanged();
     }
   }
@@ -365,8 +366,45 @@ export class AddEditProject extends LitElement {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
       model.SourceControlType = newValue as any;
       this._project = model;
+      this._validateUrlForProvider();
       this.requestUpdate();
     }
+  }
+
+  private _validateUrlForProvider() {
+    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
+    if (!urlField) return;
+
+    const url = (this._project?.ArtefactsUrl ?? '').trim().toLowerCase();
+    const provider = String(this._project?.SourceControlType ?? 'AzureDevOps');
+
+    if (!url) {
+      urlField.errorMessage = '';
+      urlField.invalid = false;
+      return;
+    }
+
+    const isGitHubUrl = url.includes('github.com') || url.includes('/repos/');
+    const isFileUrl = url.startsWith('file:') || url.startsWith('\\\\');
+    const isDevOpsUrl = url.includes('dev.azure.com') || url.includes('visualstudio.com') || url.includes('tfs');
+
+    let error = '';
+
+    if (provider === 'GitHub' && !isGitHubUrl && !isFileUrl) {
+      if (isDevOpsUrl) {
+        error = 'This looks like an Azure DevOps URL. Change the provider or use a GitHub API URL.';
+      }
+    } else if (provider === 'AzureDevOps' && isGitHubUrl) {
+      error = 'This looks like a GitHub URL. Change the provider to GitHub or use an Azure DevOps URL.';
+    } else if (provider === 'FileShare' && !isFileUrl) {
+      if (isGitHubUrl || isDevOpsUrl) {
+        error = 'FileShare projects require a file:// path, not a web URL.';
+      }
+    }
+
+    urlField.errorMessage = error;
+    urlField.invalid = !!error;
+    this._canSubmit();
   }
 
   _checkName(data: string) {
@@ -412,7 +450,9 @@ export class AddEditProject extends LitElement {
   }
 
   _canSubmit() {
-    this.canSubmit = this.projValid && this.isNameValid && !this.isBusy;
+    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
+    const urlValid = !urlField?.invalid;
+    this.canSubmit = this.projValid && this.isNameValid && urlValid && !this.isBusy;
   }
 
   _submit() {
