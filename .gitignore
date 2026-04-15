@@ -383,7 +383,4 @@ GitExtensions.settings.backup
 
 src/.NCrunch_Dorc/
 .idea
-/src/dorc/src/Tests.Acceptance/Features/*.cs
-
-# Local appsettings (may contain secrets via 1Password references)
-src/Dorc.Api/appsettings.json
+/src/dorc/src/Tests.Acceptance/Features/*.cs 
