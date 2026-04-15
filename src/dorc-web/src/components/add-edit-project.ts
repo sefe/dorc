@@ -375,7 +375,7 @@ export class AddEditProject extends LitElement {
     const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
     if (!urlField) return;
 
-    const url = (this._project?.ArtefactsUrl ?? '').trim().toLowerCase();
+    const url = (this._project?.ArtefactsUrl ?? '').trim();
     const provider = String(this._project?.SourceControlType ?? 'AzureDevOps');
 
     if (!url) {
@@ -384,20 +384,35 @@ export class AddEditProject extends LitElement {
       return;
     }
 
-    const isGitHubUrl = url.includes('github.com') || url.includes('/repos/');
-    const isFileUrl = url.startsWith('file:') || url.startsWith('\\\\');
-    const isDevOpsUrl = url.includes('dev.azure.com') || url.includes('visualstudio.com') || url.includes('tfs');
+    const isFileUrl = url.toLowerCase().startsWith('file:') || url.startsWith('\\\\');
+
+    let hostname = '';
+    if (!isFileUrl) {
+      try {
+        hostname = new URL(url).hostname.toLowerCase();
+      } catch {
+        // Not a valid URL yet — skip validation until it is
+        urlField.errorMessage = '';
+        urlField.invalid = false;
+        return;
+      }
+    }
+
+    const isGitHubHost = hostname.endsWith('github.com');
+    const isDevOpsHost = hostname.endsWith('dev.azure.com') ||
+      hostname.endsWith('visualstudio.com') ||
+      hostname.endsWith('.tfs.') || hostname === 'tfs';
 
     let error = '';
 
-    if (provider === 'GitHub' && !isGitHubUrl && !isFileUrl) {
-      if (isDevOpsUrl) {
+    if (provider === 'GitHub' && !isGitHubHost && !isFileUrl) {
+      if (isDevOpsHost) {
         error = 'This looks like an Azure DevOps URL. Change the provider or use a GitHub API URL.';
       }
-    } else if (provider === 'AzureDevOps' && isGitHubUrl) {
+    } else if (provider === 'AzureDevOps' && isGitHubHost) {
       error = 'This looks like a GitHub URL. Change the provider to GitHub or use an Azure DevOps URL.';
     } else if (provider === 'FileShare' && !isFileUrl) {
-      if (isGitHubUrl || isDevOpsUrl) {
+      if (isGitHubHost || isDevOpsHost) {
         error = 'FileShare projects require a file:// path, not a web URL.';
       }
     }
