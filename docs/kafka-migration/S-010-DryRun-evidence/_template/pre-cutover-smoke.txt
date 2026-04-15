@@ -1,0 +1,29 @@
+# Pre-cutover smoke transcript template
+# Fill in at dry-run time. One PASS/FAIL line per ST per host.
+
+# ST-1 API health
+[YYYY-MM-DDTHH:MM:SSZ] ST-1 PASS host=<api-host> http_status=200 build=<build-number> duration_ms=<n>
+
+# ST-2 Monitor service running
+[YYYY-MM-DDTHH:MM:SSZ] ST-2 PASS host=<monitor-host> service=DeploymentActionService<env> status=Running
+
+# ST-3 Kafka lock coordinator joined
+[YYYY-MM-DDTHH:MM:SSZ] ST-3 PASS host=<monitor-host> log_line="KafkaLockCoordinator subscribed: ..."
+[YYYY-MM-DDTHH:MM:SSZ] ST-3 PASS host=<monitor-host> log_line="partitions incrementally assigned: ..."
+
+# ST-4 synthetic deployment
+[YYYY-MM-DDTHH:MM:SSZ] ST-4 PASS request_id=<id> final_status=Complete duration_s=<n>
+
+# ST-5 SignalR live UI
+[YYYY-MM-DDTHH:MM:SSZ] ST-5 PASS request_id=<id> ui_observed_status=Complete latency_ms=<n>
+
+# ST-6 Avro schema resolution observability (warn-only)
+[YYYY-MM-DDTHH:MM:SSZ] ST-6 PASS subject=dorc.results.status-value kind=serializer
+[YYYY-MM-DDTHH:MM:SSZ] ST-6 PASS subject=dorc.results.status-value kind=deserializer
+[YYYY-MM-DDTHH:MM:SSZ] ST-6 PASS subject=dorc.requests.new-value kind=serializer
+[YYYY-MM-DDTHH:MM:SSZ] ST-6 PASS subject=dorc.requests.new-value kind=deserializer
+[YYYY-MM-DDTHH:MM:SSZ] ST-6 PASS subject=dorc.requests.status-value kind=serializer
+[YYYY-MM-DDTHH:MM:SSZ] ST-6 PASS subject=dorc.requests.status-value kind=deserializer
+
+# ST-7 KafkaErrorLog empty
+[YYYY-MM-DDTHH:MM:SSZ] ST-7 PASS row_count=0

@@ -1,0 +1,13 @@
+# Cutover wall-clock transcript template
+# One line per §3 row. Cumulative time at end MUST be <= 240 min.
+
+[T+0:00] gate=A-pre-deploy decision=PASS owner=<tech-lead-role> notes=
+[T+0:30] step=api-rolled wall_clock=30min budget=30min slack=0
+[T+0:35] gate=B-api-rolled decision=PASS owner=<tech-lead-role>
+[T+1:05] step=monitor-rolled wall_clock=30min budget=30min slack=0
+[T+1:10] gate=C-monitor-rolled decision=PASS owner=<tech-lead-role>
+[T+1:25] step=full-smoke-catalogue wall_clock=15min budget=15min slack=0
+[T+1:30] gate=D-smoke-gate decision=PASS owner=<tech-lead-role>
+[T+3:45] checkpoint=soak-window-elapsed wall_clock=130min budget=130min
+[T+4:00] gate=E-soak-verified decision=PASS owner=<tech-lead-role>
+[T+4:00] verdict=VERIFIED total_elapsed=240min ceiling=240min slack=0
