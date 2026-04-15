@@ -11,10 +11,8 @@ namespace Dorc.Core.HighAvailability
         /// </summary>
         /// <param name="resourceKey">Unique identifier for the resource to lock (e.g., "request:123" or "env:Production")</param>
         /// <param name="leaseTimeMs">
-        /// Substrate-specific wait/lease budget in milliseconds. For the RabbitMQ substrate this is
-        /// the per-message TTL (crash-recovery auto-release). For the Kafka substrate this is the
-        /// upper bound on time spent waiting for partition ownership before the call returns null
-        /// (see SPEC-S-005b R-2).
+        /// Upper bound on time spent waiting for partition ownership before the call returns null
+        /// (see SPEC-S-005b R-2). Caller cancellation also yields null.
         /// </param>
         /// <param name="cancellationToken">Cancellation token to abort lock acquisition</param>
         /// <returns>A lock handle if successful, null if lock could not be acquired. The lock is held until disposed.</returns>
@@ -38,7 +36,7 @@ namespace Dorc.Core.HighAvailability
 
         /// <summary>
         /// Returns true if the underlying lock is still healthy. False indicates the lock
-        /// may have been lost (RabbitMQ: channel closed; Kafka: partition revoked/lost).
+        /// may have been lost (Kafka partition revoked or lost).
         /// </summary>
         bool IsValid { get; }
 

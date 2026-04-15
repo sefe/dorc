@@ -300,9 +300,12 @@ builder.Services.AddScoped<Dorc.Core.Interfaces.IFallbackDeploymentEventPublishe
     Dorc.Api.Events.FallbackDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
-// S-007 Kafka substrate wiring. Kafka:Substrate:ResultsStatus toggles between
-// Direct (default, no-op) and Kafka (replaces publisher + registers consumer
-// + topic provisioner as hosted services).
+// S-007 / S-009 Kafka wiring. Post-S-009 the substrate-selector flag is
+// gone and Kafka is unconditional: this registers the publisher (replacing
+// the Direct registration above for IDeploymentEventsPublisher), both
+// producers, the results consumer + broadcaster, and the topic provisioner.
+// DirectDeploymentEventPublisher / FallbackDeploymentEventPublisher are
+// retained as the SignalR fan-out for UI continuity.
 builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,
     Dorc.Api.Events.SignalRDeploymentResultBroadcaster>();
 builder.Services.AddDorcKafkaClient(builder.Configuration);

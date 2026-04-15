@@ -4,7 +4,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Core.HighAvailability;
-using Dorc.Monitor.HighAvailability;
+using Dorc.Monitor.IntegrationTests.Init;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -46,8 +46,9 @@ namespace Dorc.Monitor.Tests.Init
 
             collection.AddTransient<ScriptDispatcher>();
 
-            // Register distributed lock service (NoOp for integration tests - HA not needed)
-            collection.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
+            // Test-only no-op lock service. Post-S-009 the production NoOp class
+            // is gone; integration tests still need a non-Kafka stand-in.
+            collection.AddSingleton<IDistributedLockService, IntegrationTestNoOpDistributedLockService>();
 
             PersistentSourcesRegistry.Register(collection);
 

@@ -410,57 +410,29 @@
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA_ENABLED",
-          "Value": "false"
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_HOSTNAME",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_PORT",
-          "Value": "5672"
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_VIRTUALHOST",
-          "Value": "/"
+          "Name": "KAFKA_BOOTSTRAPSERVERS",
+          "Value": "[Replace with your Kafka bootstrap servers, e.g. broker.example.com:9094]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
-          "Name": "HA_RABBITMQ_OAUTH_CLIENTID",
-          "Value": "[Replace with your RabbitMQ OAuth Client ID]"
+          "Name": "KAFKA_SASL_USERNAME",
+          "Value": "[Replace with your Kafka SASL username]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
-          "Name": "HA_RABBITMQ_OAUTH_CLIENTSECRET",
-          "Value": "[Replace with your RabbitMQ OAuth Client Secret]"
+          "Name": "KAFKA_SASL_PASSWORD",
+          "Value": "[Replace with your Kafka SASL password]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA_RABBITMQ_OAUTH_TOKENENDPOINT",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_OAUTH_SCOPE",
-          "Value": ""
+          "Name": "KAFKA_SSLCA_LOCATION",
+          "Value": "[Optional path to Kafka CA bundle, e.g. C:\\ProgramData\\dorc\\ca.pem]"
         },
         {
           "AccountNameProperty": "OTEL_COLLECTOR_URL",

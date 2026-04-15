@@ -15,22 +15,11 @@ namespace Dorc.Core.Events;
 ///     no-op — never throws, never logs an error, so the consumer loop can
 ///     never crash via this surface.</item>
 /// </list>
-/// The Direct-substrate default is the no-op variant
-/// (<see cref="NoOpRequestPollSignal"/>) which makes <see cref="WaitAsync"/>
-/// behave exactly like <c>Task.Delay(timeout, ct)</c> — preserving the
-/// pre-Kafka iteration-delay shape when the consumer is not registered.
 /// </summary>
 public interface IRequestPollSignal
 {
     void Signal();
     Task WaitAsync(TimeSpan timeout, CancellationToken cancellationToken);
-}
-
-public sealed class NoOpRequestPollSignal : IRequestPollSignal
-{
-    public void Signal() { }
-    public Task WaitAsync(TimeSpan timeout, CancellationToken cancellationToken)
-        => Task.Delay(timeout, cancellationToken);
 }
 
 public sealed class RequestPollSignal : IRequestPollSignal, IDisposable

@@ -92,15 +92,4 @@ public class RequestPollSignalTests
             $"Second wait should timeout (duplicate signals collapsed); got {sw.ElapsedMilliseconds}ms.");
     }
 
-    [TestMethod]
-    public async Task NoOpSignal_BehavesAsTaskDelay()
-    {
-        // AT-16 baseline: with the no-op signal, the Monitor poll loop's wait
-        // is a plain Task.Delay — same shape as pre-S-006.
-        var s = new NoOpRequestPollSignal();
-        var sw = Stopwatch.StartNew();
-        await s.WaitAsync(TimeSpan.FromMilliseconds(200), CancellationToken.None);
-        sw.Stop();
-        Assert.IsTrue(sw.ElapsedMilliseconds >= 150);
-    }
 }

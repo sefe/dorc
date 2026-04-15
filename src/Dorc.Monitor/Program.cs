@@ -9,7 +9,6 @@ using Dorc.Monitor.Events;
 using Dorc.Core.HighAvailability;
 using Dorc.Kafka.Events.DependencyInjection;
 using Dorc.Kafka.Lock.DependencyInjection;
-using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -86,20 +85,14 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 
 builder.Services.AddTransient<ScriptDispatcher>();
 
-// Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
-builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
-
-// SPEC-S-005b: Kafka-based distributed lock substrate. When
-// Kafka:Substrate:DistributedLock == Kafka, this replaces the registration
-// above with KafkaDistributedLockService + KafkaLockCoordinator (hosted).
-// Default Direct keeps the RabbitMQ registration unchanged.
+// SPEC-S-009: Kafka is the only distributed-lock substrate. The substrate-
+// selector flag is gone; KafkaDistributedLockService + KafkaLockCoordinator
+// + the lock topic provisioner are registered unconditionally.
 builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
 
-// SPEC-S-006 R-4: poll-loop wake-up signal. Default = no-op (Task.Delay
-// behaviour, identical to pre-S-006). The S-006 DI extension below
-// replaces this with the latching SemaphoreSlim-backed implementation when
-// Kafka:Substrate:RequestLifecycle == Kafka.
-builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.NoOpRequestPollSignal>();
+// SPEC-S-009: Kafka is the only request-lifecycle substrate. The substrate-
+// selector flag is gone; the latching RequestPollSignal + Kafka request
+// consumer are registered unconditionally.
 builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
 
 PersistentSourcesRegistry.Register(builder.Services);

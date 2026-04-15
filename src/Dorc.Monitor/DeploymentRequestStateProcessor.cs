@@ -3,7 +3,6 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.HighAvailability;
-using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;

@@ -1,5 +1,4 @@
 using Dorc.Core.HighAvailability;
-using Dorc.Kafka.Events.Publisher;
 using Dorc.Kafka.Lock.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,24 +7,23 @@ using Microsoft.Extensions.Hosting;
 namespace Dorc.Kafka.Lock.Tests.DependencyInjection;
 
 /// <summary>
-/// AT-8 — substrate flag switches behaviour. Also covers R-5 idempotency and
-/// invalid-enum fail-fast.
+/// Post-SPEC-S-009 the substrate-selector flag is gone; Kafka lock is
+/// unconditional. Remaining DI invariants: KafkaDistributedLockService
+/// replaces any upstream IDistributedLockService registration; coordinator
+/// is registered; idempotency holds.
 /// </summary>
 [TestClass]
 public class KafkaDistributedLockDITests
 {
-    private static IConfiguration BuildConfig(string? distributedLockMode)
-    {
-        var dict = new Dictionary<string, string?>
-        {
-            ["Kafka:BootstrapServers"] = "localhost:9092",
-            ["Kafka:ConsumerGroupId"] = "test",
-            ["Kafka:AuthMode"] = "Plaintext"
-        };
-        if (distributedLockMode is not null)
-            dict[$"{KafkaSubstrateOptions.SectionName}:{nameof(KafkaSubstrateOptions.DistributedLock)}"] = distributedLockMode;
-        return new ConfigurationBuilder().AddInMemoryCollection(dict).Build();
-    }
+    private static IConfiguration BuildConfig() =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Kafka:BootstrapServers"] = "localhost:9092",
+                ["Kafka:ConsumerGroupId"] = "test",
+                ["Kafka:AuthMode"] = "Plaintext"
+            })
+            .Build();
 
     private sealed class UpstreamLockService : IDistributedLockService
     {
@@ -35,41 +33,18 @@ public class KafkaDistributedLockDITests
     }
 
     [TestMethod]
-    public void Direct_RetainsUpstreamRegistration()
+    public async Task Registration_ReplacesUpstreamWithKafkaImpl_AndRegistersCoordinator()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IHostEnvironment>(new DummyEnv());
         services.AddSingleton<IDistributedLockService, UpstreamLockService>();
 
-        services.AddDorcKafkaDistributedLock(BuildConfig(distributedLockMode: null));
-
-        using var sp = services.BuildServiceProvider();
-        Assert.IsInstanceOfType(sp.GetRequiredService<IDistributedLockService>(), typeof(UpstreamLockService));
-    }
-
-    [TestMethod]
-    public async Task Kafka_ReplacesUpstreamWithKafkaImplAndRegistersCoordinator()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton<IHostEnvironment>(new DummyEnv());
-        services.AddSingleton<IDistributedLockService, UpstreamLockService>();
-
-        services.AddDorcKafkaDistributedLock(BuildConfig("Kafka"));
+        services.AddDorcKafkaDistributedLock(BuildConfig());
 
         await using var sp = services.BuildServiceProvider();
         Assert.IsInstanceOfType(sp.GetRequiredService<IDistributedLockService>(), typeof(KafkaDistributedLockService));
         Assert.IsNotNull(sp.GetRequiredService<KafkaLockCoordinator>());
-    }
-
-    [TestMethod]
-    public void InvalidEnum_ThrowsAtRegistration()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        Assert.ThrowsExactly<InvalidOperationException>(() =>
-            services.AddDorcKafkaDistributedLock(BuildConfig("Bogus")));
     }
 
     [TestMethod]
@@ -80,9 +55,9 @@ public class KafkaDistributedLockDITests
         services.AddSingleton<IHostEnvironment>(new DummyEnv());
         services.AddSingleton<IDistributedLockService, UpstreamLockService>();
 
-        services.AddDorcKafkaDistributedLock(BuildConfig("Kafka"));
+        services.AddDorcKafkaDistributedLock(BuildConfig());
         var countAfterFirst = services.Count;
-        services.AddDorcKafkaDistributedLock(BuildConfig("Kafka"));
+        services.AddDorcKafkaDistributedLock(BuildConfig());
         Assert.AreEqual(countAfterFirst, services.Count);
     }
 

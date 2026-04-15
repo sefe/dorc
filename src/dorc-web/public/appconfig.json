@@ -1,5 +1,5 @@
 {
-  "api": "https://localhost:7159",
+  "api": "https://gmdv-dorapp03:8443",
   "routePrefix": "",
   "dorcHelperPage" : ""
 }
