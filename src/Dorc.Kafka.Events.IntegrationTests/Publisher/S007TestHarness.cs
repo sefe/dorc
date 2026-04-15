@@ -62,8 +62,17 @@ internal sealed class S007TestHarness : IAsyncDisposable
     {
         var producer = ProducerBuilder.Build("test-publisher");
         _disposables.Add(producer);
+        // S-006 R-1: publisher now also requires a request producer. The S-007
+        // harness exercises only result-status flows so a separate dedicated
+        // request producer is built per harness instance for completeness.
+        var requestsBuilder = new KafkaProducerBuilder<string, DeploymentRequestEventData>(
+            ConnectionProvider, Factory,
+            NullLogger<KafkaProducerBuilder<string, DeploymentRequestEventData>>.Instance);
+        var requestsProducer = requestsBuilder.Build("test-requests-publisher");
+        _disposables.Add(requestsProducer);
         var publisher = new KafkaDeploymentEventPublisher(
             producer,
+            requestsProducer,
             new NoopFallback(),
             NullLogger<KafkaDeploymentEventPublisher>.Instance);
         _disposables.Add(publisher);

@@ -47,6 +47,9 @@ public class KafkaResultsStatusSubstrateExtensionsTests
         // proving DI wiring, not end-to-end produce — that's AT-2's job.
         services.AddSingleton<Confluent.Kafka.IProducer<string, DeploymentResultEventData>>(
             new Dorc.Kafka.Events.Tests.Publisher.StubProducer<string, DeploymentResultEventData>());
+        // S-006 R-1: publisher now also depends on a request producer.
+        services.AddSingleton<Confluent.Kafka.IProducer<string, DeploymentRequestEventData>>(
+            new Dorc.Kafka.Events.Tests.Publisher.StubProducer<string, DeploymentRequestEventData>());
         services.AddSingleton<IDeploymentResultBroadcaster>(new NoopBroadcaster());
         services.AddSingleton<IKafkaErrorLog>(new NoopErrorLog());
         services.AddOptions<KafkaErrorLogOptions>();

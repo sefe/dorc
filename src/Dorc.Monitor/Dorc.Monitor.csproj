@@ -49,6 +49,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
 		<ProjectReference Include="..\Dorc.Kafka.Lock\Dorc.Kafka.Lock.csproj" />
+		<ProjectReference Include="..\Dorc.Kafka.Events\Dorc.Kafka.Events.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.10" />

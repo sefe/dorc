@@ -7,6 +7,7 @@ using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
 using Dorc.Core.HighAvailability;
+using Dorc.Kafka.Events.DependencyInjection;
 using Dorc.Kafka.Lock.DependencyInjection;
 using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
@@ -93,6 +94,13 @@ builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockSe
 // above with KafkaDistributedLockService + KafkaLockCoordinator (hosted).
 // Default Direct keeps the RabbitMQ registration unchanged.
 builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
+
+// SPEC-S-006 R-4: poll-loop wake-up signal. Default = no-op (Task.Delay
+// behaviour, identical to pre-S-006). The S-006 DI extension below
+// replaces this with the latching SemaphoreSlim-backed implementation when
+// Kafka:Substrate:RequestLifecycle == Kafka.
+builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.NoOpRequestPollSignal>();
+builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
 
 PersistentSourcesRegistry.Register(builder.Services);
 

@@ -10,10 +10,12 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 internal sealed class StubProducer<TKey, TValue> : IProducer<TKey, TValue>
 {
     public List<(string Topic, Message<TKey, TValue> Message)> Produced { get; } = new();
+    public bool ThrowOnProduce { get; set; }
 
     public Task<DeliveryResult<TKey, TValue>> ProduceAsync(
         string topic, Message<TKey, TValue> message, CancellationToken cancellationToken = default)
     {
+        if (ThrowOnProduce) throw new InvalidOperationException("stub-producer-failure");
         Produced.Add((topic, message));
         return Task.FromResult(new DeliveryResult<TKey, TValue>
         {

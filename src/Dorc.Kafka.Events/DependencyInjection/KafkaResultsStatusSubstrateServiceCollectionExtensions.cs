@@ -59,6 +59,18 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
             var builder = sp.GetRequiredService<IKafkaProducerBuilder<string, DeploymentResultEventData>>();
             return builder.Build("dorc-results-status-publisher");
         });
+        // S-006 R-1 / R-2: KafkaDeploymentEventPublisher always carries a request
+        // producer because the publisher class dual-publishes both flows (results
+        // and request-lifecycle). Registered TryAdd here so the publisher resolves
+        // even with substrate=Direct on the RequestLifecycle slot — in that mode
+        // the consumer is absent (S-006 extension not called), so requests are
+        // emitted onto a topic with no Monitor consumer, which is a benign no-op
+        // until S-006 is also flipped.
+        services.TryAddSingleton<IProducer<string, DeploymentRequestEventData>>(sp =>
+        {
+            var builder = sp.GetRequiredService<IKafkaProducerBuilder<string, DeploymentRequestEventData>>();
+            return builder.Build("dorc-requests-publisher");
+        });
         services.TryAddSingleton<KafkaDeploymentEventPublisher>();
         services.Replace(ServiceDescriptor.Scoped<IDeploymentEventsPublisher>(sp =>
             sp.GetRequiredService<KafkaDeploymentEventPublisher>()));

@@ -4,6 +4,8 @@ using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry;
 using Dorc.Core.Events;
 using Dorc.Kafka.Client.Serialization;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.Serialization;
@@ -28,10 +30,12 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
     private readonly HashSet<Type> _inScope;
     private readonly List<IDisposable> _disposables = new();
     private readonly object _disposableLock = new();
+    private readonly ILogger _logger;
 
     public AvroKafkaSerializerFactory(
         ISchemaRegistryClient registry,
-        IOptions<KafkaAvroOptions>? options = null)
+        IOptions<KafkaAvroOptions>? options = null,
+        ILogger<AvroKafkaSerializerFactory>? logger = null)
     {
         _registry = registry;
         _inScope = new HashSet<Type>
@@ -39,6 +43,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
             typeof(DeploymentRequestEventData),
             typeof(DeploymentResultEventData)
         };
+        _logger = (ILogger?)logger ?? NullLogger.Instance;
         _ = options; // reserved for future subject-override use
     }
 
@@ -51,7 +56,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
     public ISerializer<T>? GetValueSerializer<T>()
     {
         if (!_inScope.Contains(typeof(T))) return null;
-        var serializer = new TopicDispatchingSerializer<T>(_registry);
+        var serializer = new TopicDispatchingSerializer<T>(_registry, _logger);
         lock (_disposableLock) _disposables.Add(serializer);
         return serializer;
     }
@@ -59,7 +64,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
     public IDeserializer<T>? GetValueDeserializer<T>()
     {
         if (!_inScope.Contains(typeof(T))) return null;
-        var deserializer = new TopicDispatchingDeserializer<T>(_registry);
+        var deserializer = new TopicDispatchingDeserializer<T>(_registry, _logger);
         lock (_disposableLock) _disposables.Add(deserializer);
         return deserializer;
     }
@@ -81,10 +86,15 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
     private sealed class TopicDispatchingSerializer<T> : ISerializer<T>, IDisposable
     {
         private readonly ISchemaRegistryClient _registry;
+        private readonly ILogger _logger;
         private readonly Dictionary<string, ISerializer<T>> _byTopic = new();
         private readonly object _lock = new();
 
-        public TopicDispatchingSerializer(ISchemaRegistryClient registry) => _registry = registry;
+        public TopicDispatchingSerializer(ISchemaRegistryClient registry, ILogger logger)
+        {
+            _registry = registry;
+            _logger = logger;
+        }
 
         public void Dispose()
         {
@@ -119,6 +129,12 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                     .GetAwaiter()
                     .GetResult();
                 _byTopic[topic] = serializer;
+                // SPEC-S-006 R-6 schema-resolution observability: one INFO line
+                // per first-use of a subject so a stuck consumer/producer can be
+                // triaged from logs alone.
+                _logger.LogInformation(
+                    "avro-schema-resolved subject={Subject} type={Type} kind=serializer",
+                    subject, typeof(T).Name);
                 return serializer;
             }
         }
@@ -127,10 +143,15 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
     private sealed class TopicDispatchingDeserializer<T> : IDeserializer<T>, IDisposable
     {
         private readonly ISchemaRegistryClient _registry;
+        private readonly ILogger _logger;
         private readonly Dictionary<string, IDeserializer<T>> _byTopic = new();
         private readonly object _lock = new();
 
-        public TopicDispatchingDeserializer(ISchemaRegistryClient registry) => _registry = registry;
+        public TopicDispatchingDeserializer(ISchemaRegistryClient registry, ILogger logger)
+        {
+            _registry = registry;
+            _logger = logger;
+        }
 
         public void Dispose()
         {
@@ -165,6 +186,9 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                     .GetAwaiter()
                     .GetResult();
                 _byTopic[topic] = deserializer;
+                _logger.LogInformation(
+                    "avro-schema-resolved subject={Subject} type={Type} kind=deserializer",
+                    subject, typeof(T).Name);
                 return deserializer;
             }
         }

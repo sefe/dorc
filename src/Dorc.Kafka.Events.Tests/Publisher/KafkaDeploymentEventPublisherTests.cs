@@ -1,6 +1,5 @@
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Kafka.Events;
 using Dorc.Kafka.Events.Publisher;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -9,79 +8,121 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 [TestClass]
 public class KafkaDeploymentEventPublisherTests
 {
-    // AT-1 per SPEC-S-007 §4.
+    private static (KafkaDeploymentEventPublisher sut,
+                    StubProducer<string, DeploymentResultEventData> resultsProd,
+                    StubProducer<string, DeploymentRequestEventData> requestsProd,
+                    RecordingFallback fallback) Build()
+    {
+        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
+        var fallback = new RecordingFallback();
+        var sut = new KafkaDeploymentEventPublisher(
+            resultsProd, requestsProd, fallback,
+            NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        return (sut, resultsProd, requestsProd, fallback);
+    }
+
+    private static DeploymentRequestEventData NewRequest(int requestId, string status) => new(
+        RequestId: requestId, Status: status,
+        StartedTime: DateTimeOffset.UtcNow, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow);
+
+    // AT-1 — producer emits to correct topic with RequestId key.
+    [TestMethod]
+    public async Task PublishNewRequest_EmitsToRequestsNewTopic_KeyedByRequestId()
+    {
+        var (sut, _, requestsProd, _) = Build();
+        var ev = NewRequest(4242, "Pending");
+
+        await sut.PublishNewRequestAsync(ev);
+
+        Assert.AreEqual(1, requestsProd.Produced.Count);
+        Assert.AreEqual(KafkaSubjectNames.RequestsNewTopic, requestsProd.Produced[0].Topic);
+        Assert.AreEqual("4242", requestsProd.Produced[0].Message.Key);
+        Assert.AreEqual(ev, requestsProd.Produced[0].Message.Value);
+    }
 
     [TestMethod]
-    public async Task PublishResultStatus_ProducesOneMessageToResultsStatusTopic_KeyedByRequestId()
+    public async Task PublishRequestStatusChanged_EmitsToRequestsStatusTopic_KeyedByRequestId()
     {
-        var producer = new StubProducer<string, DeploymentResultEventData>();
-        var fallback = new RecordingFallback();
-        var sut = new KafkaDeploymentEventPublisher(producer, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var (sut, _, requestsProd, _) = Build();
+        var ev = NewRequest(99, "Cancelled");
 
-        var eventData = new DeploymentResultEventData(
-            ResultId: 1, RequestId: 4242, ComponentId: 7,
-            Status: "Running",
+        await sut.PublishRequestStatusChangedAsync(ev);
+
+        Assert.AreEqual(1, requestsProd.Produced.Count);
+        Assert.AreEqual(KafkaSubjectNames.RequestsStatusTopic, requestsProd.Produced[0].Topic);
+        Assert.AreEqual("99", requestsProd.Produced[0].Message.Key);
+    }
+
+    [TestMethod]
+    public async Task PublishResultStatus_EmitsToResultsStatusTopic_KeyedByRequestId()
+    {
+        var (sut, resultsProd, _, _) = Build();
+        var ev = new DeploymentResultEventData(
+            ResultId: 1, RequestId: 4242, ComponentId: 7, Status: "Running",
             StartedTime: DateTimeOffset.UtcNow, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow);
 
-        await sut.PublishResultStatusChangedAsync(eventData);
+        await sut.PublishResultStatusChangedAsync(ev);
 
-        Assert.AreEqual(1, producer.Produced.Count);
-        var (topic, message) = producer.Produced[0];
-        Assert.AreEqual(KafkaSubjectNames.ResultsStatusTopic, topic);
-        Assert.AreEqual("4242", message.Key);
-        Assert.IsNotNull(message.Value);
-        Assert.AreEqual(eventData, message.Value);
+        Assert.AreEqual(1, resultsProd.Produced.Count);
+        Assert.AreEqual(KafkaSubjectNames.ResultsStatusTopic, resultsProd.Produced[0].Topic);
+        Assert.AreEqual("4242", resultsProd.Produced[0].Message.Key);
+    }
+
+    // AT-2 — dual-publish: SignalR called regardless of Kafka outcome; Kafka throw propagates.
+    [TestMethod]
+    public async Task PublishNewRequest_AlsoCallsFallback_BeforeKafka()
+    {
+        var (sut, _, _, fallback) = Build();
+        var ev = NewRequest(1, "Pending");
+
+        await sut.PublishNewRequestAsync(ev);
+
+        Assert.AreEqual(1, fallback.NewRequestCalls.Count, "SignalR fallback must be invoked.");
     }
 
     [TestMethod]
-    public async Task PublishNewRequest_DelegatesToFallback_DoesNotTouchProducer()
+    public async Task PublishNewRequest_KafkaThrows_StillCallsFallbackFirst_AndPropagates()
     {
-        var producer = new StubProducer<string, DeploymentResultEventData>();
+        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData> { ThrowOnProduce = true };
         var fallback = new RecordingFallback();
-        var sut = new KafkaDeploymentEventPublisher(producer, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
-        var eventData = new DeploymentRequestEventData(
-            RequestId: 1, Status: "New",
-            StartedTime: DateTimeOffset.UtcNow, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await sut.PublishNewRequestAsync(NewRequest(7, "Pending")));
 
-        await sut.PublishNewRequestAsync(eventData);
-
-        Assert.AreEqual(0, producer.Produced.Count);
-        Assert.AreEqual(1, fallback.NewRequestCalls.Count);
-        Assert.AreEqual(eventData, fallback.NewRequestCalls[0]);
+        Assert.AreEqual(1, fallback.NewRequestCalls.Count,
+            "SignalR emit must be attempted BEFORE Kafka, and not suppressed by Kafka throw.");
     }
 
     [TestMethod]
-    public async Task PublishRequestStatusChanged_DelegatesToFallback_DoesNotTouchProducer()
+    public async Task PublishNewRequest_FallbackThrows_DoesNotSuppressKafkaEmit()
     {
-        var producer = new StubProducer<string, DeploymentResultEventData>();
-        var fallback = new RecordingFallback();
-        var sut = new KafkaDeploymentEventPublisher(producer, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
+        var fallback = new RecordingFallback { ThrowOnNew = true };
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
-        var eventData = new DeploymentRequestEventData(
-            RequestId: 2, Status: "Completed",
-            StartedTime: DateTimeOffset.UtcNow, CompletedTime: DateTimeOffset.UtcNow, Timestamp: DateTimeOffset.UtcNow);
+        await sut.PublishNewRequestAsync(NewRequest(11, "Pending"));
 
-        await sut.PublishRequestStatusChangedAsync(eventData);
-
-        Assert.AreEqual(0, producer.Produced.Count);
-        Assert.AreEqual(1, fallback.RequestStatusCalls.Count);
-        Assert.AreEqual(eventData, fallback.RequestStatusCalls[0]);
+        Assert.AreEqual(1, requestsProd.Produced.Count,
+            "Kafka emit must NOT be suppressed by SignalR fallback failure (R-1 invariant).");
     }
 
     [TestMethod]
-    public async Task PublishResultStatus_NegativeRequestId_StillProducesWithStringKey()
+    public async Task PublishResultStatus_FallbackThrows_DoesNotSuppressKafkaEmit()
     {
-        // Edge: ensure RequestId.ToString() survives odd values (negative,
-        // zero). Key routing is the contract — not value validation.
-        var producer = new StubProducer<string, DeploymentResultEventData>();
-        var sut = new KafkaDeploymentEventPublisher(producer, new RecordingFallback(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
+        var fallback = new RecordingFallback { ThrowOnResult = true };
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
         await sut.PublishResultStatusChangedAsync(new DeploymentResultEventData(
-            ResultId: 0, RequestId: -1, ComponentId: 0,
-            Status: null, StartedTime: null, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow));
+            ResultId: 1, RequestId: 1, ComponentId: 1, Status: "Running",
+            StartedTime: null, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow));
 
-        Assert.AreEqual("-1", producer.Produced.Single().Message.Key);
+        Assert.AreEqual(1, resultsProd.Produced.Count);
     }
 
     private sealed class RecordingFallback : IFallbackDeploymentEventPublisher
@@ -89,22 +130,28 @@ public class KafkaDeploymentEventPublisherTests
         public List<DeploymentRequestEventData> NewRequestCalls { get; } = new();
         public List<DeploymentRequestEventData> RequestStatusCalls { get; } = new();
         public List<DeploymentResultEventData> ResultStatusCalls { get; } = new();
+        public bool ThrowOnNew { get; set; }
+        public bool ThrowOnRequestStatus { get; set; }
+        public bool ThrowOnResult { get; set; }
 
         public Task PublishNewRequestAsync(DeploymentRequestEventData eventData)
         {
             NewRequestCalls.Add(eventData);
+            if (ThrowOnNew) throw new InvalidOperationException("signalr-down");
             return Task.CompletedTask;
         }
 
         public Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData)
         {
             RequestStatusCalls.Add(eventData);
+            if (ThrowOnRequestStatus) throw new InvalidOperationException("signalr-down");
             return Task.CompletedTask;
         }
 
         public Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData)
         {
             ResultStatusCalls.Add(eventData);
+            if (ThrowOnResult) throw new InvalidOperationException("signalr-down");
             return Task.CompletedTask;
         }
     }
