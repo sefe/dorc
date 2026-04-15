@@ -29,6 +29,10 @@ namespace Dorc.Api.Services
 
         private string GetFromAddress() => _configValuesPersistentSource.GetConfigValue("Email_FromAddress", string.Empty);
         private string GetFromName() => _configValuesPersistentSource.GetConfigValue("Email_FromName", "DOrc Deployment System");
+        private static string SanitizeForLog(string? value) =>
+            (value ?? string.Empty)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty);
 
         public async Task SendCrOverrideNotificationAsync(
             string username,
@@ -39,7 +43,7 @@ namespace Dorc.Api.Services
         {
             if (string.IsNullOrEmpty(notificationEmail))
             {
-                _logger.LogInformation("No notification email configured for project '{Project}'. Skipping CR override notification.", project);
+                _logger.LogInformation("No notification email configured for project '{Project}'. Skipping CR override notification.", SanitizeForLog(project));
                 return;
             }
 
