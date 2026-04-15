@@ -125,12 +125,18 @@ export class ProjectControls extends LitElement {
     const wrapper = document.createElement('div');
     wrapper.style.display = 'flex';
     wrapper.style.alignItems = 'center';
-    wrapper.style.gap = '8px';
-    wrapper.style.padding = '6px 12px';
-    wrapper.style.margin = '-4px -12px';
-    wrapper.style.borderRadius = 'var(--lumo-border-radius-m)';
+    wrapper.style.gap = '10px';
+    wrapper.style.padding = '6px 24px 6px 8px';
+    wrapper.style.margin = '-4px -16px';
     wrapper.style.cursor = 'pointer';
     wrapper.setAttribute('data-event', action.eventName);
+
+    // Visual separator before delete action
+    if (action.isDelete) {
+      wrapper.style.borderTop = '1px solid var(--lumo-contrast-10pct)';
+      wrapper.style.marginTop = '4px';
+      wrapper.style.paddingTop = '10px';
+    }
 
     wrapper.addEventListener('mouseenter', () => {
       wrapper.style.backgroundColor = 'var(--lumo-primary-color-10pct)';
@@ -143,6 +149,7 @@ export class ProjectControls extends LitElement {
     icon.setAttribute('icon', action.icon);
     icon.style.width = '18px';
     icon.style.height = '18px';
+    icon.style.flexShrink = '0';
     if (action.isDelete) {
       icon.style.color = 'var(--dorc-error-color)';
     }
@@ -150,6 +157,7 @@ export class ProjectControls extends LitElement {
 
     const label = document.createElement('span');
     label.textContent = action.text;
+    label.style.whiteSpace = 'nowrap';
     if (action.isDelete) {
       label.style.color = 'var(--dorc-error-color)';
     }
