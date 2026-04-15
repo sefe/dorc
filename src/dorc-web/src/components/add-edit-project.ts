@@ -398,9 +398,9 @@ export class AddEditProject extends LitElement {
       }
     }
 
-    const isGitHubHost = hostname.endsWith('github.com');
-    const isDevOpsHost = hostname.endsWith('dev.azure.com') ||
-      hostname.endsWith('visualstudio.com') ||
+    const isGitHubHost = hostname === 'github.com' || hostname.endsWith('.github.com');
+    const isDevOpsHost = hostname === 'dev.azure.com' || hostname.endsWith('.dev.azure.com') ||
+      hostname === 'visualstudio.com' || hostname.endsWith('.visualstudio.com') ||
       hostname.endsWith('.tfs.') || hostname === 'tfs';
 
     let error = '';
