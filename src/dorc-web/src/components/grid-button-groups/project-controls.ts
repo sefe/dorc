@@ -104,7 +104,7 @@ export class ProjectControls extends LitElement {
   render() {
     return html`
       <vaadin-menu-bar
-        theme="icon tertiary-inline small"
+        theme="icon small"
         .items="${this.menuItems}"
         @item-selected="${this.onItemSelected}"
       ></vaadin-menu-bar>

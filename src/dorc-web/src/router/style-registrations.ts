@@ -53,3 +53,14 @@ registerStyles(
     }
   `
 );
+
+// Visible hover for context menu / menu-bar dropdown items
+registerStyles(
+  'vaadin-context-menu-item',
+  css`
+    :host(:hover) {
+      background-color: var(--lumo-primary-color-10pct);
+      cursor: pointer;
+    }
+  `
+);
