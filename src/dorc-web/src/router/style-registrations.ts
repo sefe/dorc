@@ -54,13 +54,16 @@ registerStyles(
   `
 );
 
-// Visible hover for context menu / menu-bar dropdown items
-registerStyles(
-  'vaadin-context-menu-item',
-  css`
-    :host(:hover) {
-      background-color: var(--lumo-primary-color-10pct);
-      cursor: pointer;
-    }
-  `
-);
+// Visible hover for context menu / menu-bar dropdown items.
+// Uses a global document style because registerStyles must run before the
+// component is defined, and bundler module ordering doesn't guarantee that.
+// External author styles override shadow-DOM :host rules per the CSS spec.
+const menuItemHoverStyle = document.createElement('style');
+menuItemHoverStyle.textContent = `
+  vaadin-context-menu-item:hover,
+  vaadin-menu-bar-item:hover {
+    background-color: var(--lumo-primary-color-10pct);
+    cursor: pointer;
+  }
+`;
+document.head.appendChild(menuItemHoverStyle);
