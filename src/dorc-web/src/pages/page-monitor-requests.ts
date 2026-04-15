@@ -84,7 +84,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
       vaadin-grid {
         overflow: hidden;
         height: calc(100vh - 56px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
 
       vaadin-text-field {
@@ -122,8 +122,8 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -536,7 +536,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
     model: GridItemModel<DeploymentRequestApiModel>) {
 
     const request = model.item as DeploymentRequestApiModel;
-    const elements = request.Components?.split('|');
+    const elements = request.Components?.split('|').sort((a, b) => a.localeCompare(b));
 
     render(html`
       <vaadin-vertical-layout>
@@ -655,7 +655,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           >
             <vaadin-icon
               icon="vaadin:ellipsis-dots-h"
-              style="color: cornflowerblue"
+              style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
         </vaadin-horizontal-layout>
@@ -722,7 +722,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
           >
             <vaadin-icon
             icon="icons:refresh"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
           `

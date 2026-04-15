@@ -38,10 +38,10 @@ export class ConnectionStatusIndicator extends LitElement {
   private get iconColor() {
     if (this.mode === 'toggle') {
       if (this.state !== HubConnectionState.Connected) return 'var(--lumo-error-color)';
-      return 'cornflowerblue';
+      return 'var(--dorc-link-color)';
     }
     if (this.state !== HubConnectionState.Connected) return 'var(--lumo-error-color)';
-    return 'cornflowerblue';
+    return 'var(--dorc-link-color)';
   }
 
   private get titleText() {

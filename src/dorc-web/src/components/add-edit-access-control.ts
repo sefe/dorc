@@ -59,6 +59,9 @@ export class AddEditAccessControl extends LitElement {
   UserEditable = false;
 
   @state()
+  UserIsOwner = false;
+
+  @state()
   private loading = true;
 
   static get styles() {
@@ -147,7 +150,7 @@ export class AddEditAccessControl extends LitElement {
                     <vaadin-button theme="icon">
                       <vaadin-icon
                         icon="vaadin:unlock"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   `
@@ -155,7 +158,7 @@ export class AddEditAccessControl extends LitElement {
                     <vaadin-button theme="icon">
                       <vaadin-icon
                         icon="vaadin:lock"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   `}
@@ -172,7 +175,7 @@ export class AddEditAccessControl extends LitElement {
           <vaadin-details
             opened
             summary="Add New User"
-            style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; width: 100%"
+            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
           >
             <table>
               <tr>
@@ -264,7 +267,7 @@ export class AddEditAccessControl extends LitElement {
             ></vaadin-grid-column>
           </vaadin-grid>
 
-          <div style="color: #FF3131">${this.ErrorMessage}</div>
+          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
           <div>
@@ -613,15 +616,40 @@ export class AddEditAccessControl extends LitElement {
     _column: GridColumn,
     model: GridItemModel<AccessControlApiModel>
   ) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const addEditAccessControl = _column.altThis as AddEditAccessControl;
+
     const canOwnerRender = ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${true}"
+        ?disabled="${!addEditAccessControl.UserIsOwner}"
         ?checked="${canOwnerRender}"
       ></vaadin-checkbox>`,
       root
     );
+
+    const checkbox: Checkbox = root.querySelector(
+      'vaadin-checkbox'
+    ) as Checkbox;
+
+    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
+      const canOwner =
+        ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
+
+      const checked = e.detail.value as boolean;
+      if (checked && !canOwner) {
+        if (model.item.Allow !== undefined) {
+          model.item.Allow |= AC_ALLOW_OWNER;
+        }
+      }
+      if (!checked && canOwner) {
+        if (model.item.Allow !== undefined) {
+          model.item.Allow ^= AC_ALLOW_OWNER;
+        }
+      }
+    });
   }
 
 
@@ -648,6 +676,7 @@ export class AddEditAccessControl extends LitElement {
             data.Privileges = data.Privileges?.sort(this.sortAccessControls);
             this.Privileges = data.Privileges;
             this.UserEditable = data.UserEditable ?? false;
+            this.UserIsOwner = data.UserIsOwner ?? false;
             this.AccessControls = data;
 
             this.loading = false;

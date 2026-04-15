@@ -79,7 +79,7 @@ export class PageScriptsList extends PageElement {
         height: 100%;
       }
       vaadin-grid#grid {
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
         height: 100%;
       }
       .overlay {
@@ -103,8 +103,8 @@ export class PageScriptsList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;

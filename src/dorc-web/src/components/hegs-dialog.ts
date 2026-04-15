@@ -50,7 +50,8 @@ export class HegsDialog extends LitElement {
       }
 
       .dialog {
-        background: #ffffff;
+        background: var(--dorc-dialog-bg, #ffffff);
+        color: var(--dorc-text-primary, #000000);
         border-radius: 13px;
         padding: 1rem;
         position: absolute;

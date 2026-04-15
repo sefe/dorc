@@ -11,8 +11,16 @@ function Import-DOrcProperties
         [string]$ApiUrl,
     # Imported Csv File
         [Parameter(Mandatory = $true)]
-        [string]$CsvFile
+        [string]$CsvFile,
+    # Optional user JWT/Bearer token
+        [Parameter(Mandatory = $false)]
+        [string]$BearerToken
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($BearerToken))
+    {
+        Set-DOrcBearerToken -Token $BearerToken | Out-Null
+    }
 
     try
     {
@@ -61,8 +69,16 @@ function Export-DOrcProperties
         [string]$Environment,
     # Output CSV file path
         [Parameter(Mandatory = $true)]
-        [string]$CsvFile
+        [string]$CsvFile,
+    # Optional user JWT/Bearer token
+        [Parameter(Mandatory = $false)]
+        [string]$BearerToken
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($BearerToken))
+    {
+        Set-DOrcBearerToken -Token $BearerToken | Out-Null
+    }
 
     try
     {
@@ -218,3 +234,183 @@ filter Convert-PropertyValueToCsvProperty([Parameter(Mandatory = $true, ValueFro
     $property
 }
 
+function Set-DOrcBearerToken
+{
+    <#
+    .SYNOPSIS
+    Sets a user JWT/Bearer token for DORC API requests.
+
+    .DESCRIPTION
+    Stores the supplied JWT in memory and applies it to subsequent API calls as
+    Authorization: Bearer <token>.
+
+    .PARAMETER Token
+    JWT token value. Accepts both raw JWT and values prefixed with "Bearer ".
+
+    .EXAMPLE
+    Set-DOrcBearerToken -Token $jwt
+
+    .EXAMPLE
+    Set-DOrcBearerToken -Token "Bearer eyJ..."
+    #>
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Token
+    )
+
+    $normalizedToken = $Token.Trim()
+    if ($normalizedToken -match '^(?i)Bearer\s+')
+    {
+        $normalizedToken = $normalizedToken -replace '^(?i)Bearer\s+', ''
+    }
+
+    if ([string]::IsNullOrWhiteSpace($normalizedToken))
+    {
+        throw "Token cannot be blank."
+    }
+
+    [ApiCaller]::SetAccessToken($normalizedToken)
+    Write-Host "Bearer token set for DORC API requests" -ForegroundColor Green
+    return $true
+}
+
+function Clear-DOrcBearerToken
+{
+    <#
+    .SYNOPSIS
+    Clears the current user JWT/Bearer token.
+    #>
+
+    [ApiCaller]::ClearAccessToken()
+    Write-Host "Bearer token cleared" -ForegroundColor Green
+}
+
+function Get-DOrcBearerTokenStatus
+{
+    <#
+    .SYNOPSIS
+    Shows whether a bearer token is currently set.
+    #>
+
+    if ([string]::IsNullOrWhiteSpace([ApiCaller]::AccessToken))
+    {
+        Write-Host "No bearer token is currently set" -ForegroundColor Yellow
+        return $false
+    }
+
+    Write-Host "Bearer token is set" -ForegroundColor Cyan
+    return $true
+}
+
+
+# ============================================================================
+# User Impersonation Functions
+# ============================================================================
+
+function Set-DOrcImpersonateUser
+{
+    <#
+    .SYNOPSIS
+    Sets the current Windows username to be sent with DORC API requests.
+    
+    .DESCRIPTION
+    Adds X-Impersonate-User header to API requests with the specified username.
+    This requires DORC API to be configured to read and log this custom header.
+    
+    .PARAMETER Username
+    The username to impersonate. If not specified, uses current Windows username.
+    
+    .EXAMPLE
+    # Use current Windows user
+    Set-DOrcImpersonateUser
+    
+    .EXAMPLE
+    # Use specific username
+    Set-DOrcImpersonateUser -Username "john.doe@company.com"
+    #>
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Username
+    )
+    
+    if ([string]::IsNullOrEmpty($Username))
+    {
+        # Get current user's email/UPN
+        # Try Azure/EntraID context first (most accurate for federated users)
+        try
+        {
+            $azContext = Get-AzContext -ErrorAction SilentlyContinue
+            if ($azContext -and $azContext.Account -and $azContext.Account.Id)
+            {
+                $Username = $azContext.Account.Id
+            }
+        }
+        catch
+        {
+            # Azure module not available or not connected
+        }
+        
+        # If Azure context didn't work, try environment variables
+        if ([string]::IsNullOrEmpty($Username))
+        {
+            if (-not [string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and -not [string]::IsNullOrEmpty($env:USERNAME))
+            {
+                $Username = "$env:USERNAME@$($env:USERDNSDOMAIN.ToLower())"
+            }
+            else
+            {
+                # Final fallback to SAMAccountName format
+                $Username = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            }
+        }
+    }
+    
+    [ApiCaller]::SetImpersonateUser($Username)
+    
+    Write-Host "Properties are imported by: $Username" -ForegroundColor Green
+}
+
+function Clear-DOrcImpersonateUser
+{
+    <#
+    .SYNOPSIS
+    Clears the impersonation username.
+    
+    .DESCRIPTION
+    Removes the X-Impersonate-User header from subsequent API requests.
+    
+    .EXAMPLE
+    Clear-DOrcImpersonateUser
+    #>
+    
+    [ApiCaller]::ClearImpersonateUser()
+    Write-Host "User impersonation cleared" -ForegroundColor Green
+}
+
+function Get-DOrcImpersonateUser
+{
+    <#
+    .SYNOPSIS
+    Gets the current impersonation username.
+    
+    .DESCRIPTION
+    Returns the username being sent in the X-Impersonate-User header, or $null if not set.
+    
+    .EXAMPLE
+    Get-DOrcImpersonateUser
+    #>
+    
+    $username = [ApiCaller]::ImpersonateUser
+    
+    if ([string]::IsNullOrEmpty($username))
+    {
+        Write-Host "No impersonation user set" -ForegroundColor Yellow
+        return $null
+    }
+    else
+    {
+        Write-Host "Current impersonation user: $username" -ForegroundColor Cyan
+        return $username
+    }
+}

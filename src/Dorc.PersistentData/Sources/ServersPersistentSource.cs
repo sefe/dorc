@@ -193,7 +193,7 @@ namespace Dorc.PersistentData.Sources
                                         select envPrivilegeInfos[environmentDetail.Name]
                                             into privilegeInfo
                                         where privilegeInfo != null
-                                        select privilegeInfo.IsOwner || privilegeInfo.HasPermission || privilegeInfo.IsDelegate ||
+                                        select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                                isAdmin).All(e => e)
                     }).ToList()
                 };
@@ -236,7 +236,7 @@ namespace Dorc.PersistentData.Sources
                                  select envPrivilegeInfos[environmentDetail.Name]
                     into privilegeInfo
                                  where privilegeInfo != null
-                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission || privilegeInfo.IsDelegate ||
+                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
                 serverApiModel.UserEditable = totalEdit.All(e => e);
@@ -269,7 +269,7 @@ namespace Dorc.PersistentData.Sources
                                  select envPrivilegeInfos[environmentDetail.Name]
                     into privilegeInfo
                                  where privilegeInfo != null
-                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission || privilegeInfo.IsDelegate ||
+                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
                 serverApiModel.UserEditable = totalEdit.All(e => e);

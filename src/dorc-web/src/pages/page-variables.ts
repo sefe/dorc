@@ -127,7 +127,7 @@ export class PageVariables extends PageElement {
         height: calc(100vh - 390px);
       }
       vaadin-grid#grid::part(variable-value-error) {
-        background-color: #ffddb7;
+        background-color: var(--dorc-highlight-bg);
       }
       vaadin-text-field {
         padding: 0px;
@@ -173,7 +173,7 @@ export class PageVariables extends PageElement {
         }}"
         ><vaadin-icon
           icon="vaadin:search"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon
       ></vaadin-button>
       ${this.radioValue === 'existing'
@@ -181,7 +181,7 @@ export class PageVariables extends PageElement {
             <vaadin-details
               opened
               summary="Select Variable Name"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
               <table>
                 <tr>
@@ -212,7 +212,7 @@ export class PageVariables extends PageElement {
                   </td>
                   <td style="vertical-align: center;">
                     <vaadin-button
-                      style="--lumo-primary-text-color: red;"
+                      style="--lumo-primary-text-color: var(--dorc-error-color);"
                       ?disabled="${!this.isAdmin ||
                       this.deletingVariable ||
                       !this.existingPropertySelected}"
@@ -242,7 +242,7 @@ export class PageVariables extends PageElement {
             <vaadin-details
               opened
               summary="Add Variable Value"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
               <table>
                 <tr>
@@ -329,6 +329,7 @@ export class PageVariables extends PageElement {
                     flex-grow="0"
                     resizable
                     .headerRenderer="${this.scopeHeaderRenderer}"
+                    .renderer="${this.scopeValueRenderer}"
                   ></vaadin-grid-column>
                   <vaadin-grid-column
                     header="Value"
@@ -343,7 +344,7 @@ export class PageVariables extends PageElement {
             <vaadin-details
               opened
               summary="Add Variable"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
               <table>
                 <tr>
@@ -428,6 +429,21 @@ export class PageVariables extends PageElement {
 
     return parts;
   };
+
+  scopeValueRenderer(
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<PropertyValueDtoExtended>
+  ) {
+    const scope = model.item.PropertyValueFilter;
+    const isDefault = !scope;
+    render(
+      html`<span style="${isDefault ? 'font-style: italic; color: var(--lumo-secondary-text-color);' : ''}">
+        ${isDefault ? '(default)' : scope}
+      </span>`,
+      root
+    );
+  }
 
   scopeHeaderRenderer = (root: HTMLElement) => {
     render(
@@ -825,7 +841,14 @@ export class PageVariables extends PageElement {
   }
 
   private setVariableValues(data: PropertyValueDto[]) {
-    this.allPropertyValues = data;
+    this.allPropertyValues = data.sort((a, b) => {
+      const aScope = a.PropertyValueFilter ?? '';
+      const bScope = b.PropertyValueFilter ?? '';
+      // Default (empty scope) values should appear first
+      if (aScope === '' && bScope !== '') return -1;
+      if (aScope !== '' && bScope === '') return 1;
+      return aScope.localeCompare(bScope);
+    });
     this.allPropertyValues.forEach(pv => {
       pv.IsDuplicate =
         (this.allPropertyValues?.filter(

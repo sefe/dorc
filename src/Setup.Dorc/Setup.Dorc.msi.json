@@ -238,6 +238,10 @@
       "DeployProperty": "HA_RABBITMQ_VIRTUALHOST"
     },
     {
+      "MSIParameter": "HA.RABBITMQ.CONSUMERTIMEOUTMS",
+      "DeployProperty": "HA_RABBITMQ_CONSUMERTIMEOUTMS"
+    },
+    {
       "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTID",
       "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTID"
     },
@@ -264,6 +268,10 @@
     {
       "MSIParameter": "HA.RABBITMQ.SSL.VERSION",
       "DeployProperty": "HA_RABBITMQ_SSL_VERSION"
+    },
+    {
+      "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
+      "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }
   ]
 }

@@ -127,14 +127,6 @@ namespace Dorc.Monitor
             }
         }
 
-        public bool PauseDeploymentEnabled
-        {
-            get
-            {
-                return bool.Parse(configurationRoot.GetSection(appSettings)["PauseDeploymentEnabled"] ?? "false");
-            }
-        }
-
         public string RabbitMqHostName
         {
             get
@@ -242,7 +234,7 @@ namespace Dorc.Monitor
                 return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:Version"];
             }
         }
-                
+
         public string Environment
         {
             get
@@ -277,6 +269,19 @@ namespace Dorc.Monitor
             }
         }
 
+        public int LockReacquisitionRetryWindowSeconds
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:LockReacquisitionRetryWindowSeconds"];
+                if (int.TryParse(str, out int seconds) && seconds > 0)
+                {
+                    return seconds;
+                }
+                return 150; // Default 150 seconds (2m30s) — midpoint of observed ~2–3 min broker recovery window
+            }
+        }
+
         public int OAuthTokenRefreshCheckIntervalMinutes
         {
             get
@@ -287,6 +292,19 @@ namespace Dorc.Monitor
                     return minutes;
                 }
                 return 15; // Default 15 minutes
+            }
+        }
+
+        public long RabbitMqConsumerTimeoutMs
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:ConsumerTimeoutMs"];
+                if (long.TryParse(str, out long milliseconds) && milliseconds >= 0)
+                {
+                    return milliseconds;
+                }
+                return (long)TimeSpan.FromHours(24).TotalMilliseconds; // Default 24 hours (86400000 ms)
             }
         }
     }
