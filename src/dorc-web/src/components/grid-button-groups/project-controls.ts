@@ -5,7 +5,7 @@ import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
 import { customElement, property, state } from 'lit/decorators.js';
-import { html, nothing } from 'lit/html.js';
+import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
 
 interface ActionMenuItem {
@@ -21,71 +21,35 @@ export class ProjectControls extends LitElement {
   @property({ type: Object }) project: ProjectApiModel | undefined;
   @property({ type: Boolean }) deleteHidden: boolean = true;
   @state() private _open = false;
+  @state() private _dropdownTop = 0;
+  @state() private _dropdownRight = 0;
 
   private _outsideClickHandler = (e: MouseEvent) => {
-    if (!this.contains(e.target as Node)) {
-      this._open = false;
+    const dropdown = this._getDropdownEl();
+    if (!this.contains(e.target as Node) && !dropdown?.contains(e.target as Node)) {
+      this._close();
     }
   };
+
+  private _scrollHandler = () => {
+    this._close();
+  };
+
+  private _getDropdownEl(): HTMLElement | null {
+    return document.getElementById(`project-dropdown-${this._uid}`);
+  }
+
+  private _uid = Math.random().toString(36).slice(2, 8);
 
   static get styles() {
     return css`
       :host {
         display: inline-block;
-        position: relative;
       }
 
       vaadin-button {
         --lumo-button-size: 28px;
         --lumo-icon-size-m: 16px;
-      }
-
-      .dropdown {
-        position: absolute;
-        right: 0;
-        top: 100%;
-        z-index: 100;
-        min-width: 180px;
-        background: var(--lumo-base-color);
-        border: 1px solid var(--lumo-contrast-10pct);
-        border-radius: var(--lumo-border-radius-m);
-        box-shadow: var(--lumo-box-shadow-m);
-        padding: 4px 0;
-      }
-
-      .menu-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 16px;
-        cursor: pointer;
-        color: var(--lumo-body-text-color);
-        font-size: var(--lumo-font-size-s);
-      }
-
-      .menu-item:hover {
-        background-color: var(--lumo-primary-color-10pct);
-      }
-
-      .menu-item vaadin-icon {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-      }
-
-      .menu-item span {
-        white-space: nowrap;
-      }
-
-      .menu-item.delete {
-        border-top: 1px solid var(--lumo-contrast-10pct);
-        margin-top: 4px;
-        padding-top: 12px;
-      }
-
-      .menu-item.delete vaadin-icon,
-      .menu-item.delete span {
-        color: var(--dorc-error-color);
       }
     `;
   }
@@ -146,11 +110,14 @@ export class ProjectControls extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('click', this._outsideClickHandler);
+    document.addEventListener('scroll', this._scrollHandler, true);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('click', this._outsideClickHandler);
+    document.removeEventListener('scroll', this._scrollHandler, true);
+    this._removeDropdown();
   }
 
   render() {
@@ -163,25 +130,113 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon icon="vaadin:ellipsis-dots-h"></vaadin-icon>
       </vaadin-button>
-      ${this._open ? html`
-        <div class="dropdown">
-          ${this.menuActions.map(action => html`
-            <div
-              class="menu-item ${action.isDelete ? 'delete' : ''}"
-              @click="${() => this._selectAction(action)}"
-            >
-              <vaadin-icon icon="${action.icon}"></vaadin-icon>
-              <span>${action.text}</span>
-            </div>
-          `)}
-        </div>
-      ` : nothing}
     `;
+  }
+
+  updated(changed: Map<string, unknown>) {
+    super.updated(changed);
+    if (changed.has('_open')) {
+      if (this._open) {
+        this._showDropdown();
+      } else {
+        this._removeDropdown();
+      }
+    }
   }
 
   private _toggle(e: Event) {
     e.stopPropagation();
-    this._open = !this._open;
+    if (this._open) {
+      this._close();
+    } else {
+      const btn = this.shadowRoot?.querySelector('vaadin-button');
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        this._dropdownTop = rect.bottom + 2;
+        this._dropdownRight = window.innerWidth - rect.right;
+      }
+      this._open = true;
+    }
+  }
+
+  private _close() {
+    this._open = false;
+  }
+
+  private _showDropdown() {
+    this._removeDropdown();
+
+    const overlay = document.createElement('div');
+    overlay.id = `project-dropdown-${this._uid}`;
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      top: `${this._dropdownTop}px`,
+      right: `${this._dropdownRight}px`,
+      zIndex: '10000',
+      minWidth: '180px',
+      background: 'var(--lumo-base-color)',
+      border: '1px solid var(--lumo-contrast-10pct)',
+      borderRadius: 'var(--lumo-border-radius-m)',
+      boxShadow: 'var(--lumo-box-shadow-m)',
+      padding: '4px 0',
+      fontFamily: 'var(--lumo-font-family)',
+    });
+
+    for (const action of this.menuActions) {
+      const item = document.createElement('div');
+      Object.assign(item.style, {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '8px 16px',
+        cursor: 'pointer',
+        color: 'var(--lumo-body-text-color)',
+        fontSize: 'var(--lumo-font-size-s)',
+      });
+
+      if (action.isDelete) {
+        item.style.borderTop = '1px solid var(--lumo-contrast-10pct)';
+        item.style.marginTop = '4px';
+        item.style.paddingTop = '12px';
+      }
+
+      item.addEventListener('mouseenter', () => {
+        item.style.backgroundColor = 'var(--lumo-primary-color-10pct)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.backgroundColor = '';
+      });
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._selectAction(action);
+      });
+
+      const icon = document.createElement('vaadin-icon');
+      icon.setAttribute('icon', action.icon);
+      icon.style.width = '18px';
+      icon.style.height = '18px';
+      icon.style.flexShrink = '0';
+      if (action.isDelete) {
+        icon.style.color = 'var(--dorc-error-color)';
+      }
+      item.appendChild(icon);
+
+      const label = document.createElement('span');
+      label.textContent = action.text;
+      label.style.whiteSpace = 'nowrap';
+      if (action.isDelete) {
+        label.style.color = 'var(--dorc-error-color)';
+      }
+      item.appendChild(label);
+
+      overlay.appendChild(item);
+    }
+
+    document.body.appendChild(overlay);
+  }
+
+  private _removeDropdown() {
+    this._getDropdownEl()?.remove();
   }
 
   private _selectAction(action: ActionMenuItem) {
