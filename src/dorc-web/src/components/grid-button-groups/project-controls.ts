@@ -39,7 +39,7 @@ export class ProjectControls extends LitElement {
     return document.getElementById(`project-dropdown-${this._uid}`);
   }
 
-  private _uid = Math.random().toString(36).slice(2, 8);
+  private _uid = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
 
   static get styles() {
     return css`
