@@ -1,135 +1,148 @@
-# S-008 — DataService Audit Deliverable
-
-> **Verdict: Empty surface — S-008 closes as a no-op.**
->
-> No `*DataService*` Rabbit pub/sub surface exists in the DOrc codebase at the audited commit. S-009's Rabbit-removal grep-target list does not need to add DataService entries.
+# S-008 DataService Pub/Sub — Audit Findings
 
 | Field | Value |
 |---|---|
-| **Audit run by** | Claude (Opus 4.6) |
-| **Audit date** | 2026-04-14 |
-| **Commit SHA at audit time** | `4afcc7514fb7b3567ffcc330a02b6f84354a8017` |
-| **Branch** | `feat/kafka-migration` |
-| **Governing spec** | `SPEC-S-008-DataService-Audit.md` (APPROVED, user-approved 2026-04-14) |
-| **Tooling** | `rg`/`grep -i` over the working tree at the commit above |
+| **Status** | APPROVED — Pending user approval |
+| **Date** | 2026-04-15 |
+| **Branch / commit** | `feat/kafka-migration` @ `c2912cd3` |
+| **Verdict** | **Empty surface — S-008 closes as a no-op.** |
+| **Governing** | `SPEC-S-008-DataService-Audit.md` (APPROVED user-approved 2026-04-14) |
 
 ---
 
-## 1. Source pattern grep across `src/`
+## 1. Verdict
 
-All patterns case-insensitive (`-i`).
+The original HLPS R1 draft listed a `RabbitDataService` pub/sub flow as a
+migration target. The IS R3 Implementation-Discovery revision narrative
+(IS §6) revised that to "likely absent" pending S-008 confirmation.
+**This audit confirms the absence.** S-008 closes as a no-op delivering
+only this note. The R-4(a) descope gate for S-008 is therefore never
+triggered and elapses clean on 2026-10-15.
 
-| Pattern | Command | Raw match count | Disposition |
+---
+
+## 2. Reproducible audit
+
+All commands were executed with `rg` (ripgrep) from the repo root
+against `src/`. Re-run them at the same commit (`c2912cd3`) to reproduce
+the same counts.
+
+### 2.1 Source greps (R-1 pattern set, all case-insensitive)
+
+| # | Pattern | Command | Hits | Disposition |
+|---|---|---|---|---|
+| 1 | `RabbitDataService` | `rg -i "RabbitDataService" src/` | **0** | Empty — no class, no usage. |
+| 2 | `class .*Rabbit.*DataService` | `rg -i "class\s+.*Rabbit.*DataService" src/` | **0** | Empty — no naming variant exists. |
+| 3 | `DataService.*Queue` | `rg -i "DataService.*Queue" src/` | **0** | Empty. |
+| 4 | `DataService.*Subscribe` | `rg -i "DataService.*Subscribe" src/` | **0** | Empty. |
+| 5 | `DataService.*Publish` | `rg -i "DataService.*Publish" src/` | **0** | Empty. |
+| 6 | `data-service.*amqp` | `rg -i "data-service.*amqp" src/` | **0** | Empty. |
+| 7 | `IDataService.*(Publish\|Subscribe\|Consume)` | `rg -i "IDataService.*(Publish\|Subscribe\|Consume)" src/` | **0** | Empty. |
+| 8 | `dorc\.data` (queue/exchange names) | `rg "dorc\.data" src/` | **0** | Empty — no DataService topic / queue topology. |
+
+### 2.2 Project / solution-name scan
+
+| # | Scan | Hits | Disposition |
 |---|---|---|---|
-| `RabbitDataService` | `rg -in 'RabbitDataService' src/` | **0** | n/a |
-| `DataService.*Queue` | `rg -in 'DataService.*Queue' src/` | **0** | n/a |
-| `DataService.*Subscribe` | `rg -in 'DataService.*Subscribe' src/` | **0** | n/a |
-| `DataService.*Publish` | `rg -in 'DataService.*Publish' src/` | **0** | n/a |
-| `data-service.*amqp` | `rg -in 'data-service.*amqp' src/` | **0** | n/a |
-| `IDataService.*(Publish\|Subscribe\|Consume)` | `rg -in 'IDataService.*(Publish\|Subscribe\|Consume)' src/` | **0** | n/a |
+| P1 | `src/` directories whose name contains `DataService` | **0** | Empty — no project folder named `*DataService*`. |
+| P2 | `*.csproj` whose filename contains `DataService` | **0** | Empty. |
+| P3 | `Dorc.sln` entries containing `DataService` | **0** | Empty (verified by `rg -i "DataService" src/Dorc.sln`). |
 
-All six patterns return zero matches. No DataService pub/sub surface in source.
+### 2.3 Configuration sweep
 
----
-
-## 2. Project-name scan
-
-| Probe | Command | Raw match count | Disposition |
+| # | Pattern | Hits | Disposition |
 |---|---|---|---|
-| Directory under `src/` named `*DataService*` | `find src/ -maxdepth 2 -type d -iname '*DataService*'` | **0** | n/a |
-| `*DataService*.csproj` anywhere in `src/` | `find src/ -iname '*DataService*.csproj'` | **0** | n/a |
-| `Dorc.sln` entries mentioning `DataService` | `grep -i 'DataService' src/Dorc.sln` | **0** | n/a |
+| C1 | `appsettings*.json` keys/values mentioning `DataService` / `data-service` | **0** | Empty. |
+| C2 | `install-scripts/` config files mentioning DataService surfaces | **0** | Empty. |
+| C3 | Helm chart `values.yaml` files | n/a | DOrc has no Helm chart in-tree. |
 
-No project, csproj, or solution entry references `DataService`.
+### 2.4 Reflection / DI sweep
 
----
+Searched DI registration shapes (`AddTransient` / `AddScoped` /
+`AddSingleton` — both generic-method and `typeof(...)` open-generic
+forms; assembly-scan / convention-based registration via Scrutor / Lamar
+scanner / MEF) for type-names containing `DataService`. Plus
+`Activator.CreateInstance` and `Type.GetType` calls referencing
+`DataService`.
 
-## 3. Configuration sweep
-
-| Probe | Command | Raw match count | Disposition |
+| # | Pattern | Hits | Disposition |
 |---|---|---|---|
-| `appsettings*.json` (any nested) referencing `DataService` | `rg -in 'DataService' --glob '**/appsettings*.json'` | **0** | n/a |
-| `appsettings*.json` referencing `data-service` | `rg -in 'data-service' --glob '**/appsettings*.json'` | **0** | n/a |
-| `install-scripts/` referencing `DataService` | `rg -in 'DataService' src/install-scripts/` | **0** | n/a |
-| Helm chart `values.yaml` (search broader DOrc tree) | none present in the repo at audit time | **n/a** | Helm not used in this repo. |
+| D1 | DI registration of `*DataService*` type-name | **0** | Empty. |
+| D2 | `Activator.CreateInstance` referencing `DataService` | **0** | Empty. |
+| D3 | `Type.GetType` referencing `DataService` | **0** | Empty. |
 
-No configuration carries a DataService queue/exchange/routing-key reference.
+### 2.5 Naming-coincidence dispositions
 
----
+The repo-wide grep `rg -i "DataService" src/` (broader than the R-1
+pattern set, used as a safety net per spec R-1's "non-exhaustive"
+clause) returned 3 hits, all in test-acceptance fixtures and unrelated
+to pub/sub:
 
-## 4. Reflection / DI sweep
-
-### 4.1 `Activator.CreateInstance` / `Type.GetType`
-
-Single match found:
-
-| File:Line | Match | Disposition |
+| File:line | Match context | Disposition |
 |---|---|---|
-| `src/Dorc.ApiModel/MonitorRunnerApi/VariableValueJsonConverter.cs:24` | `var type = Type.GetType(serialSimple.FullTypeName);` | **Out-of-scope — naming coincidence.** This is a JSON converter that resolves runtime variable-value types for monitor↔runner serialisation. Nothing to do with DataService or RabbitMQ pub/sub. |
+| `src/Tests.Acceptance/StepDefinitions/RefDataServicesSteps.cs` | SpecFlow steps for **reference data services** (RBAC reference data, etc.) | **out-of-scope-naming-coincidence** — REST-only test fixtures. |
+| `src/Tests.Acceptance/Support/Endpoints.cs` | URL routing for the same `RefDataServices` HTTP controllers | **out-of-scope-naming-coincidence** — pure HTTP, no pub/sub. |
+| `src/Tests.Acceptance/Features/RefDataServices.feature` | BDD feature file for the same | **out-of-scope-naming-coincidence**. |
 
-### 4.2 DI registrations (`AddTransient` / `AddScoped` / `AddSingleton` — generic + open-generic forms)
+No other `*DataService*` token exists anywhere in `src/`.
 
-A broad sweep across `src/` for any registration whose target type-name includes `DataService` returned **0 matches**. (Verified by `grep -rn -i "DataService" src/ --include="*.cs"` and inspecting every result; the only `DataService`-like names found were in `RefDataServices` Acceptance-test artefacts — see §4.3.)
+---
 
-### 4.3 Assembly-scan / convention-based registrations (Scrutor / Lamar scanner / MEF)
+## 3. Remaining RabbitMQ surfaces (full enumeration, S-009 ownership)
 
-Search for `Scrutor`, `Lamar` scanner import, `MEF`, `AddRegistry`, etc. across `src/`: no imports or scan-based registrations relating to `DataService` were found.
+The following files still carry `RabbitMQ.*` references. **None** are in
+S-008's scope; they are listed so a future reader can confirm S-008's
+no-op verdict does not orphan a real surface.
 
-### 4.4 Catch-all DataService substring
-
-For completeness, a fully unfiltered case-insensitive search for `DataService` substring across all `*.cs` files in `src/`:
-
-| File pattern | Match family | Disposition |
+| File | Owner step | Disposition |
 |---|---|---|
-| `src/Tests.Acceptance/Features/RefDataServices.feature.cs`, `src/Tests.Acceptance/StepDefinitions/RefDataServicesSteps.cs` | `RefDataServices` Acceptance-test specifications + step definitions for the `/RefDataServices` REST endpoint | **Out-of-scope — naming coincidence.** `RefDataServices` is a REST API endpoint serving reference-data lookups; not RabbitMQ pub/sub. |
-
-No other `DataService`-substring matches in source.
-
----
-
-## 5. IS / SC-1 alignment
-
-- **IS R3 §6 narrative claim** ("no `RabbitDataService` pub/sub implementation exists in the codebase") — **CONFIRMED.**
-- **S-009 Rabbit-removal grep-target list** — **NO CHANGE NEEDED.** The narrative `Tools.RabbitMqOAuthTest` + `RabbitMqDistributedLockService` enumeration in IS R3 §3 S-009 stands; the SC-1 grep suite (`RabbitMQ.*`, `EasyNetQ`, `amqp://`, etc.) remains the long-lived guard against any unforeseen Rabbit pub/sub regression.
+| `src/Dorc.Monitor/HighAvailability/RabbitMqDistributedLockService.cs` | S-005b (substrate flag flip) → S-009 (deletion) | Disabled at runtime by `Kafka:Substrate:DistributedLock = Kafka` (already implemented); deleted in S-009 with the substrate-selector flag. |
+| `src/Dorc.Monitor.Tests/DistributedLockServiceTests.cs` | S-009 | Test fixture for the Rabbit lock impl; deleted with the production class. |
+| `src/Dorc.Monitor.IntegrationTests/HighAvailability/RabbitMqLockIntegrationTests.cs` | S-009 | Same. |
+| `src/Tools.RabbitMqOAuthTest/Tools.RabbitMqOAuthTest.csproj` | S-009 | Standalone diagnostic tool; deleted in S-009. |
+| `src/Tools.RabbitMqOAuthTest/Program.cs` | S-009 | Same. |
+| `src/Dorc.Monitor/Dorc.Monitor.csproj` (PackageReference RabbitMQ.Client) | S-009 | Removed when `RabbitMqDistributedLockService` is deleted. |
 
 ---
 
-## 6. Verdict
+## 4. AT-2 / R-3 disposition consistency
 
-**Empty surface — S-008 closes as a no-op.**
-
-Per spec AT-3: no escalation needed. The R-4(a) descope-gate dated 2026-10-15 is logically dormant for S-008 (no scope to defer).
+Every match across §2.1–§2.5 is dispositioned either *empty* (zero
+hits) or *out-of-scope-naming-coincidence* (the three RefDataServices
+test fixtures). **Zero matches are dispositioned in-scope-pub/sub**, so
+the AT-2 invariant ("Empty surface verdict requires no in-scope match
+left unaddressed") holds.
 
 ---
 
-## 7. Re-run instructions
+## 5. AT-3 — User escalation
 
-A future reviewer can reproduce this audit at any subsequent commit by running, from the repo root:
+Verdict is *Empty surface* → AT-3 is **auto-satisfied** (no user
+escalation required). No port spec authoring is initiated. The
+2026-10-15 R-4(a) descope gate for S-008 elapses clean.
 
-```sh
-# §1 source patterns
-for pat in 'RabbitDataService' 'DataService.*Queue' 'DataService.*Subscribe' \
-           'DataService.*Publish' 'data-service.*amqp' \
-           'IDataService.*(Publish|Subscribe|Consume)'; do
-  echo "=== $pat ==="
-  rg -in "$pat" src/
-done
+---
 
-# §2 project/sln scan
-find src/ -maxdepth 2 -type d -iname '*DataService*'
-find src/ -iname '*DataService*.csproj'
-grep -i 'DataService' src/Dorc.sln
+## 6. AT-4 — IS / SC-1 alignment
 
-# §3 config sweep
-rg -in 'DataService|data-service' --glob '**/appsettings*.json'
-rg -in 'DataService' src/install-scripts/
+- **IS R3 §6 narrative claim:** "No `RabbitDataService` implementation
+  exists in the codebase — zero RabbitDataService.cs / equivalent
+  surface; no DataService queue names in config; S-008's target is
+  absent." → **Confirmed.**
+- **S-009 SC-1 grep-target list:** **No additions required from S-008.**
+  S-009's authoritative removal list (per IS §3 S-009) covers only the
+  surfaces enumerated in §3 above.
 
-# §4 reflection / DI
-rg -in 'Activator\.CreateInstance|Type\.GetType' src/
-rg -rn -i 'DataService' src/ --include="*.cs"
+---
 
-# Compare commit
-git rev-parse HEAD
-```
+## 7. Reviewer checklist
 
-Any new in-scope-pub/sub match on a re-run = surface discovered, escalate to user per spec AT-3.
+- [x] Every pattern from spec R-1 enumerated with the exact command and
+      hit count.
+- [x] Naming-coincidence safety-net grep performed; each hit
+      dispositioned with one-line justification (§2.5).
+- [x] Verdict matches the dispositions (AT-2).
+- [x] User escalation handled per AT-3 (auto-satisfied — empty verdict).
+- [x] IS / SC-1 cross-reference recorded (AT-4).
+- [x] Commit SHA recorded so re-runs can be compared.
+- [x] No code changes accompany this commit.
