@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Events;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
@@ -24,6 +25,7 @@ namespace Dorc.Core
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IBuildServerClientFactory _buildServerClientFactory;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -32,7 +34,8 @@ namespace Dorc.Core
             ILoggerFactory loggerFactory,
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeploymentEventsPublisher deploymentEventsPublisher
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IBuildServerClientFactory buildServerClientFactory
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
@@ -43,6 +46,7 @@ namespace Dorc.Core
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _buildServerClientFactory = buildServerClientFactory;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -195,7 +199,21 @@ namespace Dorc.Core
                 Project = createRequest.Project
             };
 
-            if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
+            if (project.SourceControlType == SourceControlType.GitHub &&
+                !string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http"))
+            {
+                // GitHub Actions: resolve artifact download URL via the GitHub API
+                var gitHubClient = _buildServerClientFactory.Create(SourceControlType.GitHub);
+                var artifactUrl = await gitHubClient.GetBuildArtifactDownloadUrlAsync(
+                    project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                    createRequest.BuildDefinitionName, createRequest.BuildUrl).ConfigureAwait(false);
+
+                buildDetail.DropLocation = artifactUrl;
+                buildDetail.BuildNumber = createRequest.BuildUrl; // run ID
+                buildDetail.Uri = createRequest.BuildUrl;
+                buildDetail.Project = project.ProjectName;
+            }
+            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
                 var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
