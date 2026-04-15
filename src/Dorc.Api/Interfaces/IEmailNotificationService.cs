@@ -12,7 +12,8 @@ namespace Dorc.Api.Interfaces
         /// <param name="environment">The target environment</param>
         /// <param name="project">The project being deployed</param>
         /// <param name="buildNumber">The build number being deployed</param>
+        /// <param name="notificationEmail">The project's notification email address</param>
         /// <returns>Task representing the async operation</returns>
-        Task SendCrOverrideNotificationAsync(string username, string environment, string project, string buildNumber);
+        Task SendCrOverrideNotificationAsync(string username, string environment, string project, string buildNumber, string notificationEmail);
     }
 }

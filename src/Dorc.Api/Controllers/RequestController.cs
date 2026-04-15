@@ -568,12 +568,15 @@ namespace Dorc.Api.Controllers
                     {
                         try
                         {
+                            var projectModel = _projectsPersistentSource.GetProject(requestDto.Project);
+                            var notificationEmail = projectModel?.NotificationEmail;
                             string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                             await _emailNotificationService.SendCrOverrideNotificationAsync(
                                 username,
                                 requestDto.Environment,
                                 requestDto.Project,
-                                requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty);
+                                requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty,
+                                notificationEmail ?? string.Empty);
                         }
                         catch (Exception)
                         {

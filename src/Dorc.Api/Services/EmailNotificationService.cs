@@ -29,18 +29,17 @@ namespace Dorc.Api.Services
 
         private string GetFromAddress() => _configValuesPersistentSource.GetConfigValue("Email_FromAddress", string.Empty);
         private string GetFromName() => _configValuesPersistentSource.GetConfigValue("Email_FromName", "DOrc Deployment System");
-        private string GetAppSupportEmail() => _configValuesPersistentSource.GetConfigValue("App support", string.Empty);
 
         public async Task SendCrOverrideNotificationAsync(
             string username,
             string environment,
             string project,
-            string buildNumber)
+            string buildNumber,
+            string notificationEmail)
         {
-            var recipients = GetAppSupportEmail();
-            if (string.IsNullOrEmpty(recipients))
+            if (string.IsNullOrEmpty(notificationEmail))
             {
-                _logger.LogWarning("'App support' config value not configured. Cannot send CR override notification.");
+                _logger.LogInformation("No notification email configured for project '{Project}'. Skipping CR override notification.", project);
                 return;
             }
 
@@ -64,7 +63,7 @@ namespace Dorc.Api.Services
                 var body = CreateCrOverrideEmailBody(username, environment, project, buildNumber);
 
                 // Build recipients list
-                var recipientList = recipients
+                var recipientList = notificationEmail
                     .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(r => r.Trim())
                     .Where(r => !string.IsNullOrEmpty(r))
