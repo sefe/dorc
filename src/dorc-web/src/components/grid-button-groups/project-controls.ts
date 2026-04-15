@@ -30,6 +30,8 @@ export class ProjectControls extends LitElement {
       vaadin-menu-bar {
         --lumo-space-xs: 0px;
         --lumo-space-s: 0px;
+        --lumo-button-size: 28px;
+        --lumo-icon-size-m: 16px;
       }
     `;
   }
@@ -102,7 +104,7 @@ export class ProjectControls extends LitElement {
   render() {
     return html`
       <vaadin-menu-bar
-        theme="icon small"
+        theme="icon tertiary-inline small"
         .items="${this.menuItems}"
         @item-selected="${this.onItemSelected}"
       ></vaadin-menu-bar>

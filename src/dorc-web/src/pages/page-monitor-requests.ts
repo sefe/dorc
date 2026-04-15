@@ -105,7 +105,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         cursor: pointer;
       }
 
-      vaadin-grid::part(row:hover) {
+      vaadin-grid::part(row):hover {
         background-color: var(--lumo-primary-color-10pct);
       }
 
