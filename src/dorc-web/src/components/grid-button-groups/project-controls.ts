@@ -1,11 +1,11 @@
 import { css, LitElement } from 'lit';
-import '@vaadin/menu-bar';
-import type { MenuBarItemSelectedEvent } from '@vaadin/menu-bar';
+import '@vaadin/button';
+import '@vaadin/icon';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
-import { customElement, property } from 'lit/decorators.js';
-import { html } from 'lit/html.js';
+import { customElement, property, state } from 'lit/decorators.js';
+import { html, nothing } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
 
 interface ActionMenuItem {
@@ -20,18 +20,72 @@ interface ActionMenuItem {
 export class ProjectControls extends LitElement {
   @property({ type: Object }) project: ProjectApiModel | undefined;
   @property({ type: Boolean }) deleteHidden: boolean = true;
+  @state() private _open = false;
+
+  private _outsideClickHandler = (e: MouseEvent) => {
+    if (!this.contains(e.target as Node)) {
+      this._open = false;
+    }
+  };
 
   static get styles() {
     return css`
       :host {
         display: inline-block;
+        position: relative;
       }
 
-      vaadin-menu-bar {
-        --lumo-space-xs: 0px;
-        --lumo-space-s: 0px;
+      vaadin-button {
         --lumo-button-size: 28px;
         --lumo-icon-size-m: 16px;
+      }
+
+      .dropdown {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        z-index: 100;
+        min-width: 180px;
+        background: var(--lumo-base-color);
+        border: 1px solid var(--lumo-contrast-10pct);
+        border-radius: var(--lumo-border-radius-m);
+        box-shadow: var(--lumo-box-shadow-m);
+        padding: 4px 0;
+      }
+
+      .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
+        cursor: pointer;
+        color: var(--lumo-body-text-color);
+        font-size: var(--lumo-font-size-s);
+      }
+
+      .menu-item:hover {
+        background-color: var(--lumo-primary-color-10pct);
+      }
+
+      .menu-item vaadin-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+
+      .menu-item span {
+        white-space: nowrap;
+      }
+
+      .menu-item.delete {
+        border-top: 1px solid var(--lumo-contrast-10pct);
+        margin-top: 4px;
+        padding-top: 12px;
+      }
+
+      .menu-item.delete vaadin-icon,
+      .menu-item.delete span {
+        color: var(--dorc-error-color);
       }
     `;
   }
@@ -89,91 +143,49 @@ export class ProjectControls extends LitElement {
     return actions;
   }
 
-  private get menuItems() {
-    return [
-      {
-        component: this.createTriggerButton(),
-        children: this.menuActions.map(action => ({
-          component: this.createMenuItem(action),
-          eventName: action.eventName
-        }))
-      }
-    ];
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('click', this._outsideClickHandler);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('click', this._outsideClickHandler);
   }
 
   render() {
     return html`
-      <vaadin-menu-bar
+      <vaadin-button
         theme="icon small"
-        .items="${this.menuItems}"
-        @item-selected="${this.onItemSelected}"
-      ></vaadin-menu-bar>
+        aria-label="Project actions"
+        title="Project actions"
+        @click="${this._toggle}"
+      >
+        <vaadin-icon icon="vaadin:ellipsis-dots-h"></vaadin-icon>
+      </vaadin-button>
+      ${this._open ? html`
+        <div class="dropdown">
+          ${this.menuActions.map(action => html`
+            <div
+              class="menu-item ${action.isDelete ? 'delete' : ''}"
+              @click="${() => this._selectAction(action)}"
+            >
+              <vaadin-icon icon="${action.icon}"></vaadin-icon>
+              <span>${action.text}</span>
+            </div>
+          `)}
+        </div>
+      ` : nothing}
     `;
   }
 
-  private createTriggerButton(): HTMLElement {
-    const item = document.createElement('vaadin-menu-bar-item');
-    item.setAttribute('aria-label', 'Project actions');
-    item.setAttribute('title', 'Project actions');
-    const icon = document.createElement('vaadin-icon');
-    icon.setAttribute('icon', 'vaadin:ellipsis-dots-h');
-    item.appendChild(icon);
-    return item;
+  private _toggle(e: Event) {
+    e.stopPropagation();
+    this._open = !this._open;
   }
 
-  private createMenuItem(action: ActionMenuItem): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex';
-    wrapper.style.alignItems = 'center';
-    wrapper.style.gap = '10px';
-    wrapper.style.padding = '6px 24px 6px 8px';
-    wrapper.style.margin = '-4px -16px';
-    wrapper.style.cursor = 'pointer';
-    wrapper.setAttribute('data-event', action.eventName);
-
-    // Visual separator before delete action
-    if (action.isDelete) {
-      wrapper.style.borderTop = '1px solid var(--lumo-contrast-10pct)';
-      wrapper.style.marginTop = '4px';
-      wrapper.style.paddingTop = '10px';
-    }
-
-    wrapper.addEventListener('mouseenter', () => {
-      wrapper.style.backgroundColor = 'var(--lumo-primary-color-10pct)';
-    });
-    wrapper.addEventListener('mouseleave', () => {
-      wrapper.style.backgroundColor = '';
-    });
-
-    const icon = document.createElement('vaadin-icon');
-    icon.setAttribute('icon', action.icon);
-    icon.style.width = '18px';
-    icon.style.height = '18px';
-    icon.style.flexShrink = '0';
-    if (action.isDelete) {
-      icon.style.color = 'var(--dorc-error-color)';
-    }
-    wrapper.appendChild(icon);
-
-    const label = document.createElement('span');
-    label.textContent = action.text;
-    label.style.whiteSpace = 'nowrap';
-    if (action.isDelete) {
-      label.style.color = 'var(--dorc-error-color)';
-    }
-    wrapper.appendChild(label);
-
-    return wrapper;
-  }
-
-  private onItemSelected(e: MenuBarItemSelectedEvent) {
-    const selectedItem = e.detail.value as { eventName?: string };
-    const eventName = selectedItem?.eventName;
-    if (!eventName) return;
-
-    const action = this.menuActions.find(a => a.eventName === eventName);
-    if (!action) return;
-
+  private _selectAction(action: ActionMenuItem) {
+    this._open = false;
     this.dispatchEvent(
       new CustomEvent(action.eventName, {
         detail: action.detail(),
