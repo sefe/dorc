@@ -105,10 +105,6 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         cursor: pointer;
       }
 
-      vaadin-grid::part(row):hover {
-        background-color: var(--lumo-primary-color-10pct);
-      }
-
       .overlay {
         width: 100%;
         height: 100%;
@@ -171,7 +167,7 @@ export class PageMonitorRequests extends PageElement implements IDeploymentsEven
         column-reordering-allowed
         multi-sort
         .size=${200}
-        theme="compact row-stripes no-row-borders no-border"
+        theme="compact row-stripes no-row-borders no-border hover-highlight"
         @active-item-changed="${this.onRowClick}"
         @mousedown="${() => { this._pointerActive = true; }}"
         .dataProvider=${(
