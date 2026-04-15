@@ -126,7 +126,18 @@ export class ProjectControls extends LitElement {
     wrapper.style.display = 'flex';
     wrapper.style.alignItems = 'center';
     wrapper.style.gap = '8px';
+    wrapper.style.padding = '6px 12px';
+    wrapper.style.margin = '-4px -12px';
+    wrapper.style.borderRadius = 'var(--lumo-border-radius-m)';
+    wrapper.style.cursor = 'pointer';
     wrapper.setAttribute('data-event', action.eventName);
+
+    wrapper.addEventListener('mouseenter', () => {
+      wrapper.style.backgroundColor = 'var(--lumo-primary-color-10pct)';
+    });
+    wrapper.addEventListener('mouseleave', () => {
+      wrapper.style.backgroundColor = '';
+    });
 
     const icon = document.createElement('vaadin-icon');
     icon.setAttribute('icon', action.icon);
