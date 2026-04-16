@@ -1,4 +1,4 @@
-name: DOrc Release Build
+name: DOrc Build
 
 on:
   push:
