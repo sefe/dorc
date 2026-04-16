@@ -9,6 +9,7 @@ import '../application-daemons';
 import { ApplicationDaemons } from '../application-daemons';
 import { PageEnvBase } from './page-env-base';
 import GlobalCache from '../../global-cache';
+import { DaemonStatusApi } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import '../notifications/error-notification';
 import { SuccessNotification } from '../notifications/success-notification';
@@ -164,18 +165,14 @@ export class EnvDaemons extends PageEnvBase {
     this.daemonsLoading = true;
   }
 
-  private async discoverDaemons() {
+  private discoverDaemons() {
     const envName = this.envContent?.EnvironmentName || this.environmentName;
     if (!envName) return;
 
     this.discovering = true;
-    try {
-      const response = await fetch(
-        `/DaemonStatus/discover/${encodeURIComponent(envName)}`,
-        { method: 'POST' }
-      );
-
-      if (response.ok) {
+    const api = new DaemonStatusApi();
+    api.daemonStatusDiscoverEnvNamePost({ envName }).subscribe({
+      next: () => {
         const notification = new SuccessNotification();
         notification.setAttribute(
           'successMessage',
@@ -183,8 +180,9 @@ export class EnvDaemons extends PageEnvBase {
         );
         this.shadowRoot?.appendChild(notification);
         notification.open();
-      } else {
-        const message = await response.text();
+      },
+      error: (err: any) => {
+        const message = err?.response?.message ?? err?.message ?? String(err);
         const notification = new ErrorNotification();
         notification.setAttribute(
           'errorMessage',
@@ -192,17 +190,11 @@ export class EnvDaemons extends PageEnvBase {
         );
         this.shadowRoot?.appendChild(notification);
         notification.open();
+        this.discovering = false;
+      },
+      complete: () => {
+        this.discovering = false;
       }
-    } catch (err) {
-      const notification = new ErrorNotification();
-      notification.setAttribute(
-        'errorMessage',
-        `Daemon discovery failed for '${envName}': ${String(err)}`
-      );
-      this.shadowRoot?.appendChild(notification);
-      notification.open();
-    } finally {
-      this.discovering = false;
-    }
+    });
   }
 }
