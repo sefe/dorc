@@ -19,6 +19,10 @@ import type {
     ServiceStatusApiModel,
 } from '../models';
 
+export interface DaemonStatusDiscoverEnvNamePostRequest {
+    envName: string;
+}
+
 export interface DaemonStatusEnvNameGetRequest {
     envName: string;
 }
@@ -38,14 +42,71 @@ export class DaemonStatusApi extends BaseAPI {
 
     /**
      */
+    daemonStatusDiscoverEnvNamePost({ envName }: DaemonStatusDiscoverEnvNamePostRequest): Observable<void>
+    daemonStatusDiscoverEnvNamePost({ envName }: DaemonStatusDiscoverEnvNamePostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    daemonStatusDiscoverEnvNamePost({ envName }: DaemonStatusDiscoverEnvNamePostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+        throwIfNullOrUndefined(envName, 'envName', 'daemonStatusDiscoverEnvNamePost');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<void>({
+            url: '/DaemonStatus/discover/{envName}'.replace('{envName}', encodeURI(envName)),
+            method: 'POST',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    daemonStatusDiscoverPost(): Observable<void>
+    daemonStatusDiscoverPost(opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    daemonStatusDiscoverPost(opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<void>({
+            url: '/DaemonStatus/discover',
+            method: 'POST',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest): Observable<Array<ServiceStatusApiModel>>
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServiceStatusApiModel>>>
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<Array<ServiceStatusApiModel> | AjaxResponse<Array<ServiceStatusApiModel>>> {
         throwIfNullOrUndefined(envName, 'envName', 'daemonStatusEnvNameGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<ServiceStatusApiModel>>({
             url: '/DaemonStatus/{envName}'.replace('{envName}', encodeURI(envName)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -55,6 +116,16 @@ export class DaemonStatusApi extends BaseAPI {
     daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServiceStatusApiModel>>>
     daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<Array<ServiceStatusApiModel> | AjaxResponse<Array<ServiceStatusApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -62,6 +133,7 @@ export class DaemonStatusApi extends BaseAPI {
         return this.request<Array<ServiceStatusApiModel>>({
             url: '/DaemonStatus',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -74,6 +146,13 @@ export class DaemonStatusApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<ServiceStatusApiModel>({

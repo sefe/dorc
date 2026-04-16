@@ -797,6 +797,46 @@
         }
       }
     },
+    "/DaemonStatus/discover/{envName}": {
+      "post": {
+        "tags": [
+          "DaemonStatus"
+        ],
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/DaemonStatus/discover": {
+      "post": {
+        "tags": [
+          "DaemonStatus"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/DeploymentV2": {
       "get": {
         "tags": [
