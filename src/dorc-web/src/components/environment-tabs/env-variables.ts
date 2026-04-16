@@ -224,17 +224,17 @@ export class EnvVariables extends PageEnvBase {
                           helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
                         ></vaadin-combo-box>
                       </td>
-                      <td style="vertical-align: center;">
+                      <td style="vertical-align: middle;">
                         <vaadin-button
                           @click="${this._addVariableValueClick}"
                           ?disabled="${!this.environment?.UserEditable}"
                           >Add Variable Value</vaadin-button
                         >
                       </td>
-                      <td style="vertical-align: center; min-width: 20px">
+                      <td style="vertical-align: middle; min-width: 20px">
                         ${this.addingVariableValue
                           ? html`<div
-                              style="vertical-align: center"
+                              style="vertical-align: middle"
                               class="small-loader"
                             ></div> `
                           : html``}

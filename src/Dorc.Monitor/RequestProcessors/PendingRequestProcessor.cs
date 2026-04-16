@@ -207,6 +207,14 @@ namespace Dorc.Monitor.RequestProcessors
                                 if (!isSuccessful)
                                 {
                                     deploymentRequestStatus = DeploymentRequestStatus.Failed;
+
+                                    if (enabledNonSkippedComponent.StopOnFailure)
+                                    {
+                                        logger.LogWarning(
+                                            "Deployment of remaining components is aborted due to StopOnFailure flag on component '{ComponentName}'.",
+                                            enabledNonSkippedComponent.ComponentName);
+                                        break;
+                                    }
                                 }
                                 if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
                                 {
