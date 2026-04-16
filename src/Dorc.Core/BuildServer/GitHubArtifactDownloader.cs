@@ -26,6 +26,13 @@ namespace Dorc.Core.BuildServer
             _httpClientFactory = httpClientFactory;
             var appSettings = configuration.GetSection("AppSettings");
             _gitHubToken = appSettings["GitHubToken"] ?? string.Empty;
+
+            if (string.IsNullOrEmpty(_gitHubToken))
+            {
+                _logger.LogWarning("GitHubToken is not configured in AppSettings. GitHub artifact downloads " +
+                    "will fail with 401 Unauthorized — the /actions/artifacts/{id}/zip endpoint requires a token " +
+                    "with 'actions:read' on the target repository.");
+            }
         }
 
         public bool IsGitHubArtifactUrl(string url)
