@@ -35,5 +35,6 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Dorc.Monitor.IntegrationTests" />
+    <InternalsVisibleTo Include="Dorc.Core.Tests" />
   </ItemGroup>
 </Project>
