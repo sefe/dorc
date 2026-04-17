@@ -7,7 +7,8 @@
       "Default": "Information"
     },
     "Enrich": [
-      "WithThreadId"
+      "WithThreadId",
+      "FromLogContext"
     ],
     "WriteTo": [
       {
@@ -18,7 +19,7 @@
           "rollOnFileSizeLimit": true,
           "fileSizeLimitBytes": 10485760,
           "retainedFileCountLimit": 100,
-          "outputTemplate": "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u5} {SourceContext}:{Method}] [T:{ThreadId}] - {Message:lj}{NewLine}{Exception}"
+          "outputTemplate": "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u5} {SourceContext}:{Method}] [T:{ThreadId}] [R:{RequestId}] - {Message:lj}{NewLine}{Exception}"
         }
       }
     ]

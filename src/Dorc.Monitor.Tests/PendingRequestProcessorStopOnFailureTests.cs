@@ -24,6 +24,7 @@ namespace Dorc.Monitor.Tests
         private IConfigValuesPersistentSource mockConfigValuesPersistentSource = null!;
         private IPropertyEvaluator mockPropertyEvaluator = null!;
         private IDeploymentEventsPublisher mockEventsPublisher = null!;
+        private IGitHubArtifactDownloader mockGitHubArtifactDownloader = null!;
 
         private PendingRequestProcessor sut = null!;
 
@@ -42,6 +43,8 @@ namespace Dorc.Monitor.Tests
             mockConfigValuesPersistentSource = Substitute.For<IConfigValuesPersistentSource>();
             mockPropertyEvaluator = Substitute.For<IPropertyEvaluator>();
             mockEventsPublisher = Substitute.For<IDeploymentEventsPublisher>();
+            mockGitHubArtifactDownloader = Substitute.For<IGitHubArtifactDownloader>();
+            mockGitHubArtifactDownloader.IsGitHubArtifactUrl(Arg.Any<string>()).Returns(false);
 
             // Common mock setup
             mockConfigValuesPersistentSource.GetConfigValue("ScriptRoot", Arg.Any<string>())
@@ -80,7 +83,8 @@ namespace Dorc.Monitor.Tests
                 mockManageProjectsPersistentSource,
                 mockConfigValuesPersistentSource,
                 mockPropertyEvaluator,
-                mockEventsPublisher);
+                mockEventsPublisher,
+                mockGitHubArtifactDownloader);
         }
 
         private static RequestToProcessDto CreateRequest(List<ComponentApiModel> components)
