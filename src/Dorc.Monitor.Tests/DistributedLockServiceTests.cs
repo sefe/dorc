@@ -656,7 +656,13 @@ namespace Dorc.Monitor.Tests.HighAvailability
         [TestMethod]
         public void BuildLockQueueArguments_IncludesConsumerTimeoutOfZeroAsLong()
         {
-            var args = RabbitMqDistributedLockService.BuildLockQueueArguments();
+            // BuildLockQueueArguments is an instance method that reads
+            // RabbitMqConsumerTimeoutMs off IMonitorConfiguration; arrange the
+            // mock to return 0 to assert the "disable broker timeout" path.
+            mockConfiguration.RabbitMqConsumerTimeoutMs.Returns(0L);
+            var service = new RabbitMqDistributedLockService(mockLogger, mockConfiguration);
+
+            var args = service.BuildLockQueueArguments();
 
             Assert.IsTrue(args.ContainsKey("x-consumer-timeout"),
                 "Queue arguments must include 'x-consumer-timeout' to disable broker consumer acknowledgement timeout");
