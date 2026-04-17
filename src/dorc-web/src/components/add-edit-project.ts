@@ -223,7 +223,7 @@ export class AddEditProject extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            pattern="^(https?|file)?:\\/\\/(.*)"
+            pattern="^((https?|file):\\/\\/(.*)|\\\\\\\\(.*))"
             value="${this._project?.ArtefactsUrl ?? ''}"
             @value-changed="${this._artefactsUrlChanged}"
           ></vaadin-text-field>
@@ -401,7 +401,11 @@ export class AddEditProject extends LitElement {
     const isGitHubHost = hostname === 'github.com' || hostname.endsWith('.github.com');
     const isDevOpsHost = hostname === 'dev.azure.com' || hostname.endsWith('.dev.azure.com') ||
       hostname === 'visualstudio.com' || hostname.endsWith('.visualstudio.com') ||
-      hostname.endsWith('.tfs.') || hostname === 'tfs';
+      // TFS-style on-prem hosts typically look like `tfs.<corp-domain>` or
+      // `tfs<N>.<corp-domain>`; `.endsWith('.tfs.')` can never match because
+      // a hostname never ends with a trailing dot. Use a substring / prefix
+      // check so common on-prem conventions are recognised.
+      hostname === 'tfs' || hostname.startsWith('tfs.') || hostname.includes('.tfs.');
 
     let error = '';
 

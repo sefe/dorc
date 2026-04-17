@@ -18,16 +18,19 @@ namespace Dorc.Core.BuildServer
     {
         private readonly ILogger<GitHubArtifactDownloader> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IGitHubHostValidator _hostValidator;
         private readonly string _gitHubToken;
         private readonly string _downloadFolder;
 
         public GitHubArtifactDownloader(
             ILogger<GitHubArtifactDownloader> logger,
             IHttpClientFactory httpClientFactory,
+            IGitHubHostValidator hostValidator,
             IConfiguration configuration)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _hostValidator = hostValidator;
             var appSettings = configuration.GetSection("AppSettings");
             _gitHubToken = appSettings["GitHubToken"] ?? string.Empty;
             _downloadFolder = appSettings["GitHubArtifactDownloadFolder"] ?? string.Empty;
@@ -65,6 +68,19 @@ namespace Dorc.Core.BuildServer
 
         public string DownloadAndExtract(string artifactUrl)
         {
+            // SSRF guard: the bearer token gets attached below, so we must
+            // validate the host against the GitHub allow-list before
+            // dispatching the request. Otherwise a crafted DropLocation could
+            // exfiltrate the token to an attacker-controlled host.
+            if (!Uri.TryCreate(artifactUrl, UriKind.Absolute, out var parsedUrl) ||
+                parsedUrl.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new ArgumentException(
+                    $"GitHub artifact URL must be an absolute https:// URL: '{artifactUrl}'",
+                    nameof(artifactUrl));
+            }
+            _hostValidator.ValidateHost(parsedUrl.Host);
+
             _logger.LogInformation("Downloading GitHub Actions artifact from: {Url}", artifactUrl);
 
             var client = _httpClientFactory.CreateClient("GitHubActions");

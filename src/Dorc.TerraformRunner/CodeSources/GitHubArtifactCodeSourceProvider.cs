@@ -135,11 +135,13 @@ namespace Dorc.TerraformRunner.CodeSources
         }
 
         /// <summary>
-        /// Validates the API base URL is HTTPS. Default github.com hosts are always allowed.
-        /// Enterprise hosts (e.g. github.mycompany.com) are accepted because the upstream
-        /// Monitor/API service already validated them via <c>IGitHubHostValidator</c> before
-        /// setting <c>GitHubApiBaseUrl</c>. We still enforce HTTPS and valid URI format as
-        /// defense-in-depth.
+        /// Validates the API base URL. Default github.com hosts are always allowed.
+        /// Non-default hosts (e.g. github.mycompany.com) are accepted because the
+        /// upstream Monitor/API service already validated them via
+        /// <c>IGitHubHostValidator</c> before setting <c>GitHubApiBaseUrl</c>.
+        /// We still enforce HTTPS, valid URI format, and — for defence in depth —
+        /// a match against <see cref="DefaultAllowedHosts"/> when the host isn't
+        /// configured as an allowed enterprise host via environment variable.
         /// </summary>
         private static void ValidateApiBaseHost(string apiBase)
         {
@@ -155,6 +157,29 @@ namespace Dorc.TerraformRunner.CodeSources
 
             if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"GitHub API base URL must use HTTPS, got '{uri.Scheme}'");
+
+            if (DefaultAllowedHosts.Contains(uri.Host))
+                return;
+
+            // Enterprise hosts are accepted only if listed in the runner's
+            // environment allow-list (mirrors the upstream Monitor-side
+            // IGitHubHostValidator behaviour). This is defence in depth:
+            // primary validation happens in the Monitor before the value ever
+            // reaches the runner, but we refuse to send the bearer token to
+            // an unexpected host in any case.
+            var enterpriseHostsEnv = Environment.GetEnvironmentVariable("DORC_GITHUB_ENTERPRISE_HOSTS");
+            if (!string.IsNullOrEmpty(enterpriseHostsEnv))
+            {
+                var enterpriseHosts = enterpriseHostsEnv
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (enterpriseHosts.Contains(uri.Host, StringComparer.OrdinalIgnoreCase))
+                    return;
+            }
+
+            throw new ArgumentException(
+                $"GitHub API host '{uri.Host}' is not an allowed GitHub host. " +
+                "Public github.com / api.github.com are allowed by default; " +
+                "add enterprise hosts via the DORC_GITHUB_ENTERPRISE_HOSTS environment variable (comma-separated).");
         }
 
         private class GitHubArtifactsListResponse
