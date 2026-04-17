@@ -143,7 +143,7 @@ namespace Dorc.TerraformRunner.CodeSources
         /// a match against <see cref="DefaultAllowedHosts"/> when the host isn't
         /// configured as an allowed enterprise host via environment variable.
         /// </summary>
-        private static void ValidateApiBaseHost(string apiBase)
+        internal static void ValidateApiBaseHost(string apiBase)
         {
             Uri uri;
             try

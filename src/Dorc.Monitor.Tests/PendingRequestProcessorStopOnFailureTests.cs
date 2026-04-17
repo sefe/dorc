@@ -279,5 +279,121 @@ namespace Dorc.Monitor.Tests
                 Arg.Any<string>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
         }
+
+        // -------- GitHub artifact cleanup path --------
+
+        [TestMethod]
+        public void Execute_WithGitHubArtifactDropLocation_CleansUpResolvedPathAfterDeployment()
+        {
+            // Arrange
+            var artifactUrl = "https://api.github.com/repos/sefe/dorc-rabbitmq-installer/actions/artifacts/1234/zip";
+            var resolvedLocalPath = Path.Combine(Path.GetTempPath(), "dorc-artifacts", Guid.NewGuid().ToString("N"));
+
+            mockGitHubArtifactDownloader.IsGitHubArtifactUrl(artifactUrl).Returns(true);
+            mockGitHubArtifactDownloader.DownloadAndExtract(artifactUrl).Returns(resolvedLocalPath);
+
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp1 };
+            SetupOrderedComponents(components);
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            var dto = new RequestToProcessDto(
+                new DeploymentRequestApiModel
+                {
+                    Id = 100,
+                    EnvironmentName = "TestEnv",
+                    IsProd = false,
+                    BuildNumber = "1.0.0",
+                    RequestDetails = "<details>"
+                },
+                new DeploymentRequestDetail
+                {
+                    EnvironmentName = "TestEnv",
+                    Components = new List<string> { "Comp1" },
+                    BuildDetail = new BuildDetail { DropLocation = artifactUrl }
+                });
+
+            // Act
+            sut.Execute(dto, CancellationToken.None);
+
+            // Assert — the downloader was consulted for the URL, extraction
+            // returned our fake path, and the finally block cleaned it up
+            // exactly once using that exact path.
+            mockGitHubArtifactDownloader.Received(1).DownloadAndExtract(artifactUrl);
+            mockGitHubArtifactDownloader.Received(1).Cleanup(resolvedLocalPath);
+        }
+
+        [TestMethod]
+        public void Execute_WithGitHubArtifactDropLocation_CleansUpEvenWhenDeploymentFails()
+        {
+            // The cleanup guarantee MUST hold even on a failed deployment —
+            // that's the whole point of having it in the finally block.
+            var artifactUrl = "https://api.github.com/repos/o/r/actions/artifacts/9999/zip";
+            var resolvedLocalPath = Path.Combine(Path.GetTempPath(), "dorc-artifacts", Guid.NewGuid().ToString("N"));
+
+            mockGitHubArtifactDownloader.IsGitHubArtifactUrl(artifactUrl).Returns(true);
+            mockGitHubArtifactDownloader.DownloadAndExtract(artifactUrl).Returns(resolvedLocalPath);
+
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true, StopOnFailure = true };
+            var components = new List<ComponentApiModel> { comp1 };
+            SetupOrderedComponents(components);
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
+                .Returns(x => throw new InvalidOperationException("deployment blew up"));
+
+            var dto = new RequestToProcessDto(
+                new DeploymentRequestApiModel
+                {
+                    Id = 100, EnvironmentName = "TestEnv", IsProd = false,
+                    BuildNumber = "1.0.0", RequestDetails = "<details>"
+                },
+                new DeploymentRequestDetail
+                {
+                    EnvironmentName = "TestEnv",
+                    Components = new List<string> { "Comp1" },
+                    BuildDetail = new BuildDetail { DropLocation = artifactUrl }
+                });
+
+            // Act
+            sut.Execute(dto, CancellationToken.None);
+
+            // Assert — cleanup still fires even though deployment failed
+            mockGitHubArtifactDownloader.Received(1).Cleanup(resolvedLocalPath);
+        }
+
+        [TestMethod]
+        public void Execute_WithLocalDropLocation_DoesNotCallCleanup()
+        {
+            // Regression guard: if the DropLocation isn't a GitHub artifact URL,
+            // Cleanup must NOT be called — there's nothing to clean up and
+            // calling Cleanup on a random local path could delete shared data.
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp1 };
+            SetupOrderedComponents(components);
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            // Default mock: IsGitHubArtifactUrl returns false (set in Setup)
+            var dto = CreateRequest(components); // DropLocation = "C:\\Drop"
+
+            // Act
+            sut.Execute(dto, CancellationToken.None);
+
+            // Assert — downloader APIs never consulted for a non-UNC/non-URL drop
+            mockGitHubArtifactDownloader.DidNotReceive().DownloadAndExtract(Arg.Any<string>());
+            mockGitHubArtifactDownloader.DidNotReceive().Cleanup(Arg.Any<string>());
+        }
     }
 }

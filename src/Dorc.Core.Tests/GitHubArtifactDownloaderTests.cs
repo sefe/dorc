@@ -2,6 +2,9 @@ using Dorc.Core.BuildServer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using System.IO.Compression;
+using System.Net;
+using System.Text;
 
 namespace Dorc.Core.Tests
 {
@@ -150,6 +153,142 @@ namespace Dorc.Core.Tests
             }
 
             _hostValidator.Received().ValidateHost("api.github.com");
+        }
+
+        // -------- DownloadAndExtract happy path --------
+
+        /// <summary>
+        /// End-to-end-ish check: given a successful HTTP response carrying a
+        /// valid zip payload, the downloader writes it under the configured
+        /// folder, extracts into a "drop" subfolder, and returns the parent
+        /// path so the caller (PendingRequestProcessor) can clean up later.
+        /// </summary>
+        [TestMethod]
+        public void DownloadAndExtract_HappyPath_ExtractsUnderConfiguredFolderAndReturnsPath()
+        {
+            // Arrange — an isolated download folder for this test
+            var downloadRoot = Path.Combine(Path.GetTempPath(),
+                "dorc-download-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+
+            try
+            {
+                // Configuration: point the downloader at the isolated folder
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                appSettings["GitHubToken"].Returns("test-token");
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                // HttpClient returns a valid zip containing "Server/hello.txt"
+                var zipBytes = BuildZipArchive(
+                    ("Server/hello.txt", "payload for the installer"));
+                _httpClientFactory.CreateClient("GitHubActions").Returns(
+                    new HttpClient(new StubHttpHandler(HttpStatusCode.OK, zipBytes)));
+
+                var sut = CreateSut();
+
+                // Act
+                var returnedPath = sut.DownloadAndExtract(
+                    "https://api.github.com/repos/o/r/actions/artifacts/1/zip");
+
+                // Assert — returned path lives under the configured root
+                Assert.IsTrue(returnedPath.StartsWith(downloadRoot, StringComparison.OrdinalIgnoreCase),
+                    $"Expected returned path to live under '{downloadRoot}', was '{returnedPath}'");
+                Assert.IsTrue(Directory.Exists(returnedPath));
+
+                // Artifact zip was extracted into a "drop" subfolder, preserving
+                // the zip's internal layout
+                var dropFolder = Path.Combine(returnedPath, "drop");
+                Assert.IsTrue(Directory.Exists(dropFolder), "Expected 'drop' subfolder to exist");
+                var extracted = Path.Combine(dropFolder, "Server", "hello.txt");
+                Assert.IsTrue(File.Exists(extracted), $"Expected extracted file at '{extracted}'");
+                Assert.AreEqual("payload for the installer", File.ReadAllText(extracted));
+
+                // The intermediate zip file must have been deleted so it can't
+                // be re-invoked or inflate cleanup size
+                Assert.IsFalse(File.Exists(Path.Combine(returnedPath, "artifact.zip")),
+                    "artifact.zip should be deleted after extraction");
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+            }
+        }
+
+        [TestMethod]
+        public void DownloadAndExtract_HttpFailure_CleansUpAndRethrows()
+        {
+            var downloadRoot = Path.Combine(Path.GetTempPath(),
+                "dorc-download-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+
+            try
+            {
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                _httpClientFactory.CreateClient("GitHubActions").Returns(
+                    new HttpClient(new StubHttpHandler(HttpStatusCode.Unauthorized, Array.Empty<byte>())));
+
+                var sut = CreateSut();
+
+                Assert.Throws<HttpRequestException>(() =>
+                    sut.DownloadAndExtract("https://api.github.com/repos/o/r/actions/artifacts/1/zip"));
+
+                // Cleanup guarantee: no leftover per-request directory inside
+                // the configured root — every subdir we created was rolled
+                // back on failure.
+                var leftovers = Directory.GetDirectories(downloadRoot);
+                Assert.AreEqual(0, leftovers.Length,
+                    $"Expected no leftover download dirs; found: {string.Join(", ", leftovers)}");
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+            }
+        }
+
+        // -------- helpers --------
+
+        private static byte[] BuildZipArchive(params (string Path, string Content)[] files)
+        {
+            using var ms = new MemoryStream();
+            using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var (path, content) in files)
+                {
+                    var entry = zip.CreateEntry(path);
+                    using var es = entry.Open();
+                    var bytes = Encoding.UTF8.GetBytes(content);
+                    es.Write(bytes, 0, bytes.Length);
+                }
+            }
+            return ms.ToArray();
+        }
+
+        private sealed class StubHttpHandler : HttpMessageHandler
+        {
+            private readonly HttpStatusCode _status;
+            private readonly byte[] _body;
+
+            public StubHttpHandler(HttpStatusCode status, byte[] body)
+            {
+                _status = status;
+                _body = body;
+            }
+
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var response = new HttpResponseMessage(_status)
+                {
+                    Content = new ByteArrayContent(_body)
+                };
+                return Task.FromResult(response);
+            }
         }
     }
 }
