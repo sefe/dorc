@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED (R3 user-approved 2026-04-14; SC-3 interpretation binding confirmed) |
-| **Author** | Claude (Opus 4.6) |
+| **Status** | APPROVED (R4 — added S-014, S-015, S-016 via Implementation-Discovery Revision; unanimous panel approval 2026-04-20; user auto-pilot satisfies user-approval gate per memory `project_kafka_autopilot`) |
+| **Author** | Claude (Opus 4.6 through R3; Opus 4.7 1M for R4) |
 | **Created** | 2026-04-13 |
 | **Target completion** | 2026-12-31 (per HLPS C-5) |
 | **Governing HLPS** | `HLPS-Kafka-Migration.md` (APPROVED, R3) |
@@ -37,8 +37,16 @@
 | **S-011** | Production cutover execution | S-010 | HLPS SC-6 |
 | **S-012** | RabbitMQ decommission at T+14d (C-9 window elapsed) | S-011 | HLPS SC-6, C-9 |
 | **S-013** | Post-cutover SC-7 monitoring + baseline report | S-011 (parallel with S-012 after T+14d) | HLPS SC-7 |
+| **S-014** | Installer + `appsettings.json` template alignment for the Kafka substrate (surfaces on a fresh MSI install) | S-006, S-007, S-009 (surfaced during S-010 dry-run); **blocks S-010 AT-5..AT-8** | HLPS SC-8, C-2 (gates cutover-ready MSI) |
+| **S-015** | `Kafka:SchemaRegistry:Url` (+ optional basic-auth) propagation through both installers, both templates, and `Setup.Dorc.msi.json` | S-014 (path alignment must land first) | HLPS SC-3 (end-to-end Avro serialization viability); **blocks S-011 production cutover** |
+| **S-016** | Monitor-side Avro DI wiring — add `AddDorcKafkaAvro(configurationRoot)` call to `src/Dorc.Monitor/Program.cs` and adjust DI order so Monitor's consumers deserialize Avro-encoded Request-lifecycle payloads | S-006 (consumer surface), S-007 (Avro contract) | HLPS SC-3 (Monitor deserialize parity); **blocks S-011 production cutover** |
 
-13 steps. IDs are stable and will not renumber if any step is removed or deferred.
+16 steps. IDs are stable and will not renumber if any step is removed or deferred. S-014 / S-015 / S-016 are late-discovered gaps:
+- **S-014** — the DI code for Kafka options was delivered under S-006/S-007/S-009 but the matching **installer + template** changes were only partially delivered (Monitor-side incorrectly, API-side not at all); a fresh MSI install produces services that fail `IHost.StartAsync()` with `OptionsValidationException: Kafka:BootstrapServers is required.`
+- **S-015** — the schema-registry URL was never propagated through any installer; without it, `AddDorcKafkaAvro` throws on first Avro encode/decode. Startup validation passes; runtime fails.
+- **S-016** — `Dorc.Monitor/Program.cs` never registers `AddDorcKafkaAvro`; Monitor consumes Request-lifecycle topics through the no-op default serializer factory, silently producing null/deserialisation-error payloads.
+
+S-014 blocks S-010's dry-run exit. S-015 + S-016 must both close before S-011 production cutover — they do not block S-010.
 
 ---
 
@@ -258,6 +266,50 @@ Step completion date: **later of** T+30d or when ≥200 production deployments h
 
 ---
 
+### S-014 — Installer + `appsettings.json` template alignment for Kafka substrate
+
+**What:** Align the two checked-in `appsettings.json` templates (`src/Dorc.Api/appsettings.json` and `src/Dorc.Monitor/appsettings.json`) and the three WiX installer files (`src/Setup.Dorc/Web/RequestApi/RequestApi.wxs`, `src/Setup.Dorc/Monitors/NonProd/NonProdActionService.wxs`, `src/Setup.Dorc/Monitors/Prod/ProdActionService.wxs`) so that a fresh MSI install produces an `appsettings.json` whose `Kafka` section is at the JSON **root** — the canonical binding path `KafkaClientOptions.SectionName` contracts on. Currently the API template has no `Kafka` section and the API installer has no Kafka writes; the Monitor template nests `Kafka` under `AppSettings` and the Monitor installer writes to `$.AppSettings.Kafka.*` — both break the runtime binding. Cross-installer MSI property names stay shared so one deploy-variables surface covers both installers.
+
+**Why:** HLPS SC-8 (cutover runbook must produce a buildable, installable, startable state). HLPS C-2 (cutover hard duration cap of 4h cannot be met if the installed MSI does not produce a running API + Monitor). This gap surfaced during S-010 staging dry-run when the ST-01 API failed to start with `OptionsValidationException: Kafka:BootstrapServers is required.` — commit-history verification shows S-009 commit `012f3987` did touch the Monitor installer but wrote to the wrong path (`$.AppSettings.Kafka.*`), and the API installer was never extended. S-014 is therefore combined Monitor remediation + API completion.
+
+**Dependencies:**
+- **Upstream:** S-006, S-007, S-009 (their DI extensions establish the binding path this spec aligns to).
+- **Downstream:** S-010 (its AT-5..AT-8 smoke tests — which transitively require services to start — cannot pass until S-014 closes). S-014 is a hard blocker for S-010's dry-run exit.
+
+**Scope boundary:** S-014 is strictly about *startup-validation* viability. `Kafka:SchemaRegistry:Url` propagation is deferred to reserved **S-015**; Monitor-side Avro DI wiring is deferred to reserved **S-016**. Both S-015 and S-016 are "must close before S-011" gates; neither blocks S-010.
+
+**Verification intent:** A fresh MSI install of each installer against a test environment, driven by a deploy-variables file populated with the four established Kafka MSI properties (`KAFKA.BOOTSTRAPSERVERS`, `KAFKA.SASL.USERNAME`, `KAFKA.SASL.PASSWORD`, `KAFKA.SSLCA.LOCATION`), produces services that complete `IHost.StartAsync()` without raising `OptionsValidationException`. A `git grep` confirms zero references to `$.AppSettings.Kafka` in any WiX file under `src/Setup.Dorc/`, and confirms a root-level `"Kafka"` key in both source `appsettings.json` templates.
+
+---
+
+### S-015 — `Kafka:SchemaRegistry:Url` propagation through installers + templates
+
+**What:** Extend both `appsettings.json` templates, both Monitor WiX files, the API WiX file, and `src/Setup.Dorc/Setup.Dorc.msi.json` + `src/Setup.Dorc/Install.Orchestrator.bat` to register and write `Kafka:SchemaRegistry:Url` (and optional `Kafka:SchemaRegistry:BasicAuthUsername` / `BasicAuthPassword` — Aiven Karapace may require basic auth per R-8 credential delivery). Template shape must match the `KafkaSchemaRegistryOptions` class in `src/Dorc.Kafka.Client/Configuration/KafkaClientOptions.cs`.
+
+**Why:** `AddDorcKafkaAvro` throws `InvalidOperationException: Kafka:SchemaRegistry:Url is required for Avro serialization.` on first Avro encode or decode (verified in `src/Dorc.Kafka.Events/DependencyInjection/KafkaAvroServiceCollectionExtensions.cs`). Without this step, the first Kafka message attempt in any installed environment fails — SC-3 pub/sub is inoperable.
+
+**Dependencies:** S-014 (the root-path alignment must land first; S-015's writes go to `$.Kafka.SchemaRegistry.*`).
+
+**Verification intent:** A fresh MSI install into a test environment with Aiven Schema-Registry credentials in the deploy-variables surface produces `appsettings.json` whose `Kafka.SchemaRegistry.Url` resolves to the test registry. An end-to-end smoke test publishes and consumes one Avro-encoded `DeploymentRequestEventData` event without `InvalidOperationException`.
+
+**Blocking:** S-011 production cutover cannot proceed with S-015 open.
+
+---
+
+### S-016 — Monitor-side Avro DI wiring
+
+**What:** Add `builder.Services.AddDorcKafkaAvro(configurationRoot);` to `src/Dorc.Monitor/Program.cs` in the same DI region as the existing `AddDorcKafkaDistributedLock` / `AddDorcKafkaRequestLifecycleSubstrate` calls, in whichever order the DI contract of `AddDorcKafkaClient` (transitively invoked by the lock extension) requires for the Avro factory to supersede the default no-op. The `AvroKafkaSerializerFactory` replaces the `DefaultKafkaSerializerFactory` via `services.RemoveAll<IKafkaSerializerFactory>()` + re-register, so Avro can be registered before or after the lock extension — Delivery verifies against the existing extension contract.
+
+**Why:** `src/Dorc.Monitor/Program.cs` currently calls only `AddDorcKafkaDistributedLock` + `AddDorcKafkaRequestLifecycleSubstrate`. Neither transitively calls `AddDorcKafkaAvro`. `AddDorcKafkaClient` (invoked from the lock extension) registers the **no-op** `DefaultKafkaSerializerFactory`, whose serialize/deserialize return `null`. The Monitor's `DeploymentRequestsKafkaConsumer` will therefore silently fail to deserialise Avro-encoded Request-lifecycle payloads produced by the API — SC-3 Request-lifecycle pub/sub is functionally broken on the Monitor side.
+
+**Dependencies:** S-006 (consumer surface), S-007 (Avro contract). Does **not** depend on S-014 or S-015 — the DI fix is orthogonal to installer work.
+
+**Verification intent:** Unit test confirms `IKafkaSerializerFactory` registered in the Monitor's DI is `AvroKafkaSerializerFactory`, not the default. Integration test publishes an Avro `DeploymentRequestEventData` to `dorc.requests.new`, the Monitor consumes and deserialises correctly.
+
+**Blocking:** S-011 production cutover cannot proceed with S-016 open.
+
+---
+
 ## 4. Schedule Sketch (non-binding, for deadline-risk awareness)
 
 ~8.5 months from 2026-04-13 to 2026-12-31. Rough banding (S-003 runs concurrently with S-004):
@@ -388,3 +440,53 @@ R3 is an Adversarial-Review round targeting these revisions only. All unchanged 
 | Gemini-G-R3-2 | Gemini | LOW | S-008 teeth acknowledgment | Acknowledged — S-008 step 1 now explicit enough. |
 
 All MEDIUM findings resolved via surgical edits. All LOWs either accepted + subsumed or acknowledgment-only. No re-litigation of prior rounds. R3 transitions: `IN REVIEW (R3)` → `APPROVED — Pending user approval`.
+
+### R4 (2026-04-20) — Implementation-Discovery Revision — S-014 added — IN REVIEW
+
+**Trigger:** During S-010 cutover-prep dry-run deployment of the current `feat/kafka-migration` build to ST-01, the Dorc.Api IIS process failed to start with `OptionsValidationException: Kafka:BootstrapServers is required.` Root-cause investigation against the branch found that neither `src/Dorc.Api/appsettings.json` nor `src/Setup.Dorc/Web/RequestApi/RequestApi.wxs` carry any `Kafka` config surface; the Monitor template and installers nest `Kafka` under `AppSettings` — a binding path that does not match the DI extensions' `KafkaClientOptions.SectionName` root contract. The DI code landed under S-006/S-007/S-009; the installer + template changes were never specified in any of those steps.
+
+**Impact on HLPS:** None. Target state unchanged.
+
+**Impact on IS:** One new step added, **S-014 — Installer + `appsettings.json` template alignment for Kafka substrate**. No existing step modified. S-014 is not a blocker for S-009's closure (S-009 code changes are correct); it is a blocker for **S-010's** dry-run exit gate ("fresh install from MSI stands the services up"). S-010's spec and runbook are not modified by S-014 — they describe a cutover procedure; S-014 simply makes the MSI artifact viable input to that procedure.
+
+**Schedule impact:** Negligible. S-014 is a small surgical config + WiX alignment; fits inside the existing "Cutover prep + execute" band.
+
+**Scope discipline (§4 Cycle-Limit + Fix Scope):** R4 adds one row + one §3 detail + this history entry + governs SPEC-S-014 creation. It does **not** amend or revisit any R1/R2/R3 text. No re-litigation.
+
+**Artifacts under R4 review:**
+- This IS revision (step table + §3 S-014 detail + R4 history entry above; R2 resubmission also adds S-015 and S-016 placeholder rows in §2 and detail entries in §3, per SPEC-S-014 R1 triage).
+- `docs/kafka-migration/SPEC-S-014-Installer-Config-Alignment.md` (companion JIT Spec submitted in the same R4 round).
+
+#### R4-R1 (2026-04-20) — REVISION REQUIRED
+
+Panel (simulated personas): Claude Sonnet 4.6, Gemini Pro 3.1, GPT 5.3-codex. Verdicts: APPROVE WITH MINOR / **REVISION REQUIRED** / APPROVE WITH MINOR. Gemini's two HIGH findings gated the resubmission.
+
+| Finding | Reviewer | Severity | Disposition | Resolution |
+|---|---|---|---|---|
+| Monitor `AddDorcKafkaAvro` deferral untracked | Gemini G-R4-1 | HIGH | Accept | Reserved as S-016 in step table + §3 detail; SPEC §2 cross-references. |
+| §1 motivation inaccurate (S-009 did touch Monitor installer) | Gemini G-R4-2 | HIGH | Accept | SPEC §1 rewritten to name commit `012f3987`; step detail reframes S-014 as Monitor remediation + API completion. |
+| SchemaRegistry deferral untracked | Gemini G-R4-3 | MEDIUM | Accept | Reserved as S-015; added step-table row and §3 detail. |
+| "No downstream step depends" contradicts narrative | Gemini G-R4-4 / Sonnet S4-F3 | MEDIUM | Accept | §3 S-014 dependencies now name S-010 explicitly as downstream blocker. |
+| Monitor root-move field-instance mitigation optional | Gemini G-R4-5 | MEDIUM | Accept | SPEC §6 Row 1 mitigation now mandatory. |
+| AuthMode=SaslSsl template default breaks OSS dev loop | GPT-F1 / Sonnet S4-F1 | MEDIUM | Accept | SPEC R1 default → `Plaintext`; R3/R4 add literal installer writes forcing `SaslSsl` per env. |
+| Deploy-variables surface under-specified | Gemini G-R4-6 | LOW | Accept (minor) | SPEC §4 R4 now names `Setup.Dorc.msi.json` + `Install.Orchestrator.bat`. |
+| §7 prescribes commit ordering | Gemini G-R4-7 | LOW | Accept | SPEC §7 sentence removed. |
+| Upgrade-install orphan `AppSettings.Kafka` subtree | GPT-F2 | LOW | Accept (minor) | SPEC §6 gains dual-state row. |
+| Test home candidate unnamed | GPT-F3 | LOW | Accept (minor) | SPEC §4 R5 names `Dorc.Kafka.Client.Tests`. |
+| AC-6 vs §7 contradiction | GPT-F5 | LOW | Accept (minor) | SPEC AC-6 wording clarified. |
+| R4 Cycle-Limit framing | GPT-F4 | LOW | Reject | Fix-Scope-Discipline wording applies regardless of cycle semantics. |
+| R5 harness choice | Sonnet S4-F2 | LOW | Defer to Delivery | U-S014-2 correctly non-blocking. |
+
+R4-R1 status: `IN REVIEW (R4-R1)` → `REVISION` → R2 resubmission in-flight.
+
+#### R4-R2 (2026-04-20) — UNANIMOUS APPROVAL
+
+Same panel (simulated personas Sonnet 4.6, Gemini Pro 3.1, GPT 5.3-codex). Scoped strictly to R4-R1 fix verification and regression check per §4 R2+ rules.
+
+| Reviewer | Verdict | Regressions | Notes |
+|---|---|---|---|
+| Sonnet | APPROVE | None | All 12 R4-R1 fix rows verified; dispositions (subsumed/deferred/rejected) coherent. |
+| Gemini | APPROVE | None | Both HIGH findings (G-R4-1, G-R4-2) proportionally addressed; live-code citations verified (commit `012f3987`, `Setup.Dorc.msi.json:225–239`). Step count 14→16 correctly updated. Stable-ID rule honoured. |
+| GPT-codex | APPROVE WITH MINOR | None | All 5 GPT-F* + regression checks pass. `docs/kafka-migration/README-local-dev.md` compose-broker-PLAINTEXT verified consistent with API template `Plaintext` default. S-015 dependency on S-014 (path alignment first) verified correct; S-016 correctly independent of S-014. One LOW (U-S014-1 stale) — Defer to Delivery. |
+
+**Unanimous clean approval.** R4 status transitions: `IN REVIEW (R4-R1)` → `REVISION` → `IN REVIEW (R4-R2)` → `APPROVED`. User auto-pilot (memory `project_kafka_autopilot`) satisfies the final user-approval gate.

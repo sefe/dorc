@@ -31,4 +31,12 @@
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- S-014: regression test needs to read the checked-in templates to verify
+         Kafka is bound at the root (not under AppSettings). Linked as
+         CopyToOutputDirectory so the test can resolve the path at runtime. -->
+    <Content Include="..\Dorc.Api\appsettings.json" Link="Configuration\dorc-api-appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Dorc.Monitor\appsettings.json" Link="Configuration\dorc-monitor-appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

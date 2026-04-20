@@ -49,11 +49,12 @@
 					
 					<Json:JsonFile Id="SetOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#ProdDeployMonitorExeConfig]" />
 
-					<!-- Kafka cluster configuration (S-009 replaces RabbitMQ HA settings) -->
-					<Json:JsonFile Id="KafkaBootstrapServersProd" ElementPath="$.AppSettings.Kafka.BootstrapServers" Value="[KAFKA.BOOTSTRAPSERVERS]" File="[#ProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="KafkaSaslUsernameProd" ElementPath="$.AppSettings.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#ProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="KafkaSaslPasswordProd" ElementPath="$.AppSettings.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#ProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="KafkaSslCaLocationProd" ElementPath="$.AppSettings.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#ProdDeployMonitorExeConfig]" />
+					<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
+					<Json:JsonFile Id="KafkaAuthModeProd" ElementPath="$.Kafka.AuthMode" Value="SaslSsl" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaBootstrapServersProd" ElementPath="$.Kafka.BootstrapServers" Value="[KAFKA.BOOTSTRAPSERVERS]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSaslUsernameProd" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSaslPasswordProd" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSslCaLocationProd" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">

@@ -69,6 +69,15 @@ duration, and whether failure is a blocker. Coverage at minimum:
 - DOrc API health endpoint returns 200 + JSON includes the deployed
   build number.
 - Monitor process is running (Windows service status check).
+- **Config-shape post-deploy check (per S-014):** on each installed
+  node, `appsettings.json` exposes `Kafka.BootstrapServers` at the
+  **JSON root** (i.e. the `Kafka` block is a top-level sibling of
+  `AppSettings`, not a child of it). If the value appears under
+  `AppSettings.Kafka` the deploy has not taken effect as expected
+  and must be investigated before proceeding. Upgrade-installs may
+  leave a cosmetic orphan subtree at `$.AppSettings.Kafka.*` — the
+  root-level values are authoritative; the orphan is harmless but
+  should be noted in the transcript.
 - `KafkaLockCoordinator` partitions-assigned log line is observed
   within the configured `SessionTimeoutMs`.
 - A synthetic deployment request (smoke-test environment) reaches
