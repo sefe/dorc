@@ -1,15 +1,11 @@
 namespace Dorc.Core.Interfaces
 {
     /// <summary>
-    /// Marker shape over <see cref="IDeploymentEventsPublisher"/> used during
-    /// the S-006 / S-007 substrate transition. The Kafka-substrate publisher
-    /// delegates the request-lifecycle methods (which S-007 does not own)
-    /// to an instance of this interface — the production wiring binds it to
-    /// the existing direct-SignalR publisher so request-lifecycle events keep
-    /// flowing on SignalR until S-006 takes over those methods.
-    ///
-    /// Removed in S-009 alongside the substrate-selector flag and the
-    /// inactive Direct branch.
+    /// Marker shape over <see cref="IDeploymentEventsPublisher"/>. The
+    /// Kafka-substrate publisher owns the result-status channel and delegates
+    /// the request-lifecycle methods to an instance of this interface, which
+    /// in production is bound to the direct-SignalR publisher. Retained
+    /// post-S-009 so Dorc.Kafka.Events does not need to reference Dorc.Api.
     /// </summary>
     public interface IFallbackDeploymentEventPublisher : IDeploymentEventsPublisher
     {

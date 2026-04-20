@@ -18,13 +18,13 @@ var registryUrl = args.Length > 2
     : Environment.GetEnvironmentVariable("KAFKA_SCHEMA_REGISTRY") ?? "http://localhost:8081";
 
 HttpClient? registryHttp = null;
+var probeClient = new HttpClient
+{
+    BaseAddress = new Uri(registryUrl),
+    Timeout = TimeSpan.FromSeconds(5)
+};
 try
 {
-    var probeClient = new HttpClient
-    {
-        BaseAddress = new Uri(registryUrl),
-        Timeout = TimeSpan.FromSeconds(5)
-    };
     using var probeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
     var probe = await probeClient.GetAsync("/subjects", probeCts.Token);
     if (probe.IsSuccessStatusCode)
@@ -34,14 +34,17 @@ try
     }
     else
     {
-        probeClient.Dispose();
         Console.WriteLine($"[schema-gate] Live registry at {registryUrl} returned {(int)probe.StatusCode}; falling back to snapshot at {snapshotDir}.");
     }
 }
 catch (Exception ex)
 {
-    registryHttp = null;
     Console.WriteLine($"[schema-gate] Live registry at {registryUrl} unreachable ({ex.GetType().Name}); falling back to snapshot at {snapshotDir}.");
+}
+finally
+{
+    if (registryHttp is null)
+        probeClient.Dispose();
 }
 
 var gate = new AvroSchemaGate(registryHttp, canonicalDir, Directory.Exists(snapshotDir) ? snapshotDir : null);

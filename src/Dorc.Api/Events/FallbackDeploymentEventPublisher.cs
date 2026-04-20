@@ -4,15 +4,10 @@ using Dorc.Core.Interfaces;
 namespace Dorc.Api.Events
 {
     /// <summary>
-    /// Adapts the production <see cref="DirectDeploymentEventPublisher"/>
-    /// onto the S-007 <see cref="IFallbackDeploymentEventPublisher"/> marker
-    /// interface. Allows the Kafka-substrate publisher to delegate the
-    /// two request-lifecycle methods (S-006's scope) to the existing
-    /// SignalR-direct path without Dorc.Kafka.Events having to reference
-    /// Dorc.Api.
-    ///
-    /// Removed in S-009 alongside the substrate-selector flag and the
-    /// DirectDeploymentEventPublisher itself.
+    /// Adapts <see cref="DirectDeploymentEventPublisher"/> onto
+    /// <see cref="IFallbackDeploymentEventPublisher"/> so the Kafka-substrate
+    /// publisher can delegate the request-lifecycle methods to the SignalR
+    /// path without Dorc.Kafka.Events having to reference Dorc.Api.
     /// </summary>
     public sealed class FallbackDeploymentEventPublisher : IFallbackDeploymentEventPublisher
     {

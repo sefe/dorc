@@ -2,7 +2,7 @@ using Dorc.Core.Events;
 using Dorc.Kafka.Events;
 using Dorc.Kafka.Events.Schemas;
 
-namespace Dorc.Kafka.Client.Tests.Schemas;
+namespace Dorc.Kafka.Events.Tests.Schemas;
 
 [TestClass]
 public class DorcEventSchemasTests

@@ -98,11 +98,9 @@ namespace Dorc.Monitor
 
                 // Manual garbage collecting between deployment requests necessary to unload stored resources that remains after Roslyn
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
-                // SPEC-S-006 R-4: wait on the request-poll signal capped at the
-                // configured iteration delay. With substrate=Direct the injected
-                // signal is the no-op variant which behaves like Task.Delay; with
-                // substrate=Kafka the consumer raises the signal on incoming
-                // events and this wait short-circuits.
+                // Wait on the request-poll signal capped at the configured
+                // iteration delay. The Kafka request-lifecycle consumer raises
+                // the signal on incoming events so this wait short-circuits.
                 try
                 {
                     await pollSignal.WaitAsync(TimeSpan.FromMilliseconds(iterationDelayMs), monitorCancellationToken);

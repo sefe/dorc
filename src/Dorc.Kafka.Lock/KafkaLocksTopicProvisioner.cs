@@ -102,10 +102,15 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
         }
         else
         {
-            _logger.LogWarning(
-                "Kafka lock topic has DIFFERENT partition count: topic={Topic} expected={Expected} actual={Actual}. " +
-                "Partition-count is immutable post-cutover (ADR-S-005 §4 #2); reconcile via S-010 runbook.",
+            _logger.LogCritical(
+                "Kafka lock topic partition-count mismatch: topic={Topic} expected={Expected} actual={Actual}. " +
+                "Lock hashing uses the configured count (KafkaLockCoordinator.cs), so a mismatch would make some " +
+                "locks unacquirable. Partition-count is immutable post-cutover (ADR-S-005 §4 #2); " +
+                "reconcile via the S-010 runbook before restarting.",
                 topic, expected, actual);
+            throw new InvalidOperationException(
+                $"Kafka lock topic '{topic}' has {actual} partitions but KafkaLocksOptions.PartitionCount is {expected}. " +
+                "Refusing to start: reconcile via the S-010 runbook.");
         }
     }
 }
