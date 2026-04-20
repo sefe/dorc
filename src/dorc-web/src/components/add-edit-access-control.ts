@@ -67,6 +67,8 @@ export class AddEditAccessControl extends LitElement {
   @state()
   private loading = true;
 
+  private _ownerLimitNotified = false;
+
   static get styles() {
     return css`
       paper-dialog.size-position {
@@ -648,11 +650,15 @@ export class AddEditAccessControl extends LitElement {
         ).length ?? 0;
         if (ownerCount >= 2) {
           checkbox.checked = false;
-          Notification.show(`Maximum of 2 owners allowed per environment`, {
-            theme: 'warning',
-            position: 'bottom-start',
-            duration: 3000
-          });
+          if (!addEditAccessControl._ownerLimitNotified) {
+            addEditAccessControl._ownerLimitNotified = true;
+            Promise.resolve().then(() => { addEditAccessControl._ownerLimitNotified = false; });
+            Notification.show(`Maximum of 2 owners allowed per environment`, {
+              theme: 'warning',
+              position: 'bottom-start',
+              duration: 3000
+            });
+          }
           return;
         }
         if (model.item.Allow !== undefined) {
@@ -697,7 +703,7 @@ export class AddEditAccessControl extends LitElement {
 
             this.loading = false;
           },
-          error: (err: string) => console.error(err),
+          error: (err: string) => { this.loading = false; console.error(err); },
           complete: () => console.log('finished loading access controls')
         });
     }
