@@ -238,6 +238,18 @@
       "DeployProperty": "KAFKA_SSLCA_LOCATION"
     },
     {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.URL",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_URL"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_USERNAME"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD"
+    },
+    {
       "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
       "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }

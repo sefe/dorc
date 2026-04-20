@@ -60,6 +60,30 @@ public class AppSettingsTemplateShapeTests
             "AppSettings.Kafka.BootstrapServers must not exist in src/Dorc.Monitor/appsettings.json — Kafka belongs at JSON root.");
     }
 
+    [TestMethod]
+    public void DorcApi_Template_Exposes_Kafka_SchemaRegistry_Url_At_Root()
+    {
+        var config = LoadTemplate("dorc-api-appsettings.json");
+
+        var url = config[$"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)}"];
+
+        Assert.IsNotNull(url,
+            "Kafka:SchemaRegistry:Url must be present at JSON root of src/Dorc.Api/appsettings.json so the installer (S-015) can write into it. " +
+            "The parent key must exist as a template placeholder; AddDorcKafkaAvro throws InvalidOperationException on first serialize if Url is unset at runtime.");
+    }
+
+    [TestMethod]
+    public void DorcMonitor_Template_Exposes_Kafka_SchemaRegistry_Url_At_Root()
+    {
+        var config = LoadTemplate("dorc-monitor-appsettings.json");
+
+        var url = config[$"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)}"];
+
+        Assert.IsNotNull(url,
+            "Kafka:SchemaRegistry:Url must be present at JSON root of src/Dorc.Monitor/appsettings.json so the installer (S-015) can write into it. " +
+            "S-014 pre-provisioned the placeholder for template-shape parity with the API.");
+    }
+
     private static IConfigurationRoot LoadTemplate(string linkedFileName)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Configuration", linkedFileName);

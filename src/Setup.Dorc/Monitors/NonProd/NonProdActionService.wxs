@@ -53,6 +53,11 @@
 					<Json:JsonFile Id="KafkaSaslUsernameNonProd" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="KafkaSaslPasswordNonProd" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="KafkaSslCaLocationNonProd" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<!-- S-015: Kafka schema-registry (Karapace / Aiven) endpoint + optional basic-auth creds -->
+					<Json:JsonFile Id="KafkaSchemaRegistryUrlNonProd" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameNonProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordNonProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">

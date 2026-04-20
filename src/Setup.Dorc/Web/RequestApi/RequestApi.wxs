@@ -81,6 +81,11 @@
 		<Json:JsonFile Id="KafkaSaslUsernameApi" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="KafkaSaslPasswordApi" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="KafkaSslCaLocationApi" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#DeployApiWebConfig]" />
+
+		<!-- S-015: Kafka schema-registry (Karapace / Aiven) endpoint + optional basic-auth creds -->
+		<Json:JsonFile Id="KafkaSchemaRegistryUrlApi" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameApi" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordApi" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -151,6 +156,11 @@
 			<Json:JsonFile Id="KafkaSaslUsernameApiProd" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaSaslPasswordApiProd" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaSslCaLocationApiProd" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#DeployApiWebConfig]" />
+
+			<!-- S-015: Kafka schema-registry (Karapace / Aiven) endpoint + optional basic-auth creds -->
+			<Json:JsonFile Id="KafkaSchemaRegistryUrlApiProd" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameApiProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordApiProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#DeployApiWebConfig]" />
 	  </Component>
   </Fragment>
 </Wix>
