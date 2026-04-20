@@ -9,7 +9,7 @@ This is **not** used at runtime — production DOrc points at Aiven for Apache K
 | Tool | Version |
 |---|---|
 | Podman Desktop (or `podman` + `podman-compose`) | 4.x or newer |
-| .NET SDK | 8.0.x (matches `Dorc.Kafka.SmokeTests` target framework) |
+| .NET SDK | 8.0.x |
 | Free localhost ports | 9092 (Kafka), 8081 (Karapace), 8080 (Kafka UI, optional) |
 
 Docker Desktop also works with the same compose file, but Podman is the project standard.
@@ -40,13 +40,15 @@ podman compose -f compose.kafka.yml --profile ui up -d
 
 Then open http://localhost:8080.
 
-## Verify with the smoke test
+## Verify the stack is live
+
+The unit-test suite (`Dorc.Kafka.Client.Tests`, `Dorc.Kafka.Events.Tests`) does **not** require a live broker. For an end-to-end round-trip against the running compose stack, run the opt-in integration suite:
 
 ```
-dotnet test src/Dorc.Kafka.SmokeTests/Dorc.Kafka.SmokeTests.csproj
+dotnet test src/Dorc.Kafka.Events.IntegrationTests/Dorc.Kafka.Events.IntegrationTests.csproj
 ```
 
-This produces one message and consumes it back, failing within 30s if the broker is unreachable. By default it uses `localhost:9092`; override with the `KAFKA_BOOTSTRAP` environment variable if the stack runs on a non-default port.
+These tests connect to `localhost:9092` (Kafka) + `http://localhost:8081` (Karapace) by default. Override via the `KAFKA_BOOTSTRAP` and `KAFKA_SCHEMA_REGISTRY` environment variables if the stack runs on non-default ports. CI excludes this project via the `IntegrationTests` path filter, so the suite runs only when explicitly invoked locally.
 
 ## Port overrides
 
@@ -70,7 +72,7 @@ podman compose -f compose.kafka.yml down -v
 |---|---|---|
 | `port already in use` on `up` | Another process holds 9092 / 8081 / 8080 | Set `KAFKA_PORT` / `KARAPACE_PORT` / `KAFKA_UI_PORT` env vars before `up`. |
 | Kafka container keeps restarting | Insufficient memory | Raise the Podman VM memory (Podman Desktop → Settings → Resources). Broker wants at least 1 GB. |
-| Smoke test times out in 30s | Broker not yet healthy | Wait for `podman compose ps` to show `healthy`, then retry. The healthcheck has a 15s start period plus ~10s warmup. |
+| Integration tests time out / `rdkafka` connect retries | Broker not yet healthy | Wait for `podman compose ps` to show `healthy`, then retry. The healthcheck has a 15s start period plus ~10s warmup. |
 | Karapace returns 502 | Broker not ready when Karapace started | Restart Karapace only: `podman compose -f compose.kafka.yml restart karapace`. |
 
 ## Image licenses (AC-6)

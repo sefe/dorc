@@ -27,6 +27,28 @@ public class KafkaAvroServiceCollectionExtensionsTests
     }
 
     [TestMethod]
+    public void WithoutAvroCall_ResolvesToDefaultFactory()
+    {
+        // S-016 negative-case regression guard. AddDorcKafkaClient alone
+        // registers the no-op DefaultKafkaSerializerFactory — the failure
+        // mode Monitor was stuck in pre-S-016 (GetValueDeserializer returns
+        // null, consumer guard skips SetValueDeserializer, Confluent falls
+        // back to its primitive deserialiser, DeploymentRequestEventData is
+        // non-primitive → deterministic ConsumeException). This test fails
+        // if a future change to AddDorcKafkaClient swaps in a real factory
+        // (in which case S-016's motivation is obsolete and the author
+        // should reconsider whether the extra AddDorcKafkaAvro call is
+        // still required in Dorc.Monitor/Program.cs).
+        var services = BuildBaseServices();
+        services.AddDorcKafkaClient(ValidConfig());
+
+        var sp = services.BuildServiceProvider();
+        var factory = sp.GetRequiredService<IKafkaSerializerFactory>();
+
+        Assert.IsInstanceOfType<DefaultKafkaSerializerFactory>(factory);
+    }
+
+    [TestMethod]
     public void AddDorcKafkaAvro_BeforeClient_StillEndsWithAvroFactoryActive()
     {
         // Spec R-4: extension must tolerate either call order.

@@ -490,3 +490,19 @@ Same panel (simulated personas Sonnet 4.6, Gemini Pro 3.1, GPT 5.3-codex). Scope
 | GPT-codex | APPROVE WITH MINOR | None | All 5 GPT-F* + regression checks pass. `docs/kafka-migration/README-local-dev.md` compose-broker-PLAINTEXT verified consistent with API template `Plaintext` default. S-015 dependency on S-014 (path alignment first) verified correct; S-016 correctly independent of S-014. One LOW (U-S014-1 stale) — Defer to Delivery. |
 
 **Unanimous clean approval.** R4 status transitions: `IN REVIEW (R4-R1)` → `REVISION` → `IN REVIEW (R4-R2)` → `APPROVED`. User auto-pilot (memory `project_kafka_autopilot`) satisfies the final user-approval gate.
+
+---
+
+### R4 Follow-on Delivery Log (2026-04-20)
+
+R4 IS reserved S-014, S-015, S-016 as blocking gates for downstream steps. All three have since been specced, reviewed, and delivered under the auto-pilot authorisation:
+
+| Step | Spec | Spec Adversarial Review | Code delivered | Code Review | Commit |
+|---|---|---|---|---|---|
+| S-014 | SPEC-S-014-Installer-Config-Alignment.md | R1 REVISION → R2 unanimous APPROVE | yes | R1 APPROVE WITH MINOR → R2 unanimous APPROVE | `ed41d9e1` (pushed) |
+| S-015 | SPEC-S-015-SchemaRegistry-Propagation.md | R1 APPROVE WITH MINOR → R2 unanimous APPROVE | yes | R1 unanimous APPROVE (0 findings) | pending commit |
+| S-016 | SPEC-S-016-Monitor-Avro-DI-Wiring.md | R1 REVISION → R2 unanimous APPROVE | yes | R1 unanimous APPROVE (0 findings) | pending commit |
+
+S-010 dry-run gate (AT-5..AT-8): no longer blocked by startup-validation gap; S-014 closed it. S-011 production cutover gates: S-015 + S-016 are now delivered, removing the "blocks S-011" qualifier from their §2 step table rows. No further IS structural edits required; §2 row qualifiers remain for audit history (the blocker resolution is recorded here rather than by editing historical rows).
+
+All three steps landed on `feat/kafka-migration` integration branch per `feedback_pr_strategy` memory (single PR #611, not per-step branches).

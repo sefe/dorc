@@ -95,6 +95,13 @@ builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
 // consumer are registered unconditionally.
 builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
 
+// SPEC-S-016: register the Avro serializer factory so the
+// DeploymentRequestsKafkaConsumer can deserialise Avro-encoded payloads on
+// dorc.requests.new / dorc.requests.status. Without this call,
+// AddDorcKafkaClient's no-op DefaultKafkaSerializerFactory is the resolved
+// IKafkaSerializerFactory and every consume raises ConsumeException.
+builder.Services.AddDorcKafkaAvro(configurationRoot);
+
 PersistentSourcesRegistry.Register(builder.Services);
 
 // Transient: DeploymentEngine and DeploymentRequestStateProcessor hold stateful fields

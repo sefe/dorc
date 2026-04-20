@@ -1,7 +1,15 @@
 name: $(Build.DefinitionName).$(Build.SourceBranchName)_$(Date:yy).$(Date:MM).$(Date:dd)$(rev:.r)
 
-# S-001 AT-3 CI gate. Brings up the local Kafka+Karapace stack via Podman,
-# runs the Dorc.Kafka.SmokeTests round-trip test, tears the stack down.
+# S-003 AT-5 CI gate. Brings up the local Kafka+Karapace stack via Podman and
+# runs the Avro schema PR-gate against the live Karapace registry, then tears
+# the stack down.
+#
+# Note: the S-001 AT-3 smoke-test round-trip previously invoked here via
+# Dorc.Kafka.SmokeTests was removed in S-015 follow-on cleanup. The S-002
+# client-layer test suite (Dorc.Kafka.Client.Tests + Dorc.Kafka.Events.Tests)
+# supersedes that smoke test, and the live-broker round-trip is now covered
+# by Dorc.Kafka.Events.IntegrationTests (opt-in, excluded from the GitHub
+# Actions CI filter).
 
 trigger:
   branches:
@@ -21,8 +29,6 @@ variables:
   value: 'Release'
 - name: composeFile
   value: 'compose.kafka.yml'
-- name: smokeTestProject
-  value: 'src/Dorc.Kafka.SmokeTests/Dorc.Kafka.SmokeTests.csproj'
 
 steps:
 - task: UseDotNet@2
@@ -37,29 +43,6 @@ steps:
 - script: |
     podman compose -f $(composeFile) ps
   displayName: 'Podman compose status (diagnostic)'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Restore smoke-test project'
-  inputs:
-    command: 'restore'
-    projects: '$(smokeTestProject)'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Build smoke-test project'
-  inputs:
-    command: 'build'
-    projects: '$(smokeTestProject)'
-    arguments: '--configuration $(buildConfiguration) --no-restore'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Run Kafka round-trip smoke test (AT-2 / AT-3)'
-  inputs:
-    command: 'test'
-    projects: '$(smokeTestProject)'
-    arguments: '--configuration $(buildConfiguration) --no-build --logger trx'
-    publishTestResults: true
-  env:
-    KAFKA_BOOTSTRAP: 'localhost:9092'
 
 - script: |
     dotnet run --project tools/schema-gate/schema-gate.csproj -- \
@@ -80,7 +63,7 @@ steps:
   condition: always()
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)/compose.log'
-    ArtifactName: 'kafka-smoke-logs'
+    ArtifactName: 'kafka-schema-gate-logs'
 
 - script: |
     podman compose -f $(composeFile) down -v

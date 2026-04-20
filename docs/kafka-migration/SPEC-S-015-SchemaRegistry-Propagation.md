@@ -122,7 +122,7 @@ Neither `src/Dorc.Api/appsettings.json` nor `src/Dorc.Monitor/appsettings.json` 
 | AC-5 | New WiX `Id` attributes globally unique within each `.wxs` file | grep+sort+uniq |
 | AC-6 | `appsettings.json` templates unchanged (S-015 does not touch them) | git diff |
 | AC-7 | Template-shape tests extended to cover `Kafka.SchemaRegistry.Url` at root | test file review + `dotnet test` |
-| AC-8 | Local-build smoke test: the **API-side** Avro publisher (`KafkaDeploymentEventPublisher`) successfully encodes one `DeploymentRequestEventData` against a local compose Karapace registry without `InvalidOperationException: Kafka:SchemaRegistry:Url is required`. (A full round-trip through the Monitor consumer is gated by S-016 and is NOT part of S-015's acceptance.) | manual run against `compose.kafka.yml` / `Dorc.Kafka.SmokeTests` |
+| AC-8 | Local-build smoke test: the **API-side** Avro publisher (`KafkaDeploymentEventPublisher`) successfully encodes one `DeploymentRequestEventData` against a local compose Karapace registry without `InvalidOperationException: Kafka:SchemaRegistry:Url is required`. (A full round-trip through the Monitor consumer is gated by S-016 and is NOT part of S-015's acceptance.) | manual run against `compose.kafka.yml` / `Dorc.Kafka.Events.IntegrationTests` |
 | AC-9 | Adversarial spec review + code review: both unanimous | review-panel transcripts in §11 |
 
 ---
