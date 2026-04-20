@@ -274,6 +274,7 @@ namespace Dorc.Monitor.RunnerProcess.StandardStreamRedirection
         public void Dispose()
         {
             readerCancellationTokenSource?.Cancel();
+            readerCancellationTokenSource?.Dispose();
         }
     }
 }
