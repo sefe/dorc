@@ -7221,6 +7221,9 @@
           "UserIsOwner": {
             "type": "boolean"
           },
+          "UserCanReadSecrets": {
+            "type": "boolean"
+          },
           "Privileges": {
             "type": "array",
             "items": {

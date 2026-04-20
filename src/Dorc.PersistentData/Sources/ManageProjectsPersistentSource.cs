@@ -708,7 +708,7 @@ namespace Dorc.PersistentData.Sources
         }
 
         private static readonly Regex AllowedComponentNameRegex = new(
-            @"^[a-zA-Z0-9 ,./?|:;'""<>()*&$#@!\-_=+]+$",
+            @"^[a-zA-Z0-9 ,./?|:;'""<>()\[\]{}_*&$#@!\-=+]+$",
             RegexOptions.Compiled);
 
         private static void ValidateComponentNameCharacters(ComponentApiModel component)
@@ -716,7 +716,7 @@ namespace Dorc.PersistentData.Sources
             if (!AllowedComponentNameRegex.IsMatch(component.ComponentName))
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName +
-                    "' contains invalid characters. Only alphanumeric characters, spaces, and the following symbols are allowed: ,./?|:;'\"<>()*&$#@!-_=+");
+                    "' contains invalid characters. Only alphanumeric characters, spaces, and the following symbols are allowed: ,./?|:;'\"<>()[]{}_*&$#@!-=+");
         }
 
         private static void ValidateNameLengthRestrictions(ComponentApiModel component)
