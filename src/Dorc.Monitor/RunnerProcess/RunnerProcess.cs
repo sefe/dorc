@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Dorc.Monitor.RunnerProcess
 {
-    public class RunnerProcess
+    public class RunnerProcess : IDisposable
     {
         public const uint ProcessTerminatedExitCode = 1067;
 
