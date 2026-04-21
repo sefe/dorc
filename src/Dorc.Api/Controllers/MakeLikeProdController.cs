@@ -130,91 +130,25 @@ namespace Dorc.Api.Controllers
 
                 var requestsForBundle = _bundledRequestsPersistentSource.GetRequestsForBundle(mlpRequest.BundleName).OrderBy(br => br.Sequence);
 
-                _variableResolver.SetPropertyValue("CreatedByUserEmail", this.GetUserEmail(User));
-                _variableResolver.SetPropertyValue("DataBackup", mlpRequest.DataBackup);
-                _variableResolver.SetPropertyValue("TargetEnvironmentName", mlpRequest.TargetEnv);
-
-                foreach (var mlpRequestBundleProperty in mlpRequest.BundleProperties)
-                {
-                    _variableResolver.SetPropertyValue(mlpRequestBundleProperty.PropertyName, mlpRequestBundleProperty.PropertyValue);
-                }
+                InitializeVariableResolver(mlpRequest);
 
                 var initialRequestIdNotSet = true;
                 var allRequestIds = new List<int>();
 
                 foreach (var req in requestsForBundle)
                 {
-                    var reqIds = new List<int>();
-
-                    switch (req.Type)
-                    {
-                        case BundledRequestType.JobRequest:
-                            var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
-
-                            _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
-                            _variableResolver.LoadProperties();
-                            List<RequestProperty> variables = new();
-                            foreach (var variable in job.RequestProperties)
-                            {
-                                variables.Add(new RequestProperty
-                                {
-                                    PropertyName = variable.PropertyName,
-                                    PropertyValue = _variableResolver.GetPropertyValue(variable.PropertyName).Value
-                                        .ToString()
-                                });
-                            }
-
-                            var jobRequestId = _deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
-                                job.BuildText, job.Components.ToList(), variables, User);
-                            reqIds.Add(jobRequestId);
-                            _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: JobRequest for project '{Project}' created request ID {RequestId}",
-                                mlpRequest.BundleName, req.Sequence, job.Project, jobRequestId);
-                            break;
-                        case BundledRequestType.CopyEnvBuild:
-                            var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
-                            if (copyEnvBuildRequest != null)
-                            {
-                                if (copyEnvBuildRequest.Components.Any())
-                                {
-                                    var copyIds = _deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
-                                        mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
-                                        copyEnvBuildRequest.Components.ToArray(), User);
-                                    reqIds.AddRange(copyIds);
-                                    _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuild for project '{Project}' created request IDs [{RequestIds}]",
-                                        mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
-                                }
-                                else
-                                {
-                                    var copyIds = _deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
-                                        mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
-                                        User);
-                                    reqIds.AddRange(copyIds);
-                                    _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuildAllComponents for project '{Project}' created request IDs [{RequestIds}]",
-                                        mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
-                                }
-                            }
-                            break;
-                    }
+                    var reqIds = ProcessBundledRequest(req, mlpRequest);
 
                     allRequestIds.AddRange(reqIds);
 
-                    if (initialRequestIdNotSet && reqIds.Any())
+                    if (initialRequestIdNotSet && reqIds.Count > 0)
                     {
                         _variableResolver.SetPropertyValue("StartingRequestId", reqIds.First().ToString());
                         initialRequestIdNotSet = false;
                     }
                 }
 
-                if (allRequestIds.Any())
-                {
-                    var allRequestIdsValue = string.Join(",", allRequestIds);
-                    _logger.LogInformation("Bundle '{BundleName}' completed with {Count} total request IDs: [{AllRequestIds}]",
-                        mlpRequest.BundleName, allRequestIds.Count, allRequestIdsValue);
-                    _variableResolver.SetPropertyValue("AllRequestIds", allRequestIdsValue);
-
-                    // Update any request details that contain unresolved $AllRequestIds$ references
-                    ResolveAllRequestIdsInRequests(allRequestIds, allRequestIdsValue);
-                }
+                FinalizeAllRequestIds(allRequestIds, mlpRequest.BundleName);
 
                 return Ok("The requests have been passed to DOrc");
             }
@@ -223,6 +157,82 @@ namespace Dorc.Api.Controllers
                 _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}", mlpRequest?.TargetEnv, mlpRequest);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
+        }
+
+        private void InitializeVariableResolver(MakeLikeProdRequest mlpRequest)
+        {
+            _variableResolver.SetPropertyValue("CreatedByUserEmail", this.GetUserEmail(User));
+            _variableResolver.SetPropertyValue("DataBackup", mlpRequest.DataBackup);
+            _variableResolver.SetPropertyValue("TargetEnvironmentName", mlpRequest.TargetEnv);
+
+            foreach (var mlpRequestBundleProperty in mlpRequest.BundleProperties)
+            {
+                _variableResolver.SetPropertyValue(mlpRequestBundleProperty.PropertyName, mlpRequestBundleProperty.PropertyValue);
+            }
+        }
+
+        private List<int> ProcessBundledRequest(BundledRequestsApiModel req, MakeLikeProdRequest mlpRequest)
+        {
+            return req.Type switch
+            {
+                BundledRequestType.JobRequest => ProcessJobRequest(req, mlpRequest),
+                BundledRequestType.CopyEnvBuild => ProcessCopyEnvBuild(req, mlpRequest),
+                _ => []
+            };
+        }
+
+        private List<int> ProcessJobRequest(BundledRequestsApiModel req, MakeLikeProdRequest mlpRequest)
+        {
+            var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
+
+            _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
+            _variableResolver.LoadProperties();
+
+            List<RequestProperty> variables = job.RequestProperties.Select(variable => new RequestProperty
+            {
+                PropertyName = variable.PropertyName,
+                PropertyValue = _variableResolver.GetPropertyValue(variable.PropertyName).Value.ToString()
+            }).ToList();
+
+            var jobRequestId = _deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
+                job.BuildText, job.Components.ToList(), variables, User);
+
+            _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: JobRequest for project '{Project}' created request ID {RequestId}",
+                mlpRequest.BundleName, req.Sequence, job.Project, jobRequestId);
+
+            return [jobRequestId];
+        }
+
+        private List<int> ProcessCopyEnvBuild(BundledRequestsApiModel req, MakeLikeProdRequest mlpRequest)
+        {
+            var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
+            if (copyEnvBuildRequest == null)
+                return [];
+
+            List<int> copyIds = copyEnvBuildRequest.Components.Any()
+                ? _deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
+                    mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
+                    copyEnvBuildRequest.Components.ToArray(), User).ToList()
+                : _deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
+                    mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName, User).ToList();
+
+            _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuild for project '{Project}' created request IDs [{RequestIds}]",
+                mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
+
+            return copyIds;
+        }
+
+        private void FinalizeAllRequestIds(List<int> allRequestIds, string bundleName)
+        {
+            if (!allRequestIds.Any())
+                return;
+
+            var allRequestIdsValue = string.Join(",", allRequestIds);
+            _logger.LogInformation("Bundle '{BundleName}' completed with {Count} total request IDs: [{AllRequestIds}]",
+                bundleName, allRequestIds.Count, allRequestIdsValue);
+            _variableResolver.SetPropertyValue("AllRequestIds", allRequestIdsValue);
+
+            ResolveAllRequestIdsInRequests(allRequestIds, allRequestIdsValue);
         }
 
         private string GetUserEmail(ClaimsPrincipal user)
