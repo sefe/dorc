@@ -87,81 +87,78 @@ namespace Dorc.Api.Services
         {
             var result = new List<Response>();
             foreach (var propertyValueDto in propertyValuesToDelete)
-                try
-                {
-                    if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
-                    {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "error: you don't have permissions to edit variable value(s) for this environment"
-                        });
-                        continue;
-                    }
-
-                    var propertyValuesByName = _propertyValuesPersistentSource
-                        .GetPropertyValuesByName(propertyValueDto.Property.Name);
-                    var filteredPropertyValues = string.IsNullOrEmpty(propertyValueDto.PropertyValueFilter)
-                        ? propertyValuesByName.FirstOrDefault(pv => pv.PropertyValueFilter == null)
-                        : propertyValuesByName.FirstOrDefault(pv =>
-                            pv.PropertyValueFilter != null &&
-                            pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
-                                StringComparison.CurrentCultureIgnoreCase));
-
-                    if (filteredPropertyValues?.Id == 0)
-                    {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "error: variable value does not exist"
-                        });
-                        continue;
-                    }
-
-                    if (propertyValueDto.PropertyValueFilter != null)
-                    {
-                        if (!_propertyValuesPersistentSource.RemoveByFilterId(filteredPropertyValues?.PropertyValueFilterId) &&
-                            !_propertyValuesPersistentSource.Remove(
-                                filteredPropertyValues?.Id))
-                        {
-                            result.Add(new Response
-                            {
-                                Item = propertyValueDto,
-                                Status = "error: deletion from the database failed"
-                            });
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        if (!_propertyValuesPersistentSource.Remove(filteredPropertyValues?.Id))
-                        {
-                            result.Add(new Response
-                            {
-                                Item = propertyValueDto,
-                                Status = "error: deletion from the database failed"
-                            });
-                            continue;
-                        }
-                    }
-
-                    var propertyApiModel = _propertiesPersistentSource.GetProperty(filteredPropertyValues?.Property.Name);
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    if (filteredPropertyValues != null)
-                        _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                            filteredPropertyValues.Id, filteredPropertyValues.Property.Name,
-                            filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
-                            username, "Delete");
-
-                    result.Add(new Response { Item = propertyValueDto, Status = "success" });
-                }
-                catch (Exception e)
-                {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
-                    result.Add(new Response { Item = propertyValueDto, Status = e.Message });
-                }
-
+            {
+                result.Add(ProcessDeletePropertyValue(propertyValueDto, user));
+            }
             return result;
+        }
+
+        private Response ProcessDeletePropertyValue(PropertyValueDto propertyValueDto, ClaimsPrincipal user)
+        {
+            try
+            {
+                if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
+                {
+                    return new Response
+                    {
+                        Item = propertyValueDto,
+                        Status = "error: you don't have permissions to edit variable value(s) for this environment"
+                    };
+                }
+
+                var filteredPropertyValues = FindMatchingPropertyValue(propertyValueDto);
+
+                if (filteredPropertyValues?.Id == 0)
+                {
+                    return new Response
+                    {
+                        Item = propertyValueDto,
+                        Status = "error: variable value does not exist"
+                    };
+                }
+
+                if (!TryRemovePropertyValue(filteredPropertyValues, propertyValueDto.PropertyValueFilter))
+                {
+                    return new Response
+                    {
+                        Item = propertyValueDto,
+                        Status = "error: deletion from the database failed"
+                    };
+                }
+
+                AuditPropertyValueChange(filteredPropertyValues, filteredPropertyValues?.Value, string.Empty, "Delete", user);
+
+                return new Response { Item = propertyValueDto, Status = "success" };
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
+                return new Response { Item = propertyValueDto, Status = e.Message };
+            }
+        }
+
+        private PropertyValueDto? FindMatchingPropertyValue(PropertyValueDto propertyValueDto)
+        {
+            var propertyValuesByName = _propertyValuesPersistentSource
+                .GetPropertyValuesByName(propertyValueDto.Property.Name);
+
+            return string.IsNullOrEmpty(propertyValueDto.PropertyValueFilter)
+                ? propertyValuesByName.FirstOrDefault(pv => pv.PropertyValueFilter == null)
+                : propertyValuesByName.FirstOrDefault(pv =>
+                    pv.PropertyValueFilter != null &&
+                    pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
+                        StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        private bool TryRemovePropertyValue(PropertyValueDto? filteredPropertyValues, string? propertyValueFilter)
+        {
+            if (propertyValueFilter != null)
+            {
+                return _propertyValuesPersistentSource.RemoveByFilterId(filteredPropertyValues?.PropertyValueFilterId) ||
+                       _propertyValuesPersistentSource.Remove(filteredPropertyValues?.Id);
+            }
+
+            return _propertyValuesPersistentSource.Remove(filteredPropertyValues?.Id);
         }
 
         public IEnumerable<Response> PostPropertyValues(
@@ -243,76 +240,89 @@ namespace Dorc.Api.Services
             var result = new List<Response>();
 
             foreach (var propertyValueDto in propertyValuesToUpdate)
-                try
-                {
-                    if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
-                    {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = $"error: you don't have permissions to edit variable value(s) for environment '{propertyValueDto.PropertyValueFilter}'"
-                        });
-                        continue;
-                    }
-
-
-                    PropertyValueDto dbPropertyValueModel;
-                    if (propertyValueDto.PropertyValueFilter == null)
-                        dbPropertyValueModel = _propertyValuesPersistentSource
-                            .GetPropertyValuesByName(propertyValueDto.Property.Name)
-                            .FirstOrDefault(pv => pv.PropertyValueFilterId == null);
-                    else
-                        dbPropertyValueModel = _propertyValuesPersistentSource
-                            .GetPropertyValuesByName(propertyValueDto.Property.Name)
-                            .FirstOrDefault(pv =>
-                                pv.PropertyValueFilter != null &&
-                                pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
-                                    StringComparison.CurrentCultureIgnoreCase));
-
-                    if (dbPropertyValueModel?.Id == null)
-                    {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "Error: variable value does not exist - please use Post to create it"
-                        });
-                        continue;
-                    }
-
-                    if (propertyValueDto.Property.Secure != dbPropertyValueModel.Property.Secure)
-                    {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "Error: property metadata - secure values don't match, and cannot be edited via this API"
-                        });
-                        continue;
-                    }
-
-                    var propertyValueToUpdate = propertyValueDto.Property.Secure
-                        ? _propertyEncryptor.EncryptValue(propertyValueDto.Value)
-                        : propertyValueDto.Value;
-                    _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id,
-                        propertyValueToUpdate);
-                    if (dbPropertyValueModel.Value == propertyValueToUpdate)
-                        continue; // don't update if attempting to set the same value
-
-                    var propertyApiModel = _propertiesPersistentSource.GetProperty(dbPropertyValueModel.Property.Name);
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                        dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
-                        dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
-                        username, "Update");
-
-                    result.Add(new Response { Item = propertyValueDto, Status = "success" });
-                }
-                catch (Exception e)
-                {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
-                    result.Add(new Response { Item = propertyValueDto, Status = e.Message });
-                }
+            {
+                result.Add(ProcessPutPropertyValue(propertyValueDto, user));
+            }
 
             return result;
+        }
+
+        private Response ProcessPutPropertyValue(PropertyValueDto propertyValueDto, ClaimsPrincipal user)
+        {
+            try
+            {
+                if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
+                {
+                    return new Response
+                    {
+                        Item = propertyValueDto,
+                        Status = $"error: you don't have permissions to edit variable value(s) for environment '{propertyValueDto.PropertyValueFilter}'"
+                    };
+                }
+
+                var dbPropertyValueModel = FindExistingPropertyValue(propertyValueDto);
+
+                if (dbPropertyValueModel?.Id == null)
+                {
+                    return new Response
+                    {
+                        Item = propertyValueDto,
+                        Status = "Error: variable value does not exist - please use Post to create it"
+                    };
+                }
+
+                if (propertyValueDto.Property.Secure != dbPropertyValueModel.Property.Secure)
+                {
+                    return new Response
+                    {
+                        Item = propertyValueDto,
+                        Status = "Error: property metadata - secure values don't match, and cannot be edited via this API"
+                    };
+                }
+
+                var propertyValueToUpdate = propertyValueDto.Property.Secure
+                    ? _propertyEncryptor.EncryptValue(propertyValueDto.Value)
+                    : propertyValueDto.Value;
+                _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id, propertyValueToUpdate);
+
+                if (dbPropertyValueModel.Value != propertyValueToUpdate)
+                {
+                    AuditPropertyValueChange(dbPropertyValueModel, dbPropertyValueModel.Value, propertyValueToUpdate, "Update", user);
+                }
+
+                return new Response { Item = propertyValueDto, Status = "success" };
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
+                return new Response { Item = propertyValueDto, Status = e.Message };
+            }
+        }
+
+        private PropertyValueDto? FindExistingPropertyValue(PropertyValueDto propertyValueDto)
+        {
+            var propertyValuesByName = _propertyValuesPersistentSource
+                .GetPropertyValuesByName(propertyValueDto.Property.Name);
+
+            return propertyValueDto.PropertyValueFilter == null
+                ? propertyValuesByName.FirstOrDefault(pv => pv.PropertyValueFilterId == null)
+                : propertyValuesByName.FirstOrDefault(pv =>
+                    pv.PropertyValueFilter != null &&
+                    pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
+                        StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        private void AuditPropertyValueChange(PropertyValueDto propertyValue, string oldValue, string newValue, string operationType, ClaimsPrincipal user)
+        {
+            if (propertyValue == null)
+                return;
+
+            var propertyApiModel = _propertiesPersistentSource.GetProperty(propertyValue.Property.Name);
+            string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+            _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
+                propertyValue.Id, propertyValue.Property.Name,
+                propertyValue.PropertyValueFilter, oldValue, newValue,
+                username, operationType);
         }
     }
 }
