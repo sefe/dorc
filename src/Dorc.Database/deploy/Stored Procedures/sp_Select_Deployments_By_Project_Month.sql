@@ -19,13 +19,13 @@ AS
                  SELECT ar.[id], ar.[CompletedTime], ar.[Project], ar.[Status]
                  FROM [archive].[DeploymentRequest] ar
              )
-                 INSERT INTO [deploy].[DeploymentsByProjectMonth]
+                 INSERT INTO [deploy].[DeploymentsByProjectMonth] ([year], [month], [ProjectName], [CountOfDeployments], [Failed])
 					SELECT	DATEPART(Year, [CompletedTime]) AS 'year',
 							DATEPART(Month, [CompletedTime]) AS 'month',
 							CASE WHEN p.Name is null THEN 'Unknown'
 								ELSE p.Name
 							END as ProjectName,
-							COUNT(distinct dr.[id]) AS 'CountofDeployments',
+							COUNT(distinct dr.[id]) AS 'CountOfDeployments',
 							COUNT(distinct CASE WHEN dr.Status='Failed' THEN dr.[id] END) AS Failed
 					FROM CombinedDeploymentRequests dr
 							LEFT JOIN [deploy].Project p ON p.Name = dr.Project
