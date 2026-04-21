@@ -103,61 +103,71 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(AccessSecureApiModel accessControl)
         {
-            if (accessControl.Type == AccessControlType.Environment &&
-                 _securityPrivilegesChecker.CanModifyEnvironment(User, accessControl.Name) ||
-                accessControl.Type == AccessControlType.Project &&
-                 _securityPrivilegesChecker.CanModifyProject(User, accessControl.Name))
-            {
-                // For environments, ensure at least one owner remains
-                if (accessControl.Type == AccessControlType.Environment)
-                {
-                    var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
-                        .ToList();
-                    
-                    var newOwners = accessControl.Privileges
-                        .Where(p => (p.Allow & 4) != 0)
-                        .ToList();
-
-                    // If we're removing all owners, prevent the update
-                    if (currentOwners.Any() && !newOwners.Any())
-                    {
-                        return StatusCode(StatusCodes.Status400BadRequest,
-                            "Cannot remove all owners from an environment. At least one owner must remain.");
-                    }
-                }
-
-                var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
-                    .ToArray();
-                var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
-                
-                foreach (var existingId in existingIds)
-                {
-                    if (!newIds.Contains(existingId))
-                    {
-                        _accessControlPersistentSource.DeleteAccessControl(existingId, accessControl.ObjectId, User);
-                    }
-                }
-
-                foreach (var accessControlPrivilege in accessControl.Privileges)
-                {
-                    if (accessControlPrivilege.Id == 0)
-                    {
-                        _accessControlPersistentSource.AddAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
-                    }
-                    else if (accessControlPrivilege.Id > 0)
-                    {
-                        _accessControlPersistentSource.UpdateAccessControl(accessControlPrivilege, accessControl.ObjectId, User);
-                    }
-                }
-
-                var output = GetAccessSecureObjects(accessControl.Type, accessControl.Name, accessControl.ObjectId);
-                return StatusCode(StatusCodes.Status200OK, output);
-            }
-            else
+            if (!HasModifyPermission(accessControl))
             {
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "You are not authorized to edit access controls!");
+            }
+
+            if (accessControl.Type == AccessControlType.Environment &&
+                IsRemovingAllOwners(accessControl))
+            {
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    "Cannot remove all owners from an environment. At least one owner must remain.");
+            }
+
+            SyncAccessControls(accessControl);
+
+            var output = GetAccessSecureObjects(accessControl.Type, accessControl.Name, accessControl.ObjectId);
+            return StatusCode(StatusCodes.Status200OK, output);
+        }
+
+        private bool HasModifyPermission(AccessSecureApiModel accessControl)
+        {
+            return accessControl.Type == AccessControlType.Environment &&
+                    _securityPrivilegesChecker.CanModifyEnvironment(User, accessControl.Name) ||
+                   accessControl.Type == AccessControlType.Project &&
+                    _securityPrivilegesChecker.CanModifyProject(User, accessControl.Name);
+        }
+
+        private bool IsRemovingAllOwners(AccessSecureApiModel accessControl)
+        {
+            const int ownerFlag = 4;
+            var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                .Where(p => (p.Allow & ownerFlag) != 0)
+                .ToList();
+
+            var newOwners = accessControl.Privileges
+                .Where(p => (p.Allow & ownerFlag) != 0)
+                .ToList();
+
+            return currentOwners.Any() && !newOwners.Any();
+        }
+
+        private void SyncAccessControls(AccessSecureApiModel accessControl)
+        {
+            var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                .Select(p => p.Id).ToArray();
+            var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
+
+            foreach (var existingId in existingIds)
+            {
+                if (!newIds.Contains(existingId))
+                {
+                    _accessControlPersistentSource.DeleteAccessControl(existingId, accessControl.ObjectId, User);
+                }
+            }
+
+            foreach (var privilege in accessControl.Privileges)
+            {
+                if (privilege.Id == 0)
+                {
+                    _accessControlPersistentSource.AddAccessControl(privilege, accessControl.ObjectId, User);
+                }
+                else if (privilege.Id > 0)
+                {
+                    _accessControlPersistentSource.UpdateAccessControl(privilege, accessControl.ObjectId, User);
+                }
             }
         }
     }
