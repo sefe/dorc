@@ -1,5 +1,4 @@
-﻿
-CREATE PROCEDURE [dbo].[usp_Insert_Environment_Detail]
+﻿CREATE PROCEDURE [dbo].[usp_Insert_Environment_Detail]
 @ENV_NAME NVARCHAR(50),
 @OWNER NVARCHAR(50),
 @THIN_CLIENT_SERVER NVARCHAR(50),
@@ -22,33 +21,32 @@ DECLARE @err int,
 SET @UPDATE_DATE = GETDATE()
 
 IF @DEBUG = 0
+BEGIN
 
-BEGIN TRY
+	BEGIN TRY
 
-IF EXISTS (SELECT * FROM deploy.Environment WHERE Name = @ENV_NAME)
-	BEGIN
-		SELECT 'Environment Exists'
-	END
-ELSE
-	BEGIN
-		INSERT INTO deploy.Environment
-			(Name, [Owner], ThinClientServer, RestoredFromBackup, LastUpdate, FileShare, EnvNote, [Description])
-		VALUES
-			(@ENV_NAME, @OWNER, @THIN_CLIENT_SERVER, @RESTORED_FROM, @UPDATE_DATE, @FILE_SHARE, @ENV_NOTE, @DESCRIPTION)
-	END
+	IF EXISTS (SELECT * FROM deploy.Environment WHERE Name = @ENV_NAME)
+		BEGIN
+			SELECT 'Environment Exists'
+		END
+	ELSE
+		BEGIN
+			INSERT INTO deploy.Environment
+				(Name, [Owner], ThinClientServer, RestoredFromBackup, LastUpdate, FileShare, EnvNote, [Description])
+			VALUES
+				(@ENV_NAME, @OWNER, @THIN_CLIENT_SERVER, @RESTORED_FROM, @UPDATE_DATE, @FILE_SHARE, @ENV_NOTE, @DESCRIPTION)
+		END
 
-END TRY
+	END TRY
 
-BEGIN CATCH
+	BEGIN CATCH
 
-SELECT @err = @@ERROR
+	SELECT @err = @@ERROR
 
-SELECT ERROR_MESSAGE() AS ErrorMessage
+	SELECT ERROR_MESSAGE() AS ErrorMessage
 
-END CATCH
+	END CATCH
 
-
+END
 
 /************************************************************************************************************/
-
-/*********************************************************************************************************/

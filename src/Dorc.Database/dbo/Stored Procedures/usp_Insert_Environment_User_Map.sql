@@ -1,5 +1,4 @@
-﻿
-CREATE PROCEDURE [dbo].[usp_Insert_Environment_User_Map]
+﻿CREATE PROCEDURE [dbo].[usp_Insert_Environment_User_Map]
 @DB_ID int,
 @USER_ID int,
 @PERMISSION_ID int,
@@ -14,29 +13,28 @@ DECLARE @err int
 /*********************************************************************************************************/
 
 IF @DEBUG = 0
+BEGIN
 
-BEGIN TRY
+	BEGIN TRY
 
-IF NOT EXISTS (SELECT * FROM dbo.ENVIRONMENT_USER_MAP WHERE DB_ID = @DB_ID AND User_ID = @USER_ID AND Permission_ID = @PERMISSION_ID)
-	BEGIN
-		INSERT INTO dbo.ENVIRONMENT_USER_MAP
-			(DB_ID, User_ID, Permission_ID)
-		VALUES
-			(@DB_ID, @USER_ID, @PERMISSION_ID)
-	END
+	IF NOT EXISTS (SELECT * FROM dbo.ENVIRONMENT_USER_MAP WHERE DB_ID = @DB_ID AND User_ID = @USER_ID AND Permission_ID = @PERMISSION_ID)
+		BEGIN
+			INSERT INTO dbo.ENVIRONMENT_USER_MAP
+				(DB_ID, User_ID, Permission_ID)
+			VALUES
+				(@DB_ID, @USER_ID, @PERMISSION_ID)
+		END
 
-END TRY
+	END TRY
 
-BEGIN CATCH
+	BEGIN CATCH
 
-SELECT @err = @@ERROR
+	SELECT @err = @@ERROR
 
-SELECT ERROR_MESSAGE() AS ErrorMessage
+	SELECT ERROR_MESSAGE() AS ErrorMessage
 
-END CATCH
+	END CATCH
 
-
+END
 
 /************************************************************************************************************/
-
-/*********************************************************************************************************/
