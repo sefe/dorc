@@ -435,6 +435,27 @@
           "Value": "[Optional path to Kafka CA bundle, e.g. C:\\ProgramData\\dorc\\ca.pem]"
         },
         {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_SCHEMAREGISTRY_URL",
+          "Value": "[Replace with your Schema Registry URL, e.g. https://schema-registry.example.aivencloud.com:12345]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "KAFKA_SCHEMAREGISTRY_BASICAUTH_USERNAME",
+          "Value": "[Optional Schema Registry basic-auth username]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD",
+          "Value": "[Optional Schema Registry basic-auth password]"
+        },
+        {
           "AccountNameProperty": "OTEL_COLLECTOR_URL",
           "IsPath": false,
           "IsSecure": true,
