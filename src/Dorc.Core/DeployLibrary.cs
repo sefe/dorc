@@ -190,86 +190,16 @@ namespace Dorc.Core
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
 
-            var buildDetail = new BuildDetail
+            var buildDetail = await ResolveBuildDetailAsync(createRequest, project).ConfigureAwait(false);
+
+            var componentNames = ResolveComponentNames(createRequest.Components);
+
+            var requestDetail = new DeploymentRequestDetail
             {
-                Project = createRequest.Project
+                EnvironmentName = createRequest.Environment,
+                Components = componentNames,
+                BuildDetail = buildDetail
             };
-
-            if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
-                !string.IsNullOrEmpty(project.ArtefactsSubPaths))
-            {
-                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
-
-                var projects = project.ArtefactsSubPaths.Split(';');
-
-                foreach (var adoProject in projects)
-                {
-                    if (string.IsNullOrEmpty(createRequest.BuildDefinitionName))
-                        throw new ApplicationException("BuildDefinitionName is required to create a request.");
-                    var fullBuildDefinitionName = createRequest.BuildDefinitionName.Split(';');
-                    var projectName = fullBuildDefinitionName[0].Trim();
-                    var buildDefinition = fullBuildDefinitionName[1].Trim();
-
-                    var buildDefsForProject = azureDevOpsServerWebClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
-                        project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
-
-                    var buildDefinitionReference = buildDefsForProject.First(def =>
-                        def.Name.Equals(buildDefinition) && def.Project.Name.Equals(projectName));
-
-                    var buildsFromDefinitionsAsync = await azureDevOpsServerWebClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
-                        [buildDefinitionReference]).ConfigureAwait(false);
-
-                    var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build =>
-                        build.Uri.ToString().Equals(createRequest.BuildUrl));
-                    if (buildValue == null)
-                        continue;
-
-                    var artifacts =
-                        azureDevOpsServerWebClient.GetBuildArtifacts(project.ArtefactsUrl, adoProject, createRequest.BuildUrl);
-                    if (artifacts.Count > 1)
-                    {
-                        var drop = artifacts.FirstOrDefault(v => v.Name.ToLower().Equals("drop"));
-                        buildDetail.DropLocation = drop?.Resource.DownloadUrl;
-                    }
-                    else
-                    {
-                        buildDetail.DropLocation = artifacts.Count == 1
-                            ? artifacts[0].Resource.DownloadUrl
-                            : string.Empty;
-                    }
-
-                    buildDetail.BuildNumber = buildValue.BuildNumber;
-                    buildDetail.Uri = buildValue.Uri;
-                    buildDetail.Project = project.ProjectName;
-                }
-            }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
-            {
-                buildDetail.DropLocation = new Uri(createRequest.BuildUrl).LocalPath;
-                buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
-            }
-            else
-            {
-                buildDetail.DropLocation = createRequest.DropFolder;
-            }
-
-            var componentNames = new List<string>();
-
-            foreach (var componentName in createRequest.Components)
-            {
-                var component = _componentsPersistentSource.GetComponentByName(componentName);
-                if (component == null) continue;
-
-                AddComponent(componentNames, component);
-            }
-
-            var requestDetail =
-                new DeploymentRequestDetail
-                {
-                    EnvironmentName = createRequest.Environment,
-                    Components = componentNames,
-                    BuildDetail = buildDetail
-                };
 
             if (createRequest.Properties != null)
                 foreach (var requestProperty in createRequest.Properties)
@@ -283,6 +213,93 @@ namespace Dorc.Core
                 Message = "Done",
                 RequestId = requestId
             };
+        }
+
+        private async Task<BuildDetail> ResolveBuildDetailAsync(CreateRequest createRequest, ProjectApiModel project)
+        {
+            var buildDetail = new BuildDetail { Project = createRequest.Project };
+
+            if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
+                !string.IsNullOrEmpty(project.ArtefactsSubPaths))
+            {
+                await PopulateBuildDetailFromAdoAsync(createRequest, project, buildDetail).ConfigureAwait(false);
+            }
+            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
+            {
+                buildDetail.DropLocation = new Uri(createRequest.BuildUrl).LocalPath;
+                buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
+            }
+            else
+            {
+                buildDetail.DropLocation = createRequest.DropFolder;
+            }
+
+            return buildDetail;
+        }
+
+        private async Task PopulateBuildDetailFromAdoAsync(CreateRequest createRequest, ProjectApiModel project, BuildDetail buildDetail)
+        {
+            var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl,
+                _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
+
+            var projects = project.ArtefactsSubPaths.Split(';');
+
+            foreach (var adoProject in projects)
+            {
+                if (string.IsNullOrEmpty(createRequest.BuildDefinitionName))
+                    throw new ApplicationException("BuildDefinitionName is required to create a request.");
+
+                var fullBuildDefinitionName = createRequest.BuildDefinitionName.Split(';');
+                var projectName = fullBuildDefinitionName[0].Trim();
+                var buildDefinition = fullBuildDefinitionName[1].Trim();
+
+                var buildDefsForProject = azureDevOpsServerWebClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
+                    project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
+
+                var buildDefinitionReference = buildDefsForProject.First(def =>
+                    def.Name.Equals(buildDefinition) && def.Project.Name.Equals(projectName));
+
+                var buildsFromDefinitionsAsync = await azureDevOpsServerWebClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
+                    [buildDefinitionReference]).ConfigureAwait(false);
+
+                var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build =>
+                    build.Uri.ToString().Equals(createRequest.BuildUrl));
+                if (buildValue == null)
+                    continue;
+
+                buildDetail.DropLocation = ResolveDropLocation(azureDevOpsServerWebClient, project.ArtefactsUrl, adoProject, createRequest.BuildUrl);
+                buildDetail.BuildNumber = buildValue.BuildNumber;
+                buildDetail.Uri = buildValue.Uri;
+                buildDetail.Project = project.ProjectName;
+            }
+        }
+
+        private static string ResolveDropLocation(AzureDevOpsServerWebClient client, string artefactsUrl, string adoProject, string buildUrl)
+        {
+            var artifacts = client.GetBuildArtifacts(artefactsUrl, adoProject, buildUrl);
+
+            if (artifacts.Count > 1)
+            {
+                var drop = artifacts.FirstOrDefault(v => v.Name.ToLower().Equals("drop"));
+                return drop?.Resource.DownloadUrl;
+            }
+
+            return artifacts.Count == 1 ? artifacts[0].Resource.DownloadUrl : string.Empty;
+        }
+
+        private List<string> ResolveComponentNames(ICollection<string> requestComponents)
+        {
+            var componentNames = new List<string>();
+
+            foreach (var componentName in requestComponents)
+            {
+                var component = _componentsPersistentSource.GetComponentByName(componentName);
+                if (component == null) continue;
+
+                AddComponent(componentNames, component);
+            }
+
+            return componentNames;
         }
 
         private void AddComponent(ICollection<string> componentNames, ComponentApiModel component)
