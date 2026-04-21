@@ -25,7 +25,7 @@ public class HAScenarioTests
         await h.EnsureTopicAsync();
 
         var (c1, s1) = await h.AddCandidateAsync();
-        var (c2, s2) = await h.AddCandidateAsync();
+        var (_, s2) = await h.AddCandidateAsync();
 
         // Wait for initial rebalance to spread partitions.
         await Task.Delay(TimeSpan.FromSeconds(15));
@@ -57,7 +57,7 @@ public class HAScenarioTests
         await using var h = new HAHarness(UniqueTopic("sc2b"), UniqueGroup("sc2b"), partitionCount: 3);
         await h.EnsureTopicAsync();
         var (c1, s1) = await h.AddCandidateAsync();
-        var (c2, s2) = await h.AddCandidateAsync();
+        var (_, s2) = await h.AddCandidateAsync();
         await Task.Delay(TimeSpan.FromSeconds(15));
 
         var key = "env:Staging";
@@ -99,7 +99,7 @@ public class HAScenarioTests
         await h.AddCandidateAsync();
         await Task.Delay(TimeSpan.FromSeconds(5));
 
-        var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var rebalances = 0;
         var writer = Task.Run(async () =>
         {

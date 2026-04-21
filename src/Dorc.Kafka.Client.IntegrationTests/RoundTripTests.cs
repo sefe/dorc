@@ -30,7 +30,7 @@ public class RoundTripTests
             using var consumer = KafkaTestHarness.ConsumerBuilder<string, byte[]>(options).Build("at2-consumer");
             consumer.Subscribe(topic);
 
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var consumed = consumer.Consume(cts.Token);
 
             Assert.AreEqual("order-42", consumed.Message.Key);
@@ -65,7 +65,7 @@ public class RoundTripTests
             using (var consumer = consumerBuilder.Build("at2-consumer-phase1"))
             {
                 consumer.Subscribe(topic);
-                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 var first = consumer.Consume(cts.Token);
                 CollectionAssert.AreEqual(new byte[] { 1 }, first.Message.Value);
                 consumer.Commit(first);
@@ -75,7 +75,7 @@ public class RoundTripTests
             using (var consumer = consumerBuilder.Build("at2-consumer-phase2"))
             {
                 consumer.Subscribe(topic);
-                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 var next = consumer.Consume(cts.Token);
                 CollectionAssert.AreEqual(new byte[] { 2 }, next.Message.Value);
                 consumer.Commit(next);

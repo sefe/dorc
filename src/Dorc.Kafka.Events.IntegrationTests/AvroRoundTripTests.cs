@@ -140,7 +140,7 @@ public class AvroRoundTripTests
             using var consumer = AvroKafkaTestHarness.ConsumerBuilder<DeploymentRequestEventData>(factory, groupId).Build("at6-consumer");
             consumer.Subscribe(topic);
 
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var received = consumer.Consume(cts.Token);
 
             Assert.AreEqual(sent.RequestId, received.Message.Value.RequestId);
@@ -186,7 +186,7 @@ public class AvroRoundTripTests
             using var rawConsumer = new ConsumerBuilder<string, byte[]>(consumerConfig).Build();
             rawConsumer.Subscribe(topic);
 
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var raw = rawConsumer.Consume(cts.Token);
 
             Assert.AreEqual((byte)0x00, raw.Message.Value[0]);  // Confluent magic byte
