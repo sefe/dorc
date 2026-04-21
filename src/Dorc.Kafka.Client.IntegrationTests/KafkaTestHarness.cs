@@ -40,7 +40,7 @@ internal static class KafkaTestHarness
             using var admin = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = BootstrapServers }).Build();
             await admin.DeleteTopicsAsync(new[] { topic });
         }
-        catch
+        catch (KafkaException)
         {
             // best-effort cleanup
         }

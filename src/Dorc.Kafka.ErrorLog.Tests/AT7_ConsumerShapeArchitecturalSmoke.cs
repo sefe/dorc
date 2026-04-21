@@ -40,7 +40,7 @@ public class AT7_ConsumerShapeArchitecturalSmoke
         {
             throw new InvalidOperationException("Avro decode failed: missing required field 'Status'");
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             failure = ex;
         }

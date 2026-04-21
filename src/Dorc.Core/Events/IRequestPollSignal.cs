@@ -51,6 +51,6 @@ public sealed class RequestPollSignal : IRequestPollSignal, IDisposable
     public void Dispose()
     {
         _disposed = true;
-        try { _sem.Dispose(); } catch { /* best-effort */ }
+        try { _sem.Dispose(); } catch (ObjectDisposedException) { /* best-effort */ }
     }
 }

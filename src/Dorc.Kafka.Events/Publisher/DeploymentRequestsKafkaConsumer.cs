@@ -111,7 +111,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             }
         }
 
-        try { consumer.Close(); } catch { /* best-effort */ }
+        try { consumer.Close(); } catch (KafkaException) { /* best-effort */ }
     }
 
     private IConsumer<string, DeploymentRequestEventData> BuildConsumer()
