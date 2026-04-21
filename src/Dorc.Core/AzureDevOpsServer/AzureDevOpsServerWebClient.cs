@@ -36,29 +36,42 @@ namespace Dorc.Core.AzureDevOpsServer
             _authTokenGenerator = AuthTokenGeneratorFactory.GetAuthTokenGenerator(aadConnectionSettings);
         }
 
-        public List<BuildDefinitionReference> GetBuildDefinitionsForProjects(string collection, string adosProjects, string projectRegex)
+        private Org.OpenAPITools.Client.Configuration CreateApiConfig(string azureEndpoint)
         {
-            var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-
-            Org.OpenAPITools.Client.Configuration config;
-
             if (azureEndpoint.Contains(azureEndpointUrl))
             {
-                config = new Org.OpenAPITools.Client.Configuration
+                return new Org.OpenAPITools.Client.Configuration
                 {
                     BasePath = azureEndpoint,
                     AccessToken = _authTokenGenerator.GetToken()
                 };
             }
-            else
+
+            return new Org.OpenAPITools.Client.Configuration
             {
-                config = new Org.OpenAPITools.Client.Configuration
+                BasePath = azureEndpoint,
+                UseDefaultCredentials = true,
+            };
+        }
+
+        private static string? ExtractContinuationToken(
+            IDictionary<string, IList<string>> headers)
+        {
+            foreach (var header in headers)
+            {
+                if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
                 {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
+                    return header.Value.First();
+                }
             }
 
+            return null;
+        }
+
+        public List<BuildDefinitionReference> GetBuildDefinitionsForProjects(string collection, string adosProjects, string projectRegex)
+        {
+            var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
+            var config = CreateApiConfig(azureEndpoint);
             var instance = new DefinitionsApi(config);
 
             var projects = adosProjects.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
@@ -73,15 +86,7 @@ namespace Dorc.Core.AzureDevOpsServer
                 {
                     var response = instance.DefinitionsListWithHttpInfoAsync(coll, project, ApiVersion, continuationToken: continuationToken, includeLatestBuilds: true);
 
-                    foreach (var header in response.Result.Headers)
-                    {
-                        if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continuationToken = header.Value.First();
-                            break;
-                        }
-                    }
-
+                    continuationToken = ExtractContinuationToken(response.Result.Headers);
                     buildDefinitions.AddRange(response.Result.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
@@ -120,26 +125,7 @@ namespace Dorc.Core.AzureDevOpsServer
         public async Task<List<Build>> GetBuildsFromDefinitionsAsync(string collection, List<BuildDefinitionReference> buildDefinitions, int requestSize = 10)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = CreateApiConfig(azureEndpoint);
             var instance = new BuildsApi(config);
 
             var projects = buildDefinitions.Select(def => def.Project.Name).Distinct().ToList();
@@ -158,15 +144,7 @@ namespace Dorc.Core.AzureDevOpsServer
                         definitions: string.Join(",", defIds),
                         continuationToken: continuationToken);
 
-                    foreach (var header in response.Result.Headers)
-                    {
-                        if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continuationToken = header.Value.First();
-                            break;
-                        }
-                    }
-
+                    continuationToken = ExtractContinuationToken(response.Result.Headers);
                     builds.AddRange(response.Result.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
@@ -178,26 +156,7 @@ namespace Dorc.Core.AzureDevOpsServer
         public async Task<List<Build>> GetBuildsFromBuildNumberAsync(string collection, string buildNumber, string projectName, int requestSize = 10)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = CreateApiConfig(azureEndpoint);
             var instance = new BuildsApi(config);
 
             var builds = new List<Build>();
@@ -211,29 +170,26 @@ namespace Dorc.Core.AzureDevOpsServer
 
             foreach (var filter in buildStatusResultFilters)
             {
-                string? continuationToken = null;
-                do
-                {
-                    var response = instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
-                        buildNumber: buildNumber + "*",
-                        statusFilter: filter.Status != null ? filter.Status.ToString() : null,
-                        resultFilter: filter.Result != null ? filter.Result.ToString() : null,
-                        continuationToken: continuationToken);
-
-                    foreach (var header in response.Result.Headers)
-                    {
-                        if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continuationToken = header.Value.First();
-                            break;
-                        }
-                    }
-
-                    builds.AddRange(response.Result.Data);
-
-                } while (!string.IsNullOrEmpty(continuationToken));
+                FetchBuildsForFilter(instance, coll, projectName, buildNumber, filter, builds);
             }
             return builds;
+        }
+
+        private void FetchBuildsForFilter(BuildsApi instance, string coll, string projectName, string buildNumber, BuildApiFilter filter, List<Build> builds)
+        {
+            string? continuationToken = null;
+            do
+            {
+                var response = instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
+                    buildNumber: buildNumber + "*",
+                    statusFilter: filter.Status?.ToString(),
+                    resultFilter: filter.Result?.ToString(),
+                    continuationToken: continuationToken);
+
+                continuationToken = ExtractContinuationToken(response.Result.Headers);
+                builds.AddRange(response.Result.Data);
+
+            } while (!string.IsNullOrEmpty(continuationToken));
         }
 
         public List<Build> FilterBuildsByRegex(List<string> regexList, List<Build> buildsForProject)
@@ -256,25 +212,7 @@ namespace Dorc.Core.AzureDevOpsServer
         public List<BuildArtifact> GetBuildArtifacts(string collection, string project, int buildId)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = CreateApiConfig(azureEndpoint);
             var instance = new ArtifactsApi(config);
 
             string apiVersion = ApiVersion;
