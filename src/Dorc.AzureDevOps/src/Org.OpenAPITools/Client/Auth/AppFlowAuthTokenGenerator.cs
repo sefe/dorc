@@ -31,7 +31,7 @@ namespace Org.OpenAPITools.Client.Auth
             var credential = new ClientSecretCredential(aadConnectionSettings.TenantId, aadConnectionSettings.ClientId, aadConnectionSettings.ClientSecret);
 
             var tokenRequestContext = new TokenRequestContext(DefaultScopes);
-            var token = credential.GetTokenAsync(tokenRequestContext, CancellationToken.None).Result;
+            var token = credential.GetToken(tokenRequestContext, CancellationToken.None);
 
             return token.Token;
         }
