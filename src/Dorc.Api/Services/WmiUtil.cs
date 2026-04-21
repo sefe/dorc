@@ -57,7 +57,7 @@ namespace Dorc.Api.Services
                 var query = new ObjectQuery("SELECT * FROM Win32_OperatingSystem");
                 var searcher =
                     new ManagementObjectSearcher(_scope, query);
-                foreach (ManagementObject queryObj in searcher.Get())
+                foreach (ManagementBaseObject queryObj in searcher.Get())
                 {
                     Console.WriteLine("-----------------------------------");
                     Console.WriteLine("Win32_OperatingSystem instance");
@@ -81,7 +81,7 @@ namespace Dorc.Api.Services
                 var query = new ObjectQuery("SELECT Capacity FROM Win32_PhysicalMemory");
                 var searcher = new ManagementObjectSearcher(_scope, query);
                 ulong capacity = 0;
-                foreach (ManagementObject mo in searcher.Get()) capacity += (ulong)mo["Capacity"];
+                foreach (ManagementBaseObject mo in searcher.Get()) capacity += (ulong)mo["Capacity"];
                 return capacity;
             }
             catch (Exception)
