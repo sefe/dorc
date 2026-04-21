@@ -129,53 +129,52 @@ namespace Dorc.Api.Services
 
             foreach (var propertyUpdateEntry in propertiesToUpdate)
             {
-                try
-                {
-                    // Get the current property state before update
-                    var currentProperty = _propertiesPersistentSource.GetProperty(propertyUpdateEntry.Value.Name);
-                    if (currentProperty == null)
-                    {
-                        result.Add(new Response
-                        { Item = propertyUpdateEntry, Status = "error: variable does not exist - please use POST to create it" });
-                        continue;
-                    }
-
-                    // Check if property is being changed from non-secure to secure
-                    bool shouldEncryptExistingValues = !currentProperty.Secure && propertyUpdateEntry.Value.Secure;
-
-                    if (_propertiesPersistentSource.UpdateProperty(propertyUpdateEntry.Value))
-                    {
-                        // If property was changed to secure, encrypt all existing property values
-                        if (shouldEncryptExistingValues)
-                        {
-                            var encryptionResult = EncryptExistingPropertyValues(propertyUpdateEntry.Value.Name, User);
-                            if (encryptionResult != null)
-                            {
-                                result.Add(encryptionResult);
-                                continue;
-                            }
-                        }
-
-                        result.Add(new Response { Item = propertyUpdateEntry, Status = "success" });
-                        continue;
-                    }
-
-                    result.Add(new Response
-                    { Item = propertyUpdateEntry, Status = "error: failed to update variable in the database" });
-                }
-                catch (NullReferenceException)
-                {
-                    result.Add(new Response
-                    { Item = propertyUpdateEntry, Status = "error: variable does not exist - please use POST to create it" });
-                }
-                catch (Exception e)
-                {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
-                    result.Add(UnrollException(e, propertyUpdateEntry));
-                }
+                result.Add(ProcessPropertyUpdate(propertyUpdateEntry, User));
             }
 
             return result;
+        }
+
+        private Response ProcessPropertyUpdate(KeyValuePair<string, PropertyApiModel> propertyUpdateEntry, ClaimsPrincipal user)
+        {
+            try
+            {
+                var currentProperty = _propertiesPersistentSource.GetProperty(propertyUpdateEntry.Value.Name);
+                if (currentProperty == null)
+                {
+                    return new Response
+                    { Item = propertyUpdateEntry, Status = "error: variable does not exist - please use POST to create it" };
+                }
+
+                bool shouldEncryptExistingValues = !currentProperty.Secure && propertyUpdateEntry.Value.Secure;
+
+                if (!_propertiesPersistentSource.UpdateProperty(propertyUpdateEntry.Value))
+                {
+                    return new Response
+                    { Item = propertyUpdateEntry, Status = "error: failed to update variable in the database" };
+                }
+
+                if (shouldEncryptExistingValues)
+                {
+                    var encryptionResult = EncryptExistingPropertyValues(propertyUpdateEntry.Value.Name, user);
+                    if (encryptionResult != null)
+                    {
+                        return encryptionResult;
+                    }
+                }
+
+                return new Response { Item = propertyUpdateEntry, Status = "success" };
+            }
+            catch (NullReferenceException)
+            {
+                return new Response
+                { Item = propertyUpdateEntry, Status = "error: variable does not exist - please use POST to create it" };
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} failed: {e.Message}");
+                return UnrollException(e, propertyUpdateEntry);
+            }
         }
 
         private Response? EncryptExistingPropertyValues(string propertyName, ClaimsPrincipal user)
