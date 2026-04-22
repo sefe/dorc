@@ -29,15 +29,15 @@ namespace Dorc.Monitor
             this.configuration = configuration;
         }
 
-        public override Task StartAsync(CancellationToken monitorCancellationToken)
+        public override Task StartAsync(CancellationToken cancellationToken)
         {
             isProduction = configuration.IsProduction;
             requestProcessingIterationDelayMs = configuration.RequestProcessingIterationDelayMs;
 
-            return base.StartAsync(monitorCancellationToken);
+            return base.StartAsync(cancellationToken);
         }
 
-        protected override async Task ExecuteAsync(CancellationToken monitorCancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             logger.LogInformation("Deployment Monitor service is started.");
 
@@ -55,20 +55,20 @@ namespace Dorc.Monitor
             {
                 logger.LogError(ex, "Failed to cancel stale requests from previous instance. Continuing startup.");
             }
-            while (!monitorCancellationToken.IsCancellationRequested)
+            while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, monitorCancellationToken, requestProcessingIterationDelayMs);
+                    await deploymentEngine.ProcessDeploymentRequestsAsync(isProduction, requestCancellationSources!, stoppingToken, requestProcessingIterationDelayMs);
                 }
-                catch (OperationCanceledException operationCanceledException) when (monitorCancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException operationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
                     logger.LogWarning("Monitor process is cancelled. " + operationCanceledException.Message);
                 }
                 catch (SqlException sqlException)
                 {
                     logger.LogWarning("Transient SQL failure, retrying in 10s. Exception: " + sqlException);
-                    await Task.Delay(TimeSpan.FromSeconds(10), monitorCancellationToken);
+                    await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
                 }
                 catch (Exception exception)
                 {
