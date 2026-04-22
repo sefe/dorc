@@ -68,49 +68,25 @@ namespace Dorc.Monitor.Events
             await _connectionLock.WaitAsync(ct);
             try
             {
-                if (_connection == null)
-                {
-                    var builder = new HubConnectionBuilder()
-                        .WithUrl(_hubUrl, options =>
-                        {
-                            options.AccessTokenProvider = async () =>
-                            {
-                                try
-                                {
-                                    return await _tokenProvider.GetTokenAsync();
-                                }
-                                catch (Exception ex)
-                                {
-                                    if (!_isConnectionBecomeLost)
-                                        _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection.");
-                                    return string.Empty;
-                                }
-                            };
-                        })
-                        .WithAutomaticReconnect();
-                    _connection = builder.Build();
-                }
+                _connection ??= BuildConnection();
 
                 if (_connection.State == HubConnectionState.Disconnected)
                 {
                     await _connection.StartAsync(ct);
                 }
 
-                if (_hubProxy == null)
-                {
-                    _hubProxy = _connection.CreateHubProxy<IDeploymentEventsHub>(ct);
-                }
+                _hubProxy ??= _connection.CreateHubProxy<IDeploymentEventsHub>(ct);
 
                 // we have to register also client for hub in order to eliminate signalR errors when event is broadcasted to all clients
                 _connection.Register<IDeploymentsEventsClient>(new NullDeploymentsEventsClient());
 
-                if (_connection.State == HubConnectionState.Connected)
+                if (_connection.State != HubConnectionState.Connected)
                 {
-                    _isConnectionBecomeLost = false;
-                    return true;
+                    return false;
                 }
 
-                return false;
+                _isConnectionBecomeLost = false;
+                return true;
             }
             catch (Exception exc)
             {
@@ -124,6 +100,31 @@ namespace Dorc.Monitor.Events
             finally
             {
                 _connectionLock.Release();
+            }
+        }
+
+        private HubConnection BuildConnection()
+        {
+            return new HubConnectionBuilder()
+                .WithUrl(_hubUrl!, options =>
+                {
+                    options.AccessTokenProvider = GetAccessTokenAsync;
+                })
+                .WithAutomaticReconnect()
+                .Build();
+        }
+
+        private async Task<string?> GetAccessTokenAsync()
+        {
+            try
+            {
+                return await _tokenProvider.GetTokenAsync();
+            }
+            catch (Exception ex)
+            {
+                if (!_isConnectionBecomeLost)
+                    _logger.LogError(ex, "Failed to acquire OAuth access token for SignalR connection.");
+                return string.Empty;
             }
         }
 
