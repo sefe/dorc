@@ -74,7 +74,9 @@ namespace Dorc.NetFramework.PowerShell
                     powerShell.AddScript(File.ReadAllText(scriptName));
                     logger.FileLogger.LogInformation($"Adding Script for execution '{scriptName}'.");
 
+                    // create a data collection for standard output
                     var outputCollection = new PSDataCollection<PSObject>();
+                    // and register the event handler on that too
                     outputCollection.DataAdded += (sender, e) =>
                     {
                         var data = sender as PSDataCollection<PSObject>;
@@ -83,6 +85,7 @@ namespace Dorc.NetFramework.PowerShell
                         LogMessage(msg, MessageType.None);
                     };
 
+                    //Add only Error Stream because all other streams supported by HostUserInterface
                     powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
                     outputCollection.DataAdded += Powershell_Output_DataAdded;
 

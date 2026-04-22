@@ -41,14 +41,14 @@ namespace Dorc.NetFramework.PowerShell
             Write(value);
         }
 
-        public override void WriteLine(string message)
+        public override void WriteLine(string value)
         {
-            RaiseMessageAddedEvent(message, MessageType.Info);
+            RaiseMessageAddedEvent(value, MessageType.Info);
         }
 
-        public override void WriteErrorLine(string message)
+        public override void WriteErrorLine(string value)
         {
-            RaiseMessageAddedEvent(message, MessageType.Error);
+            RaiseMessageAddedEvent(value, MessageType.Error);
         }
 
         public override void WriteDebugLine(string message)
