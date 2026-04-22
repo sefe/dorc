@@ -211,14 +211,14 @@ namespace Dorc.PersistentData.Contexts
             return RunSp("deploy.get_global_properties", parameters);
         }
 
-        public DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string spidList)
+        public DataSet GetPropertyValuesForUser(string? environmentName, string? propertyName, string username, string sidList)
         {
             var parameters = new List<SqlParameter>
             {
                 new SqlParameter("@env", SqlDbType.VarChar) {Value = environmentName},
                 new SqlParameter("@prop", SqlDbType.VarChar) {Value = propertyName},
                 new SqlParameter("@username", SqlDbType.VarChar) {Value = username},
-                new SqlParameter("@spidList", SqlDbType.VarChar) {Value = spidList}
+                new SqlParameter("@spidList", SqlDbType.VarChar) {Value = sidList}
             };
             return RunSp("deploy.get_property_values_for_user_with_inheritance", parameters);
         }
