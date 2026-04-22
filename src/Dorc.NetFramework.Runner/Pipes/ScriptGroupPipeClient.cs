@@ -17,18 +17,18 @@ namespace Dorc.NetFramework.Runner.Pipes
             this.logger = logger;
         }
 
-        public ScriptGroup GetScriptGroupProperties(string scriptGroupPipeName)
+        public ScriptGroup GetScriptGroupProperties(string pipeName)
         {
-            logger.LogInformation("Pipe name provided for client: '" + scriptGroupPipeName + "'.");
+            logger.LogInformation("Pipe name provided for client: '" + pipeName + "'.");
 
             try
             {
                 using (NamedPipeClientStream pipeClient =
                     new NamedPipeClientStream(".",
-                    scriptGroupPipeName,
+                    pipeName,
                     PipeDirection.In))
                 {
-                    logger.LogInformation("Connecting client pipe to server. Pipe name: '" + scriptGroupPipeName + "'.");
+                    logger.LogInformation("Connecting client pipe to server. Pipe name: '" + pipeName + "'.");
 
                     try
                     {
