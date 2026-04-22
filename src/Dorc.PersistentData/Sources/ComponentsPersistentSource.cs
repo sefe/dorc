@@ -30,19 +30,19 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public void LoadChildren(ComponentApiModel componentApiModel)
+        public void LoadChildren(ComponentApiModel component)
         {
             using (var context = _contextFactory.GetContext())
             {
                 var componentChildren = context.Components
-                    .Include(component => component.Script)
-                    .Include(component => component.Parent)
-                    .Where(component =>
-                        component.Parent != null
-                        && component.Parent.Id == componentApiModel.ComponentId)
-                    .Select(component => MapToComponentApiModel(component, context)).ToList();
+                    .Include(c => c.Script)
+                    .Include(c => c.Parent)
+                    .Where(c =>
+                        c.Parent != null
+                        && c.Parent.Id == component.ComponentId)
+                    .Select(c => MapToComponentApiModel(c, context)).ToList();
 
-                componentApiModel.Children = componentChildren;
+                component.Children = componentChildren;
             }
         }
 
