@@ -54,14 +54,14 @@ namespace Dorc.Monitor
             int deploymentRequestId,
             bool isProduction,
             string environmentName,
-            StringBuilder componentResultLogBuilder,
+            StringBuilder resultLogBuilder,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             isScriptExecutionSuccessful = true;
 
-            this.componentResultLogBuilder = componentResultLogBuilder;
+            this.componentResultLogBuilder = resultLogBuilder;
 
             var processCredentials = GetProcessCredentials(isProduction, environmentName);
             string processAccountName = processCredentials.Item1;
