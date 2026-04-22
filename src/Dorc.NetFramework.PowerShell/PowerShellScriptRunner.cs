@@ -37,83 +37,7 @@ namespace Dorc.NetFramework.PowerShell
                 IDictionary<string, VariableValue> combinedProperties = this.CombineProperties(scriptProperties, commonProperties);
                 try
                 {
-
-                    var host = new CustomHost();
-                    using (var runspace = RunspaceFactory.CreateRunspace(host, InitialSessionState.CreateDefault()))
-                    {
-                        runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
-                        runspace.Open();
-
-                        this.AddProperties(runspace, combinedProperties);
-
-                        using (var powerShell = System.Management.Automation.PowerShell.Create())
-                        {
-                            host.HostUserInterface.MessageAdded += (sender, e) =>
-                            {
-                                LogMessage(e.Message, e.MessageType);
-                            };
-                            powerShell.Runspace = runspace;
-
-                            if (!string.IsNullOrEmpty(scriptsLocation))
-                            {
-                                powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
-                            }
-
-                            powerShell.AddScript(File.ReadAllText(scriptName));
-                            logger.FileLogger.LogInformation($"Adding Script for execution '{scriptName}'.");
-
-                            // create a data collection for standard output
-                            var outputCollection = new PSDataCollection<PSObject>();
-                            // and register the event handler on that too
-                            outputCollection.DataAdded += (sender, e) =>
-                            {
-                                var data = sender as PSDataCollection<PSObject>;
-                                var msg = GetOutput(data[e.Index]);
-                                if (string.IsNullOrWhiteSpace(msg)) return;
-                                LogMessage(msg, MessageType.None);
-                            };
-
-                            //Add only Error Stream because all other streams supported by HostUserInterface
-                            powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
-                            outputCollection.DataAdded += Powershell_Output_DataAdded;
-
-                            try
-                            {
-                                logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} is beginning");
-                                powerShell.Invoke(null, outputCollection);
-                                logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} has completed");
-                            }
-                            catch (Exception exception)
-                            {
-                                string exceptionMessage = this.GetExceptionMessage(powerShell);
-
-                                if (string.IsNullOrEmpty(exceptionMessage))
-                                {
-                                    throw;
-                                }
-                                logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
-                                throw new RemoteException(exceptionMessage, exception);
-                            }
-
-                            logger.FileLogger.LogDebug("Checking runspace State");
-
-                            if (runspace.RunspaceStateInfo != null
-                                && runspace.RunspaceStateInfo.State == RunspaceState.Broken)
-                            {
-                                throw new Exception(
-                                    $"The runspace has been disconnected abnormally. Reason: {runspace.RunspaceStateInfo.Reason}");
-                            }
-                            logger.FileLogger.LogDebug("Checking runspace State...Done");
-                            logger.FileLogger.LogDebug("Checking InvocationStateInfo");
-                            if (powerShell.InvocationStateInfo != null
-                                && powerShell.InvocationStateInfo.State == PSInvocationState.Failed)
-                            {
-                                throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
-                            }
-                            logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
-                        }
-                    }
-
+                    ExecuteScript(scriptsLocation, scriptName, combinedProperties);
                 }
                 catch (Exception e)
                 {
@@ -122,6 +46,91 @@ namespace Dorc.NetFramework.PowerShell
                 }
                 logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} was successful");
             }
+        }
+
+        private void ExecuteScript(string scriptsLocation, string scriptName, IDictionary<string, VariableValue> combinedProperties)
+        {
+            var host = new CustomHost();
+            using (var runspace = RunspaceFactory.CreateRunspace(host, InitialSessionState.CreateDefault()))
+            {
+                runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
+                runspace.Open();
+
+                this.AddProperties(runspace, combinedProperties);
+
+                using (var powerShell = System.Management.Automation.PowerShell.Create())
+                {
+                    host.HostUserInterface.MessageAdded += (sender, e) =>
+                    {
+                        LogMessage(e.Message, e.MessageType);
+                    };
+                    powerShell.Runspace = runspace;
+
+                    if (!string.IsNullOrEmpty(scriptsLocation))
+                    {
+                        powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
+                    }
+
+                    powerShell.AddScript(File.ReadAllText(scriptName));
+                    logger.FileLogger.LogInformation($"Adding Script for execution '{scriptName}'.");
+
+                    var outputCollection = new PSDataCollection<PSObject>();
+                    outputCollection.DataAdded += (sender, e) =>
+                    {
+                        var data = sender as PSDataCollection<PSObject>;
+                        var msg = GetOutput(data[e.Index]);
+                        if (string.IsNullOrWhiteSpace(msg)) return;
+                        LogMessage(msg, MessageType.None);
+                    };
+
+                    powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
+                    outputCollection.DataAdded += Powershell_Output_DataAdded;
+
+                    InvokeScript(powerShell, scriptName, outputCollection);
+                    ValidateRunspaceAndInvocationState(powerShell, runspace);
+                }
+            }
+        }
+
+        private void InvokeScript(System.Management.Automation.PowerShell powerShell, string scriptName, PSDataCollection<PSObject> outputCollection)
+        {
+            try
+            {
+                logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} is beginning");
+                powerShell.Invoke(null, outputCollection);
+                logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} has completed");
+            }
+            catch (Exception exception)
+            {
+                string exceptionMessage = this.GetExceptionMessage(powerShell);
+
+                if (string.IsNullOrEmpty(exceptionMessage))
+                {
+                    throw;
+                }
+                logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
+                throw new RemoteException(exceptionMessage, exception);
+            }
+        }
+
+        private void ValidateRunspaceAndInvocationState(System.Management.Automation.PowerShell powerShell, Runspace runspace)
+        {
+            logger.FileLogger.LogDebug("Checking runspace State");
+            if (runspace.RunspaceStateInfo != null
+                && runspace.RunspaceStateInfo.State == RunspaceState.Broken)
+            {
+                throw new Exception(
+                    $"The runspace has been disconnected abnormally. Reason: {runspace.RunspaceStateInfo.Reason}");
+            }
+            logger.FileLogger.LogDebug("Checking runspace State...Done");
+
+            logger.FileLogger.LogDebug("Checking InvocationStateInfo");
+            if (powerShell.InvocationStateInfo != null
+                && powerShell.InvocationStateInfo.State == PSInvocationState.Failed)
+            {
+                throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
+            }
+            logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
         }
 
         private void LogMessage(string msg, MessageType type = MessageType.None)
