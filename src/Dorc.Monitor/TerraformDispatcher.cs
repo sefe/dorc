@@ -192,27 +192,7 @@ namespace Dorc.Monitor
 
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
-                        {
-                            logger.LogInformation("The Runner process is terminated.");
-                            throw new OperationCanceledException("The Runner process is terminated.");
-                        }
-                        else if (resultCode != 0)
-                        {
-                            isScriptExecutionSuccessful = false;
-                            Exception? ex = new Win32Exception(Marshal.GetLastWin32Error());
-
-                            if (ex != null)
-                            {
-                                logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
-                                                       + " Message:" + ex.Message
-                                                       + "; Source: " + ex.Source
-                                                       + "; Data: " + ex.Data
-                                                       + "; HelpLink: " + ex.HelpLink
-                                                       + "; InnerException: " + ex.InnerException
-                                                       + "; TargetSite: " + ex.TargetSite + ".");
-                            }
-                        }
+                        HandleProcessResultCode(resultCode);
 
                         if (Marshal.GetLastWin32Error() != 0)
                         {
@@ -233,37 +213,72 @@ namespace Dorc.Monitor
                     logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
                     throw;
                 }
-                
+
                 if (isScriptExecutionSuccessful)
-                switch (terreformOperation)
                 {
-                    case TerraformRunnerOperations.CreatePlan:
-                        // save Terraform binary plan file to Azure Storage Account
-                        _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
-                        // save Terraform human-readable plan file to Azure Storage Account
-                        _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
-
-                        // Update status to WaitingConfirmation
-                        _requestsPersistentSource.UpdateResultStatus(
-                            deploymentResult,
-                            DeploymentResultStatus.WaitingConfirmation);
-
-                        logger.LogInformation($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
-                        break;
-
-                    case TerraformRunnerOperations.ApplyPlan:
-                        // Update status to WaitingConfirmation
-                        _requestsPersistentSource.UpdateResultStatus(
-                            deploymentResult,
-                            DeploymentResultStatus.Complete);
-
-                        logger.LogInformation($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
-                        break;
+                    HandleSuccessfulExecution(terreformOperation, component, deploymentResult,
+                        terraformPlanFilePath, terraformPlanContentFilePath);
                 }
-
             }
 
             return isScriptExecutionSuccessful;
+        }
+
+        private void HandleProcessResultCode(uint resultCode)
+        {
+            if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+            {
+                logger.LogInformation("The Runner process is terminated.");
+                throw new OperationCanceledException("The Runner process is terminated.");
+            }
+
+            if (resultCode != 0)
+            {
+                isScriptExecutionSuccessful = false;
+                var ex = new Win32Exception(Marshal.GetLastWin32Error());
+
+                logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
+                                       + " Message:" + ex.Message
+                                       + "; Source: " + ex.Source
+                                       + "; Data: " + ex.Data
+                                       + "; HelpLink: " + ex.HelpLink
+                                       + "; InnerException: " + ex.InnerException
+                                       + "; TargetSite: " + ex.TargetSite + ".");
+            }
+        }
+
+        private void HandleSuccessfulExecution(
+            TerraformRunnerOperations terreformOperation,
+            ComponentApiModel component,
+            DeploymentResultApiModel deploymentResult,
+            string terraformPlanFilePath,
+            string terraformPlanContentFilePath)
+        {
+            switch (terreformOperation)
+            {
+                case TerraformRunnerOperations.CreatePlan:
+                    // save Terraform binary plan file to Azure Storage Account
+                    _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
+                    // save Terraform human-readable plan file to Azure Storage Account
+                    _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
+
+                    // Update status to WaitingConfirmation
+                    _requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        DeploymentResultStatus.WaitingConfirmation);
+
+                    logger.LogInformation($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                    break;
+
+                case TerraformRunnerOperations.ApplyPlan:
+                    // Update status to Complete
+                    _requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        DeploymentResultStatus.Complete);
+
+                    logger.LogInformation($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
+                    break;
+            }
         }
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
