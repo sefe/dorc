@@ -424,162 +424,23 @@ namespace Dorc.Monitor
 
         public Task[] ExecuteRequests(bool isProduction, ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources, CancellationToken monitorCancellationToken)
         {
-            // Always fetch Paused requests so they block subsequent requests in the queue,
-            // regardless of whether the pause feature flag is enabled.
-            // The flag only controls whether users can pause/resume via UI and API.
-            var allRelevantRequests = this.requestsPersistentSource
-                .GetRequestsWithStatus(
-                        DeploymentRequestStatus.Pending,
-                        DeploymentRequestStatus.Running,
-                        DeploymentRequestStatus.Confirmed,
-                        DeploymentRequestStatus.Paused,
-                        isProduction)
-                .OrderBy(request => request.Id)
-                .ToList();
-
-            // Group by environment and filter to only environments without Running requests
-            // and where the first request (by ID) is not Paused.
-            var environmentRequestGroupsToExecute = allRelevantRequests
-                .GroupBy(
-                    request => request.EnvironmentName,
-                    request => new RequestToProcessDto(
-                        request,
-                        this.serializer.Deserialize(request.RequestDetails)))
-                .Where(environmentRequestGroup =>
-                    // No Running requests in this environment
-                    environmentRequestGroup.All(envRequest =>
-                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString()) &&
-                    // The first (earliest by ID) request must not be Paused.
-                    // If Request 3 is Paused, Requests 4,5 are blocked.
-                    // But if Request 4 is Paused, Request 3 can still run (it's before the pause).
-                    environmentRequestGroup.OrderBy(r => r.Request.Id).First().Request.Status != DeploymentRequestStatus.Paused.ToString());
+            var environmentRequestGroupsToExecute = GetEnvironmentRequestGroupsToExecute(isProduction);
 
             IList<Task> requestGroupExecutionTasks = new List<Task>();
 
             foreach (var requestGroup in environmentRequestGroupsToExecute)
             {
                 // We are taking just first request per environment for execution
-                // in order to guarantee that requests are executed sequentially withing distinct environment.
+                // in order to guarantee that requests are executed sequentially within distinct environment.
                 var requestToExecute = requestGroup.First();
 
-                // Skip environment if in lock backoff period (failed to acquire lock recently)
-                if (environmentLockBackoff.TryGetValue(requestGroup.Key, out var backoffUntil) && DateTime.UtcNow < backoffUntil)
+                if (!TryRegisterEnvironmentForExecution(requestGroup.Key, requestToExecute))
                 {
-                    this.logger.LogDebug($"Skipping environment '{requestGroup.Key}' - in lock backoff until {backoffUntil:O}");
                     continue;
                 }
 
-                // IMPORTANT: Register the environment as running BEFORE Task.Run to prevent a race condition.
-                // If TryAdd is after Task.Run, a fast-completing task (e.g. lock acquisition fails immediately)
-                // can execute TryRemove in its finally block BEFORE TryAdd runs, leaving a phantom entry
-                // that permanently blocks this environment from being processed.
-                if (!environmentRequestIdRunning.TryAdd(requestGroup.Key, requestToExecute.Request.Id))
-                {
-                    environmentRequestIdRunning.TryGetValue(requestGroup.Key, out var runningRequestId);
-                    this.logger.LogDebug($"skipping processing deployment request for Env:{requestGroup.Key} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
-                    continue;
-                }
-
-                // Try to acquire distributed lock for this environment BEFORE creating the task
-                // This ensures only one monitor instance processes this environment at a time
-                // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
-                // Other usages of Task.Run in this codebase may be synchronous, but here async is required for proper lock handling.
-                var task = Task.Run(async () =>
-                {
-                    // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method
-                    // and to prevent closure over loop variable
-                    IDistributedLock? envLock = null;
-                    try
-                    {
-                        monitorCancellationToken.ThrowIfCancellationRequested();
-
-                        if (distributedLockService.IsEnabled)
-                        {
-                            var lockKey = $"env:{requestGroup.Key}";
-                            // Lock lease time is longer than typical request duration to handle long deployments
-                            // The lock will auto-release if the monitor crashes
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
-
-                            if (envLock == null)
-                            {
-                                this.logger.LogWarning($"Could not acquire distributed lock for environment '{requestGroup.Key}' - likely being processed by another monitor instance");
-                                environmentLockBackoff[requestGroup.Key] = DateTime.UtcNow.Add(LockBackoffDuration);
-                                return; // Skip this environment - another monitor is processing it
-                            }
-
-                            environmentLockBackoff.TryRemove(requestGroup.Key, out _);
-                            this.logger.LogInformation($"Acquired distributed lock for environment '{requestGroup.Key}' to process request {requestToExecute.Request.Id}");
-
-                            // Re-validate request status after acquiring lock
-                            // The request status may have changed while waiting for the lock
-                            // (e.g., cancelled by user, or already picked up by another monitor before lock was held)
-                            var currentRequest = this.requestsPersistentSource.GetRequest(requestToExecute.Request.Id);
-                            if (currentRequest == null ||
-                                (currentRequest.Status != DeploymentRequestStatus.Pending.ToString() &&
-                                 currentRequest.Status != DeploymentRequestStatus.Confirmed.ToString()))
-                            {
-                                this.logger.LogInformation(
-                                    $"Request {requestToExecute.Request.Id} status changed to '{currentRequest?.Status ?? "null"}' while waiting for lock. Skipping execution.");
-                                return; // Lock will be released in finally block
-                            }
-                        }
-
-                        // Token decoupling (S-003): the request token is NOT linked to monitorCancellationToken.
-                        // Service shutdown does not cancel in-flight deployments — they continue until
-                        // the host's ShutdownTimeout expires. This allows deployments to complete during
-                        // graceful shutdown. S-004 recovers any requests still Running at next startup.
-                        //
-                        // HA enabled: link only to the distributed lock loss token so that split-brain
-                        // scenarios (lock lost mid-deployment) still abort the deployment immediately.
-                        // HA disabled: fully independent token, cancellable only via TerminateRequestExecution.
-                        CancellationTokenSource requestCancellationTokenSource;
-                        if (envLock != null)
-                        {
-                            requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(envLock.LockLostToken);
-                        }
-                        else
-                        {
-                            requestCancellationTokenSource = new CancellationTokenSource();
-                        }
-
-                        // AddOrUpdate is safe here: the semaphore-like environmentRequestIdRunning guard
-                        // ensures only one task per environment is active, so no contention on this key.
-                        requestCancellationSources!.AddOrUpdate(
-                            requestToExecute.Request.Id,
-                            requestCancellationTokenSource,
-                            (requestId, existingCancellationTokenSource) => requestCancellationTokenSource);
-                        this.ExecuteRequest(requestToExecute, requestCancellationTokenSource.Token);
-
-                        // Check lock health after execution completes
-                        if (envLock != null && !envLock.IsValid)
-                        {
-                            this.logger.LogWarning(
-                                "Distributed lock for environment '{Environment}' was lost during execution of request {RequestId} (channel closed). " +
-                                "The deployment completed but another monitor may have started a concurrent deployment.",
-                                requestGroup.Key, requestToExecute.Request.Id);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        this.logger.LogError($"Canceled processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}");
-                    }
-                    catch (Exception exc)
-                    {
-                        this.logger.LogError($"Error while processing deployment request. Environment: {requestGroup.Key}, id: {requestToExecute.Request.Id}, exception: {exc}");
-                    }
-                    finally
-                    {
-                        this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
-                        environmentRequestIdRunning.TryRemove(requestGroup.Key, out _);
-                        
-                        // Release the distributed lock
-                        if (envLock != null)
-                        {
-                            await envLock.DisposeAsync();
-                            this.logger.LogDebug($"Released distributed lock for environment '{requestGroup.Key}'");
-                        }
-                    }
-                }, monitorCancellationToken);
+                var task = CreateEnvironmentExecutionTask(
+                    requestGroup.Key, requestToExecute, requestCancellationSources, monitorCancellationToken);
 
                 // Safety net: if the token is already cancelled when Task.Run is called (or
                 // gets cancelled before the ThreadPool picks up the delegate), the task
@@ -598,6 +459,214 @@ namespace Dorc.Monitor
             }
 
             return requestGroupExecutionTasks.ToArray();
+        }
+
+        private IEnumerable<IGrouping<string, RequestToProcessDto>> GetEnvironmentRequestGroupsToExecute(bool isProduction)
+        {
+            // Always fetch Paused requests so they block subsequent requests in the queue,
+            // regardless of whether the pause feature flag is enabled.
+            // The flag only controls whether users can pause/resume via UI and API.
+            var allRelevantRequests = this.requestsPersistentSource
+                .GetRequestsWithStatus(
+                        DeploymentRequestStatus.Pending,
+                        DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Confirmed,
+                        DeploymentRequestStatus.Paused,
+                        isProduction)
+                .OrderBy(request => request.Id)
+                .ToList();
+
+            // Group by environment and filter to only environments without Running requests
+            // and where the first request (by ID) is not Paused.
+            return allRelevantRequests
+                .GroupBy(
+                    request => request.EnvironmentName,
+                    request => new RequestToProcessDto(
+                        request,
+                        this.serializer.Deserialize(request.RequestDetails)))
+                .Where(environmentRequestGroup =>
+                    // No Running requests in this environment
+                    environmentRequestGroup.All(envRequest =>
+                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString()) &&
+                    // The first (earliest by ID) request must not be Paused.
+                    // If Request 3 is Paused, Requests 4,5 are blocked.
+                    // But if Request 4 is Paused, Request 3 can still run (it's before the pause).
+                    environmentRequestGroup.OrderBy(r => r.Request.Id).First().Request.Status != DeploymentRequestStatus.Paused.ToString());
+        }
+
+        /// <summary>
+        /// Checks backoff and registers the environment as running.
+        /// Returns true if the environment was successfully registered for execution.
+        /// </summary>
+        private bool TryRegisterEnvironmentForExecution(string environmentName, RequestToProcessDto requestToExecute)
+        {
+            // Skip environment if in lock backoff period (failed to acquire lock recently)
+            if (environmentLockBackoff.TryGetValue(environmentName, out var backoffUntil) && DateTime.UtcNow < backoffUntil)
+            {
+                this.logger.LogDebug($"Skipping environment '{environmentName}' - in lock backoff until {backoffUntil:O}");
+                return false;
+            }
+
+            // IMPORTANT: Register the environment as running BEFORE Task.Run to prevent a race condition.
+            // If TryAdd is after Task.Run, a fast-completing task (e.g. lock acquisition fails immediately)
+            // can execute TryRemove in its finally block BEFORE TryAdd runs, leaving a phantom entry
+            // that permanently blocks this environment from being processed.
+            if (!environmentRequestIdRunning.TryAdd(environmentName, requestToExecute.Request.Id))
+            {
+                environmentRequestIdRunning.TryGetValue(environmentName, out var runningRequestId);
+                this.logger.LogDebug($"skipping processing deployment request for Env:{environmentName} user:{requestToExecute.Request.UserName} id: {runningRequestId}, as some request is being processed already for that env");
+                return false;
+            }
+
+            return true;
+        }
+
+        private Task CreateEnvironmentExecutionTask(
+            string environmentName,
+            RequestToProcessDto requestToExecute,
+            ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources,
+            CancellationToken monitorCancellationToken)
+        {
+            // NOTE: This lambda is async because we need to await distributed lock acquisition and disposal.
+            // Other usages of Task.Run in this codebase may be synchronous, but here async is required for proper lock handling.
+            return Task.Run(async () =>
+            {
+                // Acquire distributed lock inside the task to avoid blocking ExecuteRequests method
+                // and to prevent closure over loop variable
+                IDistributedLock? envLock = null;
+                try
+                {
+                    monitorCancellationToken.ThrowIfCancellationRequested();
+
+                    envLock = await TryAcquireEnvironmentLockAsync(environmentName, monitorCancellationToken);
+                    if (distributedLockService.IsEnabled && envLock == null)
+                    {
+                        return; // Skip this environment - another monitor is processing it
+                    }
+
+                    if (envLock != null && !IsRequestStillExecutable(requestToExecute, environmentName))
+                    {
+                        return; // Lock will be released in finally block
+                    }
+
+                    ExecuteRequestWithCancellation(
+                        environmentName, requestToExecute, envLock, requestCancellationSources);
+
+                    // Check lock health after execution completes
+                    LogLockHealthWarningIfNeeded(envLock, environmentName, requestToExecute.Request.Id);
+                }
+                catch (OperationCanceledException)
+                {
+                    this.logger.LogError($"Canceled processing deployment request. Environment: {environmentName}, id: {requestToExecute.Request.Id}");
+                }
+                catch (Exception exc)
+                {
+                    this.logger.LogError($"Error while processing deployment request. Environment: {environmentName}, id: {requestToExecute.Request.Id}, exception: {exc}");
+                }
+                finally
+                {
+                    this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
+                    environmentRequestIdRunning.TryRemove(environmentName, out _);
+
+                    // Release the distributed lock
+                    if (envLock != null)
+                    {
+                        await envLock.DisposeAsync();
+                        this.logger.LogDebug($"Released distributed lock for environment '{environmentName}'");
+                    }
+                }
+            }, monitorCancellationToken);
+        }
+
+        /// <summary>
+        /// Attempts to acquire a distributed lock for the given environment.
+        /// Returns null if locking is disabled or if the lock could not be acquired.
+        /// Sets backoff on failure.
+        /// </summary>
+        private async Task<IDistributedLock?> TryAcquireEnvironmentLockAsync(string environmentName, CancellationToken cancellationToken)
+        {
+            if (!distributedLockService.IsEnabled)
+            {
+                return null;
+            }
+
+            var lockKey = $"env:{environmentName}";
+            // Lock lease time is longer than typical request duration to handle long deployments
+            // The lock will auto-release if the monitor crashes
+            var envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, cancellationToken);
+
+            if (envLock == null)
+            {
+                this.logger.LogWarning($"Could not acquire distributed lock for environment '{environmentName}' - likely being processed by another monitor instance");
+                environmentLockBackoff[environmentName] = DateTime.UtcNow.Add(LockBackoffDuration);
+                return null;
+            }
+
+            environmentLockBackoff.TryRemove(environmentName, out _);
+            this.logger.LogInformation($"Acquired distributed lock for environment '{environmentName}'");
+            return envLock;
+        }
+
+        /// <summary>
+        /// Re-validates request status after acquiring lock.
+        /// The request status may have changed while waiting for the lock
+        /// (e.g., cancelled by user, or already picked up by another monitor before lock was held).
+        /// </summary>
+        private bool IsRequestStillExecutable(RequestToProcessDto requestToExecute, string environmentName)
+        {
+            var currentRequest = this.requestsPersistentSource.GetRequest(requestToExecute.Request.Id);
+            if (currentRequest != null &&
+                (currentRequest.Status == DeploymentRequestStatus.Pending.ToString() ||
+                 currentRequest.Status == DeploymentRequestStatus.Confirmed.ToString()))
+            {
+                return true;
+            }
+
+            this.logger.LogInformation(
+                $"Request {requestToExecute.Request.Id} status changed to '{currentRequest?.Status ?? "null"}' while waiting for lock. Skipping execution.");
+            return false;
+        }
+
+        /// <summary>
+        /// Creates the appropriate cancellation token source and executes the request.
+        /// </summary>
+        private void ExecuteRequestWithCancellation(
+            string environmentName,
+            RequestToProcessDto requestToExecute,
+            IDistributedLock? envLock,
+            ConcurrentDictionary<int, CancellationTokenSource> requestCancellationSources)
+        {
+            // Token decoupling (S-003): the request token is NOT linked to monitorCancellationToken.
+            // Service shutdown does not cancel in-flight deployments — they continue until
+            // the host's ShutdownTimeout expires. This allows deployments to complete during
+            // graceful shutdown. S-004 recovers any requests still Running at next startup.
+            //
+            // HA enabled: link only to the distributed lock loss token so that split-brain
+            // scenarios (lock lost mid-deployment) still abort the deployment immediately.
+            // HA disabled: fully independent token, cancellable only via TerminateRequestExecution.
+            CancellationTokenSource requestCancellationTokenSource = envLock != null
+                ? CancellationTokenSource.CreateLinkedTokenSource(envLock.LockLostToken)
+                : new CancellationTokenSource();
+
+            // AddOrUpdate is safe here: the semaphore-like environmentRequestIdRunning guard
+            // ensures only one task per environment is active, so no contention on this key.
+            requestCancellationSources!.AddOrUpdate(
+                requestToExecute.Request.Id,
+                requestCancellationTokenSource,
+                (requestId, existingCancellationTokenSource) => requestCancellationTokenSource);
+
+            this.ExecuteRequest(requestToExecute, requestCancellationTokenSource.Token);
+        }
+
+        private void LogLockHealthWarningIfNeeded(IDistributedLock? envLock, string environmentName, int requestId)
+        {
+            if (envLock != null && !envLock.IsValid)
+            {
+                this.logger.LogWarning(
+                    "Distributed lock for environment '{Environment}' was lost during execution of request {RequestId} (channel closed). " +
+                    "The deployment completed but another monitor may have started a concurrent deployment.",
+                    environmentName, requestId);
+            }
         }
 
         private void ExecuteRequest(RequestToProcessDto requestToExecute, CancellationToken requestCancellationToken)
