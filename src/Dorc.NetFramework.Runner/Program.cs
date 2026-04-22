@@ -132,10 +132,10 @@ namespace Dorc.NetFramework.Runner
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
             ManagementObjectCollection processList = searcher.Get();
 
-            foreach (ManagementObject obj in processList)
+            foreach (ManagementBaseObject obj in processList)
             {
                 string[] argList = new string[] { string.Empty, string.Empty };
-                int returnVal = Convert.ToInt32(obj.InvokeMethod("GetOwner", argList));
+                int returnVal = Convert.ToInt32(((ManagementObject)obj).InvokeMethod("GetOwner", argList));
                 if (returnVal == 0)
                 {
                     return argList[1] + "\\" + argList[0];
