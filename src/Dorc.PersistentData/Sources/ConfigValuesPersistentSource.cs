@@ -64,12 +64,12 @@ namespace Dorc.PersistentData.Sources
         }
 
         /// Only one property changes per request (Secure OR IsForProd OR Value).
-        public ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel model)
+        public ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel newValue)
         {
             using var context = _contextFactory.GetContext();
             var configValue = context.ConfigValues
-                .FirstOrDefault(pv => pv.Id == model.Id)
-                ?? throw new KeyNotFoundException($"Config value with Id={model.Id} not found.");
+                .FirstOrDefault(pv => pv.Id == newValue.Id)
+                ?? throw new KeyNotFoundException($"Config value with Id={newValue.Id} not found.");
 
             // Get current value in plain text (decrypt if Secure) for comparison and restoring when Secure is toggled off
             string oldPlain = configValue.Secure && !string.IsNullOrEmpty(configValue.Value)
@@ -78,14 +78,14 @@ namespace Dorc.PersistentData.Sources
                 : configValue.Value ?? string.Empty;
 
             // 1) If Secure changed encrypt/decrypt value
-            if (configValue.Secure != model.Secure)
+            if (configValue.Secure != newValue.Secure)
             {
-                configValue.Secure = model.Secure;
-                if (model.Secure)
+                configValue.Secure = newValue.Secure;
+                if (newValue.Secure)
                 {
-                    if (model.Value == null)
+                    if (newValue.Value == null)
                         throw new ArgumentException("Value required when Secure=true.");
-                    configValue.Value = _propertyEncrypt.EncryptValue(model.Value);
+                    configValue.Value = _propertyEncrypt.EncryptValue(newValue.Value);
                 }
 
                 else
@@ -95,17 +95,17 @@ namespace Dorc.PersistentData.Sources
             }
 
             // 2) Else if IsForProd changed update the flag
-            else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
+            else if (configValue.IsForProd.GetValueOrDefault() != newValue.IsForProd.GetValueOrDefault())
             {
-                configValue.IsForProd = model.IsForProd;
+                configValue.IsForProd = newValue.IsForProd;
             }
 
             // 3) Else if Value changed update (encrypt if Secure)
-            else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
+            else if (newValue.Value != null && !string.Equals(newValue.Value, oldPlain, StringComparison.Ordinal))
             {
                 configValue.Value = configValue.Secure
-                    ? _propertyEncrypt.EncryptValue(model.Value)
-                    : model.Value;
+                    ? _propertyEncrypt.EncryptValue(newValue.Value)
+                    : newValue.Value;
             }
 
             context.SaveChanges();
