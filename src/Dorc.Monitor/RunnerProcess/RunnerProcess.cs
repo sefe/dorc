@@ -18,6 +18,8 @@ namespace Dorc.Monitor.RunnerProcess
 
         private ProcessWaitHandle completeEvent;
 
+        private readonly object _closeLock = new();
+
         public uint Id
         {
             get
@@ -82,7 +84,7 @@ namespace Dorc.Monitor.RunnerProcess
             // We need to lock to ensure we don't run concurrently with CompletionCallback.
             // Without this lock we could reset _raisedOnExited which causes CompletionCallback to
             // raise the Exited event a second time for the same process.
-            lock (this)
+            lock (_closeLock)
             {
                 // This sets _waitHandle to null which causes CompletionCallback to not emit events.
                 this.completeEvent.Close();
