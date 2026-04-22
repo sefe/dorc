@@ -104,15 +104,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DaemonApiModel Update(DaemonApiModel model)
+        public DaemonApiModel Update(DaemonApiModel env)
         {
             DaemonApiModel result = null;
             using (var context = _contextFactory.GetContext())
             {
-                var updatedDaemon = Map(model);
+                var updatedDaemon = Map(env);
 
                 var existingDaemon = context.Services
-                    .FirstOrDefault(daemon => daemon.Id == model.Id);
+                    .FirstOrDefault(daemon => daemon.Id == env.Id);
 
                 if (existingDaemon != null)
                 {
