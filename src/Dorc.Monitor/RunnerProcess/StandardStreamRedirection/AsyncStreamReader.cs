@@ -157,56 +157,70 @@ namespace Dorc.Monitor.RunnerProcess.StandardStreamRedirection
             int lineStart = 0;
             int stringLength = messageStringBuilder!.Length;
 
-            if (isLastCarriageReturn
-                && stringLength > 0
-                && messageStringBuilder[0] == '\n')
-            {
-                currentIndex = 1;
-                lineStart = 1;
-                isLastCarriageReturn = false;
-            }
+            (currentIndex, lineStart) = SkipLeadingLineFeedAfterCarriageReturn(currentIndex, lineStart, stringLength);
 
             while (currentIndex < stringLength)
             {
                 char currentCharacter = messageStringBuilder[currentIndex];
-                if (currentCharacter == '\r'
-                    || currentCharacter == '\n')
+                if (currentCharacter == '\r' || currentCharacter == '\n')
                 {
                     string lineString = messageStringBuilder.ToString(lineStart, currentIndex - lineStart);
                     lineStart = currentIndex + 1; //next line start index
                     // skip the "\n" character following "\r" character
-                    if (currentCharacter == '\r'
-                        && lineStart < stringLength
-                        && messageStringBuilder[lineStart] == '\n')
+                    if (currentCharacter == '\r' && lineStart < stringLength && messageStringBuilder[lineStart] == '\n')
                     {
                         lineStart++;
                         currentIndex++;
                     }
 
-                    lock (messageQueue)
-                    {
-                        if (lineString.Contains(RunnerConstants.StandardStreamEndString))
-                        {
-                            isMessageLast = true;
-                        }
-                        else
-                        {
-                            messageQueue.Enqueue(lineString);
-                        }
-                    }
+                    isMessageLast = EnqueueLine(lineString, isMessageLast);
                 }
                 currentIndex++;
             }
 
             // Protect length as IndexOutOfRangeException was being thrown when less than a
             // character's worth of bytes was read at the beginning of a line.
-            if (stringLength > 0
-                && messageStringBuilder[stringLength - 1] == '\r')
+            if (stringLength > 0 && messageStringBuilder[stringLength - 1] == '\r')
             {
                 isLastCarriageReturn = true;
             }
 
             // Keep the rest characaters which can't form a new line in string builder.
+            CompactStringBuilder(lineStart, stringLength, currentIndex);
+
+            return isMessageLast;
+        }
+
+        private (int currentIndex, int lineStart) SkipLeadingLineFeedAfterCarriageReturn(
+            int currentIndex, int lineStart, int stringLength)
+        {
+            if (isLastCarriageReturn && stringLength > 0 && messageStringBuilder![0] == '\n')
+            {
+                currentIndex = 1;
+                lineStart = 1;
+                isLastCarriageReturn = false;
+            }
+
+            return (currentIndex, lineStart);
+        }
+
+        private bool EnqueueLine(string lineString, bool isMessageLast)
+        {
+            lock (messageQueue)
+            {
+                if (lineString.Contains(RunnerConstants.StandardStreamEndString))
+                {
+                    return true;
+                }
+
+                messageQueue.Enqueue(lineString);
+            }
+
+            return isMessageLast;
+        }
+
+        private void CompactStringBuilder(int lineStart, int stringLength, int currentIndex)
+        {
             if (lineStart < stringLength)
             {
                 if (lineStart == 0)
@@ -217,17 +231,15 @@ namespace Dorc.Monitor.RunnerProcess.StandardStreamRedirection
                 }
                 else
                 {
-                    messageStringBuilder.Remove(0, lineStart);
+                    messageStringBuilder!.Remove(0, lineStart);
                     currentLinePosition = 0;
                 }
             }
             else
             {
-                messageStringBuilder.Length = 0;
+                messageStringBuilder!.Length = 0;
                 currentLinePosition = 0;
             }
-
-            return isMessageLast;
         }
 
         private bool FlushMessageQueue(bool rethrowInNewThread)
