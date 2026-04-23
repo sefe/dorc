@@ -32,10 +32,10 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal user)
+        public DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal principal)
         {
-            string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            string username = _claimsPrincipalReader.GetUserLogin(principal);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(principal);
 
             using (var context = _contextFactory.GetContext())
             {
@@ -265,7 +265,7 @@ namespace Dorc.PersistentData.Sources
         
         public int UpdateNonProcessedRequest(
             DeploymentRequestApiModel deploymentRequest,
-            DeploymentRequestStatus status,
+            DeploymentRequestStatus newStatus,
             DateTimeOffset requestedTime)
         {
             using (var context = _contextFactory.GetContext())
@@ -274,12 +274,12 @@ namespace Dorc.PersistentData.Sources
                     .Where(request => request.Id == deploymentRequest.Id
                         && request.Status == deploymentRequest.Status.ToString())
                     .ExecuteUpdate(setters => setters
-                        .SetProperty(request => request.Status, status.ToString())
+                        .SetProperty(request => request.Status, newStatus.ToString())
                         .SetProperty(request => request.RequestedTime, requestedTime));
 
                 if (affectedRows > 0)
                 {
-                    deploymentRequest.Status = status.ToString();
+                    deploymentRequest.Status = newStatus.ToString();
                     deploymentRequest.RequestedTime = requestedTime;
                 }
 
