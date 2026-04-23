@@ -3,15 +3,25 @@ import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../application-daemons';
 import { ApplicationDaemons } from '../application-daemons';
 import { PageEnvBase } from './page-env-base';
+import GlobalCache from '../../global-cache';
+import { DaemonStatusApi } from '../../apis/dorc-api';
+import { ErrorNotification } from '../notifications/error-notification';
+import '../notifications/error-notification';
+import { SuccessNotification } from '../notifications/success-notification';
+import '../notifications/success-notification';
 
 @customElement('env-daemons')
 export class EnvDaemons extends PageEnvBase {
   @property({ type: Boolean }) private daemonsLoading = false;
+
+  @state() private isAdmin = false;
+
+  @state() private discovering = false;
 
   static get styles() {
     return css`
@@ -82,7 +92,16 @@ export class EnvDaemons extends PageEnvBase {
               </vaadin-button>
             </td>
             <td>
-              ${this.daemonsLoading
+              <vaadin-button
+                ?hidden="${!this.isAdmin}"
+                .disabled="${this.discovering}"
+                title="Probe all servers in this environment and persist discovered daemon mappings"
+                @click="${this.discoverDaemons}"
+                >Discover Daemons
+              </vaadin-button>
+            </td>
+            <td>
+              ${this.daemonsLoading || this.discovering
                 ? html`
                     <div style="padding-left: 5px" class="lds-ring">
                       <div></div>
@@ -110,6 +129,26 @@ export class EnvDaemons extends PageEnvBase {
     super();
 
     super.loadEnvironmentInfo();
+    this.getUserRoles();
+  }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.setUserRoles(userRoles);
+        },
+        error: (err: string) => console.error(err),
+        complete: () => console.log('done loading user roles')
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.isAdmin = userRoles.find(p => p === 'Admin') !== undefined;
   }
 
   daemonsLoaded() {
@@ -124,5 +163,38 @@ export class EnvDaemons extends PageEnvBase {
     this.daemonsLoading = false;
     appDaemons.loadDaemons();
     this.daemonsLoading = true;
+  }
+
+  private discoverDaemons() {
+    const envName = this.envContent?.EnvironmentName || this.environmentName;
+    if (!envName) return;
+
+    this.discovering = true;
+    const api = new DaemonStatusApi();
+    api.daemonStatusDiscoverEnvNamePost({ envName }).subscribe({
+      next: () => {
+        const notification = new SuccessNotification();
+        notification.setAttribute(
+          'successMessage',
+          `Daemon discovery completed for '${envName}'.`
+        );
+        this.shadowRoot?.appendChild(notification);
+        notification.open();
+      },
+      error: (err: any) => {
+        const message = err?.response?.message ?? err?.message ?? String(err);
+        const notification = new ErrorNotification();
+        notification.setAttribute(
+          'errorMessage',
+          `Daemon discovery failed for '${envName}': ${message}`
+        );
+        this.shadowRoot?.appendChild(notification);
+        notification.open();
+        this.discovering = false;
+      },
+      complete: () => {
+        this.discovering = false;
+      }
+    });
   }
 }
