@@ -1014,125 +1014,23 @@ namespace Dorc.PersistentData.Sources
                 {
                     using (var dbContextTransaction = context.Database.BeginTransaction())
                     {
-                        // Get the source environment with all related data
-                        var sourceEnv = context.Environments
-                            .Include(e => e.AccessControls)
-                            .Include(e => e.Servers)
-                            .Include(e => e.Databases)
-                            .Include(e => e.Projects)
-                            .SingleOrDefault(e => e.Id == request.SourceEnvironmentId);
+                        var sourceEnv = GetSourceEnvironment(context, request.SourceEnvironmentId);
+                        ValidateTargetEnvironmentName(context, request.NewEnvironmentName);
 
-                        if (sourceEnv == null)
-                        {
-                            throw new ArgumentException($"Source environment with ID {request.SourceEnvironmentId} not found.");
-                        }
-
-                        // Check if target environment already exists
-                        var existingEnv = EnvironmentUnifier.GetEnvironment(context, request.NewEnvironmentName);
-                        if (existingEnv != null)
-                        {
-                            throw new ArgumentException($"Environment with name '{request.NewEnvironmentName}' already exists.");
-                        }
-
-                        // Create new environment
-                        var newEnv = new Environment
-                        {
-                            ObjectId = Guid.NewGuid(),
-                            Name = request.NewEnvironmentName,
-                            Secure = sourceEnv.Secure,
-                            IsProd = false, // Cloned environments should not be prod by default
-                            Description = sourceEnv.Description,
-                            FileShare = sourceEnv.FileShare,
-                            ThinClientServer = sourceEnv.ThinClientServer,
-                            RestoredFromBackup = sourceEnv.RestoredFromBackup,
-                            EnvNote = $"Cloned from {sourceEnv.Name}",
-                            LastUpdate = DateTime.Now,
-                            ParentId = null // Cloned environment starts without a parent
-                        };
-
-                        context.Environments.Add(newEnv);
-                        context.SaveChanges(); // Save to get the new environment ID
+                        var newEnv = CreateClonedEnvironment(context, sourceEnv, request.NewEnvironmentName);
 
                         // Get user info with fallback if domain controller is unavailable
-                        string username;
-                        string userId;
-                        string userDisplayName;
-                        try
-                        {
-                            username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                            userId = _claimsPrincipalReader.GetUserId(user);
-                            userDisplayName = _claimsPrincipalReader.GetUserLogin(user);
-                        }
-                        catch (Exception ex)
-                        {
-                            // Fallback to basic claim info if AD lookup fails
-                            logger.LogWarning(ex, "Failed to get user info from domain controller, using fallback values");
-                            username = user.Identity?.Name ?? "Unknown";
-                            userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
-                            userDisplayName = user.Identity?.Name ?? "Unknown";
-                        }
+                        var (username, userId, userDisplayName) = ResolveUserInfo(user);
 
                         // Add owner access control for the user who created the clone
-                        var ownerAccessControl = new AccessControl
-                        {
-                            ObjectId = newEnv.ObjectId,
-                            Name = userDisplayName,
-                            Pid = userId,
-                            Allow = (int)AccessLevel.Owner
-                        };
-                        context.AccessControls.Add(ownerAccessControl);
-
-                        // Copy access controls if requested (excluding owner, which is already set)
-                        if (request.CopyAccessControls)
-                        {
-                            foreach (var ac in sourceEnv.AccessControls.Where(a => !a.Allow.HasAccessLevel(AccessLevel.Owner)))
-                            {
-                                var newAc = new AccessControl
-                                {
-                                    ObjectId = newEnv.ObjectId,
-                                    Name = ac.Name,
-                                    Sid = ac.Sid,
-                                    Pid = ac.Pid,
-                                    Allow = ac.Allow,
-                                    Deny = ac.Deny
-                                };
-                                context.AccessControls.Add(newAc);
-                            }
-                        }
-
-                        // Copy server mappings if requested
-                        if (request.CopyServerMappings)
-                        {
-                            foreach (var server in sourceEnv.Servers)
-                            {
-                                newEnv.Servers.Add(server);
-                            }
-                        }
-
-                        // Copy database mappings if requested
-                        if (request.CopyDatabaseMappings)
-                        {
-                            foreach (var database in sourceEnv.Databases)
-                            {
-                                newEnv.Databases.Add(database);
-                            }
-                        }
-
-                        // Copy project mappings if requested
-                        if (request.CopyProjectMappings)
-                        {
-                            foreach (var project in sourceEnv.Projects)
-                            {
-                                newEnv.Projects.Add(project);
-                            }
-                        }
+                        AddOwnerAccessControl(context, newEnv, userId, userDisplayName);
+                        CopyEnvironmentMappings(context, request, sourceEnv, newEnv);
 
                         // Add history record
                         EnvironmentHistoryPersistentSource.AddHistoryAction(newEnv, string.Empty,
                             string.Empty, username, "Clone Environment",
                             $"Environment cloned from {sourceEnv.Name} (ID: {sourceEnv.Id})",
                             context);
-
                         context.SaveChanges();
 
                         // Copy property values if requested
@@ -1145,27 +1043,165 @@ namespace Dorc.PersistentData.Sources
                         dbContextTransaction.Commit();
 
                         // Return the new environment data directly to avoid AD lookups
-                        return new EnvironmentApiModel
-                        {
-                            EnvironmentId = newEnv.Id,
-                            EnvironmentName = newEnv.Name,
-                            EnvironmentIsProd = newEnv.IsProd,
-                            EnvironmentSecure = newEnv.Secure,
-                            Details = new EnvironmentDetailsApiModel
-                            {
-                                Description = newEnv.Description,
-                                FileShare = newEnv.FileShare,
-                                ThinClient = newEnv.ThinClientServer,
-                                RestoredFromSourceDb = newEnv.RestoredFromBackup,
-                                Notes = newEnv.EnvNote,
-                                LastUpdated = newEnv.LastUpdate?.ToString("o"),
-                                EnvironmentOwner = userDisplayName,
-                                EnvironmentOwnerId = userId
-                            }
-                        };
+                        return BuildClonedEnvironmentApiModel(newEnv, userId, userDisplayName);
                     }
                 });
             }
+        }
+
+        /// <summary>
+        /// Get the source environment with all related data
+        /// </summary>
+        private static Environment GetSourceEnvironment(IDeploymentContext context, int sourceEnvironmentId)
+        {
+            var sourceEnv = context.Environments
+                .Include(e => e.AccessControls)
+                .Include(e => e.Servers)
+                .Include(e => e.Databases)
+                .Include(e => e.Projects)
+                .SingleOrDefault(e => e.Id == sourceEnvironmentId);
+
+            if (sourceEnv == null)
+            {
+                throw new ArgumentException($"Source environment with ID {sourceEnvironmentId} not found.");
+            }
+
+            return sourceEnv;
+        }
+
+        /// <summary>
+        /// Check if target environment already exists
+        /// </summary>
+        private static void ValidateTargetEnvironmentName(IDeploymentContext context, string newEnvironmentName)
+        {
+            var existingEnv = EnvironmentUnifier.GetEnvironment(context, newEnvironmentName);
+            if (existingEnv != null)
+            {
+                throw new ArgumentException($"Environment with name '{newEnvironmentName}' already exists.");
+            }
+        }
+
+        /// <summary>
+        /// Create new environment cloned from the source
+        /// </summary>
+        private static Environment CreateClonedEnvironment(IDeploymentContext context, Environment sourceEnv, string newName)
+        {
+            var newEnv = new Environment
+            {
+                ObjectId = Guid.NewGuid(),
+                Name = newName,
+                Secure = sourceEnv.Secure,
+                IsProd = false, // Cloned environments should not be prod by default
+                Description = sourceEnv.Description,
+                FileShare = sourceEnv.FileShare,
+                ThinClientServer = sourceEnv.ThinClientServer,
+                RestoredFromBackup = sourceEnv.RestoredFromBackup,
+                EnvNote = $"Cloned from {sourceEnv.Name}",
+                LastUpdate = DateTime.Now,
+                ParentId = null // Cloned environment starts without a parent
+            };
+
+            context.Environments.Add(newEnv);
+            context.SaveChanges(); // Save to get the new environment ID
+            return newEnv;
+        }
+
+        private (string username, string userId, string userDisplayName) ResolveUserInfo(ClaimsPrincipal user)
+        {
+            try
+            {
+                return (
+                    _claimsPrincipalReader.GetUserFullDomainName(user),
+                    _claimsPrincipalReader.GetUserId(user),
+                    _claimsPrincipalReader.GetUserLogin(user)
+                );
+            }
+            catch (Exception ex)
+            {
+                // Fallback to basic claim info if AD lookup fails
+                logger.LogWarning(ex, "Failed to get user info from domain controller, using fallback values");
+                return (
+                    user.Identity?.Name ?? "Unknown",
+                    user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "",
+                    user.Identity?.Name ?? "Unknown"
+                );
+            }
+        }
+
+        private static void AddOwnerAccessControl(IDeploymentContext context, Environment newEnv, string userId, string userDisplayName)
+        {
+            var ownerAccessControl = new AccessControl
+            {
+                ObjectId = newEnv.ObjectId,
+                Name = userDisplayName,
+                Pid = userId,
+                Allow = (int)AccessLevel.Owner
+            };
+            context.AccessControls.Add(ownerAccessControl);
+        }
+
+        private static void CopyEnvironmentMappings(IDeploymentContext context, CloneEnvironmentRequest request,
+            Environment sourceEnv, Environment newEnv)
+        {
+            // Copy access controls if requested (excluding owner, which is already set)
+            if (request.CopyAccessControls)
+            {
+                foreach (var ac in sourceEnv.AccessControls.Where(a => !a.Allow.HasAccessLevel(AccessLevel.Owner)))
+                {
+                    context.AccessControls.Add(new AccessControl
+                    {
+                        ObjectId = newEnv.ObjectId,
+                        Name = ac.Name,
+                        Sid = ac.Sid,
+                        Pid = ac.Pid,
+                        Allow = ac.Allow,
+                        Deny = ac.Deny
+                    });
+                }
+            }
+
+            // Copy server mappings if requested
+            if (request.CopyServerMappings)
+            {
+                foreach (var server in sourceEnv.Servers)
+                    newEnv.Servers.Add(server);
+            }
+
+            // Copy database mappings if requested
+            if (request.CopyDatabaseMappings)
+            {
+                foreach (var database in sourceEnv.Databases)
+                    newEnv.Databases.Add(database);
+            }
+
+            // Copy project mappings if requested
+            if (request.CopyProjectMappings)
+            {
+                foreach (var project in sourceEnv.Projects)
+                    newEnv.Projects.Add(project);
+            }
+        }
+
+        private static EnvironmentApiModel BuildClonedEnvironmentApiModel(Environment newEnv, string userId, string userDisplayName)
+        {
+            return new EnvironmentApiModel
+            {
+                EnvironmentId = newEnv.Id,
+                EnvironmentName = newEnv.Name,
+                EnvironmentIsProd = newEnv.IsProd,
+                EnvironmentSecure = newEnv.Secure,
+                Details = new EnvironmentDetailsApiModel
+                {
+                    Description = newEnv.Description,
+                    FileShare = newEnv.FileShare,
+                    ThinClient = newEnv.ThinClientServer,
+                    RestoredFromSourceDb = newEnv.RestoredFromBackup,
+                    Notes = newEnv.EnvNote,
+                    LastUpdated = newEnv.LastUpdate?.ToString("o"),
+                    EnvironmentOwner = userDisplayName,
+                    EnvironmentOwnerId = userId
+                }
+            };
         }
 
         private void CopyPropertyValues(IDeploymentContext context, string sourceEnvName, string destEnvName, string username)
