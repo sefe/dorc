@@ -250,7 +250,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool RemoveEnvironmentMappingFromProject(string project, string environment, IPrincipal user)
+        public bool RemoveEnvironmentMappingFromProject(string project, string environment, IPrincipal principal)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -266,7 +266,7 @@ namespace Dorc.PersistentData.Sources
                     if (env is null)
                         return false;
 
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                     EnvironmentHistoryPersistentSource.AddHistory(env.Name, string.Empty,
                         "Environment removed from project " + projects.Name,
                         username, "Remove Environment Mapping From Project", context);
@@ -284,7 +284,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool AddEnvironmentMappingToProject(string project, string environment, IPrincipal user)
+        public bool AddEnvironmentMappingToProject(string project, string environment, IPrincipal principal)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -299,7 +299,7 @@ namespace Dorc.PersistentData.Sources
 
                     proj.Environments.Add(env);
 
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                     EnvironmentHistoryPersistentSource.AddHistory(env.Name, string.Empty,
                         "Environment added to project " + proj.Name,
                         username, "Add Environment Mapping To Project", context);
