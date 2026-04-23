@@ -515,7 +515,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal user)
+        public EnvironmentApiModel CreateEnvironment(EnvironmentApiModel env, ClaimsPrincipal principal)
         {
             using (var context = contextFactory.GetContext())
             {
@@ -536,7 +536,7 @@ namespace Dorc.PersistentData.Sources
 
                     context.Environments.Add(e);
 
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                     EnvironmentHistoryPersistentSource.AddHistory(e, string.Empty,
                         "Environment created",
                         username, "Create Environment", context);
@@ -544,7 +544,7 @@ namespace Dorc.PersistentData.Sources
                     context.SaveChanges();
                 }
 
-                return GetEnvironment(env.EnvironmentName, user);
+                return GetEnvironment(env.EnvironmentName, principal);
             }
         }
 
