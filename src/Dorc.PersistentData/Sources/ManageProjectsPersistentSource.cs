@@ -63,114 +63,114 @@ namespace Dorc.PersistentData.Sources
 
         public GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators)
         {
-            PagedModel<RefDataAudit> output = null;
-            using (var context = _contextFactory.GetContext())
+            using var context = _contextFactory.GetContext();
+
+            var reqStatusesQueryable = context.RefDataAudits
+                .Include(refDataAudit => refDataAudit.Action)
+                .Include(refDataAudit => refDataAudit.Project)
+                .AsQueryable();
+
+            var filterLambdas = BuildFilterLambdas(reqStatusesQueryable, projectId, operators);
+            reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
+
+            var output = ApplySortingAndPaginate(reqStatusesQueryable, operators, page, limit)
+                ?? reqStatusesQueryable.AsNoTracking()
+                    .OrderByDescending(s => s.Date)
+                    .Paginate(page, limit);
+
+            return MapToRefDataAuditListResponse(output);
+        }
+
+        private static List<Expression<Func<RefDataAudit, bool>>> BuildFilterLambdas(
+            IQueryable<RefDataAudit> queryable, int projectId, PagedDataOperators operators)
+        {
+            var filterLambdas = new List<Expression<Func<RefDataAudit, bool>>>
             {
-                var reqStatusesQueryable = context.RefDataAudits
-                    .Include(refDataAudit => refDataAudit.Action)
-                    .Include(refDataAudit => refDataAudit.Project)
-                    .AsQueryable();
+                queryable.ContainsExpression(nameof(RefDataAudit.ProjectId), projectId.ToString())
+            };
 
-                var filterLambdas =
-                    new List<Expression<Func<RefDataAudit, bool>>>();
-                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(nameof(RefDataAudit.ProjectId),
-                                projectId.ToString()));
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
-                        }
-                    }
-                }
-                reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
+            if (operators.Filters == null || !operators.Filters.Any())
+                return filterLambdas;
 
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<RefDataAudit> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(RefDataAudit), "RefDataAudit");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                {
-                                    var expr = GetExpressionForOrdering<DateTime>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderByDescending(s => s.Date)
-                        .Paginate(page, limit);
-
-
-                return new GetRefDataAuditListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(refDataAudit => new RefDataAuditApiModel
-                    {
-                        RefDataAuditId = refDataAudit.RefDataAuditId,
-                        ProjectId = refDataAudit.ProjectId,
-                        Project = new ProjectApiModel
-                        {
-                            ProjectId = refDataAudit.Project.Id,
-                            ArtefactsBuildRegex = refDataAudit.Project.ArtefactsBuildRegex,
-                            ArtefactsSubPaths = refDataAudit.Project.ArtefactsSubPaths,
-                            ArtefactsUrl = refDataAudit.Project.ArtefactsUrl,
-                            ProjectDescription = refDataAudit.Project.Description,
-                            ProjectName = refDataAudit.Project.Name
-                        },
-                        RefDataAuditActionId = refDataAudit.RefDataAuditActionId,
-                        Action = refDataAudit.Action.Action.ToString(),
-                        Username = refDataAudit.Username,
-                        Date = refDataAudit.Date,
-                        Json = refDataAudit.Json
-                    }).ToList()
-                };
+            foreach (var filter in operators.Filters)
+            {
+                if (filter == null)
+                    continue;
+                if (!string.IsNullOrEmpty(filter.Path) && !string.IsNullOrEmpty(filter.FilterValue))
+                    filterLambdas.Add(queryable.ContainsExpression(filter.Path, filter.FilterValue));
             }
+
+            return filterLambdas;
+        }
+
+        private static PagedModel<RefDataAudit>? ApplySortingAndPaginate(
+            IQueryable<RefDataAudit> queryable, PagedDataOperators operators, int page, int limit
+        )
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return null;
+
+            IOrderedQueryable<RefDataAudit>? orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
+            {
+                if (operators.SortOrders[i] == null)
+                    continue;
+                if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
+                    string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                    continue;
+
+                orderedQuery = ApplySortOrder(queryable, orderedQuery, operators, i);
+            }
+
+            return orderedQuery?.AsNoTracking().Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<RefDataAudit>? ApplySortOrder(
+            IQueryable<RefDataAudit> queryable, IOrderedQueryable<RefDataAudit>? orderedQuery,
+            PagedDataOperators operators, int i
+        )
+        {
+            var param = Expression.Parameter(typeof(RefDataAudit), "RefDataAudit");
+            var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+
+            return prop.Type switch
+            {
+                Type t when t == typeof(bool) => OrderScripts(operators, i, orderedQuery, queryable, GetExpressionForOrdering<bool>(prop, param)),
+                Type t when t == typeof(string) => OrderScripts(operators, i, orderedQuery, queryable, GetExpressionForOrdering<string>(prop, param)),
+                Type t when t == typeof(int) => OrderScripts(operators, i, orderedQuery, queryable, GetExpressionForOrdering<int>(prop, param)),
+                Type t when t == typeof(DateTime) => OrderScripts(operators, i, orderedQuery, queryable, GetExpressionForOrdering<DateTime>(prop, param)),
+                _ => orderedQuery
+            };
+        }
+
+        private static GetRefDataAuditListResponseDto MapToRefDataAuditListResponse(PagedModel<RefDataAudit> output)
+        {
+            return new GetRefDataAuditListResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(refDataAudit => new RefDataAuditApiModel
+                {
+                    RefDataAuditId = refDataAudit.RefDataAuditId,
+                    ProjectId = refDataAudit.ProjectId,
+                    Project = new ProjectApiModel
+                    {
+                        ProjectId = refDataAudit.Project.Id,
+                        ArtefactsBuildRegex = refDataAudit.Project.ArtefactsBuildRegex,
+                        ArtefactsSubPaths = refDataAudit.Project.ArtefactsSubPaths,
+                        ArtefactsUrl = refDataAudit.Project.ArtefactsUrl,
+                        ProjectDescription = refDataAudit.Project.Description,
+                        ProjectName = refDataAudit.Project.Name
+                    },
+                    RefDataAuditActionId = refDataAudit.RefDataAuditActionId,
+                    Action = refDataAudit.Action.Action.ToString(),
+                    Username = refDataAudit.Username,
+                    Date = refDataAudit.Date,
+                    Json = refDataAudit.Json
+                }).ToList()
+            };
         }
 
         public IList<ComponentApiModel> GetOrderedComponents(int projectId)
@@ -277,73 +277,41 @@ namespace Dorc.PersistentData.Sources
 
         public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
-            if (apiComponent.ComponentId == 0)
-                using (var context = _contextFactory.GetContext())
-                {
-                    var duplicateComponent =
-                        context.Components.FirstOrDefault(x =>
-                            EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation) ==
-                            EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
-                    if (duplicateComponent != null)
-                    {
-                        if (duplicateComponent.Parent != null)
-                            duplicateComponent.Parent.Children.Remove(duplicateComponent);
-                        duplicateComponent.Name = Guid.NewGuid().ToString();
-                        duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
-                        duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
-                        var script = duplicateComponent.Script;
-                        if (script != null)
-                        {
-                            script.Name = $"{script.Name} {duplicateComponent.Name}";
-                        }
+            if (apiComponent.ComponentId != 0)
+                return;
 
-                        context.SaveChanges();
-                    }
+            using var context = _contextFactory.GetContext();
 
-                    var component = new Component
-                    {
-                        Name = apiComponent.ComponentName,
-                        Parent = context.Components.FirstOrDefault(x => x.Id == parentId),
-                        ObjectId = Guid.NewGuid(),
-                        Description = "Created via API",
-                        IsEnabled = apiComponent.IsEnabled,
-                        ComponentType = apiComponent.ComponentType,
-                        TerraformSourceType = apiComponent.TerraformSourceType,
-                        TerraformGitBranch = apiComponent.TerraformGitBranch,
-                        TerraformSubPath = apiComponent.TerraformSubPath,
-                    };
+            RenameDuplicateComponent(context, apiComponent.ComponentName, projectId);
 
-                    // Only create Script entity for PowerShell components and Terraform with SharedFolder type
-                    // Terraform components may have ScriptPath (for SharedFolder type) but don't use Script entities
-                    if ((apiComponent.ComponentType == ComponentType.PowerShell || (apiComponent.ComponentType == ComponentType.Terraform && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder))
-                        && apiComponent.ScriptPath != null)
-                    {
-                        var script = new Script
-                        {
-                            Name = apiComponent.ComponentName,
-                            Path = apiComponent.ScriptPath,
-                            NonProdOnly = apiComponent.NonProdOnly,
-                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                        };
+            var component = new Component
+            {
+                Name = apiComponent.ComponentName,
+                Parent = context.Components.FirstOrDefault(x => x.Id == parentId),
+                ObjectId = Guid.NewGuid(),
+                Description = "Created via API",
+                IsEnabled = apiComponent.IsEnabled,
+                ComponentType = apiComponent.ComponentType,
+                TerraformSourceType = apiComponent.TerraformSourceType,
+                TerraformGitBranch = apiComponent.TerraformGitBranch,
+                TerraformSubPath = apiComponent.TerraformSubPath,
+            };
 
-                        component.Script = script;
-                    }
+            // Only create Script entity for PowerShell components and Terraform with SharedFolder type
+            // Terraform components may have ScriptPath (for SharedFolder type) but don't use Script entities
+            if (ShouldHaveScript(apiComponent) && apiComponent.ScriptPath != null)
+                component.Script = CreateScriptFromApiModel(apiComponent);
 
-                    component.Projects = new List<Project> { context.Projects.First(x => x.Id == projectId) };
-                    context.Components.Add(component);
-                    context.SaveChanges();
-                    apiComponent.ComponentId = component.Id;
+            component.Projects = new List<Project> { context.Projects.First(x => x.Id == projectId) };
+            context.Components.Add(component);
+            context.SaveChanges();
+            apiComponent.ComponentId = component.Id;
 
-                    if (component.Script != null)
-                    {
-                        var projectName = context.Projects.First(x => x.Id == projectId).Name;
-                        var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
-                        _scriptsAuditPersistentSource.AddRecord(
-                            component.Script.Id, component.Script.Name, string.Empty, toValue,
-                            username, "Insert", projectName);
-                    }
-                }
+            if (component.Script != null)
+            {
+                var projectName = context.Projects.First(x => x.Id == projectId).Name;
+                AuditScriptInsert(component.Script, component.IsEnabled, username, projectName);
+            }
         }
 
         public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
@@ -351,176 +319,213 @@ namespace Dorc.PersistentData.Sources
             if (apiComponent.ComponentId == 0)
                 return;
 
-            using (var context = _contextFactory.GetContext())
+            using var context = _contextFactory.GetContext();
+
+            var component = context.Components
+                .Include(c => c.Projects)
+                .Include(s => s.Script)
+                .ThenInclude(s => s.Components)
+                .Include(c => c.Parent)
+                .First(x => x.Id == apiComponent.ComponentId);
+
+            var wasOrphaned = component.Projects.Count == 0;
+            var oldScriptSnapshot = CaptureScriptSnapshot(component);
+
+            if (wasOrphaned)
+                component.Projects.Add(context.Projects.FirstOrDefault(x => x.Id == projectId));
+
+            // if name is changed to existing name, rename existing one
+            DuplicateComponent(apiComponent, component, context);
+            UpdateComponentProperties(component, apiComponent);
+            UpdateComponentParent(component, parentId, context);
+            UpdateComponentScript(component, apiComponent, context);
+
+            context.SaveChanges();
+
+            AuditComponentUpdate(component, oldScriptSnapshot, wasOrphaned, username);
+        }
+
+        private static void UpdateComponentProperties(Component component, ComponentApiModel apiComponent)
+        {
+            component.Name = apiComponent.ComponentName;
+            component.StopOnFailure = apiComponent.StopOnFailure;
+            component.ComponentType = apiComponent.ComponentType;
+            component.TerraformSourceType = apiComponent.TerraformSourceType;
+            component.TerraformGitBranch = apiComponent.TerraformGitBranch;
+            component.TerraformSubPath = apiComponent.TerraformSubPath;
+        }
+
+        private static void UpdateComponentParent(Component component, int? parentId, IDeploymentContext context)
+        {
+            if (component.Parent == null && parentId != null)
+                component.Parent = context.Components.First(x => x.Id == parentId);
+            else if (component.Parent != null && parentId == null)
+                component.Parent = null;
+            else if (component.Parent != null && parentId != null && component.Parent.Id != parentId)
+                component.Parent = context.Components.First(x => x.Id == parentId);
+        }
+
+        /// <summary>
+        /// Handle script updates for PowerShell components and Terraform components with SharedFolder type.
+        /// Terraform components use ScriptPath as shared folder path.
+        /// For Terraform components without SharedFolder source type, ensure no script is associated.
+        /// </summary>
+        private static void UpdateComponentScript(Component component, ComponentApiModel apiComponent, IDeploymentContext context)
+        {
+            if (ShouldHaveScript(apiComponent))
             {
-                var component = context.Components
-                    .Include(c => c.Projects)
-                    .Include(s => s.Script)
-                    .ThenInclude(s => s.Components)
-                    .Include(c => c.Parent)
-                    .First(x => x.Id == apiComponent.ComponentId);
-
-                var wasOrphaned = component.Projects.Count == 0;
-
-                if (wasOrphaned)
-                    component.Projects.Add(
-                        context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
-
-                DuplicateComponent(apiComponent, component, context); // if name is changed to existing name, rename existing one
-
-                var oldScriptName = component.Script?.Name;
-                var oldScriptPath = component.Script?.Path;
-                var oldNonProdOnly = component.Script?.NonProdOnly;
-                var oldIsEnabled = component.IsEnabled;
-                var oldPsVersion = component.Script?.PowerShellVersionNumber;
-                var hadScript = component.Script != null;
-
-                component.Name = apiComponent.ComponentName;
-                component.StopOnFailure = apiComponent.StopOnFailure;
-                component.ComponentType = apiComponent.ComponentType;
-                component.TerraformSourceType = apiComponent.TerraformSourceType;
-                component.TerraformGitBranch = apiComponent.TerraformGitBranch;
-                component.TerraformSubPath = apiComponent.TerraformSubPath;
-
-                if (component.Parent == null && parentId != null)
-                    component.Parent = context.Components.First(x => x.Id == parentId);
-                else if (component.Parent != null && parentId == null)
-                    component.Parent = null;
-                else if (component.Parent != null && parentId != null)
-                    if (component.Parent.Id != parentId)
-                        component.Parent = context.Components.First(x => x.Id == parentId);
-
-                // Handle script updates for PowerShell components and Terraform components with SharedFolder type
-                // Terraform components use ScriptPath as shared folder path
-                if (apiComponent.ComponentType == ComponentType.PowerShell || (apiComponent.ComponentType == ComponentType.Terraform && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder))
-                {
-                    var oldScript = component.Script;
-                    var isScriptShared = oldScript != null && oldScript.Components.Count > 1;
-
-                    // if new script path is not null - update script properties
-                    if (apiComponent.ScriptPath != null)
-                    {
-                        // Component has a script path
-                        if (oldScript != null)
-                        {
-                            // Check if script content is changing
-                            var isScriptContentChanged = oldScript.Path != apiComponent.ScriptPath
-                                || oldScript.NonProdOnly != apiComponent.NonProdOnly
-                                || oldScript.Name != apiComponent.ComponentName
-                                || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
-
-                            if (isScriptContentChanged)
-                            {
-                                if (isScriptShared)
-                                {
-                                    // Script is shared with other components, create a new script
-                                    var newScript = new Script
-                                    {
-                                        Name = apiComponent.ComponentName,
-                                        Path = apiComponent.ScriptPath,
-                                        NonProdOnly = apiComponent.NonProdOnly,
-                                        IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                                    };
-                                    component.Script = newScript;
-                                }
-                                else
-                                {
-                                    // Script is not shared, update it
-                                    oldScript.Name = apiComponent.ComponentName;
-                                    oldScript.Path = apiComponent.ScriptPath;
-                                    oldScript.NonProdOnly = apiComponent.NonProdOnly;
-                                    oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
-                                    oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
-                                }
-                            }
-                            else
-                            {
-                                // Script content unchanged, only update name if needed
-                                if (oldScript.Name != apiComponent.ComponentName)
-                                {
-                                    if (isScriptShared)
-                                    {
-                                        // Script is shared, create new script with updated name
-                                        var newScript = new Script
-                                        {
-                                            Name = apiComponent.ComponentName,
-                                            Path = apiComponent.ScriptPath,
-                                            NonProdOnly = apiComponent.NonProdOnly,
-                                            IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                                        };
-                                        component.Script = newScript;
-                                    }
-                                    else
-                                    {
-                                        oldScript.Name = apiComponent.ComponentName;
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Component didn't have a script, create new one
-                            var script = new Script
-                            {
-                                Name = apiComponent.ComponentName,
-                                Path = apiComponent.ScriptPath,
-                                NonProdOnly = apiComponent.NonProdOnly,
-                                IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
-                            };
-                            component.Script = script;
-                        }
-                    }
-                    else if (oldScript != null) // new script path is null, removing script record
-                    {
-                        removeScriptFromComponent(context, component, oldScript);
-                    }
-                }
-                else if (apiComponent.ComponentType == ComponentType.Terraform)
-                {
-                    // For Terraform components, ScriptPath is used for SharedFolder source type
-                    // but we don't create Script entities for Terraform components, just ensure no script is associated if one exists
-                    if (component.Script != null)
-                    {
-                        removeScriptFromComponent(context, component, component.Script);
-                    }
-                }
-
-                context.SaveChanges();
-
-                var projectNames = string.Join(", ", component.Projects.Select(p => p.Name).Distinct());
-                if (wasOrphaned && component.Script != null)
-                {
-                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
-                    _scriptsAuditPersistentSource.AddRecord(
-                        component.Script.Id, component.Script.Name, string.Empty, toValue,
-                        username, "Insert", projectNames);
-                }
-                else if (hadScript && component.Script != null)
-                {
-                    var fromValue = $"Name={oldScriptName}; Path={oldScriptPath}; NonProdOnly={oldNonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldPsVersion}";
-                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
-                    _scriptsAuditPersistentSource.AddRecord(
-                        component.Script.Id, component.Script.Name, fromValue, toValue,
-                        username, "Update", projectNames);
-                }
-                else if (!hadScript && component.Script != null)
-                {
-                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
-                    _scriptsAuditPersistentSource.AddRecord(
-                        component.Script.Id, component.Script.Name, string.Empty, toValue,
-                        username, "Insert", projectNames);
-                }
-                else if (hadScript && component.Script == null)
-                {
-                    var fromValue = $"Name={oldScriptName}; Path={oldScriptPath}; NonProdOnly={oldNonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldPsVersion}";
-                    _scriptsAuditPersistentSource.AddRecord(
-                        0, oldScriptName ?? string.Empty, fromValue, string.Empty,
-                        username, "Delete", projectNames);
-                }
+                UpdateScriptForScriptableComponent(component, apiComponent, context);
             }
+            else if (apiComponent.ComponentType == ComponentType.Terraform && component.Script != null)
+            {
+                // For Terraform components, ScriptPath is used for SharedFolder source type
+                // but we don't create Script entities for Terraform components, just ensure no script is associated if one exists
+                removeScriptFromComponent(context, component, component.Script);
+            }
+        }
+
+        private static void UpdateScriptForScriptableComponent(Component component, ComponentApiModel apiComponent, IDeploymentContext context)
+        {
+            var oldScript = component.Script;
+
+            // if new script path is not null - update script properties
+            if (apiComponent.ScriptPath != null)
+            {
+                if (oldScript != null)
+                    UpdateOrReplaceExistingScript(component, apiComponent, oldScript);
+                else
+                    // Component didn't have a script, create new one
+                    component.Script = CreateScriptFromApiModel(apiComponent);
+            }
+            else if (oldScript != null)
+            {
+                // new script path is null, removing script record
+                removeScriptFromComponent(context, component, oldScript);
+            }
+        }
+
+        private static void UpdateOrReplaceExistingScript(Component component, ComponentApiModel apiComponent, Script oldScript)
+        {
+            var isScriptShared = oldScript.Components.Count > 1;
+
+            // Check if script content is changing
+            var isContentChanged = oldScript.Path != apiComponent.ScriptPath
+                || oldScript.NonProdOnly != apiComponent.NonProdOnly
+                || oldScript.Name != apiComponent.ComponentName
+                || oldScript.PowerShellVersionNumber != apiComponent.PSVersion.ToSafePsVersionString();
+
+            if (isScriptShared || isContentChanged || oldScript.Name != apiComponent.ComponentName)
+            {
+                if (isScriptShared)
+                    // Script is shared with other components, create a new script
+                    component.Script = CreateScriptFromApiModel(apiComponent);
+                else
+                    // Script is not shared, update it
+                    ApplyScriptValues(oldScript, apiComponent);
+            }
+        }
+
+        private static void ApplyScriptValues(Script script, ComponentApiModel apiComponent)
+        {
+            script.Name = apiComponent.ComponentName;
+            script.Path = apiComponent.ScriptPath;
+            script.NonProdOnly = apiComponent.NonProdOnly;
+            script.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
+            script.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
+        }
+
+        private record ScriptSnapshot(string? Name, string? Path, bool? NonProdOnly, bool IsEnabled, string? PsVersion, bool HadScript);
+
+        private static ScriptSnapshot CaptureScriptSnapshot(Component component)
+        {
+            return new ScriptSnapshot(
+                component.Script?.Name,
+                component.Script?.Path,
+                component.Script?.NonProdOnly,
+                component.IsEnabled,
+                component.Script?.PowerShellVersionNumber,
+                component.Script != null);
+        }
+
+        private void AuditComponentUpdate(Component component, ScriptSnapshot old, bool wasOrphaned, string username)
+        {
+            var projectNames = string.Join(", ", component.Projects.Select(p => p.Name).Distinct());
+            var hasScriptNow = component.Script != null;
+
+            if ((wasOrphaned || !old.HadScript) && hasScriptNow)
+            {
+                AuditScriptInsert(component.Script!, component.IsEnabled, username, projectNames);
+            }
+            else if (old.HadScript && hasScriptNow)
+            {
+                var fromValue = FormatScriptAuditValue(old.Name, old.Path, old.NonProdOnly, old.IsEnabled, old.PsVersion);
+                var toValue = FormatScriptAuditValue(component.Script!.Name, component.Script.Path, component.Script.NonProdOnly, component.IsEnabled, component.Script.PowerShellVersionNumber);
+                _scriptsAuditPersistentSource.AddRecord(
+                    component.Script.Id, component.Script.Name, fromValue, toValue,
+                    username, "Update", projectNames);
+            }
+            else if (old.HadScript && !hasScriptNow)
+            {
+                var fromValue = FormatScriptAuditValue(old.Name, old.Path, old.NonProdOnly, old.IsEnabled, old.PsVersion);
+                _scriptsAuditPersistentSource.AddRecord(
+                    0, old.Name ?? string.Empty, fromValue, string.Empty,
+                    username, "Delete", projectNames);
+            }
+        }
+
+        private void AuditScriptInsert(Script script, bool isEnabled, string username, string projectNames)
+        {
+            var toValue = FormatScriptAuditValue(script.Name, script.Path, script.NonProdOnly, isEnabled, script.PowerShellVersionNumber);
+            _scriptsAuditPersistentSource.AddRecord(
+                script.Id, script.Name, string.Empty, toValue,
+                username, "Insert", projectNames);
+        }
+
+        private static string FormatScriptAuditValue(string? name, string? path, bool? nonProdOnly, bool isEnabled, string? psVersion)
+        {
+            return $"Name={name}; Path={path}; NonProdOnly={nonProdOnly}; IsEnabled={isEnabled}; PSVersion={psVersion}";
+        }
+
+        private static bool ShouldHaveScript(ComponentApiModel apiComponent)
+        {
+            return apiComponent.ComponentType == ComponentType.PowerShell
+                || (apiComponent.ComponentType == ComponentType.Terraform
+                    && apiComponent.TerraformSourceType == TerraformSourceType.SharedFolder);
+        }
+
+        private static Script CreateScriptFromApiModel(ComponentApiModel apiComponent)
+        {
+            return new Script
+            {
+                Name = apiComponent.ComponentName,
+                Path = apiComponent.ScriptPath,
+                NonProdOnly = apiComponent.NonProdOnly,
+                IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
+                PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+            };
+        }
+
+        private static void RenameDuplicateComponent(IDeploymentContext context, string componentName, int projectId)
+        {
+            var duplicateComponent =
+                context.Components.FirstOrDefault(x =>
+                    EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation) ==
+                    EF.Functions.Collate(componentName, DeploymentContext.CaseInsensitiveCollation));
+
+            if (duplicateComponent == null)
+                return;
+
+            if (duplicateComponent.Parent != null)
+                duplicateComponent.Parent.Children.Remove(duplicateComponent);
+
+            duplicateComponent.Name = Guid.NewGuid().ToString();
+            duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
+            duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
+
+            if (duplicateComponent.Script != null)
+                duplicateComponent.Script.Name = $"{duplicateComponent.Script.Name} {duplicateComponent.Name}";
+
+            context.SaveChanges();
         }
 
         private static void removeScriptFromComponent(IDeploymentContext context, Component component, Script oldScript)
@@ -573,7 +578,7 @@ namespace Dorc.PersistentData.Sources
 
                     if (component.Script != null)
                     {
-                        var fromValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                        var fromValue = FormatScriptAuditValue(component.Script.Name, component.Script.Path, component.Script.NonProdOnly, component.IsEnabled, component.Script.PowerShellVersionNumber);
                         _scriptsAuditPersistentSource.AddRecord(
                             component.Script.Id, component.Script.Name, fromValue, string.Empty,
                             username, "Delete", projectNames);
@@ -780,30 +785,34 @@ namespace Dorc.PersistentData.Sources
             if (apiComponent.ComponentId == 0)
                 return;
 
-            using (var context = _contextFactory.GetContext())
-            {
-                var component = context.Components
-                    .Include(c => c.Projects)
-                    .FirstOrDefault(x => x.Id.Equals((int)apiComponent.ComponentId));
+            using var context = _contextFactory.GetContext();
 
-                if (component != null)
-                    if (component.Projects.Count == 0 && component.Description != null)
-                    {
-                        if (!component.Description.Equals("ProjectId:" + projectId,
-                                StringComparison.OrdinalIgnoreCase))
-                            throw new ArgumentOutOfRangeException(nameof(apiComponent), "component id: " + apiComponent.ComponentId +
-                                                " Belongs to other Project");
-                    }
-                    else
-                    {
-                        foreach (var project in component.Projects)
-                            if (project.Id != projectId)
-                                throw new ArgumentOutOfRangeException(nameof(component), "component Name: " + apiComponent.ComponentName + //here
-                                                    " Belongs to other Project: " + project.Name);
-                    }
-                else
-                    throw new ArgumentOutOfRangeException(nameof(component), "component Id: " + apiComponent.ComponentId +
-                                        " can not be located in database");
+            var component = context.Components
+                .Include(c => c.Projects)
+                .FirstOrDefault(x => x.Id.Equals((int)apiComponent.ComponentId));
+
+            if (component == null)
+                throw new ArgumentOutOfRangeException(nameof(component), "component Id: " + apiComponent.ComponentId +
+                                    " can not be located in database");
+
+            ValidateComponentBelongsToProject(component, apiComponent, projectId);
+        }
+
+        private static void ValidateComponentBelongsToProject(Component component, ComponentApiModel apiComponent, int projectId)
+        {
+            if (component.Projects.Count == 0 && component.Description != null)
+            {
+                if (!component.Description.Equals("ProjectId:" + projectId, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentOutOfRangeException(nameof(apiComponent), "component id: " + apiComponent.ComponentId +
+                                        " Belongs to other Project");
+                return;
+            }
+
+            foreach (var project in component.Projects)
+            {
+                if (project.Id != projectId)
+                    throw new ArgumentOutOfRangeException(nameof(component), "component Name: " + apiComponent.ComponentName +
+                                        " Belongs to other Project: " + project.Name);
             }
         }
 
