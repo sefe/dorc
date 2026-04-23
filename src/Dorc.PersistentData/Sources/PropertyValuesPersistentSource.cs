@@ -116,7 +116,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public List<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName, bool decryptProperty)
+        public List<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName, bool decryptProperty = false)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -354,305 +354,263 @@ namespace Dorc.PersistentData.Sources
         }
 
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForScopeByPage(int limit, int page,
-            PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal user)
+            PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal principal)
         {
-            string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(principal);
 
-            PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var envProps = from propertyValue in context.PropertyValues
-                               join property in context.Properties on propertyValue.Property.Id equals property.Id
-                               join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                   propertyValueFilter.PropertyValue.Id
-                               join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
-                                   propertyFilter.Id
-                               join environment in context.Environments on propertyValueFilter.Value equals
-                                   environment.Name
-                               let permissions =
-                                   (from env in context.Environments
-                                    join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                    where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
-                                    select ac.Allow).ToList()
-                               let hasPermission =
-                                   permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
-                               let isOwner =
-                                   permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
-                               where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
-                               select new FlatPropertyValueApiModel
-                               {
-                                   PropertyId = property.Id,
-                                   Property = property.Name,
-                                   PropertyValueScope = propertyValueFilter.Value,
-                                   PropertyValueScopeId = propertyValueFilter.Id,
-                                   PropertyValue = propertyValue.Value,
-                                   PropertyValueId = propertyValue.Id,
-                                   Secure = property.Secure,
-                                   IsArray = property.IsArray,
-                                   UserEditable = isOwner || hasPermission
-                               };
-
-                IQueryable<FlatPropertyValueApiModel> scopedPropertyValuesQuery;
-                if (scope.EnvironmentSecure)
-                {
-                    scopedPropertyValuesQuery = envProps;
-                }
-                else
-                {
-                    var global = from propertyValue in context.PropertyValues
-                                 join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                 join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
-                                 from final in tmp.DefaultIfEmpty()
-                                 where final == null
-                                 select new FlatPropertyValueApiModel
-                                 {
-                                     PropertyId = property.Id,
-                                     Property = property.Name,
-                                     PropertyValueScope = null,
-                                     PropertyValueScopeId = -1,
-                                     PropertyValue = propertyValue.Value,
-                                     PropertyValueId = propertyValue.Id,
-                                     Secure = property.Secure,
-                                     IsArray = property.IsArray,
-                                     UserEditable = false // admin privileges are set at the calling fn
-                                 };
-
-                    var parentEnv = context.Environments.FirstOrDefault(e => e.Id == scope.ParentId);
-                    if (parentEnv is not null)
-                    {
-                        var envParentProps = from propertyValue in context.PropertyValues
-                                             join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                             join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                                 propertyValueFilter.PropertyValue.Id
-                                             join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
-                                                 propertyFilter.Id
-                                             join environment in context.Environments on propertyValueFilter.Value equals
-                                                 environment.Name
-                                             where propertyFilter.Name == "environment" && (parentEnv.Name == propertyValueFilter.Value)
-                                             select new FlatPropertyValueApiModel
-                                             {
-                                                 PropertyId = property.Id,
-                                                 Property = property.Name,
-                                                 PropertyValueScope = propertyValueFilter.Value,
-                                                 PropertyValueScopeId = propertyValueFilter.Id,
-                                                 PropertyValue = propertyValue.Value,
-                                                 PropertyValueId = propertyValue.Id,
-                                                 Secure = property.Secure,
-                                                 IsArray = property.IsArray,
-                                                 UserEditable = false // Parent props not allowed to edit
-                                             };
-
-                        // Union the parent environment properties with the current environment properties and with global
-                        scopedPropertyValuesQuery = envProps
-                            .Union(envParentProps.Where(p => !envProps.Any(ep => ep.Property == p.Property)))
-                            .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property) && !envParentProps.Any(pp => pp.Property == g.Property)));
-                    }
-                    else
-                    {
-                        scopedPropertyValuesQuery = envProps
-                            .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property)));
-                    }                    
-                }
-
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (string.IsNullOrEmpty(pagedDataFilter.Path) ||
-                            string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                            continue;
-
-                        scopedPropertyValuesQuery =
-                            scopedPropertyValuesQuery.Where(scopedPropertyValuesQuery.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue));
-                    }
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<FlatPropertyValueApiModel> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(FlatPropertyValueApiModel), "FlatPropertyValueApiModel");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, scopedPropertyValuesQuery, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, scopedPropertyValuesQuery, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = scopedPropertyValuesQuery.AsNoTracking()
-                        .OrderBy(s => s.Property)
-                        .Paginate(page, limit);
-
-                return new GetScopedPropertyValuesResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(p => p
-                    ).ToList()
-                };
+                var scopedPropertyValuesQuery = BuildScopedPropertyValuesQuery(context, scope, userSids);
+                scopedPropertyValuesQuery = ApplyFilters(scopedPropertyValuesQuery, operators);
+                var output = ApplySortingAndPaginate(scopedPropertyValuesQuery, operators, page, limit);
+                return MapToResponseDto(output);
             }
         }
 
         public GetScopedPropertyValuesResponseDto GetPropertyValuesForSearchValueByPage(int limit, int page,
-            PagedDataOperators operators, IPrincipal user)
+            PagedDataOperators operators, IPrincipal principal)
         {
-            string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(principal);
 
-            PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                IQueryable<FlatPropertyValueApiModel> scopedPropertyValuesQuery;
-                {
-                    var envProps = from propertyValue in context.PropertyValues
-                                   join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                   join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
-                                       propertyValueFilter.PropertyValue.Id
-                                   join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
-                                       propertyFilter.Id
-                                   join environment in context.Environments on propertyValueFilter.Value equals
-                                       environment.Name
-                                   let permissions =
-                                       (from env in context.Environments
-                                        join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                        where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
-                                        select ac.Allow).ToList()
-                                   let hasPermission =
-                                       permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
-                                   let isOwner =
-                                       permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
-                                   select new FlatPropertyValueApiModel
-                                   {
-                                       PropertyId = property.Id,
-                                       Property = property.Name,
-                                       PropertyValueScope = propertyValueFilter.Value,
-                                       PropertyValueScopeId = propertyValueFilter.Id,
-                                       PropertyValue = propertyValue.Value,
-                                       PropertyValueId = propertyValue.Id,
-                                       Secure = property.Secure,
-                                       IsArray = property.IsArray,
-                                       UserEditable = isOwner || hasPermission
-                                   };
-
-                    var global = from propertyValue in context.PropertyValues
-                                 join property in context.Properties on propertyValue.Property.Id equals property.Id
-                                 join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
-                                 from final in tmp.DefaultIfEmpty()
-                                 where final == null
-                                 select new FlatPropertyValueApiModel
-                                 {
-                                     PropertyId = property.Id,
-                                     Property = property.Name,
-                                     PropertyValueScope = null,
-                                     PropertyValueScopeId = -1,
-                                     PropertyValue = propertyValue.Value,
-                                     PropertyValueId = propertyValue.Id,
-                                     Secure = property.Secure,
-                                     IsArray = property.IsArray,
-                                     UserEditable = false // admin privileges are set at the calling fn
-                                 };
-
-                    scopedPropertyValuesQuery = envProps.Union(global);
-                }
-
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (string.IsNullOrEmpty(pagedDataFilter.Path) ||
-                            string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                            continue;
-
-                        scopedPropertyValuesQuery =
-                            scopedPropertyValuesQuery.Where(scopedPropertyValuesQuery.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue));
-                    }
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<FlatPropertyValueApiModel> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(FlatPropertyValueApiModel), "FlatPropertyValueApiModel");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, scopedPropertyValuesQuery, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, scopedPropertyValuesQuery, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = scopedPropertyValuesQuery.AsNoTracking()
-                        .OrderBy(s => s.Property)
-                        .Paginate(page, limit);
-
-                return new GetScopedPropertyValuesResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(p => p
-                    ).ToList()
-                };
+                var scopedPropertyValuesQuery = BuildSearchPropertyValuesQuery(context, userSids);
+                scopedPropertyValuesQuery = ApplyFilters(scopedPropertyValuesQuery, operators);
+                var output = ApplySortingAndPaginate(scopedPropertyValuesQuery, operators, page, limit);
+                return MapToResponseDto(output);
             }
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> BuildScopedPropertyValuesQuery(
+            IDeploymentContext context, EnvironmentApiModel scope, List<string> userSids)
+        {
+            var envProps = BuildEnvironmentPropsQuery(context, userSids, scope.EnvironmentName);
+
+            if (scope.EnvironmentSecure)
+                return envProps;
+
+            var global = BuildGlobalPropsQuery(context);
+            var parentEnv = context.Environments.FirstOrDefault(e => e.Id == scope.ParentId);
+
+            if (parentEnv is null)
+            {
+                return envProps
+                    .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property)));
+            }
+
+            var envParentProps = BuildParentEnvironmentPropsQuery(context, parentEnv.Name);
+
+            // Union the parent environment properties with the current environment properties and with global
+            return envProps
+                .Union(envParentProps.Where(p => !envProps.Any(ep => ep.Property == p.Property)))
+                .Union(global.Where(g => !envProps.Any(ep => ep.Property == g.Property) && !envParentProps.Any(pp => pp.Property == g.Property)));
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> BuildSearchPropertyValuesQuery(
+            IDeploymentContext context, List<string> userSids)
+        {
+            var envProps = BuildEnvironmentPropsQueryAllEnvironments(context, userSids);
+            var global = BuildGlobalPropsQuery(context);
+            return envProps.Union(global);
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> BuildEnvironmentPropsQuery(
+            IDeploymentContext context, List<string> userSids, string environmentName)
+        {
+            return from propertyValue in context.PropertyValues
+                   join property in context.Properties on propertyValue.Property.Id equals property.Id
+                   join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
+                       propertyValueFilter.PropertyValue.Id
+                   join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                       propertyFilter.Id
+                   join environment in context.Environments on propertyValueFilter.Value equals
+                       environment.Name
+                   let permissions =
+                       (from env in context.Environments
+                        join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
+                        where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                        select ac.Allow).ToList()
+                   let hasPermission =
+                       permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                   let isOwner =
+                       permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
+                   where propertyFilter.Name == "environment" && propertyValueFilter.Value == environmentName
+                   select new FlatPropertyValueApiModel
+                   {
+                       PropertyId = property.Id,
+                       Property = property.Name,
+                       PropertyValueScope = propertyValueFilter.Value,
+                       PropertyValueScopeId = propertyValueFilter.Id,
+                       PropertyValue = propertyValue.Value,
+                       PropertyValueId = propertyValue.Id,
+                       Secure = property.Secure,
+                       IsArray = property.IsArray,
+                       UserEditable = isOwner || hasPermission
+                   };
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> BuildEnvironmentPropsQueryAllEnvironments(
+            IDeploymentContext context, List<string> userSids)
+        {
+            return from propertyValue in context.PropertyValues
+                   join property in context.Properties on propertyValue.Property.Id equals property.Id
+                   join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
+                       propertyValueFilter.PropertyValue.Id
+                   join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                       propertyFilter.Id
+                   join environment in context.Environments on propertyValueFilter.Value equals
+                       environment.Name
+                   let permissions =
+                       (from env in context.Environments
+                        join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
+                        where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                        select ac.Allow).ToList()
+                   let hasPermission =
+                       permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                   let isOwner =
+                       permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
+                   select new FlatPropertyValueApiModel
+                   {
+                       PropertyId = property.Id,
+                       Property = property.Name,
+                       PropertyValueScope = propertyValueFilter.Value,
+                       PropertyValueScopeId = propertyValueFilter.Id,
+                       PropertyValue = propertyValue.Value,
+                       PropertyValueId = propertyValue.Id,
+                       Secure = property.Secure,
+                       IsArray = property.IsArray,
+                       UserEditable = isOwner || hasPermission
+                   };
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> BuildGlobalPropsQuery(IDeploymentContext context)
+        {
+            return from propertyValue in context.PropertyValues
+                   join property in context.Properties on propertyValue.Property.Id equals property.Id
+                   join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals propertyValueFilter.PropertyValue.Id into tmp
+                   from final in tmp.DefaultIfEmpty()
+                   where final == null
+                   select new FlatPropertyValueApiModel
+                   {
+                       PropertyId = property.Id,
+                       Property = property.Name,
+                       PropertyValueScope = null,
+                       PropertyValueScopeId = -1,
+                       PropertyValue = propertyValue.Value,
+                       PropertyValueId = propertyValue.Id,
+                       Secure = property.Secure,
+                       IsArray = property.IsArray,
+                       UserEditable = false // admin privileges are set at the calling fn
+                   };
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> BuildParentEnvironmentPropsQuery(
+            IDeploymentContext context, string parentEnvName)
+        {
+            return from propertyValue in context.PropertyValues
+                   join property in context.Properties on propertyValue.Property.Id equals property.Id
+                   join propertyValueFilter in context.PropertyValueFilters on propertyValue.Id equals
+                       propertyValueFilter.PropertyValue.Id
+                   join propertyFilter in context.PropertyFilters on propertyValueFilter.PropertyFilter.Id equals
+                       propertyFilter.Id
+                   join environment in context.Environments on propertyValueFilter.Value equals
+                       environment.Name
+                   where propertyFilter.Name == "environment" && (parentEnvName == propertyValueFilter.Value)
+                   select new FlatPropertyValueApiModel
+                   {
+                       PropertyId = property.Id,
+                       Property = property.Name,
+                       PropertyValueScope = propertyValueFilter.Value,
+                       PropertyValueScopeId = propertyValueFilter.Id,
+                       PropertyValue = propertyValue.Value,
+                       PropertyValueId = propertyValue.Id,
+                       Secure = property.Secure,
+                       IsArray = property.IsArray,
+                       UserEditable = false // Parent props not allowed to edit
+                   };
+        }
+
+        private static IQueryable<FlatPropertyValueApiModel> ApplyFilters(
+            IQueryable<FlatPropertyValueApiModel> query, PagedDataOperators operators)
+        {
+            if (operators.Filters == null || !operators.Filters.Any())
+                return query;
+
+            foreach (var pagedDataFilter in operators.Filters)
+            {
+                if (pagedDataFilter == null)
+                    continue;
+                if (string.IsNullOrEmpty(pagedDataFilter.Path) ||
+                    string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                    continue;
+
+                query = query.Where(query.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue));
+            }
+
+            return query;
+        }
+
+        private static PagedModel<FlatPropertyValueApiModel> ApplySortingAndPaginate(
+            IQueryable<FlatPropertyValueApiModel> query, PagedDataOperators operators, int page, int limit)
+        {
+            var orderedQuery = ApplySortOrders(query, operators);
+
+            if (orderedQuery != null)
+                return orderedQuery.AsNoTracking().Paginate(page, limit);
+
+            return query.AsNoTracking()
+                .OrderBy(s => s.Property)
+                .Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<FlatPropertyValueApiModel> ApplySortOrders(
+            IQueryable<FlatPropertyValueApiModel> query, PagedDataOperators operators)
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return null;
+
+            IOrderedQueryable<FlatPropertyValueApiModel> orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
+            {
+                if (operators.SortOrders[i] == null)
+                    continue;
+                if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
+                    string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                    continue;
+
+                var param = Expression.Parameter(typeof(FlatPropertyValueApiModel), "FlatPropertyValueApiModel");
+                var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+
+                switch (prop.Type)
+                {
+                    case Type boolType when boolType == typeof(bool):
+                        {
+                            var expr = GetExpressionForOrdering<bool>(prop, param);
+                            orderedQuery = OrderScripts(operators, i, orderedQuery, query, expr);
+                            break;
+                        }
+                    case Type stringType when stringType == typeof(string):
+                        {
+                            var expr = GetExpressionForOrdering<string>(prop, param);
+                            orderedQuery = OrderScripts(operators, i, orderedQuery, query, expr);
+                            break;
+                        }
+                }
+            }
+
+            return orderedQuery;
+        }
+
+        private static GetScopedPropertyValuesResponseDto MapToResponseDto(PagedModel<FlatPropertyValueApiModel> output)
+        {
+            return new GetScopedPropertyValuesResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(p => p).ToList()
+            };
         }
 
         private static IOrderedQueryable<FlatPropertyValueApiModel> OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<FlatPropertyValueApiModel> orderedQuery,
