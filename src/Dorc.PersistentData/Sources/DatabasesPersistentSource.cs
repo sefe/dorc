@@ -324,23 +324,23 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string envFilter, string envName)
+        public DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string filter, string envFilter)
         {
             using (var context = _contextFactory.GetContext())
             {
                 var environmentDetails = context.Environments.Include(ed => ed.Databases)
                     .First(environmentDetails =>
                         EF.Functions.Collate(environmentDetails.Name, DeploymentContext.CaseInsensitiveCollation)
-                        == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation)
+                        == EF.Functions.Collate(envFilter, DeploymentContext.CaseInsensitiveCollation)
                         && EF.Functions.Collate(environmentDetails.ThinClientServer, DeploymentContext.CaseInsensitiveCollation)
-                        == EF.Functions.Collate(envFilter, DeploymentContext.CaseInsensitiveCollation));
+                        == EF.Functions.Collate(filter, DeploymentContext.CaseInsensitiveCollation));
 
                 var dbIds = environmentDetails.Databases.Select(d => d.Id).ToList();
 
                 var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
                     .Where(eu =>
                         dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
-                        eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
+                        eu.User.LoginType.Equals(filter)).Select(eu => eu.Database).FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
             }
