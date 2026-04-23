@@ -354,6 +354,7 @@ app.UseCors(dorcCorsRefDataPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<WinAuthLoggingMiddleware>();
+app.UseMiddleware<ApiAccessAuditMiddleware>();
 
 var endpointConventionBuilder = app.MapControllers();
 if (authenticationScheme is ConfigAuthScheme.OAuth)
