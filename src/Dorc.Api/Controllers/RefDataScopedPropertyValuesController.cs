@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -15,14 +16,17 @@ namespace Dorc.Api.Controllers
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
         public RefDataScopedPropertyValuesController(IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IRolePrivilegesChecker rolePrivilegesChecker)
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
         }
 
         /// <summary>
@@ -49,13 +53,25 @@ namespace Dorc.Api.Controllers
             var getScopedPropertyValuesResponseDto = _propertyValuesPersistentSource.GetPropertyValuesForScopeByPage(limit,
                 page, operators, env, User);
 
-            var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
-            if (!isAdmin)
-                return StatusCode(StatusCodes.Status200OK, getScopedPropertyValuesResponseDto);
 
-            foreach (var prop in getScopedPropertyValuesResponseDto.Items)
+            var canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, scope);
+            if (!canReadSecrets)
             {
-                prop.UserEditable = true;
+                foreach (var prop in getScopedPropertyValuesResponseDto.Items)
+                {
+                    if (prop.Secure)
+                    {
+                        prop.PropertyValue = null;
+                        prop.PropertyArrayValue = null;
+                    }
+                }
+            }
+
+            var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
+            if (isAdmin && getScopedPropertyValuesResponseDto.Items != null)
+            {
+                foreach (var prop in getScopedPropertyValuesResponseDto.Items)
+                    prop.UserEditable = true;
             }
 
             return StatusCode(StatusCodes.Status200OK, getScopedPropertyValuesResponseDto);
