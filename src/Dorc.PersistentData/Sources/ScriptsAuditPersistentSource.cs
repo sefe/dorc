@@ -46,112 +46,101 @@ namespace Dorc.PersistentData.Sources
         public GetScriptsAuditListResponseDto GetScriptAuditsByPage(int limit, int page,
             PagedDataOperators operators, bool useAndLogic)
         {
-            PagedModel<AuditScript> output = null;
-            using (var context = _contextFactory.GetContext())
-            {
-                var queryable = context.AuditScripts.AsQueryable();
+            using var context = _contextFactory.GetContext();
+            var queryable = context.AuditScripts.AsQueryable();
 
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    var filterLambdas = new List<Expression<Func<AuditScript, bool>>>();
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            filterLambdas.Add(queryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue));
-                        }
-                    }
+            queryable = ApplyFilters(queryable, operators, useAndLogic);
+            var output = ApplySortingAndPaginate(queryable, operators, page, limit)
+                         ?? queryable.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
 
-                    if (useAndLogic)
-                        queryable = WhereAll(queryable, filterLambdas.ToArray());
-                    else
-                        queryable = WhereAny(queryable, filterLambdas.ToArray());
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<AuditScript> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(AuditScript), "AuditScript");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
-                                    GetExpressionForOrdering<bool>(prop, param));
-                                break;
-                            case Type stringType when stringType == typeof(string):
-                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
-                                    GetExpressionForOrdering<string>(prop, param));
-                                break;
-                            case Type intType when intType == typeof(int):
-                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
-                                    GetExpressionForOrdering<int>(prop, param));
-                                break;
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
-                                    GetExpressionForOrdering<DateTime>(prop, param));
-                                break;
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking().Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = queryable.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
-
-                return new GetScriptsAuditListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(p => new ScriptAuditApiModel
-                    {
-                        Id = p.Id,
-                        ScriptId = p.ScriptId,
-                        ScriptName = p.ScriptName,
-                        FromValue = p.FromValue,
-                        ToValue = p.ToValue,
-                        UpdatedBy = p.UpdatedBy,
-                        UpdatedDate = p.UpdatedDate,
-                        Type = p.Type,
-                        ProjectNames = p.ProjectNames
-                    }).ToList()
-                };
-            }
+            return MapToDto(output);
         }
 
-        private static IOrderedQueryable<AuditScript> OrderEntries<T>(PagedDataOperators operators, int i,
-            IOrderedQueryable<AuditScript> orderedQuery, IQueryable<AuditScript> query,
+        private static IQueryable<AuditScript> ApplyFilters(IQueryable<AuditScript> queryable,
+            PagedDataOperators operators, bool useAndLogic)
+        {
+            if (operators.Filters == null || !operators.Filters.Any())
+                return queryable;
+
+            var filterLambdas = operators.Filters
+                .Where(f => f != null && !string.IsNullOrEmpty(f.Path) && !string.IsNullOrEmpty(f.FilterValue))
+                .Select(f => queryable.ContainsExpression(f.Path, f.FilterValue))
+                .ToList();
+
+            if (!filterLambdas.Any())
+                return queryable;
+
+            return useAndLogic
+                ? WhereAll(queryable, filterLambdas.ToArray())
+                : WhereAny(queryable, filterLambdas.ToArray());
+        }
+
+        private static PagedModel<AuditScript>? ApplySortingAndPaginate(IQueryable<AuditScript> queryable,
+            PagedDataOperators operators, int page, int limit)
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return null;
+
+            IOrderedQueryable<AuditScript>? orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
+            {
+                var sortOrder = operators.SortOrders[i];
+                if (sortOrder == null || string.IsNullOrEmpty(sortOrder.Path) || string.IsNullOrEmpty(sortOrder.Direction))
+                    continue;
+
+                orderedQuery = ApplySortOrder(queryable, orderedQuery, sortOrder, i == 0);
+            }
+
+            return orderedQuery?.AsNoTracking().Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<AuditScript>? ApplySortOrder(IQueryable<AuditScript> queryable,
+            IOrderedQueryable<AuditScript>? orderedQuery, PagedDataSorting sortOrder, bool isFirst)
+        {
+            var param = Expression.Parameter(typeof(AuditScript), "AuditScript");
+            var prop = Expression.PropertyOrField(param, sortOrder.Path);
+
+            return prop.Type switch
+            {
+                Type t when t == typeof(bool) => OrderEntries(sortOrder.Direction, isFirst, orderedQuery, queryable, GetExpressionForOrdering<bool>(prop, param)),
+                Type t when t == typeof(string) => OrderEntries(sortOrder.Direction, isFirst, orderedQuery, queryable, GetExpressionForOrdering<string>(prop, param)),
+                Type t when t == typeof(int) => OrderEntries(sortOrder.Direction, isFirst, orderedQuery, queryable, GetExpressionForOrdering<int>(prop, param)),
+                Type t when t == typeof(DateTime) => OrderEntries(sortOrder.Direction, isFirst, orderedQuery, queryable, GetExpressionForOrdering<DateTime>(prop, param)),
+                _ => orderedQuery
+            };
+        }
+
+        private static GetScriptsAuditListResponseDto MapToDto(PagedModel<AuditScript> output)
+        {
+            return new GetScriptsAuditListResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(p => new ScriptAuditApiModel
+                {
+                    Id = p.Id,
+                    ScriptId = p.ScriptId,
+                    ScriptName = p.ScriptName,
+                    FromValue = p.FromValue,
+                    ToValue = p.ToValue,
+                    UpdatedBy = p.UpdatedBy,
+                    UpdatedDate = p.UpdatedDate,
+                    Type = p.Type,
+                    ProjectNames = p.ProjectNames
+                }).ToList()
+            };
+        }
+
+        private static IOrderedQueryable<AuditScript> OrderEntries<T>(string direction, bool isFirst,
+            IOrderedQueryable<AuditScript>? orderedQuery, IQueryable<AuditScript> query,
             Expression<Func<AuditScript, T>> expr)
         {
-            if (i == 0)
-                switch (operators.SortOrders[i].Direction)
-                {
-                    case "asc": orderedQuery = query.OrderBy(expr); break;
-                    case "desc": orderedQuery = query.OrderByDescending(expr); break;
-                }
-            else
-                switch (operators.SortOrders[i].Direction)
-                {
-                    case "asc": orderedQuery = orderedQuery?.ThenBy(expr); break;
-                    case "desc": orderedQuery = orderedQuery?.ThenByDescending(expr); break;
-                }
-            return orderedQuery;
+            if (isFirst)
+                return direction == "desc" ? query.OrderByDescending(expr) : query.OrderBy(expr);
+
+            return direction == "desc" ? orderedQuery!.ThenByDescending(expr) : orderedQuery!.ThenBy(expr);
         }
 
         private static Expression<Func<AuditScript, R>> GetExpressionForOrdering<R>(MemberExpression prop, ParameterExpression param)
@@ -159,7 +148,7 @@ namespace Dorc.PersistentData.Sources
             return Expression.Lambda<Func<AuditScript, R>>(prop, param);
         }
 
-        private IQueryable<T> WhereAll<T>(IQueryable<T> source, params Expression<Func<T, bool>>[] predicates)
+        private static IQueryable<T> WhereAll<T>(IQueryable<T> source, params Expression<Func<T, bool>>[] predicates)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (predicates == null) throw new ArgumentNullException(nameof(predicates));
@@ -172,7 +161,7 @@ namespace Dorc.PersistentData.Sources
             return source.Where(pred);
         }
 
-        private IQueryable<T> WhereAny<T>(IQueryable<T> source, params Expression<Func<T, bool>>[] predicates)
+        private static IQueryable<T> WhereAny<T>(IQueryable<T> source, params Expression<Func<T, bool>>[] predicates)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (predicates == null) throw new ArgumentNullException(nameof(predicates));
