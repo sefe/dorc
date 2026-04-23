@@ -27,133 +27,144 @@ namespace Dorc.PersistentData.Sources
             _claimsPrincipalReader = claimsPrincipalReader;
         }
 
-        public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal user)
+        public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal principal)
         {
-            string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            string username = _claimsPrincipalReader.GetUserLogin(principal);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(principal);
 
-            PagedModel<DeploymentRequestApiModel> output = null;
-            using (var context = _contextFactory.GetContext())
+            using var context = _contextFactory.GetContext();
+            var reqStatusesQueryable = GetDeploymentRequestApiModels(context, username, userSids);
+
+            reqStatusesQueryable = ApplyFilters(reqStatusesQueryable, operators);
+            var output = ApplySortingAndPaginate(reqStatusesQueryable, operators, page, limit);
+
+            return new GetRequestStatusesListResponseDto
             {
-                var reqStatusesQueryable = GetDeploymentRequestApiModels(context, username, userSids);
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.ToList()
+            };
+        }
 
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    var detailFilters = operators.Filters
-                        .Where(f => f != null && (f.Path == "Project" || f.Path == "EnvironmentName" || f.Path == "BuildNumber"))
-                        .ToList();
+        private static IQueryable<DeploymentRequestApiModel> ApplyFilters(
+            IQueryable<DeploymentRequestApiModel> query, PagedDataOperators operators)
+        {
+            if (operators.Filters == null || !operators.Filters.Any())
+                return query;
 
-                    var hasDistinctDetailValues = detailFilters
-                        .Select(f => f.FilterValue)
-                        .Where(v => !string.IsNullOrEmpty(v))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .Count() > 1;
+            var detailFilters = operators.Filters
+                .Where(f => f != null && (f.Path == "Project" || f.Path == "EnvironmentName" || f.Path == "BuildNumber"))
+                .ToList();
 
-                    var filterLambdas =
-                        new List<Expression<Func<DeploymentRequestApiModel, bool>>>();
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
+            var hasDistinctDetailValues = detailFilters
+                .Select(f => f.FilterValue)
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() > 1;
 
-                        // For env specific monitor
-                        if (pagedDataFilter.Path == "EnvironmentNameExact")
-                        {
-                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
-                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
-                            continue;
-                        }
+            var filterLambdas = new List<Expression<Func<DeploymentRequestApiModel, bool>>>();
 
-                        if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
-                            pagedDataFilter.Path == "BuildNumber")
-                        {
-                            if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                                continue;
+            foreach (var filter in operators.Filters)
+            {
+                if (filter == null)
+                    continue;
 
-                            var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
-                            {
-                                if (hasDistinctDetailValues)
-                                    reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
-                                else
-                                    filterLambdas.Add(containsExpression);
-                            }
-                            continue;
-                        }
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue);
-
-                            if (containsExpression != null)
-                                reqStatusesQueryable =
-                                    reqStatusesQueryable.Where(containsExpression);
-                        }
-                    }
-
-                    if (filterLambdas.Count > 0)
-                        reqStatusesQueryable = WhereAny(reqStatusesQueryable, filterLambdas.ToArray());
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<DeploymentRequestApiModel> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(DeploymentRequestApiModel), "DeploymentRequest");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderBy(s => s.Id)
-                        .Paginate(page, limit);
-
-                return new GetRequestStatusesListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.ToList()
-                };
+                query = ApplySingleFilter(query, filter, hasDistinctDetailValues, filterLambdas);
             }
+
+            if (filterLambdas.Count > 0)
+                query = WhereAny(query, filterLambdas.ToArray());
+
+            return query;
+        }
+
+        private static IQueryable<DeploymentRequestApiModel> ApplySingleFilter(
+            IQueryable<DeploymentRequestApiModel> query,
+            PagedDataFilter filter,
+            bool hasDistinctDetailValues,
+            List<Expression<Func<DeploymentRequestApiModel, bool>>> filterLambdas)
+        {
+            if (filter.Path == "EnvironmentNameExact")
+            {
+                var expr = query.ContainsExpression("EnvironmentName", filter.FilterValue);
+                return expr != null ? query.Where(expr) : query;
+            }
+
+            if (filter.Path is "Project" or "EnvironmentName" or "BuildNumber")
+            {
+                if (string.IsNullOrEmpty(filter.FilterValue))
+                    return query;
+
+                var expr = query.ContainsExpression(filter.Path, filter.FilterValue);
+                if (expr != null)
+                {
+                    if (hasDistinctDetailValues)
+                        return query.Where(expr);
+
+                    filterLambdas.Add(expr);
+                }
+                return query;
+            }
+
+            if (!string.IsNullOrEmpty(filter.Path) && !string.IsNullOrEmpty(filter.FilterValue))
+            {
+                var expr = query.ContainsExpression(filter.Path, filter.FilterValue);
+                if (expr != null)
+                    return query.Where(expr);
+            }
+
+            return query;
+        }
+
+        private static PagedModel<DeploymentRequestApiModel> ApplySortingAndPaginate(
+            IQueryable<DeploymentRequestApiModel> query, PagedDataOperators operators, int page, int limit)
+        {
+            var orderedQuery = ApplySorting(query, operators);
+
+            if (orderedQuery != null)
+                return orderedQuery.AsNoTracking().Paginate(page, limit);
+
+            return query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<DeploymentRequestApiModel>? ApplySorting(
+            IQueryable<DeploymentRequestApiModel> query, PagedDataOperators operators)
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return null;
+
+            IOrderedQueryable<DeploymentRequestApiModel>? orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
+            {
+                var sortOrder = operators.SortOrders[i];
+                if (sortOrder == null || string.IsNullOrEmpty(sortOrder.Path) || string.IsNullOrEmpty(sortOrder.Direction))
+                    continue;
+
+                var param = Expression.Parameter(typeof(DeploymentRequestApiModel), "DeploymentRequest");
+                var prop = Expression.PropertyOrField(param, sortOrder.Path);
+
+                orderedQuery = ApplySortByType(prop, param, operators, i, orderedQuery, query);
+            }
+
+            return orderedQuery;
+        }
+
+        private static IOrderedQueryable<DeploymentRequestApiModel>? ApplySortByType(
+            MemberExpression prop, ParameterExpression param, PagedDataOperators operators, int i,
+            IOrderedQueryable<DeploymentRequestApiModel>? orderedQuery, IQueryable<DeploymentRequestApiModel> query)
+        {
+            return prop.Type switch
+            {
+                Type t when t == typeof(bool) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<bool>(prop, param)),
+                Type t when t == typeof(string) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<string>(prop, param)),
+                Type t when t == typeof(int) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<int>(prop, param)),
+                _ => orderedQuery
+            };
         }
 
         public void AppendLogToJob(int deploymentResultId, string log)
