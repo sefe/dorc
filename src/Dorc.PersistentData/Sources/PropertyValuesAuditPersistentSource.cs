@@ -10,6 +10,14 @@ namespace Dorc.PersistentData.Sources
 {
     public class PropertyValuesAuditPersistentSource : IPropertyValuesAuditPersistentSource
     {
+        private static readonly Dictionary<Type, Func<MemberExpression, ParameterExpression, IQueryable<Audit>, PagedDataOperators, int, IOrderedQueryable<Audit>, IOrderedQueryable<Audit>>> SortTypeHandlers = new()
+        {
+            [typeof(bool)] = (prop, param, q, ops, i, oq) => OrderScripts(ops, i, oq, q, GetExpressionForOrdering<bool>(prop, param)),
+            [typeof(string)] = (prop, param, q, ops, i, oq) => OrderScripts(ops, i, oq, q, GetExpressionForOrdering<string>(prop, param)),
+            [typeof(int)] = (prop, param, q, ops, i, oq) => OrderScripts(ops, i, oq, q, GetExpressionForOrdering<int>(prop, param)),
+            [typeof(DateTime)] = (prop, param, q, ops, i, oq) => OrderScripts(ops, i, oq, q, GetExpressionForOrdering<DateTime>(prop, param)),
+        };
+
         private readonly IDeploymentContextFactory _contextFactory;
 
         public PropertyValuesAuditPersistentSource(IDeploymentContextFactory contextFactory)
@@ -47,106 +55,83 @@ namespace Dorc.PersistentData.Sources
 
         public GetPropertyValuesAuditListResponseDto GetPropertyValueAuditsByPage(int limit, int page, PagedDataOperators operators, bool useAndLogic)
         {
-            PagedModel<Audit> output = null;
-            using (var context = _contextFactory.GetContext())
+            using var context = _contextFactory.GetContext();
+
+            var query = context.Audits.AsQueryable();
+            query = ApplyFilters(query, operators, useAndLogic);
+            var output = ApplySortingAndPaginate(query, operators, page, limit);
+
+            return MapToResponse(output);
+        }
+
+        private static IQueryable<Audit> ApplyFilters(IQueryable<Audit> query, PagedDataOperators operators, bool useAndLogic)
+        {
+            if (operators.Filters == null || !operators.Filters.Any())
+                return query;
+
+            var filterLambdas = operators.Filters
+                .Where(f => f != null && !string.IsNullOrEmpty(f.Path) && !string.IsNullOrEmpty(f.FilterValue))
+                .Select(f => query.ContainsExpression(f.Path, f.FilterValue))
+                .ToList();
+
+            return useAndLogic
+                ? WhereAll(query, filterLambdas.ToArray())
+                : WhereAny(query, filterLambdas.ToArray());
+        }
+
+        private static PagedModel<Audit> ApplySortingAndPaginate(IQueryable<Audit> query, PagedDataOperators operators, int page, int limit)
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+
+            var orderedQuery = BuildOrderedQuery(query, operators);
+
+            return orderedQuery != null
+                ? orderedQuery.AsNoTracking().Paginate(page, limit)
+                : query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<Audit> BuildOrderedQuery(IQueryable<Audit> query, PagedDataOperators operators)
+        {
+            IOrderedQueryable<Audit> orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
             {
-                var reqStatusesQueryable = context.Audits.AsQueryable();
+                var sortOrder = operators.SortOrders[i];
+                if (sortOrder == null || string.IsNullOrEmpty(sortOrder.Path) || string.IsNullOrEmpty(sortOrder.Direction))
+                    continue;
 
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    var filterLambdas =
-                        new List<Expression<Func<Audit, bool>>>();
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
-                        }
-                    }
+                var param = Expression.Parameter(typeof(Audit), "Audit");
+                var prop = Expression.PropertyOrField(param, sortOrder.Path);
 
-                    if (useAndLogic)
-                        reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
-                    else
-                        reqStatusesQueryable = WhereAny(reqStatusesQueryable, filterLambdas.ToArray());
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<Audit> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(Audit), "Audit");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                {
-                                    var expr = GetExpressionForOrdering<DateTime>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderBy(s => s.Id)
-                        .Paginate(page, limit);
-
-                return new GetPropertyValuesAuditListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(p => new PropertyValueAuditApiModel
-                    {
-                        Id = p.Id,
-                        EnvironmentName = p.EnvironmentName,
-                        FromValue = p.FromValue,
-                        PropertyId = p.PropertyId,
-                        PropertyName = p.PropertyName,
-                        PropertyValueId = p.PropertyValueId,
-                        ToValue = p.ToValue,
-                        UpdatedBy = p.UpdatedBy,
-                        UpdatedDate = p.UpdatedDate,
-                        Type = p.Type
-                    }).ToList()
-                };
+                if (SortTypeHandlers.TryGetValue(prop.Type, out var handler))
+                    orderedQuery = handler(prop, param, query, operators, i, orderedQuery);
             }
+
+            return orderedQuery;
+        }
+
+        private static GetPropertyValuesAuditListResponseDto MapToResponse(PagedModel<Audit> output)
+        {
+            return new GetPropertyValuesAuditListResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(p => new PropertyValueAuditApiModel
+                {
+                    Id = p.Id,
+                    EnvironmentName = p.EnvironmentName,
+                    FromValue = p.FromValue,
+                    PropertyId = p.PropertyId,
+                    PropertyName = p.PropertyName,
+                    PropertyValueId = p.PropertyValueId,
+                    ToValue = p.ToValue,
+                    UpdatedBy = p.UpdatedBy,
+                    UpdatedDate = p.UpdatedDate,
+                    Type = p.Type
+                }).ToList()
+            };
         }
 
         private static IOrderedQueryable<Audit> OrderScripts<T>(PagedDataOperators operators, int i, IOrderedQueryable<Audit> orderedQuery,
@@ -183,7 +168,7 @@ namespace Dorc.PersistentData.Sources
             return Expression.Lambda<Func<Audit, R>>(prop, param);
         }
 
-        private IQueryable<T> WhereAll<T>(
+        private static IQueryable<T> WhereAll<T>(
             IQueryable<T> source,
             params Expression<Func<T, bool>>[] predicates)
         {
@@ -201,7 +186,7 @@ namespace Dorc.PersistentData.Sources
             }
             return source.Where(pred);
         }
-        private IQueryable<T> WhereAny<T>(
+        private static IQueryable<T> WhereAny<T>(
             IQueryable<T> source,
             params Expression<Func<T, bool>>[] predicates)
         {
