@@ -191,125 +191,116 @@ namespace Dorc.PersistentData.Sources
         public GetDatabaseApiModelListResponseDto GetDatabaseApiModelByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user)
         {
-            PagedModel<Database> output = null;
-            using (var context = _contextFactory.GetContext())
+            using var context = _contextFactory.GetContext();
+
+            var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
+            var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
+
+            var query = context.Databases.Include(database => database.Environments)
+                .Include(database => database.Group).AsQueryable();
+
+            query = ApplyFilters(query, operators.Filters);
+            var output = ApplySortingAndPaginate(query, operators, page, limit);
+
+            return MapToResponseDto(output, envPrivilegeInfos, isAdmin);
+        }
+
+        private IQueryable<Database> ApplyFilters(IQueryable<Database> query, List<PagedDataFilter>? filters)
+        {
+            if (filters == null || !filters.Any())
+                return query;
+
+            var filterLambdas = filters
+                .Where(f => f != null && !string.IsNullOrEmpty(f.Path) && !string.IsNullOrEmpty(f.FilterValue))
+                .Select(f => BuildFilterExpression(query, f))
+                .ToList();
+
+            return WhereAll(query, filterLambdas.ToArray());
+        }
+
+        private static Expression<Func<Database, bool>> BuildFilterExpression(
+            IQueryable<Database> query, PagedDataFilter filter)
+        {
+            if (filter.Path == "EnvironmentNames")
             {
-                var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
-
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
-
-                var reqStatusesQueryable = context.Databases.Include(database => database.Environments)
-                    .Include(database => database.Group).AsQueryable();
-
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    var filterLambdas =
-                        new List<Expression<Func<Database, bool>>>();
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            if (pagedDataFilter.Path == "EnvironmentNames")
-                            {
-                                filterLambdas.Add(server =>
-                                    server.Environments.Any(ed => ed.Name.Contains(pagedDataFilter.FilterValue)));
-                            }
-                            else
-                            {
-                                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
-                            }
-                        }
-                    }
-
-                    reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<Database> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        if (operators.SortOrders[i].Path == "EnvironmentNames")
-                        {
-                            operators.SortOrders[i].Path = "Environments";
-                        }
-
-                        var param = Expression.Parameter(typeof(Database), "Database");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<Database, bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<Database, string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<Database, int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                {
-                                    var expr = GetExpressionForOrdering<Database, DateTime>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderBy(s => s.Id)
-                        .Paginate(page, limit);
-
-                return new GetDatabaseApiModelListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(s => new DatabaseApiModel
-                    {
-                        Id = s.Id,
-                        Name = s.Name,
-                        Type = s.Type,
-                        ServerName = s.ServerName,
-                        AdGroup = s.Group?.Name,
-                        ArrayName = s.ArrayName,
-                        EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
-                        UserEditable = (from environmentDetail in s.Environments
-                                        select envPrivilegeInfos[environmentDetail.Name]
-                                            into privilegeInfo
-                                        where privilegeInfo != null
-                                        select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
-                                               isAdmin).All(e => e)
-                    }).ToList()
-                };
+                return server => server.Environments.Any(ed => ed.Name.Contains(filter.FilterValue));
             }
+
+            return query.ContainsExpression(filter.Path, filter.FilterValue);
+        }
+
+        private PagedModel<Database> ApplySortingAndPaginate(IQueryable<Database> query,
+            PagedDataOperators operators, int page, int limit)
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+
+            IOrderedQueryable<Database>? orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
+            {
+                if (operators.SortOrders[i] == null)
+                    continue;
+                if (string.IsNullOrEmpty(operators.SortOrders[i].Path) || string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                    continue;
+
+                if (operators.SortOrders[i].Path == "EnvironmentNames")
+                    operators.SortOrders[i].Path = "Environments";
+
+                orderedQuery = ApplySortOrder(query, orderedQuery, operators, i);
+            }
+
+            if (orderedQuery != null)
+                return orderedQuery.AsNoTracking().Paginate(page, limit);
+
+            return query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<Database>? ApplySortOrder(IQueryable<Database> query,
+            IOrderedQueryable<Database>? orderedQuery, PagedDataOperators operators, int i)
+        {
+            var param = Expression.Parameter(typeof(Database), "Database");
+            var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+
+            return prop.Type switch
+            {
+                Type t when t == typeof(bool) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<Database, bool>(prop, param)),
+                Type t when t == typeof(string) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<Database, string>(prop, param)),
+                Type t when t == typeof(int) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<Database, int>(prop, param)),
+                Type t when t == typeof(DateTime) =>
+                    OrderScripts(operators, i, orderedQuery, query, GetExpressionForOrdering<Database, DateTime>(prop, param)),
+                _ => orderedQuery
+            };
+        }
+
+        private static GetDatabaseApiModelListResponseDto MapToResponseDto(PagedModel<Database> output,
+            Dictionary<string, EnvironmentPrivInfo> envPrivilegeInfos, bool isAdmin)
+        {
+            return new GetDatabaseApiModelListResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(s => new DatabaseApiModel
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    Type = s.Type,
+                    ServerName = s.ServerName,
+                    AdGroup = s.Group?.Name,
+                    ArrayName = s.ArrayName,
+                    EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
+                    UserEditable = (from environmentDetail in s.Environments
+                                    select envPrivilegeInfos[environmentDetail.Name]
+                                        into privilegeInfo
+                                    where privilegeInfo != null
+                                    select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
+                                           isAdmin).All(e => e)
+                }).ToList()
+            };
         }
 
         public List<String?> GetDatabasServerNameslist()
