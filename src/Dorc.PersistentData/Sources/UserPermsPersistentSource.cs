@@ -16,7 +16,7 @@ namespace Dorc.PersistentData.Sources
             _contextFactory = contextFactory;
         }
 
-        public IEnumerable<UserPermDto> GetPermissions(int databaseId)
+        public IEnumerable<UserPermDto> GetPermissions(int userId)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -24,7 +24,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(environmentUser => environmentUser.Database)
                     .Include(environmentUser => environmentUser.User)
                     .Include(environmentUser => environmentUser.Permission)
-                    .Where(environmentUser => environmentUser.DbId == databaseId)
+                    .Where(environmentUser => environmentUser.DbId == userId)
                     .Select(MapToUserPermDto).ToList();
                 return result;
             }
@@ -74,14 +74,14 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool AddUserPermission(int userId, int permissionId, int databaseId)
+        public bool AddUserPermission(int userId, int permissionId, int dbId)
         {
             const int DuplicateKeyErrorNumber = 2627;      
 
             EnvironmentUser newEnvironmentUser = new EnvironmentUser
             {
                 UserId = userId,
-                DbId = databaseId,
+                DbId = dbId,
                 PermissionId = permissionId
             };
 
@@ -108,14 +108,14 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool DeleteUserPermission(int userId, int permissionId, int databaseId)
+        public bool DeleteUserPermission(int userId, int permissionId, int dbId)
         {
             using (var context = _contextFactory.GetContext())
             {
                 int deletedEnvironmentUserCount = context.EnvironmentUsers
                     .Where(environmentUser =>
                         environmentUser.UserId == userId
-                        && environmentUser.DbId == databaseId
+                        && environmentUser.DbId == dbId
                         && environmentUser.PermissionId == permissionId)
                     .ExecuteDelete();
 
