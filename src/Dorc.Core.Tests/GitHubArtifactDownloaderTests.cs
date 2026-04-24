@@ -15,6 +15,7 @@ namespace Dorc.Core.Tests
         private IHttpClientFactory _httpClientFactory = null!;
         private IGitHubHostValidator _hostValidator = null!;
         private IConfiguration _configuration = null!;
+        private readonly List<HttpClient> _trackedClients = new();
 
         [TestInitialize]
         public void Setup()
@@ -22,7 +23,7 @@ namespace Dorc.Core.Tests
             _logger = Substitute.For<ILogger<GitHubArtifactDownloader>>();
 
             _httpClientFactory = Substitute.For<IHttpClientFactory>();
-            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
+            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(TrackClient(new HttpClient()));
 
             _hostValidator = Substitute.For<IGitHubHostValidator>();
 
@@ -30,6 +31,20 @@ namespace Dorc.Core.Tests
             var appSettings = Substitute.For<IConfigurationSection>();
             appSettings[Arg.Any<string>()].Returns((string?)null);
             _configuration.GetSection("AppSettings").Returns(appSettings);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            foreach (var client in _trackedClients)
+                client.Dispose();
+            _trackedClients.Clear();
+        }
+
+        private HttpClient TrackClient(HttpClient client)
+        {
+            _trackedClients.Add(client);
+            return client;
         }
 
         private GitHubArtifactDownloader CreateSut() =>
@@ -183,7 +198,7 @@ namespace Dorc.Core.Tests
                 var zipBytes = BuildZipArchive(
                     ("Server/hello.txt", "payload for the installer"));
                 _httpClientFactory.CreateClient("GitHubActions").Returns(
-                    new HttpClient(new StubHttpHandler(HttpStatusCode.OK, zipBytes)));
+                    TrackClient(new HttpClient(new StubHttpHandler(HttpStatusCode.OK, zipBytes))));
 
                 var sut = CreateSut();
 
@@ -230,7 +245,7 @@ namespace Dorc.Core.Tests
                 _configuration.GetSection("AppSettings").Returns(appSettings);
 
                 _httpClientFactory.CreateClient("GitHubActions").Returns(
-                    new HttpClient(new StubHttpHandler(HttpStatusCode.Unauthorized, Array.Empty<byte>())));
+                    TrackClient(new HttpClient(new StubHttpHandler(HttpStatusCode.Unauthorized, Array.Empty<byte>()))));
 
                 var sut = CreateSut();
 
@@ -388,11 +403,12 @@ namespace Dorc.Core.Tests
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                var response = new HttpResponseMessage(_status)
+                // Ownership of the HttpResponseMessage transfers to the HttpClient
+                // caller, which disposes it via its own `using` block.
+                return Task.FromResult(new HttpResponseMessage(_status)
                 {
                     Content = new ByteArrayContent(_body)
-                };
-                return Task.FromResult(response);
+                });
             }
         }
     }

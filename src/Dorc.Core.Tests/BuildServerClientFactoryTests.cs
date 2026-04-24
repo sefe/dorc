@@ -13,6 +13,7 @@ namespace Dorc.Core.Tests
         private IConfiguration _configuration = null!;
         private IHttpClientFactory _httpClientFactory = null!;
         private IGitHubHostValidator _hostValidator = null!;
+        private HttpClient _stubHttpClient = null!;
 
         [TestInitialize]
         public void Setup()
@@ -28,9 +29,16 @@ namespace Dorc.Core.Tests
             _configuration.GetSection("AppSettings").Returns(appSettingsSection);
 
             _httpClientFactory = Substitute.For<IHttpClientFactory>();
-            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
+            _stubHttpClient = new HttpClient();
+            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(_stubHttpClient);
 
             _hostValidator = Substitute.For<IGitHubHostValidator>();
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            _stubHttpClient?.Dispose();
         }
 
         [TestMethod]
