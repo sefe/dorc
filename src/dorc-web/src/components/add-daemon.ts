@@ -10,7 +10,7 @@ import { RefDataDaemonsApi } from '../apis/dorc-api';
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
 
-  private readonly maxFieldLength = 50;
+  private readonly maxFieldLength = 250;
 
   @state() private displayName = '';
 
@@ -100,7 +100,6 @@ export class AddDaemon extends LitElement {
             auto-validate
             @input="${this._accountNameValueChanged}"
             .value="${this.accountName ?? ''}"
-            .readonly="${true}"
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
@@ -112,7 +111,6 @@ export class AddDaemon extends LitElement {
             auto-validate
             @input="${this._serviceTypeValueChanged}"
             .value="${this.serviceType ?? ''}"
-            .readonly="${true}"
           >
           </vaadin-text-field>
         </vaadin-vertical-layout>

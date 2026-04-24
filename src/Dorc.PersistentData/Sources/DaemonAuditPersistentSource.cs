@@ -1,0 +1,175 @@
+using Dorc.ApiModel;
+using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Extensions;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
+
+namespace Dorc.PersistentData.Sources
+{
+    public class DaemonAuditPersistentSource : IDaemonAuditPersistentSource
+    {
+        private readonly IDeploymentContextFactory _contextFactory;
+
+        public DaemonAuditPersistentSource(IDeploymentContextFactory contextFactory)
+        {
+            _contextFactory = contextFactory;
+        }
+
+        public void InsertDaemonAudit(string username, ActionType action, int? daemonId, string? fromValue, string? toValue)
+        {
+            // Skip no-op Updates (matching ScriptsAuditPersistentSource.AddRecord convention)
+            if (action == ActionType.Update && string.Equals(fromValue, toValue))
+            {
+                return;
+            }
+
+            using (var context = _contextFactory.GetContext())
+            {
+                var actionRow = context.RefDataAuditActions.First(x => x.Action == action);
+
+                var audit = new DaemonAudit
+                {
+                    Date = DateTime.Now,
+                    Username = username,
+                    DaemonId = daemonId,
+                    RefDataAuditActionId = actionRow.RefDataAuditActionId,
+                    Action = actionRow,
+                    FromValue = fromValue,
+                    ToValue = toValue
+                };
+
+                context.DaemonAudits.Add(audit);
+                context.SaveChanges();
+            }
+        }
+
+        public GetDaemonAuditListResponseDto GetDaemonAuditByDaemonId(int daemonId, int limit, int page, PagedDataOperators operators)
+        {
+            PagedModel<DaemonAudit> output = null;
+            using (var context = _contextFactory.GetContext())
+            {
+                var queryable = context.DaemonAudits
+                    .Include(a => a.Action)
+                    .AsQueryable();
+
+                var filterLambdas = new List<Expression<Func<DaemonAudit, bool>>>
+                {
+                    queryable.ContainsExpression(nameof(DaemonAudit.DaemonId), daemonId.ToString())
+                };
+
+                if (operators.Filters != null && operators.Filters.Any())
+                {
+                    foreach (var pagedDataFilter in operators.Filters)
+                    {
+                        if (pagedDataFilter == null) continue;
+                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                        {
+                            filterLambdas.Add(queryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue));
+                        }
+                    }
+                }
+
+                queryable = WhereAll(queryable, filterLambdas.ToArray());
+
+                if (operators.SortOrders != null && operators.SortOrders.Any())
+                {
+                    IOrderedQueryable<DaemonAudit> orderedQuery = null;
+
+                    for (var i = 0; i < operators.SortOrders.Count; i++)
+                    {
+                        if (operators.SortOrders[i] == null) continue;
+                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
+                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                            continue;
+
+                        var param = Expression.Parameter(typeof(DaemonAudit), "DaemonAudit");
+                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+
+                        switch (prop.Type)
+                        {
+                            case Type boolType when boolType == typeof(bool):
+                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
+                                    GetExpressionForOrdering<bool>(prop, param));
+                                break;
+                            case Type stringType when stringType == typeof(string):
+                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
+                                    GetExpressionForOrdering<string>(prop, param));
+                                break;
+                            case Type intType when intType == typeof(int):
+                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
+                                    GetExpressionForOrdering<int>(prop, param));
+                                break;
+                            case Type datetimeType when datetimeType == typeof(DateTime):
+                                orderedQuery = OrderEntries(operators, i, orderedQuery, queryable,
+                                    GetExpressionForOrdering<DateTime>(prop, param));
+                                break;
+                        }
+                    }
+
+                    if (orderedQuery != null)
+                        output = orderedQuery.AsNoTracking().Paginate(page, limit);
+                }
+
+                if (output == null)
+                    output = queryable.AsNoTracking().OrderByDescending(a => a.Date).Paginate(page, limit);
+
+                return new GetDaemonAuditListResponseDto
+                {
+                    CurrentPage = output.CurrentPage,
+                    TotalPages = output.TotalPages,
+                    TotalItems = output.TotalItems,
+                    Items = output.Items.Select(a => new DaemonAuditApiModel
+                    {
+                        Id = a.Id,
+                        DaemonId = a.DaemonId,
+                        RefDataAuditActionId = a.RefDataAuditActionId,
+                        Action = a.Action.Action.ToString(),
+                        Username = a.Username,
+                        Date = a.Date,
+                        FromValue = a.FromValue,
+                        ToValue = a.ToValue
+                    }).ToList()
+                };
+            }
+        }
+
+        private static IOrderedQueryable<DaemonAudit> OrderEntries<T>(PagedDataOperators operators, int i,
+            IOrderedQueryable<DaemonAudit> orderedQuery, IQueryable<DaemonAudit> query,
+            Expression<Func<DaemonAudit, T>> expr)
+        {
+            if (i == 0)
+                switch (operators.SortOrders[i].Direction)
+                {
+                    case "asc": orderedQuery = query.OrderBy(expr); break;
+                    case "desc": orderedQuery = query.OrderByDescending(expr); break;
+                }
+            else
+                switch (operators.SortOrders[i].Direction)
+                {
+                    case "asc": orderedQuery = orderedQuery?.ThenBy(expr); break;
+                    case "desc": orderedQuery = orderedQuery?.ThenByDescending(expr); break;
+                }
+            return orderedQuery;
+        }
+
+        private static Expression<Func<DaemonAudit, R>> GetExpressionForOrdering<R>(MemberExpression prop, ParameterExpression param)
+        {
+            return Expression.Lambda<Func<DaemonAudit, R>>(prop, param);
+        }
+
+        private IQueryable<T> WhereAll<T>(IQueryable<T> source, params Expression<Func<T, bool>>[] predicates)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (predicates == null) throw new ArgumentNullException(nameof(predicates));
+            if (predicates.Length == 0) return source.Where(x => false);
+            if (predicates.Length == 1) return source.Where(predicates[0]);
+
+            Expression<Func<T, bool>> pred = null;
+            for (var i = 0; i < predicates.Length; i++)
+                pred = pred == null ? predicates[i] : pred.And(predicates[i]);
+            return source.Where(pred);
+        }
+    }
+}

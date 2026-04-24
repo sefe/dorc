@@ -1,18 +1,23 @@
-import { css, PropertyValues } from 'lit';
+import { css, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/grid/vaadin-grid';
+import '@vaadin/grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '../components/add-daemon';
-import '@polymer/paper-dialog';
+import '@vaadin/confirm-dialog';
 import '@vaadin/text-field';
+import '@polymer/paper-dialog';
+import '../components/add-daemon';
+import '../components/edit-daemon';
+import '../components/daemon-audit-view';
+import type { GridItemModel } from '@vaadin/grid';
+import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { PaperDialogElement } from '@polymer/paper-dialog';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { DaemonApiModel } from '../apis/dorc-api';
-import { RefDataDaemonsApi } from '../apis/dorc-api';
+import { DaemonApiModel, RefDataDaemonsApi } from '../apis/dorc-api';
+import GlobalCache from '../global-cache';
 
 @customElement('page-daemons-list')
 export class PageDaemonsList extends PageElement {
@@ -20,15 +25,45 @@ export class PageDaemonsList extends PageElement {
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
 
-  @property({ type: Array }) appConfig = [];
-
   @property({ type: Boolean }) details = false;
+
+  @property({ type: Boolean }) isAdmin = false;
+
+  @property({ type: Boolean }) isPowerUser = false;
+
+  @state() private editingDaemon: DaemonApiModel | null = null;
+
+  @state() private auditDaemonId = 0;
+
+  @state() private confirmDeleteOpen = false;
+
+  @state() private pendingDelete: DaemonApiModel | null = null;
 
   private loading = true;
 
+  public userRoles!: string[];
+
   constructor() {
     super();
+    this.getUserRoles();
     this.getDaemonsList();
+  }
+
+  private getUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => this.setUserRoles(userRoles)
+      });
+    } else {
+      this.setUserRoles(gc.userRoles);
+    }
+  }
+
+  private setUserRoles(userRoles: string[]) {
+    this.userRoles = userRoles;
+    this.isAdmin = userRoles.find(p => p === 'Admin') !== undefined;
+    this.isPowerUser = userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   private getDaemonsList() {
@@ -37,7 +72,6 @@ export class PageDaemonsList extends PageElement {
       (data: DaemonApiModel[]) => {
         this.setDaemons(data);
       },
-
       (err: any) => console.error(err),
       () => console.log('done loading daemons')
     );
@@ -87,6 +121,16 @@ export class PageDaemonsList extends PageElement {
         overflow: auto;
         padding: 10px;
       }
+      paper-dialog.audit-size {
+        top: 16px;
+        overflow: hidden;
+        padding: 10px;
+        width: 90vw;
+      }
+      .row-actions vaadin-button {
+        padding: 0;
+        margin: 0 2px;
+      }
     `;
   }
 
@@ -99,12 +143,13 @@ export class PageDaemonsList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaaadin-icon slot="prefix" icon="vaadin:search"></vaaadin-icon>
+          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add Daemon"
           style="width: 250px"
           @click="${this.addDaemon}"
+          ?hidden="${!(this.isAdmin || this.isPowerUser)}"
         >
           <vaadin-icon
             icon="vaadin:cog"
@@ -113,6 +158,7 @@ export class PageDaemonsList extends PageElement {
           >Add Daemon...
         </vaadin-button>
       </div>
+
       <paper-dialog
         class="size-position"
         id="add-daemon-dialog"
@@ -124,6 +170,59 @@ export class PageDaemonsList extends PageElement {
           <vaadin-button dialog-confirm>Close</vaadin-button>
         </div>
       </paper-dialog>
+
+      <paper-dialog
+        class="size-position"
+        id="edit-daemon-dialog"
+        allow-click-through
+        modal
+      >
+        ${this.editingDaemon
+          ? html`<edit-daemon
+              id="edit-daemon"
+              .daemon="${this.editingDaemon}"
+            ></edit-daemon>`
+          : html``}
+        <div style="display: flex; justify-content: flex-end">
+          <vaadin-button dialog-confirm>Close</vaadin-button>
+        </div>
+      </paper-dialog>
+
+      <paper-dialog
+        class="audit-size"
+        id="audit-dialog"
+        allow-click-through
+        modal
+      >
+        <h3 style="margin: 0 0 10px 0">Daemon Audit History</h3>
+        ${this.auditDaemonId > 0
+          ? html`<daemon-audit-view
+              .daemonId="${this.auditDaemonId}"
+            ></daemon-audit-view>`
+          : html``}
+        <div style="display: flex; justify-content: flex-end">
+          <vaadin-button dialog-confirm>Close</vaadin-button>
+        </div>
+      </paper-dialog>
+
+      <vaadin-confirm-dialog
+        .opened="${this.confirmDeleteOpen}"
+        @opened-changed="${(e: CustomEvent) => {
+          this.confirmDeleteOpen = (e.detail as any).value;
+        }}"
+        header="Delete daemon"
+        confirm-text="Delete"
+        confirm-theme="error primary"
+        cancel-button-visible
+        @confirm="${this.performDelete}"
+      >
+        ${this.pendingDelete
+          ? html`Delete daemon
+              <strong>${this.pendingDelete.Name}</strong>? This cannot be
+              undone. Any server mappings for this daemon will also be removed.`
+          : html``}
+      </vaadin-confirm-dialog>
+
       ${this.loading
         ? html`
             <div class="overlay" style="z-index: 2">
@@ -162,9 +261,54 @@ export class PageDaemonsList extends PageElement {
                 header="Type"
                 resizable
               ></vaadin-grid-sort-column>
+              <vaadin-grid-column
+                header="Actions"
+                width="180px"
+                flex-grow="0"
+                .renderer="${this._rowActionsRenderer}"
+              ></vaadin-grid-column>
             </vaadin-grid>
           `} `;
   }
+
+  private _rowActionsRenderer = (
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<DaemonApiModel>
+  ) => {
+    const daemon = model.item;
+    render(
+      html`<div class="row-actions">
+        <vaadin-button
+          title="View audit history"
+          theme="icon tertiary"
+          @click="${() => this.openAudit(daemon)}"
+        >
+          <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
+        </vaadin-button>
+        <vaadin-button
+          title="Edit daemon"
+          theme="icon tertiary"
+          ?hidden="${!(this.isAdmin || this.isPowerUser)}"
+          @click="${() => this.openEdit(daemon)}"
+        >
+          <vaadin-icon icon="vaadin:edit"></vaadin-icon>
+        </vaadin-button>
+        <vaadin-button
+          title="Delete daemon"
+          theme="icon tertiary"
+          ?hidden="${!this.isAdmin}"
+          @click="${() => this.requestDelete(daemon)}"
+        >
+          <vaadin-icon
+            icon="vaadin:trash"
+            style="color: var(--dorc-error-color)"
+          ></vaadin-icon>
+        </vaadin-button>
+      </div>`,
+      root
+    );
+  };
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
@@ -173,15 +317,68 @@ export class PageDaemonsList extends PageElement {
       'daemon-created',
       this.daemonCreated as EventListener
     );
+    this.addEventListener(
+      'daemon-updated',
+      this.daemonUpdated as EventListener
+    );
   }
 
   daemonCreated() {
     this.getDaemonsList();
-
     const dialog = this.shadowRoot?.getElementById(
       'add-daemon-dialog'
     ) as PaperDialogElement;
     dialog.close();
+  }
+
+  daemonUpdated() {
+    this.getDaemonsList();
+    const dialog = this.shadowRoot?.getElementById(
+      'edit-daemon-dialog'
+    ) as PaperDialogElement;
+    dialog?.close();
+    this.editingDaemon = null;
+  }
+
+  openEdit(daemon: DaemonApiModel) {
+    this.editingDaemon = { ...daemon };
+    const dialog = this.shadowRoot?.getElementById(
+      'edit-daemon-dialog'
+    ) as PaperDialogElement;
+    dialog?.open();
+  }
+
+  openAudit(daemon: DaemonApiModel) {
+    this.auditDaemonId = daemon.Id ?? 0;
+    const dialog = this.shadowRoot?.getElementById(
+      'audit-dialog'
+    ) as PaperDialogElement;
+    dialog?.open();
+  }
+
+  requestDelete(daemon: DaemonApiModel) {
+    this.pendingDelete = daemon;
+    this.confirmDeleteOpen = true;
+  }
+
+  performDelete() {
+    const daemon = this.pendingDelete;
+    if (!daemon || !daemon.Id) {
+      this.confirmDeleteOpen = false;
+      return;
+    }
+    const api = new RefDataDaemonsApi();
+    api.refDataDaemonsDelete({ id: daemon.Id }).subscribe(
+      () => {
+        this.pendingDelete = null;
+        this.confirmDeleteOpen = false;
+        this.getDaemonsList();
+      },
+      (err: any) => {
+        console.error('Failed to delete daemon', err);
+        this.confirmDeleteOpen = false;
+      }
+    );
   }
 
   updateSearch(e: CustomEvent) {
@@ -205,9 +402,9 @@ export class PageDaemonsList extends PageElement {
   }
 
   addDaemon() {
-    const attachEnv = this.shadowRoot?.getElementById(
+    const dialog = this.shadowRoot?.getElementById(
       'add-daemon-dialog'
     ) as PaperDialogElement;
-    attachEnv.open();
+    dialog.open();
   }
 }

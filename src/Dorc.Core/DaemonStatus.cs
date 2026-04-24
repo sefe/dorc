@@ -1,6 +1,6 @@
-﻿namespace Dorc.Core
+namespace Dorc.Core
 {
-    public class ServicesAndStatus
+    public class DaemonStatus
     {
         public string EnvName
         {
@@ -14,13 +14,19 @@
             set;
         }
 
-        public string ServiceName
+        public string DaemonName
         {
             get;
             set;
         }
 
-        public string ServiceStatus
+        public string Status
+        {
+            get;
+            set;
+        }
+
+        public string? ErrorMessage
         {
             get;
             set;

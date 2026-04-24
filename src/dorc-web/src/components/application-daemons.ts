@@ -8,7 +8,7 @@ import './grid-button-groups/daemon-controls';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi } from '../apis/dorc-api';
-import { ServiceStatusApiModel } from '../apis/dorc-api';
+import { DaemonStatusApiModel } from '../apis/dorc-api';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
@@ -16,7 +16,7 @@ export class ApplicationDaemons extends LitElement {
   _envName = '';
 
   @property({ type: Array })
-  private daemonsAndStatuses: ServiceStatusApiModel[] | undefined;
+  private daemonsAndStatuses: DaemonStatusApiModel[] | undefined;
 
   @property({ type: Boolean })
   private userEditable = false;
@@ -64,7 +64,7 @@ export class ApplicationDaemons extends LitElement {
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column
-          path="ServiceName"
+          path="DaemonName"
           header="Daemon Name"
           resizable
           width="300px"
@@ -72,7 +72,7 @@ export class ApplicationDaemons extends LitElement {
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column
-          path="ServiceStatus"
+          path="Status"
           header="Status"
           resizable
           width="100px"
@@ -92,29 +92,39 @@ export class ApplicationDaemons extends LitElement {
   _daemonStatusRenderer(
     root: HTMLElement,
     _column: GridColumn,
-    model: GridItemModel<ServiceStatusApiModel>
+    model: GridItemModel<DaemonStatusApiModel>
   ) {
-    const daemon = model.item as ServiceStatusApiModel;
-    const status = daemon?.ServiceStatus?.toLowerCase();
-    if (status === 'running') {
+    const daemon = model.item as DaemonStatusApiModel;
+    const status = daemon?.Status?.toLowerCase();
+    const errorMessage = daemon?.ErrorMessage;
+    if (errorMessage) {
+      root.style.color = 'var(--dorc-error-color)';
+    } else if (status === 'running') {
       root.style.color = 'var(--dorc-success-bg)';
     } else if (status === 'stopped') {
       root.style.color = 'var(--dorc-text-primary)';
     } else {
       root.style.color = 'var(--dorc-error-color)';
     }
-    render(
-      html`<span>${daemon?.ServiceStatus}</span>`,
-      root
-    );
+    if (errorMessage) {
+      render(
+        html`<span title="${errorMessage}">⚠ ${daemon?.Status ?? 'unreachable'}</span>`,
+        root
+      );
+    } else {
+      render(
+        html`<span>${daemon?.Status}</span>`,
+        root
+      );
+    }
   }
 
   _boundDaemonsButtonsRenderer(
     root: HTMLElement,
     _column: GridColumn,
-    model: GridItemModel<ServiceStatusApiModel>
+    model: GridItemModel<DaemonStatusApiModel>
   ) {
-    const daemon = model.item as ServiceStatusApiModel;
+    const daemon = model.item as DaemonStatusApiModel;
     render(
       html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${this.userEditable}"></daemon-controls>`,
       root
@@ -124,7 +134,7 @@ export class ApplicationDaemons extends LitElement {
   public loadDaemons() {
     const api = new DaemonStatusApi();
     api.daemonStatusEnvNameGet({ envName: this.envName }).subscribe({
-      next: (data: ServiceStatusApiModel[]) => {
+      next: (data: DaemonStatusApiModel[]) => {
         this.setServiceStatuses(data);
       },
       error: (err: any) => console.error(err),
@@ -140,11 +150,11 @@ export class ApplicationDaemons extends LitElement {
     );
   }
 
-  daemonStatusUpdated(event: CustomEvent<ServiceStatusApiModel>)
+  daemonStatusUpdated(event: CustomEvent<DaemonStatusApiModel>)
   {
-    const daemonData = event.detail as ServiceStatusApiModel;
+    const daemonData = event.detail as DaemonStatusApiModel;
     const index = this.daemonsAndStatuses?.findIndex(
-      (daemon) => daemon.ServiceName === daemonData.ServiceName && daemon.ServerName === daemonData.ServerName
+      (daemon) => daemon.DaemonName === daemonData.DaemonName && daemon.ServerName === daemonData.ServerName
     );
     if (index !== undefined && index > -1) {
       const updatedDaemons = [...this.daemonsAndStatuses!];
@@ -153,7 +163,7 @@ export class ApplicationDaemons extends LitElement {
     }
   }
 
-  private setServiceStatuses(data: ServiceStatusApiModel[]) {
+  private setServiceStatuses(data: DaemonStatusApiModel[]) {
     this.daemonsAndStatuses = data;
     const event = new CustomEvent('daemons-loaded', {
       detail: {
