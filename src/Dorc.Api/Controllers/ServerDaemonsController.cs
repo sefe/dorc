@@ -57,17 +57,25 @@ namespace Dorc.Api.Controllers
                     "Daemons can only be attached to servers by PowerUsers or Admins!");
             }
 
+            // Detect no-op attach (mapping already exists) so we don't emit a spurious audit row.
+            var alreadyAttached = _daemonsPersistentSource
+                .GetDaemonsForServer(serverId)
+                .Any(d => d.Id == daemonId);
+
             if (!_daemonsPersistentSource.AttachDaemonToServer(serverId, daemonId))
             {
                 return NotFound($"Server {serverId} or Daemon {daemonId} not found.");
             }
 
-            _daemonAuditPersistentSource.InsertDaemonAudit(
-                _claimsPrincipalReader.GetUserFullDomainName(User),
-                ActionType.Attach,
-                daemonId,
-                fromValue: null,
-                toValue: JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemonId }));
+            if (!alreadyAttached)
+            {
+                _daemonAuditPersistentSource.InsertDaemonAudit(
+                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    ActionType.Attach,
+                    daemonId,
+                    fromValue: null,
+                    toValue: JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemonId }));
+            }
 
             return Ok(true);
         }

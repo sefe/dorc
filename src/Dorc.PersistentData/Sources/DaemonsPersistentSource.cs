@@ -40,6 +40,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public DaemonApiModel? GetDaemonById(int daemonId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var daemon = context.Daemons.FirstOrDefault(d => d.Id == daemonId);
+                return daemon == null ? null : Map(daemon);
+            }
+        }
+
         private DaemonApiModel Map(Daemon daemon) =>
             new DaemonApiModel
             {

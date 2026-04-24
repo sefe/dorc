@@ -184,7 +184,7 @@ export class AddDaemon extends LitElement {
       },
       (err: any) => {
         this.isBusy = false;
-        this.overlayMessage = 'Error creating daemon!';
+        this.overlayMessage = this._extractErrorMessage(err) ?? 'Error creating daemon!';
         console.error(err);
       },
       () => {
@@ -192,6 +192,16 @@ export class AddDaemon extends LitElement {
         this.reset();
       }
     );
+  }
+
+  private _extractErrorMessage(err: any): string | null {
+    if (err?.response) {
+      if (typeof err.response === 'string') return err.response;
+      if (typeof err.response.ExceptionMessage === 'string') return err.response.ExceptionMessage;
+      if (typeof err.response.message === 'string') return err.response.message;
+    }
+    if (err?.message) return err.message;
+    return null;
   }
 
   _addDaemon(data: DaemonApiModel) {

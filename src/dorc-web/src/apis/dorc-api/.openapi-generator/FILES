@@ -6,6 +6,7 @@ apis/AnalyticsDeploymentsMonthApi.ts
 apis/ApiConfigApi.ts
 apis/ApiRootApi.ts
 apis/BundledRequestsApi.ts
+apis/DaemonAuditApi.ts
 apis/DaemonStatusApi.ts
 apis/DelegatedUsersApi.ts
 apis/DeploymentV2Api.ts
@@ -63,6 +64,8 @@ models/ComponentApiModel.ts
 models/ComponentApiModelTemplateApiModel.ts
 models/ConfigValueApiModel.ts
 models/DaemonApiModel.ts
+models/DaemonAuditApiModel.ts
+models/DaemonStatusApiModel.ts
 models/DatabaseApiModel.ts
 models/DatabaseApiModelEnvironmentComponentsDto.ts
 models/DeployArtefactDto.ts
@@ -79,6 +82,7 @@ models/EnvironmentDetailsApiModel.ts
 models/EnvironmentHistoryApiModel.ts
 models/EnvironmentOwnerApiModel.ts
 models/FlatPropertyValueApiModel.ts
+models/GetDaemonAuditListResponseDto.ts
 models/GetDatabaseApiModelListResponseDto.ts
 models/GetPropertyValuesAuditListResponseDto.ts
 models/GetRefDataAuditListResponseDto.ts
@@ -112,7 +116,6 @@ models/Response.ts
 models/ScriptApiModel.ts
 models/ServerApiModel.ts
 models/ServerOperatingSystemApiModel.ts
-models/ServiceStatusApiModel.ts
 models/SqlPortApiModel.ts
 models/UserAccountType.ts
 models/UserApiModel.ts

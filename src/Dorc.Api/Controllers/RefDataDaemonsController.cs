@@ -109,7 +109,9 @@ namespace Dorc.Api.Controllers
         /// </summary>
         [HttpPut]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DaemonApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         public IActionResult Put(int id, [FromBody] DaemonApiModel model)
         {
             if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
@@ -118,21 +120,28 @@ namespace Dorc.Api.Controllers
                     "Daemons can only be edited by PowerUsers or Admins!");
             }
 
-            var before = _daemonsPersistentSource.GetDaemons().FirstOrDefault(d => d.Id == model.Id);
+            if (id != model.Id)
+            {
+                return BadRequest($"Route id ({id}) does not match body Id ({model.Id}).");
+            }
+
+            var before = _daemonsPersistentSource.GetDaemonById(model.Id);
             var fromJson = before != null ? JsonSerializer.Serialize(before, _auditJsonOptions) : null;
 
             var updated = _daemonsPersistentSource.Update(model);
 
-            if (updated != null)
+            if (updated == null)
             {
-                var toJson = JsonSerializer.Serialize(updated, _auditJsonOptions);
-                _daemonAuditPersistentSource.InsertDaemonAudit(
-                    _claimsPrincipalReader.GetUserFullDomainName(User),
-                    ActionType.Update,
-                    updated.Id,
-                    fromValue: fromJson,
-                    toValue: toJson);
+                return NotFound($"Unable to find daemon {model.Id}");
             }
+
+            var toJson = JsonSerializer.Serialize(updated, _auditJsonOptions);
+            _daemonAuditPersistentSource.InsertDaemonAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Update,
+                updated.Id,
+                fromValue: fromJson,
+                toValue: toJson);
 
             return Ok(updated);
         }
@@ -152,7 +161,7 @@ namespace Dorc.Api.Controllers
                     "Daemons can only be deleted by Admins!");
             }
 
-            var before = _daemonsPersistentSource.GetDaemons().FirstOrDefault(d => d.Id == id);
+            var before = _daemonsPersistentSource.GetDaemonById(id);
 
             if (!_daemonsPersistentSource.Delete(id))
             {

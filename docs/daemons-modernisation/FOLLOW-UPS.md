@@ -22,6 +22,16 @@ Items captured during delivery but deliberately deferred from the issue #649 PR.
 
 ---
 
+## F-1a — Delete confirmation warning: show attached-server count and names
+
+**Context**: the HLPS U-7 resolution and SPEC-S-008 §2.5 specified that the Delete confirmation dialog on `page-daemons-list.ts` should warn when the daemon is attached to ≥1 servers, ideally with a count and/or server names. During S-008 execution the per-daemon attached-server query was dropped because the useful endpoint shape doesn't exist — the existing `GET /ServerDaemons/{serverId}` returns daemons on a server, not servers on a daemon. Adding a new endpoint (`GET /ServerDaemons/byDaemon/{daemonId}` or `GET /Daemons/{daemonId}/servers`) is a small addition that stayed out of scope.
+
+The current confirmation text is honest but unconditional: *"Any server mappings for this daemon will also be removed."* This covers the safety case (cascade deletion IS happening) without being alarmist for un-attached daemons.
+
+**Follow-up**: add the daemon-side inverse endpoint (new source method + controller action, all role-gated per SD-4), call it from `requestDelete()` before opening the confirm dialog, and include the count / names in the warning when non-zero.
+
+---
+
 ## F-2 — "Last seen" tracking on daemons (replaces the old side-effect)
 
 **Context**: before S-005 the status-probe path silently wrote `SERVER_SERVICE_MAP` rows every time a probe succeeded — a bad side effect, removed in this PR (DF-7). But the **intent** behind that bad side effect was reasonable: know when a given daemon was last observed running on a given server, so stale / unused daemons can be identified and cleaned up.
