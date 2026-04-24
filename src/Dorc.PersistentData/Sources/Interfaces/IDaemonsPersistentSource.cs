@@ -5,6 +5,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IDaemonsPersistentSource
     {
         IEnumerable<DaemonApiModel> GetDaemonsForServer(int serverId);
+        IEnumerable<ServerApiModel> GetServersForDaemon(int daemonId);
         IEnumerable<DaemonApiModel> GetDaemons();
         DaemonApiModel? GetDaemonById(int daemonId);
         DaemonApiModel Add(DaemonApiModel daemonApiModel);

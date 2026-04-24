@@ -48,6 +48,7 @@ apis/RequestApi.ts
 apis/RequestStatusesApi.ts
 apis/ResetAppPasswordApi.ts
 apis/ResultStatusesApi.ts
+apis/ServerDaemonsApi.ts
 apis/index.ts
 index.ts
 models/AccessControlApiModel.ts

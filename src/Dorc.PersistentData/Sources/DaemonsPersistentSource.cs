@@ -32,6 +32,28 @@ namespace Dorc.PersistentData.Sources
                             .Include(d => d.Daemons)
                             .FirstOrDefault(s => s.Id == serverId);
 
+        public IEnumerable<ServerApiModel> GetServersForDaemon(int daemonId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var daemon = context.Daemons
+                    .Include(d => d.Server)
+                    .FirstOrDefault(d => d.Id == daemonId);
+
+                if (daemon == null) return Enumerable.Empty<ServerApiModel>();
+
+                return daemon.Server
+                    .Select(s => new ServerApiModel
+                    {
+                        ServerId = s.Id,
+                        Name = s.Name,
+                        OsName = s.OsName,
+                        ApplicationTags = s.ApplicationTags
+                    })
+                    .ToList();
+            }
+        }
+
         public IEnumerable<DaemonApiModel> GetDaemons()
         {
             using (var context = _contextFactory.GetContext())

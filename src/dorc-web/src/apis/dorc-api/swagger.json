@@ -7053,6 +7053,47 @@
         }
       }
     },
+    "/ServerDaemons/by-daemon/{daemonId}": {
+      "get": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "daemonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ServerDaemons": {
       "post": {
         "tags": [

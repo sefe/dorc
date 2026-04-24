@@ -16,7 +16,8 @@ import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { DaemonApiModel, RefDataDaemonsApi } from '../apis/dorc-api';
+import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
+import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 
 @customElement('page-daemons-list')
@@ -38,6 +39,8 @@ export class PageDaemonsList extends PageElement {
   @state() private confirmDeleteOpen = false;
 
   @state() private pendingDelete: DaemonApiModel | null = null;
+
+  @state() private pendingDeleteAttachedServers: string[] = [];
 
   private loading = true;
 
@@ -219,7 +222,17 @@ export class PageDaemonsList extends PageElement {
         ${this.pendingDelete
           ? html`Delete daemon
               <strong>${this.pendingDelete.Name}</strong>? This cannot be
-              undone. Any server mappings for this daemon will also be removed.`
+              undone.
+              ${this.pendingDeleteAttachedServers.length > 0
+                ? html`<br /><br />Currently attached to
+                    ${this.pendingDeleteAttachedServers.length} server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
+                    <ul style="margin: 4px 0 0 0">
+                      ${this.pendingDeleteAttachedServers.map(
+                        name => html`<li>${name}</li>`
+                      )}
+                    </ul>
+                    Deleting will detach the daemon from all of them.`
+                : html`<br /><br />No server mappings to remove.`}`
           : html``}
       </vaadin-confirm-dialog>
 
@@ -358,6 +371,22 @@ export class PageDaemonsList extends PageElement {
 
   requestDelete(daemon: DaemonApiModel) {
     this.pendingDelete = daemon;
+    this.pendingDeleteAttachedServers = [];
+
+    if (daemon.Id && daemon.Id > 0) {
+      const api = new ServerDaemonsApi();
+      api.serverDaemonsByDaemonDaemonIdGet({ daemonId: daemon.Id }).subscribe({
+        next: (servers: ServerApiModel[]) => {
+          this.pendingDeleteAttachedServers = servers
+            .map(s => s.Name ?? '')
+            .filter(n => n.length > 0);
+        },
+        error: () => {
+          // Swallow: open the dialog without the list; user still sees the generic warning.
+        }
+      });
+    }
+
     this.confirmDeleteOpen = true;
   }
 

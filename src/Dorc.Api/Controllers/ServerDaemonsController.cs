@@ -43,6 +43,17 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Get servers a specific daemon is attached to
+        /// </summary>
+        [HttpGet("by-daemon/{daemonId:int}")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ServerApiModel>))]
+        public IActionResult GetServersForDaemon(int daemonId)
+        {
+            var servers = _daemonsPersistentSource.GetServersForDaemon(daemonId).ToList();
+            return Ok(servers);
+        }
+
+        /// <summary>
         /// Attach a daemon to a server
         /// </summary>
         [HttpPost]

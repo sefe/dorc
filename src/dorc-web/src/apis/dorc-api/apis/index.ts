@@ -45,6 +45,7 @@ export * from './ReleaseInformationApi';
 export * from './RequestApi';
 export * from './RequestStatusesApi';
 export * from './ResetAppPasswordApi';
+export * from './ServerDaemonsApi';
 export * from './ResultStatusesApi';
 export * from './ScriptsAuditApi'
 export * from './AnalyticsEnvironmentUsageApi';
