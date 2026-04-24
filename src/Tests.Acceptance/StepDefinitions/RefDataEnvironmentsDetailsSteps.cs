@@ -49,7 +49,7 @@ namespace Tests.Acceptance.StepDefinitions
             using (new AssertionScope())
             {
                 Assert.IsNotNull(projectApiResult, "Api request failed!");
-                Assert.AreEqual(true, projectApiResult.IsModelValid, projectApiResult.Message);
+                Assert.IsTrue(projectApiResult.IsModelValid, projectApiResult.Message);
 
                 var model = projectApiResult.Model as TemplateApiModel<EnvironmentApiModel>;
 
@@ -57,7 +57,7 @@ namespace Tests.Acceptance.StepDefinitions
                 Assert.AreEqual(projectName, model.Project.ProjectName);
                 var rgx = new Regex($"^{environmentName}*");
                 var result = model.Items.All(i => rgx.IsMatch(i.EnvironmentName));
-                Assert.AreEqual(true, result);
+                Assert.IsTrue(result);
             }
         }
 
