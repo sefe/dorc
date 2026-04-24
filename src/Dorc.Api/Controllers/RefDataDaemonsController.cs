@@ -112,6 +112,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
         public IActionResult Put(int id, [FromBody] DaemonApiModel model)
         {
             if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
@@ -125,14 +126,27 @@ namespace Dorc.Api.Controllers
                 return BadRequest($"Route id ({id}) does not match body Id ({model.Id}).");
             }
 
+            // Resolve existence up-front so we can 404 before calling Update (Update's
+            // interface contract returns non-nullable DaemonApiModel — we shouldn't rely on
+            // a null return to signal "not found").
             var before = _daemonsPersistentSource.GetDaemonById(model.Id);
-            var fromJson = before != null ? JsonSerializer.Serialize(before, _auditJsonOptions) : null;
-
-            var updated = _daemonsPersistentSource.Update(model);
-
-            if (updated == null)
+            if (before == null)
             {
                 return NotFound($"Unable to find daemon {model.Id}");
+            }
+
+            var fromJson = JsonSerializer.Serialize(before, _auditJsonOptions);
+
+            DaemonApiModel updated;
+            try
+            {
+                updated = _daemonsPersistentSource.Update(model);
+            }
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            {
+                // Rename collides with UQ_Daemon_Name / UQ_Daemon_DisplayName — surface
+                // the same 409 the Post path does so the UI sees a readable error, not a 500.
+                return Conflict("A daemon with the same Name or DisplayName already exists");
             }
 
             var toJson = JsonSerializer.Serialize(updated, _auditJsonOptions);

@@ -209,42 +209,44 @@ export class DorcNavbar extends LitElement {
             ></vaadin-icon>
           </a>
         </vaadin-tab>
-        ${this.auditMenuExpanded
-          ? html`
-              <vaadin-tab>
-                <a href="${urlForName('scripts-audit')}">
-                  <div style="margin-left: 20px; width: 210px">
-                    <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
-                    Scripts Audit
-                  </div>
-                </a>
-              </vaadin-tab>
-              <vaadin-tab>
-                <a href="${urlForName('variables-audit')}">
-                  <div style="margin-left: 20px; width: 210px">
-                    <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
-                    Variables Audit
-                  </div>
-                </a>
-              </vaadin-tab>
-              <vaadin-tab>
-                <a href="${urlForName('projects')}">
-                  <div style="margin-left: 20px; width: 210px">
-                    <vaadin-icon icon="vaadin:factory" theme="small"></vaadin-icon>
-                    Projects Audit
-                  </div>
-                </a>
-              </vaadin-tab>
-              <vaadin-tab>
-                <a href="${urlForName('daemons')}">
-                  <div style="margin-left: 20px; width: 210px">
-                    <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
-                    Daemons Audit
-                  </div>
-                </a>
-              </vaadin-tab>
-            `
-          : html``}
+        <!--
+          Audit sub-tabs are rendered always (not conditionally) and hidden via ?hidden when
+          the Audit menu is collapsed. This keeps them in the DOM so <vaadin-tabs>'
+          setSelectedTab can still locate and highlight the current audit route when the user
+          navigates there directly (e.g. via a bookmarked URL).
+        -->
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('scripts-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
+              Scripts Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('variables-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
+              Variables Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('projects')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:factory" theme="small"></vaadin-icon>
+              Projects Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('daemons')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
+              Daemons Audit
+            </div>
+          </a>
+        </vaadin-tab>
         ${this.isAdmin
           ? html`
               <vaadin-tab>

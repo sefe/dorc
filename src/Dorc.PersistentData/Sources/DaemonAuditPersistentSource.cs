@@ -52,12 +52,13 @@ namespace Dorc.PersistentData.Sources
             {
                 var queryable = context.DaemonAudits
                     .Include(a => a.Action)
-                    .AsQueryable();
+                    .Where(a => a.DaemonId == daemonId);
 
-                var filterLambdas = new List<Expression<Func<DaemonAudit, bool>>>
-                {
-                    queryable.ContainsExpression(nameof(DaemonAudit.DaemonId), daemonId.ToString())
-                };
+                // DaemonAudit.DaemonId is int? (nullable), which the string-based
+                // ContainsExpression helper doesn't support — a ContainsExpression call there
+                // would return null and crash WhereAll at runtime. Apply the daemon filter
+                // explicitly above and keep the user-supplied filters below.
+                var filterLambdas = new List<Expression<Func<DaemonAudit, bool>>>();
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
@@ -71,7 +72,13 @@ namespace Dorc.PersistentData.Sources
                     }
                 }
 
-                queryable = WhereAll(queryable, filterLambdas.ToArray());
+                // WhereAll treats an empty predicate list as "match nothing" (x => false), so
+                // only apply it when we actually have user-supplied filters — the daemon-scope
+                // filter is already baked into the initial .Where on `queryable`.
+                if (filterLambdas.Count > 0)
+                {
+                    queryable = WhereAll(queryable, filterLambdas.ToArray());
+                }
 
                 if (operators.SortOrders != null && operators.SortOrders.Any())
                 {

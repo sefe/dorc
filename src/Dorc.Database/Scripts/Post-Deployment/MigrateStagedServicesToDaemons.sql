@@ -1,23 +1,26 @@
 /*
 Post-Deployment Script: Copy rows from the dbo.*_MIGRATION_STAGING tables (populated by the
 pre-deploy script StageServicesForMigration.sql) into deploy.Daemon and deploy.ServerDaemon,
-preserving Id values via IDENTITY_INSERT. Drop the staging tables on successful completion.
+preserving Id values via IDENTITY_INSERT. Drop each staging table on successful completion.
+
+Each staging table is guarded independently so a partial state (only one of the two present
+after an interrupted prior publish) does not break the script.
 
 Idempotent via:
-  - Staging-table existence guard (runs only when there's something to migrate).
+  - Staging-table existence guard per block.
   - WHERE NOT EXISTS clauses on every INSERT (resume-safe).
 
 Filters applied (data-quality edge cases - IS S-002):
-  - Rows in staging with NULL Service_Name are skipped and logged (deploy.Daemon.Name is NOT NULL).
-  - Map rows referencing a Server_ID that no longer exists in dbo.SERVER are skipped and logged.
+  - Rows in service staging with NULL Service_Name are skipped (deploy.Daemon.Name is NOT NULL).
+  - Map rows referencing a Server_ID that no longer exists in dbo.SERVER are skipped.
   - Map rows whose daemon was skipped above are also skipped (FK_ServerDaemon_Daemon integrity).
 */
 
+-- ---------- dbo.SERVICE_MIGRATION_STAGING → deploy.Daemon ----------
 IF OBJECT_ID('dbo.SERVICE_MIGRATION_STAGING', 'U') IS NOT NULL
    AND OBJECT_ID('deploy.Daemon', 'U') IS NOT NULL
 BEGIN
     DECLARE @stagedServices INT, @nullNameCount INT, @insertedDaemons INT;
-    DECLARE @stagedMaps INT, @orphanServerCount INT, @orphanDaemonCount INT, @insertedMaps INT;
 
     SELECT @stagedServices = COUNT(*) FROM [dbo].[SERVICE_MIGRATION_STAGING];
     SELECT @nullNameCount  = COUNT(*) FROM [dbo].[SERVICE_MIGRATION_STAGING] WHERE Service_Name IS NULL;
@@ -48,7 +51,18 @@ BEGIN
 
     PRINT 'Daemon migration: inserted ' + CAST(@insertedDaemons AS VARCHAR(20)) + ' rows into deploy.Daemon';
 
-    -- Server-daemon mapping migration
+    DROP TABLE [dbo].[SERVICE_MIGRATION_STAGING];
+    PRINT 'Daemon migration: staging table dbo.SERVICE_MIGRATION_STAGING dropped';
+END
+GO
+
+-- ---------- dbo.SERVER_SERVICE_MAP_MIGRATION_STAGING → deploy.ServerDaemon ----------
+IF OBJECT_ID('dbo.SERVER_SERVICE_MAP_MIGRATION_STAGING', 'U') IS NOT NULL
+   AND OBJECT_ID('deploy.ServerDaemon', 'U') IS NOT NULL
+   AND OBJECT_ID('deploy.Daemon', 'U') IS NOT NULL
+BEGIN
+    DECLARE @stagedMaps INT, @orphanServerCount INT, @orphanDaemonCount INT, @insertedMaps INT;
+
     SELECT @stagedMaps = COUNT(*) FROM [dbo].[SERVER_SERVICE_MAP_MIGRATION_STAGING];
 
     SELECT @orphanServerCount = COUNT(*)
@@ -86,14 +100,14 @@ BEGIN
 
     PRINT 'ServerDaemon migration: inserted ' + CAST(@insertedMaps AS VARCHAR(20)) + ' rows into deploy.ServerDaemon';
 
-    -- Clean up the staging tables on successful completion
     DROP TABLE [dbo].[SERVER_SERVICE_MAP_MIGRATION_STAGING];
-    DROP TABLE [dbo].[SERVICE_MIGRATION_STAGING];
-
-    PRINT 'Daemon migration: staging tables dropped; migration complete';
+    PRINT 'ServerDaemon migration: staging table dbo.SERVER_SERVICE_MAP_MIGRATION_STAGING dropped';
 END
-ELSE
+GO
+
+IF OBJECT_ID('dbo.SERVICE_MIGRATION_STAGING', 'U') IS NULL
+   AND OBJECT_ID('dbo.SERVER_SERVICE_MAP_MIGRATION_STAGING', 'U') IS NULL
 BEGIN
-    PRINT 'Daemon migration: staging tables not present or deploy.Daemon missing - skipping';
+    PRINT 'Daemon migration: no staging tables present - nothing to migrate';
 END
 GO
