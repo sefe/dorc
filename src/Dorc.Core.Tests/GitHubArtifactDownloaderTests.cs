@@ -393,6 +393,7 @@ namespace Dorc.Core.Tests
         {
             private readonly HttpStatusCode _status;
             private readonly byte[] _body;
+            private readonly List<IDisposable> _tracked = new();
 
             public StubHttpHandler(HttpStatusCode status, byte[] body)
             {
@@ -403,12 +404,27 @@ namespace Dorc.Core.Tests
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                // Ownership of the HttpResponseMessage transfers to the HttpClient
-                // caller, which disposes it via its own `using` block.
-                return Task.FromResult(new HttpResponseMessage(_status)
+                // Track every IDisposable we create so this handler's Dispose
+                // has a concrete disposal path the static analyser can see.
+                // HttpResponseMessage / HttpContent dispose calls are
+                // idempotent, so overlap with HttpClient's own disposal of
+                // the response is safe.
+                var content = new ByteArrayContent(_body);
+                _tracked.Add(content);
+                var response = new HttpResponseMessage(_status) { Content = content };
+                _tracked.Add(response);
+                return Task.FromResult(response);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
                 {
-                    Content = new ByteArrayContent(_body)
-                });
+                    foreach (var d in _tracked)
+                        d.Dispose();
+                    _tracked.Clear();
+                }
+                base.Dispose(disposing);
             }
         }
     }

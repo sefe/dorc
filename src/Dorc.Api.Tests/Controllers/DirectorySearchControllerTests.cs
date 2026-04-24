@@ -5,6 +5,7 @@ using Dorc.Core.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Dorc.Api.Tests.Controllers
@@ -28,6 +29,14 @@ namespace Dorc.Api.Tests.Controllers
             return new DirectorySearchController(_searchService, _configSettings);
         }
 
+        // Narrows a nullable `as` cast to a non-null concrete type in a single
+        // step so downstream dereferences type-check cleanly (and so static
+        // analysers that don't honour MSTest's [NotNull] attribute on
+        // Assert.IsNotNull stop flagging subsequent uses).
+        private static T AssertIs<T>(object? value) where T : class =>
+            value as T
+                ?? throw new AssertFailedException($"Expected {typeof(T).Name}, got {value?.GetType().Name ?? "null"}");
+
         #region SearchUsers validation tests
 
         [TestMethod]
@@ -36,10 +45,9 @@ namespace Dorc.Api.Tests.Controllers
         public void SearchUsers_TooShort_Returns500(string criteria, string expectedMessage)
         {
             using var controller = CreateController();
-            var result = controller.SearchUsers(criteria) as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.SearchUsers(criteria));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
             var response = result.Value as HttpResponseMessage;
             Assert.AreEqual(expectedMessage, response?.Content.ReadAsStringAsync().Result);
         }
@@ -49,10 +57,9 @@ namespace Dorc.Api.Tests.Controllers
         {
             var criteria = new string('a', 101);
             using var controller = CreateController();
-            var result = controller.SearchUsers(criteria) as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.SearchUsers(criteria));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
             var response = result.Value as HttpResponseMessage;
             Assert.IsTrue(response?.Content.ReadAsStringAsync().Result.Contains("not greater then 100"));
         }
@@ -82,10 +89,9 @@ namespace Dorc.Api.Tests.Controllers
         public void SearchUsers_InvalidCharacters_Returns500(string criteria)
         {
             using var controller = CreateController();
-            var result = controller.SearchUsers(criteria) as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.SearchUsers(criteria));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
             var response = result.Value as HttpResponseMessage;
             Assert.IsTrue(response?.Content.ReadAsStringAsync().Result.Contains("unacceptable characters"));
         }
@@ -100,12 +106,10 @@ namespace Dorc.Api.Tests.Controllers
             _searchService.FindUsers("test", "DOMAIN").Returns(expectedUsers);
 
             using var controller = CreateController();
-            var result = controller.SearchUsers("test") as OkObjectResult;
+            var result = AssertIs<OkObjectResult>(controller.SearchUsers("test"));
 
-            Assert.IsNotNull(result);
-            var users = result!.Value as IList<UserSearchResult>;
-            Assert.IsNotNull(users);
-            Assert.AreEqual(1, users!.Count);
+            var users = AssertIs<IList<UserSearchResult>>(result.Value);
+            Assert.AreEqual(1, users.Count);
             Assert.AreEqual("Test User", users[0].DisplayName);
             Assert.AreEqual(@"DOMAIN\testuser", users[0].FullLogonName);
         }
@@ -116,12 +120,10 @@ namespace Dorc.Api.Tests.Controllers
             _searchService.FindUsers("test", "DOMAIN").Returns(new List<UserSearchResult>());
 
             using var controller = CreateController();
-            var result = controller.SearchUsers("test") as OkObjectResult;
+            var result = AssertIs<OkObjectResult>(controller.SearchUsers("test"));
 
-            Assert.IsNotNull(result);
-            var users = result!.Value as IList<UserSearchResult>;
-            Assert.IsNotNull(users);
-            Assert.AreEqual(0, users!.Count);
+            var users = AssertIs<IList<UserSearchResult>>(result.Value);
+            Assert.AreEqual(0, users.Count);
         }
 
         [TestMethod]
@@ -145,10 +147,9 @@ namespace Dorc.Api.Tests.Controllers
         public void SearchGroups_TooShort_Returns500(string criteria, string expectedMessage)
         {
             using var controller = CreateController();
-            var result = controller.SearchGroups(criteria) as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.SearchGroups(criteria));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
             var response = result.Value as HttpResponseMessage;
             Assert.AreEqual(expectedMessage, response?.Content.ReadAsStringAsync().Result);
         }
@@ -158,10 +159,9 @@ namespace Dorc.Api.Tests.Controllers
         {
             var criteria = new string('a', 101);
             using var controller = CreateController();
-            var result = controller.SearchGroups(criteria) as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.SearchGroups(criteria));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
         }
 
         [TestMethod]
@@ -189,10 +189,9 @@ namespace Dorc.Api.Tests.Controllers
         public void SearchGroups_InvalidCharacters_Returns500(string criteria)
         {
             using var controller = CreateController();
-            var result = controller.SearchGroups(criteria) as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.SearchGroups(criteria));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, result.StatusCode);
         }
 
         [TestMethod]
@@ -205,12 +204,10 @@ namespace Dorc.Api.Tests.Controllers
             _searchService.FindGroups("test", "DOMAIN").Returns(expectedGroups);
 
             using var controller = CreateController();
-            var result = controller.SearchGroups("test") as OkObjectResult;
+            var result = AssertIs<OkObjectResult>(controller.SearchGroups("test"));
 
-            Assert.IsNotNull(result);
-            var groups = result!.Value as IList<GroupSearchResult>;
-            Assert.IsNotNull(groups);
-            Assert.AreEqual(1, groups!.Count);
+            var groups = AssertIs<IList<GroupSearchResult>>(result.Value);
+            Assert.AreEqual(1, groups.Count);
             Assert.AreEqual("Test Group", groups[0].DisplayName);
         }
 
@@ -234,20 +231,18 @@ namespace Dorc.Api.Tests.Controllers
         public void IsUserInGroup_NullGroupName_Returns400()
         {
             using var controller = CreateController();
-            var result = controller.IsUserInGroup(null, "account") as StatusCodeResult;
+            var result = AssertIs<StatusCodeResult>(controller.IsUserInGroup(null, "account"));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status400BadRequest, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
         }
 
         [TestMethod]
         public void IsUserInGroup_NullAccount_Returns400()
         {
             using var controller = CreateController();
-            var result = controller.IsUserInGroup("group", null) as StatusCodeResult;
+            var result = AssertIs<StatusCodeResult>(controller.IsUserInGroup("group", null));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status400BadRequest, result!.StatusCode);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
         }
 
         [TestMethod]
@@ -256,13 +251,11 @@ namespace Dorc.Api.Tests.Controllers
             _searchService.IsUserInGroup("myGroup", "myUser", "DOMAIN").Returns(true);
 
             using var controller = CreateController();
-            var result = controller.IsUserInGroup("myGroup", "myUser") as ObjectResult;
+            var result = AssertIs<ObjectResult>(controller.IsUserInGroup("myGroup", "myUser"));
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
-            var apiResult = result.Value as ApiBoolResult;
-            Assert.IsNotNull(apiResult);
-            Assert.IsTrue(apiResult!.Result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            var apiResult = AssertIs<ApiBoolResult>(result.Value);
+            Assert.IsTrue(apiResult.Result);
         }
 
         #endregion

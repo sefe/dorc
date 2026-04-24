@@ -52,7 +52,7 @@ namespace Dorc.Core.BuildServer
                 {
                     Id = build.Url,
                     Date = build.FinishTime,
-                    Name = build.KeepForever == true ? build.BuildNumber + " [PINNED]" : build.BuildNumber
+                    Name = build.KeepForever ? build.BuildNumber + " [PINNED]" : build.BuildNumber
                 }).ToList();
 
             return builds.OrderByDescending(b => b.Date);

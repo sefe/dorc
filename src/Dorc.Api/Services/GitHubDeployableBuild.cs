@@ -111,7 +111,7 @@ namespace Dorc.Api.Services
             {
                 id = Convert.ToInt32(requestId);
             }
-            catch (Exception e)
+            catch (Exception e) when (e is FormatException or OverflowException or InvalidCastException or ArgumentNullException)
             {
                 return new RequestStatusDto { Id = 0, Status = e.Message };
             }
