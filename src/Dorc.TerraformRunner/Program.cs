@@ -143,7 +143,7 @@ namespace Dorc.TerraformRunner
             using ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
             ManagementObjectCollection processList = searcher.Get();
 
-            foreach (ManagementObject obj in processList.Cast<ManagementObject>())
+            foreach (ManagementObject obj in processList.OfType<ManagementObject>())
             {
                 string[] argList = new string[] { string.Empty, string.Empty };
                 int returnVal = Convert.ToInt32(obj.InvokeMethod("GetOwner", argList));
