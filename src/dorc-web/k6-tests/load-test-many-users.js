@@ -18,8 +18,8 @@ export const options = {
 export default function main() {
   const user = users[vu.idInInstance % users.length]; // Pick a user for this iteration. Use the modulo operator to distribute users among VUs
 
-  let ntlmUser = `${encodeURIComponent(user.username)}:${encodeURIComponent(user.password)}@`;
-  let baseApiAddress = config.api.baseUrl.replace('://', `://${ntlmUser}`);
+  const ntlmUser = `${encodeURIComponent(user.username)}:${encodeURIComponent(user.password)}@`;
+  const baseApiAddress = config.api.baseUrl.replace('://', `://${ntlmUser}`);
 
   RunGetRequests(baseApiAddress, user);
   RunFailedGetRequests(baseApiAddress);
@@ -40,7 +40,7 @@ function RunGetRequests(baseApiAddress, user) {
 }
 
 function runSuccessGetRequest(baseApiAddress, uri) {
-  let response = http.get(`${baseApiAddress}${uri}`, {
+  const response = http.get(`${baseApiAddress}${uri}`, {
     auth: 'ntlm',
     headers: {
       'user-agent': config.api.userAgent,
@@ -52,7 +52,7 @@ function runSuccessGetRequest(baseApiAddress, uri) {
 }
 
 function RunFailedGetRequests(baseApiAddress) {
-  let response = http.get(`${baseApiAddress}/DaemonStatus/`, {
+  const response = http.get(`${baseApiAddress}/DaemonStatus/`, {
     auth: 'ntlm',
     headers: {
       'user-agent': config.api.userAgent,
@@ -80,7 +80,7 @@ function checkResponse(response) {
   });
 
   if (response.error_code) {
-    let urlWithoutPass = response.request.url.replace(/:\/\/.*:.*@/, '://');
+    const urlWithoutPass = response.request.url.replace(/:\/\/.*:.*@/, '://');
     console.error(
       `${urlWithoutPass} error, statusCode: ${response.status} ${response.status_text}, body: ${response.body}`
     );
