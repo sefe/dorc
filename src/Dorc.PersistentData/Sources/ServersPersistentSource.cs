@@ -83,123 +83,106 @@ namespace Dorc.PersistentData.Sources
         public GetServerApiModelListResponseDto GetServerApiModelByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user)
         {
-            PagedModel<Server> output = null;
-            using (var context = _contextFactory.GetContext())
+            using var context = _contextFactory.GetContext();
+
+            var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
+            var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
+            var query = context.Servers.Include(server => server.Environments).AsQueryable();
+
+            query = ApplyFilters(query, operators.Filters);
+            var output = ApplySortingAndPaginate(query, operators, page, limit);
+
+            return new GetServerApiModelListResponseDto
             {
-                var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
-
-                var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
-                var reqStatusesQueryable = context.Servers.Include(server => server.Environments).AsQueryable();
-
-                if (operators.Filters != null && operators.Filters.Any())
-                {
-                    var filterLambdas =
-                        new List<Expression<Func<Server, bool>>>();
-                    foreach (var pagedDataFilter in operators.Filters)
-                    {
-                        if (pagedDataFilter == null)
-                            continue;
-
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            if (pagedDataFilter.Path == "EnvironmentNames")
-                            {
-                                filterLambdas.Add(server =>
-                                    server.Environments.Any(ed => ed.Name.Contains(pagedDataFilter.FilterValue)));
-                            }
-                            else
-                            {
-                                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
-                            }
-                        }
-                    }
-
-                    reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
-                }
-
-                if (operators.SortOrders != null && operators.SortOrders.Any())
-                {
-                    IOrderedQueryable<Server> orderedQuery = null;
-
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
-                    {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        if (operators.SortOrders[i].Path == "EnvironmentNames")
-                        {
-                            operators.SortOrders[i].Path = "Environments";
-                        }
-
-                        var param = Expression.Parameter(typeof(Server), "Server");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<Server, bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<Server, string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<Server, int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                {
-                                    var expr = GetExpressionForOrdering<Server, DateTime>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
-                    }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
-                }
-
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderBy(s => s.Id)
-                        .Paginate(page, limit);
-
-                return new GetServerApiModelListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(s => new ServerApiModel
-                    {
-                        EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
-                        Name = s.Name,
-                        ApplicationTags = s.ApplicationTags,
-                        OsName = s.OsName,
-                        ServerId = s.Id,
-                        UserEditable = (from environmentDetail in s.Environments
-                                        select envPrivilegeInfos[environmentDetail.Name]
-                                            into privilegeInfo
-                                        where privilegeInfo != null
-                                        select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
-                                               isAdmin).All(e => e)
-                    }).ToList()
-                };
-            }
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(s => MapToServerApiModel(s, envPrivilegeInfos, isAdmin)).ToList()
+            };
         }
 
+        private IQueryable<Server> ApplyFilters(IQueryable<Server> query, List<PagedDataFilter> filters)
+        {
+            if (filters == null || !filters.Any())
+                return query;
+
+            var filterLambdas = new List<Expression<Func<Server, bool>>>();
+
+            foreach (var filter in filters)
+            {
+                if (filter == null || string.IsNullOrEmpty(filter.Path) || string.IsNullOrEmpty(filter.FilterValue))
+                    continue;
+
+                filterLambdas.Add(filter.Path == "EnvironmentNames"
+                    ? server => server.Environments.Any(ed => ed.Name.Contains(filter.FilterValue))
+                    : query.ContainsExpression(filter.Path, filter.FilterValue));
+            }
+
+            return WhereAll(query, filterLambdas.ToArray());
+        }
+
+        private static PagedModel<Server> ApplySortingAndPaginate(IQueryable<Server> query,
+            PagedDataOperators operators, int page, int limit)
+        {
+            if (operators.SortOrders == null || !operators.SortOrders.Any())
+                return query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+
+            IOrderedQueryable<Server> orderedQuery = null;
+
+            for (var i = 0; i < operators.SortOrders.Count; i++)
+            {
+                if (operators.SortOrders[i] == null || string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
+                    string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                    continue;
+
+                if (operators.SortOrders[i].Path == "EnvironmentNames")
+                    operators.SortOrders[i].Path = "Environments";
+
+                orderedQuery = ApplySortOrder(query, orderedQuery, operators, i);
+            }
+
+            return orderedQuery != null
+                ? orderedQuery.AsNoTracking().Paginate(page, limit)
+                : query.AsNoTracking().OrderBy(s => s.Id).Paginate(page, limit);
+        }
+
+        private static IOrderedQueryable<Server> ApplySortOrder(IQueryable<Server> query,
+            IOrderedQueryable<Server> orderedQuery, PagedDataOperators operators, int index)
+        {
+            var param = Expression.Parameter(typeof(Server), "Server");
+            var prop = Expression.PropertyOrField(param, operators.SortOrders[index].Path);
+
+            return prop.Type switch
+            {
+                Type t when t == typeof(bool) =>
+                    OrderScripts(operators, index, orderedQuery, query, GetExpressionForOrdering<Server, bool>(prop, param)),
+                Type t when t == typeof(string) =>
+                    OrderScripts(operators, index, orderedQuery, query, GetExpressionForOrdering<Server, string>(prop, param)),
+                Type t when t == typeof(int) =>
+                    OrderScripts(operators, index, orderedQuery, query, GetExpressionForOrdering<Server, int>(prop, param)),
+                Type t when t == typeof(DateTime) =>
+                    OrderScripts(operators, index, orderedQuery, query, GetExpressionForOrdering<Server, DateTime>(prop, param)),
+                _ => orderedQuery
+            };
+        }
+
+        private ServerApiModel MapToServerApiModel(Server s,
+            Dictionary<string, EnvironmentPrivInfo> envPrivilegeInfos, bool isAdmin)
+        {
+            return new ServerApiModel
+            {
+                EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
+                Name = s.Name,
+                ApplicationTags = s.ApplicationTags,
+                OsName = s.OsName,
+                ServerId = s.Id,
+                UserEditable = s.Environments
+                    .Select(ed => envPrivilegeInfos[ed.Name])
+                    .Where(pi => pi != null)
+                    .Select(pi => pi.IsOwner || pi.HasPermission || isAdmin)
+                    .All(e => e)
+            };
+        }
 
         public IEnumerable<ServerApiModel> GetServers(IPrincipal user)
         {
