@@ -162,9 +162,13 @@ namespace Dorc.Core.Tests
             {
                 sut.DownloadAndExtract("https://api.github.com/repos/o/r/actions/artifacts/1/zip");
             }
-            catch
+            catch (Exception ex) when (ex is HttpRequestException
+                                       or TaskCanceledException
+                                       or IOException)
             {
-                // expected — no HTTP client configured
+                // expected — real HttpClient against api.github.com without
+                // auth returns 404 → HttpRequestException; without network,
+                // TaskCanceledException or IOException.
             }
 
             _hostValidator.Received().ValidateHost("api.github.com");
@@ -182,7 +186,7 @@ namespace Dorc.Core.Tests
         public void DownloadAndExtract_HappyPath_ExtractsUnderConfiguredFolderAndReturnsPath()
         {
             // Arrange — an isolated download folder for this test
-            var downloadRoot = Path.Combine(Path.GetTempPath(),
+            var downloadRoot = Path.Join(Path.GetTempPath(),
                 "dorc-download-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(downloadRoot);
 
@@ -213,15 +217,15 @@ namespace Dorc.Core.Tests
 
                 // Artifact zip was extracted into a "drop" subfolder, preserving
                 // the zip's internal layout
-                var dropFolder = Path.Combine(returnedPath, "drop");
+                var dropFolder = Path.Join(returnedPath, "drop");
                 Assert.IsTrue(Directory.Exists(dropFolder), "Expected 'drop' subfolder to exist");
-                var extracted = Path.Combine(dropFolder, "Server", "hello.txt");
+                var extracted = Path.Join(dropFolder, "Server", "hello.txt");
                 Assert.IsTrue(File.Exists(extracted), $"Expected extracted file at '{extracted}'");
                 Assert.AreEqual("payload for the installer", File.ReadAllText(extracted));
 
                 // The intermediate zip file must have been deleted so it can't
                 // be re-invoked or inflate cleanup size
-                Assert.IsFalse(File.Exists(Path.Combine(returnedPath, "artifact.zip")),
+                Assert.IsFalse(File.Exists(Path.Join(returnedPath, "artifact.zip")),
                     "artifact.zip should be deleted after extraction");
             }
             finally
@@ -234,7 +238,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void DownloadAndExtract_HttpFailure_CleansUpAndRethrows()
         {
-            var downloadRoot = Path.Combine(Path.GetTempPath(),
+            var downloadRoot = Path.Join(Path.GetTempPath(),
                 "dorc-download-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(downloadRoot);
 
@@ -274,9 +278,9 @@ namespace Dorc.Core.Tests
             // Arrange — configured base folder plus a sibling directory that
             // sits outside that base. Cleanup must refuse to touch the sibling
             // even though it exists on disk.
-            var downloadRoot = Path.Combine(Path.GetTempPath(),
+            var downloadRoot = Path.Join(Path.GetTempPath(),
                 "dorc-download-test-" + Guid.NewGuid().ToString("N"));
-            var outsideRoot = Path.Combine(Path.GetTempPath(),
+            var outsideRoot = Path.Join(Path.GetTempPath(),
                 "dorc-outside-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(downloadRoot);
             Directory.CreateDirectory(outsideRoot);
@@ -308,10 +312,10 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Cleanup_DeletesPathInsideConfiguredArtifactBase()
         {
-            var downloadRoot = Path.Combine(Path.GetTempPath(),
+            var downloadRoot = Path.Join(Path.GetTempPath(),
                 "dorc-download-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(downloadRoot);
-            var insidePath = Path.Combine(downloadRoot, Guid.NewGuid().ToString("N"));
+            var insidePath = Path.Join(downloadRoot, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(insidePath);
 
             try
@@ -339,14 +343,14 @@ namespace Dorc.Core.Tests
         {
             // Arrange — base folder + a traversal path that syntactically
             // references the base but escapes it via `..`.
-            var downloadRoot = Path.Combine(Path.GetTempPath(),
+            var downloadRoot = Path.Join(Path.GetTempPath(),
                 "dorc-download-test-" + Guid.NewGuid().ToString("N"));
-            var siblingOutside = Path.Combine(Path.GetTempPath(),
+            var siblingOutside = Path.Join(Path.GetTempPath(),
                 "dorc-sibling-outside-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(downloadRoot);
             Directory.CreateDirectory(siblingOutside);
 
-            var traversal = Path.Combine(downloadRoot, "..",
+            var traversal = Path.Join(downloadRoot, "..",
                 Path.GetFileName(siblingOutside));
 
             try

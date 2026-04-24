@@ -168,7 +168,10 @@ namespace Dorc.Monitor.TerraformSourceConfig
                     // Derive API base URL with host validation to prevent SSRF/token exfiltration
                     scriptGroup.GitHubApiBaseUrl = _gitHubHostValidator.GetApiBase(project.ArtefactsUrl);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is UriFormatException
+                                           or FormatException
+                                           or ArgumentException
+                                           or InvalidOperationException)
                 {
                     _logger.LogWarning(ex, "Failed to parse GitHub ArtefactsUrl for project");
                 }

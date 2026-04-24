@@ -79,7 +79,10 @@ namespace Dorc.Core.BuildServer
                         });
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is HttpRequestException
+                                           or TaskCanceledException
+                                           or System.Text.Json.JsonException
+                                           or RegexMatchTimeoutException)
                 {
                     _logger.LogWarning(ex, "Failed to fetch GitHub workflow definition");
                 }

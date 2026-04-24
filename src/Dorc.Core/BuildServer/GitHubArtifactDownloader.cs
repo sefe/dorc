@@ -92,13 +92,13 @@ namespace Dorc.Core.BuildServer
 
             var baseDir = !string.IsNullOrEmpty(_downloadFolder)
                 ? _downloadFolder
-                : Path.Combine(Path.GetTempPath(), "dorc-artifacts");
-            var tempDir = Path.Combine(baseDir, Guid.NewGuid().ToString("N"));
+                : Path.Join(Path.GetTempPath(), "dorc-artifacts");
+            var tempDir = Path.Join(baseDir, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
 
             try
             {
-                var zipPath = Path.Combine(tempDir, "artifact.zip");
+                var zipPath = Path.Join(tempDir, "artifact.zip");
 
                 using (var response = client.GetAsync(artifactUrl).GetAwaiter().GetResult())
                 {
@@ -113,7 +113,7 @@ namespace Dorc.Core.BuildServer
 
                 // Extract into a "drop" subfolder so that deployment scripts using
                 // Join-Path $DropFolder "drop\..." resolve correctly.
-                var extractDir = Path.Combine(tempDir, "drop");
+                var extractDir = Path.Join(tempDir, "drop");
                 ZipFile.ExtractToDirectory(zipPath, extractDir);
 
                 _logger.LogInformation("Extracted artifact to: {Path}", extractDir);
@@ -153,7 +153,9 @@ namespace Dorc.Core.BuildServer
                 Directory.Delete(extractedPath, recursive: true);
                 _logger.LogInformation("Cleaned up artifact directory: {Path}", extractedPath);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or System.Security.SecurityException)
             {
                 _logger.LogWarning(ex, "Failed to clean up artifact directory: {Path}", extractedPath);
             }
@@ -163,7 +165,7 @@ namespace Dorc.Core.BuildServer
         {
             var baseDir = !string.IsNullOrEmpty(_downloadFolder)
                 ? _downloadFolder
-                : Path.Combine(Path.GetTempPath(), "dorc-artifacts");
+                : Path.Join(Path.GetTempPath(), "dorc-artifacts");
 
             var canonicalBase = Path.GetFullPath(baseDir)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
