@@ -287,7 +287,7 @@ namespace Dorc.Monitor.Tests
         {
             // Arrange
             var artifactUrl = "https://api.github.com/repos/sefe/dorc-rabbitmq-installer/actions/artifacts/1234/zip";
-            var resolvedLocalPath = Path.Combine(Path.GetTempPath(), "dorc-artifacts", Guid.NewGuid().ToString("N"));
+            var resolvedLocalPath = Path.Join(Path.GetTempPath(), "dorc-artifacts", Guid.NewGuid().ToString("N"));
 
             mockGitHubArtifactDownloader.IsGitHubArtifactUrl(artifactUrl).Returns(true);
             mockGitHubArtifactDownloader.DownloadAndExtract(artifactUrl).Returns(resolvedLocalPath);
@@ -334,7 +334,7 @@ namespace Dorc.Monitor.Tests
             // The cleanup guarantee MUST hold even on a failed deployment —
             // that's the whole point of having it in the finally block.
             var artifactUrl = "https://api.github.com/repos/o/r/actions/artifacts/9999/zip";
-            var resolvedLocalPath = Path.Combine(Path.GetTempPath(), "dorc-artifacts", Guid.NewGuid().ToString("N"));
+            var resolvedLocalPath = Path.Join(Path.GetTempPath(), "dorc-artifacts", Guid.NewGuid().ToString("N"));
 
             mockGitHubArtifactDownloader.IsGitHubArtifactUrl(artifactUrl).Returns(true);
             mockGitHubArtifactDownloader.DownloadAndExtract(artifactUrl).Returns(resolvedLocalPath);
