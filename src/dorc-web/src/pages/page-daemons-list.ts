@@ -274,6 +274,13 @@ export class PageDaemonsList extends PageElement {
                 header="Type"
                 resizable
               ></vaadin-grid-sort-column>
+              <vaadin-grid-sort-column
+                path="LastSeenDate"
+                header="Last Seen"
+                resizable
+                direction="desc"
+                .renderer="${this._lastSeenRenderer}"
+              ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Actions"
                 width="180px"
@@ -282,6 +289,57 @@ export class PageDaemonsList extends PageElement {
               ></vaadin-grid-column>
             </vaadin-grid>
           `} `;
+  }
+
+  private _lastSeenRenderer = (
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<DaemonApiModel>
+  ) => {
+    const daemon = model.item;
+    const raw = daemon.LastSeenDate;
+    if (!raw) {
+      render(
+        html`<span style="color: var(--dorc-text-secondary, #888)">Never</span>`,
+        root
+      );
+      return;
+    }
+
+    const dt = new Date(raw);
+    const relative = this._formatRelativeTime(dt);
+    const tooltip = `${dt.toLocaleString('en-GB')}${daemon.LastSeenStatus ? ' — ' + daemon.LastSeenStatus : ''}`;
+    const status = daemon.LastSeenStatus?.toLowerCase();
+    const color =
+      status === 'running'
+        ? 'var(--dorc-success-bg, inherit)'
+        : status === 'stopped'
+        ? 'inherit'
+        : status == null || status === ''
+        ? 'var(--dorc-error-color, inherit)'
+        : 'inherit';
+
+    render(
+      html`<span title="${tooltip}" style="color: ${color}">${relative}</span>`,
+      root
+    );
+  };
+
+  private _formatRelativeTime(date: Date): string {
+    const now = Date.now();
+    const diffMs = now - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} hr ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 30) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+    const diffMonth = Math.floor(diffDay / 30);
+    if (diffMonth < 12) return `${diffMonth} mo ago`;
+    const diffYear = Math.floor(diffDay / 365);
+    return `${diffYear} yr${diffYear === 1 ? '' : 's'} ago`;
   }
 
   private _rowActionsRenderer = (

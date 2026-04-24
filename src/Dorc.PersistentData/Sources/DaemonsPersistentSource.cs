@@ -10,9 +10,15 @@ namespace Dorc.PersistentData.Sources
     public sealed class DaemonsPersistentSource : IDaemonsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IDaemonObservationPersistentSource _daemonObservationPersistentSource;
 
-        public DaemonsPersistentSource(IDeploymentContextFactory contextFactory) =>
+        public DaemonsPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IDaemonObservationPersistentSource daemonObservationPersistentSource)
+        {
             _contextFactory = contextFactory;
+            _daemonObservationPersistentSource = daemonObservationPersistentSource;
+        }
 
         public IEnumerable<DaemonApiModel> GetDaemonsForServer(int serverId)
         {
@@ -56,19 +62,49 @@ namespace Dorc.PersistentData.Sources
 
         public IEnumerable<DaemonApiModel> GetDaemons()
         {
+            List<DaemonApiModel> mapped;
             using (var context = _contextFactory.GetContext())
             {
-                return context.Daemons.Select(Map).ToList();
+                mapped = context.Daemons.Select(Map).ToList();
             }
+
+            if (mapped.Count == 0) return mapped;
+
+            var lastSeen = _daemonObservationPersistentSource.GetLastSeenByDaemon(
+                mapped.Select(d => d.Id));
+
+            foreach (var daemon in mapped)
+            {
+                if (lastSeen.TryGetValue(daemon.Id, out var observation))
+                {
+                    daemon.LastSeenDate = observation.ObservedAt;
+                    daemon.LastSeenStatus = observation.Status;
+                }
+            }
+
+            return mapped;
         }
 
         public DaemonApiModel? GetDaemonById(int daemonId)
         {
+            DaemonApiModel? result;
             using (var context = _contextFactory.GetContext())
             {
                 var daemon = context.Daemons.FirstOrDefault(d => d.Id == daemonId);
-                return daemon == null ? null : Map(daemon);
+                result = daemon == null ? null : Map(daemon);
             }
+
+            if (result != null)
+            {
+                var lastSeen = _daemonObservationPersistentSource.GetLastSeenByDaemon(new[] { daemonId });
+                if (lastSeen.TryGetValue(daemonId, out var observation))
+                {
+                    result.LastSeenDate = observation.ObservedAt;
+                    result.LastSeenStatus = observation.Status;
+                }
+            }
+
+            return result;
         }
 
         private DaemonApiModel Map(Daemon daemon) =>

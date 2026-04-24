@@ -6,6 +6,7 @@ export * from './ApiConfigApi';
 export * from './ApiRootApi';
 export * from './BundledRequestsApi';
 export * from './DaemonAuditApi';
+export * from './DaemonObservationApi';
 export * from './DaemonStatusApi';
 export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';

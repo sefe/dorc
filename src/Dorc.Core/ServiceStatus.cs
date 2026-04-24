@@ -28,15 +28,18 @@ namespace Dorc.Core
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
+        private readonly IDaemonObservationPersistentSource _daemonObservationPersistentSource;
         private readonly string _domainName;
 
         public ServiceStatus(IConfigValuesPersistentSource configValuesPersistentSource,
             ILogger<ServiceStatus> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
+            IDaemonObservationPersistentSource daemonObservationPersistentSource,
             IConfigurationSettings configurationSettingsEngine)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
+            _daemonObservationPersistentSource = daemonObservationPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -145,7 +148,9 @@ namespace Dorc.Core
                                 {
                                     ServerName = serverApiModel.Name,
                                     DaemonName = daemonApiModel.Name,
-                                    EnvName = environment.EnvironmentName
+                                    EnvName = environment.EnvironmentName,
+                                    ServerId = serverApiModel.ServerId,
+                                    DaemonId = daemonApiModel.Id
                                 });
                             }
                             catch (Exception ex)
@@ -186,15 +191,19 @@ namespace Dorc.Core
                         var oPingReply = ping.Send(daemon.ServerName ?? string.Empty, 5000);
                         if (oPingReply == null || oPingReply.Status != IPStatus.Success)
                         {
-                            resultsDict.TryAdd((int)index, new DaemonStatus
+                            var unreachable = new DaemonStatus
                             {
                                 EnvName = daemon.EnvName,
                                 ServerName = daemon.ServerName,
                                 DaemonName = daemon.DaemonName,
+                                ServerId = daemon.ServerId,
+                                DaemonId = daemon.DaemonId,
                                 Status = null,
                                 ErrorMessage = "Server unreachable: ping " +
                                     (oPingReply?.Status.ToString() ?? "no reply")
-                            });
+                            };
+                            resultsDict.TryAdd((int)index, unreachable);
+                            RecordObservation(unreachable);
                             return;
                         }
 
@@ -209,9 +218,12 @@ namespace Dorc.Core
                                     EnvName = daemon.EnvName,
                                     ServerName = daemon.ServerName,
                                     DaemonName = daemon.DaemonName,
+                                    ServerId = daemon.ServerId,
+                                    DaemonId = daemon.DaemonId,
                                     Status = serviceController.Status.ToString()
                                 };
                                 resultsDict.TryAdd((int)index, resultItem);
+                                RecordObservation(resultItem);
                             }
                         }
                         catch (Exception ex)
@@ -221,14 +233,18 @@ namespace Dorc.Core
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
 
-                            resultsDict.TryAdd((int)index, new DaemonStatus
+                            var queryFailed = new DaemonStatus
                             {
                                 EnvName = daemon.EnvName,
                                 ServerName = daemon.ServerName,
                                 DaemonName = daemon.DaemonName,
+                                ServerId = daemon.ServerId,
+                                DaemonId = daemon.DaemonId,
                                 Status = null,
                                 ErrorMessage = "Daemon query failed: " + ex.Message
-                            });
+                            };
+                            resultsDict.TryAdd((int)index, queryFailed);
+                            RecordObservation(queryFailed);
                         }
                     }
                     catch (Exception ex)
@@ -236,14 +252,18 @@ namespace Dorc.Core
                         _logger.LogDebug("Error, couldn't ping: " + daemon.ServerName +
                                      Environment.NewLine + ex.Message);
 
-                        resultsDict.TryAdd((int)index, new DaemonStatus
+                        var pingFailed = new DaemonStatus
                         {
                             EnvName = daemon.EnvName,
                             ServerName = daemon.ServerName,
                             DaemonName = daemon.DaemonName,
+                            ServerId = daemon.ServerId,
+                            DaemonId = daemon.DaemonId,
                             Status = null,
                             ErrorMessage = "Server unreachable: " + ex.Message
-                        });
+                        };
+                        resultsDict.TryAdd((int)index, pingFailed);
+                        RecordObservation(pingFailed);
                     }
                 });
             }
@@ -255,6 +275,32 @@ namespace Dorc.Core
             return resultsDict.OrderBy(kvp => kvp.Key)
                       .Select(kvp => kvp.Value)
                       .ToList();
+        }
+
+        /// <summary>
+        /// Record a daemon-probe observation. Best-effort — failures are logged and swallowed so
+        /// that observation-write errors do not alter the probe's returned status (HLPS C-03).
+        /// </summary>
+        private void RecordObservation(DaemonStatus status)
+        {
+            if (!status.ServerId.HasValue || !status.DaemonId.HasValue)
+                return;
+
+            try
+            {
+                _daemonObservationPersistentSource.InsertObservation(
+                    status.ServerId.Value,
+                    status.DaemonId.Value,
+                    DateTime.Now,
+                    status.Status,
+                    status.ErrorMessage);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to record daemon observation for {Server}/{Daemon}",
+                    status.ServerName, status.DaemonName);
+            }
         }
 
         /// <summary>

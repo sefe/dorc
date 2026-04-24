@@ -31,5 +31,21 @@ namespace Dorc.Core
             get;
             set;
         }
+
+        /// <summary>
+        /// Internal — populated by BuildDaemonList so ProbeDaemonStatuses can write observation rows
+        /// keyed by ID. Not surfaced on the wire (DaemonStatusApiModel omits these).
+        /// </summary>
+        public int? ServerId
+        {
+            get;
+            set;
+        }
+
+        public int? DaemonId
+        {
+            get;
+            set;
+        }
     }
 }

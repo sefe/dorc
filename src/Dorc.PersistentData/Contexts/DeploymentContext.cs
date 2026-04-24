@@ -64,6 +64,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<RefDataAudit> RefDataAudits { get; set; }
         public DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         public DbSet<DaemonAudit> DaemonAudits { get; set; }
+        public DbSet<DaemonObservation> DaemonObservations { get; set; }
         public DbSet<RequestStatuses> RequestStatuses { get; set; }
         public DbSet<Script> Scripts { get; set; }
         public DbSet<SecureKey> SecureKeys { get; set; }
@@ -162,6 +163,7 @@ namespace Dorc.PersistentData.Contexts
             new RefDataAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<RefDataAudit>());
             new RefDataAuditActionConfiguration().Configure(modelBuilder.Entity<RefDataAuditAction>());
             new DaemonAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonAudit>());
+            new DaemonObservationEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonObservation>());
             new ScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<Script>());
             new SecureKeyEntityTypeConfiguration().Configure(modelBuilder.Entity<SecureKey>());
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());

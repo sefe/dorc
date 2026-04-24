@@ -7,6 +7,7 @@ apis/ApiConfigApi.ts
 apis/ApiRootApi.ts
 apis/BundledRequestsApi.ts
 apis/DaemonAuditApi.ts
+apis/DaemonObservationApi.ts
 apis/DaemonStatusApi.ts
 apis/DelegatedUsersApi.ts
 apis/DeploymentV2Api.ts
@@ -66,6 +67,7 @@ models/ComponentApiModelTemplateApiModel.ts
 models/ConfigValueApiModel.ts
 models/DaemonApiModel.ts
 models/DaemonAuditApiModel.ts
+models/DaemonObservationApiModel.ts
 models/DaemonStatusApiModel.ts
 models/DatabaseApiModel.ts
 models/DatabaseApiModelEnvironmentComponentsDto.ts
@@ -84,6 +86,7 @@ models/EnvironmentHistoryApiModel.ts
 models/EnvironmentOwnerApiModel.ts
 models/FlatPropertyValueApiModel.ts
 models/GetDaemonAuditListResponseDto.ts
+models/GetDaemonObservationListResponseDto.ts
 models/GetDatabaseApiModelListResponseDto.ts
 models/GetPropertyValuesAuditListResponseDto.ts
 models/GetRefDataAuditListResponseDto.ts

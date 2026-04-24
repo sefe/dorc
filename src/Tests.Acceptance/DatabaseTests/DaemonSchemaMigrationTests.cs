@@ -140,5 +140,43 @@ namespace Tests.Acceptance.DatabaseTests
                 "Seed must produce exactly Create/Update/Delete/Attach/Detach");
             conn.Dispose();
         }
+
+        [TestMethod]
+        [TestCategory("Database")]
+        public void OBS_ObservationTableCreatedAndWritable()
+        {
+            PublishDacpac();
+
+            Assert.AreNotEqual(0,
+                ExecuteScalarInt("SELECT ISNULL(OBJECT_ID('deploy.DaemonObservation', 'U'), 0)"),
+                "deploy.DaemonObservation should exist after publish");
+
+            // Seed dependencies: one server row and one daemon row.
+            ExecuteEphemeral(@"
+                INSERT INTO [dbo].[SERVER] (Server_Name) VALUES (N'obs-test-srv');
+                DECLARE @sid INT = SCOPE_IDENTITY();
+                SET IDENTITY_INSERT [deploy].[Daemon] ON;
+                INSERT INTO [deploy].[Daemon] (Id, Name) VALUES (500, N'obs-test-daemon');
+                SET IDENTITY_INSERT [deploy].[Daemon] OFF;
+                INSERT INTO [deploy].[DaemonObservation] (ServerId, DaemonId, ObservedAt, ObservedStatus)
+                VALUES (@sid, 500, SYSDATETIME(), N'Running');");
+
+            Assert.AreEqual(1,
+                ExecuteScalarInt(
+                    "SELECT COUNT(*) FROM [deploy].[DaemonObservation] WHERE DaemonId = 500 AND ObservedStatus = 'Running'"),
+                "Observation round-trip insert+read failed");
+
+            // The two indexes and two FKs must exist.
+            Assert.AreNotEqual(0,
+                ExecuteScalarInt(@"SELECT COUNT(*) FROM sys.indexes
+                    WHERE name = 'IX_DaemonObservation_DaemonId_ObservedAt'
+                      AND object_id = OBJECT_ID('deploy.DaemonObservation')"),
+                "Expected IX_DaemonObservation_DaemonId_ObservedAt index");
+
+            Assert.AreNotEqual(0,
+                ExecuteScalarInt(@"SELECT COUNT(*) FROM sys.foreign_keys
+                    WHERE name IN ('FK_DaemonObservation_Server', 'FK_DaemonObservation_Daemon')"),
+                "Expected two FKs on deploy.DaemonObservation");
+        }
     }
 }
