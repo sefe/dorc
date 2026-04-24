@@ -1,4 +1,4 @@
-export let config = {
+export const config = {
   web: {
     baseUrl: "http://localhost:8888",
   },
