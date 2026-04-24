@@ -251,6 +251,111 @@ namespace Dorc.Core.Tests
             }
         }
 
+        // -------- Cleanup path-traversal guard --------
+
+        [TestMethod]
+        public void Cleanup_RefusesPathOutsideConfiguredArtifactBase()
+        {
+            // Arrange — configured base folder plus a sibling directory that
+            // sits outside that base. Cleanup must refuse to touch the sibling
+            // even though it exists on disk.
+            var downloadRoot = Path.Combine(Path.GetTempPath(),
+                "dorc-download-test-" + Guid.NewGuid().ToString("N"));
+            var outsideRoot = Path.Combine(Path.GetTempPath(),
+                "dorc-outside-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+            Directory.CreateDirectory(outsideRoot);
+
+            try
+            {
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var sut = CreateSut();
+
+                // Act
+                sut.Cleanup(outsideRoot);
+
+                // Assert — the outside directory is untouched
+                Assert.IsTrue(Directory.Exists(outsideRoot),
+                    "Cleanup must not delete paths outside the configured artifact base.");
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+                if (Directory.Exists(outsideRoot))
+                    Directory.Delete(outsideRoot, recursive: true);
+            }
+        }
+
+        [TestMethod]
+        public void Cleanup_DeletesPathInsideConfiguredArtifactBase()
+        {
+            var downloadRoot = Path.Combine(Path.GetTempPath(),
+                "dorc-download-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+            var insidePath = Path.Combine(downloadRoot, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(insidePath);
+
+            try
+            {
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var sut = CreateSut();
+
+                sut.Cleanup(insidePath);
+
+                Assert.IsFalse(Directory.Exists(insidePath),
+                    "Cleanup should delete paths that canonicalise under the artifact base.");
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+            }
+        }
+
+        [TestMethod]
+        public void Cleanup_RejectsTraversalEscapingConfiguredBase()
+        {
+            // Arrange — base folder + a traversal path that syntactically
+            // references the base but escapes it via `..`.
+            var downloadRoot = Path.Combine(Path.GetTempPath(),
+                "dorc-download-test-" + Guid.NewGuid().ToString("N"));
+            var siblingOutside = Path.Combine(Path.GetTempPath(),
+                "dorc-sibling-outside-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+            Directory.CreateDirectory(siblingOutside);
+
+            var traversal = Path.Combine(downloadRoot, "..",
+                Path.GetFileName(siblingOutside));
+
+            try
+            {
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var sut = CreateSut();
+
+                sut.Cleanup(traversal);
+
+                Assert.IsTrue(Directory.Exists(siblingOutside),
+                    "Cleanup must block `..`-style traversal escaping the artifact base.");
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+                if (Directory.Exists(siblingOutside))
+                    Directory.Delete(siblingOutside, recursive: true);
+            }
+        }
+
         // -------- helpers --------
 
         private static byte[] BuildZipArchive(params (string Path, string Content)[] files)

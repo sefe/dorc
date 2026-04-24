@@ -137,6 +137,19 @@ namespace Dorc.Core.BuildServer
                 if (string.IsNullOrEmpty(extractedPath) || !Directory.Exists(extractedPath))
                     return;
 
+                // Defence-in-depth against path traversal: refuse to recursive-delete
+                // anything that doesn't canonically resolve under the configured
+                // artifact base folder. Current call sites only pass paths returned
+                // by DownloadAndExtract, but the interface is public and a future
+                // caller could plausibly forward untrusted input.
+                if (!IsUnderArtifactBase(extractedPath))
+                {
+                    _logger.LogWarning(
+                        "Refusing to delete path outside artifact base folder: {Path}",
+                        extractedPath);
+                    return;
+                }
+
                 Directory.Delete(extractedPath, recursive: true);
                 _logger.LogInformation("Cleaned up artifact directory: {Path}", extractedPath);
             }
@@ -144,6 +157,20 @@ namespace Dorc.Core.BuildServer
             {
                 _logger.LogWarning(ex, "Failed to clean up artifact directory: {Path}", extractedPath);
             }
+        }
+
+        private bool IsUnderArtifactBase(string candidatePath)
+        {
+            var baseDir = !string.IsNullOrEmpty(_downloadFolder)
+                ? _downloadFolder
+                : Path.Combine(Path.GetTempPath(), "dorc-artifacts");
+
+            var canonicalBase = Path.GetFullPath(baseDir)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            var canonicalCandidate = Path.GetFullPath(candidatePath);
+
+            return canonicalCandidate.StartsWith(canonicalBase, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
