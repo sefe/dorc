@@ -30,15 +30,15 @@ export default async function main() {
   const pageAddr = `${config.web.baseUrl}/monitor-requests`;
 
   try {
-    let totalRenderTime = await getRenderPageTime(page, 'monitor-requests', pageAddr, 'vaadin-button[title="View Detailed Results"]');
-    if (totalRenderTime) myTrend.add(totalRenderTime);
+    const totalRenderTime = await getRenderPageTime(page, 'monitor-requests', pageAddr, 'vaadin-button[title="View Detailed Results"]');
+    if (totalRenderTime) { myTrend.add(totalRenderTime); }
   } finally {
     await page.close();
   }
 }
 
 async function getRenderPageTime(page, name, address, selectorToWait) {
-  let resp = await page.goto(address);
+  const resp = await page.goto(address);
 
   if (!check(resp, {
     'response received': () => !!resp,
