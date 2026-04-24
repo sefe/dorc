@@ -44,7 +44,7 @@ function RunMonitorResultsPageRequests(baseApiAddress, user, count = 1) {
 }
 
 function runSuccessGetRequest(baseApiAddress, uri, user) {
-  let response = http.get(`${baseApiAddress}${uri}`, {
+  const response = http.get(`${baseApiAddress}${uri}`, {
     auth: 'ntlm',
     headers: {
       'user-agent': config.api.userAgent,
@@ -57,7 +57,7 @@ function runSuccessGetRequest(baseApiAddress, uri, user) {
 }
 
 function runSuccessPutRequest(baseApiAddress, uri, body, user) {
-  let response = http.put(`${baseApiAddress}${uri}`, JSON.stringify(body), {
+  const response = http.put(`${baseApiAddress}${uri}`, JSON.stringify(body), {
     auth: 'ntlm',
     headers: {
       'user-agent': config.api.userAgent,
@@ -85,7 +85,7 @@ function checkResponse(response) {
   });
 
   if (response.error_code) {
-    let urlWithoutPass = response.request.url.replace(/:\/\/.*:.*@/, '://');
+    const urlWithoutPass = response.request.url.replace(/:\/\/.*:.*@/, '://');
     console.error(
       `${urlWithoutPass} error, statusCode: ${response.status} ${response.status_text}, body: ${response.body}`
     );
