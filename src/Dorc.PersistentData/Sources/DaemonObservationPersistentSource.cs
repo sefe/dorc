@@ -34,8 +34,8 @@ namespace Dorc.PersistentData.Sources
             using var context = _contextFactory.GetContext();
 
             var query = context.DaemonObservations.AsNoTracking().Where(o => o.DaemonId == daemonId);
-            if (serverId.HasValue)
-                query = query.Where(o => o.ServerId == serverId.Value);
+            if (serverId is int serverIdValue)
+                query = query.Where(o => o.ServerId == serverIdValue);
 
             var totalItems = query.Count();
             var totalPages = limit > 0 ? (int)Math.Ceiling((double)totalItems / limit) : 1;

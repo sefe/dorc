@@ -74,7 +74,7 @@ namespace Tests.Acceptance.DatabaseTests
                     $"  DROP DATABASE [{EphemeralDatabaseName}]; " +
                     $"END");
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is SqlException || ex is InvalidOperationException)
             {
                 TestContext.WriteLine($"Warning: failed to drop ephemeral DB {EphemeralDatabaseName}: {ex.Message}");
             }
@@ -126,7 +126,16 @@ namespace Tests.Acceptance.DatabaseTests
 
         protected static string ReadFixture(string relativePath)
         {
-            var fixtureFile = Path.Combine(AppContext.BaseDirectory, relativePath);
+            if (string.IsNullOrWhiteSpace(relativePath))
+                throw new ArgumentException("Fixture path must be non-empty", nameof(relativePath));
+            if (Path.IsPathRooted(relativePath))
+                throw new ArgumentException("Fixture path must be relative, not rooted", nameof(relativePath));
+
+            // Path.Join does not drop the base on a rooted second arg (unlike Path.Combine); the
+            // rooted-path guard above keeps intent explicit so a future caller can't accidentally
+            // escape AppContext.BaseDirectory via ".." either (File.Exists check below enforces
+            // existence; callers stay inside the test output folder).
+            var fixtureFile = Path.Join(AppContext.BaseDirectory, relativePath);
             if (!File.Exists(fixtureFile))
                 throw new FileNotFoundException($"Test fixture not found: {fixtureFile}");
             return File.ReadAllText(fixtureFile);
@@ -158,7 +167,10 @@ namespace Tests.Acceptance.DatabaseTests
 
             foreach (var config in new[] { "debug", "release" })
             {
-                var candidate = Path.Combine(dir.FullName, "Dorc.Database", "sql", config, "Dorc.Database.dacpac");
+                // Path.Join preserves intent when concatenating path segments; all segments here
+                // are known-relative, so it's equivalent to Path.Combine for this input but
+                // avoids the "drop earlier arguments" behaviour if a segment ever becomes rooted.
+                var candidate = Path.Join(dir.FullName, "Dorc.Database", "sql", config, "Dorc.Database.dacpac");
                 if (File.Exists(candidate))
                     return candidate;
             }

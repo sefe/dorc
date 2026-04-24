@@ -107,5 +107,5 @@ Per HLPS SC-07, the submitter should complete the end-to-end flows and note them
 
 ## Related
 
-- Closes sefe/dorc#649
-- Follow-ups (separate tickets): audit UI consolidation, daemon "last seen" tracking — see `docs/daemons-modernisation/FOLLOW-UPS.md`
+- Closes #649
+- F-1 (audit UI consolidation), F-1a (rich Delete confirmation), and F-2 (daemon last-seen tracking) were originally deferred in `FOLLOW-UPS.md` but are included in this PR per HLPS C-06 "one PR" direction. Remaining follow-ups (observation retention/purge, per-daemon history dialog, staleness filter) remain captured in `FOLLOW-UPS.md` as F-2 sub-items.

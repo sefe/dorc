@@ -334,7 +334,7 @@ namespace Dorc.Core
                 safeAccessTokenHandle,
                 () =>
                 {
-                    var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
+                    using var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
                     switch (daemonStatus.Status.ToLower())
                     {
                         case "start":
@@ -375,7 +375,7 @@ namespace Dorc.Core
         {
             try
             {
-                var sc = new ServiceController(daemonName, server);
+                using var sc = new ServiceController(daemonName, server);
                 string status;
                 switch (sc.Status)
                 {
