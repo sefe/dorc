@@ -184,30 +184,27 @@ namespace Dorc.PersistentData.Sources
 
         public DaemonApiModel Update(DaemonApiModel model)
         {
-            DaemonApiModel result = null;
             using (var context = _contextFactory.GetContext())
             {
-                var updatedDaemon = Map(model);
-
                 var existingDaemon = context.Daemons
                     .FirstOrDefault(daemon => daemon.Id == model.Id);
 
-                if (existingDaemon != null)
+                // Interface contract is non-nullable; throw on missing rather than returning
+                // null so any caller that skips the controller's pre-check fails loudly here.
+                if (existingDaemon == null)
                 {
-                    existingDaemon.Name = updatedDaemon.Name;
-                    existingDaemon.ServiceType = updatedDaemon.ServiceType;
-                    existingDaemon.AccountName = updatedDaemon.AccountName;
-                    existingDaemon.DisplayName = updatedDaemon.DisplayName;
-
-                    context.SaveChanges();
-                    result = context
-                        .Daemons
-                        .Where(d => d.Id == updatedDaemon.Id).AsEnumerable()
-                        .Select(Map)
-                        .First();
+                    throw new KeyNotFoundException($"Daemon with Id {model.Id} not found");
                 }
+
+                var updatedDaemon = Map(model);
+                existingDaemon.Name = updatedDaemon.Name;
+                existingDaemon.ServiceType = updatedDaemon.ServiceType;
+                existingDaemon.AccountName = updatedDaemon.AccountName;
+                existingDaemon.DisplayName = updatedDaemon.DisplayName;
+
+                context.SaveChanges();
+                return Map(existingDaemon);
             }
-            return result;
         }
 
         public bool AttachDaemonToServer(int serverId, int daemonId)

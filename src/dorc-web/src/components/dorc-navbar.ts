@@ -619,6 +619,12 @@ export class DorcNavbar extends LitElement {
       const tab = tabsArray[i] as Tab;
       let childPath = '';
       const tabChild = tab.children[0] as unknown as URL;
+      // The Audit parent tab uses href="#"; HTMLAnchorElement.pathname resolves "#" against the
+      // current document URL, so without this skip every audit sub-route would match the parent.
+      const rawHref = (tab.children[0] as Element)?.getAttribute?.('href');
+      if (rawHref === '#') {
+        continue;
+      }
       if (tabChild.pathname === undefined) {
         const envDetailTab = tab.children[0] as EnvDetailTab;
         if (envDetailTab.env !== undefined) {

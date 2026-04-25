@@ -67,7 +67,13 @@ namespace Dorc.PersistentData.Sources
                         if (pagedDataFilter == null) continue;
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                         {
-                            filterLambdas.Add(queryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue));
+                            // ContainsExpression returns null for property types other than string/int
+                            // (e.g. DateTime, bool); skip those rather than feeding null into WhereAll.
+                            var expr = queryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
+                            if (expr != null)
+                            {
+                                filterLambdas.Add(expr);
+                            }
                         }
                     }
                 }
