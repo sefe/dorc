@@ -228,7 +228,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         {
             consumer.Commit();
         }
-        catch (Exception commitEx)
+        catch (KafkaException commitEx)
         {
             _logger.LogError(commitEx,
                 "Kafka offset commit failed after error-log path for topic={Topic} partition={Partition} offset={Offset}",
