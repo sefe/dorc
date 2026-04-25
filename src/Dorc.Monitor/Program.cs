@@ -7,6 +7,7 @@ using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
 using Dorc.Core.HighAvailability;
+using Dorc.Kafka.ErrorLog.DependencyInjection;
 using Dorc.Kafka.Events.DependencyInjection;
 using Dorc.Kafka.Lock.DependencyInjection;
 using Dorc.Monitor.Pipes;
@@ -89,6 +90,12 @@ builder.Services.AddTransient<ScriptDispatcher>();
 // selector flag is gone; KafkaDistributedLockService + KafkaLockCoordinator
 // + the lock topic provisioner are registered unconditionally.
 builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
+
+// IKafkaErrorLog is consumed by DeploymentRequestsKafkaConsumer (registered
+// below by AddDorcKafkaRequestLifecycleSubstrate). Without this call the host
+// crashes during startup activating the consumer hosted service. Mirrors the
+// registration order in Dorc.Api/Program.cs.
+builder.Services.AddDorcKafkaErrorLog(configurationRoot);
 
 // SPEC-S-009: Kafka is the only request-lifecycle substrate. The substrate-
 // selector flag is gone; the latching RequestPollSignal + Kafka request
