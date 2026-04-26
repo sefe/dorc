@@ -48,6 +48,16 @@ export class PageDaemonsAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
+        --audit-row-add-bg: #e6ffec;
+        --audit-row-remove-bg: #ffebe9;
+        --audit-char-add-bg: #abf2bc;
+        --audit-char-remove-bg: #ffaba8;
+      }
+      :host-context([theme~='dark']) {
+        --audit-row-add-bg: #0e2918;
+        --audit-row-remove-bg: #2e1818;
+        --audit-char-add-bg: #1f6e36;
+        --audit-char-remove-bg: #a14040;
       }
       vaadin-grid#grid {
         flex: 1 1 auto;
@@ -56,16 +66,16 @@ export class PageDaemonsAudit extends PageElement {
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(create-type) {
-        background-color: var(--dorc-success-bg);
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-row-remove-bg);
       }
-      .highlight-added {
-        background-color: var(--dorc-success-bg);
+      .highlight {
+        background-color: var(--audit-char-add-bg);
       }
       .highlight-removed {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-char-remove-bg);
       }
       .overlay {
         width: 100%;
@@ -272,7 +282,7 @@ export class PageDaemonsAudit extends PageElement {
 
       // Whole-string highlight on Create/Delete; per-character diff on Update.
       if (isCreate && fieldName === 'ToValue') {
-        render(html`<pre class="value"><span class="highlight-added">${raw}</span></pre>`, root);
+        render(html`<pre class="value"><span class="highlight">${raw}</span></pre>`, root);
         return;
       }
       if (isDelete && fieldName === 'FromValue') {
@@ -297,7 +307,7 @@ export class PageDaemonsAudit extends PageElement {
         const parts = ops.map(op => {
           if (op.type === 'keep') return html`${op.value}`;
           if (op.type === 'insert')
-            return html`<span class="highlight-added">${op.value}</span>`;
+            return html`<span class="highlight">${op.value}</span>`;
           return html``;
         });
         render(html`<pre class="value">${parts}</pre>`, root);

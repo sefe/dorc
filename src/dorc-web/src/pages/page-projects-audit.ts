@@ -51,6 +51,16 @@ export class PageProjectsAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
+        --audit-row-add-bg: #e6ffec;
+        --audit-row-remove-bg: #ffebe9;
+        --audit-char-add-bg: #abf2bc;
+        --audit-char-remove-bg: #ffaba8;
+      }
+      :host-context([theme~='dark']) {
+        --audit-row-add-bg: #0e2918;
+        --audit-row-remove-bg: #2e1818;
+        --audit-char-add-bg: #1f6e36;
+        --audit-char-remove-bg: #a14040;
       }
       vaadin-grid#grid {
         flex: 1 1 auto;
@@ -59,10 +69,10 @@ export class PageProjectsAudit extends PageElement {
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(create-type) {
-        background-color: var(--dorc-success-bg);
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-row-remove-bg);
       }
       .overlay {
         width: 100%;
@@ -111,11 +121,17 @@ export class PageProjectsAudit extends PageElement {
         font-family: monaco, Consolas, 'Lucida Console', monospace;
         font-size: 11px;
       }
-      .highlight-added {
-        background-color: var(--dorc-success-bg);
+      .line-add {
+        background-color: var(--audit-row-add-bg);
+      }
+      .line-remove {
+        background-color: var(--audit-row-remove-bg);
+      }
+      .highlight {
+        background-color: var(--audit-char-add-bg);
       }
       .highlight-removed {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-char-remove-bg);
       }
       /* Side-by-side diff: two columns, paired rows. Old (left) / new (right).
          Each row is a pair of cells in a CSS grid; cells get highlight classes
@@ -530,14 +546,33 @@ export class PageProjectsAudit extends PageElement {
     const rows = this.buildSideBySide(ops);
     const cells: unknown[] = [];
     for (const r of rows) {
-      const leftCls = r.kind === 'delete' || r.kind === 'change'
-        ? 'diff-cell highlight-removed'
-        : 'diff-cell';
-      const rightCls = r.kind === 'insert' || r.kind === 'change'
-        ? 'diff-cell right highlight-added'
-        : 'diff-cell right';
-      cells.push(html`<div class="${leftCls}">${r.left ?? ''}</div>`);
-      cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
+      // Pure insert/delete lines: tint the whole cell — there's no paired
+      // counterpart to diff against, so the entire line is what changed.
+      // 'change' rows (a delete paired with an insert) get character-level
+      // highlighting instead, so only the characters that actually differ are
+      // tinted. Matches the per-record audit pages (scripts/variables/daemons).
+      if (r.kind === 'change' && r.left !== null && r.right !== null) {
+        const charOps = this.computeCharDiff(r.left, r.right);
+        const leftFrags = charOps.map(op => {
+          if (op.type === 'keep') return html`${op.value}`;
+          if (op.type === 'delete')
+            return html`<span class="highlight-removed">${op.value}</span>`;
+          return html``;
+        });
+        const rightFrags = charOps.map(op => {
+          if (op.type === 'keep') return html`${op.value}`;
+          if (op.type === 'insert')
+            return html`<span class="highlight">${op.value}</span>`;
+          return html``;
+        });
+        cells.push(html`<div class="diff-cell">${leftFrags}</div>`);
+        cells.push(html`<div class="diff-cell right">${rightFrags}</div>`);
+      } else {
+        const leftCls = r.kind === 'delete' ? 'diff-cell line-remove' : 'diff-cell';
+        const rightCls = r.kind === 'insert' ? 'diff-cell right line-add' : 'diff-cell right';
+        cells.push(html`<div class="${leftCls}">${r.left ?? ''}</div>`);
+        cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
+      }
     }
     render(
       html`
@@ -633,6 +668,58 @@ export class PageProjectsAudit extends PageElement {
     } catch {
       return raw;
     }
+  }
+
+  // Character-level LCS diff used inside paired change lines (see
+  // detailsRenderer). Returns a run-length-merged op list so adjacent same-type
+  // characters render as a single highlighted span rather than per-character.
+  private computeCharDiff(
+    oldStr: string,
+    newStr: string
+  ): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
+    const oldLen = oldStr.length;
+    const newLen = newStr.length;
+    const dp: number[][] = Array.from({ length: oldLen + 1 }, () =>
+      new Array(newLen + 1).fill(0)
+    );
+    for (let i = 1; i <= oldLen; i++) {
+      for (let j = 1; j <= newLen; j++) {
+        if (oldStr[i - 1] === newStr[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    const ops: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
+    let i = oldLen;
+    let j = newLen;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldStr[i - 1] === newStr[j - 1]) {
+        ops.push({ type: 'keep', value: oldStr[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        ops.push({ type: 'insert', value: newStr[j - 1] });
+        j--;
+      } else {
+        ops.push({ type: 'delete', value: oldStr[i - 1] });
+        i--;
+      }
+    }
+    ops.reverse();
+
+    const merged: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
+    for (const op of ops) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === op.type) {
+        last.value += op.value;
+      } else {
+        merged.push({ type: op.type, value: op.value });
+      }
+    }
+    return merged;
   }
 
   private computeLineDiff(

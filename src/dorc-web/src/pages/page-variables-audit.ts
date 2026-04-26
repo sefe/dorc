@@ -58,6 +58,16 @@ export class PageVariablesAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
+        --audit-row-add-bg: #e6ffec;
+        --audit-row-remove-bg: #ffebe9;
+        --audit-char-add-bg: #abf2bc;
+        --audit-char-remove-bg: #ffaba8;
+      }
+      :host-context([theme~='dark']) {
+        --audit-row-add-bg: #0e2918;
+        --audit-row-remove-bg: #2e1818;
+        --audit-char-add-bg: #1f6e36;
+        --audit-char-remove-bg: #a14040;
       }
       vaadin-grid#grid {
         flex: 1 1 auto;
@@ -66,10 +76,10 @@ export class PageVariablesAudit extends PageElement {
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(insert-type) {
-        background-color: var(--dorc-success-bg);
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-row-remove-bg);
       }
       .overlay {
         width: 100%;
@@ -111,11 +121,11 @@ export class PageVariablesAudit extends PageElement {
       }
 
       .highlight {
-        background-color: var(--dorc-chip-bg);
+        background-color: var(--audit-char-add-bg);
       }
 
       .highlight-removed {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-char-remove-bg);
       }
     `;
   }

@@ -52,18 +52,28 @@ export class PageScriptsAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
+        --audit-row-add-bg: #e6ffec;
+        --audit-row-remove-bg: #ffebe9;
+        --audit-char-add-bg: #abf2bc;
+        --audit-char-remove-bg: #ffaba8;
+      }
+      :host-context([theme~='dark']) {
+        --audit-row-add-bg: #0e2918;
+        --audit-row-remove-bg: #2e1818;
+        --audit-char-add-bg: #1f6e36;
+        --audit-char-remove-bg: #a14040;
       }
       vaadin-grid#grid {
         flex: 1 1 auto;
         min-height: 0;
         overflow: auto;
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(insert-type) {
-        background-color: #b1ffb7;
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: #ffd9d9;
+        background-color: var(--audit-row-remove-bg);
       }
       .overlay {
         width: 100%;
@@ -86,8 +96,8 @@ export class PageScriptsAudit extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -98,10 +108,10 @@ export class PageScriptsAudit extends PageElement {
         }
       }
       .highlight {
-        background-color: #b4d5ff;
+        background-color: var(--audit-char-add-bg);
       }
       .highlight-removed {
-        background-color: #ffb4c2;
+        background-color: var(--audit-char-remove-bg);
       }
       .value-line {
         white-space: nowrap;
