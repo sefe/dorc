@@ -15,7 +15,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import { css, PropertyValues, render } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PagedDataSorting, RefDataProjectAuditApi } from '../apis/dorc-api';
 import { PagedDataFilter, RefDataAuditApiModel } from '../apis/dorc-api/models';
@@ -38,6 +38,11 @@ export class PageProjectsAudit extends PageElement {
   private userFilter = '';
 
   private actionFilter = '';
+
+  // Audit rows whose row-details slot is currently expanded. Bound directly to
+  // the grid's .detailsOpenedItems; mutations replace the array (rather than
+  // pushing) so lit picks up the change and re-applies the binding.
+  @state() private openedItems: RefDataAuditApiModel[] = [];
 
   static get styles() {
     return css`
@@ -119,6 +124,33 @@ export class PageProjectsAudit extends PageElement {
       .highlight-removed {
         background-color: var(--dorc-failure-bg);
       }
+      .summary-counts {
+        font-size: 12px;
+      }
+      .summary-counts .added {
+        color: var(--dorc-success-color, #4caf50);
+        font-weight: 600;
+      }
+      .summary-counts .removed {
+        color: var(--dorc-error-color);
+        font-weight: 600;
+      }
+      .summary-sections {
+        font-size: 11px;
+        color: var(--dorc-text-secondary);
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .details-pane {
+        padding: 8px 12px 12px 36px;
+        background: var(--dorc-bg-secondary, rgba(0, 0, 0, 0.15));
+      }
+      vaadin-icon.chevron {
+        cursor: pointer;
+        color: var(--dorc-text-secondary);
+      }
     `;
   }
 
@@ -142,9 +174,19 @@ export class PageProjectsAudit extends PageElement {
         theme="compact row-stripes no-row-borders no-border"
         .dataProvider="${this.getProjectAudit}"
         .cellPartNameGenerator="${this.cellPartNameGenerator}"
+        .detailsOpenedItems="${this.openedItems}"
+        .rowDetailsRenderer="${this.detailsRenderer}"
+        @active-item-changed="${this.onActiveItemChanged}"
         style="width: 100%; z-index: 1"
         ?hidden="${this.loading}"
       >
+        <vaadin-grid-column
+          header=""
+          .renderer="${this.chevronRenderer}"
+          width="40px"
+          flex-grow="0"
+          frozen
+        ></vaadin-grid-column>
         <vaadin-grid-column
           path="Project.ProjectName"
           header="Project"
@@ -256,6 +298,9 @@ export class PageProjectsAudit extends PageElement {
     render(html`<span>${formatted}</span>`, root);
   };
 
+  // Value-cell shows a compact summary only — line counts and a few changed
+  // section names. The full unified diff lives in the row-details slot
+  // (detailsRenderer below) and is opened by clicking the row's chevron.
   private valueRenderer = (
     root: HTMLElement,
     _column: GridColumn,
@@ -267,26 +312,171 @@ export class PageProjectsAudit extends PageElement {
       return;
     }
 
-    // Pretty-print the current snapshot. lit auto-escapes ${...} so even raw
-    // (non-JSON) content can't inject HTML.
-    const curr = this.prettyJson(raw);
-
-    // PriorJson is computed server-side via a correlated subquery — the
-    // chronologically-prior audit row's Json for the same project. Diff is
-    // page-boundary clean: every row except the very first audit of a project
-    // (or rows for deleted projects) has a prior to compare against.
     const priorRaw = model.item.PriorJson;
     if (!priorRaw) {
-      render(html`<pre class="value">${curr}</pre>`, root);
+      render(html`<span class="muted">first audit · no prior version</span>`, root);
       return;
     }
+
+    const curr = this.prettyJson(raw);
     const prev = this.prettyJson(priorRaw);
 
     if (prev === curr) {
-      render(html`<pre class="value">${curr}</pre>`, root);
+      render(html`<span class="muted">no changes</span>`, root);
       return;
     }
 
+    const ops = this.computeLineDiff(prev, curr);
+    const insertCount = ops.filter(o => o.type === 'insert').length;
+    const deleteCount = ops.filter(o => o.type === 'delete').length;
+
+    // Try to extract semantic section names from the pretty-printed diff. If
+    // the JSON didn't parse, fall back to line counts only.
+    const sections = this.extractChangedSections(ops);
+    const sectionCount = sections.length;
+    const visibleSections = sections.slice(0, 3);
+    const overflow = sectionCount - visibleSections.length;
+
+    render(
+      html`
+        <div class="summary-counts">
+          <span class="added">+${insertCount}</span>
+          <span class="removed">-${deleteCount}</span>
+          lines${sectionCount > 0
+            ? html` · ${sectionCount} section${sectionCount === 1 ? '' : 's'}`
+            : ''}
+        </div>
+        ${sectionCount > 0
+          ? html`<div class="summary-sections">
+              ${visibleSections.join(', ')}${overflow > 0 ? ` +${overflow} more` : ''}
+            </div>`
+          : ''}
+      `,
+      root
+    );
+  };
+
+  // Walk the line-LCS ops and infer a section name for each insert/delete.
+  // The pretty-printed JSON has a predictable shape: top-level keys at indent
+  // 2 (Project, Components), nested object keys at indent 4+, array elements
+  // open `{` lines indented further. For each change op, scan backward through
+  // the preceding lines (across all op types) to find the nearest enclosing
+  // key/index header, building a dotted/bracketed path like
+  // `Project.ArtefactsBuildRegex` or `Components[3]`.
+  private extractChangedSections(
+    ops: { type: 'keep' | 'insert' | 'delete'; line: string }[]
+  ): string[] {
+    const result: string[] = [];
+    const seen = new Set<string>();
+    const indentOf = (s: string): number => s.length - s.trimStart().length;
+    const keyMatch = (s: string): string | null => {
+      const m = s.trimStart().match(/^"([^"\\]+)"\s*:/);
+      return m ? m[1] : null;
+    };
+
+    // Track a running path as we walk forward: a stack of segments at each
+    // open scope. We walk linearly and maintain (segment, indent) pairs.
+    type Frame = { segment: string; indent: number; arrayIndex: number | null };
+    const stack: Frame[] = [];
+    // Counters for array elements per stack-depth scope.
+    const arrayCounters = new Map<number, number>();
+
+    const pathString = (): string => {
+      const parts: string[] = [];
+      for (const f of stack) {
+        if (f.arrayIndex !== null) {
+          parts.push(`${f.segment}[${f.arrayIndex}]`);
+        } else if (f.segment) {
+          parts.push(f.segment);
+        }
+      }
+      return parts.join('.');
+    };
+
+    for (const op of ops) {
+      const line = op.line;
+      const trimmed = line.trimEnd();
+      const indent = indentOf(trimmed);
+
+      // Pop frames whose indent is >= current line's indent before processing
+      // a closer. (Closers `}` `]` are dedented one step from their opener.)
+      const isCloser = /^\s*[}\]]/.test(trimmed);
+      if (isCloser) {
+        while (stack.length && stack[stack.length - 1].indent >= indent) {
+          stack.pop();
+        }
+        continue;
+      }
+
+      // Record path for change ops at the current scope.
+      if (op.type !== 'keep') {
+        const k = keyMatch(line);
+        // Build the path; if the changed line itself is `"Key": value,` and the
+        // value is primitive, include the key in the section path.
+        const base = pathString();
+        let label: string;
+        if (k && !/[{[]\s*$/.test(trimmed)) {
+          label = base ? `${base}.${k}` : k;
+        } else {
+          label = base || k || '(root)';
+        }
+        if (label && !seen.has(label)) {
+          seen.add(label);
+          result.push(label);
+        }
+      }
+
+      // Push a frame when this line opens an object/array.
+      // Forms: `"Key": {` / `"Key": [` open a named scope.
+      // `{` alone (often at indent N inside an array) opens an anonymous
+      // object; counts as an array element of the enclosing array.
+      const opensObject = /[{[]\s*$/.test(trimmed);
+      if (opensObject) {
+        const k = keyMatch(line);
+        if (k) {
+          stack.push({ segment: k, indent, arrayIndex: null });
+          // Reset the counter scoped at this opener so its inner elements
+          // start fresh.
+          arrayCounters.set(indent, 0);
+        } else if (/^\s*\{\s*$/.test(trimmed)) {
+          // Anonymous object: array element. The enclosing scope is an array
+          // (the most recent named frame whose line ended in `[`). Increment
+          // its counter and reflect in the top frame's arrayIndex.
+          const top = stack[stack.length - 1];
+          if (top) {
+            const prev = top.arrayIndex ?? -1;
+            top.arrayIndex = prev + 1;
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // Row-details slot: full unified diff for the row, identical render path
+  // to what the cell used to do — context-collapsed line-LCS with +/- markers.
+  private detailsRenderer = (
+    root: HTMLElement,
+    _grid: HTMLElement,
+    model: GridItemModel<RefDataAuditApiModel>
+  ) => {
+    const raw = model.item?.Json;
+    if (!raw) {
+      render(html`<div class="details-pane muted">—</div>`, root);
+      return;
+    }
+    const priorRaw = model.item.PriorJson;
+    const curr = this.prettyJson(raw);
+    if (!priorRaw) {
+      render(html`<div class="details-pane"><pre class="value">${curr}</pre></div>`, root);
+      return;
+    }
+    const prev = this.prettyJson(priorRaw);
+    if (prev === curr) {
+      render(html`<div class="details-pane"><pre class="value">${curr}</pre></div>`, root);
+      return;
+    }
     const ops = this.computeLineDiff(prev, curr);
     const display = this.collapseUnchangedRuns(ops, 3);
     const rendered = display.map(d => {
@@ -298,7 +488,41 @@ export class PageProjectsAudit extends PageElement {
         return html`<div class="diff-line highlight-removed">${'-' + d.line}</div>`;
       return html`<div class="diff-line">${' ' + d.line}</div>`;
     });
-    render(html`<div>${rendered}</div>`, root);
+    render(html`<div class="details-pane">${rendered}</div>`, root);
+  };
+
+  private chevronRenderer = (
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<RefDataAuditApiModel>
+  ) => {
+    const isOpen = this.openedItems.indexOf(model.item) !== -1;
+    const icon = isOpen ? 'vaadin:chevron-down' : 'vaadin:chevron-right';
+    render(html`<vaadin-icon class="chevron" icon="${icon}"></vaadin-icon>`, root);
+  };
+
+  // Vaadin grid fires active-item-changed when a row body is clicked. Toggle
+  // the row's expanded state and reset activeItem so a second click on the
+  // same row collapses it (otherwise vaadin treats the row as "still active"
+  // and doesn't fire).
+  private onActiveItemChanged = (e: CustomEvent) => {
+    const item = e.detail.value as RefDataAuditApiModel | null;
+    if (!item) return;
+    const idx = this.openedItems.indexOf(item);
+    if (idx === -1) {
+      this.openedItems = [...this.openedItems, item];
+    } else {
+      this.openedItems = [
+        ...this.openedItems.slice(0, idx),
+        ...this.openedItems.slice(idx + 1)
+      ];
+    }
+    const grid = e.currentTarget as { activeItem?: unknown; requestContentUpdate?: () => void } | null;
+    if (grid) {
+      grid.activeItem = null;
+      // Re-render the chevron column so the icon flips.
+      grid.requestContentUpdate?.();
+    }
   };
 
   // Convert a full op stream into a unified-diff-style display: keep up to
@@ -451,6 +675,8 @@ export class PageProjectsAudit extends PageElement {
         composed: true
       })
     );
+    // Drop any expanded rows — their item references won't survive a refetch.
+    this.openedItems = [];
     this.shadowRoot?.querySelector('vaadin-grid')?.clearCache();
   }
 
