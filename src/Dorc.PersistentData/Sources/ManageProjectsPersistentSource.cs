@@ -100,18 +100,18 @@ namespace Dorc.PersistentData.Sources
             var filterLambdas = new List<Expression<Func<RefDataAudit, bool>>>();
             if (operators.Filters != null && operators.Filters.Any())
             {
-                foreach (var pagedDataFilter in operators.Filters)
+                var validFilters = operators.Filters
+                    .Where(f => f != null
+                        && !string.IsNullOrEmpty(f.Path)
+                        && !string.IsNullOrEmpty(f.FilterValue));
+
+                foreach (var pagedDataFilter in validFilters)
                 {
-                    if (pagedDataFilter == null)
-                        continue;
-                    if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                    var expr = queryable.ContainsExpression(pagedDataFilter.Path,
+                            pagedDataFilter.FilterValue);
+                    if (expr != null)
                     {
-                        var expr = queryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue);
-                        if (expr != null)
-                        {
-                            filterLambdas.Add(expr);
-                        }
+                        filterLambdas.Add(expr);
                     }
                 }
             }

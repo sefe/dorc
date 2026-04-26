@@ -89,18 +89,19 @@ namespace Dorc.PersistentData.Sources
 
             if (operators.Filters != null && operators.Filters.Any())
             {
-                foreach (var pagedDataFilter in operators.Filters)
+                var validFilters = operators.Filters
+                    .Where(f => f != null
+                        && !string.IsNullOrEmpty(f.Path)
+                        && !string.IsNullOrEmpty(f.FilterValue));
+
+                foreach (var pagedDataFilter in validFilters)
                 {
-                    if (pagedDataFilter == null) continue;
-                    if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                    // ContainsExpression returns null for property types other than string/int
+                    // (e.g. DateTime, bool); skip those rather than feeding null into WhereAll.
+                    var expr = queryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
+                    if (expr != null)
                     {
-                        // ContainsExpression returns null for property types other than string/int
-                        // (e.g. DateTime, bool); skip those rather than feeding null into WhereAll.
-                        var expr = queryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
-                        if (expr != null)
-                        {
-                            filterLambdas.Add(expr);
-                        }
+                        filterLambdas.Add(expr);
                     }
                 }
             }
