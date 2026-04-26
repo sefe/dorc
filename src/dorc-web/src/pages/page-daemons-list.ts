@@ -4,6 +4,8 @@ import '@vaadin/grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../icons/iron-icons.js';
 import '@vaadin/confirm-dialog';
 import '@vaadin/text-field';
 import '@polymer/paper-dialog';
@@ -352,27 +354,33 @@ export class PageDaemonsList extends PageElement {
       html`<div class="row-actions">
         <vaadin-button
           title="View audit history"
-          theme="icon tertiary"
+          theme="icon"
           @click="${() => this.openAudit(daemon)}"
         >
-          <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
+          <vaadin-icon
+            icon="vaadin:list"
+            style="color: var(--dorc-link-color)"
+          ></vaadin-icon>
         </vaadin-button>
         <vaadin-button
           title="Edit daemon"
-          theme="icon tertiary"
+          theme="icon"
           ?hidden="${!(this.isAdmin || this.isPowerUser)}"
           @click="${() => this.openEdit(daemon)}"
         >
-          <vaadin-icon icon="vaadin:edit"></vaadin-icon>
+          <vaadin-icon
+            icon="lumo:edit"
+            style="color: var(--dorc-link-color)"
+          ></vaadin-icon>
         </vaadin-button>
         <vaadin-button
           title="Delete daemon"
-          theme="icon tertiary"
+          theme="icon"
           ?hidden="${!this.isAdmin}"
           @click="${() => this.requestDelete(daemon)}"
         >
           <vaadin-icon
-            icon="vaadin:trash"
+            icon="icons:delete"
             style="color: var(--dorc-error-color)"
           ></vaadin-icon>
         </vaadin-button>

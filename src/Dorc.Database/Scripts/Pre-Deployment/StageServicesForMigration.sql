@@ -1,6 +1,9 @@
 /*
 Pre-Deployment Script: Stage dbo.SERVICE and dbo.SERVER_SERVICE_MAP rows into dbo.*_MIGRATION_STAGING
-tables, then empty the legacy tables so SSDT's schema phase can drop them cleanly.
+tables, then drop the legacy tables.
+
+The publish profile in use does not set DropObjectsNotInSource=True, so SSDT's schema phase
+will not drop tables that are absent from the project — they have to be dropped explicitly.
 
 Each legacy table is guarded independently so a partial state (only one of the two still
 present, left over from an interrupted prior publish) does not break the script. Staging
@@ -38,19 +41,21 @@ BEGIN
 END
 GO
 
--- ---------- Empty legacy tables so SSDT's schema phase can drop them ----------
--- Order: map rows (children) before service rows (parents) per the legacy FK.
+-- ---------- Drop legacy tables ----------
+-- Order: map (child) before service (parent) per the legacy FK on Service_ID.
+-- DROP TABLE removes outgoing FK constraints automatically. Any FK from another
+-- table targeting these will surface as a loud error, which is the desired signal.
 IF OBJECT_ID('dbo.SERVER_SERVICE_MAP', 'U') IS NOT NULL
 BEGIN
-    DELETE FROM [dbo].[SERVER_SERVICE_MAP];
-    PRINT 'Emptied dbo.SERVER_SERVICE_MAP (' + CAST(@@ROWCOUNT AS VARCHAR(20)) + ' rows deleted)';
+    DROP TABLE [dbo].[SERVER_SERVICE_MAP];
+    PRINT 'Dropped legacy table dbo.SERVER_SERVICE_MAP';
 END
 GO
 
 IF OBJECT_ID('dbo.SERVICE', 'U') IS NOT NULL
 BEGIN
-    DELETE FROM [dbo].[SERVICE];
-    PRINT 'Emptied dbo.SERVICE (' + CAST(@@ROWCOUNT AS VARCHAR(20)) + ' rows deleted)';
+    DROP TABLE [dbo].[SERVICE];
+    PRINT 'Dropped legacy table dbo.SERVICE';
 END
 GO
 

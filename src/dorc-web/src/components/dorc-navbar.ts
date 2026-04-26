@@ -201,7 +201,7 @@ export class DorcNavbar extends LitElement {
           @click="${this._toggleAuditMenu}"
         >
           <a href="#" @click="${(e: Event) => e.preventDefault()}">
-            <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+            <vaadin-icon icon="vaadin:list" theme="small"></vaadin-icon>
             Audit
             <vaadin-icon
               icon="${this.auditMenuExpanded ? 'vaadin:chevron-down-small' : 'vaadin:chevron-right-small'}"
