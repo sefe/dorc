@@ -52,6 +52,12 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
     {
         // SignalR fan-out first per S-006 R-1 ordering invariant.
         try { await _fallback.PublishResultStatusChangedAsync(eventData); }
+        // SignalR is best-effort UI fan-out (class doc, R-1). The fallback
+        // implementation can surface HubException, IOException,
+        // TimeoutException, InvalidOperationException, or
+        // ObjectDisposedException depending on hub state — narrowing to any
+        // single type would let the others escape the publisher and break
+        // the "WARN and continue to Kafka emit" contract.
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
@@ -85,6 +91,9 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         Func<Task> signalRAttempt)
     {
         try { await signalRAttempt(); }
+        // Mirror PublishResultStatusChangedAsync — SignalR fan-out is
+        // best-effort by design; catch broadly so any hub-side or transport
+        // exception is logged WARN without suppressing the Kafka emit.
         catch (Exception ex)
         {
             _logger.LogWarning(ex,

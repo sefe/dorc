@@ -213,7 +213,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                     "error-fallback-structured-log topic={Topic} partition={Partition} offset={Offset} group={GroupId} key={Key} error={Error}",
                     entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.MessageKey, entry.Error);
             }
-            catch
+            catch (Exception)
             {
                 // Super-degraded: logger itself threw. Swallow so the consumer
                 // loop survives — one missed log entry beats a halted consumer
