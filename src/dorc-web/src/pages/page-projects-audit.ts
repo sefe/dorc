@@ -111,18 +111,32 @@ export class PageProjectsAudit extends PageElement {
         font-family: monaco, Consolas, 'Lucida Console', monospace;
         font-size: 11px;
       }
-      .diff-skip {
-        font-family: monaco, Consolas, 'Lucida Console', monospace;
-        font-size: 11px;
-        color: var(--dorc-text-secondary);
-        font-style: italic;
-        padding: 2px 0;
-      }
       .highlight-added {
         background-color: var(--dorc-success-bg);
       }
       .highlight-removed {
         background-color: var(--dorc-failure-bg);
+      }
+      /* Side-by-side diff: two columns, paired rows. Old (left) / new (right).
+         Each row is a pair of cells in a CSS grid; cells get highlight classes
+         based on the op kind. Long lines wrap within the cell. */
+      .diff-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0;
+        font-family: monaco, Consolas, 'Lucida Console', monospace;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+      .diff-cell {
+        padding: 1px 8px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border-right: 1px solid var(--dorc-border-color);
+        min-height: 1.4em;
+      }
+      .diff-cell.right {
+        border-right: none;
       }
       .summary-counts {
         font-size: 12px;
@@ -146,6 +160,27 @@ export class PageProjectsAudit extends PageElement {
       .details-pane {
         padding: 8px 12px 12px 36px;
         background: var(--dorc-bg-secondary, rgba(0, 0, 0, 0.15));
+        max-height: 60vh;
+        overflow: auto;
+      }
+      .diff-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--dorc-text-secondary);
+        position: sticky;
+        top: 0;
+        background: var(--dorc-bg-secondary, rgba(0, 0, 0, 0.15));
+        padding: 4px 0;
+        z-index: 1;
+      }
+      .diff-header > div {
+        padding: 0 8px;
+        border-right: 1px solid var(--dorc-border-color);
+      }
+      .diff-header > div.right {
+        border-right: none;
       }
       vaadin-icon.chevron {
         cursor: pointer;
@@ -454,8 +489,11 @@ export class PageProjectsAudit extends PageElement {
     return result;
   }
 
-  // Row-details slot: full unified diff for the row, identical render path
-  // to what the cell used to do — context-collapsed line-LCS with +/- markers.
+  // Row-details slot: full side-by-side diff. Old version on the left, new on
+  // the right, with corresponding lines paired. No context collapsing — every
+  // line is rendered (the user wanted full context for navigation). The
+  // surrounding details-pane has its own internal scroll (CSS), so the grid
+  // row metadata above stays visible while the user scrolls the diff content.
   private detailsRenderer = (
     root: HTMLElement,
     _grid: HTMLElement,
@@ -478,18 +516,69 @@ export class PageProjectsAudit extends PageElement {
       return;
     }
     const ops = this.computeLineDiff(prev, curr);
-    const display = this.collapseUnchangedRuns(ops, 3);
-    const rendered = display.map(d => {
-      if (d.kind === 'skip')
-        return html`<div class="diff-skip">${d.line}</div>`;
-      if (d.kind === 'insert')
-        return html`<div class="diff-line highlight-added">${'+' + d.line}</div>`;
-      if (d.kind === 'delete')
-        return html`<div class="diff-line highlight-removed">${'-' + d.line}</div>`;
-      return html`<div class="diff-line">${' ' + d.line}</div>`;
-    });
-    render(html`<div class="details-pane">${rendered}</div>`, root);
+    const rows = this.buildSideBySide(ops);
+    const cells: unknown[] = [];
+    for (const r of rows) {
+      const leftCls = r.kind === 'delete' || r.kind === 'change'
+        ? 'diff-cell highlight-removed'
+        : 'diff-cell';
+      const rightCls = r.kind === 'insert' || r.kind === 'change'
+        ? 'diff-cell right highlight-added'
+        : 'diff-cell right';
+      cells.push(html`<div class="${leftCls}">${r.left ?? ''}</div>`);
+      cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
+    }
+    render(
+      html`
+        <div class="details-pane">
+          <div class="diff-header">
+            <div>Before</div>
+            <div class="right">After</div>
+          </div>
+          <div class="diff-grid">${cells}</div>
+        </div>
+      `,
+      root
+    );
   };
+
+  // Convert the line-LCS ops into a side-by-side row stream. Within each run
+  // of consecutive non-keep ops, deletes pair positionally with inserts:
+  //   - Pair k of (deletes, inserts) → one 'change' row (left=del, right=ins)
+  //   - Surplus deletes → 'delete' rows (left only)
+  //   - Surplus inserts → 'insert' rows (right only)
+  // Keep ops emit a single row with the same line on both sides.
+  private buildSideBySide(
+    ops: { type: 'keep' | 'insert' | 'delete'; line: string }[]
+  ): { left: string | null; right: string | null; kind: 'keep' | 'change' | 'delete' | 'insert' }[] {
+    const out: { left: string | null; right: string | null; kind: 'keep' | 'change' | 'delete' | 'insert' }[] = [];
+    let i = 0;
+    while (i < ops.length) {
+      if (ops[i].type === 'keep') {
+        out.push({ left: ops[i].line, right: ops[i].line, kind: 'keep' });
+        i++;
+        continue;
+      }
+      const dels: string[] = [];
+      const ins: string[] = [];
+      while (i < ops.length && ops[i].type !== 'keep') {
+        if (ops[i].type === 'delete') dels.push(ops[i].line);
+        else ins.push(ops[i].line);
+        i++;
+      }
+      const max = Math.max(dels.length, ins.length);
+      for (let k = 0; k < max; k++) {
+        const l = dels[k];
+        const r = ins[k];
+        let kind: 'change' | 'delete' | 'insert';
+        if (l !== undefined && r !== undefined) kind = 'change';
+        else if (l !== undefined) kind = 'delete';
+        else kind = 'insert';
+        out.push({ left: l ?? null, right: r ?? null, kind });
+      }
+    }
+    return out;
+  }
 
   private chevronRenderer = (
     root: HTMLElement,
@@ -524,53 +613,6 @@ export class PageProjectsAudit extends PageElement {
       grid.requestContentUpdate?.();
     }
   };
-
-  // Convert a full op stream into a unified-diff-style display: keep up to
-  // `context` lines on either side of each change, collapse longer runs of
-  // unchanged lines into a single "… N unchanged lines …" marker. Mirrors
-  // the way `git diff` / `diff -U3` shrink large unchanged stretches.
-  private collapseUnchangedRuns(
-    ops: { type: 'keep' | 'insert' | 'delete'; line: string }[],
-    context: number
-  ): { kind: 'keep' | 'insert' | 'delete' | 'skip'; line: string }[] {
-    const out: { kind: 'keep' | 'insert' | 'delete' | 'skip'; line: string }[] = [];
-    let i = 0;
-    while (i < ops.length) {
-      if (ops[i].type !== 'keep') {
-        out.push({ kind: ops[i].type, line: ops[i].line });
-        i++;
-        continue;
-      }
-      // Run of 'keep' starts at i.
-      const runStart = i;
-      while (i < ops.length && ops[i].type === 'keep') i++;
-      const runEnd = i; // exclusive
-      const runLen = runEnd - runStart;
-      const isFirst = runStart === 0;
-      const isLast = runEnd === ops.length;
-      const trail = isFirst ? 0 : context; // context after the previous change
-      const lead = isLast ? 0 : context; // context before the next change
-
-      if (runLen <= trail + lead) {
-        for (let j = runStart; j < runEnd; j++) {
-          out.push({ kind: 'keep', line: ops[j].line });
-        }
-      } else {
-        for (let j = runStart; j < runStart + trail; j++) {
-          out.push({ kind: 'keep', line: ops[j].line });
-        }
-        const skipped = runLen - trail - lead;
-        out.push({
-          kind: 'skip',
-          line: `… ${skipped} unchanged line${skipped === 1 ? '' : 's'} …`
-        });
-        for (let j = runEnd - lead; j < runEnd; j++) {
-          out.push({ kind: 'keep', line: ops[j].line });
-        }
-      }
-    }
-    return out;
-  }
 
   private prettyJson(raw: string): string {
     try {
