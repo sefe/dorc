@@ -14,7 +14,9 @@ WHERE NOT EXISTS (
     SELECT 1 FROM [deploy].[RefDataAuditAction] a WHERE a.Action = v.Action
 );
 
+DECLARE @auditActionCount INT;
+SELECT @auditActionCount = COUNT(*) FROM [deploy].[RefDataAuditAction];
 PRINT 'RefDataAuditAction seed complete ('
-    + CAST((SELECT COUNT(*) FROM [deploy].[RefDataAuditAction]) AS VARCHAR(10))
+    + CAST(@auditActionCount AS VARCHAR(10))
     + ' rows present)';
 GO
