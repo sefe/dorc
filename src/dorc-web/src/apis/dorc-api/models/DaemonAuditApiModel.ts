@@ -27,6 +27,11 @@ export interface DaemonAuditApiModel {
      */
     DaemonId?: number | null;
     /**
+     * @type {string}
+     * @memberof DaemonAuditApiModel
+     */
+    DaemonName?: string | null;
+    /**
      * @type {number}
      * @memberof DaemonAuditApiModel
      */

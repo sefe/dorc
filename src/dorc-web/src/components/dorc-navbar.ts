@@ -232,7 +232,7 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('projects')}">
+          <a href="${urlForName('projects-audit')}">
             <div style="margin-left: 20px; width: 210px">
               <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
               Projects Audit
@@ -240,7 +240,7 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('daemons')}">
+          <a href="${urlForName('daemons-audit')}">
             <div style="margin-left: 20px; width: 210px">
               <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
               Daemons Audit

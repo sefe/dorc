@@ -6,6 +6,8 @@ namespace Dorc.ApiModel
 
         public int? DaemonId { get; set; }
 
+        public string DaemonName { get; set; }
+
         public int RefDataAuditActionId { get; set; }
 
         public string Action { get; set; }

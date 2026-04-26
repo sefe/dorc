@@ -7860,6 +7860,10 @@
             "format": "int32",
             "nullable": true
           },
+          "DaemonName": {
+            "type": "string",
+            "nullable": true
+          },
           "RefDataAuditActionId": {
             "type": "integer",
             "format": "int32"
@@ -9223,7 +9227,8 @@
           },
           "ProjectId": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "nullable": true
           },
           "Project": {
             "$ref": "#/components/schemas/ProjectApiModel"

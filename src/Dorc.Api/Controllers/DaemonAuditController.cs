@@ -19,14 +19,17 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Get paged audit list for a daemon.
+        /// Get paged audit list. Returns audit history for a single daemon when <paramref name="daemonId"/>
+        /// is supplied, otherwise returns the cross-record feed across all daemons.
         /// Uses PUT (matching the existing RefDataProjectAuditController convention) so a filter/sort body can accompany the request.
         /// </summary>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(GetDaemonAuditListResponseDto))]
         [HttpPut]
-        public IActionResult Put(int daemonId, [FromBody] PagedDataOperators operators, int page = 1, int limit = 50)
+        public IActionResult Put([FromBody] PagedDataOperators operators, int? daemonId = null, int page = 1, int limit = 50)
         {
-            var result = _daemonAuditPersistentSource.GetDaemonAuditByDaemonId(daemonId, limit, page, operators);
+            var result = daemonId.HasValue
+                ? _daemonAuditPersistentSource.GetDaemonAuditByDaemonId(daemonId.Value, limit, page, operators)
+                : _daemonAuditPersistentSource.GetDaemonAudit(limit, page, operators);
             return StatusCode(StatusCodes.Status200OK, result);
         }
     }

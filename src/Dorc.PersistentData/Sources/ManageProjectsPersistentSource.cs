@@ -63,98 +63,130 @@ namespace Dorc.PersistentData.Sources
 
         public GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators)
         {
-            PagedModel<RefDataAudit> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var reqStatusesQueryable = context.RefDataAudits
+                var queryable = context.RefDataAudits
+                    .Include(refDataAudit => refDataAudit.Action)
+                    .Include(refDataAudit => refDataAudit.Project)
+                    .Where(a => a.ProjectId == projectId);
+
+                return RunPagedAuditQuery(queryable, limit, page, operators);
+            }
+        }
+
+        public GetRefDataAuditListResponseDto GetRefDataAudit(int limit, int page, PagedDataOperators operators)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var queryable = context.RefDataAudits
                     .Include(refDataAudit => refDataAudit.Action)
                     .Include(refDataAudit => refDataAudit.Project)
                     .AsQueryable();
 
-                var filterLambdas =
-                    new List<Expression<Func<RefDataAudit, bool>>>();
-                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(nameof(RefDataAudit.ProjectId),
-                                projectId.ToString()));
-                if (operators.Filters != null && operators.Filters.Any())
+                return RunPagedAuditQuery(queryable, limit, page, operators);
+            }
+        }
+
+        // Shared filter/sort/page/project pipeline for the per-project and cross-project audit
+        // queries. RefDataAudit.ProjectId is non-nullable in the EF model but the database column
+        // permits NULL (FK has ON DELETE SET NULL), so a row whose project was deleted may surface
+        // with Project == null at runtime — guard the projection accordingly.
+        private static GetRefDataAuditListResponseDto RunPagedAuditQuery(
+            IQueryable<RefDataAudit> queryable,
+            int limit, int page, PagedDataOperators operators)
+        {
+            PagedModel<RefDataAudit> output = null;
+
+            var filterLambdas = new List<Expression<Func<RefDataAudit, bool>>>();
+            if (operators.Filters != null && operators.Filters.Any())
+            {
+                foreach (var pagedDataFilter in operators.Filters)
                 {
-                    foreach (var pagedDataFilter in operators.Filters)
+                    if (pagedDataFilter == null)
+                        continue;
+                    if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                     {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                        var expr = queryable.ContainsExpression(pagedDataFilter.Path,
+                                pagedDataFilter.FilterValue);
+                        if (expr != null)
                         {
-                            filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
+                            filterLambdas.Add(expr);
                         }
                     }
                 }
-                reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
+            }
 
-                if (operators.SortOrders != null && operators.SortOrders.Any())
+            if (filterLambdas.Count > 0)
+            {
+                queryable = WhereAll(queryable, filterLambdas.ToArray());
+            }
+
+            if (operators.SortOrders != null && operators.SortOrders.Any())
+            {
+                IOrderedQueryable<RefDataAudit> orderedQuery = null;
+
+                for (var i = 0; i < operators.SortOrders.Count; i++)
                 {
-                    IOrderedQueryable<RefDataAudit> orderedQuery = null;
+                    if (operators.SortOrders[i] == null)
+                        continue;
+                    if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
+                        string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                        continue;
 
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
+                    var param = Expression.Parameter(typeof(RefDataAudit), "RefDataAudit");
+                    var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+
+                    switch (prop.Type)
                     {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(RefDataAudit), "RefDataAudit");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                {
-                                    var expr = GetExpressionForOrdering<DateTime>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
+                        case Type boolType when boolType == typeof(bool):
+                            {
+                                var expr = GetExpressionForOrdering<bool>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
+                        case Type stringType when stringType == typeof(string):
+                            {
+                                var expr = GetExpressionForOrdering<string>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
+                        case Type intType when intType == typeof(int):
+                            {
+                                var expr = GetExpressionForOrdering<int>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
+                        case Type datetimeType when datetimeType == typeof(DateTime):
+                            {
+                                var expr = GetExpressionForOrdering<DateTime>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
                     }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
                 }
 
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderByDescending(s => s.Date)
+                if (orderedQuery != null)
+                    output = orderedQuery.AsNoTracking()
                         .Paginate(page, limit);
+            }
 
+            if (output == null)
+                output = queryable.AsNoTracking()
+                    .OrderByDescending(s => s.Date)
+                    .Paginate(page, limit);
 
-                return new GetRefDataAuditListResponseDto
+            return new GetRefDataAuditListResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(refDataAudit => new RefDataAuditApiModel
                 {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(refDataAudit => new RefDataAuditApiModel
-                    {
-                        RefDataAuditId = refDataAudit.RefDataAuditId,
-                        ProjectId = refDataAudit.ProjectId,
-                        Project = new ProjectApiModel
+                    RefDataAuditId = refDataAudit.RefDataAuditId,
+                    ProjectId = refDataAudit.ProjectId,
+                    Project = refDataAudit.Project == null
+                        ? null
+                        : new ProjectApiModel
                         {
                             ProjectId = refDataAudit.Project.Id,
                             ArtefactsBuildRegex = refDataAudit.Project.ArtefactsBuildRegex,
@@ -163,14 +195,13 @@ namespace Dorc.PersistentData.Sources
                             ProjectDescription = refDataAudit.Project.Description,
                             ProjectName = refDataAudit.Project.Name
                         },
-                        RefDataAuditActionId = refDataAudit.RefDataAuditActionId,
-                        Action = refDataAudit.Action.Action.ToString(),
-                        Username = refDataAudit.Username,
-                        Date = refDataAudit.Date,
-                        Json = refDataAudit.Json
-                    }).ToList()
-                };
-            }
+                    RefDataAuditActionId = refDataAudit.RefDataAuditActionId,
+                    Action = refDataAudit.Action.Action.ToString(),
+                    Username = refDataAudit.Username,
+                    Date = refDataAudit.Date,
+                    Json = refDataAudit.Json
+                }).ToList()
+            };
         }
 
         public IList<ComponentApiModel> GetOrderedComponents(int projectId)
@@ -856,7 +887,7 @@ namespace Dorc.PersistentData.Sources
             return Expression.Lambda<Func<RefDataAudit, R>>(prop, param);
         }
 
-        private IQueryable<T> WhereAll<T>(
+        private static IQueryable<T> WhereAll<T>(
             IQueryable<T> source,
             params Expression<Func<T, bool>>[] predicates)
         {

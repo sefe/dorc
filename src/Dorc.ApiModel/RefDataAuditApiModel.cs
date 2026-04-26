@@ -6,7 +6,7 @@ namespace Dorc.ApiModel
     {
         public int RefDataAuditId { get; set; }
 
-        public int ProjectId { get; set; }
+        public int? ProjectId { get; set; }
 
         public virtual ProjectApiModel Project { get; set; }
 

@@ -29,7 +29,7 @@ export interface RefDataAuditApiModel {
      * @type {number}
      * @memberof RefDataAuditApiModel
      */
-    ProjectId?: number;
+    ProjectId?: number | null;
     /**
      * @type {ProjectApiModel}
      * @memberof RefDataAuditApiModel
