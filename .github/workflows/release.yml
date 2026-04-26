@@ -144,10 +144,14 @@ jobs:
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
         
-        # Find test assemblies, excluding integration tests that require external dependencies
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
-          Where-Object { 
-            $_.FullName -notmatch "\\obj\\" -and 
+        # Find test assemblies. Only the plural "*Tests.dll" suffix — the singular
+        # "*Test.dll" picks up non-test projects (Tools.RabbitMqOAuthTest is a console
+        # exe with no testhost, Org.OpenAPITools.Test is an empty auto-generated client),
+        # which crashed VSTest's parallel manager with "Could not find testhost".
+        # IntegrationTests and Acceptance are excluded — they need external resources.
+        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll" |
+          Where-Object {
+            $_.FullName -notmatch "\\obj\\" -and
             $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
