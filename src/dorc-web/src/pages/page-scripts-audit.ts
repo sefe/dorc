@@ -52,16 +52,10 @@ export class PageScriptsAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
-        --audit-row-add-bg: #e6ffec;
-        --audit-row-remove-bg: #ffebe9;
-        --audit-char-add-bg: #abf2bc;
-        --audit-char-remove-bg: #ffaba8;
-      }
-      :host-context([theme~='dark']) {
-        --audit-row-add-bg: #0e2918;
-        --audit-row-remove-bg: #2e1818;
-        --audit-char-add-bg: #1f6e36;
-        --audit-char-remove-bg: #a14040;
+        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-char-add-bg: var(--dorc-success-bg);
+        --audit-char-remove-bg: var(--dorc-failure-bg);
       }
       vaadin-grid#grid {
         flex: 1 1 auto;
