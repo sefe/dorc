@@ -318,7 +318,7 @@ export class PageProjectsAudit extends PageElement {
         continue;
       }
       // Run of 'keep' starts at i.
-      let runStart = i;
+      const runStart = i;
       while (i < ops.length && ops[i].type === 'keep') i++;
       const runEnd = i; // exclusive
       const runLen = runEnd - runStart;
