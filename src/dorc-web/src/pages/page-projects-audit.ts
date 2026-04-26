@@ -106,6 +106,13 @@ export class PageProjectsAudit extends PageElement {
         font-family: monaco, Consolas, 'Lucida Console', monospace;
         font-size: 11px;
       }
+      .diff-skip {
+        font-family: monaco, Consolas, 'Lucida Console', monospace;
+        font-size: 11px;
+        color: var(--dorc-text-secondary);
+        font-style: italic;
+        padding: 2px 0;
+      }
       .highlight-added {
         background-color: var(--dorc-success-bg);
       }
@@ -281,15 +288,65 @@ export class PageProjectsAudit extends PageElement {
     }
 
     const ops = this.computeLineDiff(prev, curr);
-    const lines = ops.map(op => {
-      if (op.type === 'keep')
-        return html`<div class="diff-line">${' ' + op.line}</div>`;
-      if (op.type === 'insert')
-        return html`<div class="diff-line highlight-added">${'+' + op.line}</div>`;
-      return html`<div class="diff-line highlight-removed">${'-' + op.line}</div>`;
+    const display = this.collapseUnchangedRuns(ops, 3);
+    const rendered = display.map(d => {
+      if (d.kind === 'skip')
+        return html`<div class="diff-skip">${d.line}</div>`;
+      if (d.kind === 'insert')
+        return html`<div class="diff-line highlight-added">${'+' + d.line}</div>`;
+      if (d.kind === 'delete')
+        return html`<div class="diff-line highlight-removed">${'-' + d.line}</div>`;
+      return html`<div class="diff-line">${' ' + d.line}</div>`;
     });
-    render(html`<div>${lines}</div>`, root);
+    render(html`<div>${rendered}</div>`, root);
   };
+
+  // Convert a full op stream into a unified-diff-style display: keep up to
+  // `context` lines on either side of each change, collapse longer runs of
+  // unchanged lines into a single "… N unchanged lines …" marker. Mirrors
+  // the way `git diff` / `diff -U3` shrink large unchanged stretches.
+  private collapseUnchangedRuns(
+    ops: { type: 'keep' | 'insert' | 'delete'; line: string }[],
+    context: number
+  ): { kind: 'keep' | 'insert' | 'delete' | 'skip'; line: string }[] {
+    const out: { kind: 'keep' | 'insert' | 'delete' | 'skip'; line: string }[] = [];
+    let i = 0;
+    while (i < ops.length) {
+      if (ops[i].type !== 'keep') {
+        out.push({ kind: ops[i].type, line: ops[i].line });
+        i++;
+        continue;
+      }
+      // Run of 'keep' starts at i.
+      let runStart = i;
+      while (i < ops.length && ops[i].type === 'keep') i++;
+      const runEnd = i; // exclusive
+      const runLen = runEnd - runStart;
+      const isFirst = runStart === 0;
+      const isLast = runEnd === ops.length;
+      const trail = isFirst ? 0 : context; // context after the previous change
+      const lead = isLast ? 0 : context; // context before the next change
+
+      if (runLen <= trail + lead) {
+        for (let j = runStart; j < runEnd; j++) {
+          out.push({ kind: 'keep', line: ops[j].line });
+        }
+      } else {
+        for (let j = runStart; j < runStart + trail; j++) {
+          out.push({ kind: 'keep', line: ops[j].line });
+        }
+        const skipped = runLen - trail - lead;
+        out.push({
+          kind: 'skip',
+          line: `… ${skipped} unchanged line${skipped === 1 ? '' : 's'} …`
+        });
+        for (let j = runEnd - lead; j < runEnd; j++) {
+          out.push({ kind: 'keep', line: ops[j].line });
+        }
+      }
+    }
+    return out;
+  }
 
   private prettyJson(raw: string): string {
     try {
