@@ -49,6 +49,12 @@ export class PageDaemonsAudit extends PageElement {
       vaadin-grid#grid::part(delete-type) {
         background-color: var(--dorc-failure-bg);
       }
+      .highlight-added {
+        background-color: var(--dorc-success-bg);
+      }
+      .highlight-removed {
+        background-color: var(--dorc-failure-bg);
+      }
       .overlay {
         width: 100%;
         height: 100%;
@@ -233,8 +239,94 @@ export class PageDaemonsAudit extends PageElement {
         render(html`<span class="muted">—</span>`, root);
         return;
       }
-      render(html`<pre class="value">${raw}</pre>`, root);
+
+      const oldStr = model.item?.FromValue ?? '';
+      const newStr = model.item?.ToValue ?? '';
+      const isCreate = !oldStr && !!newStr;
+      const isDelete = !!oldStr && !newStr;
+
+      // Whole-string highlight on Create/Delete; per-character diff on Update.
+      if (isCreate && fieldName === 'ToValue') {
+        render(html`<pre class="value"><span class="highlight-added">${raw}</span></pre>`, root);
+        return;
+      }
+      if (isDelete && fieldName === 'FromValue') {
+        render(html`<pre class="value"><span class="highlight-removed">${raw}</span></pre>`, root);
+        return;
+      }
+      if (oldStr === newStr) {
+        render(html`<pre class="value">${raw}</pre>`, root);
+        return;
+      }
+
+      const ops = this.computeDiff(oldStr, newStr);
+      if (fieldName === 'FromValue') {
+        const parts = ops.map(op => {
+          if (op.type === 'keep') return html`${op.value}`;
+          if (op.type === 'delete')
+            return html`<span class="highlight-removed">${op.value}</span>`;
+          return html``;
+        });
+        render(html`<pre class="value">${parts}</pre>`, root);
+      } else {
+        const parts = ops.map(op => {
+          if (op.type === 'keep') return html`${op.value}`;
+          if (op.type === 'insert')
+            return html`<span class="highlight-added">${op.value}</span>`;
+          return html``;
+        });
+        render(html`<pre class="value">${parts}</pre>`, root);
+      }
     };
+  }
+
+  private computeDiff(
+    oldStr: string,
+    newStr: string
+  ): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
+    const oldLen = oldStr.length;
+    const newLen = newStr.length;
+    const dp: number[][] = Array.from({ length: oldLen + 1 }, () =>
+      new Array(newLen + 1).fill(0)
+    );
+    for (let i = 1; i <= oldLen; i++) {
+      for (let j = 1; j <= newLen; j++) {
+        if (oldStr[i - 1] === newStr[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    const ops: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
+    let i = oldLen;
+    let j = newLen;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldStr[i - 1] === newStr[j - 1]) {
+        ops.push({ type: 'keep', value: oldStr[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        ops.push({ type: 'insert', value: newStr[j - 1] });
+        j--;
+      } else {
+        ops.push({ type: 'delete', value: oldStr[i - 1] });
+        i--;
+      }
+    }
+    ops.reverse();
+
+    const merged: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
+    for (const op of ops) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === op.type) {
+        last.value += op.value;
+      } else {
+        merged.push({ type: op.type, value: op.value });
+      }
+    }
+    return merged;
   }
 
   daemonNameHeaderRenderer = (root: HTMLElement) => {

@@ -358,7 +358,7 @@ export class PageDaemonsList extends PageElement {
           @click="${() => this.openAudit(daemon)}"
         >
           <vaadin-icon
-            icon="vaadin:list"
+            icon="vaadin:calendar-user"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>

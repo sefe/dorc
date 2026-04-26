@@ -23,7 +23,6 @@ import { GetRefDataAuditListResponseDto } from '../apis/dorc-api/models/GetRefDa
 import { PageElement } from '../helpers/page-element';
 import { getShortLogonName } from '../helpers/user-extensions';
 import '../components/hegs-json-viewer';
-import { HegsJsonViewer } from '../components/hegs-json-viewer';
 
 @customElement('page-projects-audit')
 export class PageProjectsAudit extends PageElement {
@@ -234,12 +233,13 @@ export class PageProjectsAudit extends PageElement {
     }
     // Use lit's property binding (.data) so the parsed object is passed straight to
     // the viewer's data property — no innerHTML interpolation, no XSS surface.
+    // Render collapsed-by-default — the project Json payload is the full project
+    // state and auto-expanding everything makes each row hundreds of lines tall.
+    // The user expands the keys they care about.
     render(
       html`<hegs-json-viewer style="font-size: small" .data=${parsed}></hegs-json-viewer>`,
       root
     );
-    const viewer = root.querySelector('hegs-json-viewer') as unknown as HegsJsonViewer;
-    viewer?.expand('*');
   };
 
   projectNameHeaderRenderer = (root: HTMLElement) => {

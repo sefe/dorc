@@ -81,7 +81,7 @@ export class ProjectControls extends LitElement {
         @click="${this.openAuditData}"
       >
         <vaadin-icon
-          icon="vaadin:list"
+          icon="vaadin:calendar-user"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
