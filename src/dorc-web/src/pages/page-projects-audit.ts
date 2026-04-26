@@ -185,6 +185,14 @@ export class PageProjectsAudit extends PageElement {
       vaadin-icon.chevron {
         cursor: pointer;
         color: var(--dorc-text-secondary);
+        --vaadin-icon-size: 12px;
+        width: 12px;
+        height: 12px;
+        opacity: 0.45;
+        transition: opacity 120ms ease;
+      }
+      vaadin-icon.chevron:hover {
+        opacity: 1;
       }
     `;
   }
