@@ -264,10 +264,11 @@ export class PageProjectsAudit extends PageElement {
     // (non-JSON) content can't inject HTML.
     const curr = this.prettyJson(raw);
 
-    // _priorJson is stitched on by the data provider — for each row, the next
-    // older audit row for the same project on this page. When present we
-    // render a line-level diff; otherwise plain pre.
-    const priorRaw = (model.item as RefDataAuditApiModel & { _priorJson?: string })._priorJson;
+    // PriorJson is computed server-side via a correlated subquery — the
+    // chronologically-prior audit row's Json for the same project. Diff is
+    // page-boundary clean: every row except the very first audit of a project
+    // (or rows for deleted projects) has a prior to compare against.
+    const priorRaw = model.item.PriorJson;
     if (!priorRaw) {
       render(html`<pre class="value">${curr}</pre>`, root);
       return;
@@ -430,23 +431,6 @@ export class PageProjectsAudit extends PageElement {
           items.forEach(
             item => (item.Username = getShortLogonName(item.Username))
           );
-
-          // Stitch the prior project state onto each row for diff rendering.
-          // Rows arrive in Date DESC order, so the "previous version" of a
-          // given project is the next row in the array with the same
-          // ProjectId. Cross-page boundaries are not stitched — the last
-          // row(s) on a page renders as plain JSON if no same-project row
-          // appears later in the page.
-          for (let i = 0; i < items.length; i++) {
-            const cur = items[i] as RefDataAuditApiModel & { _priorJson?: string };
-            for (let j = i + 1; j < items.length; j++) {
-              if (items[j].ProjectId === cur.ProjectId) {
-                cur._priorJson = items[j].Json ?? undefined;
-                break;
-              }
-            }
-          }
-
           this.dispatchEvent(
             new CustomEvent('searching-project-audit-finished', {
               detail: {},

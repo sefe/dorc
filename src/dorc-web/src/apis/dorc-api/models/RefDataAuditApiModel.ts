@@ -60,4 +60,9 @@ export interface RefDataAuditApiModel {
      * @memberof RefDataAuditApiModel
      */
     Json?: string | null;
+    /**
+     * @type {string}
+     * @memberof RefDataAuditApiModel
+     */
+    PriorJson?: string | null;
 }

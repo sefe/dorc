@@ -9252,6 +9252,10 @@
           "Json": {
             "type": "string",
             "nullable": true
+          },
+          "PriorJson": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

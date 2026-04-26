@@ -70,7 +70,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(refDataAudit => refDataAudit.Project)
                     .Where(a => a.ProjectId == projectId);
 
-                return RunPagedAuditQuery(queryable, limit, page, operators);
+                return RunPagedAuditQuery(context, queryable, limit, page, operators);
             }
         }
 
@@ -83,7 +83,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(refDataAudit => refDataAudit.Project)
                     .AsQueryable();
 
-                return RunPagedAuditQuery(queryable, limit, page, operators);
+                return RunPagedAuditQuery(context, queryable, limit, page, operators);
             }
         }
 
@@ -91,7 +91,12 @@ namespace Dorc.PersistentData.Sources
         // queries. RefDataAudit.ProjectId is non-nullable in the EF model but the database column
         // permits NULL (FK has ON DELETE SET NULL), so a row whose project was deleted may surface
         // with Project == null at runtime — guard the projection accordingly.
+        // The IDeploymentContext is required for the prior-Json lookup that powers the projects
+        // audit page diff view: a correlated subquery is the cheapest way to fetch each row's
+        // chronologically-prior same-project audit Json without N+1 round-trips or pulling the
+        // full audit history into memory.
         private static GetRefDataAuditListResponseDto RunPagedAuditQuery(
+            IDeploymentContext context,
             IQueryable<RefDataAudit> queryable,
             int limit, int page, PagedDataOperators operators)
         {
@@ -175,6 +180,30 @@ namespace Dorc.PersistentData.Sources
                     .OrderByDescending(s => s.Date)
                     .Paginate(page, limit);
 
+            // For each row in the page, look up the chronologically-prior audit row's Json for
+            // the same project. Implemented as a single EF query whose projection contains a
+            // correlated subquery — translates to one SQL statement with an OUTER APPLY (one
+            // round-trip total, regardless of page size). Skips rows with NULL ProjectId
+            // (orphaned/project-deleted) since prior-lookup is meaningless for them.
+            var pagedAuditIds = output.Items.Select(a => a.RefDataAuditId).ToList();
+            var priorJsonByAuditId = pagedAuditIds.Count == 0
+                ? new Dictionary<int, string>()
+                : context.RefDataAudits
+                    .AsNoTracking()
+                    .Where(a => pagedAuditIds.Contains(a.RefDataAuditId))
+                    .Select(a => new
+                    {
+                        a.RefDataAuditId,
+                        PriorJson = a.ProjectId == null
+                            ? null
+                            : context.RefDataAudits
+                                .Where(p => p.ProjectId == a.ProjectId && p.Date < a.Date)
+                                .OrderByDescending(p => p.Date)
+                                .Select(p => p.Json)
+                                .FirstOrDefault()
+                    })
+                    .ToDictionary(x => x.RefDataAuditId, x => x.PriorJson);
+
             return new GetRefDataAuditListResponseDto
             {
                 CurrentPage = output.CurrentPage,
@@ -184,6 +213,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     RefDataAuditId = refDataAudit.RefDataAuditId,
                     ProjectId = refDataAudit.ProjectId,
+                    PriorJson = priorJsonByAuditId.TryGetValue(refDataAudit.RefDataAuditId, out var pj) ? pj : null,
                     Project = refDataAudit.Project == null
                         ? null
                         : new ProjectApiModel
