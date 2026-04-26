@@ -220,13 +220,24 @@ export class PageProjectsAudit extends PageElement {
       render(html`<span class="muted">—</span>`, root);
       return;
     }
-    let formatted = raw;
+    let parsed: unknown;
     try {
-      formatted = JSON.stringify(JSON.parse(raw), null, 2);
+      parsed = JSON.parse(raw);
     } catch {
-      // leave raw as-is if not valid JSON
+      // Audit row without a valid JSON payload — fall back to plain pre-wrap text.
+      // lit auto-escapes ${raw} so no HTML injection regardless of content.
+      render(
+        html`<pre style="white-space: pre-wrap; margin: 0; font-size: 11px;">${raw}</pre>`,
+        root
+      );
+      return;
     }
-    root.innerHTML = `<hegs-json-viewer style="font-size: small">${formatted}</hegs-json-viewer>`;
+    // Use lit's property binding (.data) so the parsed object is passed straight to
+    // the viewer's data property — no innerHTML interpolation, no XSS surface.
+    render(
+      html`<hegs-json-viewer style="font-size: small" .data=${parsed}></hegs-json-viewer>`,
+      root
+    );
     const viewer = root.querySelector('hegs-json-viewer') as unknown as HegsJsonViewer;
     viewer?.expand('*');
   };
