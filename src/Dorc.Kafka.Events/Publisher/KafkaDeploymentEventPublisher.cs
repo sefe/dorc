@@ -121,8 +121,8 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
 
     public void Dispose()
     {
-        try { _resultsProducer.Flush(TimeSpan.FromSeconds(2)); } catch { /* best-effort */ }
-        try { _requestsProducer.Flush(TimeSpan.FromSeconds(2)); } catch { /* best-effort */ }
+        try { _resultsProducer.Flush(TimeSpan.FromSeconds(2)); } catch (KafkaException) { /* best-effort */ }
+        try { _requestsProducer.Flush(TimeSpan.FromSeconds(2)); } catch (KafkaException) { /* best-effort */ }
         _resultsProducer.Dispose();
         _requestsProducer.Dispose();
     }
