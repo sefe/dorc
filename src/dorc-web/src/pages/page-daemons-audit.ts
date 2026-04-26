@@ -43,9 +43,16 @@ export class PageDaemonsAudit extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+      }
       vaadin-grid#grid {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow: auto;
-        height: calc(100vh - 96px);
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(create-type) {
@@ -133,6 +140,7 @@ export class PageDaemonsAudit extends PageElement {
           .renderer="${this.daemonNameRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Username"
@@ -140,6 +148,7 @@ export class PageDaemonsAudit extends PageElement {
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Action"
@@ -147,6 +156,7 @@ export class PageDaemonsAudit extends PageElement {
           .headerRenderer="${this.actionHeaderRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-sort-column
           path="Date"
@@ -155,20 +165,21 @@ export class PageDaemonsAudit extends PageElement {
           .renderer="${this.dateRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           path="FromValue"
           header="From"
           .renderer="${this.valueRenderer('FromValue')}"
           resizable
-          auto-width
+          flex-grow="1"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ToValue"
           header="To"
           .renderer="${this.valueRenderer('ToValue')}"
           resizable
-          auto-width
+          flex-grow="1"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

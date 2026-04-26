@@ -47,9 +47,16 @@ export class PageScriptsAudit extends PageElement {
 
     static get styles() {
         return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+      }
       vaadin-grid#grid {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow: auto;
-        height: calc(100vh - 96px);
         --divider-color: rgb(223, 232, 239);
       }
       vaadin-grid#grid::part(insert-type) {

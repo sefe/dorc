@@ -22,7 +22,6 @@ import { PagedDataFilter, RefDataAuditApiModel } from '../apis/dorc-api/models';
 import { GetRefDataAuditListResponseDto } from '../apis/dorc-api/models/GetRefDataAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
 import { getShortLogonName } from '../helpers/user-extensions';
-import '../components/hegs-json-viewer';
 
 @customElement('page-projects-audit')
 export class PageProjectsAudit extends PageElement {
@@ -42,9 +41,16 @@ export class PageProjectsAudit extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+      }
       vaadin-grid#grid {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow: auto;
-        height: calc(100vh - 96px);
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(create-type) {
@@ -89,6 +95,23 @@ export class PageProjectsAudit extends PageElement {
         color: var(--dorc-text-secondary);
         font-style: italic;
       }
+      pre.value {
+        white-space: pre-wrap;
+        margin: 0;
+        font-size: 11px;
+        font-family: monaco, Consolas, 'Lucida Console', monospace;
+      }
+      .diff-line {
+        white-space: pre-wrap;
+        font-family: monaco, Consolas, 'Lucida Console', monospace;
+        font-size: 11px;
+      }
+      .highlight-added {
+        background-color: var(--dorc-success-bg);
+      }
+      .highlight-removed {
+        background-color: var(--dorc-failure-bg);
+      }
     `;
   }
 
@@ -121,6 +144,7 @@ export class PageProjectsAudit extends PageElement {
           .renderer="${this.projectNameRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Username"
@@ -128,6 +152,7 @@ export class PageProjectsAudit extends PageElement {
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Action"
@@ -135,6 +160,7 @@ export class PageProjectsAudit extends PageElement {
           .headerRenderer="${this.actionHeaderRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-sort-column
           path="Date"
@@ -143,12 +169,13 @@ export class PageProjectsAudit extends PageElement {
           .renderer="${this.dateRenderer}"
           resizable
           auto-width
+          flex-grow="0"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"
           .renderer="${this.valueRenderer}"
           resizable
-          auto-width
+          flex-grow="1"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
@@ -232,28 +259,85 @@ export class PageProjectsAudit extends PageElement {
       render(html`<span class="muted">—</span>`, root);
       return;
     }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      // Audit row without a valid JSON payload — fall back to plain pre-wrap text.
-      // lit auto-escapes ${raw} so no HTML injection regardless of content.
-      render(
-        html`<pre style="white-space: pre-wrap; margin: 0; font-size: 11px;">${raw}</pre>`,
-        root
-      );
+
+    // Pretty-print the current snapshot. lit auto-escapes ${...} so even raw
+    // (non-JSON) content can't inject HTML.
+    const curr = this.prettyJson(raw);
+
+    // _priorJson is stitched on by the data provider — for each row, the next
+    // older audit row for the same project on this page. When present we
+    // render a line-level diff; otherwise plain pre.
+    const priorRaw = (model.item as RefDataAuditApiModel & { _priorJson?: string })._priorJson;
+    if (!priorRaw) {
+      render(html`<pre class="value">${curr}</pre>`, root);
       return;
     }
-    // Use lit's property binding (.data) so the parsed object is passed straight to
-    // the viewer's data property — no innerHTML interpolation, no XSS surface.
-    // Render collapsed-by-default — the project Json payload is the full project
-    // state and auto-expanding everything makes each row hundreds of lines tall.
-    // The user expands the keys they care about.
-    render(
-      html`<hegs-json-viewer style="font-size: small" .data=${parsed}></hegs-json-viewer>`,
-      root
-    );
+    const prev = this.prettyJson(priorRaw);
+
+    if (prev === curr) {
+      render(html`<pre class="value">${curr}</pre>`, root);
+      return;
+    }
+
+    const ops = this.computeLineDiff(prev, curr);
+    const lines = ops.map(op => {
+      if (op.type === 'keep')
+        return html`<div class="diff-line">${' ' + op.line}</div>`;
+      if (op.type === 'insert')
+        return html`<div class="diff-line highlight-added">${'+' + op.line}</div>`;
+      return html`<div class="diff-line highlight-removed">${'-' + op.line}</div>`;
+    });
+    render(html`<div>${lines}</div>`, root);
   };
+
+  private prettyJson(raw: string): string {
+    try {
+      return JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+      return raw;
+    }
+  }
+
+  private computeLineDiff(
+    oldStr: string,
+    newStr: string
+  ): { type: 'keep' | 'insert' | 'delete'; line: string }[] {
+    const oldLines = oldStr.split('\n');
+    const newLines = newStr.split('\n');
+    const m = oldLines.length;
+    const n = newLines.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () =>
+      new Array(n + 1).fill(0)
+    );
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (oldLines[i - 1] === newLines[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    const ops: { type: 'keep' | 'insert' | 'delete'; line: string }[] = [];
+    let i = m;
+    let j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+        ops.push({ type: 'keep', line: oldLines[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        ops.push({ type: 'insert', line: newLines[j - 1] });
+        j--;
+      } else {
+        ops.push({ type: 'delete', line: oldLines[i - 1] });
+        i--;
+      }
+    }
+    ops.reverse();
+    return ops;
+  }
 
   userHeaderRenderer = (root: HTMLElement) => {
     render(
@@ -342,9 +426,27 @@ export class PageProjectsAudit extends PageElement {
       })
       .subscribe({
         next: (data: GetRefDataAuditListResponseDto) => {
-          data.Items?.forEach(
+          const items = data.Items ?? [];
+          items.forEach(
             item => (item.Username = getShortLogonName(item.Username))
           );
+
+          // Stitch the prior project state onto each row for diff rendering.
+          // Rows arrive in Date DESC order, so the "previous version" of a
+          // given project is the next row in the array with the same
+          // ProjectId. Cross-page boundaries are not stitched — the last
+          // row(s) on a page renders as plain JSON if no same-project row
+          // appears later in the page.
+          for (let i = 0; i < items.length; i++) {
+            const cur = items[i] as RefDataAuditApiModel & { _priorJson?: string };
+            for (let j = i + 1; j < items.length; j++) {
+              if (items[j].ProjectId === cur.ProjectId) {
+                cur._priorJson = items[j].Json ?? undefined;
+                break;
+              }
+            }
+          }
+
           this.dispatchEvent(
             new CustomEvent('searching-project-audit-finished', {
               detail: {},
@@ -352,7 +454,7 @@ export class PageProjectsAudit extends PageElement {
               composed: true
             })
           );
-          callback(data.Items ?? [], data.TotalItems);
+          callback(items, data.TotalItems);
         },
         error: (err: any) => console.error(err),
         complete: () => {
