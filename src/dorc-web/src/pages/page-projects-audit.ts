@@ -159,21 +159,20 @@ export class PageProjectsAudit extends PageElement {
       }
       .details-pane {
         padding: 8px 12px 12px 36px;
-        background: var(--dorc-bg-secondary, rgba(0, 0, 0, 0.15));
-        max-height: 60vh;
-        overflow: auto;
+        background: var(--dorc-bg-secondary);
       }
+      /* The header sits outside the scrollable area so it always stays
+         pinned at the top regardless of how vaadin-grid renders the
+         row-details slot — a stickier sticky than position: sticky. */
       .diff-header {
         display: grid;
         grid-template-columns: 1fr 1fr;
         font-size: 11px;
         font-weight: 600;
         color: var(--dorc-text-secondary);
-        position: sticky;
-        top: 0;
-        background: var(--dorc-bg-secondary, rgba(0, 0, 0, 0.15));
+        background: var(--dorc-bg-secondary);
         padding: 4px 0;
-        z-index: 1;
+        margin-bottom: 4px;
       }
       .diff-header > div {
         padding: 0 8px;
@@ -181,6 +180,10 @@ export class PageProjectsAudit extends PageElement {
       }
       .diff-header > div.right {
         border-right: none;
+      }
+      .diff-pane-scroll {
+        max-height: 60vh;
+        overflow: auto;
       }
       vaadin-icon.chevron {
         cursor: pointer;
@@ -543,7 +546,9 @@ export class PageProjectsAudit extends PageElement {
             <div>Before</div>
             <div class="right">After</div>
           </div>
-          <div class="diff-grid">${cells}</div>
+          <div class="diff-pane-scroll">
+            <div class="diff-grid">${cells}</div>
+          </div>
         </div>
       `,
       root
