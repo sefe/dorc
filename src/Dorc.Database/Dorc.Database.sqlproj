@@ -314,6 +314,7 @@
     <Build Include="dbo\Tables\AD_GROUP.sql" />
     <Build Include="dbo\Tables\DATABASE.sql" />
     <Build Include="dbo\Tables\ENVIRONMENT_USER_MAP.sql" />
+    <Build Include="dbo\Tables\KAFKA_ERROR_LOG.sql" />
     <Build Include="dbo\Tables\PERMISSION.sql" />
     <Build Include="dbo\Tables\SERVER.sql" />
     <Build Include="dbo\Tables\SERVER_SERVICE_MAP.sql" />
