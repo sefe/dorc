@@ -234,7 +234,7 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('projects')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:factory" theme="small"></vaadin-icon>
+              <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
               Projects Audit
             </div>
           </a>
