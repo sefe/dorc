@@ -12,13 +12,11 @@ Items captured during delivery but deliberately deferred from the issue #649 PR.
 
 ## F-1 — Audit pages UI consolidation
 
-**Context**: after this PR lands there are multiple audit views in the UI — Project audit (existing), Scripts audit (existing, `AuditScript`), Daemon audit (new, S-007/S-008). The views are visually and behaviourally inconsistent — different component layouts, different column sets, different filter/sort UX.
+**Resolved in #649** (audit-pages HLPS / IS): added dedicated `/projects/audit` and `/daemons/audit` pages mirroring `/scripts/audit` and `/variables/audit`. The per-record modal audit views (`project-audit-data`, `daemon-audit-view`) were removed; row-level Audit buttons now navigate to the dedicated page with `?projectId=` / `?daemonId=` filtering. Single audit UX shape across all four domains.
 
-**Proposal**: a single unified "Audit" UI surface with consistent columns (Action, Actor, Date, From/To), filters, and pagination. Per-domain audit sources plug into it via a common API contract (`GetXxxAuditListResponseDto`). Today each domain rolls its own — wasteful.
-
-**Out of scope for #649**: this PR's daemon-audit view (S-008) mirrors the existing project-audit view to stay consistent with the per-domain pattern. Consolidation is a separate refactor.
-
-**Watch for**: as more audit domains accumulate, the drift compounds. Tackle before adding the fourth audit view.
+**Remaining drift** (worth a future ticket):
+- Daemon and Project name columns on the new pages don't have working column-header filters or sort, because `DaemonName` / `Project.Name` aren't real EF properties on the audit entities (DaemonName is post-page-projection, Project.Name is a dot-path). To make the headers filter/sort, the persistent sources need to either project to an anonymous shape with a flat `DaemonName` / `ProjectName` column before paging, or special-case those filters with a name → id pre-resolution. Out of scope here.
+- The Project audit `Json` payload renders via `hegs-json-viewer` collapsed-by-default. A real diff between consecutive audit rows (like scripts-audit) would be a richer view but requires fetching the prior row.
 
 ---
 

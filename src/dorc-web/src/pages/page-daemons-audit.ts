@@ -30,7 +30,12 @@ export class PageDaemonsAudit extends PageElement {
 
   @property({ type: Boolean }) searching = false;
 
-  private daemonNameFilter = '';
+  // Restricts the feed to a single daemon when set via the ?daemonId= query
+  // parameter (the row-level Audit button on page-daemons-list navigates here
+  // with this set). Server-side: passed straight through as the daemonId
+  // parameter on PUT /DaemonAudit, which the controller uses to switch from
+  // the cross-record query to the per-record one.
+  private restrictToDaemonId: number | null = null;
 
   private userFilter = '';
 
@@ -125,7 +130,6 @@ export class PageDaemonsAudit extends PageElement {
         <vaadin-grid-column
           path="DaemonName"
           header="Daemon"
-          .headerRenderer="${this.daemonNameHeaderRenderer}"
           .renderer="${this.daemonNameRenderer}"
           resizable
           auto-width
@@ -168,6 +172,16 @@ export class PageDaemonsAudit extends PageElement {
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('daemonId');
+    const parsedId = idParam ? Number(idParam) : NaN;
+    if (!Number.isNaN(parsedId) && parsedId > 0) {
+      this.restrictToDaemonId = parsedId;
+    }
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -329,29 +343,6 @@ export class PageDaemonsAudit extends PageElement {
     return merged;
   }
 
-  daemonNameHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="DaemonName"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Daemon"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const tf = e.target as HTMLInputElement;
-              this.daemonNameFilter = tf?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
   userHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
@@ -414,9 +405,6 @@ export class PageDaemonsAudit extends PageElement {
     callback: GridDataProviderCallback<DaemonAuditApiModel>
   ) => {
     const filters: PagedDataFilter[] = [];
-    if (this.daemonNameFilter) {
-      filters.push({ Path: 'DaemonName', FilterValue: this.daemonNameFilter });
-    }
     if (this.userFilter) {
       filters.push({ Path: 'Username', FilterValue: this.userFilter });
     }
@@ -427,6 +415,7 @@ export class PageDaemonsAudit extends PageElement {
     const api = new DaemonAuditApi();
     api
       .daemonAuditPut({
+        daemonId: this.restrictToDaemonId ?? undefined,
         pagedDataOperators: {
           Filters: filters,
           SortOrders: params.sortOrders.map(

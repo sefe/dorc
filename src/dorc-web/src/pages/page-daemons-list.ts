@@ -11,10 +11,10 @@ import '@vaadin/text-field';
 import '@polymer/paper-dialog';
 import '../components/add-daemon';
 import '../components/edit-daemon';
-import '../components/daemon-audit-view';
 import type { GridItemModel } from '@vaadin/grid';
 import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { PaperDialogElement } from '@polymer/paper-dialog';
+import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
@@ -35,8 +35,6 @@ export class PageDaemonsList extends PageElement {
   @property({ type: Boolean }) isPowerUser = false;
 
   @state() private editingDaemon: DaemonApiModel | null = null;
-
-  @state() private auditDaemonId = 0;
 
   @state() private confirmDeleteOpen = false;
 
@@ -126,12 +124,6 @@ export class PageDaemonsList extends PageElement {
         overflow: auto;
         padding: 10px;
       }
-      paper-dialog.audit-size {
-        top: 16px;
-        overflow: hidden;
-        padding: 10px;
-        width: 90vw;
-      }
       .row-actions vaadin-button {
         padding: 0;
         margin: 0 2px;
@@ -187,23 +179,6 @@ export class PageDaemonsList extends PageElement {
               id="edit-daemon"
               .daemon="${this.editingDaemon}"
             ></edit-daemon>`
-          : html``}
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
-
-      <paper-dialog
-        class="audit-size"
-        id="audit-dialog"
-        allow-click-through
-        modal
-      >
-        <h3 style="margin: 0 0 10px 0">Daemon Audit History</h3>
-        ${this.auditDaemonId > 0
-          ? html`<daemon-audit-view
-              .daemonId="${this.auditDaemonId}"
-            ></daemon-audit-view>`
           : html``}
         <div style="display: flex; justify-content: flex-end">
           <vaadin-button dialog-confirm>Close</vaadin-button>
@@ -428,11 +403,9 @@ export class PageDaemonsList extends PageElement {
   }
 
   openAudit(daemon: DaemonApiModel) {
-    this.auditDaemonId = daemon.Id ?? 0;
-    const dialog = this.shadowRoot?.getElementById(
-      'audit-dialog'
-    ) as PaperDialogElement;
-    dialog?.open();
+    const id = daemon.Id ?? 0;
+    if (id <= 0) return;
+    Router.go(`/daemons/audit?daemonId=${id}`);
   }
 
   requestDelete(daemon: DaemonApiModel) {

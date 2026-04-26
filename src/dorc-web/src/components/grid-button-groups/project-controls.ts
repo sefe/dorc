@@ -5,6 +5,7 @@ import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
+import { Router } from '@vaadin/router';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -156,14 +157,9 @@ export class ProjectControls extends LitElement {
   }
 
   openAuditData() {
-    const event = new CustomEvent('open-project-audit-data', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
+    const id = this.project?.ProjectId;
+    if (!id) return;
+    Router.go(`/projects/audit?projectId=${id}`);
   }
 
   deleteProject() {

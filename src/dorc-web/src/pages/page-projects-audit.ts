@@ -30,7 +30,11 @@ export class PageProjectsAudit extends PageElement {
 
   @property({ type: Boolean }) searching = false;
 
-  private projectNameFilter = '';
+  // Restricts the feed to a single project when set via the ?projectId= query
+  // parameter (the row-level Audit button on project-controls navigates here
+  // with this set). Server-side: passed straight through as the projectId
+  // parameter on PUT /RefDataProjectAudit.
+  private restrictToProjectId: number | null = null;
 
   private userFilter = '';
 
@@ -114,7 +118,6 @@ export class PageProjectsAudit extends PageElement {
         <vaadin-grid-column
           path="Project.ProjectName"
           header="Project"
-          .headerRenderer="${this.projectNameHeaderRenderer}"
           .renderer="${this.projectNameRenderer}"
           resizable
           auto-width
@@ -149,6 +152,16 @@ export class PageProjectsAudit extends PageElement {
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('projectId');
+    const parsedId = idParam ? Number(idParam) : NaN;
+    if (!Number.isNaN(parsedId) && parsedId > 0) {
+      this.restrictToProjectId = parsedId;
+    }
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -242,29 +255,6 @@ export class PageProjectsAudit extends PageElement {
     );
   };
 
-  projectNameHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Project.ProjectName"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Project"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const tf = e.target as HTMLInputElement;
-              this.projectNameFilter = tf?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
   userHeaderRenderer = (root: HTMLElement) => {
     render(
       html`
@@ -327,9 +317,6 @@ export class PageProjectsAudit extends PageElement {
     callback: GridDataProviderCallback<RefDataAuditApiModel>
   ) => {
     const filters: PagedDataFilter[] = [];
-    if (this.projectNameFilter) {
-      filters.push({ Path: 'Project.Name', FilterValue: this.projectNameFilter });
-    }
     if (this.userFilter) {
       filters.push({ Path: 'Username', FilterValue: this.userFilter });
     }
@@ -340,6 +327,7 @@ export class PageProjectsAudit extends PageElement {
     const api = new RefDataProjectAuditApi();
     api
       .refDataProjectAuditPut({
+        projectId: this.restrictToProjectId ?? undefined,
         pagedDataOperators: {
           Filters: filters,
           SortOrders: params.sortOrders.map(
