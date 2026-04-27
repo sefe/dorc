@@ -57,9 +57,6 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
 
   private hubConnection: HubConnection | undefined;
 
-  // Gate to only open details on pointer interactions, not keyboard navigation
-  private _pointerActive = false;
-
   @property({ type: Boolean }) isLoading = true;
 
   @property({ type: Boolean }) isSearching = false;
@@ -185,7 +182,6 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
         .size=${200}
         theme="compact row-stripes no-row-borders no-border hover-highlight"
         @active-item-changed="${this.onRowClick}"
-        @mousedown="${() => { this._pointerActive = true; }}"
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -399,8 +395,14 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
   this.location = location;
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.addEventListener('keydown', this._onHostKeyDown);
+  }
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener('keydown', this._onHostKeyDown);
     if (this.hubConnection) {
       this.hubConnection.stop().catch((err) => {
         console.error('Error stopping SignalR connection:', err);
@@ -648,10 +650,6 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
   };
 
   private onRowClick = (e: CustomEvent) => {
-    // Only open details for pointer-initiated interactions, not keyboard navigation
-    if (!this._pointerActive) return;
-    this._pointerActive = false;
-
     const request = e.detail.value as DeploymentRequestApiModel | null;
     if (!request) return;
 
@@ -668,6 +666,30 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
         composed: true
       })
     );
+  };
+
+  // Enter on a focused body row opens the detail panel by activating the row,
+  // which routes through the existing active-item-changed handler. Bails when
+  // the grid is in interacting-mode (focus is inside a cell-internal control
+  // such as a column-header filter input or sort button).
+  private _onHostKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
+    if (!grid || grid.hasAttribute('interacting')) return;
+
+    const row = e.composedPath().find(
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement &&
+        el.localName === 'tr' &&
+        el.getAttribute('role') === 'row'
+    );
+    if (!row) return;
+
+    const item = (row as unknown as { _item?: DeploymentRequestApiModel })._item;
+    if (!item) return;
+
+    e.preventDefault();
+    grid.activeItem = item;
   };
 
   _requestControlsRenderer(
