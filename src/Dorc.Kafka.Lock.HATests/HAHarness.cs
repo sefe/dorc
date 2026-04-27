@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -72,16 +73,21 @@ internal sealed class HAHarness : IAsyncDisposable
         var lockOpts = Options.Create(new KafkaLocksOptions
         {
             Enabled = true,
-            Topic = _topic,
             PartitionCount = _partitionCount,
             ReplicationFactor = 1,
             ConsumerGroupId = _groupId,
             LockWaitDefaultTimeoutMs = 15_000
         });
 
+        var topicsOpts = Options.Create(new KafkaTopicsOptions
+        {
+            Locks = _topic
+        });
+
         var coord = new KafkaLockCoordinator(
             new KafkaConnectionProvider(clientOpts),
             lockOpts,
+            topicsOpts,
             NullLogger<KafkaLockCoordinator>.Instance);
         await coord.StartAsync(CancellationToken.None);
         var svc = new KafkaDistributedLockService(coord, lockOpts, NullLogger<KafkaDistributedLockService>.Instance);
