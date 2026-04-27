@@ -100,7 +100,7 @@ export class ApplicationDaemons extends LitElement {
     if (errorMessage) {
       root.style.color = 'var(--dorc-error-color)';
     } else if (status === 'running') {
-      root.style.color = 'var(--dorc-success-bg)';
+      root.style.color = 'var(--dorc-success-text)';
     } else if (status === 'stopped') {
       root.style.color = 'var(--dorc-text-primary)';
     } else {
