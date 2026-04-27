@@ -35,13 +35,30 @@ var topics = new KafkaTopicsOptions();
 
 for (int i = 0; i < args.Length; i++)
 {
-    switch (args[i])
+    var arg = args[i];
+    var needsValue = arg is "--registry" or "--out"
+        or "--topic-requests-new" or "--topic-requests-status" or "--topic-results-status";
+
+    if (needsValue && (i + 1 >= args.Length || args[i + 1].StartsWith("--")))
     {
-        case "--registry" when i + 1 < args.Length: registryUrl = args[++i]; break;
-        case "--out" when i + 1 < args.Length: outDir = args[++i]; break;
-        case "--topic-requests-new" when i + 1 < args.Length: topics.RequestsNew = args[++i]; break;
-        case "--topic-requests-status" when i + 1 < args.Length: topics.RequestsStatus = args[++i]; break;
-        case "--topic-results-status" when i + 1 < args.Length: topics.ResultsStatus = args[++i]; break;
+        Console.Error.WriteLine($"[snapshot-schemas] error: flag {arg} requires a value");
+        return 2;
+    }
+
+    switch (arg)
+    {
+        case "--registry":              registryUrl           = args[++i]; break;
+        case "--out":                   outDir                = args[++i]; break;
+        case "--topic-requests-new":    topics.RequestsNew    = args[++i]; break;
+        case "--topic-requests-status": topics.RequestsStatus = args[++i]; break;
+        case "--topic-results-status":  topics.ResultsStatus  = args[++i]; break;
+        default:
+            if (arg.StartsWith("--"))
+            {
+                Console.Error.WriteLine($"[snapshot-schemas] error: unknown flag {arg}");
+                return 2;
+            }
+            break;
     }
 }
 
@@ -74,6 +91,8 @@ foreach (var (subject, schema) in pairs)
     File.WriteAllText(outPath, canonical);
     Console.WriteLine($"Wrote {outPath} ({canonical.Length} bytes)");
 }
+
+return 0;
 
 static JsonNode? Canonicalise(JsonNode? node)
 {

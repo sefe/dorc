@@ -59,7 +59,7 @@ public sealed class AvroSchemaGate
     /// tests that don't exercise the diverged-name path.
     /// </summary>
     public AvroSchemaGate(HttpClient? registryHttp, string canonicalDir, string? snapshotDir)
-        : this(new KafkaTopicsOptions(), registryHttp, canonicalDir, snapshotDir) { }
+        : this(DefaultTopics, registryHttp, canonicalDir, snapshotDir) { }
 
     public IReadOnlyList<(string CanonicalKey, string LiveSubject, string Schema)> InScopeSchemas() => new[]
     {

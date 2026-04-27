@@ -43,7 +43,9 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
         // entry-points: the lock substrate (S-005b) registers it too, so
         // either entry-point standing alone is sufficient. Multiple calls to
         // AddOptions<T>() return the same builder; TryAddEnumerable on the
-        // validator is idempotent by reference.
+        // validator is idempotent by implementation type (the
+        // ServiceCollection deduplicates on (ServiceType, ImplementationType)
+        // so the validator registers exactly once regardless of call count).
         services.AddOptions<KafkaTopicsOptions>()
             .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
             .ValidateOnStart();

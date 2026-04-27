@@ -23,19 +23,31 @@ var topics = new KafkaTopicsOptions();
 
 for (var i = 0; i < args.Length; i++)
 {
-    switch (args[i])
+    var arg = args[i];
+    switch (arg)
     {
-        case "--topic-requests-new" when i + 1 < args.Length:
-            topics.RequestsNew = args[++i];
-            break;
-        case "--topic-requests-status" when i + 1 < args.Length:
-            topics.RequestsStatus = args[++i];
-            break;
-        case "--topic-results-status" when i + 1 < args.Length:
-            topics.ResultsStatus = args[++i];
+        case "--topic-requests-new":
+        case "--topic-requests-status":
+        case "--topic-results-status":
+            if (i + 1 >= args.Length || args[i + 1].StartsWith("--"))
+            {
+                Console.Error.WriteLine($"[generate-schemas] error: flag {arg} requires a value");
+                return 2;
+            }
+            switch (arg)
+            {
+                case "--topic-requests-new":    topics.RequestsNew    = args[++i]; break;
+                case "--topic-requests-status": topics.RequestsStatus = args[++i]; break;
+                case "--topic-results-status":  topics.ResultsStatus  = args[++i]; break;
+            }
             break;
         default:
-            targetDir ??= args[i];
+            if (arg.StartsWith("--"))
+            {
+                Console.Error.WriteLine($"[generate-schemas] error: unknown flag {arg}");
+                return 2;
+            }
+            targetDir ??= arg;
             break;
     }
 }
@@ -59,6 +71,8 @@ foreach (var (file, json) in pairs)
     File.WriteAllText(path, canonical);
     Console.WriteLine($"Wrote {path} ({canonical.Length} bytes)");
 }
+
+return 0;
 
 static JsonNode? Canonicalise(JsonNode? node)
 {

@@ -34,7 +34,10 @@ public static class KafkaRequestLifecycleSubstrateServiceCollectionExtensions
         // KafkaTopicsOptions registration is idempotent — the consumer
         // resolves IOptions<KafkaTopicsOptions> in its constructor, so this
         // extension must register it independently of S-007's results-status
-        // extension.
+        // extension. TryAddEnumerable is idempotent by implementation type
+        // (ServiceCollection dedup on (ServiceType, ImplementationType)) so
+        // the validator registers exactly once even when both substrate
+        // entry-points run.
         services.AddOptions<KafkaTopicsOptions>()
             .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
             .ValidateOnStart();
