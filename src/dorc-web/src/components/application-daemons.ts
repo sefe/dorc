@@ -135,7 +135,7 @@ export class ApplicationDaemons extends LitElement {
     const api = new DaemonStatusApi();
     api.daemonStatusEnvNameGet({ envName: this.envName }).subscribe({
       next: (data: DaemonStatusApiModel[]) => {
-        this.setServiceStatuses(data);
+        this.setDaemonStatuses(data);
       },
       error: (err: any) => console.error(err),
       complete: () => console.log('done loading daemon statuses')}
@@ -163,7 +163,7 @@ export class ApplicationDaemons extends LitElement {
     }
   }
 
-  private setServiceStatuses(data: DaemonStatusApiModel[]) {
+  private setDaemonStatuses(data: DaemonStatusApiModel[]) {
     this.daemonsAndStatuses = data;
     const event = new CustomEvent('daemons-loaded', {
       detail: {

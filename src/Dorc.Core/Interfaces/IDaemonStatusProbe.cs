@@ -2,7 +2,7 @@ using System.Security.Claims;
 
 namespace Dorc.Core.Interfaces
 {
-    public interface IServiceStatus
+    public interface IDaemonStatusProbe
     {
         List<DaemonStatus> GetDaemonStatuses(string envName, ClaimsPrincipal principal);
 

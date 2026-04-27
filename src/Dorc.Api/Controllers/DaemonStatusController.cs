@@ -14,18 +14,18 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class DaemonStatusController : ControllerBase
     {
-        private readonly IServiceStatus _serviceStatus;
+        private readonly IDaemonStatusProbe _daemonStatusProbe;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IEnvironmentMapper _environmentMapper;
 
-        public DaemonStatusController(IServiceStatus serviceStatus, ISecurityPrivilegesChecker securityPrivilegesChecker,
+        public DaemonStatusController(IDaemonStatusProbe daemonStatusProbe, ISecurityPrivilegesChecker securityPrivilegesChecker,
             IEnvironmentsPersistentSource environmentsPersistentSource, IEnvironmentMapper environmentMapper)
         {
             _environmentMapper = environmentMapper;
             _environmentsPersistentSource = environmentsPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
-            _serviceStatus = serviceStatus;
+            _daemonStatusProbe = daemonStatusProbe;
         }
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace Dorc.Api.Controllers
             if (id == 0)
                 return StatusCode(StatusCodes.Status400BadRequest, "Environment ID is not valid!");
 
-            var result = _serviceStatus.GetDaemonStatuses(id)
+            var result = _daemonStatusProbe.GetDaemonStatuses(id)
                 .Select(DaemonStatusMapping.ToApi)
                 .ToList();
 
@@ -60,7 +60,7 @@ namespace Dorc.Api.Controllers
             if (string.IsNullOrEmpty(envName))
                 return StatusCode(StatusCodes.Status400BadRequest, "Environment name is not valid!");
 
-            var result = _serviceStatus.GetDaemonStatuses(envName, User)
+            var result = _daemonStatusProbe.GetDaemonStatuses(envName, User)
                 .Select(DaemonStatusMapping.ToApi)
                 .ToList();
 
@@ -84,7 +84,7 @@ namespace Dorc.Api.Controllers
                     return StatusCode(StatusCodes.Status403Forbidden,
                         new NonEnoughRightsException("User doesn't have \"Write\" rights for this action!"));
 
-                var result = _serviceStatus.ChangeDaemonState(DaemonStatusMapping.ToCore(value), User);
+                var result = _daemonStatusProbe.ChangeDaemonState(DaemonStatusMapping.ToCore(value), User);
                 return StatusCode(StatusCodes.Status200OK,
                     result == null ? null : DaemonStatusMapping.ToApi(result));
             }

@@ -16,7 +16,7 @@ using Environment = System.Environment;
 namespace Dorc.Core
 {
     [SupportedOSPlatform("windows")]
-    public class ServiceStatus : IServiceStatus
+    public class DaemonStatusProbe : IDaemonStatusProbe
     {
         private const string DORCProdDeployUsername = "DORC_ProdDeployUsername";
         private const string DORCProdDeployPassword = "DORC_ProdDeployPassword";
@@ -31,8 +31,8 @@ namespace Dorc.Core
         private readonly IDaemonObservationPersistentSource _daemonObservationPersistentSource;
         private readonly string _domainName;
 
-        public ServiceStatus(IConfigValuesPersistentSource configValuesPersistentSource,
-            ILogger<ServiceStatus> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
+        public DaemonStatusProbe(IConfigValuesPersistentSource configValuesPersistentSource,
+            ILogger<DaemonStatusProbe> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IDaemonObservationPersistentSource daemonObservationPersistentSource,
