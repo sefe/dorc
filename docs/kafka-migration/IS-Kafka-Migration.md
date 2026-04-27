@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED (R4 — added S-014, S-015, S-016 via Implementation-Discovery Revision; unanimous panel approval 2026-04-20; user auto-pilot satisfies user-approval gate per memory `project_kafka_autopilot`) |
+| **Status** | APPROVED (R5 — added S-017 via Implementation-Discovery Revision; unanimous panel approval 2026-04-27 — Sonnet/Opus/Haiku all APPROVE WITH MINOR; convergent findings (S-005b R-2 → R-4 misattribution; S-014 "pattern" → "substrate"; S-010 partial-gate clarity; step-count audit-trail) addressed inline; user auto-pilot satisfies user-approval gate per memory `project_kafka_autopilot`) |
 | **Author** | Claude (Opus 4.6 through R3; Opus 4.7 1M for R4) |
 | **Created** | 2026-04-13 |
 | **Target completion** | 2026-12-31 (per HLPS C-5) |
@@ -40,13 +40,15 @@
 | **S-014** | Installer + `appsettings.json` template alignment for the Kafka substrate (surfaces on a fresh MSI install) | S-006, S-007, S-009 (surfaced during S-010 dry-run); **blocks S-010 AT-5..AT-8** | HLPS SC-8, C-2 (gates cutover-ready MSI) |
 | **S-015** | `Kafka:SchemaRegistry:Url` (+ optional basic-auth) propagation through both installers, both templates, and `Setup.Dorc.msi.json` | S-014 (path alignment must land first) | HLPS SC-3 (end-to-end Avro serialization viability); **blocks S-011 production cutover** |
 | **S-016** | Monitor-side Avro DI wiring — add `AddDorcKafkaAvro(configurationRoot)` call to `src/Dorc.Monitor/Program.cs` and adjust DI order so Monitor's consumers deserialize Avro-encoded Request-lifecycle payloads | S-006 (consumer surface), S-007 (Avro contract) | HLPS SC-3 (Monitor deserialize parity); **blocks S-011 production cutover** |
+| **S-017** | Configurable Kafka topic names — bind the four topic names through `KafkaTopicsOptions` (`Kafka:Topics:*`); delete `KafkaSubjectNames.cs`; locks-topic key migrates from `Kafka:Locks:Topic` to `Kafka:Topics:Locks` (single canonical home) | S-005b (lock substrate), S-006, S-007 (consumer surface), S-014 (installer **substrate** — S-017 layers root-level `$.Kafka.Topics.*` writes onto the root-level `Kafka` block S-014 established) | HLPS SC-3 (substrate viability against any Kafka cluster naming convention); **blocks S-011 production cutover; `tools/snapshot-schemas` argument-bridge sub-deliverable also gates S-010 dry-run pre-flight** |
 
-16 steps. IDs are stable and will not renumber if any step is removed or deferred. S-014 / S-015 / S-016 are late-discovered gaps:
+17 steps. IDs are stable and will not renumber if any step is removed or deferred. S-014 / S-015 / S-016 / S-017 are late-discovered gaps:
 - **S-014** — the DI code for Kafka options was delivered under S-006/S-007/S-009 but the matching **installer + template** changes were only partially delivered (Monitor-side incorrectly, API-side not at all); a fresh MSI install produces services that fail `IHost.StartAsync()` with `OptionsValidationException: Kafka:BootstrapServers is required.`
 - **S-015** — the schema-registry URL was never propagated through any installer; without it, `AddDorcKafkaAvro` throws on first Avro encode/decode. Startup validation passes; runtime fails.
 - **S-016** — `Dorc.Monitor/Program.cs` never registers `AddDorcKafkaAvro`; Monitor consumes Request-lifecycle topics through the no-op default serializer factory, silently producing null/deserialisation-error payloads.
+- **S-017** — three of the four DOrc Kafka topic names (`dorc.requests.new`, `dorc.requests.status`, `dorc.results.status`) are compiled into `public const string` constants in `KafkaSubjectNames`, so the binary cannot run against a Kafka cluster whose topics follow a different naming convention. Surfaced when the SEFE Aiven non-prod cluster provisioned topics under the enterprise convention `tr.dv.gbl.deploy.<concern>.il2.dorc`; observed live as `Subscribed topic not available: dorc.requests.new` in `MonitorNonProd_20260426.log` plus `TopicAuthorizationFailed` from the auto-provisioner (the service principal lacks `Create Topic` ACL on the SEFE cluster, by design — production Kafka topics are governed via Aiven console, not auto-created by the substrate). The lock topic (`dorc.locks`) is already configurable via `Kafka:Locks:Topic` (S-005b R-2) and so is *not* the gap; the gap is the other three. S-017 closes the gap by binding all four topic names through `KafkaTopicsOptions` and unifying their config home at `Kafka:Topics:*`. Schema-Registry subject derivation (`<topic>-value`) stays internal — Confluent's default `TopicNameStrategy` matches the SEFE Karapace convention so no separate subject-name surface is justified.
 
-S-014 blocks S-010's dry-run exit. S-015 + S-016 must both close before S-011 production cutover — they do not block S-010.
+S-014 blocks S-010's dry-run exit. S-015 + S-016 + S-017 must all close before S-011 production cutover. S-017's `tools/snapshot-schemas` argument-bridge sub-deliverable additionally gates S-010 dry-run pre-flight (without it, the schema-registration step of pre-flight cannot run against the SEFE-named subjects); S-017 *itself* closes on local-compose smoke and is parallelisable with S-015 and S-016 once S-014 is delivered.
 
 ---
 
@@ -310,6 +312,24 @@ Step completion date: **later of** T+30d or when ≥200 production deployments h
 
 ---
 
+### S-017 — Configurable Kafka topic names
+
+**What:** Replace the three `public const string` topic literals in `src/Dorc.Kafka.Events/KafkaSubjectNames.cs` with a `KafkaTopicsOptions` POCO bound to `Kafka:Topics:*`. The locks topic — currently configurable via `Kafka:Locks:Topic` per S-005b R-4 (the options-binding requirement) — migrates to the same `KafkaTopicsOptions.Locks` home so all four topic names share one canonical config section. `KafkaSubjectNames.cs` is deleted; defaults live as property initializers on `KafkaTopicsOptions`. Installer surface gains four new MSI properties (`KAFKA.TOPICS.{LOCKS,REQUESTSNEW,REQUESTSSTATUS,RESULTSSTATUS}`) writing to root-level `$.Kafka.Topics.*` paths in both API and Monitor `appsettings.json` templates (layered onto the root-level `Kafka` block S-014 established). `tools/snapshot-schemas` and `tools/generate-schemas` accept the topic names via CLI argument so they can be invoked correctly during S-010 dry-run against the SEFE Karapace.
+
+**Why:** HLPS SC-3 (substrate viability) requires the binary to function against the Kafka cluster the deploy targets. Three of the four current topic names are compiled-in constants; the SEFE Aiven non-prod cluster provisioned topics under its enterprise naming convention (`tr.dv.gbl.deploy.<concern>.il2.dorc`), and the binary cannot connect — `Subscribed topic not available: dorc.requests.new` observed in `MonitorNonProd_20260426.log` at 10:39:22, plus `TopicAuthorizationFailed` from the auto-provisioner (service principal lacks `Create Topic` ACL by enterprise design). S-017 closes the gap.
+
+**Dependencies:** S-005b (lock substrate config surface that S-017 unifies, specifically R-4's options binding), S-006 (Request-lifecycle consumer call-sites), S-007 (Status-event consumer call-sites + topic provisioner), S-014 (installer **substrate** — S-017's MSI/WiX writes layer onto S-014's delivered root-level `Kafka` block, not merely onto S-014's pattern). **Does not depend on S-015 or S-016** — the topic-name configurability surface is orthogonal to schema-registry URL propagation and Monitor Avro DI wiring; S-017 is parallelisable with both.
+
+**Acceptance gate:** S-017 closes on local-compose smoke. Live-cluster smoke against the SEFE Aiven non-prod cluster lives in S-010 dry-run pre-flight (per SPEC-S-017 R1 panel triage), removing the Aiven-topic-provisioning timing dependency from S-017 closure.
+
+**Verification intent:** Unit + integration tests covering the new options surface; CI grep invariants per SPEC-S-017 R5 + AC-2 / AC-10; schema-gate unit test exercises the diverged-name path (default-vs-SEFE) per SPEC-S-017 AC-13; local-compose round-trip via `docs/kafka-migration/README-local-dev.md`. Detailed test mechanism is owned by SPEC-S-017.
+
+**Blocking:** S-011 production cutover cannot proceed with S-017 open. S-010 dry-run **pre-flight** cannot proceed with `tools/snapshot-schemas` argument-bridge un-delivered (the bridge is the surface that lets pre-flight register schemas under correct SEFE-named subjects); S-010's runbook *itself* is unaffected.
+
+**JIT Spec:** `docs/kafka-migration/SPEC-S-017-Configurable-Topic-And-Subject-Names.md` (APPROVED 2026-04-27 by 3-reviewer adversarial panel — Sonnet/Opus/Haiku unanimous APPROVE WITH MINOR; convergent MEDIUM (schema-gate dual-path mechanism) addressed in R1.1 inline).
+
+---
+
 ## 4. Schedule Sketch (non-binding, for deadline-risk awareness)
 
 ~8.5 months from 2026-04-13 to 2026-12-31. Rough banding (S-003 runs concurrently with S-004):
@@ -506,3 +526,41 @@ R4 IS reserved S-014, S-015, S-016 as blocking gates for downstream steps. All t
 S-010 dry-run gate (AT-5..AT-8): no longer blocked by startup-validation gap; S-014 closed it. S-011 production cutover gates: S-015 + S-016 are now delivered, removing the "blocks S-011" qualifier from their §2 step table rows. No further IS structural edits required; §2 row qualifiers remain for audit history (the blocker resolution is recorded here rather than by editing historical rows).
 
 All three steps landed on `feat/kafka-migration` integration branch per `feedback_pr_strategy` memory (single PR #611, not per-step branches).
+
+---
+
+### R5 (2026-04-27) — Implementation-Discovery Revision — S-017 added — APPROVED
+
+**R5 panel verdict (2026-04-27):** Sonnet APPROVE WITH MINOR / Opus APPROVE WITH MINOR / Haiku APPROVE WITH MINOR — unanimous. Convergent findings addressed inline:
+
+| Finding | Reviewer(s) | Severity | Disposition | Resolution |
+|---|---|---|---|---|
+| S-005b R-2 misattribution (R-2 = lock service; R-4 is the options-binding requirement) | Opus F-1, Sonnet F-4 | MEDIUM | Accept | §6 R5 narrative + §3 S-017 Dependencies cite R-4. |
+| S-014 "installer pattern" understates dependency (S-014 is delivered substrate; S-017 layers onto its root-level `Kafka` block) | Opus F-2 | MEDIUM | Accept | Step-table row + §3 Dependencies reworded "installer substrate". |
+| S-010 partial-block ambiguity across step-table row, §2 narrative, §3 Blocking field | Sonnet F-1, Opus F-3 | MEDIUM | Accept | Step-table row appends `tools/snapshot-schemas` sub-deliverable gate; §3 Blocking explicitly distinguishes runbook closure from pre-flight closure; §2 narrative paragraph reconciled. |
+| Step-count audit-trail (16 → 17 not noted) | Sonnet F-5 | LOW | Accept | "Step count 16 → 17" added to §6 R5 Impact-on-IS. |
+| Parallelisability with S-015/S-016 not stated | Sonnet F-3 | LOW | Accept | §3 Dependencies + §2 narrative paragraph state parallelisability. |
+| S-017 detail length excess (subject-derivation narrative belongs in SPEC) | Haiku F-1, F-2 | LOW | Accept | §3 What/Verification trimmed; SPEC ownership retained for mechanism + test specifics. |
+| Locks-topic key-rename citation consolidation | Haiku F-4 | LOW | Accept | Folded into the S-005b R-4 fix above. |
+| R5 history "Note on review ordering" sub-paragraph structural inconsistency with R4 | Sonnet F-2 | LOW | Defer | Cosmetic; no substance impact. |
+| S-002 transitive dependency listing | Opus F-4 | LOW | Defer | Consistent with IS-style abstraction (S-005b/S-006/S-007 carry S-002 transitively). |
+| S-015/S-016 orthogonality confirmation | Opus F-5 | — | (Audit-positive, no edit) | Claim verified against SPEC-S-017. |
+| Tense-readability of "blocks" language (S-014/S-015/S-016 already delivered) | Opus F-6 | LOW | Defer | Contractual phrasing survives delivery as audit history. |
+
+
+
+**Trigger:** During S-010 cutover-prep deployment of the current `feat/kafka-migration` build to ST-01 (DEPAPP03UT — `depapp03ut.tr.dv.gbl`), the Monitor service emitted a sustained pattern of `Subscribed topic not available: dorc.requests.new` / `dorc.requests.status` errors plus `TopicAuthorizationFailed` from the locks topic auto-provisioner. Root-cause investigation against the branch found that three of the four DOrc Kafka topic names (`dorc.requests.new`, `dorc.requests.status`, `dorc.results.status`) are compiled into `public const string` constants in `src/Dorc.Kafka.Events/KafkaSubjectNames.cs`; the SEFE Aiven non-prod cluster provisions topics under the enterprise convention `tr.dv.gbl.deploy.<concern>.il2.dorc`, so the published binary cannot subscribe to existing topics or auto-create new ones (service principal lacks `Create Topic` ACL by design — enterprise Kafka topics are governed via Aiven console). The locks topic was already configurable via `Kafka:Locks:Topic` (S-005b R-2); the gap is the other three.
+
+**Impact on HLPS:** None. Target state unchanged. SC-3 (substrate viability) is the affected criterion; S-017 closes the gap without revising the criterion.
+
+**Impact on IS:** One new step added, **S-017 — Configurable Kafka topic names**. Step count 16 → 17. No existing step modified. The locks-topic config-key migrates from `Kafka:Locks:Topic` to `Kafka:Topics:Locks` so all four topic names share one canonical home; S-005b R-4 (options-binding requirement) is the surface that grants lock-topic configurability — its **intent** (lock topic is configurable) is preserved, only the bound key changes. S-005b's row and §3 detail are not amended at this revision; any stale `Kafka:Locks:Topic` reference there is a cosmetic IS-scope-discipline artefact, not a correctness defect. S-017 does not block S-010's *runbook* closure, but its `tools/snapshot-schemas` argument-bridge sub-deliverable does block S-010's *pre-flight* schema-registration step. S-017 blocks S-011 production cutover.
+
+**Schedule impact:** Negligible. S-017 is a small surgical refactor (delete `KafkaSubjectNames.cs`, introduce `KafkaTopicsOptions`, migrate ~17 call-sites, add 4 MSI properties + WiX writes); fits inside the existing "Cutover prep + execute" band.
+
+**Scope discipline (§4 Cycle-Limit + Fix Scope):** R5 adds one row + one §3 detail + this history entry + governs SPEC-S-017's already-completed adversarial review. It does **not** amend or revisit any R1/R2/R3/R4 text. No re-litigation. The locks-topic config-key migration is documented within the new S-017 detail, not by editing S-005b's row or detail.
+
+**Artifacts under R5 review:**
+- This IS revision (step table + §3 S-017 detail + R5 history entry above).
+- `docs/kafka-migration/SPEC-S-017-Configurable-Topic-And-Subject-Names.md` (companion JIT Spec, **already APPROVED** 2026-04-27 by its own panel — Sonnet/Opus/Haiku unanimous APPROVE WITH MINOR after one revision round; the IS R5 cycle exists to formally record S-017 in the master roadmap).
+
+**Note on review ordering:** SPEC-S-017's panel ran before this IS revision (the SPEC's AC-11 is "IS R5 revision adding S-017 is APPROVED"). This is the same pattern as R4 / SPEC-S-014: the SPEC and IS revision review concurrently, with the SPEC carrying explicit contingency on the IS revision panel landing. R5 IS panel review focuses on whether the S-017 row + §3 detail accurately reflect the SPEC's scope and dependency claims — not on re-litigating SPEC content already adjudicated.
