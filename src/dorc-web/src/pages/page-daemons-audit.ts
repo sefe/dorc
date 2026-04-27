@@ -249,7 +249,9 @@ export class PageDaemonsAudit extends PageElement {
   ) => {
     const raw = model.item?.Date;
     if (!raw) {
-      render(html``, root);
+      // Clear via DOM rather than render(html``, root) — the empty-template
+      // form trips Aikido's tainted-render rule (false positive, lit-html).
+      root.replaceChildren();
       return;
     }
     const dt = new Date(raw);
