@@ -33,7 +33,15 @@ public sealed record GateReport(GateOutcome Outcome, string Subject, string Mess
 /// </summary>
 public sealed class AvroSchemaGate
 {
-    private static readonly KafkaTopicsOptions DefaultTopics = new();
+    // Canonical schema-snapshot filenames are environment-neutral by design
+    // (SPEC-S-017 §2 #4) — they always reflect the historical default topic
+    // names so committed .avsc files diff cleanly across environments.
+    // Held as `const string` rather than derived from KafkaTopicsOptions so
+    // the file-read sinks below trace back to a compile-time constant, not
+    // to a config-bound type. (Aikido path-traversal finding 2026-04-27.)
+    internal const string CanonicalRequestsNewKey    = "dorc.requests.new-value";
+    internal const string CanonicalRequestsStatusKey = "dorc.requests.status-value";
+    internal const string CanonicalResultsStatusKey  = "dorc.results.status-value";
 
     private readonly KafkaTopicsOptions _deployedTopics;
     private readonly HttpClient? _registryHttp;
@@ -54,18 +62,18 @@ public sealed class AvroSchemaGate
 
     /// <summary>
     /// Convenience constructor — uses <see cref="KafkaTopicsOptions"/> defaults
-    /// for both canonical and live names. Suitable for the dev-time
+    /// for the deployed live-subject names. Suitable for the dev-time
     /// <c>tools/schema-gate</c> program against a local registry, and for
     /// tests that don't exercise the diverged-name path.
     /// </summary>
     public AvroSchemaGate(HttpClient? registryHttp, string canonicalDir, string? snapshotDir)
-        : this(DefaultTopics, registryHttp, canonicalDir, snapshotDir) { }
+        : this(new KafkaTopicsOptions(), registryHttp, canonicalDir, snapshotDir) { }
 
     public IReadOnlyList<(string CanonicalKey, string LiveSubject, string Schema)> InScopeSchemas() => new[]
     {
-        ($"{DefaultTopics.RequestsNew}-value",     $"{_deployedTopics.RequestsNew}-value",     DorcEventSchemas.GenerateRequestEventSchema()),
-        ($"{DefaultTopics.RequestsStatus}-value",  $"{_deployedTopics.RequestsStatus}-value",  DorcEventSchemas.GenerateRequestEventSchema()),
-        ($"{DefaultTopics.ResultsStatus}-value",   $"{_deployedTopics.ResultsStatus}-value",   DorcEventSchemas.GenerateResultEventSchema())
+        (CanonicalRequestsNewKey,    $"{_deployedTopics.RequestsNew}-value",    DorcEventSchemas.GenerateRequestEventSchema()),
+        (CanonicalRequestsStatusKey, $"{_deployedTopics.RequestsStatus}-value", DorcEventSchemas.GenerateRequestEventSchema()),
+        (CanonicalResultsStatusKey,  $"{_deployedTopics.ResultsStatus}-value", DorcEventSchemas.GenerateResultEventSchema())
     };
 
     public async Task<IReadOnlyList<GateReport>> RunAsync(CancellationToken cancellationToken = default)
