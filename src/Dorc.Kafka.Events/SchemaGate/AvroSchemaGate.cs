@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Dorc.Core.Events;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Schemas;
 
 namespace Dorc.Kafka.Events.SchemaGate;
@@ -19,58 +20,93 @@ public sealed record GateReport(GateOutcome Outcome, string Subject, string Mess
 /// regardless of any observed registry mode. Source selection: prefer live
 /// Karapace when reachable; fall back to a committed snapshot; fail closed
 /// if neither is available.
+///
+/// Per SPEC-S-017 §2 #4 + R1.1: <see cref="InScopeSchemas"/> emits
+/// <c>(CanonicalKey, LiveSubject, Schema)</c> triples. <c>CanonicalKey</c>
+/// is derived from <see cref="KafkaTopicsOptions"/> defaults and drives
+/// both <c>current/</c> (canonical-equality) and <c>latest/</c> (snapshot-
+/// fallback) on-disk file lookups; <c>LiveSubject</c> is derived from the
+/// *deployed* options and drives the live-registry POST URL. When defaults
+/// and deployed names match (the production default), the two are equal —
+/// the indirection only matters when the deployed cluster (e.g. SEFE Aiven)
+/// uses an enterprise topic-naming convention.
 /// </summary>
 public sealed class AvroSchemaGate
 {
+    private static readonly KafkaTopicsOptions DefaultTopics = new();
+
+    private readonly KafkaTopicsOptions _deployedTopics;
     private readonly HttpClient? _registryHttp;
     private readonly string _canonicalDir;
     private readonly string? _snapshotDir;
 
-    public AvroSchemaGate(HttpClient? registryHttp, string canonicalDir, string? snapshotDir)
+    public AvroSchemaGate(
+        KafkaTopicsOptions deployedTopics,
+        HttpClient? registryHttp,
+        string canonicalDir,
+        string? snapshotDir)
     {
+        _deployedTopics = deployedTopics;
         _registryHttp = registryHttp;
         _canonicalDir = canonicalDir;
         _snapshotDir = snapshotDir;
     }
 
-    public static IReadOnlyList<(string Subject, string Schema)> InScopeSchemas() => new[]
+    /// <summary>
+    /// Convenience constructor — uses <see cref="KafkaTopicsOptions"/> defaults
+    /// for both canonical and live names. Suitable for the dev-time
+    /// <c>tools/schema-gate</c> program against a local registry, and for
+    /// tests that don't exercise the diverged-name path.
+    /// </summary>
+    public AvroSchemaGate(HttpClient? registryHttp, string canonicalDir, string? snapshotDir)
+        : this(new KafkaTopicsOptions(), registryHttp, canonicalDir, snapshotDir) { }
+
+    public IReadOnlyList<(string CanonicalKey, string LiveSubject, string Schema)> InScopeSchemas() => new[]
     {
-        (KafkaSubjectNames.RequestsNewValue, DorcEventSchemas.GenerateRequestEventSchema()),
-        (KafkaSubjectNames.RequestsStatusValue, DorcEventSchemas.GenerateRequestEventSchema()),
-        (KafkaSubjectNames.ResultsStatusValue, DorcEventSchemas.GenerateResultEventSchema())
+        ($"{DefaultTopics.RequestsNew}-value",     $"{_deployedTopics.RequestsNew}-value",     DorcEventSchemas.GenerateRequestEventSchema()),
+        ($"{DefaultTopics.RequestsStatus}-value",  $"{_deployedTopics.RequestsStatus}-value",  DorcEventSchemas.GenerateRequestEventSchema()),
+        ($"{DefaultTopics.ResultsStatus}-value",   $"{_deployedTopics.ResultsStatus}-value",   DorcEventSchemas.GenerateResultEventSchema())
     };
 
     public async Task<IReadOnlyList<GateReport>> RunAsync(CancellationToken cancellationToken = default)
     {
         var reports = new List<GateReport>();
-        foreach (var (subject, regenerated) in InScopeSchemas())
-            reports.Add(await CheckSubjectAsync(subject, regenerated, cancellationToken));
+        foreach (var (canonicalKey, liveSubject, regenerated) in InScopeSchemas())
+            reports.Add(await CheckSubjectAsync(canonicalKey, liveSubject, regenerated, cancellationToken));
         return reports;
     }
 
-    internal async Task<GateReport> CheckSubjectAsync(string subject, string regenerated, CancellationToken cancellationToken)
+    internal async Task<GateReport> CheckSubjectAsync(
+        string canonicalKey,
+        string liveSubject,
+        string regenerated,
+        CancellationToken cancellationToken)
     {
-        // Step 2: regenerated must match checked-in canonical.
-        var canonicalPath = Path.Combine(_canonicalDir, $"{subject}.avsc");
+        // Step 2: regenerated must match checked-in canonical. File lookup is
+        // keyed off the *default*-derived canonicalKey so committed schema
+        // contracts stay environment-neutral (SPEC-S-017 §2 #4).
+        var canonicalPath = Path.Combine(_canonicalDir, $"{canonicalKey}.avsc");
         if (!File.Exists(canonicalPath))
-            return new GateReport(GateOutcome.Fail, subject, $"Canonical schema file not found at {canonicalPath}.");
+            return new GateReport(GateOutcome.Fail, liveSubject, $"Canonical schema file not found at {canonicalPath}.");
 
         var canonical = await File.ReadAllTextAsync(canonicalPath, cancellationToken);
         // Strict byte equality: the canonical is produced by tools/generate-schemas
         // and must be exactly what the generator emits. Canonicalisation lives on
         // the *registry*-returned schema (where Karapace reorders keys on storage).
         if (!string.Equals(canonical, regenerated, StringComparison.Ordinal))
-            return new GateReport(GateOutcome.Fail, subject,
+            return new GateReport(GateOutcome.Fail, liveSubject,
                 $"Regenerated schema does not match canonical file {canonicalPath}. Run tools/generate-schemas to refresh.");
 
-        // Step 3–4: BACKWARD compatibility vs the latest known schema.
-        var liveOutcome = await TryCompatibilityAgainstLiveAsync(subject, regenerated, cancellationToken);
+        // Step 3–4: BACKWARD compatibility vs the latest known schema. Live
+        // POST uses the *deployed* liveSubject; snapshot lookup uses the
+        // *default*-derived canonicalKey.
+        var liveOutcome = await TryCompatibilityAgainstLiveAsync(liveSubject, regenerated, cancellationToken);
         if (liveOutcome is not null) return liveOutcome;
 
-        var snapshotOutcome = TryCompatibilityAgainstSnapshot(subject, regenerated);
+        var snapshotOutcome = TryCompatibilityAgainstSnapshot(canonicalKey, liveSubject, regenerated);
         if (snapshotOutcome is not null) return snapshotOutcome;
 
-        return new GateReport(GateOutcome.Fail, subject,
+        return new GateReport(GateOutcome.Fail, liveSubject,
             "Neither live schema registry nor committed snapshot available; cannot determine latest registered schema. Gate fails closed.");
     }
 
@@ -137,11 +173,11 @@ public sealed class AvroSchemaGate
         }
     }
 
-    private GateReport? TryCompatibilityAgainstSnapshot(string subject, string regenerated)
+    private GateReport? TryCompatibilityAgainstSnapshot(string canonicalKey, string liveSubject, string regenerated)
     {
         if (string.IsNullOrEmpty(_snapshotDir)) return null;
 
-        var snapshotPath = Path.Combine(_snapshotDir, $"{subject}.avsc");
+        var snapshotPath = Path.Combine(_snapshotDir, $"{canonicalKey}.avsc");
         if (!File.Exists(snapshotPath)) return null;
 
         var snapshot = File.ReadAllText(snapshotPath);
@@ -154,9 +190,9 @@ public sealed class AvroSchemaGate
         // registry (or refresh the snapshot via a separate PR that itself
         // went through this gate against live).
         if (SchemasEquivalent(snapshot, regenerated))
-            return new GateReport(GateOutcome.Pass, subject, "Schema unchanged against committed snapshot.", Source: "snapshot");
+            return new GateReport(GateOutcome.Pass, liveSubject, "Schema unchanged against committed snapshot.", Source: "snapshot");
 
-        return new GateReport(GateOutcome.Fail, subject,
+        return new GateReport(GateOutcome.Fail, liveSubject,
             $"Schema differs from committed snapshot {snapshotPath} and live registry is unreachable. Gate fails closed; run against live registry or refresh snapshot in a dedicated PR.",
             Source: "snapshot");
     }

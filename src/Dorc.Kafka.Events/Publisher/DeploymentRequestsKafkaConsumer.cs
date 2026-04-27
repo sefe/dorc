@@ -4,9 +4,11 @@ using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Serialization;
 using Dorc.Kafka.ErrorLog;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.PersistentData.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.Publisher;
 
@@ -45,6 +47,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         IKafkaSerializerFactory serializerFactory,
         IRequestEventHandler handler,
         IKafkaErrorLog errorLog,
+        IOptions<KafkaTopicsOptions> topics,
         ILogger<DeploymentRequestsKafkaConsumer> logger)
     {
         _connectionProvider = connectionProvider;
@@ -52,15 +55,18 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         _handler = handler;
         _errorLog = errorLog;
         _logger = logger;
+        Topics = new[] { topics.Value.RequestsNew, topics.Value.RequestsStatus };
     }
 
     public string ConsumerGroupId { get; init; } = $"{ConsumerGroupPrefix}.{HostInstanceId.Value}";
 
-    public string[] Topics { get; init; } = new[]
-    {
-        KafkaSubjectNames.RequestsNewTopic,
-        KafkaSubjectNames.RequestsStatusTopic
-    };
+    /// <summary>
+    /// Subscribed topic set. Default is <c>{ KafkaTopicsOptions.RequestsNew,
+    /// KafkaTopicsOptions.RequestsStatus }</c> as resolved at construction;
+    /// tests may override via object initializer to subscribe to fixture-
+    /// specific topics for isolation.
+    /// </summary>
+    public string[] Topics { get; init; }
 
     public int InsertTimeoutMs { get; init; } = 5_000;
 

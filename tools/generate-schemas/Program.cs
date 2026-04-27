@@ -1,6 +1,15 @@
 using System.Text.Json.Nodes;
-using Dorc.Kafka.Events;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Schemas;
+
+// Usage: dotnet run -- [target-dir]
+//   [--topic-requests-new <name>] [--topic-requests-status <name>] [--topic-results-status <name>]
+//
+// Defaults: targetDir resolves to docs/kafka-migration/schemas/current/; topic
+// names default to KafkaTopicsOptions defaults (dorc.requests.new etc.). Per
+// SPEC-S-017 R2 the topic-name args are an explicit override surface so the
+// tool can be invoked against a non-default registry (e.g. SEFE Karapace)
+// during S-010 dry-run pre-flight.
 
 static string RepoRoot()
 {
@@ -9,17 +18,36 @@ static string RepoRoot()
     return d?.FullName ?? throw new InvalidOperationException("Could not locate repo root (src/Dorc.sln).");
 }
 
-var targetDir = args.Length > 0
-    ? args[0]
-    : Path.Combine(RepoRoot(), "docs", "kafka-migration", "schemas", "current");
+string? targetDir = null;
+var topics = new KafkaTopicsOptions();
 
+for (var i = 0; i < args.Length; i++)
+{
+    switch (args[i])
+    {
+        case "--topic-requests-new" when i + 1 < args.Length:
+            topics.RequestsNew = args[++i];
+            break;
+        case "--topic-requests-status" when i + 1 < args.Length:
+            topics.RequestsStatus = args[++i];
+            break;
+        case "--topic-results-status" when i + 1 < args.Length:
+            topics.ResultsStatus = args[++i];
+            break;
+        default:
+            targetDir ??= args[i];
+            break;
+    }
+}
+
+targetDir ??= Path.Combine(RepoRoot(), "docs", "kafka-migration", "schemas", "current");
 Directory.CreateDirectory(targetDir);
 
 var pairs = new (string SubjectFile, string SchemaJson)[]
 {
-    ($"{KafkaSubjectNames.RequestsNewValue}.avsc", DorcEventSchemas.GenerateRequestEventSchema()),
-    ($"{KafkaSubjectNames.RequestsStatusValue}.avsc", DorcEventSchemas.GenerateRequestEventSchema()),
-    ($"{KafkaSubjectNames.ResultsStatusValue}.avsc", DorcEventSchemas.GenerateResultEventSchema())
+    ($"{topics.RequestsNew}-value.avsc", DorcEventSchemas.GenerateRequestEventSchema()),
+    ($"{topics.RequestsStatus}-value.avsc", DorcEventSchemas.GenerateRequestEventSchema()),
+    ($"{topics.ResultsStatus}-value.avsc", DorcEventSchemas.GenerateResultEventSchema())
 };
 
 foreach (var (file, json) in pairs)

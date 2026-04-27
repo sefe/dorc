@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Events.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,26 +27,32 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 {
     private readonly IKafkaConnectionProvider _connectionProvider;
     private readonly KafkaSubstrateOptions _substrateOptions;
+    private readonly KafkaTopicsOptions _topics;
     private readonly ILogger<KafkaResultsStatusTopicProvisioner> _logger;
 
     public KafkaResultsStatusTopicProvisioner(
         IKafkaConnectionProvider connectionProvider,
         IOptions<KafkaSubstrateOptions> substrateOptions,
+        IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaResultsStatusTopicProvisioner> logger)
     {
         _connectionProvider = connectionProvider;
         _substrateOptions = substrateOptions.Value;
+        _topics = topics.Value;
         _logger = logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Validator (KafkaTopicsOptionsValidator) guarantees non-empty values
+        // post-startup, so iteration here may treat each property as non-null
+        // without runtime defensive checks (SPEC-S-017 §4 R1).
         var topics = new[]
         {
-            KafkaSubjectNames.ResultsStatusTopic,
+            _topics.ResultsStatus,
             // S-006 inherits — provisioned here so its consumer/producer can assume presence.
-            KafkaSubjectNames.RequestsNewTopic,
-            KafkaSubjectNames.RequestsStatusTopic
+            _topics.RequestsNew,
+            _topics.RequestsStatus
         };
 
         // Derive admin-client config from the same connection provider the

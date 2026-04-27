@@ -2,17 +2,23 @@
 // current canonical schemas against a schema registry (Karapace/Confluent-compatible)
 // and writing the registry's acknowledged shape per subject.
 //
-// Usage: dotnet run -- [--registry http://localhost:8081] [--out docs/kafka-migration/schemas/latest]
+// Usage: dotnet run -- [--registry http://localhost:8081] [--out <dir>]
+//   [--topic-requests-new <name>] [--topic-requests-status <name>] [--topic-results-status <name>]
 //
-// Intended to be run as a standalone developer action when a schema change is
-// intentionally introduced and the PR-gate snapshot baseline needs to move.
-// DO NOT run automatically in CI — snapshot refreshes should be an explicit
-// human PR that the PR-gate itself evaluates against the live registry.
+// Topic-name args are MANDATORY when run against a non-default registry
+// (e.g. SEFE Karapace) — without them the tool would register schemas under
+// the historical dorc.* default subjects (SPEC-S-017 §2 #9, AC-8).
+//
+// Intended to be run as a standalone developer / dry-run action when a schema
+// change is intentionally introduced and the PR-gate snapshot baseline needs
+// to move. DO NOT run automatically in CI — snapshot refreshes should be an
+// explicit human PR that the PR-gate itself evaluates against the live
+// registry.
 
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Dorc.Kafka.Events;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Schemas;
 
 static string RepoRoot()
@@ -25,13 +31,17 @@ static string RepoRoot()
 var repoRoot = RepoRoot();
 var registryUrl = Environment.GetEnvironmentVariable("KAFKA_SCHEMA_REGISTRY") ?? "http://localhost:8081";
 var outDir = Path.Combine(repoRoot, "docs", "kafka-migration", "schemas", "latest");
+var topics = new KafkaTopicsOptions();
 
-for (int i = 0; i < args.Length - 1; i++)
+for (int i = 0; i < args.Length; i++)
 {
     switch (args[i])
     {
-        case "--registry": registryUrl = args[++i]; break;
-        case "--out": outDir = args[++i]; break;
+        case "--registry" when i + 1 < args.Length: registryUrl = args[++i]; break;
+        case "--out" when i + 1 < args.Length: outDir = args[++i]; break;
+        case "--topic-requests-new" when i + 1 < args.Length: topics.RequestsNew = args[++i]; break;
+        case "--topic-requests-status" when i + 1 < args.Length: topics.RequestsStatus = args[++i]; break;
+        case "--topic-results-status" when i + 1 < args.Length: topics.ResultsStatus = args[++i]; break;
     }
 }
 
@@ -40,10 +50,13 @@ using var http = new HttpClient { BaseAddress = new Uri(registryUrl), Timeout = 
 
 var pairs = new (string Subject, string Schema)[]
 {
-    (KafkaSubjectNames.RequestsNewValue, DorcEventSchemas.GenerateRequestEventSchema()),
-    (KafkaSubjectNames.RequestsStatusValue, DorcEventSchemas.GenerateRequestEventSchema()),
-    (KafkaSubjectNames.ResultsStatusValue, DorcEventSchemas.GenerateResultEventSchema())
+    ($"{topics.RequestsNew}-value", DorcEventSchemas.GenerateRequestEventSchema()),
+    ($"{topics.RequestsStatus}-value", DorcEventSchemas.GenerateRequestEventSchema()),
+    ($"{topics.ResultsStatus}-value", DorcEventSchemas.GenerateResultEventSchema())
 };
+
+Console.WriteLine($"[snapshot-schemas] registry={registryUrl}");
+Console.WriteLine($"[snapshot-schemas] subjects: {string.Join(", ", pairs.Select(p => p.Subject))}");
 
 foreach (var (subject, schema) in pairs)
 {

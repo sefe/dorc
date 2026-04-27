@@ -5,6 +5,7 @@ using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Serialization;
 using Dorc.Kafka.ErrorLog;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.PersistentData.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -47,6 +48,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         IDeploymentResultBroadcaster broadcaster,
         IKafkaErrorLog errorLog,
         IOptions<KafkaErrorLogOptions> errorLogOptions,
+        IOptions<KafkaTopicsOptions> topics,
         ILogger<DeploymentResultsKafkaConsumer> logger)
     {
         _connectionProvider = connectionProvider;
@@ -55,17 +57,18 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         _errorLog = errorLog;
         _errorLogOptions = errorLogOptions.Value;
         _logger = logger;
+        TopicName = topics.Value.ResultsStatus;
     }
 
     public string ConsumerGroupId { get; init; } = $"{ConsumerGroupPrefix}.{HostInstanceId.Value}";
 
     /// <summary>
-    /// The topic the consumer subscribes to. Defaults to the production
-    /// <see cref="TopicName"/>; tests can
+    /// The topic the consumer subscribes to. Default resolves to
+    /// <c>KafkaTopicsOptions.ResultsStatus</c> at construction; tests can
     /// override via object initializer to subscribe to a unique topic for
     /// isolation.
     /// </summary>
-    public string TopicName { get; init; } = KafkaSubjectNames.ResultsStatusTopic;
+    public string TopicName { get; init; }
 
     public int InsertTimeoutMs { get; init; } = 5_000;
 

@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Kafka.Client.Producers;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Publisher;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +38,17 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
             .ValidateOnStart();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaSubstrateOptions>, KafkaSubstrateOptionsValidator>());
+
+        // KafkaTopicsOptions registration is idempotent across the substrate
+        // entry-points: the lock substrate (S-005b) registers it too, so
+        // either entry-point standing alone is sufficient. Multiple calls to
+        // AddOptions<T>() return the same builder; TryAddEnumerable on the
+        // validator is idempotent by reference.
+        services.AddOptions<KafkaTopicsOptions>()
+            .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
+            .ValidateOnStart();
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaTopicsOptions>, KafkaTopicsOptionsValidator>());
 
         services.TryAddSingleton<IProducer<string, DeploymentResultEventData>>(sp =>
         {

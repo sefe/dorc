@@ -43,7 +43,7 @@ public class SchemaGateIntegrationTests
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, schema, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(subject, subject, schema, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Pass, report.Outcome, report.Message);
             Assert.AreEqual("live", report.Source);
@@ -75,7 +75,7 @@ public class SchemaGateIntegrationTests
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, breaking, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(subject, subject, breaking, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Fail, report.Outcome);
             Assert.AreEqual("live", report.Source);
@@ -110,7 +110,7 @@ public class SchemaGateIntegrationTests
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, breakingType, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(subject, subject, breakingType, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Fail, report.Outcome);
             Assert.AreEqual("live", report.Source);
@@ -143,7 +143,7 @@ public class SchemaGateIntegrationTests
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, additive, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(subject, subject, additive, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Pass, report.Outcome, report.Message);
             Assert.AreEqual("live", report.Source);

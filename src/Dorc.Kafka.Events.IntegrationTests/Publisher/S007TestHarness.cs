@@ -5,7 +5,7 @@ using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.ErrorLog;
-using Dorc.Kafka.Events;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Publisher;
 using Dorc.Kafka.Events.Serialization;
 using Dorc.PersistentData.Model;
@@ -74,6 +74,7 @@ internal sealed class S007TestHarness : IAsyncDisposable
             producer,
             requestsProducer,
             new NoopFallback(),
+            Options.Create(new KafkaTopicsOptions()),
             NullLogger<KafkaDeploymentEventPublisher>.Instance);
         _disposables.Add(publisher);
         return publisher;
@@ -81,15 +82,17 @@ internal sealed class S007TestHarness : IAsyncDisposable
 
     public DeploymentResultsKafkaConsumer BuildConsumer(string? topic = null, string? groupId = null)
     {
+        var topicsOptions = Options.Create(new KafkaTopicsOptions());
         var consumer = new DeploymentResultsKafkaConsumer(
             ConnectionProvider,
             Factory,
             Broadcaster,
             ErrorLog,
             Options.Create(new KafkaErrorLogOptions()),
+            topicsOptions,
             NullLogger<DeploymentResultsKafkaConsumer>.Instance)
         {
-            TopicName = topic ?? KafkaSubjectNames.ResultsStatusTopic,
+            TopicName = topic ?? topicsOptions.Value.ResultsStatus,
             ConsumerGroupId = groupId ?? $"{DeploymentResultsKafkaConsumer.ConsumerGroupPrefix}.{HostInstanceId.Value}"
         };
         _disposables.Add(consumer);

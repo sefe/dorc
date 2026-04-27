@@ -1,7 +1,9 @@
 using Confluent.Kafka;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Kafka.Events.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.Publisher;
 
@@ -26,26 +28,29 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
     private readonly IProducer<string, DeploymentResultEventData> _resultsProducer;
     private readonly IProducer<string, DeploymentRequestEventData> _requestsProducer;
     private readonly IFallbackDeploymentEventPublisher _fallback;
+    private readonly KafkaTopicsOptions _topics;
     private readonly ILogger<KafkaDeploymentEventPublisher> _logger;
 
     public KafkaDeploymentEventPublisher(
         IProducer<string, DeploymentResultEventData> resultsProducer,
         IProducer<string, DeploymentRequestEventData> requestsProducer,
         IFallbackDeploymentEventPublisher fallback,
+        IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaDeploymentEventPublisher> logger)
     {
         _resultsProducer = resultsProducer;
         _requestsProducer = requestsProducer;
         _fallback = fallback;
+        _topics = topics.Value;
         _logger = logger;
     }
 
     public Task PublishNewRequestAsync(DeploymentRequestEventData eventData)
-        => DualPublishRequestAsync(eventData, KafkaSubjectNames.RequestsNewTopic, kind: "new",
+        => DualPublishRequestAsync(eventData, _topics.RequestsNew, kind: "new",
             () => _fallback.PublishNewRequestAsync(eventData));
 
     public Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData)
-        => DualPublishRequestAsync(eventData, KafkaSubjectNames.RequestsStatusTopic, kind: "status",
+        => DualPublishRequestAsync(eventData, _topics.RequestsStatus, kind: "status",
             () => _fallback.PublishRequestStatusChangedAsync(eventData));
 
     public async Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData)
@@ -69,7 +74,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         try
         {
             var result = await _resultsProducer.ProduceAsync(
-                KafkaSubjectNames.ResultsStatusTopic,
+                _topics.ResultsStatus,
                 new Message<string, DeploymentResultEventData> { Key = key, Value = eventData });
             _logger.LogDebug(
                 "publish-ok topic={Topic} partition={Partition} offset={Offset} requestId={RequestId}",
@@ -79,7 +84,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         {
             _logger.LogError(ex,
                 "publish-failed topic={Topic} requestId={RequestId} reason={Reason} code={Code}",
-                KafkaSubjectNames.ResultsStatusTopic, eventData.RequestId, ex.Error.Reason, ex.Error.Code);
+                _topics.ResultsStatus, eventData.RequestId, ex.Error.Reason, ex.Error.Code);
             throw;
         }
     }

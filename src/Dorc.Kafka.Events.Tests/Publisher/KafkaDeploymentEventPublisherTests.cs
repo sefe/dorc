@@ -1,13 +1,19 @@
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Publisher;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.Tests.Publisher;
 
 [TestClass]
 public class KafkaDeploymentEventPublisherTests
 {
+    private static readonly KafkaTopicsOptions TestTopics = new();
+
+    private static IOptions<KafkaTopicsOptions> Topics() => Options.Create(TestTopics);
+
     private static (KafkaDeploymentEventPublisher sut,
                     StubProducer<string, DeploymentResultEventData> resultsProd,
                     StubProducer<string, DeploymentRequestEventData> requestsProd,
@@ -17,7 +23,7 @@ public class KafkaDeploymentEventPublisherTests
         var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
         var fallback = new RecordingFallback();
         var sut = new KafkaDeploymentEventPublisher(
-            resultsProd, requestsProd, fallback,
+            resultsProd, requestsProd, fallback, Topics(),
             NullLogger<KafkaDeploymentEventPublisher>.Instance);
         return (sut, resultsProd, requestsProd, fallback);
     }
@@ -36,7 +42,7 @@ public class KafkaDeploymentEventPublisherTests
         await sut.PublishNewRequestAsync(ev);
 
         Assert.AreEqual(1, requestsProd.Produced.Count);
-        Assert.AreEqual(KafkaSubjectNames.RequestsNewTopic, requestsProd.Produced[0].Topic);
+        Assert.AreEqual(TestTopics.RequestsNew, requestsProd.Produced[0].Topic);
         Assert.AreEqual("4242", requestsProd.Produced[0].Message.Key);
         Assert.AreEqual(ev, requestsProd.Produced[0].Message.Value);
     }
@@ -50,7 +56,7 @@ public class KafkaDeploymentEventPublisherTests
         await sut.PublishRequestStatusChangedAsync(ev);
 
         Assert.AreEqual(1, requestsProd.Produced.Count);
-        Assert.AreEqual(KafkaSubjectNames.RequestsStatusTopic, requestsProd.Produced[0].Topic);
+        Assert.AreEqual(TestTopics.RequestsStatus, requestsProd.Produced[0].Topic);
         Assert.AreEqual("99", requestsProd.Produced[0].Message.Key);
     }
 
@@ -65,7 +71,7 @@ public class KafkaDeploymentEventPublisherTests
         await sut.PublishResultStatusChangedAsync(ev);
 
         Assert.AreEqual(1, resultsProd.Produced.Count);
-        Assert.AreEqual(KafkaSubjectNames.ResultsStatusTopic, resultsProd.Produced[0].Topic);
+        Assert.AreEqual(TestTopics.ResultsStatus, resultsProd.Produced[0].Topic);
         Assert.AreEqual("4242", resultsProd.Produced[0].Message.Key);
     }
 
@@ -87,7 +93,7 @@ public class KafkaDeploymentEventPublisherTests
         var resultsProd = new StubProducer<string, DeploymentResultEventData>();
         var requestsProd = new StubProducer<string, DeploymentRequestEventData> { ThrowOnProduce = true };
         var fallback = new RecordingFallback();
-        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             async () => await sut.PublishNewRequestAsync(NewRequest(7, "Pending")));
@@ -102,7 +108,7 @@ public class KafkaDeploymentEventPublisherTests
         var resultsProd = new StubProducer<string, DeploymentResultEventData>();
         var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
         var fallback = new RecordingFallback { ThrowOnNew = true };
-        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
         await sut.PublishNewRequestAsync(NewRequest(11, "Pending"));
 
@@ -116,7 +122,7 @@ public class KafkaDeploymentEventPublisherTests
         var resultsProd = new StubProducer<string, DeploymentResultEventData>();
         var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
         var fallback = new RecordingFallback { ThrowOnResult = true };
-        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
         await sut.PublishResultStatusChangedAsync(new DeploymentResultEventData(
             ResultId: 1, RequestId: 1, ComponentId: 1, Status: "Running",

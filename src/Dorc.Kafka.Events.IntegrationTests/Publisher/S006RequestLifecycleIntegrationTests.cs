@@ -4,6 +4,7 @@ using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.ErrorLog;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Publisher;
 using Dorc.PersistentData.Model;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -42,6 +43,7 @@ public class S006RequestLifecycleIntegrationTests
                 factory,
                 handler,
                 new NoopErrorLog(),
+                Options.Create(new KafkaTopicsOptions()),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
             {
                 Topics = new[] { newTopic, statusTopic },
@@ -97,6 +99,7 @@ public class S006RequestLifecycleIntegrationTests
                 factory,
                 new PollSignalRequestEventHandler(signal),
                 new NoopErrorLog(),
+                Options.Create(new KafkaTopicsOptions()),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
             {
                 Topics = new[] { topic },
@@ -147,6 +150,7 @@ public class S006RequestLifecycleIntegrationTests
                 factory,
                 handler,
                 new NoopErrorLog(),
+                Options.Create(new KafkaTopicsOptions()),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
             {
                 Topics = new[] { topic },

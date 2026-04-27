@@ -1,9 +1,11 @@
 using Dorc.Core.Events;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Publisher;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.DependencyInjection;
 
@@ -28,6 +30,16 @@ public static class KafkaRequestLifecycleSubstrateServiceCollectionExtensions
             return services;
 
         services.AddSingleton<DorcKafkaRequestLifecycleMarker>();
+
+        // KafkaTopicsOptions registration is idempotent — the consumer
+        // resolves IOptions<KafkaTopicsOptions> in its constructor, so this
+        // extension must register it independently of S-007's results-status
+        // extension.
+        services.AddOptions<KafkaTopicsOptions>()
+            .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
+            .ValidateOnStart();
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaTopicsOptions>, KafkaTopicsOptionsValidator>());
 
         services.TryAddSingleton<IRequestPollSignal, RequestPollSignal>();
         services.TryAddSingleton<IRequestEventHandler, PollSignalRequestEventHandler>();
