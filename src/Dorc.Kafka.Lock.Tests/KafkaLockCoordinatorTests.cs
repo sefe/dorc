@@ -1,4 +1,5 @@
 using System.Reflection;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -22,9 +23,11 @@ public class KafkaLockCoordinatorTests
             PartitionCount = partitionCount,
             ConsumerGroupId = "test"
         });
+        var topics = Options.Create(new KafkaTopicsOptions());
         return new KafkaLockCoordinator(
             new FakeConnectionProvider(),
             opts,
+            topics,
             NullLogger<KafkaLockCoordinator>.Instance);
     }
 

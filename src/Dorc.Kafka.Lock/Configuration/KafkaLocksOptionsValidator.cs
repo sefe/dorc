@@ -8,9 +8,6 @@ public sealed class KafkaLocksOptionsValidator : IValidateOptions<KafkaLocksOpti
     {
         var errors = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(options.Topic))
-            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.Topic)} is required.");
-
         if (options.PartitionCount < 1)
             errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.PartitionCount)} must be >= 1.");
 

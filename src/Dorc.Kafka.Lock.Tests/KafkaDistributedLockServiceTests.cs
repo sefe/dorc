@@ -1,4 +1,5 @@
 using System.Reflection;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -22,8 +23,9 @@ public class KafkaDistributedLockServiceTests
             ConsumerGroupId = "test",
             LockWaitDefaultTimeoutMs = waitDefaultMs
         });
+        var topics = Options.Create(new KafkaTopicsOptions());
         var coordinator = new KafkaLockCoordinator(
-            new FakeConnectionProvider(), opts, NullLogger<KafkaLockCoordinator>.Instance);
+            new FakeConnectionProvider(), opts, topics, NullLogger<KafkaLockCoordinator>.Instance);
         var service = new KafkaDistributedLockService(
             coordinator, opts, NullLogger<KafkaDistributedLockService>.Instance);
         return (coordinator, service);

@@ -8,7 +8,6 @@ public class KafkaLocksOptionsValidatorTests
 {
     private static KafkaLocksOptions Valid() => new()
     {
-        Topic = "dorc.locks",
         PartitionCount = 12,
         ReplicationFactor = 3,
         ConsumerGroupId = "dorc.monitor.locks",
@@ -20,16 +19,6 @@ public class KafkaLocksOptionsValidatorTests
     {
         var r = new KafkaLocksOptionsValidator().Validate(null, Valid());
         Assert.IsTrue(r.Succeeded, string.Join("; ", r.Failures ?? Array.Empty<string>()));
-    }
-
-    [TestMethod]
-    public void Validate_TopicEmpty_Fails()
-    {
-        var opts = Valid();
-        opts.Topic = "";
-        var r = new KafkaLocksOptionsValidator().Validate(null, opts);
-        Assert.IsTrue(r.Failed);
-        StringAssert.Contains(string.Join("; ", r.Failures!), "Kafka:Locks:Topic");
     }
 
     [TestMethod]

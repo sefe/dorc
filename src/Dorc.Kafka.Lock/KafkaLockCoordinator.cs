@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Confluent.Kafka;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -29,6 +30,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
 {
     private readonly IKafkaConnectionProvider _connectionProvider;
     private readonly KafkaLocksOptions _options;
+    private readonly KafkaTopicsOptions _topics;
     private readonly ILogger<KafkaLockCoordinator> _logger;
 
     private readonly object _slotLock = new();
@@ -42,10 +44,12 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     public KafkaLockCoordinator(
         IKafkaConnectionProvider connectionProvider,
         IOptions<KafkaLocksOptions> options,
+        IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaLockCoordinator> logger)
     {
         _connectionProvider = connectionProvider;
         _options = options.Value;
+        _topics = topics.Value;
         _logger = logger;
     }
 
@@ -61,10 +65,10 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
 
         _loopCts = new CancellationTokenSource();
         _consumer = BuildConsumer();
-        _consumer.Subscribe(_options.Topic);
+        _consumer.Subscribe(_topics.Locks);
         _logger.LogInformation(
             "KafkaLockCoordinator subscribed: topic={Topic} group={GroupId} partitions={PartitionCount}",
-            _options.Topic, _options.ConsumerGroupId, _options.PartitionCount);
+            _topics.Locks, _options.ConsumerGroupId, _options.PartitionCount);
 
         _loopTask = Task.Run(() => RunLoop(_loopCts.Token));
         return Task.CompletedTask;

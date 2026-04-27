@@ -2,6 +2,7 @@ namespace Dorc.Kafka.Lock.Configuration;
 
 /// <summary>
 /// Options for the Kafka-based distributed lock substrate (SPEC-S-005b R-4).
+/// Topic name moved to <c>KafkaTopicsOptions.Locks</c> per SPEC-S-017.
 /// </summary>
 public sealed class KafkaLocksOptions
 {
@@ -14,9 +15,6 @@ public sealed class KafkaLocksOptions
     /// enabled.
     /// </summary>
     public bool Enabled { get; set; } = true;
-
-    /// <summary>Lock topic name.</summary>
-    public string Topic { get; set; } = "dorc.locks";
 
     /// <summary>
     /// Partition count. Immutable post-cutover (ADR-S-005 §4 #2) — the validator

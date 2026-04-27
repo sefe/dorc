@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,15 +19,18 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
 {
     private readonly IKafkaConnectionProvider _connectionProvider;
     private readonly KafkaLocksOptions _options;
+    private readonly KafkaTopicsOptions _topics;
     private readonly ILogger<KafkaLocksTopicProvisioner> _logger;
 
     public KafkaLocksTopicProvisioner(
         IKafkaConnectionProvider connectionProvider,
         IOptions<KafkaLocksOptions> options,
+        IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaLocksTopicProvisioner> logger)
     {
         _connectionProvider = connectionProvider;
         _options = options.Value;
+        _topics = topics.Value;
         _logger = logger;
     }
 
@@ -48,7 +52,7 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
         var minIsr = _options.ReplicationFactor >= 3 ? 2 : 1;
         var spec = new TopicSpecification
         {
-            Name = _options.Topic,
+            Name = _topics.Locks,
             NumPartitions = _options.PartitionCount,
             ReplicationFactor = _options.ReplicationFactor,
             Configs = new Dictionary<string, string>
@@ -62,11 +66,11 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
             await admin.CreateTopicsAsync(new[] { spec });
             _logger.LogInformation(
                 "Kafka lock topic created: topic={Topic} partitions={Partitions} rf={Rf} minIsr={MinIsr}",
-                _options.Topic, spec.NumPartitions, spec.ReplicationFactor, minIsr);
+                _topics.Locks, spec.NumPartitions, spec.ReplicationFactor, minIsr);
         }
         catch (CreateTopicsException ex) when (ex.Results[0].Error.Code == ErrorCode.TopicAlreadyExists)
         {
-            VerifyPartitionCount(admin, _options.Topic, _options.PartitionCount);
+            VerifyPartitionCount(admin, _topics.Locks, _options.PartitionCount);
         }
         catch (CreateTopicsException ex)
         {

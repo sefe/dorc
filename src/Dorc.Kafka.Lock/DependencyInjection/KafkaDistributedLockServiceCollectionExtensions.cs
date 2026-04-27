@@ -1,5 +1,6 @@
 using Dorc.Core.HighAvailability;
 using Dorc.Kafka.Client.DependencyInjection;
+using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,12 @@ public static class KafkaDistributedLockServiceCollectionExtensions
             .ValidateOnStart();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaLocksOptions>, KafkaLocksOptionsValidator>());
+
+        services.AddOptions<KafkaTopicsOptions>()
+            .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
+            .ValidateOnStart();
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaTopicsOptions>, KafkaTopicsOptionsValidator>());
 
         services.AddDorcKafkaClient(configuration);
 
