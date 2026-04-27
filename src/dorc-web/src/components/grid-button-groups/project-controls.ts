@@ -232,14 +232,10 @@ export class ProjectControls extends LitElement {
     return actions;
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    document.addEventListener('click', this._outsideClickHandler);
-    document.addEventListener('scroll', this._scrollHandler, true);
-  }
-
   disconnectedCallback() {
     super.disconnectedCallback();
+    // Safety net only; the listeners are normally added/removed alongside
+    // the dropdown overlay in _showDropdown / _removeDropdown.
     document.removeEventListener('click', this._outsideClickHandler);
     document.removeEventListener('scroll', this._scrollHandler, true);
     this._removeDropdown();
@@ -387,6 +383,15 @@ export class ProjectControls extends LitElement {
     overlay.addEventListener('keydown', this._onMenuKeyDown);
     document.body.appendChild(overlay);
 
+    // Document-level listeners that close the menu on outside click or
+    // scroll are scoped to the open-menu lifetime — registered only when
+    // the overlay is present, removed in _removeDropdown. This avoids
+    // every project-controls instance keeping always-on document listeners
+    // even when its menu is closed (which scaled poorly across grids with
+    // many rows).
+    document.addEventListener('click', this._outsideClickHandler);
+    document.addEventListener('scroll', this._scrollHandler, true);
+
     // Move focus to the first item (R1 / R2). For mouse-initiated opens this
     // is invisible because `:focus-visible` only paints the indicator on
     // keyboard interactions; for keyboard-initiated opens (Enter/Space on
@@ -399,6 +404,8 @@ export class ProjectControls extends LitElement {
     const dropdown = this._getDropdownEl();
     dropdown?.removeEventListener('keydown', this._onMenuKeyDown);
     dropdown?.remove();
+    document.removeEventListener('click', this._outsideClickHandler);
+    document.removeEventListener('scroll', this._scrollHandler, true);
   }
 
   private _selectAction(action: ActionMenuItem) {
