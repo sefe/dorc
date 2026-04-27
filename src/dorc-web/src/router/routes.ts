@@ -18,6 +18,7 @@ import '../components/environment-tabs/env-cloud.ts'
 import '../components/environment-tabs/env-apis.ts'
 import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
+import '../pages/page-daemons-audit.ts'
 import '../pages/page-daemons-list.ts'
 import '../pages/page-databases-list.ts'
 import '../pages/page-deploy.ts'
@@ -33,6 +34,7 @@ import '../pages/page-project-envs.ts'
 import '../pages/page-project-bundles.ts'
 import '../pages/page-project-components.ts'
 import '../pages/page-project-ref-data.ts'
+import '../pages/page-projects-audit.ts'
 import '../pages/page-projects-list.ts'
 import '../pages/page-scripts-list.ts'
 import '../pages/page-scripts-audit.ts'
@@ -105,6 +107,15 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/projects/audit',
+        name: 'projects-audit',
+        component: 'page-projects-audit',
+        metadata: {
+          title: 'Projects Audit',
+          description: 'Audit history across all projects'
+        }
+      },
+      {
         path: '/environments',
         name: 'environments',
         component: 'page-environments-list',
@@ -147,6 +158,15 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Daemons',
           description: 'List of all daemons'
+        }
+      },
+      {
+        path: '/daemons/audit',
+        name: 'daemons-audit',
+        component: 'page-daemons-audit',
+        metadata: {
+          title: 'Daemons Audit',
+          description: 'Audit history across all daemons'
         }
       },
       {

@@ -27,6 +27,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
 
         GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators);
 
+        GetRefDataAuditListResponseDto GetRefDataAudit(int limit, int page, PagedDataOperators operators);
+
         IList<ComponentApiModel> GetOrderedComponents(IEnumerable<string> components);
     }
 }
