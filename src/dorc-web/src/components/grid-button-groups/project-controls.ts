@@ -36,11 +36,135 @@ export class ProjectControls extends LitElement {
     this._close();
   };
 
+  // Keyboard interaction handler for the open menu. Registered on the overlay
+  // when the menu opens, removed when it closes (or in disconnectedCallback as
+  // a safety net). Implements the WAI-ARIA APG menu keyboard pattern:
+  // ArrowDown/Up with wrap, Home/End, Enter/Space invoke, ESC + Tab/Shift+Tab
+  // close-and-restore-focus.
+  private _onMenuKeyDown = (e: KeyboardEvent) => {
+    const overlay = this._getDropdownEl();
+    if (!overlay) return;
+
+    const items = Array.from(
+      overlay.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    );
+    if (items.length === 0) return;
+
+    const trigger = this.shadowRoot?.getElementById(
+      this._triggerId
+    ) as HTMLElement | null;
+
+    const focusItem = (idx: number) => {
+      const target = items[(idx + items.length) % items.length];
+      target?.focus();
+    };
+
+    const currentIdx = items.indexOf(document.activeElement as HTMLElement);
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        focusItem(currentIdx < 0 ? 0 : currentIdx + 1);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        focusItem(currentIdx < 0 ? items.length - 1 : currentIdx - 1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        focusItem(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        focusItem(items.length - 1);
+        break;
+      case 'Enter':
+      case ' ': {
+        if (currentIdx < 0) return;
+        const action = this.menuActions[currentIdx];
+        if (!action) return;
+        e.preventDefault();
+        // R9b: restore focus to the trigger before invoking the action so
+        // that any focus claimed by the action's destination (e.g. a dialog
+        // opened by the dispatched event, or a route navigation) supersedes
+        // it. If the action does not relocate focus, the trigger retains it.
+        trigger?.focus();
+        this._selectAction(action);
+        break;
+      }
+      case 'Escape':
+        e.preventDefault();
+        this._close();
+        trigger?.focus();
+        break;
+      case 'Tab': {
+        e.preventDefault();
+        this._close();
+        const siblings = this._findTabbableSiblings(trigger);
+        const dest = e.shiftKey ? siblings.prev : siblings.next;
+        (dest ?? trigger)?.focus();
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
+  // Find the document tabbable elements that immediately precede and follow
+  // the trigger in tab order, walking through shadow roots to locate the
+  // trigger that lives inside this component's shadow DOM.
+  private _findTabbableSiblings(
+    trigger: HTMLElement | null
+  ): { prev: HTMLElement | null; next: HTMLElement | null } {
+    if (!trigger) return { prev: null, next: null };
+    const all = this._collectTabbables(document);
+    const idx = all.indexOf(trigger);
+    if (idx < 0) return { prev: null, next: null };
+    return {
+      prev: idx > 0 ? all[idx - 1] : null,
+      next: idx < all.length - 1 ? all[idx + 1] : null,
+    };
+  }
+
+  // Collect tabbable elements across the document, descending into open
+  // shadow roots. Tabbability is approximated by `tabIndex >= 0` plus a
+  // visibility check via `offsetParent`. This is sufficient for the typical
+  // dorc-web layouts where the trigger lives in a Lit element's shadow root
+  // and the next focusable element is another similar trigger or a
+  // top-level page control.
+  private _collectTabbables(root: Document | ShadowRoot): HTMLElement[] {
+    const result: HTMLElement[] = [];
+    const walk = (n: ParentNode) => {
+      n.querySelectorAll<HTMLElement>('*').forEach((el) => {
+        if (
+          el instanceof HTMLElement &&
+          el.tabIndex >= 0 &&
+          el.offsetParent !== null
+        ) {
+          result.push(el);
+        }
+        const sr = (el as HTMLElement & { shadowRoot: ShadowRoot | null })
+          .shadowRoot;
+        if (sr) walk(sr);
+      });
+    };
+    walk(root);
+    return result;
+  }
+
   private _getDropdownEl(): HTMLElement | null {
-    return document.getElementById(`project-dropdown-${this._uid}`);
+    return document.getElementById(this._dropdownId);
   }
 
   private _uid = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+
+  private get _triggerId(): string {
+    return `project-trigger-${this._uid}`;
+  }
+
+  private get _dropdownId(): string {
+    return `project-dropdown-${this._uid}`;
+  }
 
   static get styles() {
     return css`
@@ -124,12 +248,19 @@ export class ProjectControls extends LitElement {
   render() {
     return html`
       <vaadin-button
+        id="${this._triggerId}"
         theme="icon small"
         aria-label="Project actions"
         title="Project actions"
+        aria-haspopup="menu"
+        aria-expanded="${this._open ? 'true' : 'false'}"
+        aria-controls="${this._dropdownId}"
         @click="${this._toggle}"
       >
-        <vaadin-icon icon="vaadin:ellipsis-dots-h"></vaadin-icon>
+        <vaadin-icon
+          icon="vaadin:ellipsis-dots-h"
+          aria-hidden="true"
+        ></vaadin-icon>
       </vaadin-button>
     `;
   }
@@ -168,7 +299,10 @@ export class ProjectControls extends LitElement {
     this._removeDropdown();
 
     const overlay = document.createElement('div');
-    overlay.id = `project-dropdown-${this._uid}`;
+    overlay.id = this._dropdownId;
+    overlay.setAttribute('role', 'menu');
+    overlay.setAttribute('aria-orientation', 'vertical');
+    overlay.setAttribute('aria-labelledby', this._triggerId);
     Object.assign(overlay.style, {
       position: 'fixed',
       top: `${this._dropdownTop}px`,
@@ -183,8 +317,24 @@ export class ProjectControls extends LitElement {
       fontFamily: 'var(--lumo-font-family)',
     });
 
+    // Focus-visible indicator (WCAG 2.4.7) — scoped to this overlay's id so
+    // each instance owns its style block. Distinct from the hover style
+    // (which uses background-color only) to satisfy R7.
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      #${this._dropdownId} [role="menuitem"]:focus-visible {
+        outline: 2px solid var(--lumo-primary-color);
+        outline-offset: -2px;
+      }
+    `;
+    overlay.appendChild(styleEl);
+
     for (const action of this.menuActions) {
       const item = document.createElement('div');
+      item.setAttribute('role', 'menuitem');
+      // Programmatically focusable but not in the document tab order; the
+      // open menu manages focus via the keydown handler (S-003b R4–R6, R8–R12).
+      item.setAttribute('tabindex', '-1');
       Object.assign(item.style, {
         display: 'flex',
         alignItems: 'center',
@@ -214,6 +364,7 @@ export class ProjectControls extends LitElement {
 
       const icon = document.createElement('vaadin-icon');
       icon.setAttribute('icon', action.icon);
+      icon.setAttribute('aria-hidden', 'true');
       icon.style.width = '18px';
       icon.style.height = '18px';
       icon.style.flexShrink = '0';
@@ -233,11 +384,21 @@ export class ProjectControls extends LitElement {
       overlay.appendChild(item);
     }
 
+    overlay.addEventListener('keydown', this._onMenuKeyDown);
     document.body.appendChild(overlay);
+
+    // Move focus to the first item (R1 / R2). For mouse-initiated opens this
+    // is invisible because `:focus-visible` only paints the indicator on
+    // keyboard interactions; for keyboard-initiated opens (Enter/Space on
+    // the trigger) the indicator is shown immediately on the first item.
+    const firstItem = overlay.querySelector<HTMLElement>('[role="menuitem"]');
+    firstItem?.focus();
   }
 
   private _removeDropdown() {
-    this._getDropdownEl()?.remove();
+    const dropdown = this._getDropdownEl();
+    dropdown?.removeEventListener('keydown', this._onMenuKeyDown);
+    dropdown?.remove();
   }
 
   private _selectAction(action: ActionMenuItem) {
