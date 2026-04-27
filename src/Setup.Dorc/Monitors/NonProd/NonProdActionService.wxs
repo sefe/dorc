@@ -58,6 +58,12 @@
 					<Json:JsonFile Id="KafkaSchemaRegistryUrlNonProd" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameNonProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordNonProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<!-- S-017: Kafka topic names (per-environment override; e.g. SEFE Aiven enterprise naming convention) -->
+					<Json:JsonFile Id="KafkaTopicsLocksNonProd" ElementPath="$.Kafka.Topics.Locks" Value="[KAFKA.TOPICS.LOCKS]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsRequestsNewNonProd" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsRequestsStatusNonProd" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsResultsStatusNonProd" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">

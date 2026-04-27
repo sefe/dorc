@@ -250,6 +250,22 @@
       "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD"
     },
     {
+      "MSIParameter": "KAFKA.TOPICS.LOCKS",
+      "DeployProperty": "KAFKA_TOPICS_LOCKS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEW",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEW"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSSTATUS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.RESULTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_RESULTSSTATUS"
+    },
+    {
       "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
       "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }

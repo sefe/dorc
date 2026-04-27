@@ -86,6 +86,12 @@
 		<Json:JsonFile Id="KafkaSchemaRegistryUrlApi" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameApi" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordApi" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#DeployApiWebConfig]" />
+
+		<!-- S-017: Kafka topic names (per-environment override; e.g. SEFE Aiven enterprise naming convention) -->
+		<Json:JsonFile Id="KafkaTopicsLocksApi" ElementPath="$.Kafka.Topics.Locks" Value="[KAFKA.TOPICS.LOCKS]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaTopicsRequestsNewApi" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaTopicsRequestsStatusApi" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaTopicsResultsStatusApi" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -161,6 +167,12 @@
 			<Json:JsonFile Id="KafkaSchemaRegistryUrlApiProd" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameApiProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordApiProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#DeployApiWebConfig]" />
+
+			<!-- S-017: Kafka topic names (per-environment override; e.g. SEFE Aiven enterprise naming convention) -->
+			<Json:JsonFile Id="KafkaTopicsLocksApiProd" ElementPath="$.Kafka.Topics.Locks" Value="[KAFKA.TOPICS.LOCKS]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaTopicsRequestsNewApiProd" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaTopicsRequestsStatusApiProd" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaTopicsResultsStatusApiProd" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#DeployApiWebConfig]" />
 	  </Component>
   </Fragment>
 </Wix>
