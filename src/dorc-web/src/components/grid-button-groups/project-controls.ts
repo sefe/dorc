@@ -4,6 +4,7 @@ import '@vaadin/icon';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
+import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -241,6 +242,11 @@ export class ProjectControls extends LitElement {
 
   private _selectAction(action: ActionMenuItem) {
     this._open = false;
+    if (action.eventName === 'open-project-audit-data') {
+      const id = this.project?.ProjectId;
+      if (id) Router.go(`/projects/audit?projectId=${id}`);
+      return;
+    }
     this.dispatchEvent(
       new CustomEvent(action.eventName, {
         detail: action.detail(),

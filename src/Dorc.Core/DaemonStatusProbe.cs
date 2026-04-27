@@ -16,7 +16,7 @@ using Environment = System.Environment;
 namespace Dorc.Core
 {
     [SupportedOSPlatform("windows")]
-    public class ServiceStatus : IServiceStatus
+    public class DaemonStatusProbe : IDaemonStatusProbe
     {
         private const string DORCProdDeployUsername = "DORC_ProdDeployUsername";
         private const string DORCProdDeployPassword = "DORC_ProdDeployPassword";
@@ -28,15 +28,18 @@ namespace Dorc.Core
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
+        private readonly IDaemonObservationPersistentSource _daemonObservationPersistentSource;
         private readonly string _domainName;
 
-        public ServiceStatus(IConfigValuesPersistentSource configValuesPersistentSource,
-            ILogger<ServiceStatus> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
+        public DaemonStatusProbe(IConfigValuesPersistentSource configValuesPersistentSource,
+            ILogger<DaemonStatusProbe> logger, IEnvironmentsPersistentSource environmentsPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
+            IDaemonObservationPersistentSource daemonObservationPersistentSource,
             IConfigurationSettings configurationSettingsEngine)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
+            _daemonObservationPersistentSource = daemonObservationPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -45,34 +48,35 @@ namespace Dorc.Core
             _domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
         }
 
-        public List<ServicesAndStatus> GetServicesAndStatus(int envId)
+        public List<DaemonStatus> GetDaemonStatuses(int envId)
         {
             var environment = _environmentsPersistentSource.GetEnvironment(envId, null);
-            return GetServicesAndStatusForEnvironment(environment);
+            return GetDaemonStatusesForEnvironment(environment);
         }
 
-        public List<ServicesAndStatus> GetServicesAndStatus(string envName, ClaimsPrincipal principal)
+        public List<DaemonStatus> GetDaemonStatuses(string envName, ClaimsPrincipal principal)
         {
             var environment = _environmentsPersistentSource.GetEnvironment(envName, principal);
-            return GetServicesAndStatusForEnvironment(environment);
+            return GetDaemonStatusesForEnvironment(environment);
         }
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword,
             int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
-        private List<ServicesAndStatus> GetServicesAndStatusForEnvironment(EnvironmentApiModel? environment)
+
+        private List<DaemonStatus> GetDaemonStatusesForEnvironment(EnvironmentApiModel? environment)
         {
             GetUsernameAndPassword(environment, out var user, out var pwd);
 
             var domainName = _domainName;
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
-            var sas = BuildServicesEnvironment(environment, servers);
+            var daemons = BuildDaemonList(environment, servers);
 
             if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
             {
                 const int logon32ProviderDefault = 0;
-                //This parameter causes LogonUser to create a primary token.   
+                // This parameter causes LogonUser to create a primary token.
                 const int logon32LogonInteractive = 2;
 
                 bool returnValue = LogonUser(user, domainName, pwd,
@@ -86,21 +90,19 @@ namespace Dorc.Core
                     throw new System.ComponentModel.Win32Exception(ret);
                 }
 
-                List<ServicesAndStatus> probeResults = [];
+                List<DaemonStatus> probeResults = [];
                 WindowsIdentity.RunImpersonated(
                     safeAccessTokenHandle,
-                    // User action  
                     () =>
                     {
-                        probeResults = ProbeServiceStatuses(sas);
+                        probeResults = ProbeDaemonStatuses(daemons);
                     }
                 );
 
-                PersistDiscoveredMappings(probeResults, servers);
                 return probeResults;
             }
 
-            return sas;
+            return daemons;
         }
 
         private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
@@ -119,10 +121,10 @@ namespace Dorc.Core
             }
         }
 
-        private List<ServicesAndStatus> BuildServicesEnvironment(EnvironmentApiModel? environment,
+        private List<DaemonStatus> BuildDaemonList(EnvironmentApiModel? environment,
             List<ServerApiModel> servers)
         {
-            var iResults = new List<ServicesAndStatus>();
+            var iResults = new List<DaemonStatus>();
 
             try
             {
@@ -132,7 +134,7 @@ namespace Dorc.Core
                     {
                         var daemons = _daemonsPersistentSource.GetDaemonsForServer(serverApiModel.ServerId);
 
-                        // No mappings yet — fall back to all daemons so discovery can happen
+                        // No mappings yet - fall back to all daemons so discovery can happen
                         if (!daemons.Any())
                         {
                             daemons = _daemonsPersistentSource.GetDaemons();
@@ -142,16 +144,18 @@ namespace Dorc.Core
                         {
                             try
                             {
-                                iResults.Add(new ServicesAndStatus
+                                iResults.Add(new DaemonStatus
                                 {
                                     ServerName = serverApiModel.Name,
-                                    ServiceName = daemonApiModel.Name,
-                                    EnvName = environment.EnvironmentName
+                                    DaemonName = daemonApiModel.Name,
+                                    EnvName = environment.EnvironmentName,
+                                    ServerId = serverApiModel.ServerId,
+                                    DaemonId = daemonApiModel.Id
                                 });
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogInformation("Error retrieving servicesAndStatus info for " +
+                                _logger.LogInformation("Error retrieving daemon info for " +
                                              daemonApiModel.Name + Environment.NewLine +
                                              "        " + ex.Message + Environment.NewLine +
                                              "        " + ex.InnerException);
@@ -167,61 +171,105 @@ namespace Dorc.Core
             }
             catch (Exception ex)
             {
-                _logger.LogInformation("Error building list of servers/services" + Environment.NewLine + ex.Message);
+                _logger.LogInformation("Error building list of servers/daemons" + Environment.NewLine + ex.Message);
             }
 
             return iResults;
         }
 
-        private List<ServicesAndStatus> ProbeServiceStatuses(List<ServicesAndStatus> sas)
+        private List<DaemonStatus> ProbeDaemonStatuses(List<DaemonStatus> daemons)
         {
-            var resultsDict = new ConcurrentDictionary<int, ServicesAndStatus>();
+            var resultsDict = new ConcurrentDictionary<int, DaemonStatus>();
 
             try
             {
-                Parallel.ForEach(sas, (sa, _, index) =>
+                Parallel.ForEach(daemons, (daemon, _, index) =>
                 {
                     try
                     {
                         var ping = new Ping();
-                        var oPingReply = ping.Send(sa.ServerName ?? string.Empty, 5000);
+                        var oPingReply = ping.Send(daemon.ServerName ?? string.Empty, 5000);
                         if (oPingReply == null || oPingReply.Status != IPStatus.Success)
+                        {
+                            var unreachable = new DaemonStatus
+                            {
+                                EnvName = daemon.EnvName,
+                                ServerName = daemon.ServerName,
+                                DaemonName = daemon.DaemonName,
+                                ServerId = daemon.ServerId,
+                                DaemonId = daemon.DaemonId,
+                                Status = null,
+                                ErrorMessage = "Server unreachable: ping " +
+                                    (oPingReply?.Status.ToString() ?? "no reply")
+                            };
+                            resultsDict.TryAdd((int)index, unreachable);
+                            RecordObservation(unreachable);
                             return;
+                        }
 
                         try
                         {
-                            _logger.LogDebug("Server is alive: " + sa.ServerName);
+                            _logger.LogDebug("Server is alive: " + daemon.ServerName);
 
-                            using (var serviceController = new ServiceController(sa.ServiceName, sa.ServerName))
+                            using (var serviceController = new ServiceController(daemon.DaemonName, daemon.ServerName))
                             {
-                                var resultItem = new ServicesAndStatus
+                                var resultItem = new DaemonStatus
                                 {
-                                    EnvName = sa.EnvName,
-                                    ServerName = sa.ServerName,
-                                    ServiceName = sa.ServiceName,
-                                    ServiceStatus = serviceController.Status.ToString()
+                                    EnvName = daemon.EnvName,
+                                    ServerName = daemon.ServerName,
+                                    DaemonName = daemon.DaemonName,
+                                    ServerId = daemon.ServerId,
+                                    DaemonId = daemon.DaemonId,
+                                    Status = serviceController.Status.ToString()
                                 };
                                 resultsDict.TryAdd((int)index, resultItem);
+                                RecordObservation(resultItem);
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogDebug("Error retrieving servicesAndStatus info for " +
-                                         sa.ServiceName + Environment.NewLine +
+                            _logger.LogDebug("Error retrieving daemon info for " +
+                                         daemon.DaemonName + Environment.NewLine +
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
+
+                            var queryFailed = new DaemonStatus
+                            {
+                                EnvName = daemon.EnvName,
+                                ServerName = daemon.ServerName,
+                                DaemonName = daemon.DaemonName,
+                                ServerId = daemon.ServerId,
+                                DaemonId = daemon.DaemonId,
+                                Status = null,
+                                ErrorMessage = "Daemon query failed: " + ex.Message
+                            };
+                            resultsDict.TryAdd((int)index, queryFailed);
+                            RecordObservation(queryFailed);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogDebug("Error, couldn't ping: " + sa.ServerName +
+                        _logger.LogDebug("Error, couldn't ping: " + daemon.ServerName +
                                      Environment.NewLine + ex.Message);
+
+                        var pingFailed = new DaemonStatus
+                        {
+                            EnvName = daemon.EnvName,
+                            ServerName = daemon.ServerName,
+                            DaemonName = daemon.DaemonName,
+                            ServerId = daemon.ServerId,
+                            DaemonId = daemon.DaemonId,
+                            Status = null,
+                            ErrorMessage = "Server unreachable: " + ex.Message
+                        };
+                        resultsDict.TryAdd((int)index, pingFailed);
+                        RecordObservation(pingFailed);
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogInformation("Error building list of servers/services" + Environment.NewLine + ex.Message);
+                _logger.LogInformation("Error probing daemon statuses" + Environment.NewLine + ex.Message);
             }
 
             return resultsDict.OrderBy(kvp => kvp.Key)
@@ -229,49 +277,46 @@ namespace Dorc.Core
                       .ToList();
         }
 
-        private void PersistDiscoveredMappings(List<ServicesAndStatus> confirmedResults,
-            List<ServerApiModel> servers)
+        /// <summary>
+        /// Record a daemon-probe observation. Best-effort â€” failures are logged and swallowed so
+        /// that observation-write errors do not alter the probe's returned status (HLPS C-03).
+        /// </summary>
+        private void RecordObservation(DaemonStatus status)
         {
+            if (!status.ServerId.HasValue || !status.DaemonId.HasValue)
+                return;
+
             try
             {
-                var confirmedByServer = confirmedResults
-                    .GroupBy(r => r.ServerName)
-                    .ToDictionary(g => g.Key!, g => g.Select(r => r.ServiceName));
-
-                foreach (var (serverName, serviceNames) in confirmedByServer)
-                {
-                    var server = servers.FirstOrDefault(s => s.Name == serverName);
-                    if (server != null)
-                    {
-                        _daemonsPersistentSource.DiscoverAndMapDaemonsForServer(
-                            server.ServerId, serviceNames);
-                    }
-                }
+                _daemonObservationPersistentSource.InsertObservation(
+                    status.ServerId.Value,
+                    status.DaemonId.Value,
+                    DateTime.Now,
+                    status.Status,
+                    status.ErrorMessage);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to persist discovered daemon mappings");
+                _logger.LogWarning(ex,
+                    "Failed to record daemon observation for {Server}/{Daemon}",
+                    status.ServerName, status.DaemonName);
             }
         }
 
         /// <summary>
-        ///     Make action with the servicesAndStatus. Actions may be: start, stop, restart. Returns new servicesAndStatus status.
+        ///     Act on a daemon. Actions may be: start, stop, restart. Returns the new daemon status.
         /// </summary>
-        /// <param name="servicesAndStatus"></param>
-        /// <param name="principal"></param>
-        /// <returns></returns>
-        public ServicesAndStatus? ChangeServiceState(ServicesAndStatus servicesAndStatus, ClaimsPrincipal principal)
+        public DaemonStatus? ChangeDaemonState(DaemonStatus daemonStatus, ClaimsPrincipal principal)
         {
             var environment =
-                _environmentsPersistentSource.GetEnvironment(servicesAndStatus.EnvName, principal);
+                _environmentsPersistentSource.GetEnvironment(daemonStatus.EnvName, principal);
 
             GetUsernameAndPassword(environment, out var user, out var pwd);
 
             var domainName = _domainName;
 
-
             const int logon32ProviderDefault = 0;
-            //This parameter causes LogonUser to create a primary token.   
+            // This parameter causes LogonUser to create a primary token.
             const int logon32LogonInteractive = 2;
 
             bool returnValue = LogonUser(user, domainName, pwd,
@@ -287,23 +332,22 @@ namespace Dorc.Core
 
             return WindowsIdentity.RunImpersonated(
                 safeAccessTokenHandle,
-                // User action  
                 () =>
                 {
-                    var sc = new ServiceController(servicesAndStatus.ServiceName, servicesAndStatus.ServerName);
-                    switch (servicesAndStatus.ServiceStatus.ToLower())
+                    using var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
+                    switch (daemonStatus.Status.ToLower())
                     {
                         case "start":
                             {
                                 sc.Start();
                                 sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                                return GetServiceStatus(servicesAndStatus.EnvName, servicesAndStatus.ServerName, servicesAndStatus.ServiceName);
+                                return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
                             }
                         case "stop":
                             {
                                 sc.Stop();
                                 sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                                return GetServiceStatus(servicesAndStatus.EnvName, servicesAndStatus.ServerName, servicesAndStatus.ServiceName);
+                                return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
                             }
                         case "restart":
                             {
@@ -313,76 +357,66 @@ namespace Dorc.Core
                                     sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
                                     sc.Start();
                                     sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                                    return GetServiceStatus(servicesAndStatus.EnvName, servicesAndStatus.ServerName, servicesAndStatus.ServiceName);
+                                    return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
                                 }
 
-                                return new ServicesAndStatus();
+                                return new DaemonStatus();
                             }
                         default:
                             {
-                                return new ServicesAndStatus();
+                                return new DaemonStatus();
                             }
                     }
                 }
             );
         }
 
-        public ServicesAndStatus? GetServiceStatus(string envName, string server, string service)
+        private DaemonStatus? GetDaemonStatus(string envName, string server, string daemonName)
         {
             try
             {
-                var sc = new ServiceController(service, server);
+                using var sc = new ServiceController(daemonName, server);
                 string status;
                 switch (sc.Status)
                 {
                     case ServiceControllerStatus.Running:
-                        {
-                            status = "Running";
-                            break;
-                        }
+                        status = "Running";
+                        break;
                     case ServiceControllerStatus.Stopped:
-                        {
-                            status = "Stopped";
-                            break;
-                        }
-
+                        status = "Stopped";
+                        break;
                     case ServiceControllerStatus.Paused:
-                        {
-                            status = "Paused";
-                            break;
-                        }
+                        status = "Paused";
+                        break;
                     case ServiceControllerStatus.StopPending:
-                        {
-                            status = "Stopping";
-                            break;
-                        }
-
+                        status = "Stopping";
+                        break;
                     case ServiceControllerStatus.StartPending:
-                        {
-                            status = "Starting";
-                            break;
-                        }
-
+                        status = "Starting";
+                        break;
                     default:
-                        {
-                            status = "Status Changing";
-                            break;
-                        }
+                        status = "Status Changing";
+                        break;
                 }
 
-                var result = new ServicesAndStatus
+                return new DaemonStatus
                 {
                     EnvName = envName,
                     ServerName = server,
-                    ServiceName = service,
-                    ServiceStatus = status
+                    DaemonName = daemonName,
+                    Status = status
                 };
-                return result;
             }
-            catch
+            catch (Exception ex)
             {
-                var result = new ServicesAndStatus();
-                return result;
+                return new DaemonStatus
+                {
+                    EnvName = envName,
+                    ServerName = server,
+                    DaemonName = daemonName,
+                    Status = null,
+                    ErrorMessage = "Daemon query failed: " + ex.Message
+                };
             }
         }
     }

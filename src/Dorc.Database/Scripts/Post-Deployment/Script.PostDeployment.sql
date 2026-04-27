@@ -9,5 +9,7 @@ Example:      :setvar TableName MyTable
               SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
+:r .\MigrateStagedServicesToDaemons.sql
+:r .\SeedRefDataAuditActions.sql
 :r .\CleanupOrphanedScripts.sql
 :r .\SetFileShareSourceControlType.sql
