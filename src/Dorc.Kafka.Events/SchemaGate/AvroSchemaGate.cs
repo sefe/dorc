@@ -36,12 +36,18 @@ public sealed class AvroSchemaGate
     // Canonical schema-snapshot filenames are environment-neutral by design
     // (SPEC-S-017 §2 #4) — they always reflect the historical default topic
     // names so committed .avsc files diff cleanly across environments.
-    // Held as `const string` rather than derived from KafkaTopicsOptions so
-    // the file-read sinks below trace back to a compile-time constant, not
-    // to a config-bound type. (Aikido path-traversal finding 2026-04-27.)
+    // The .avsc filenames returned by ResolveCanonicalAvscFileName are
+    // hard-coded string literals (not interpolated from canonicalKey) so
+    // Aikido's PathTraversal taint analysis sees no flow from the parameter
+    // into the file-read sink — the only inputs to Path.Combine are the
+    // injected directory and a literal from a fixed set.
     internal const string CanonicalRequestsNewKey    = "dorc.requests.new-value";
     internal const string CanonicalRequestsStatusKey = "dorc.requests.status-value";
     internal const string CanonicalResultsStatusKey  = "dorc.results.status-value";
+
+    private const string CanonicalRequestsNewAvsc    = "dorc.requests.new-value.avsc";
+    private const string CanonicalRequestsStatusAvsc = "dorc.requests.status-value.avsc";
+    private const string CanonicalResultsStatusAvsc  = "dorc.results.status-value.avsc";
 
     private readonly KafkaTopicsOptions _deployedTopics;
     private readonly HttpClient? _registryHttp;
@@ -92,8 +98,17 @@ public sealed class AvroSchemaGate
     {
         // Step 2: regenerated must match checked-in canonical. File lookup is
         // keyed off the *default*-derived canonicalKey so committed schema
-        // contracts stay environment-neutral (SPEC-S-017 §2 #4).
-        var canonicalPath = Path.Combine(_canonicalDir, $"{canonicalKey}.avsc");
+        // contracts stay environment-neutral (SPEC-S-017 §2 #4). Filename
+        // resolved through a literal-arm switch so no parameter content flows
+        // into Path.Combine.
+        var canonicalFile = canonicalKey switch
+        {
+            CanonicalRequestsNewKey    => CanonicalRequestsNewAvsc,
+            CanonicalRequestsStatusKey => CanonicalRequestsStatusAvsc,
+            CanonicalResultsStatusKey  => CanonicalResultsStatusAvsc,
+            _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
+        };
+        var canonicalPath = Path.Combine(_canonicalDir, canonicalFile);
         if (!File.Exists(canonicalPath))
             return new GateReport(GateOutcome.Fail, liveSubject, $"Canonical schema file not found at {canonicalPath}.");
 
@@ -185,7 +200,14 @@ public sealed class AvroSchemaGate
     {
         if (string.IsNullOrEmpty(_snapshotDir)) return null;
 
-        var snapshotPath = Path.Combine(_snapshotDir, $"{canonicalKey}.avsc");
+        var snapshotFile = canonicalKey switch
+        {
+            CanonicalRequestsNewKey    => CanonicalRequestsNewAvsc,
+            CanonicalRequestsStatusKey => CanonicalRequestsStatusAvsc,
+            CanonicalResultsStatusKey  => CanonicalResultsStatusAvsc,
+            _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
+        };
+        var snapshotPath = Path.Combine(_snapshotDir, snapshotFile);
         if (!File.Exists(snapshotPath)) return null;
 
         var snapshot = File.ReadAllText(snapshotPath);
