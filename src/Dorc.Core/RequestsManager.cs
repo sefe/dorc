@@ -131,7 +131,7 @@ namespace Dorc.Core
                         buildDefinitionName, filterOnlyPinned);
                     output = builds.ToList();
                 }
-                else if (project.ArtefactsUrl.StartsWith("file"))
+                else if (IsFileBasedUrl(project.ArtefactsUrl))
                     output = GetFolderBuilds(project).ToList();
                 else
                     output = new List<DeployableArtefact>();
@@ -219,7 +219,7 @@ namespace Dorc.Core
                     result.Add(detail);
                 }
             }
-            else if (project.ArtefactsUrl.StartsWith("file"))
+            else if (IsFileBasedUrl(project.ArtefactsUrl))
             {
                 foreach (var buildItem in bundle.Items.GroupBy(i => i.Build))
                 {
@@ -251,7 +251,7 @@ namespace Dorc.Core
             {
                 buildDetail = BuildServerDetailAsync(createRequest, project).ConfigureAwait(false).GetAwaiter().GetResult();
             }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
+            else if (IsFileBasedUrl(project.ArtefactsUrl))
                 buildDetail = ShareDetail(createRequest);
             else
                 buildDetail.DropLocation = createRequest.DropFolder;
@@ -326,5 +326,8 @@ namespace Dorc.Core
 
             foreach (var child in component.Children) AddComponent(componentNames, child);
         }
+
+        private static bool IsFileBasedUrl(string? url)
+            => !string.IsNullOrEmpty(url) && (url.StartsWith("file") || url.StartsWith(@"\\"));
     }
 }

@@ -261,7 +261,8 @@ namespace Dorc.Core
                     buildDetail.Project = project.ProjectName;
                 }
             }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
+            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) &&
+                     (project.ArtefactsUrl.StartsWith("file") || project.ArtefactsUrl.StartsWith(@"\\")))
             {
                 buildDetail.DropLocation = new Uri(createRequest.BuildUrl).LocalPath;
                 buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
