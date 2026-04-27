@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using System.Security.Claims;
 
 namespace Dorc.Api.Interfaces
@@ -11,9 +11,6 @@ namespace Dorc.Api.Interfaces
         EnvironmentApiModel ChangeEnvComponent<T>(int envId, int componentId, string action, string component,
             ClaimsPrincipal user);
 
-        List<ServiceStatusApiModel> GetEnvDaemonsStatuses(int envId);
-        List<ServiceStatusApiModel> GetEnvDaemonsStatuses(string envName, ClaimsPrincipal principal);
-        ServiceStatusApiModel ChangeServiceState(ServiceStatusApiModel daemon, ClaimsPrincipal principal);
         List<ReleaseInformationApiModel> GetReleaseInformation(IEnumerable<int> requestIds);
     }
 }

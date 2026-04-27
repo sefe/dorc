@@ -1,9 +1,6 @@
-﻿using System.Reflection;
 using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
-using Dorc.Core;
-using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -14,7 +11,6 @@ namespace Dorc.Api.Services
     {
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly ILogger _log;
-        private readonly IServiceStatus _serviceStatus;
         private readonly IManageUsers _manageUsers;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
@@ -22,7 +18,7 @@ namespace Dorc.Api.Services
         private readonly IServersPersistentSource _serversPersistentSource;
 
         public ApiServices(IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IServiceStatus serviceStatus, IManageUsers manageUsers,
+            IManageUsers manageUsers,
             IProjectsPersistentSource projectsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
@@ -33,7 +29,6 @@ namespace Dorc.Api.Services
             _databasesPersistentSource = databasesPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _manageUsers = manageUsers;
-            _serviceStatus = serviceStatus;
             _log = log;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
         }
@@ -55,43 +50,6 @@ namespace Dorc.Api.Services
                 _log.LogError(e, "GetComponentsByProject");
                 throw;
             }
-        }
-
-        public List<ServiceStatusApiModel> GetEnvDaemonsStatuses(string envName, ClaimsPrincipal principal)
-        {
-            return _serviceStatus.GetServicesAndStatus(envName, principal).Select(MapToServiceStatusApiModel).ToList();
-        }
-
-        public List<ServiceStatusApiModel> GetEnvDaemonsStatuses(int envId)
-        {
-            return _serviceStatus.GetServicesAndStatus(envId).Select(MapToServiceStatusApiModel).ToList();
-        }
-
-        public ServiceStatusApiModel ChangeServiceState(ServiceStatusApiModel daemon, ClaimsPrincipal principal)
-        {
-            return MapToServiceStatusApiModel(_serviceStatus.ChangeServiceState(MapToServicesAndStatus(daemon), principal));
-        }
-
-        private ServicesAndStatus MapToServicesAndStatus(ServiceStatusApiModel ss)
-        {
-            return new ServicesAndStatus
-            {
-                EnvName = ss.EnvName,
-                ServerName = ss.ServerName,
-                ServiceName = ss.ServiceName,
-                ServiceStatus = ss.ServiceStatus
-            };
-        }
-
-        private ServiceStatusApiModel MapToServiceStatusApiModel(ServicesAndStatus ss)
-        {
-            return new ServiceStatusApiModel
-            {
-                EnvName = ss.EnvName,
-                ServerName = ss.ServerName,
-                ServiceName = ss.ServiceName,
-                ServiceStatus = ss.ServiceStatus
-            };
         }
 
         /// <summary>
@@ -211,6 +169,5 @@ namespace Dorc.Api.Services
         }
 
         private delegate EnvironmentApiModel ComponentActions(int envId, int componentId);
-
     }
 }

@@ -34,12 +34,14 @@ namespace Dorc.PersistentData.Contexts
         DbSet<PropertyValueFilter> PropertyValueFilters { get; set; }
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
+        DbSet<DaemonAudit> DaemonAudits { get; set; }
+        DbSet<DaemonObservation> DaemonObservations { get; set; }
         DbSet<AdGroup> AdGroups { get; set; }
         DbSet<Database> Databases { get; set; }
         DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
         DbSet<Permission> Permissions { get; set; }
         DbSet<Server> Servers { get; set; }
-        DbSet<Daemon> Services { get; set; }
+        DbSet<Daemon> Daemons { get; set; }
         DbSet<User> Users { get; set; }
         DbSet<EnvironmentUser> EnvironmentUsers { get; set; }
         DbSet<SqlPort> SqlPorts { get; set; }

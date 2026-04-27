@@ -17,6 +17,7 @@ import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     DaemonApiModel,
+    ServerApiModel,
 } from '../models';
 
 export interface ServerDaemonsDeleteRequest {
@@ -31,6 +32,10 @@ export interface ServerDaemonsPostRequest {
 
 export interface ServerDaemonsServerIdGetRequest {
     serverId: number;
+}
+
+export interface ServerDaemonsByDaemonDaemonIdGetRequest {
+    daemonId: number;
 }
 
 /**
@@ -115,6 +120,30 @@ export class ServerDaemonsApi extends BaseAPI {
 
         return this.request<Array<DaemonApiModel>>({
             url: '/ServerDaemons/{serverId}'.replace('{serverId}', encodeURI(serverId)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    serverDaemonsByDaemonDaemonIdGet({ daemonId }: ServerDaemonsByDaemonDaemonIdGetRequest): Observable<Array<ServerApiModel>>
+    serverDaemonsByDaemonDaemonIdGet({ daemonId }: ServerDaemonsByDaemonDaemonIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServerApiModel>>>
+    serverDaemonsByDaemonDaemonIdGet({ daemonId }: ServerDaemonsByDaemonDaemonIdGetRequest, opts?: OperationOpts): Observable<Array<ServerApiModel> | AjaxResponse<Array<ServerApiModel>>> {
+        throwIfNullOrUndefined(daemonId, 'daemonId', 'serverDaemonsByDaemonDaemonIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<ServerApiModel>>({
+            url: '/ServerDaemons/by-daemon/{daemonId}'.replace('{daemonId}', encodeURI(daemonId)),
             method: 'GET',
             headers,
         }, opts?.responseOpts);
