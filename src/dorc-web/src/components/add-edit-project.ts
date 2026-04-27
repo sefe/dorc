@@ -138,6 +138,9 @@ export class AddEditProject extends LitElement {
         title="Edit Project Metadata"
       >
         <vaadin-vertical-layout>
+          <p style="margin: 0 0 8px 0; color: var(--lumo-secondary-text-color); font-size: var(--lumo-font-size-s);">
+            Projects can only be updated by Admins or users with write access.
+          </p>
           <vaadin-text-field
             id="proj-name"
             style="width: 490px;"
