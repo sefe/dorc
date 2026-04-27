@@ -456,6 +456,34 @@
           "Value": "[Optional Schema Registry basic-auth password]"
         },
         {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_LOCKS",
+          "Value": "dorc.locks"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_REQUESTSNEW",
+          "Value": "dorc.requests.new"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_REQUESTSSTATUS",
+          "Value": "dorc.requests.status"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_RESULTSSTATUS",
+          "Value": "dorc.results.status"
+        },
+        {
           "AccountNameProperty": "OTEL_COLLECTOR_URL",
           "IsPath": false,
           "IsSecure": true,
