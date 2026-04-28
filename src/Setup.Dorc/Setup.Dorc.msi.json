@@ -90,6 +90,14 @@
       "DeployProperty": "AADTENANT"
     },
     {
+      "MSIParameter": "GITHUBTOKEN",
+      "DeployProperty": "GITHUBTOKEN"
+    },
+    {
+      "MSIParameter": "GITHUBARTIFACTDOWNLOADFOLDER",
+      "DeployProperty": "GITHUBARTIFACTDOWNLOADFOLDER"
+    },
+    {
       "MSIParameter": "DOMAINNAME",
       "DeployProperty": "DOMAINNAME"
     },
