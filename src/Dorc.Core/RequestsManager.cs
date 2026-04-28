@@ -96,7 +96,7 @@ namespace Dorc.Core
                         new List<DeployableArtefact> { new() { Id = project.ArtefactsUrl, Name = "Not a CI/CD Server Project" } };
 
                 var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
-                return buildClient.GetBuildDefinitions(project.ArtefactsUrl,
+                return buildClient.GetDefinitions(project.ArtefactsUrl,
                     project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
             }
             catch (Exception ex)

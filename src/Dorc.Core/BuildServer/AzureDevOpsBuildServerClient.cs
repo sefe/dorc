@@ -18,7 +18,7 @@ namespace Dorc.Core.BuildServer
             _loggerFactory = loggerFactory;
         }
 
-        public IEnumerable<DeployableArtefact> GetBuildDefinitions(string serverUrl, string projectPaths, string buildRegex)
+        public IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex)
         {
             var client = CreateClient(serverUrl);
             var output = client.GetBuildDefinitionsForProjects(serverUrl, projectPaths, buildRegex);

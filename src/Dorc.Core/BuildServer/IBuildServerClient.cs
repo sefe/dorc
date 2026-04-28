@@ -11,7 +11,7 @@ namespace Dorc.Core.BuildServer
         /// <summary>
         /// Gets workflow/pipeline definitions matching the given project and regex filter.
         /// </summary>
-        IEnumerable<DeployableArtefact> GetBuildDefinitions(string serverUrl, string projectPaths, string buildRegex);
+        IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex);
 
         /// <summary>
         /// Gets completed builds/runs for a specific workflow/pipeline definition.

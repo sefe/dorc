@@ -40,7 +40,7 @@ namespace Dorc.Core.BuildServer
             }
         }
 
-        public IEnumerable<DeployableArtefact> GetBuildDefinitions(string serverUrl, string projectPaths, string buildRegex)
+        public IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
             var workflowFiles = projectPaths.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
