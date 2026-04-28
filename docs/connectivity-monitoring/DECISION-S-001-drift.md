@@ -173,7 +173,7 @@ Main's `SERVER` table has 4 columns and no `LastChecked`/`IsReachable`/`Unreacha
 
 **Evidence (concrete API output via `gh api graphql`):**
 
-Querying `repository(owner:"sefe", name:"dorc"){ pullRequest(number:374){ reviewThreads }}` returned **16 unresolved threads** in two distinct cohorts:
+Querying `repository(owner:"sefe", name:"dorc"){ pullRequest(number:374){ reviewThreads }}` returned **17 unresolved threads** in two distinct cohorts:
 
 **Cohort A — `github-advanced-security` (CodeQL): 7 threads, all `isOutdated: true`** (pinned to historical SHAs):
 
@@ -188,14 +188,14 @@ The fixes for cohort A are already in tree at `pr-374` (and at the post-merge ti
 
 These cohort-A threads remain `unresolved` on GitHub only because they were pinned to historical SHAs; they should auto-resolve (or remain harmlessly outdated) when CodeQL re-runs against the post-merge tip. Under revise, the underlying files are reworked anyway in S-003 / S-005, so the issues cannot reappear silently.
 
-**Cohort B — `github-code-quality` (style/quality bot): 9 threads, all `isOutdated: false`** (pinned to current diff at `7bfee34e`):
+**Cohort B — `github-code-quality` (style/quality bot): 10 threads, all `isOutdated: false`** (pinned to current diff at `7bfee34e`):
 
 | Count | Path | Issue category |
 |---|---|---|
 | 1 | `src/Dorc.Monitor/MonitorConfiguration.cs` | Useless assignment to local variable |
 | 2 | `src/Dorc.Monitor/Connectivity/ConnectivityCheckService.cs` | Missed opportunity to use `Where` (LINQ refactor) |
 | 5 | `src/Dorc.Monitor/Connectivity/ConnectivityCheckService.cs` | Generic `catch` clause |
-| 1 | `src/Dorc.Core/Connectivity/ConnectivityChecker.cs` ×2 | Generic `catch` clause |
+| 2 | `src/Dorc.Core/Connectivity/ConnectivityChecker.cs` | Generic `catch` clause (one each on `CheckServerConnectivityAsync` and `CheckDatabaseConnectivityAsync`) |
 
 Cohort B threads will NOT auto-clear under either route — they pin to lines that will still exist post-merge. Under revise these files are reworked (S-003 ConnectivityChecker, S-005 ConnectivityCheckService, S-004 persistent source), at which point the underlying issues either disappear (LINQ refactor naturally happens) or become explicit decisions (a deliberate "catch (Exception)" with a sanitised log line is acceptable per HLPS C7). The `MonitorConfiguration.cs` finding is on a line that arrived via auto-merge — to be resolved in S-005 alongside other Monitor wiring touches.
 
@@ -230,7 +230,7 @@ Categorised against the HLPS contract (SC-1..SC-11 success criteria, C1..C9 cons
 | `src/Dorc.Monitor/appsettings.json` (+2 keys) | supports SC-2 + SC-3 (default values) | **YES** | Auto-merged; the two defaults (`EnableConnectivityCheck=False`, `ConnectivityCheckIntervalMinutes=60`) are reusable. |
 | `src/dorc-web/src/apis/dorc-api/models/ServerApiModel.ts` (+3 props) | supports SC-5 (UI model) | **YES** | Auto-merged; mirrors C# API model. |
 | `src/dorc-web/src/apis/dorc-api/models/DatabaseApiModel.ts` (+3 props) | supports SC-5 | **YES** | Auto-merged. |
-| `src/dorc-web/src/pages/page-servers-list.ts` (Status column + renderer) | SC-5 (UI surfaces state correctly) | **PARTIAL** | The grid-column wiring is reusable. The renderer logic (4-state: not-checked / online / unreachable-7d+ / offline) matches the SC-5 four-state contract, but uses raw inline styles, hard-coded colours, and bypasses the project's theme tokens (cf. PR #651 "Audit pages: derive highlight tokens from global theme via color-mix" — commit `1d1d8f62`). To be reworked under revise to use theme tokens. |
+| `src/dorc-web/src/pages/page-servers-list.ts` (Status column + renderer) | SC-5 (UI surfaces state correctly) | **PARTIAL** | The grid-column wiring is reusable. The renderer logic (4-state: not-checked / online / unreachable-7d+ / offline) matches the SC-5 four-state contract, but uses raw inline styles, hard-coded colours, and bypasses the project's theme tokens (cf. PR #651 commit `1d1d8f62` "Audit pages: derive highlight tokens from global theme via color-mix"; reference pages it touches: `page-daemons-audit.ts`, `page-projects-audit.ts`, `page-scripts-audit.ts`, `page-variables-audit.ts`). To be reworked under revise to use theme tokens. |
 | `src/dorc-web/src/pages/page-databases-list.ts` | SC-5 | **PARTIAL** | Identical to the servers page; same disposition. |
 | `CONNECTIVITY_MONITORING.md` | SC-9 (false-negative behaviour documented) | **PARTIAL** | The operator-facing description is largely correct against the HLPS, but it documents the BackgroundService impl shape and the ICMP-only probe — both items will need updating once U-1 / U-2 land. To be reworked under revise. |
 
@@ -315,7 +315,7 @@ The branch setup completed on 2026-04-27 in the same S-001 cycle as the note dra
 | **S-004** (persistent source → SC-2 + SC-4) | PR #374's `UpdateServerConnectivityStatus` / `UpdateDatabaseConnectivityStatus` and the batch readers are usable. Remove `GetAllServersForConnectivityCheck` and its database-side equivalent — dead code in the batched flow. The read-side API-model hydration in `GetServers`, `GetAllServers`, `GetAppServers`, `Get(int)` for both sources is reusable. |
 | **S-005** (Timer-based hosted service per U-2 → SC-2 / SC-3 / SC-6 / SC-7) | Replace `ConnectivityCheckService : BackgroundService` with `IHostedService` + `System.Threading.Timer`. The batched per-cycle logic, the `SanitizeForLog` helper, and the cancellation pattern all carry over conceptually. Update `Program.cs` registration accordingly (still `AddHostedService<...>`). Revert `await Task.Yield();` in `MonitorService.cs` once Timer is in place — main's pre-Yield shape is the target. |
 | **S-006** (API model — supports SC-5) | Largely no-op. `ServerApiModel.cs` and `DatabaseApiModel.cs` already carry the three nullable properties; UI TS models mirror them. |
-| **S-007** (UI rework → SC-5) | Rework the `connectivityStatusRenderer` in both `page-servers-list.ts` and `page-databases-list.ts` to use theme tokens (cf. PR #651 commit `1d1d8f62` "Audit pages: derive highlight tokens from global theme via color-mix"; reference `src/dorc-web/src/pages/page-deploy-audit.ts` and `page-properties-audit.ts` for the token-based pattern). Replace inline `style="color: green;"` with token-based equivalents. The 4-state semantics (not-checked / online / unreachable-7d+ / offline) are sound; only the styling vehicle changes. |
+| **S-007** (UI rework → SC-5) | Rework the `connectivityStatusRenderer` in both `page-servers-list.ts` and `page-databases-list.ts` to use theme tokens (cf. PR #651 commit `1d1d8f62` "Audit pages: derive highlight tokens from global theme via color-mix"; reference any of `src/dorc-web/src/pages/page-daemons-audit.ts`, `page-projects-audit.ts`, `page-scripts-audit.ts`, or `page-variables-audit.ts` for the token-based pattern). Replace inline `style="color: green;"` with token-based equivalents. The 4-state semantics (not-checked / online / unreachable-7d+ / offline) are sound; only the styling vehicle changes. |
 | **S-008 / S-009** (DATABASE.CreateDate → SC-10 / SC-11) | Greenfield against PR #374 — no salvageable code. PR #374's diff does not touch `CreateDate`. |
 | **S-010** (docs → SC-9) | Rewrite `CONNECTIVITY_MONITORING.md` once U-1 / U-2 land — the current draft documents BackgroundService and ICMP-only, which is wrong against the final shape. |
 | **S-011** (production verification — discharges all SCs' verification gates) | Naturally last; no S-001 inheritance. |
@@ -337,7 +337,7 @@ R1 was conducted by three reviewers in parallel (clarity/route-rationale, halluc
 
 | Theme | Reviewers | Severity | Disposition | Resolution |
 |---|---|---|---|---|
-| Q6 understated review-thread surface — universal claim "all from `github-advanced-security`" was wrong; 9 additional `github-code-quality` threads exist (pinned to current diff) | B (F-B2) | HIGH | Accept | Q6 split into Cohort A (GHAS, 7 outdated) and Cohort B (github-code-quality, 9 current). Cohort B handling folded into Inherited Risks for S-003 / S-004 / S-005. |
+| Q6 understated review-thread surface — universal claim "all from `github-advanced-security`" was wrong; 10 additional `github-code-quality` threads exist (pinned to current diff) | B (F-B2) | HIGH | Accept | Q6 split into Cohort A (GHAS, 7 outdated) and Cohort B (github-code-quality, 10 current; original R1 fix recorded 9 — corrected to 10 during R2 per F-D2). Cohort B handling folded into Inherited Risks for S-003 / S-004 / S-005. |
 | "PR #649" mis-citation throughout — actual PR is #651; #649 is the issue | B (F-B1) | MEDIUM | Accept | All "PR #649" replaced with "PR #651 (issue #649)" or "PR #651". |
 | §4 ratify-count was route-conditional but SPEC §5's unit is route-independent | C (F-C1) | MEDIUM | Accept | §4 restructured: shared HLPS gap table (6 items, route-independent) + per-route description of which gaps each route addresses. Comparison table updated. |
 | SC numbering throughout was misaligned with HLPS — used IS-step labels as SC labels | C (F-C2) | MEDIUM | Accept | Q7 column renamed to "HLPS contract item(s)"; every row audited against HLPS §5 (SC-1..SC-11) and §4 (C1..C9); §7 forward-pointers gain explicit SC mappings (e.g. "S-005 → SC-2 / SC-3 / SC-6 / SC-7"). |
@@ -346,7 +346,7 @@ R1 was conducted by three reviewers in parallel (clarity/route-rationale, halluc
 | Q2 "Auto-merged files (8)" header contradicted the 9-item enumeration | B (F-B4) | LOW | Accept | Header corrected to "(9)". |
 | Q5 SQL listings were reformatted vs the on-disk files (whitespace + BOM) | A (F-A1), B (F-B5) | LOW | Accept | Code block label updated to "whitespace normalised — UTF-8 BOM and column-alignment padding elided for readability; structurally exact". |
 | Q5 / Q7 didn't address whether SQLProj migration artifacts are in PR #374 | C (F-C3) | LOW | Accept | New paragraph after the Q7 salvageability summary explicitly notes no `.refactorlog` / pre-deploy / post-deploy artifacts are present, which is expected for SQLProj auto-generation; runtime verification deferred to S-002 per HLPS U-7. |
-| §7 S-007 forward-pointer cited the audit-pages pattern without a SHA pin | C (F-C4) | LOW | Accept | S-007 row now cites commit `1d1d8f62` and the two reference pages (`page-deploy-audit.ts`, `page-properties-audit.ts`). |
+| §7 S-007 forward-pointer cited the audit-pages pattern without a SHA pin | C (F-C4) | LOW | Accept | S-007 row now cites commit `1d1d8f62` and the four audit pages it touches (`page-daemons-audit.ts`, `page-projects-audit.ts`, `page-scripts-audit.ts`, `page-variables-audit.ts`; original R1 fix referenced two non-existent filenames — corrected during R2 per F-D1). |
 | §7 Inherited Risks omitted the shipped-OFF default flag | C (F-C5) | LOW | Accept | New bullet added: `EnableConnectivityCheck` ships `False`; verification requires explicitly enabling. |
 | §2 rationale lacked inline (Q4) / (Q7) traceability hooks | C (F-C6) | LOW | Accept | Inline "(see Q4 ...)" and "(see Q7 ...)" added in §2 rationale paragraph. |
 | F-A4: counter-finding confirming route-rationale is sound | A (F-A4) | N/A | No fix | Reviewer A independently verified that "NO — must be revised" classifications are honest, not justification-driven; recorded as positive evidence. |
@@ -366,6 +366,19 @@ After this revision, status returns to `IN REVIEW` for R2. R2 reviewers must ver
 
 Per A4: if the run reveals failures vs the all-green main baseline, S-001's APPROVED status is held until the regression is diagnosed. If the run is fully green and matches the main baseline (or clears outdated CodeQL threads naturally), A4 is fully discharged.
 
-### R2 — IN REVIEW → (pending)
+### R2 — IN REVIEW → REVISION → IN REVIEW
 
-(R2 to be added after resubmission)
+R2 launched against the same panel. Reviewer A (conflict-list + route-rationale lens) returned `APPROVE` — all R1 findings under that lens (F-A1, F-A2, F-A3) verified resolved with no regressions. Reviewer B (hallucination / evidence-trace lens) returned `APPROVE_WITH_FIXES` with two new findings caused by the R1 fix-set itself:
+
+| Finding | Reviewer | Severity | Disposition | Resolution |
+|---|---|---|---|---|
+| F-D1 — S-007 forward-pointer cited two filenames (`page-deploy-audit.ts`, `page-properties-audit.ts`) that do not exist; commit `1d1d8f62` actually touches `page-daemons-audit.ts`, `page-projects-audit.ts`, `page-scripts-audit.ts`, `page-variables-audit.ts` | B (R2) | HIGH | Accept | Q7 row 23 and §7 S-007 row corrected to enumerate the four actually-touched pages. Verified by `git show 1d1d8f62 --stat`. |
+| F-D2 — Cohort B count off by one: actual count is 10 threads (7 GHAS + 10 github-code-quality = 17 total); note had recorded 9 / 16 | B (R2) | MEDIUM | Accept | Q6 lead-in updated to "17 unresolved threads"; Cohort B header updated to "10 threads"; per-path table corrected (`ConnectivityChecker.cs` row count = 2, not 1). Verified by re-running the GraphQL query and grouping by author. |
+
+Both R2 findings trace back to specific R1 fixes (F-C4 introduced F-D1; F-B2 introduced F-D2). Per CLAUDE.local.md §4 Re-Review Scoping, these are in scope on R2 because they are contradictions introduced by R1 fixes, not nits on unchanged text.
+
+After this revision, status returns to `IN REVIEW` for R3.
+
+### R3 — IN REVIEW → (pending)
+
+(R3 to be added after resubmission)
