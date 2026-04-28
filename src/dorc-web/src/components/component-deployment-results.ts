@@ -70,8 +70,7 @@ export class ComponentDeploymentResults extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
-        height: calc(100vh - 410px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid-cell-content {
         padding-top: 0px;
@@ -101,6 +100,16 @@ export class ComponentDeploymentResults extends LitElement {
       .status-confirmed {
         background-color: var(--lumo-success-color-10pct);
         color: var(--lumo-success-text-color);
+      }
+
+      .status-cancelled {
+        background-color: var(--lumo-shade-10pct);
+        color: var(--lumo-secondary-text-color);
+      }
+
+      .status-failed {
+        background-color: var(--lumo-error-color-10pct);
+        color: var(--lumo-error-text-color);
       }
 
       .terraform-actions {
@@ -135,9 +144,9 @@ export class ComponentDeploymentResults extends LitElement {
         id="grid"
         column-reordering-allowed
         multi-sort
+        all-rows-visible
         theme="compact row-stripes no-row-borders no-border"
         .items="${this.resultItems}"
-        all-rows-visible
       >
         <vaadin-grid-column
           .renderer="${this.componentNameRenderer}"
@@ -211,7 +220,7 @@ export class ComponentDeploymentResults extends LitElement {
             >
               <vaadin-icon
                 icon="vaadin:ellipsis-dots-h"
-                style="color: cornflowerblue"
+                style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
           </td>
@@ -346,6 +355,10 @@ export class ComponentDeploymentResults extends LitElement {
       statusClass = 'status-waiting-confirmation';
     } else if (status === 'Confirmed') {
       statusClass = 'status-confirmed';
+    } else if (status === 'Cancelled') {
+      statusClass = 'status-cancelled';
+    } else if (status === 'Failed') {
+      statusClass = 'status-failed';
     }
 
     render(

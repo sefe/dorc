@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Component = Dorc.PersistentData.Model.Component;
 
 namespace Dorc.PersistentData.Sources
@@ -21,11 +22,13 @@ namespace Dorc.PersistentData.Sources
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
 
-        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource)
+        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptsAuditPersistentSource scriptsAuditPersistentSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _contextFactory = contextFactory;
+            _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
         }
 
         public void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel)
@@ -60,98 +63,160 @@ namespace Dorc.PersistentData.Sources
 
         public GetRefDataAuditListResponseDto GetRefDataAuditByProjectId(int projectId, int limit, int page, PagedDataOperators operators)
         {
-            PagedModel<RefDataAudit> output = null;
             using (var context = _contextFactory.GetContext())
             {
-                var reqStatusesQueryable = context.RefDataAudits
+                var queryable = context.RefDataAudits
+                    .Include(refDataAudit => refDataAudit.Action)
+                    .Include(refDataAudit => refDataAudit.Project)
+                    .Where(a => a.ProjectId == projectId);
+
+                return RunPagedAuditQuery(context, queryable, limit, page, operators);
+            }
+        }
+
+        public GetRefDataAuditListResponseDto GetRefDataAudit(int limit, int page, PagedDataOperators operators)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var queryable = context.RefDataAudits
                     .Include(refDataAudit => refDataAudit.Action)
                     .Include(refDataAudit => refDataAudit.Project)
                     .AsQueryable();
 
-                var filterLambdas =
-                    new List<Expression<Func<RefDataAudit, bool>>>();
-                filterLambdas.Add(reqStatusesQueryable.ContainsExpression(nameof(RefDataAudit.ProjectId),
-                                projectId.ToString()));
-                if (operators.Filters != null && operators.Filters.Any())
+                return RunPagedAuditQuery(context, queryable, limit, page, operators);
+            }
+        }
+
+        // Shared filter/sort/page/project pipeline for the per-project and cross-project audit
+        // queries. RefDataAudit.ProjectId is non-nullable in the EF model but the database column
+        // permits NULL (FK has ON DELETE SET NULL), so a row whose project was deleted may surface
+        // with Project == null at runtime — guard the projection accordingly.
+        // The IDeploymentContext is required for the prior-Json lookup that powers the projects
+        // audit page diff view: a correlated subquery is the cheapest way to fetch each row's
+        // chronologically-prior same-project audit Json without N+1 round-trips or pulling the
+        // full audit history into memory.
+        private static GetRefDataAuditListResponseDto RunPagedAuditQuery(
+            IDeploymentContext context,
+            IQueryable<RefDataAudit> queryable,
+            int limit, int page, PagedDataOperators operators)
+        {
+            PagedModel<RefDataAudit> output = null;
+
+            var filterLambdas = new List<Expression<Func<RefDataAudit, bool>>>();
+            if (operators.Filters != null && operators.Filters.Any())
+            {
+                var validFilters = operators.Filters
+                    .Where(f => f != null
+                        && !string.IsNullOrEmpty(f.Path)
+                        && !string.IsNullOrEmpty(f.FilterValue));
+
+                foreach (var pagedDataFilter in validFilters)
                 {
-                    foreach (var pagedDataFilter in operators.Filters)
+                    var expr = queryable.ContainsExpression(pagedDataFilter.Path,
+                            pagedDataFilter.FilterValue);
+                    if (expr != null)
                     {
-                        if (pagedDataFilter == null)
-                            continue;
-                        if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
-                        {
-                            filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                    pagedDataFilter.FilterValue));
-                        }
+                        filterLambdas.Add(expr);
                     }
                 }
-                reqStatusesQueryable = WhereAll(reqStatusesQueryable, filterLambdas.ToArray());
+            }
 
-                if (operators.SortOrders != null && operators.SortOrders.Any())
+            if (filterLambdas.Count > 0)
+            {
+                queryable = WhereAll(queryable, filterLambdas.ToArray());
+            }
+
+            if (operators.SortOrders != null && operators.SortOrders.Any())
+            {
+                IOrderedQueryable<RefDataAudit> orderedQuery = null;
+
+                for (var i = 0; i < operators.SortOrders.Count; i++)
                 {
-                    IOrderedQueryable<RefDataAudit> orderedQuery = null;
+                    if (operators.SortOrders[i] == null)
+                        continue;
+                    if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
+                        string.IsNullOrEmpty(operators.SortOrders[i].Direction))
+                        continue;
 
-                    for (var i = 0; i < operators.SortOrders.Count; i++)
+                    var param = Expression.Parameter(typeof(RefDataAudit), "RefDataAudit");
+                    var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+
+                    switch (prop.Type)
                     {
-                        if (operators.SortOrders[i] == null)
-                            continue;
-                        if (string.IsNullOrEmpty(operators.SortOrders[i].Path) ||
-                            string.IsNullOrEmpty(operators.SortOrders[i].Direction))
-                            continue;
-
-                        var param = Expression.Parameter(typeof(RefDataAudit), "RefDataAudit");
-                        var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
-
-                        switch (prop.Type)
-                        {
-                            case Type boolType when boolType == typeof(bool):
-                                {
-                                    var expr = GetExpressionForOrdering<bool>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type stringType when stringType == typeof(string):
-                                {
-                                    var expr = GetExpressionForOrdering<string>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type intType when intType == typeof(int):
-                                {
-                                    var expr = GetExpressionForOrdering<int>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                            case Type datetimeType when datetimeType == typeof(DateTime):
-                                {
-                                    var expr = GetExpressionForOrdering<DateTime>(prop, param);
-                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
-                                    break;
-                                }
-                        }
+                        case Type boolType when boolType == typeof(bool):
+                            {
+                                var expr = GetExpressionForOrdering<bool>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
+                        case Type stringType when stringType == typeof(string):
+                            {
+                                var expr = GetExpressionForOrdering<string>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
+                        case Type intType when intType == typeof(int):
+                            {
+                                var expr = GetExpressionForOrdering<int>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
+                        case Type datetimeType when datetimeType == typeof(DateTime):
+                            {
+                                var expr = GetExpressionForOrdering<DateTime>(prop, param);
+                                orderedQuery = OrderScripts(operators, i, orderedQuery, queryable, expr);
+                                break;
+                            }
                     }
-
-                    if (orderedQuery != null)
-                        output = orderedQuery.AsNoTracking()
-                            .Paginate(page, limit);
                 }
 
-                if (output == null)
-                    output = reqStatusesQueryable.AsNoTracking()
-                        .OrderByDescending(s => s.Date)
+                if (orderedQuery != null)
+                    output = orderedQuery.AsNoTracking()
                         .Paginate(page, limit);
+            }
 
+            if (output == null)
+                output = queryable.AsNoTracking()
+                    .OrderByDescending(s => s.Date)
+                    .Paginate(page, limit);
 
-                return new GetRefDataAuditListResponseDto
-                {
-                    CurrentPage = output.CurrentPage,
-                    TotalPages = output.TotalPages,
-                    TotalItems = output.TotalItems,
-                    Items = output.Items.Select(refDataAudit => new RefDataAuditApiModel
+            // For each row in the page, look up the chronologically-prior audit row's Json for
+            // the same project. Implemented as a single EF query whose projection contains a
+            // correlated subquery — translates to one SQL statement with an OUTER APPLY (one
+            // round-trip total, regardless of page size). Skips rows with NULL ProjectId
+            // (orphaned/project-deleted) since prior-lookup is meaningless for them.
+            var pagedAuditIds = output.Items.Select(a => a.RefDataAuditId).ToList();
+            var priorJsonByAuditId = pagedAuditIds.Count == 0
+                ? new Dictionary<int, string>()
+                : context.RefDataAudits
+                    .AsNoTracking()
+                    .Where(a => pagedAuditIds.Contains(a.RefDataAuditId))
+                    .Select(a => new
                     {
-                        RefDataAuditId = refDataAudit.RefDataAuditId,
-                        ProjectId = refDataAudit.ProjectId,
-                        Project = new ProjectApiModel
+                        a.RefDataAuditId,
+                        PriorJson = a.ProjectId == null
+                            ? null
+                            : context.RefDataAudits
+                                .Where(p => p.ProjectId == a.ProjectId && p.Date < a.Date)
+                                .OrderByDescending(p => p.Date)
+                                .Select(p => p.Json)
+                                .FirstOrDefault()
+                    })
+                    .ToDictionary(x => x.RefDataAuditId, x => x.PriorJson);
+
+            return new GetRefDataAuditListResponseDto
+            {
+                CurrentPage = output.CurrentPage,
+                TotalPages = output.TotalPages,
+                TotalItems = output.TotalItems,
+                Items = output.Items.Select(refDataAudit => new RefDataAuditApiModel
+                {
+                    RefDataAuditId = refDataAudit.RefDataAuditId,
+                    ProjectId = refDataAudit.ProjectId,
+                    PriorJson = priorJsonByAuditId.TryGetValue(refDataAudit.RefDataAuditId, out var pj) ? pj : null,
+                    Project = refDataAudit.Project == null
+                        ? null
+                        : new ProjectApiModel
                         {
                             ProjectId = refDataAudit.Project.Id,
                             ArtefactsBuildRegex = refDataAudit.Project.ArtefactsBuildRegex,
@@ -160,14 +225,13 @@ namespace Dorc.PersistentData.Sources
                             ProjectDescription = refDataAudit.Project.Description,
                             ProjectName = refDataAudit.Project.Name
                         },
-                        RefDataAuditActionId = refDataAudit.RefDataAuditActionId,
-                        Action = refDataAudit.Action.Action.ToString(),
-                        Username = refDataAudit.Username,
-                        Date = refDataAudit.Date,
-                        Json = refDataAudit.Json
-                    }).ToList()
-                };
-            }
+                    RefDataAuditActionId = refDataAudit.RefDataAuditActionId,
+                    Action = refDataAudit.Action.Action.ToString(),
+                    Username = refDataAudit.Username,
+                    Date = refDataAudit.Date,
+                    Json = refDataAudit.Json
+                }).ToList()
+            };
         }
 
         public IList<ComponentApiModel> GetOrderedComponents(int projectId)
@@ -223,13 +287,13 @@ namespace Dorc.PersistentData.Sources
         }
 
         public void TraverseComponents(IEnumerable<ComponentApiModel> components, int? parentId, int projectId,
-            Action<ComponentApiModel, int, int?> action)
+            Action<ComponentApiModel, int, int?, string> action, string username)
         {
             if (components == null) return;
             foreach (var component in components)
             {
-                action(component, projectId, parentId);
-                TraverseComponents(component.Children, component.ComponentId, projectId, action);
+                action(component, projectId, parentId, username);
+                TraverseComponents(component.Children, component.ComponentId, projectId, action, username);
             }
         }
         public void TraverseComponents(IEnumerable<ComponentApiModel> components, int projectId,
@@ -263,6 +327,7 @@ namespace Dorc.PersistentData.Sources
             {
                 ValidateAllComponentIdsAreZero(component, httpRequestType);
                 ValidateComponentNameAndIdAreNotEmpty(component);
+                ValidateComponentNameCharacters(component);
                 ValidateComponentIdsDoNotBelongToOtherProject(component, projectId);
                 ValidateComponentNameDoesNotBelongToDifferentProject(component, projectId);
                 ValidateNameLengthRestrictions(component);
@@ -271,7 +336,7 @@ namespace Dorc.PersistentData.Sources
             ValidateNoDuplicateComponentIdsOrNames(flattenedComponents);
         }
 
-        public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId)
+        public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 using (var context = _contextFactory.GetContext())
@@ -330,10 +395,19 @@ namespace Dorc.PersistentData.Sources
                     context.Components.Add(component);
                     context.SaveChanges();
                     apiComponent.ComponentId = component.Id;
+
+                    if (component.Script != null)
+                    {
+                        var projectName = context.Projects.First(x => x.Id == projectId).Name;
+                        var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                        _scriptsAuditPersistentSource.AddRecord(
+                            component.Script.Id, component.Script.Name, string.Empty, toValue,
+                            username, "Insert", projectName);
+                    }
                 }
         }
 
-        public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId)
+        public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 return;
@@ -347,11 +421,20 @@ namespace Dorc.PersistentData.Sources
                     .Include(c => c.Parent)
                     .First(x => x.Id == apiComponent.ComponentId);
 
-                if (component.Projects.Count == 0)
+                var wasOrphaned = component.Projects.Count == 0;
+
+                if (wasOrphaned)
                     component.Projects.Add(
                         context.Projects.FirstOrDefault(x => x.Id == projectId)); // will new parent id get set?
 
                 DuplicateComponent(apiComponent, component, context); // if name is changed to existing name, rename existing one
+
+                var oldScriptName = component.Script?.Name;
+                var oldScriptPath = component.Script?.Path;
+                var oldNonProdOnly = component.Script?.NonProdOnly;
+                var oldIsEnabled = component.IsEnabled;
+                var oldPsVersion = component.Script?.PowerShellVersionNumber;
+                var hadScript = component.Script != null;
 
                 component.Name = apiComponent.ComponentName;
                 component.StopOnFailure = apiComponent.StopOnFailure;
@@ -467,6 +550,37 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 context.SaveChanges();
+
+                var projectNames = string.Join(", ", component.Projects.Select(p => p.Name).Distinct());
+                if (wasOrphaned && component.Script != null)
+                {
+                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        component.Script.Id, component.Script.Name, string.Empty, toValue,
+                        username, "Insert", projectNames);
+                }
+                else if (hadScript && component.Script != null)
+                {
+                    var fromValue = $"Name={oldScriptName}; Path={oldScriptPath}; NonProdOnly={oldNonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldPsVersion}";
+                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        component.Script.Id, component.Script.Name, fromValue, toValue,
+                        username, "Update", projectNames);
+                }
+                else if (!hadScript && component.Script != null)
+                {
+                    var toValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        component.Script.Id, component.Script.Name, string.Empty, toValue,
+                        username, "Insert", projectNames);
+                }
+                else if (hadScript && component.Script == null)
+                {
+                    var fromValue = $"Name={oldScriptName}; Path={oldScriptPath}; NonProdOnly={oldNonProdOnly}; IsEnabled={oldIsEnabled}; PSVersion={oldPsVersion}";
+                    _scriptsAuditPersistentSource.AddRecord(
+                        0, oldScriptName ?? string.Empty, fromValue, string.Empty,
+                        username, "Delete", projectNames);
+                }
             }
         }
 
@@ -505,14 +619,27 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId)
+        public void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId, string username)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var components = context.Components.Include(c => c.Projects).Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
+                var components = context.Components
+                    .Include(c => c.Projects)
+                    .Include(c => c.Script)
+                    .Where(x => x.Projects.Any(p => p.Id == projectId)).ToList();
                 var componentsToDelete = components.Where(x => apiComponents.All(y => y.ComponentId != x.Id));
                 foreach (var component in componentsToDelete)
                 {
+                    var projectNames = string.Join(", ", component.Projects.Select(p => p.Name).Distinct());
+
+                    if (component.Script != null)
+                    {
+                        var fromValue = $"Name={component.Script.Name}; Path={component.Script.Path}; NonProdOnly={component.Script.NonProdOnly}; IsEnabled={component.IsEnabled}; PSVersion={component.Script.PowerShellVersionNumber}";
+                        _scriptsAuditPersistentSource.AddRecord(
+                            component.Script.Id, component.Script.Name, fromValue, string.Empty,
+                            username, "Delete", projectNames);
+                    }
+
                     component.Description = "ProjectId:" + projectId;
                     foreach (var project in component.Projects.ToArray())
                     {
@@ -639,6 +766,18 @@ namespace Dorc.PersistentData.Sources
 
             if (component.ComponentId != 0)
                 throw new ArgumentOutOfRangeException(nameof(component), "In a Post Call, all component ids should be 0");
+        }
+
+        private static readonly Regex AllowedComponentNameRegex = new(
+            @"^[a-zA-Z0-9 ,./?|:;'""<>()\[\]{}_*&$#@!\-=+]+$",
+            RegexOptions.Compiled);
+
+        private static void ValidateComponentNameCharacters(ComponentApiModel component)
+        {
+            if (!AllowedComponentNameRegex.IsMatch(component.ComponentName))
+                throw new ArgumentOutOfRangeException(nameof(component),
+                    "Component '" + component.ComponentName +
+                    "' contains invalid characters. Only alphanumeric characters, spaces, and the following symbols are allowed: ,./?|:;'\"<>()[]{}_*&$#@!-=+");
         }
 
         private static void ValidateNameLengthRestrictions(ComponentApiModel component)
@@ -778,7 +917,7 @@ namespace Dorc.PersistentData.Sources
             return Expression.Lambda<Func<RefDataAudit, R>>(prop, param);
         }
 
-        private IQueryable<T> WhereAll<T>(
+        private static IQueryable<T> WhereAll<T>(
             IQueryable<T> source,
             params Expression<Func<T, bool>>[] predicates)
         {

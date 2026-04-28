@@ -1,4 +1,4 @@
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { LitElement, PropertyValues } from 'lit';
 import {
   DeploymentRequestApiModel,
@@ -18,7 +18,7 @@ export class ShortcutsStore extends LitElement {
 
   @property() metaData = '';
   protected dorcNavbar: DorcNavbar | undefined;
-  protected dorcHelperPage: string | undefined;
+  @state() protected dorcHelperPage = '';
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
@@ -36,12 +36,20 @@ export class ShortcutsStore extends LitElement {
       this.openProjectEnvs as EventListener
     );
     this.addEventListener(
+      'open-project-components',
+      this.openProjectComponents as EventListener
+    );
+    this.addEventListener(
       'open-project-ref-data',
       this.openProjectRefData as EventListener
     );
     this.addEventListener(
       'environment-deleted',
       this.environmentDeleted as EventListener
+    );
+    this.addEventListener(
+      'environment-renamed',
+      this.environmentRenamed as EventListener
     );
   }
 
@@ -52,6 +60,10 @@ export class ShortcutsStore extends LitElement {
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);
+  }
+
+  environmentRenamed(e: CustomEvent) {
+    this.dorcNavbar?.renameEnvDetail(e);
   }
 
   updated() {
@@ -113,6 +125,14 @@ export class ShortcutsStore extends LitElement {
 
     const path = `/project-ref-data/${project?.ProjectId}`;
 
+    Router.go(path);
+  }
+
+  private openProjectComponents(e: CustomEvent) {
+    const project = e.detail.Project as ProjectApiModel;
+    
+    const path = `/project-components/${project?.ProjectId}`;
+    
     Router.go(path);
   }
 

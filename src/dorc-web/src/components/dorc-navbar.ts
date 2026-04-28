@@ -6,7 +6,7 @@ import { Tabs } from '@vaadin/tabs';
 import { Tab } from '@vaadin/tabs/vaadin-tab';
 import '@vaadin/vertical-layout';
 import { css, html, LitElement, PropertyValues, render } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import {
   DeploymentRequestApiModel,
   EnvironmentApiModel,
@@ -49,7 +49,7 @@ export class DorcNavbar extends LitElement {
       footer {
         padding: 1rem;
         text-align: center;
-        background-color: #eee;
+        background-color: var(--dorc-bg-tertiary);
       }
 
       vaadin-icon {
@@ -67,7 +67,7 @@ export class DorcNavbar extends LitElement {
 
       a.plain {
         text-decoration: underline;
-        color: blue;
+        color: var(--dorc-link-color);
       }
 
       vaadin-tab {
@@ -90,6 +90,8 @@ export class DorcNavbar extends LitElement {
   @property() metaData = '';
 
   @property({ type: Boolean }) isAdmin = false;
+
+  @state() private auditMenuExpanded = false;
 
   render() {
     return html`
@@ -187,6 +189,7 @@ export class DorcNavbar extends LitElement {
             Scripts
           </a>
         </vaadin-tab>
+
         <vaadin-tab>
           <a href="${urlForName('variables')}">
             <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
@@ -194,11 +197,53 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
 
-        <vaadin-tab>
+        <vaadin-tab
+          @click="${this._toggleAuditMenu}"
+        >
+          <a href="#" @click="${(e: Event) => e.preventDefault()}">
+            <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+            Audit
+            <vaadin-icon
+              icon="${this.auditMenuExpanded ? 'vaadin:chevron-down-small' : 'vaadin:chevron-right-small'}"
+              theme="small"
+            ></vaadin-icon>
+          </a>
+        </vaadin-tab>
+        <!--
+          Audit sub-tabs are rendered always (not conditionally) and hidden via ?hidden when
+          the Audit menu is collapsed. This keeps them in the DOM so <vaadin-tabs>'
+          setSelectedTab can still locate and highlight the current audit route when the user
+          navigates there directly (e.g. via a bookmarked URL).
+        -->
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('scripts-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
+              Scripts Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('variables-audit')}">
             <div style="margin-left: 20px; width: 210px">
-              <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
-              Audit
+              <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
+              Variables Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('projects-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+              Projects Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('daemons-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
+              Daemons Audit
             </div>
           </a>
         </vaadin-tab>
@@ -220,7 +265,7 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
       </vaadin-tabs>
       <div
-        style="position: fixed; top: calc(100% - 13px); text-align: center; left: 50px; color: #747f8d; font-size: x-small"
+        style="position: fixed; top: calc(100% - 13px); text-align: center; left: 50px; color: var(--dorc-text-secondary); font-size: x-small"
       >
         ${this.metaData}
       </div>
@@ -231,6 +276,12 @@ export class DorcNavbar extends LitElement {
     super();
     this.getUserRoles();
     this.getMetaData();
+  }
+
+  private _toggleAuditMenu(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.auditMenuExpanded = !this.auditMenuExpanded;
   }
 
   private getUserRoles() {
@@ -266,7 +317,6 @@ export class DorcNavbar extends LitElement {
       'close-project-envs',
       this.closeProjectEnvs as EventListener
     );
-
     this.loadFromEnvDetailCookie();
     this.loadFromProjEnvsCookie();
     this.loadFromMonitorResultsCookie();
@@ -460,6 +510,37 @@ export class DorcNavbar extends LitElement {
     setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
   }
 
+  public renameEnvDetail(e: CustomEvent) {
+    const oldName = e.detail.oldName as string;
+    const newEnv = e.detail.environment as EnvironmentApiModel;
+
+    // Build the old path to find the existing tab
+    const oldEnvModel: EnvironmentApiModel = { EnvironmentName: oldName };
+    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
+    const oldPath = this.getEnvDetailPath(oldEnvModel);
+    const idx = this.getIndexOfPath(tabs, oldPath);
+
+    // Remove the old sidebar tab if it exists
+    if (idx >= 0) {
+      const tabsArray = [].slice.call(tabs.children) as Tab[];
+      tabs.removeChild(tabsArray[idx]);
+    }
+
+    // Update the entry in openEnvTabs
+    for (let i = 0; i < this.openEnvTabs.length; i += 1) {
+      if (this.openEnvTabs[i].EnvironmentName === oldName) {
+        this.openEnvTabs[i] = newEnv;
+        break;
+      }
+    }
+
+    // Insert a new sidebar tab with the updated name
+    this.insertEnvTab(newEnv);
+
+    // Persist to cookie
+    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+  }
+
   public insertProjTab(projectAPIModel: ProjectApiModel) {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
 
@@ -538,6 +619,12 @@ export class DorcNavbar extends LitElement {
       const tab = tabsArray[i] as Tab;
       let childPath = '';
       const tabChild = tab.children[0] as unknown as URL;
+      // The Audit parent tab uses href="#"; HTMLAnchorElement.pathname resolves "#" against the
+      // current document URL, so without this skip every audit sub-route would match the parent.
+      const rawHref = (tab.children[0] as Element)?.getAttribute?.('href');
+      if (rawHref === '#') {
+        continue;
+      }
       if (tabChild.pathname === undefined) {
         const envDetailTab = tab.children[0] as EnvDetailTab;
         if (envDetailTab.env !== undefined) {

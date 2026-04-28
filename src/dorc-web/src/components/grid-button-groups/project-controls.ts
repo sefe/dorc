@@ -5,6 +5,7 @@ import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
+import { Router } from '@vaadin/router';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -32,7 +33,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="lumo:edit"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -42,7 +43,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:lock"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -52,6 +53,16 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:records"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        title="Components"
+        theme="icon"
+        @click="${this.openComponents}"
+      >
+        <vaadin-icon
+          icon="vaadin:grid-big"
           style="color: cornflowerblue"
         ></vaadin-icon>
       </vaadin-button>
@@ -62,7 +73,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="vaadin:curly-brackets"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -71,8 +82,8 @@ export class ProjectControls extends LitElement {
         @click="${this.openAuditData}"
       >
         <vaadin-icon
-          icon="vaadin:list"
-          style="color: cornflowerblue"
+          icon="vaadin:calendar-user"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -83,7 +94,7 @@ export class ProjectControls extends LitElement {
       >
         <vaadin-icon
           icon="icons:delete"
-          style="color: red"
+          style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>
     `;
@@ -111,6 +122,18 @@ export class ProjectControls extends LitElement {
     this.dispatchEvent(event);
   }
 
+  openComponents() {
+    const event = new CustomEvent('open-project-components', {
+      detail: {
+        Project: this.project
+      },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+
   openProjectMetadata() {
     const event = new CustomEvent('open-project-metadata', {
       detail: {
@@ -134,14 +157,9 @@ export class ProjectControls extends LitElement {
   }
 
   openAuditData() {
-    const event = new CustomEvent('open-project-audit-data', {
-      detail: {
-        Project: this.project
-      },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
+    const id = this.project?.ProjectId;
+    if (!id) return;
+    Router.go(`/projects/audit?projectId=${id}`);
   }
 
   deleteProject() {

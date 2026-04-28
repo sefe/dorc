@@ -52,23 +52,23 @@ export class RequestControls extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
 
   render() {
     const cancelStyles = {
-      color: this.cancelable ? '#FF3131' : 'grey'
+      color: this.cancelable ? 'var(--dorc-error-color)' : 'var(--dorc-text-secondary)'
     };
     const restartStyles = {
-      color: this.canRestart ? 'cornflowerblue' : 'grey'
+      color: this.canRestart ? 'var(--dorc-link-color)' : 'var(--dorc-text-secondary)'
     };
     const pauseStyles = {
-      color: this.canPause ? '#FFA500' : 'grey'
+      color: this.canPause ? 'var(--dorc-badge-text)' : 'var(--dorc-text-secondary)'
     };
     const resumeStyles = {
-      color: this.canResume ? '#28a745' : 'grey'
+      color: this.canResume ? 'var(--dorc-success-text)' : 'var(--dorc-text-secondary)'
     };
     return html`
       <table style="height: 36px">

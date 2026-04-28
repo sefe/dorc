@@ -18,7 +18,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly ILogger<RabbitMqDistributedLockService> logger;
         private readonly IMonitorConfiguration configuration;
         // HttpClient instance is managed by IHttpClientFactory and must NOT be disposed manually.
-        private IConnection? connection;
+        internal IConnection? connection;
         private readonly SemaphoreSlim connectionSemaphore = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource serviceCts = new CancellationTokenSource();
         private HttpClientHandler? httpClientHandler;
@@ -28,6 +28,7 @@ namespace Dorc.Monitor.HighAvailability
         private readonly ConcurrentDictionary<IConnection, int> activeLockCounts = new();
         private readonly List<(IConnection Connection, DateTime RetiredAt)> _retiredConnections = new();
         private static readonly TimeSpan RetiredConnectionGracePeriod = TimeSpan.FromMinutes(2);
+        // LockReacquisitionTimeout removed (S-002): replaced by LockReacquisitionRetryWindowSeconds config property.
         private volatile int connectionGeneration = 0; // Tracks connection refresh cycles to prevent redundant refreshes
         // tokenExpiryTimeUtc is read outside the semaphore in IsTokenExpiringSoon() but only
         // written under connectionSemaphore. Stale reads are harmless: a slightly stale value
@@ -110,7 +111,7 @@ namespace Dorc.Monitor.HighAvailability
                 // Capture current connection generation before attempting lock acquisition
                 // This allows us to detect if another thread already refreshed the connection
                 int currentGeneration = connectionGeneration;
-                
+
                 try
                 {
                     await EnsureConnectionAsync(cancellationToken);
@@ -126,13 +127,13 @@ namespace Dorc.Monitor.HighAvailability
                     }
 
                     var channel = await conn.CreateChannelAsync(cancellationToken: cancellationToken);
-                    
+
                     // Use environment-specific exchange to support multiple DOrc instances (Prod/Staging/Dev) in same RabbitMQ cluster
                     // Sanitize environment name: lowercase, replace spaces and special chars with hyphens
                     var environment = SanitizeEnvironmentName(configuration.Environment);
                     var exchangeName = $"dorc.{environment}";
                     var queueName = $"lock.{resourceKey}";
-                    
+
                     try
                     {
                         // Declare a direct exchange for this DOrc environment
@@ -145,11 +146,7 @@ namespace Dorc.Monitor.HighAvailability
 
                         // Declare a quorum queue with single-active consumer for cluster support
                         // Quorum queues replicate across cluster nodes for high availability
-                        var args = new Dictionary<string, object?>
-                        {
-                            { "x-queue-type", "quorum" }, // Use quorum queue for cluster replication
-                            { "x-single-active-consumer", true } // Only one consumer gets messages at a time
-                        };
+                        var args = BuildLockQueueArguments();
 
                         await channel.QueueDeclareAsync(
                             queue: queueName,
@@ -170,7 +167,7 @@ namespace Dorc.Monitor.HighAvailability
                         // This ensures we receive any messages published after we start consuming
                         var consumer = new AsyncEventingBasicConsumer(channel);
                         var lockAcquired = new TaskCompletionSource<bool>();
-                        
+
                         // Attach event handler to receive and hold the message
                         consumer.ReceivedAsync += async (model, ea) =>
                         {
@@ -179,7 +176,7 @@ namespace Dorc.Monitor.HighAvailability
                             lockAcquired.TrySetResult(true);
                             await Task.CompletedTask;
                         };
-                        
+
                         var consumerTag = await channel.BasicConsumeAsync(
                             queue: queueName,
                             autoAck: false, // Manual ack - lock held until we ack or consumer disconnects
@@ -189,11 +186,11 @@ namespace Dorc.Monitor.HighAvailability
                         // Check if lock queue already has a message (lock is held by another monitor)
                         // Check AFTER setting up consumer to avoid race where message is published before consumer exists
                         var queueInfo = await channel.QueueDeclarePassiveAsync(queue: queueName, cancellationToken: cancellationToken);
-                        
+
                         // If queue has messages, another monitor holds the lock
                         if (queueInfo.MessageCount > 0)
                         {
-                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.", 
+                            logger.LogDebug("Lock for resource '{ResourceKey}' is already held (queue has {MessageCount} messages). Cannot acquire lock.",
                                 resourceKey, queueInfo.MessageCount);
                             await channel.BasicCancelAsync(consumerTag, cancellationToken: cancellationToken);
                             await channel.CloseAsync(cancellationToken: cancellationToken);
@@ -235,7 +232,7 @@ namespace Dorc.Monitor.HighAvailability
                             }
                         }
 
-                        logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer", 
+                        logger.LogDebug("Successfully acquired distributed lock for resource '{ResourceKey}' using quorum queue with single-active consumer",
                             resourceKey);
 
                         await IncrementActiveLockCountAsync(conn, cancellationToken);
@@ -279,7 +276,7 @@ namespace Dorc.Monitor.HighAvailability
                     return null;
                 }
             }
-            
+
             logger.LogError("Failed to acquire distributed lock for '{ResourceKey}' after {MaxRetries} retries", resourceKey, maxRetries);
             return null;
         }
@@ -518,7 +515,7 @@ namespace Dorc.Monitor.HighAvailability
                                                      System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors,
                             Version = sslProtocols
                         };
-                        logger.LogDebug("RabbitMQ SSL/TLS enabled with version {Version} and server name: {ServerName}", 
+                        logger.LogDebug("RabbitMQ SSL/TLS enabled with version {Version} and server name: {ServerName}",
                             sslProtocols, configuration.RabbitMqSslServerName);
                     }
 
@@ -532,7 +529,7 @@ namespace Dorc.Monitor.HighAvailability
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Failed to connect to RabbitMQ at {HostName}:{Port}", 
+                    logger.LogError(ex, "Failed to connect to RabbitMQ at {HostName}:{Port}",
                         configuration.RabbitMqHostName, configuration.RabbitMqPort);
                     throw;
                 }
@@ -603,7 +600,7 @@ namespace Dorc.Monitor.HighAvailability
         {
             // Dispose previous handler if it exists
             httpClientHandler?.Dispose();
-            
+
             var handler = new HttpClientHandler();
             httpClientHandler = handler;
 
@@ -642,6 +639,23 @@ namespace Dorc.Monitor.HighAvailability
         }
 
         /// <summary>
+        /// Returns the queue arguments used when declaring a distributed lock queue.
+        /// Setting x-consumer-timeout to the configured value (default 24h = 86400000ms) prevents
+        /// the broker's per-consumer acknowledgement timeout from closing the channel on
+        /// long-running deployments (FM-2 fix, S-001).
+        /// The value must be long (Int64) — RabbitMQ AMQP time arguments are 64-bit.
+        /// </summary>
+        internal Dictionary<string, object?> BuildLockQueueArguments()
+        {
+            return new Dictionary<string, object?>
+            {
+                { "x-queue-type", "quorum" },           // Quorum queue for cluster replication
+                { "x-single-active-consumer", true },   // Only one consumer receives messages at a time
+                { "x-consumer-timeout", configuration.RabbitMqConsumerTimeoutMs }  // Prevents broker closing channel on long-running deployments
+            };
+        }
+
+        /// <summary>
         /// Sanitizes the environment name for use in RabbitMQ exchange names.
         /// Converts to lowercase and replaces spaces and special characters with hyphens.
         /// </summary>
@@ -654,14 +668,14 @@ namespace Dorc.Monitor.HighAvailability
 
             // Convert to lowercase
             var sanitized = environment.ToLowerInvariant();
-            
+
             // Replace spaces and invalid characters with hyphens
             // RabbitMQ exchange names can contain: letters, digits, hyphen, underscore, period, colon
             sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"[^a-z0-9\-_.:]+", "-");
-            
+
             // Remove leading/trailing hyphens
             sanitized = sanitized.Trim('-');
-            
+
             // If empty after sanitization, use default
             return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
         }
@@ -743,6 +757,206 @@ namespace Dorc.Monitor.HighAvailability
             {
                 logger.LogWarning(ex, "Failed to delete orphaned lock queue '{QueueName}' for resource '{ResourceKey}' via fallback channel", queueName, resourceKey);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to re-acquire a lock by reconnecting and consuming the existing message
+        /// from the lock queue. Called when a channel/connection drops unexpectedly.
+        /// The lock message (with TTL) is still in the queue after disconnect, so we just need
+        /// a new channel and consumer to reclaim it.
+        /// </summary>
+        /// <returns>The new channel, consumer tag, and connection if successful; nulls otherwise.</returns>
+        internal async Task<(IChannel? Channel, string? ConsumerTag, IConnection? Connection)> TryReacquireLockChannelAsync(
+            string queueName, string resourceKey)
+        {
+            // S-002: retry loop — keep attempting until the message is delivered or the window expires.
+            // The retry window is calibrated to outlast broker recovery (observed ~2–3 min for FM-3).
+            var retryWindowSeconds = configuration.LockReacquisitionRetryWindowSeconds;
+            var deadline = DateTime.UtcNow.AddSeconds(retryWindowSeconds);
+            var attempt = 0;
+            // Capture once before the loop: CancellationToken is a value type and remains valid
+            // (and cancelled) even after the source is disposed, eliminating any race with DisposeAsync.
+            var serviceToken = serviceCts.Token;
+
+            IChannel? channel = null;
+            try
+            {
+                while (true)
+                {
+                    // Check deadline before starting a new attempt (start-attempt semantics).
+                    var remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        var elapsed = retryWindowSeconds - remaining.TotalSeconds; // actual elapsed (remaining <= 0)
+                        logger.LogWarning(
+                            "Lock re-acquisition for '{ResourceKey}' exhausted retry window after {Attempts} attempt(s) " +
+                            "({Elapsed:F0}s elapsed). Lock may have been claimed by another monitor.",
+                            resourceKey, attempt, elapsed);
+                        return (null, null, null);
+                    }
+
+                    attempt++;
+
+                    // Ensure we have a connection (may need to create a new one after the drop).
+                    // Use a per-connection-attempt CTS bounded by the remaining window so we don't
+                    // stall here longer than the window allows.
+                    using var connectionCts = new CancellationTokenSource(remaining);
+                    try
+                    {
+                        await EnsureConnectionAsync(connectionCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        logger.LogWarning(
+                            "Lock re-acquisition for '{ResourceKey}' aborted: window expired while establishing connection (attempt {Attempt})",
+                            resourceKey, attempt);
+                        return (null, null, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Transient connection failure during broker recovery (e.g. BrokerUnreachableException).
+                        // Log at Warning and fall through to inter-attempt delay — do not abort the loop.
+                        logger.LogWarning(ex,
+                            "Lock re-acquisition for '{ResourceKey}': connection attempt {Attempt} failed, will retry",
+                            resourceKey, attempt);
+                    }
+
+                    IConnection? currentConnection;
+                    await connectionSemaphore.WaitAsync(CancellationToken.None);
+                    try
+                    {
+                        currentConnection = connection;
+                    }
+                    finally
+                    {
+                        connectionSemaphore.Release();
+                    }
+
+                    if (currentConnection == null || !currentConnection.IsOpen)
+                    {
+                        logger.LogWarning(
+                            "Lock re-acquisition for '{ResourceKey}': no active connection on attempt {Attempt}, will retry",
+                            resourceKey, attempt);
+                        // Fall through to inter-attempt delay and next iteration
+                    }
+                    else
+                    {
+                        try
+                        {
+                            channel = await currentConnection.CreateChannelAsync(cancellationToken: CancellationToken.None);
+
+                            // Set up consumer to reclaim the existing message in the queue.
+                            // The message was requeued when our previous connection dropped.
+                            // Per-iteration channel recreation is correct: the triggering event is always
+                            // channel closure — there is no path where a prior channel can be reused.
+                            var consumer = new AsyncEventingBasicConsumer(channel);
+                            var lockAcquired = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                            consumer.ReceivedAsync += async (_, _) =>
+                            {
+                                lockAcquired.TrySetResult(true);
+                                await Task.CompletedTask;
+                            };
+
+                            var consumerTag = await channel.BasicConsumeAsync(
+                                queue: queueName,
+                                autoAck: false,
+                                consumer: consumer,
+                                cancellationToken: CancellationToken.None);
+
+                            // Wait for the requeued lock message to be delivered to our new consumer
+                            using var deliveryCts = new CancellationTokenSource(
+                                TimeSpan.FromSeconds(configuration.LockAcquisitionTimeoutSeconds));
+                            try
+                            {
+                                await lockAcquired.Task.WaitAsync(deliveryCts.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                // Delivery timed out for this attempt — fall through to cleanup and retry
+                            }
+
+                            if (lockAcquired.Task.IsCompletedSuccessfully)
+                            {
+                                if (attempt > 1)
+                                {
+                                    logger.LogInformation(
+                                        "Lock re-acquisition for '{ResourceKey}' succeeded on attempt {Attempt} " +
+                                        "({Elapsed:F0}s elapsed). Deployment continues.",
+                                        resourceKey, attempt, (DateTime.UtcNow - (deadline.AddSeconds(-retryWindowSeconds))).TotalSeconds);
+                                }
+                                // CancellationToken.None: count increment must complete even during shutdown
+                                await IncrementActiveLockCountAsync(currentConnection, CancellationToken.None);
+                                return (channel, consumerTag, currentConnection);
+                            }
+
+                            // Message not delivered this attempt — clean up channel (best-effort)
+                            var remainingAfterAttempt = deadline - DateTime.UtcNow;
+                            logger.LogWarning(
+                                "Lock re-acquisition for '{ResourceKey}': message not delivered on attempt {Attempt} " +
+                                "({Elapsed:F0}s elapsed, {Remaining:F0}s remaining in window). Retrying.",
+                                resourceKey, attempt,
+                                retryWindowSeconds - remainingAfterAttempt.TotalSeconds,
+                                Math.Max(0, remainingAfterAttempt.TotalSeconds));
+
+                            try { await channel.BasicCancelAsync(consumerTag, cancellationToken: CancellationToken.None); } catch { }
+                            try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                            try { await channel.DisposeAsync(); } catch { }
+                            channel = null; // Prevent double-dispose in outer catch
+                        }
+                        catch (Exception ex)
+                        {
+                            // Channel creation or consumer registration failed — treat as a delivery
+                            // timeout and retry. Broker recovery exceptions are expected here (Warning).
+                            logger.LogWarning(ex,
+                                "Lock re-acquisition for '{ResourceKey}': exception on attempt {Attempt}, will retry",
+                                resourceKey, attempt);
+                            if (channel != null)
+                            {
+                                try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                                try { await channel.DisposeAsync(); } catch { }
+                                channel = null;
+                            }
+                        }
+                    }
+
+                    // Inter-attempt delay: give the broker time to recover.
+                    // Capped at the remaining window so we don't overshoot the deadline.
+                    // Cancellation-aware: linked to the service lifetime so disposal during
+                    // the sleep terminates the loop promptly.
+                    var interAttemptDelay = TimeSpan.FromSeconds(3);
+                    var remainingWindow = deadline - DateTime.UtcNow;
+                    if (remainingWindow <= TimeSpan.Zero)
+                    {
+                        return (null, null, null);
+                    }
+                    var actualDelay = remainingWindow < interAttemptDelay ? remainingWindow : interAttemptDelay;
+                    try
+                    {
+                        // Link delay to service disposal via serviceToken so shutdown terminates the sleep promptly
+                        await Task.Delay(actualDelay, serviceToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Service disposed during sleep — exit loop; caller handles null return
+                        logger.LogDebug(
+                            "Lock re-acquisition for '{ResourceKey}' interrupted during inter-attempt delay (service disposed or stopping)",
+                            resourceKey);
+                        return (null, null, null);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to re-acquire lock channel for '{ResourceKey}'", resourceKey);
+                // Clean up the channel if it was created but an error occurred before successful return
+                if (channel != null)
+                {
+                    try { await channel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                    try { await channel.DisposeAsync(); } catch { }
+                }
+                return (null, null, null);
             }
         }
 
@@ -884,13 +1098,14 @@ namespace Dorc.Monitor.HighAvailability
         internal class RabbitMqDistributedLock : IDistributedLock
         {
             private readonly ILogger logger;
-            private readonly IChannel channel;
-            private readonly IConnection connection;
+            private IChannel channel;
+            private IConnection connection;
             private readonly string queueName;
             private readonly string resourceKey;
-            private readonly string consumerTag;
+            private string consumerTag;
             private readonly RabbitMqDistributedLockService lockService;
             private int disposedFlag = 0;  // Use int for Interlocked operations
+            private int _reacquiring = 0;  // Prevents re-entrant re-acquisition attempts
             private readonly CancellationTokenSource _lockLostCts = new();
 
             public string ResourceKey => resourceKey;
@@ -908,35 +1123,130 @@ namespace Dorc.Monitor.HighAvailability
                 this.consumerTag = consumerTag;
                 this.lockService = lockService;
 
-                // Hook into channel shutdown to trigger cancellation immediately
+                // Hook into channel shutdown to attempt re-acquisition before cancelling
                 channel.ChannelShutdownAsync += OnChannelShutdownAsync;
                 connection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
             }
 
             private Task OnChannelShutdownAsync(object? sender, ShutdownEventArgs e)
             {
-                logger.LogWarning("Channel for lock '{ResourceKey}' shut down: {Reason}. Triggering cancellation.", resourceKey, e.ReplyText);
-                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
+                logger.LogWarning("Channel for lock '{ResourceKey}' shut down: {Reason}. Attempting lock re-acquisition before cancelling.", resourceKey, e.ReplyText);
+                // Fire-and-forget: re-acquisition runs asynchronously to avoid blocking the RabbitMQ IO thread
+                _ = TryReacquireOrCancelAsync();
                 return Task.CompletedTask;
             }
 
             private Task OnConnectionShutdownAsync(object? sender, ShutdownEventArgs e)
             {
-                logger.LogWarning("Connection for lock '{ResourceKey}' shut down: {Reason}. Triggering cancellation.", resourceKey, e.ReplyText);
-                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
+                logger.LogWarning("Connection for lock '{ResourceKey}' shut down: {Reason}. Attempting lock re-acquisition before cancelling.", resourceKey, e.ReplyText);
+                _ = TryReacquireOrCancelAsync();
                 return Task.CompletedTask;
+            }
+
+            private async Task TryReacquireOrCancelAsync()
+            {
+                // Only one re-acquisition attempt at a time (channel + connection shutdowns can fire together)
+                if (Interlocked.CompareExchange(ref _reacquiring, 1, 0) != 0)
+                    return;
+
+                // If already disposed, don't attempt re-acquisition
+                if (Volatile.Read(ref disposedFlag) == 1)
+                {
+                    Interlocked.Exchange(ref _reacquiring, 0);
+                    return;
+                }
+
+                // Track whether the success path already reset _reacquiring (before a potential re-trigger).
+                // The finally block resets on all other exit paths (failure, exception, disposed-during-reacquisition).
+                bool reacquiringReset = false;
+                try
+                {
+                    var (newChannel, newConsumerTag, newConnection) = await lockService.TryReacquireLockChannelAsync(queueName, resourceKey);
+
+                    if (newChannel != null && newConsumerTag != null && newConnection != null)
+                    {
+                        // Re-check after await: DisposeAsync may have run while we were reconnecting
+                        if (Volatile.Read(ref disposedFlag) == 1)
+                        {
+                            // Lock was disposed during re-acquisition - clean up new resources
+                            logger.LogDebug("Lock '{ResourceKey}' was disposed during re-acquisition - cleaning up new channel", resourceKey);
+                            try { await newChannel.BasicCancelAsync(newConsumerTag, cancellationToken: CancellationToken.None); } catch { }
+                            try { await newChannel.CloseAsync(cancellationToken: CancellationToken.None); } catch { }
+                            try { await newChannel.DisposeAsync(); } catch { }
+                            await lockService.ReleaseConnectionReferenceAsync(newConnection);
+                            return;
+                        }
+
+                        // Capture old references before swapping
+                        var oldChannel = channel;
+                        var oldConnection = connection;
+
+                        // Unhook from old channel/connection
+                        oldChannel.ChannelShutdownAsync -= OnChannelShutdownAsync;
+                        oldConnection.ConnectionShutdownAsync -= OnConnectionShutdownAsync;
+
+                        // Register handlers on new channel/connection BEFORE swapping fields
+                        // to eliminate the window where a shutdown on the new channel goes undetected
+                        newChannel.ChannelShutdownAsync += OnChannelShutdownAsync;
+                        newConnection.ConnectionShutdownAsync += OnConnectionShutdownAsync;
+
+                        // Swap to the new channel and connection
+                        channel = newChannel;
+                        connection = newConnection;
+                        consumerTag = newConsumerTag;
+
+                        // Release lock count on old connection (new connection count is incremented in TryReacquireLockChannelAsync)
+                        await lockService.ReleaseConnectionReferenceAsync(oldConnection);
+
+                        // Explicitly dispose old channel to prevent resource leaks
+                        try { await oldChannel.DisposeAsync(); } catch { }
+
+                        logger.LogInformation("Successfully re-acquired lock for '{ResourceKey}' after connection loss. Deployment continues.", resourceKey);
+
+                        // Allow future re-acquisition attempts before potentially re-triggering,
+                        // so the re-triggered call can win the CompareExchange.
+                        Interlocked.Exchange(ref _reacquiring, 0);
+                        reacquiringReset = true;
+
+                        // Check if the new channel/connection already died during the swap.
+                        // Shutdown events are edge-triggered: if one fired before we registered
+                        // our handler (or while _reacquiring was 1), we would miss it.
+                        if (!channel.IsOpen)
+                        {
+                            logger.LogWarning("New channel for lock '{ResourceKey}' already closed after re-acquisition. Re-attempting.", resourceKey);
+                            _ = TryReacquireOrCancelAsync();
+                        }
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Lock re-acquisition failed for '{ResourceKey}'", resourceKey);
+                }
+                finally
+                {
+                    // Reset on all non-success exit paths so transient failures don't permanently
+                    // block future re-acquisition attempts for the lifetime of this lock.
+                    if (!reacquiringReset)
+                        Interlocked.Exchange(ref _reacquiring, 0);
+                }
+
+                // Re-acquisition failed - cancel the deployment
+                logger.LogWarning("Failed to re-acquire lock for '{ResourceKey}'. Triggering cancellation.", resourceKey);
+                try { _lockLostCts.Cancel(); } catch (ObjectDisposedException) { }
             }
 
             public async ValueTask DisposeAsync()
             {
-                // Thread-safe disposal check and set using Interlocked
+                // Thread-safe disposal check and set using Interlocked.
+                // This also signals any in-progress TryReacquireOrCancelAsync to abort.
                 if (Interlocked.Exchange(ref disposedFlag, 1) == 1)
                     return;
 
-                // Unregister event handlers
+                // Unregister event handlers to prevent new re-acquisition attempts during cleanup.
+                // Any already-running TryReacquireOrCancelAsync will see disposedFlag=1 after its await.
                 channel.ChannelShutdownAsync -= OnChannelShutdownAsync;
                 connection.ConnectionShutdownAsync -= OnConnectionShutdownAsync;
-                _lockLostCts.Dispose();
 
                 bool queueDeleted = false;
 
@@ -1009,6 +1319,11 @@ namespace Dorc.Monitor.HighAvailability
                 finally
                 {
                     await lockService.ReleaseConnectionReferenceAsync(connection);
+
+                    // Dispose CTS last: TryReacquireOrCancelAsync may still reference it
+                    // until it sees disposedFlag=1 and exits. The ObjectDisposedException catch
+                    // in TryReacquireOrCancelAsync handles the rare case where it slips through.
+                    _lockLostCts.Dispose();
                 }
             }
 

@@ -54,220 +54,264 @@ namespace Dorc.Monitor.RequestProcessors
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
         {
-            logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
-
-            _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
-
-            try
+            using (logger.BeginScope(new Dictionary<string, object> { ["RequestId"] = requestToExecute.Request.Id }))
             {
-                var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
-                SetUpScriptRootAsProperty(scriptRoot);
 
-                if (string.IsNullOrEmpty(requestToExecute.Request.RequestDetails))
-                {
-                    throw new InvalidOperationException("Deployment request details are empty.");
-                }
+                logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
+
+                _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
                 try
                 {
-                    logger.LogDebug($"Request details:\r\n{requestToExecute.Request.RequestDetails}");
+                    var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
+                    SetUpScriptRootAsProperty(scriptRoot);
 
-                    var requestDetail = requestToExecute.Details;
-
-                    var environmentName = requestDetail.EnvironmentName;
-
-                    SetUpEnvironmentNameAsProperty(environmentName);
-
-                    var environment = environmentsPersistentSource.GetEnvironment(environmentName);
-
-                    if (environment.EnvironmentSecure)
+                    if (string.IsNullOrEmpty(requestToExecute.Request.RequestDetails))
                     {
-                        logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
+                        throw new InvalidOperationException("Deployment request details are empty.");
                     }
 
-                    SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
-
-                    SetUpDeploymentLogDirAsProperty();
-
-                    SetUpBuildNumberAsProperty(requestToExecute.Request.BuildNumber);
-
-                    SetUpRefDataApiUrlAsProperty();
-
-                    SetUpConfigValuesAsProperties(environment);
-
-                    SetUpEnvironmentAsProperty(environment);
-
-                    SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
-
-                    InitializeDeploymentRequest(
-                        requestToExecute.Request);
-
-                    var deploymentRequestStatus = DeploymentRequestStatus.Completed;
-
-                    var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
-                        requestDetail);
-
-                    logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
-
-                    if (!orderedNonSkippedComponents.Any())
+                    try
                     {
-                        logger.LogWarning($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
+                        logger.LogDebug($"Request details:\r\n{requestToExecute.Request.RequestDetails}");
 
-                        requestsPersistentSource.SetRequestCompletionStatus(
-                            requestToExecute.Request.Id,
-                            deploymentRequestStatus,
-                            DateTimeOffset.Now);
+                        var requestDetail = requestToExecute.Details;
 
-                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                        var environmentName = requestDetail.EnvironmentName;
+
+                        SetUpEnvironmentNameAsProperty(environmentName);
+
+                        var environment = environmentsPersistentSource.GetEnvironment(environmentName);
+
+                        if (environment.EnvironmentSecure)
                         {
-                            Status = deploymentRequestStatus.ToString(),
-                            CompletedTime = DateTimeOffset.Now,
-                        });
-
-                        return;
-                    }
-
-                    var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id).ToDictionary(r => r.ComponentId);
-                    foreach (var nonSkippedComponent in orderedNonSkippedComponents)
-                    {
-                        try
-                        {
-                            var componentId = nonSkippedComponent.ComponentId!.Value;
-
-                            if (!deploymentResults.ContainsKey(componentId))
-                            {
-                                var deploymentResult = requestsPersistentSource.CreateDeploymentResult(
-                                    componentId,
-                                    requestToExecute.Request.Id);
-
-                                deploymentResults.Add(componentId, deploymentResult);
-                            }
-                            else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed.ToString()))
-                            {
-                                logger.LogWarning($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
-                            }
+                            logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
                         }
-                        catch (Exception exception)
+
+                        SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
+
+                        SetUpDeploymentLogDirAsProperty();
+
+                        SetUpBuildNumberAsProperty(requestToExecute.Request.BuildNumber);
+
+                        SetUpRefDataApiUrlAsProperty();
+
+                        SetUpConfigValuesAsProperties(environment);
+
+                        SetUpEnvironmentAsProperty(environment);
+
+                        SetUpEnvOwnerEmailAsProperty(requestToExecute.Request);
+
+                        SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
+
+                        InitializeDeploymentRequest(
+                            requestToExecute.Request);
+
+                        var deploymentRequestStatus = DeploymentRequestStatus.Completed;
+
+                        var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
+                            requestDetail);
+
+                        logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
+
+                        if (!orderedNonSkippedComponents.Any())
                         {
-                            logger.LogError($"Deployment result cannot be created. Exception: {exception}");
-                            throw;
-                        }
-                    }
+                            logger.LogWarning($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
-                    var orderedEnabledNonSkippedComponents = orderedNonSkippedComponents
-                        .Where(component => component.IsEnabled);
-
-                    if (!orderedEnabledNonSkippedComponents.Any())
-                    {
-                        logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
-
-                        requestsPersistentSource.SetRequestCompletionStatus(
-                            requestToExecute.Request.Id,
-                            deploymentRequestStatus,
-                            DateTimeOffset.Now);
-
-                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
-                        {
-                            Status = deploymentRequestStatus.ToString(),
-                            CompletedTime = DateTimeOffset.Now,
-                        });
-
-                        return;
-                    }
-
-                    var commonProperties = GetCommonProperties(
-                        environment.EnvironmentIsProd);
-
-                    foreach (var enabledNonSkippedComponent in orderedEnabledNonSkippedComponents)
-                    {
-                        try
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-
-                            var componentId = enabledNonSkippedComponent.ComponentId!.Value;
-                            var deploymentResult = deploymentResults[componentId];
-
-                            bool isSuccessful = componentProcessor.DeployComponent(
-                                enabledNonSkippedComponent,
-                                deploymentResult,
+                            requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
-                                requestToExecute.Request.IsProd,
-                                environment.EnvironmentId,
-                                environment.EnvironmentIsProd,
-                                environmentName,
-                                scriptRoot,
-                                commonProperties,
-                                cancellationToken);
+                                deploymentRequestStatus,
+                                DateTimeOffset.Now);
 
-                            if (!isSuccessful)
+                            eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
-                                deploymentRequestStatus = DeploymentRequestStatus.Failed;
+                                Status = deploymentRequestStatus.ToString(),
+                                CompletedTime = DateTimeOffset.Now,
+                            });
+
+                            return;
+                        }
+
+                        var deploymentResults = requestsPersistentSource.GetDeploymentResultsForRequest(requestToExecute.Request.Id).ToDictionary(r => r.ComponentId);
+                        foreach (var nonSkippedComponent in orderedNonSkippedComponents)
+                        {
+                            try
+                            {
+                                var componentId = nonSkippedComponent.ComponentId!.Value;
+
+                                if (!deploymentResults.ContainsKey(componentId))
+                                {
+                                    var deploymentResult = requestsPersistentSource.CreateDeploymentResult(
+                                        componentId,
+                                        requestToExecute.Request.Id);
+
+                                    deploymentResults.Add(componentId, deploymentResult);
+                                }
+                                else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed.ToString()))
+                                {
+                                    logger.LogWarning($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
+                                }
                             }
-                            if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                            catch (Exception exception)
                             {
-                                deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
+                                logger.LogError($"Deployment result cannot be created. Exception: {exception}");
+                                throw;
                             }
                         }
-                        catch (OperationCanceledException)
-                        {
-                            var currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id).Status;
-                            deploymentRequestStatus = currentDbRequestStatus != DeploymentRequestStatus.Pending.ToString()
-                                ? DeploymentRequestStatus.Cancelled
-                                : DeploymentRequestStatus.Pending;
 
-                            logger.LogInformation("Deployment of remaining components is cancelled.");
-                            break;
+                        var orderedEnabledNonSkippedComponents = orderedNonSkippedComponents
+                            .Where(component => component.IsEnabled);
+
+                        if (!orderedEnabledNonSkippedComponents.Any())
+                        {
+                            logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
+
+                            requestsPersistentSource.SetRequestCompletionStatus(
+                                requestToExecute.Request.Id,
+                                deploymentRequestStatus,
+                                DateTimeOffset.Now);
+
+                            eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                            {
+                                Status = deploymentRequestStatus.ToString(),
+                                CompletedTime = DateTimeOffset.Now,
+                            });
+
+                            return;
                         }
-                        catch (Exception exception)
+
+                        var commonProperties = GetCommonProperties(
+                            environment.EnvironmentIsProd);
+
+                        foreach (var enabledNonSkippedComponent in orderedEnabledNonSkippedComponents)
                         {
-                            deploymentRequestStatus = DeploymentRequestStatus.Failed;
-
-                            logger.LogError($"Component deployment failed. Exception: {exception}");
-
-                            while (exception.InnerException != null)
+                            try
                             {
-                                logger.LogError(exception.InnerException.ToString());
+                                cancellationToken.ThrowIfCancellationRequested();
 
-                                exception = exception.InnerException;
+                                var componentId = enabledNonSkippedComponent.ComponentId!.Value;
+                                var deploymentResult = deploymentResults[componentId];
+
+                                bool isSuccessful = componentProcessor.DeployComponent(
+                                    enabledNonSkippedComponent,
+                                    deploymentResult,
+                                    requestToExecute.Request.Id,
+                                    requestToExecute.Request.IsProd,
+                                    environment.EnvironmentId,
+                                    environment.EnvironmentIsProd,
+                                    environmentName,
+                                    scriptRoot,
+                                    commonProperties,
+                                    cancellationToken);
+
+                                if (!isSuccessful)
+                                {
+                                    deploymentRequestStatus = DeploymentRequestStatus.Failed;
+
+                                    if (enabledNonSkippedComponent.StopOnFailure)
+                                    {
+                                        logger.LogWarning(
+                                            "Deployment of remaining components is aborted due to StopOnFailure flag on component '{ComponentName}'.",
+                                            enabledNonSkippedComponent.ComponentName);
+                                        break;
+                                    }
+                                }
+                                if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                                {
+                                    deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
+                                }
                             }
-
-                            if (enabledNonSkippedComponent.StopOnFailure)
+                            catch (OperationCanceledException)
                             {
-                                logger.LogError("Deployment of remaining components is aborted.");
+                                var currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id).Status;
+                                deploymentRequestStatus = currentDbRequestStatus != DeploymentRequestStatus.Pending.ToString()
+                                    ? DeploymentRequestStatus.Cancelled
+                                    : DeploymentRequestStatus.Pending;
+
+                                logger.LogInformation("Deployment of remaining components is cancelled.");
                                 break;
                             }
+                            catch (Exception exception)
+                            {
+                                deploymentRequestStatus = DeploymentRequestStatus.Failed;
+
+                                logger.LogError($"Component deployment failed. Exception: {exception}");
+
+                                while (exception.InnerException != null)
+                                {
+                                    logger.LogError(exception.InnerException.ToString());
+
+                                    exception = exception.InnerException;
+                                }
+
+                                if (enabledNonSkippedComponent.StopOnFailure)
+                                {
+                                    logger.LogError("Deployment of remaining components is aborted.");
+                                    break;
+                                }
+                            }
                         }
+
+                        if (deploymentRequestStatus != DeploymentRequestStatus.Completed &&
+                            deploymentRequestStatus != DeploymentRequestStatus.WaitingConfirmation)
+                        {
+                            CancelPendingDeploymentResults(requestToExecute.Request.Id, deploymentRequestStatus);
+                        }
+
+                        requestsPersistentSource.SetRequestCompletionStatus(
+                            requestToExecute.Request.Id,
+                            deploymentRequestStatus,
+                            DateTimeOffset.Now);
+
+                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                        {
+                            Status = deploymentRequestStatus.ToString(),
+                            CompletedTime = DateTimeOffset.Now,
+                        });
                     }
-
-                    requestsPersistentSource.SetRequestCompletionStatus(
-                        requestToExecute.Request.Id,
-                        deploymentRequestStatus,
-                        DateTimeOffset.Now);
-
-                    eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                    catch (Exception ex)
                     {
-                        Status = deploymentRequestStatus.ToString(),
-                        CompletedTime = DateTimeOffset.Now,
-                    });
+                        var criticalLogBuilder = new StringBuilder();
+
+                        logger.LogError($"Deployment execution failure. Exception: {ex}");
+                        criticalLogBuilder.AppendLine($"Deployment execution failure. Exception: {ex}");
+
+                        var log = new StringBuilder();
+                        while (ex != null)
+                        {
+                            log.AppendLine(ex.GetType().ToString());
+                            log.AppendLine(ex.Message);
+                            log.AppendLine(ex.StackTrace);
+                            ex = ex.InnerException;
+                        }
+                        logger.LogError(log.ToString());
+                        criticalLogBuilder.AppendLine(log.ToString());
+
+                        CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+
+                        requestsPersistentSource.SetRequestCompletionStatus(
+                            requestToExecute.Request.Id,
+                            DeploymentRequestStatus.Errored,
+                            DateTimeOffset.Now,
+                            criticalLogBuilder.ToString());
+
+                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                        {
+                            Status = DeploymentRequestStatus.Errored.ToString(),
+                            CompletedTime = DateTimeOffset.Now,
+                        });
+                    }
                 }
-                catch (Exception ex)
+                catch (Exception e)
                 {
                     var criticalLogBuilder = new StringBuilder();
 
-                    logger.LogError($"Deployment execution failure. Exception: {ex}");
-                    criticalLogBuilder.AppendLine($"Deployment execution failure. Exception: {ex}");
+                    logger.LogError($"Failed while starting runner: {e}");
+                    criticalLogBuilder.AppendLine($"Failed while starting runner: {e}");
 
-                    var log = new StringBuilder();
-                    while (ex != null)
-                    {
-                        log.AppendLine(ex.GetType().ToString());
-                        log.AppendLine(ex.Message);
-                        log.AppendLine(ex.StackTrace);
-                        ex = ex.InnerException;
-                    }
-                    logger.LogError(log.ToString());
-                    criticalLogBuilder.AppendLine(log.ToString());
-                    requestsPersistentSource.SetRequestCompletionStatus(
+                    CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+
+                    requestsPersistentSource.UpdateRequestStatus(
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored,
                         DateTimeOffset.Now,
@@ -278,28 +322,46 @@ namespace Dorc.Monitor.RequestProcessors
                         Status = DeploymentRequestStatus.Errored.ToString(),
                         CompletedTime = DateTimeOffset.Now,
                     });
+
+                    return;
                 }
             }
-            catch (Exception e)
+        }
+
+        private void CancelPendingDeploymentResults(int requestId, DeploymentRequestStatus requestStatus)
+        {
+            try
             {
-                var criticalLogBuilder = new StringBuilder();
+                var pendingResults = requestsPersistentSource
+                    .GetDeploymentResultsForRequest(requestId)
+                    .Where(r => r.Status == DeploymentResultStatus.Pending.ToString())
+                    .ToList();
 
-                logger.LogError($"Failed while starting runner: {e}");
-                criticalLogBuilder.AppendLine($"Failed while starting runner: {e}");
+                if (pendingResults.Count == 0)
+                    return;
 
-                requestsPersistentSource.UpdateRequestStatus(
-                    requestToExecute.Request.Id,
-                    DeploymentRequestStatus.Errored,
-                    DateTimeOffset.Now,
-                    criticalLogBuilder.ToString());
+                logger.LogInformation(
+                    "Cancelling {Count} pending deployment results for request {RequestId} due to request status '{Status}'.",
+                    pendingResults.Count, requestId, requestStatus);
 
-                eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
+                foreach (var pendingResult in pendingResults)
                 {
-                    Status = DeploymentRequestStatus.Errored.ToString(),
-                    CompletedTime = DateTimeOffset.Now,
-                });
+                    requestsPersistentSource.UpdateResultStatus(pendingResult, DeploymentResultStatus.Cancelled);
 
-                return;
+                    eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
+                    {
+                        Status = DeploymentResultStatus.Cancelled.ToString()
+                    });
+                }
+
+                logger.LogInformation(
+                    "Cancelled {Count} pending deployment results for request {RequestId}.",
+                    pendingResults.Count, requestId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to cancel pending deployment results for request {RequestId}.", requestId);
             }
         }
 
@@ -449,6 +511,29 @@ namespace Dorc.Monitor.RequestProcessors
             propertyValuesPersistentSource.AddEnvironmentFilter(environmentName);
 
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environmentName);
-        }        
+        }
+
+        private void SetUpEnvOwnerEmailAsProperty(DeploymentRequestApiModel request)
+        {
+            var envOwnerEmail = request.EnvironmentOwnerEmail;
+
+            if (string.IsNullOrEmpty(envOwnerEmail))
+            {
+                var freshRequest = requestsPersistentSource.GetRequest(request.Id);
+                envOwnerEmail = freshRequest?.EnvironmentOwnerEmail;
+            }
+
+            if (!string.IsNullOrEmpty(envOwnerEmail))
+            {
+                _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails, envOwnerEmail);
+                logger.LogInformation("Set EnvOwnerEmails property to '{EnvOwnerEmails}' for request {RequestId}",
+                    envOwnerEmail, request.Id);
+            }
+            else
+            {
+                logger.LogWarning("EnvironmentOwnerEmails is not set on request {RequestId}, EnvOwnerEmails property will not be available.",
+                    request.Id);
+            }
+        }
     }
 }

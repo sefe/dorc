@@ -127,7 +127,7 @@ export class PageVariables extends PageElement {
         height: calc(100vh - 390px);
       }
       vaadin-grid#grid::part(variable-value-error) {
-        background-color: #ffddb7;
+        background-color: var(--dorc-highlight-bg);
       }
       vaadin-text-field {
         padding: 0px;
@@ -173,7 +173,7 @@ export class PageVariables extends PageElement {
         }}"
         ><vaadin-icon
           icon="vaadin:search"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon
       ></vaadin-button>
       ${this.radioValue === 'existing'
@@ -181,7 +181,7 @@ export class PageVariables extends PageElement {
             <vaadin-details
               opened
               summary="Select Variable Name"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
               <table>
                 <tr>
@@ -212,7 +212,7 @@ export class PageVariables extends PageElement {
                   </td>
                   <td style="vertical-align: center;">
                     <vaadin-button
-                      style="--lumo-primary-text-color: red;"
+                      style="--lumo-primary-text-color: var(--dorc-error-color);"
                       ?disabled="${!this.isAdmin ||
                       this.deletingVariable ||
                       !this.existingPropertySelected}"
@@ -242,7 +242,7 @@ export class PageVariables extends PageElement {
             <vaadin-details
               opened
               summary="Add Variable Value"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
               <table>
                 <tr>
@@ -344,7 +344,7 @@ export class PageVariables extends PageElement {
             <vaadin-details
               opened
               summary="Add Variable"
-              style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; padding-left: 10px"
+              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
               <table>
                 <tr>

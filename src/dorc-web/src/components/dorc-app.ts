@@ -2,9 +2,11 @@ import { css, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property, query } from 'lit/decorators.js';
 import '@vaadin/button';
-import { MakeLikeProdApi, RefDataRolesApi } from '../apis/dorc-api';
+import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
 import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
+import './theme-toggle.ts';
+import { themeManager } from '../theme/theme-manager.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
@@ -35,30 +37,80 @@ export class DorcApp extends ShortcutsStore {
   static get styles() {
     return css`
       :host {
+        --header-height: 50px;
         display: inline;
         height: 100%;
         margin: 0;
-        background: black;
+        background: var(--dorc-bg-primary);
         font-family: Arial, monospace;
       }
 
       #header {
-        height: 50px;
+        height: var(--header-height);
         display: flex;
         align-items: center;
-        background: #f5f6f8;
-        color: #bbbbbb;
+        gap: 8px;
+        padding: 0 12px;
+        background: var(--dorc-bg-secondary);
+        color: var(--dorc-text-secondary);
+        box-sizing: border-box;
+      }
+
+      #header .menu-btn {
+        flex-shrink: 0;
+      }
+
+      #header .mascot {
+        height: 65px;
+        padding: 3px 0;
+        flex-shrink: 0;
+      }
+
+      #header .app-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--dorc-text-primary);
+        white-space: nowrap;
+      }
+
+      #header .env-warning {
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 4px;
+        color: #fff;
+        background: var(--dorc-error-color);
+        white-space: nowrap;
+      }
+
+      #header .spacer {
+        flex: 1 1 auto;
+      }
+
+      #header .user-info {
+        flex-shrink: 0;
+        text-align: right;
+        font-size: 0.75rem;
+        color: var(--dorc-text-secondary);
+        line-height: 1.4;
+      }
+
+      #header .header-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--dorc-link-color);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      #header .header-link:hover {
+        text-decoration: underline;
       }
 
       #page {
         display: flex;
-        height: calc(100vh - 30px);
-        /* calculate the height. Header is 30px */
-      }
-
-      #sideBar {
-        width: 300px;
-        background: blue;
+        height: calc(100vh - var(--header-height));
       }
 
       #splitter {
@@ -69,11 +121,11 @@ export class DorcApp extends ShortcutsStore {
         top: 0;
         right: 0;
         bottom: 0;
-        background-color: #f5f6f8;
+        background-color: var(--dorc-bg-secondary);
       }
 
       #page-content {
-        background: white;
+        background: var(--dorc-bg-primary);
         overflow-x: scroll;
         overflow-y: hidden;
         width: 100%;
@@ -83,49 +135,52 @@ export class DorcApp extends ShortcutsStore {
 
   @property() userEmail = '';
   @property() userRoles = '';
+  @property() dorcEnv = '';
 
   @query('#splitter') splitter!: HTMLDivElement;
 
   render() {
     return html`
-      <div id="header">
+      <header id="header" role="banner">
         <vaadin-button
+          class="menu-btn"
           theme="icon"
           aria-label="Toggle Menu"
-          style="padding: 5px; margin-left: 10px"
           @click="${this.toggleSideBar}"
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
         </vaadin-button>
         <img
+          class="mascot"
           src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png"
-          style="height: 65px; padding: 3px"
           alt="DOrc mascot"
         />
-        <h2 style="padding: 5px;  color: black" title="DevOps Orchestrator">
-          DOrc
-        </h2>
-
-        <div style="width: calc(100% - 800px)"></div>
-        <table style="color: #747f8d; font-size: x-small">
-          <tr>
-            ${this.userEmail}
-          </tr>
-          <tr>
-            ${this.userRoles}
-          </tr>
-        </table>
-        <vaadin-button ?hidden="${!this.showSignOutButton}" @click="${this.signOut}">Sign Out</vaadin-button>
+        ${appConfig.isProduction
+          ? html`<span class="app-title" title="DevOps Orchestrator">DOrc</span>`
+          : html`<span class="env-warning" title="DevOps Orchestrator"
+              >${this.dorcEnv} - Non-Prod Instance</span
+            >`}
+        <div class="spacer"></div>
+        <div class="user-info">
+          <div>${this.userEmail}</div>
+          <div>${this.userRoles}</div>
+        </div>
+        <vaadin-button
+          ?hidden="${!this.showSignOutButton}"
+          @click="${this.signOut}"
+          >Sign Out</vaadin-button
+        >
+        <theme-toggle></theme-toggle>
         <a
-          class="plain"
+          class="header-link"
           href="${this.dorcHelperPage}"
           target="_blank"
-          style="padding-left: 10px"
+          rel="noopener noreferrer"
         >
           <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
           Help
         </a>
-      </div>
+      </header>
 
       <div id="page">
         <dorc-navbar id="dorcNavbar"></dorc-navbar>
@@ -139,8 +194,10 @@ export class DorcApp extends ShortcutsStore {
 
   constructor() {
     super();
+    themeManager.init();
     this.getUserEmail();
     this.getUserRoles();
+    this.getDorcEnv();
     this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
@@ -190,6 +247,16 @@ export class DorcApp extends ShortcutsStore {
         this.userEmail = value;
       },
       error: (err: string) => console.error(err),
+    });
+  }
+
+  private getDorcEnv() {
+    const api = new MetadataApi();
+    api.metadataGet().subscribe({
+      next: (data: string) => {
+        this.dorcEnv = data.split('-')[0].trim();
+      },
+      error: (err: string) => console.error(err)
     });
   }
 

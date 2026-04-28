@@ -39,19 +39,48 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
+                    var detailFilters = operators.Filters
+                        .Where(f => f != null && (f.Path == "Project" || f.Path == "EnvironmentName" || f.Path == "BuildNumber"))
+                        .ToList();
+
+                    var hasDistinctDetailValues = detailFilters
+                        .Select(f => f.FilterValue)
+                        .Where(v => !string.IsNullOrEmpty(v))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count() > 1;
+
                     var filterLambdas =
                         new List<Expression<Func<DeploymentRequestApiModel, bool>>>();
                     foreach (var pagedDataFilter in operators.Filters)
                     {
                         if (pagedDataFilter == null)
                             continue;
-                        if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
-                            pagedDataFilter.Path == "BuildNumber") // this isn't pleasant but given this is built specifically for the UI
+
+                        // For env specific monitor
+                        if (pagedDataFilter.Path == "EnvironmentNameExact")
                         {
+                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
+                                pagedDataFilter.FilterValue);
+                            if (containsExpression != null)
+                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                            continue;
+                        }
+
+                        if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
+                            pagedDataFilter.Path == "BuildNumber")
+                        {
+                            if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                                continue;
+
                             var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
                                 pagedDataFilter.FilterValue);
                             if (containsExpression != null)
-                                filterLambdas.Add(containsExpression);
+                            {
+                                if (hasDistinctDetailValues)
+                                    reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                                else
+                                    filterLambdas.Add(containsExpression);
+                            }
                             continue;
                         }
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
@@ -145,11 +174,6 @@ namespace Dorc.PersistentData.Sources
             var reqStatusesQueryable = from req in context.DeploymentRequests
                                        join environment in context.Environments on req.Environment equals
                                            environment.Name
-                                       let isDelegate =
-                                           (from envDetail in context.Environments
-                                            join env in context.Environments on envDetail.Name equals env.Name
-                                            where env.Name == environment.Name && envDetail.Users.Select(u => u.LoginId).Contains(userName)
-                                            select envDetail.Name).Any()
                                        let permissions =
                                            (from env in context.Environments
                                             join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
@@ -178,7 +202,7 @@ namespace Dorc.PersistentData.Sources
                                            UncLogPath = req.UncLogPath,
                                            CancelledBy = req.CancelledBy,
                                            CancelledTime = req.CancelledTime,
-                                           UserEditable = isOwner || isDelegate || isPermissioned
+                                           UserEditable = isOwner  || isPermissioned
                                        };
 
             //var sql = reqStatusesQueryable.ToString();

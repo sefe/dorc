@@ -18,6 +18,8 @@ namespace Dorc.Api.Controllers
     [SupportedOSPlatform("windows")]
     public sealed class AccessControlController : ControllerBase
     {
+        private const int AC_ALLOW_READ_SECRETS = 2;
+
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
         private readonly IActiveDirectorySearcher _adSearcher;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
@@ -55,6 +57,16 @@ namespace Dorc.Api.Controllers
                                    _securityPrivilegesChecker.CanModifyEnvironment(User, accessControlName) ||
                                   accessControlType == AccessControlType.Project &&
                                    _securityPrivilegesChecker.CanModifyProject(User, accessControlName);
+
+            output.UserIsOwner = accessControlType == AccessControlType.Environment &&
+                                  _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, accessControlName) ||
+                                 accessControlType == AccessControlType.Project &&
+                                  _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
+
+            output.UserCanReadSecrets = accessControlType == AccessControlType.Environment &&
+                                        _securityPrivilegesChecker.CanReadSecrets(User, accessControlName) ||
+                                        accessControlType == AccessControlType.Project &&
+                                        _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
 
             return StatusCode(StatusCodes.Status200OK, output);
         }
@@ -103,6 +115,30 @@ namespace Dorc.Api.Controllers
                 accessControl.Type == AccessControlType.Project &&
                  _securityPrivilegesChecker.CanModifyProject(User, accessControl.Name))
             {
+                // Prevent users without read-secrets privilege from granting it
+                var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment
+                    ? _securityPrivilegesChecker.CanReadSecrets(User, accessControl.Name)
+                    : _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControl.Name);
+
+                if (!requestingUserCanReadSecrets)
+                {
+                    var existingPrivileges = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                        .ToDictionary(p => p.Id);
+
+                    foreach (var privilege in accessControl.Privileges)
+                    {
+                        var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
+                        var hadReadSecretsBefore = existingPrivileges.TryGetValue(privilege.Id, out var existing)
+                            && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
+
+                        if (hasReadSecrets && !hadReadSecretsBefore)
+                        {
+                            return StatusCode(StatusCodes.Status403Forbidden,
+                                "You do not have permission to grant Read Secrets access.");
+                        }
+                    }
+                }
+
                 // For environments, ensure at least one owner remains
                 if (accessControl.Type == AccessControlType.Environment)
                 {
@@ -119,6 +155,13 @@ namespace Dorc.Api.Controllers
                     {
                         return StatusCode(StatusCodes.Status400BadRequest,
                             "Cannot remove all owners from an environment. At least one owner must remain.");
+                    }
+
+                    // Enforce maximum of 2 owners
+                    if (newOwners.Count > 2)
+                    {
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "An environment cannot have more than 2 owners.");
                     }
                 }
 

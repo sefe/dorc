@@ -23,18 +23,7 @@ BEGIN
             WHEN e1.Owner = @username THEN 1
             ELSE 0
         END AS IsOwner,
-        CASE
-            WHEN EXISTS (
-                SELECT e.Id
-                FROM deploy.environment e
-                INNER JOIN deploy.Environment ed ON e.Name = ed.Name
-                INNER JOIN deploy.EnvironmentDelegatedUser edm ON edm.EnvID = ed.ID
-                INNER JOIN dbo.USERS u ON u.User_ID = edm.UserID
-                WHERE e.Name = ISNULL(@env, e1.Name)  -- Use @env if provided, otherwise use e1.Name
-                  AND u.Login_ID = @username
-            ) THEN 1
-            ELSE 0
-        END AS IsDelegate,
+        0 AS IsDelegate,
         CASE
             WHEN EXISTS (
                 SELECT e.Id

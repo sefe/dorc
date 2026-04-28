@@ -1,4 +1,4 @@
-name: DOrc Release Build
+name: DOrc Build
 
 on:
   push:
@@ -29,22 +29,22 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: src/dorc-web/package-lock.json
         
     - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@v3
       
     - name: Install WiX Toolset
       run: |
@@ -120,7 +120,7 @@ jobs:
         }
       
     - name: Cache NuGet packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
@@ -144,10 +144,14 @@ jobs:
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
         
-        # Find test assemblies, excluding integration tests that require external dependencies
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
-          Where-Object { 
-            $_.FullName -notmatch "\\obj\\" -and 
+        # Find test assemblies. Only the plural "*Tests.dll" suffix — the singular
+        # "*Test.dll" picks up non-test projects (Tools.RabbitMqOAuthTest is a console
+        # exe with no testhost, Org.OpenAPITools.Test is an empty auto-generated client),
+        # which crashed VSTest's parallel manager with "Could not find testhost".
+        # IntegrationTests and Acceptance are excluded — they need external resources.
+        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll" |
+          Where-Object {
+            $_.FullName -notmatch "\\obj\\" -and
             $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
@@ -274,7 +278,7 @@ jobs:
         }
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: dorc-release-${{ steps.version.outputs.VERSION }}
         path: artifacts/

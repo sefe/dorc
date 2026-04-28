@@ -134,10 +134,10 @@ export class PageAbout extends PageElement {
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
       }
       .card-element__heading {
-        color: #ff3131;
+        color: var(--dorc-error-color);
       }
       .card-element__text {
-        color: gray;
+        color: var(--dorc-text-secondary);
       }
 
       .statistics-cards {

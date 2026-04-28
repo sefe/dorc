@@ -57,9 +57,9 @@ namespace Dorc.PersistentData.Sources
                     {
                         server.Environments.Remove(environmentDetail);   
                     }
-                    foreach (var daemon in server.Services.ToList())
+                    foreach (var daemon in server.Daemons.ToList())
                     {
-                        server.Services.Remove(daemon);   
+                        server.Daemons.Remove(daemon);
                     }
                 }
 
@@ -196,7 +196,7 @@ namespace Dorc.PersistentData.Sources
                                         select envPrivilegeInfos[environmentDetail.Name]
                                             into privilegeInfo
                                         where privilegeInfo != null
-                                        select privilegeInfo.IsOwner || privilegeInfo.HasPermission || privilegeInfo.IsDelegate ||
+                                        select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                                isAdmin).All(e => e)
                     }).ToList()
                 };
@@ -250,7 +250,7 @@ namespace Dorc.PersistentData.Sources
                                  select envPrivilegeInfos[environmentDetail.Name]
                     into privilegeInfo
                                  where privilegeInfo != null
-                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission || privilegeInfo.IsDelegate ||
+                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
                 serverApiModel.UserEditable = totalEdit.All(e => e);
@@ -283,7 +283,7 @@ namespace Dorc.PersistentData.Sources
                                  select envPrivilegeInfos[environmentDetail.Name]
                     into privilegeInfo
                                  where privilegeInfo != null
-                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission || privilegeInfo.IsDelegate ||
+                                 select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
                 serverApiModel.UserEditable = totalEdit.All(e => e);

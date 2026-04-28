@@ -17,8 +17,6 @@ import { PageElement } from '../helpers/page-element';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
-import '../components/project-audit-data'
-import { ProjectAuditData } from '../components/project-audit-data';
 import '../components/confirm-dialog';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
@@ -46,7 +44,6 @@ export class PageProjectsList extends PageElement {
 
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
-  @query('#open-project-audit-control') projectAuditData!: ProjectAuditData;
 
   @query('#confirm-delete-dialog') confirmDeleteDialog!: ConfirmDialog;
 
@@ -97,10 +94,6 @@ export class PageProjectsList extends PageElement {
       'open-access-control',
       this.openAccessControl as EventListener
     );
-    this.addEventListener(
-      'open-project-audit-data',
-      this.openProjectAuditData as EventListener
-    );
     this.addEventListener('project-added', this.projectAdded as EventListener);
     this.addEventListener(
       'project-updated',
@@ -129,7 +122,7 @@ export class PageProjectsList extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 115px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       .overlay {
         width: 100%;
@@ -152,8 +145,8 @@ export class PageProjectsList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -189,7 +182,7 @@ export class PageProjectsList extends PageElement {
         >
           <vaadin-icon
             icon="vaadin:archive"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add Project...
         </vaadin-button>
@@ -205,12 +198,6 @@ export class PageProjectsList extends PageElement {
         id="add-edit-access-control"
         .secureName="${this.secureName}"
       ></add-edit-access-control>
-
-      <project-audit-data
-        id="open-project-audit-control"
-        .project="${this.selectedProject}"
-      >
-      </project-audit-data>
 
       ${this.loading
         ? html`
@@ -273,14 +260,6 @@ export class PageProjectsList extends PageElement {
     addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_0);
   }
 
-  openProjectAuditData(e: CustomEvent) {
-    const project = e.detail.Project as ProjectApiModel;
-    this.selectedProject = project;
-    this.projectAuditData.project = project;
-    this.projectAuditData.open();
-    // this.addEditProject.project = project;
-    // this.addEditProject.open();
-  }
 
   _projectEnvsButtonsRenderer(
     root: HTMLElement,

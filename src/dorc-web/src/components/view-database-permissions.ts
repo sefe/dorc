@@ -64,7 +64,7 @@ export class ViewDatabasePermissions extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
     };
     return html`
       <div>            
