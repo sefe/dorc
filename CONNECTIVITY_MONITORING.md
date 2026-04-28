@@ -31,11 +31,11 @@ The Status column in both the Servers and Databases list views displays:
 - ✅ **Green check + "Online"**: Resource is currently reachable
   - Tooltip shows: "Last checked: [timestamp]"
 
-- ❌ **Red X + "Offline"**: Resource was unreachable in the last check
-  - Tooltip shows: "Last checked: [timestamp]"
+- ⚠️ **Yellow exclamation + "Unreachable"**: Resource was unreachable in the last check, with `UnreachableSince` less than 7 days ago
+  - Tooltip shows: "Unreachable since: [timestamp]"
 
-- ⚠️ **Orange warning + "Unreachable (7+ days)"**: Resource has been unreachable for 7 or more days
-  - Tooltip shows: "Not reachable since: [timestamp]"
+- 🟧 **Orange warning + "Unreachable (7+ days)"**: Resource has been unreachable for 7 or more days
+  - Tooltip shows: "Unreachable since: [timestamp]"
   - This indicates the resource may need attention or may have been decommissioned
 
 - ⚪ **Gray "Not checked"**: Connectivity has not been checked yet
@@ -113,11 +113,8 @@ The connectivity service logs:
 
 **Log Location**: Check the Dorc.Monitor application logs
 
-**Example Log Messages**:
+**Example Log Messages** (representative emissions; exact phrasing is in `ConnectivityCheckService.cs`):
 ```
-INFO  - Connectivity Check Service is starting. Check interval: 60 minutes.
-INFO  - Waiting 30 seconds before first connectivity check...
-INFO  - Initial delay completed. Starting connectivity checks...
 INFO  - Starting connectivity check cycle...
 INFO  - Starting server connectivity check for 42 servers in batches of 100...
 INFO  - Processed 42/42 servers...
@@ -127,31 +124,35 @@ WARN  - Database AppDB on PROD-SQL-01 (ID: 456) is not reachable.
 INFO  - Processed 18/18 databases...
 INFO  - Completed connectivity check for 18 databases.
 INFO  - Connectivity check cycle completed.
-INFO  - Waiting 60 minutes until next connectivity check...
+```
+
+**Cancellation / shutdown**:
+```
+INFO  - Connectivity check cycle cancelled.
+INFO  - Connectivity Check Service stopping.
+INFO  - Connectivity Check Service has stopped.
 ```
 
 **Disabled Service**:
 ```
-INFO  - Connectivity Check Service is disabled in configuration.
+WARN  - Connectivity Check Service is DISABLED in configuration. Service will not run.
 ```
 
 ## Troubleshooting
 
 ### Service Not Starting
-- Check if `EnableConnectivityCheck` is set to `"true"` (lowercase) in `appsettings.json`
-- The setting is **case-insensitive** - use `"true"` or `"True"` (both work)
-- Review logs for the message: "Connectivity Check Service is disabled in configuration."
+- Check if `EnableConnectivityCheck` is set to `"True"` in `appsettings.json` (case-insensitive — `"true"` / `"True"` / `"TRUE"` all work; any value that is null, missing, empty, or non-boolean is treated as disabled)
+- Review logs for the message: "Connectivity Check Service is DISABLED in configuration. Service will not run."
 - Verify the Monitor service has the necessary configuration settings
 - The service waits 30 seconds before the first check (initial delay is intentional)
-- If you see "Connectivity Check Service was cancelled during initial delay", the service is being stopped during startup - this should not happen with the reduced 30-second delay
-- Check debug logs for configuration value: "EnableConnectivityCheck configuration value: 'True' -> True"
+- If you see "Connectivity Check Service cancelled during initial delay.", the service was stopped during startup
 
-### Servers Always Showing as Offline
-- Verify the Dorc.Monitor service has network access to ping the servers
-- Check if ICMP (ping) is blocked by firewalls
+### Servers Always Showing as Unreachable
+- Verify the Dorc.Monitor service has network access to the servers
+- ICMP probe blocked? The service falls back to a TCP/445 (SMB) connect; if both probes fail, the host is reported as unreachable. Check that either ICMP or SMB/445 is reachable from the Monitor host
 - Ensure server names are correct and resolve via DNS
 
-### Databases Always Showing as Offline
+### Databases Always Showing as Unreachable
 - Verify the Dorc.Monitor service account has SQL Server login permissions
 - Check if SQL Server is running and accepting connections
 - Ensure Windows Authentication is configured correctly
@@ -162,7 +163,6 @@ INFO  - Connectivity Check Service is disabled in configuration.
 - Check the Monitor service logs for errors
 - Ensure `EnableConnectivityCheck` is set to `"True"` in appsettings.json
 - Verify only ONE Monitor instance has connectivity checking enabled
-- Look for the initial 2-minute delay message in logs
 
 ### Status Not Updating in UI
 - Refresh the browser page
@@ -177,7 +177,7 @@ INFO  - Connectivity Check Service is disabled in configuration.
 
 ## Security Considerations
 
-- Server checks use ICMP ping only - no credentials required
+- Server checks use ICMP ping with a TCP/445 (SMB) fallback when ICMP is blocked - no credentials required
 - Database checks use integrated security (Windows Authentication)
 - No passwords or credentials are stored or logged
 - Connection failures are handled gracefully without exposing sensitive details

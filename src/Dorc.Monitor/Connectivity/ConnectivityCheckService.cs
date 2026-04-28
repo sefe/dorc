@@ -70,7 +70,7 @@ namespace Dorc.Monitor.Connectivity
                         _logger.LogInformation("Connectivity check cycle cancelled.");
                         break;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         _logger.LogError(ex, "Error during connectivity check cycle");
                     }
@@ -114,20 +114,21 @@ namespace Dorc.Monitor.Connectivity
                 {
                     var servers = serversPersistentSource.GetServersForConnectivityCheckBatch(skip, batchSize);
 
-                    foreach (var server in servers)
+                    foreach (var server in servers.Where(s => !string.IsNullOrWhiteSpace(s.Name)))
                     {
-                        if (string.IsNullOrWhiteSpace(server.Name))
-                            continue;
-
                         try
                         {
-                            var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name);
+                            var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name!);
                             serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, now);
 
                             if (!isReachable)
                             {
                                 _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", SanitizeForLog(server.Name), server.Id);
                             }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -142,6 +143,10 @@ namespace Dorc.Monitor.Connectivity
                 }
 
                 _logger.LogInformation("Completed connectivity check for {Processed} servers.", processedCount);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -170,20 +175,21 @@ namespace Dorc.Monitor.Connectivity
                 {
                     var databases = databasesPersistentSource.GetDatabasesForConnectivityCheckBatch(skip, batchSize);
 
-                    foreach (var database in databases)
+                    foreach (var database in databases.Where(d => !string.IsNullOrWhiteSpace(d.ServerName) && !string.IsNullOrWhiteSpace(d.Name)))
                     {
-                        if (string.IsNullOrWhiteSpace(database.ServerName) || string.IsNullOrWhiteSpace(database.Name))
-                            continue;
-
                         try
                         {
-                            var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName, database.Name);
+                            var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName!, database.Name!);
                             databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, now);
 
                             if (!isReachable)
                             {
                                 _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
                             }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -198,6 +204,10 @@ namespace Dorc.Monitor.Connectivity
                 }
 
                 _logger.LogInformation("Completed connectivity check for {Processed} databases.", processedCount);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
