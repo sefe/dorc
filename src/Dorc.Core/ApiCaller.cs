@@ -8,11 +8,6 @@ using System.Text.Json;
 
 namespace Dorc.Core
 {
-    public class ContentResponse
-    {
-        public string Message { get; set; } = default!;
-    }
-
     public interface IApiCaller
     {
         ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string> segments = null, string body = null) where T : class;
@@ -65,20 +60,8 @@ namespace Dorc.Core
                 }
                 else
                 {
-                    if (response.ContentType != null
-                        && response.ContentType.Contains(ContentType.Json))
-                    {
-                        ContentResponse? contentResponse = JsonSerializer.Deserialize<ContentResponse>(responseContent);
-                        if (contentResponse != null)
-                        {
-                            result.ErrorMessage = contentResponse.Message;
-                        }
-                    }
-                    else
-                    {
-                        result.ErrorMessage = responseContent;
-                    }
                     result.IsModelValid = false;
+                    result.ErrorMessage = responseContent.Trim('"');
                 }
             }
             catch (Exception e)
