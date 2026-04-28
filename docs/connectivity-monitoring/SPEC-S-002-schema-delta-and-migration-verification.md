@@ -2,14 +2,14 @@
 name: SPEC-S-002 — Schema delta + migration verification
 description: JIT Specification for S-002 — adds DATABASE.CreateDate (the #593 piggyback) on top of the connectivity columns already on the post-merge PR #374 tip, then dry-deploys the cumulative SSDT delta against a production-shape DB to resolve HLPS U-7.
 type: spec
-status: IN REVIEW
+status: APPROVED
 ---
 
 # SPEC-S-002 — Schema delta + migration verification
 
 | Field | Value |
 |---|---|
-| **Status** | IN REVIEW (R2) |
+| **Status** | APPROVED — Pending user approval |
 | **Step** | S-002 |
 | **Author** | Agent |
 | **Date** | 2026-04-28 |
@@ -77,13 +77,14 @@ No edit. `src/Dorc.Database/dbo/Tables/DATABASE.sql` is already a `<Build Includ
 
 **S-002 itself adds no Pre-Deployment or Post-Deployment script.** The S-002 source change is column-only.
 
-However, the **cumulative DACPAC** that the operator publishes against the production-shape snapshot in §3 carries everything currently in tree at the post-merge tip `7bfee34e`, including:
+However, the **cumulative DACPAC** that the operator publishes against the production-shape snapshot in §3 will execute every pre/post-deploy script that is `:r`-chained from `Script.PreDeployment.sql` / `Script.PostDeployment.sql`. The currently-chained scripts at post-merge tip `7bfee34e` are:
 
-- `src/Dorc.Database/Scripts/Pre-Deployment/StageServicesForMigration.sql` (PR #651 daemons-modernisation — stages legacy `dbo.SERVICE` rows before the schema phase drops the table).
-- `src/Dorc.Database/Scripts/Post-Deployment/MigrateStagedServicesToDaemons.sql` (PR #651 daemons-modernisation — copies staged rows into `deploy.Daemon` after the schema phase).
-- `src/Dorc.Database/Scripts/Post-Deployment/SeedRefDataAuditActions.sql` (PR #651 audit-action seed).
-- `src/Dorc.Database/Scripts/Post-Deployment/CleanupOrphanedScripts.sql` (long-standing housekeeping).
-- `src/Dorc.Database/Scripts/Pre-Deployment/AddCancelledFieldsToArchiveDeploymentRequests.sql` (long-standing).
+- **Pre**: `src/Dorc.Database/Scripts/Pre-Deployment/StageServicesForMigration.sql` (PR #651 daemons-modernisation — stages legacy `dbo.SERVICE` rows before the schema phase drops the table).
+- **Post**: `src/Dorc.Database/Scripts/Post-Deployment/MigrateStagedServicesToDaemons.sql` (PR #651 — copies staged rows into `deploy.Daemon` after the schema phase).
+- **Post**: `src/Dorc.Database/Scripts/Post-Deployment/SeedRefDataAuditActions.sql` (PR #651 audit-action seed).
+- **Post**: `src/Dorc.Database/Scripts/Post-Deployment/CleanupOrphanedScripts.sql` (long-standing housekeeping).
+
+Note: `src/Dorc.Database/Scripts/Pre-Deployment/AddCancelledFieldsToArchiveDeploymentRequests.sql` is also bundled in the SQLProj as a `<None Include>` but is **not currently `:r`-chained** from `Script.PreDeployment.sql` and therefore **does not execute** on publish. Dormant in-tree files like this one are out of scope for the §3 schema-action checklist.
 
 These scripts are **already on `main`** (PR #651 merged 2026-04-24). If the operator's production-shape snapshot was taken **before** that merge, the publish will execute the daemons rename + data migration alongside the S-002 column add — which is in scope for U-7 (clean apply, no manual DBA steps). If the snapshot was taken **after**, the daemons scripts re-run idempotently (each is guarded by `IF OBJECT_ID … IS NOT NULL` per the daemons SPEC-S-002).
 
@@ -132,7 +133,7 @@ If the operator's pipeline / IDE setup deviates from any of these, the run-log m
 
 2. **Publish the SSDT project** against the snapshot DB using `sqlpackage /Action:Publish` (or VS / pipeline equivalent) with the publish-profile settings above. Record the full sqlpackage command line (or the IDE's publish summary equivalent) into §6.
 
-3. **Confirm clean apply**: the publish completes without errors, without `BlockOnPossibleDataLoss` triggering, and without the operator needing to hand-run any fix-up script. The publish log is captured **verbatim** in §6 (truncating only the row-by-row "Update complete." chatter).
+3. **Confirm clean apply**: the publish completes without errors, without `BlockOnPossibleDataLoss` triggering, and without the operator needing to hand-run any fix-up script. The publish log is captured **verbatim** in §6 — preserve all schema-action lines, all error/warning lines, and the final summary; truncate only the row-by-row per-object chatter (e.g. sqlpackage's "Update complete."; the IDE's "Object updated" messages; pipeline-equivalent verbose noise).
 
 4. **Verify the schema-action set against the expected list**. The seven additive operations expected are (tick each in §6):
 
@@ -364,6 +365,16 @@ R1 conducted by three reviewers in parallel (clarity/completeness, risk/feasibil
 
 After this revision, status returns to `IN REVIEW` for R2. R2 reviewers must verify R1 fixes, check for regressions, and (per CLAUDE.local.md §4 Re-Review Scoping) NOT mine for new findings on R1 text that was implicitly accepted.
 
-### R2 — IN REVIEW → (pending)
+### R2 — IN REVIEW → APPROVED
 
-(R2 to be added after resubmission)
+R2 conducted by the same panel. Outcomes:
+
+| Reviewer | Lens | Outcome | Notes |
+|---|---|---|---|
+| A | Clarity / completeness | `APPROVE` | All seven F-A R1 findings verified resolved with no clarity/completeness regressions. Spot-checks of F-B1 / F-E1 / F-B5 / F-B6 fixes confirmed internally consistent. |
+| B | Risk / feasibility | `APPROVE_WITH_FIXES` | All seven F-B R1 findings verified resolved. One LOW regression: **R2-B1** — §3.2 step 3 "Update complete. chatter" truncation guidance assumed sqlpackage CLI verbosity; reworded to apply to per-object chatter generally across CLI/IDE/pipeline log formats. |
+| C | Evidence rigour | `APPROVE_WITH_FIXES` | All four F-C and three F-E R1 findings verified resolved. §6 template walked end-to-end against A4 — every evidence requirement has a corresponding non-empty slot. One LOW regression: **R2-C1** — §2.3's enumeration of `AddCancelledFieldsToArchiveDeploymentRequests.sql` as a "long-standing pre-deploy script" was misleading because that file is in-tree but not chained from `Script.PreDeployment.sql` and does not execute on publish. §2.3 now lists only the four `:r`-chained scripts and explicitly notes the dormant file is out of scope for §3's schema-action checklist. |
+
+Both R2 LOW findings (R2-B1, R2-C1) accepted and applied as one-line clarifications. No new claims were introduced that needed independent verification.
+
+**Unanimous approval reached at R2 (cycle limit not exceeded — used 2 of 3 rounds).** Status transitions to `APPROVED — Pending user approval` per CLAUDE.local.md §2 Document Status Lifecycle.
