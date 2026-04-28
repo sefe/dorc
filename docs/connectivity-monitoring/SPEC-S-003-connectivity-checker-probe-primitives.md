@@ -2,14 +2,14 @@
 name: SPEC-S-003 — ConnectivityChecker probe primitives (U-1 fallback)
 description: JIT Specification for S-003 — adds TCP/445 fallback to the server probe so ICMP-blocked but reachable hosts no longer show as unreachable. Pure logic with unit tests; no persistence, no hosting, no DI wiring.
 type: spec
-status: IN REVIEW
+status: APPROVED
 ---
 
 # SPEC-S-003 — `ConnectivityChecker` probe primitives (U-1 fallback)
 
 | Field | Value |
 |---|---|
-| **Status** | IN REVIEW (R2) |
+| **Status** | APPROVED — Pending user approval |
 | **Step** | S-003 |
 | **Author** | Agent |
 | **Date** | 2026-04-28 |
@@ -281,6 +281,14 @@ R1 conducted by three reviewers in parallel (clarity/completeness, risk/feasibil
 
 After this revision, status returns to `IN REVIEW` for R2.
 
-### R2 — IN REVIEW → (pending)
+### R2 — IN REVIEW → APPROVED
 
-(R2 to be added after resubmission)
+R2 conducted by the same panel. All three reviewers returned `APPROVE`:
+
+| Reviewer | Lens | Outcome | Notes |
+|---|---|---|---|
+| A | Clarity / completeness | `APPROVE` | All seven F-A R1 findings either VERIFIED in §2/§3/§6/§7/§8 with adequate surgical text changes, or DEFERRED with sound rationale (F-A5 short-circuit ordering; F-A7 cancellation semantics). No regressions. |
+| B | Risk / feasibility | `APPROVE` | All five F-B R1 findings VERIFIED FIXED. Spot-checks of `Task.WhenAny`/`Task.Delay` pattern naming, race-loser disposal, seam-as-mock-target consistency, and §7 risk additions all clean. No regressions. |
+| C | Evidence rigour | `APPROVE` | All five E-* R1 findings VERIFIED FIXED. New factual claim ("Windows default DNS query timeout 15 s with retries") spot-checked as directionally accurate and non-load-bearing. No new hallucinations introduced. |
+
+**Unanimous approval reached at R2 (2 of 3 rounds used).** Status transitions to `APPROVED — Pending user approval` per CLAUDE.local.md §2 Document Status Lifecycle.
