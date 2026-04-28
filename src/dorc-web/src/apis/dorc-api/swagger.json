@@ -661,6 +661,138 @@
         }
       }
     },
+    "/DaemonObservation": {
+      "get": {
+        "tags": [
+          "DaemonObservation"
+        ],
+        "parameters": [
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DaemonAudit": {
+      "put": {
+        "tags": [
+          "DaemonAudit"
+        ],
+        "parameters": [
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDaemonAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDaemonAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ConfigValues": {
       "get": {
         "tags": [
@@ -778,7 +910,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ServiceStatusApiModel"
+                    "$ref": "#/components/schemas/DaemonStatusApiModel"
                   }
                 }
               },
@@ -786,7 +918,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ServiceStatusApiModel"
+                    "$ref": "#/components/schemas/DaemonStatusApiModel"
                   }
                 }
               }
@@ -802,17 +934,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceStatusApiModel"
+                "$ref": "#/components/schemas/DaemonStatusApiModel"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceStatusApiModel"
+                "$ref": "#/components/schemas/DaemonStatusApiModel"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceStatusApiModel"
+                "$ref": "#/components/schemas/DaemonStatusApiModel"
               }
             }
           }
@@ -823,12 +955,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ServiceStatusApiModel"
+                  "$ref": "#/components/schemas/DaemonStatusApiModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ServiceStatusApiModel"
+                  "$ref": "#/components/schemas/DaemonStatusApiModel"
                 }
               }
             }
@@ -874,7 +1006,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ServiceStatusApiModel"
+                    "$ref": "#/components/schemas/DaemonStatusApiModel"
                   }
                 }
               },
@@ -882,7 +1014,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ServiceStatusApiModel"
+                    "$ref": "#/components/schemas/DaemonStatusApiModel"
                   }
                 }
               }
@@ -7347,6 +7479,47 @@
         }
       }
     },
+    "/ServerDaemons/by-daemon/{daemonId}": {
+      "get": {
+        "tags": [
+          "ServerDaemons"
+        ],
+        "parameters": [
+          {
+            "name": "daemonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ServerDaemons": {
       "post": {
         "tags": [
@@ -7584,6 +7757,9 @@
             "type": "boolean"
           },
           "UserIsOwner": {
+            "type": "boolean"
+          },
+          "UserCanReadSecrets": {
             "type": "boolean"
           },
           "Privileges": {
@@ -8031,6 +8207,92 @@
             "nullable": true
           },
           "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "LastSeenDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "LastSeenStatus": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaemonObservationApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ServerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DaemonId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ObservedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ObservedStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaemonAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "DaemonId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DaemonName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
             "type": "string",
             "nullable": true
           }
@@ -8749,6 +9011,56 @@
         },
         "additionalProperties": false
       },
+      "GetDaemonObservationListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DaemonObservationApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDaemonAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DaemonAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "GetRefDataAuditListResponseDto": {
         "type": "object",
         "properties": {
@@ -9323,7 +9635,8 @@
           },
           "ProjectId": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "nullable": true
           },
           "Project": {
             "$ref": "#/components/schemas/ProjectApiModel"
@@ -9345,6 +9658,10 @@
             "format": "date-time"
           },
           "Json": {
+            "type": "string",
+            "nullable": true
+          },
+          "PriorJson": {
             "type": "string",
             "nullable": true
           }
@@ -9575,22 +9892,26 @@
         },
         "additionalProperties": false
       },
-      "ServiceStatusApiModel": {
+      "DaemonStatusApiModel": {
         "type": "object",
         "properties": {
           "ServerName": {
             "type": "string",
             "nullable": true
           },
-          "ServiceName": {
+          "DaemonName": {
             "type": "string",
             "nullable": true
           },
-          "ServiceStatus": {
+          "Status": {
             "type": "string",
             "nullable": true
           },
           "EnvName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
             "type": "string",
             "nullable": true
           }
