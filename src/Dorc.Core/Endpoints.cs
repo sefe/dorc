@@ -4,6 +4,16 @@
     {
         Properties,
         PropertyValues,
-        Request
+        Request,
+        ConfigValues,
+        CopyEnvBuild,
+        RefDataEnvironments,
+        RefDataDatabases,
+        RefDataDatabasesByType,
+        RefDataServers,
+        RefDataServersAppServersByEnvName,
+        RefDataSqlPorts,
+        RefDataSqlPortsByInstance,
+        RefDataEnvironmentsHistory
     }
 }

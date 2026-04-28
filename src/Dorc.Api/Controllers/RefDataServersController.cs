@@ -80,6 +80,27 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        ///     Returns app servers for an environment by environment name, filtered to those with "appserv" in ApplicationTags
+        /// </summary>
+        /// <param name="envName">Environment name</param>
+        /// <returns>List of ServerApiModel</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ServerApiModel>))]
+        [HttpGet]
+        [Route("AppServersByEnvName")]
+        public IActionResult GetAppServersByEnvName([FromQuery] string envName)
+        {
+            var servers = _serversPersistentSource.GetAppServerDetails(envName);
+            var result = servers.Select(s => new ServerApiModel
+            {
+                ServerId = s.Id,
+                Name = s.Name ?? string.Empty,
+                OsName = s.OsName ?? string.Empty,
+                ApplicationTags = s.ApplicationTags ?? string.Empty
+            }).ToList();
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Edit server entry
         /// </summary>
         /// <param name="id"></param>

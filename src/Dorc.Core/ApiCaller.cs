@@ -109,10 +109,26 @@ namespace Dorc.Core
             Client = new RestClient(options);
         }
 
+        private static readonly Dictionary<Endpoints, string> EndpointPaths = new()
+        {
+            { Endpoints.Properties, "Properties" },
+            { Endpoints.PropertyValues, "PropertyValues" },
+            { Endpoints.Request, "Request" },
+            { Endpoints.ConfigValues, "ConfigValues" },
+            { Endpoints.CopyEnvBuild, "CopyEnvBuild" },
+            { Endpoints.RefDataEnvironments, "RefDataEnvironments" },
+            { Endpoints.RefDataDatabases, "RefDataDatabases" },
+            { Endpoints.RefDataDatabasesByType, "RefDataDatabases/ByType" },
+            { Endpoints.RefDataServers, "RefDataServers" },
+            { Endpoints.RefDataServersAppServersByEnvName, "RefDataServers/AppServersByEnvName" },
+            { Endpoints.RefDataSqlPorts, "RefDataSqlPorts" },
+            { Endpoints.RefDataSqlPortsByInstance, "RefDataSqlPorts/ByInstance" },
+            { Endpoints.RefDataEnvironmentsHistory, "RefDataEnvironmentsHistory" },
+        };
+
         private string GetEndpointPath(Endpoints value)
         {
-            string? endpointName = Enum.GetName(typeof(Endpoints), value);
-            return endpointName ?? string.Empty;
+            return EndpointPaths.TryGetValue(value, out var path) ? path : (Enum.GetName(typeof(Endpoints), value) ?? string.Empty);
         }
     }
 
