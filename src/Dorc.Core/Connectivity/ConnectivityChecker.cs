@@ -1,19 +1,16 @@
 using System.Data.SqlClient;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 namespace Dorc.Core.Connectivity
 {
-    /// <summary>
-    /// Implementation of connectivity checker for servers and databases
-    /// </summary>
     public class ConnectivityChecker : IConnectivityChecker
     {
         private const int PingTimeoutMs = 5000;
+        private const int TcpProbeTimeoutMs = 5000;
+        private const int SmbPort = 445;
         private const int DatabaseConnectionTimeoutSeconds = 5;
 
-        /// <summary>
-        /// Checks if a server is reachable using ICMP ping
-        /// </summary>
         public async Task<bool> CheckServerConnectivityAsync(string serverName)
         {
             if (string.IsNullOrWhiteSpace(serverName))
@@ -21,21 +18,14 @@ namespace Dorc.Core.Connectivity
                 return false;
             }
 
-            try
+            if (await TryProbeOrFalse(() => TryPingAsync(serverName, PingTimeoutMs)))
             {
-                using var ping = new Ping();
-                var reply = await ping.SendPingAsync(serverName, PingTimeoutMs);
-                return reply.Status == IPStatus.Success;
+                return true;
             }
-            catch
-            {
-                return false;
-            }
+
+            return await TryProbeOrFalse(() => TryTcpConnectAsync(serverName, SmbPort, TcpProbeTimeoutMs));
         }
 
-        /// <summary>
-        /// Checks if a database is reachable by attempting to open a connection
-        /// </summary>
         public async Task<bool> CheckDatabaseConnectivityAsync(string serverName, string databaseName)
         {
             if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(databaseName))
@@ -43,23 +33,53 @@ namespace Dorc.Core.Connectivity
                 return false;
             }
 
-            try
-            {
-                var builder = new SqlConnectionStringBuilder
-                {
-                    DataSource = serverName,
-                    InitialCatalog = databaseName,
-                    ConnectTimeout = DatabaseConnectionTimeoutSeconds,
-                    IntegratedSecurity = true
-                };
-                using var connection = new SqlConnection(builder.ConnectionString);
-                await connection.OpenAsync();
-                return true;
-            }
-            catch
+            return await TryProbeOrFalse(() => TryOpenSqlConnectionAsync(serverName, databaseName, DatabaseConnectionTimeoutSeconds));
+        }
+
+        protected virtual async Task<bool> TryPingAsync(string serverName, int timeoutMs)
+        {
+            using var ping = new Ping();
+            var probeTask = ping.SendPingAsync(serverName, timeoutMs);
+            var completed = await Task.WhenAny(probeTask, Task.Delay(timeoutMs));
+            if (completed != probeTask)
             {
                 return false;
             }
+            var reply = await probeTask;
+            return reply.Status == IPStatus.Success;
+        }
+
+        protected virtual async Task<bool> TryTcpConnectAsync(string serverName, int port, int timeoutMs)
+        {
+            using var client = new TcpClient();
+            var connectTask = client.ConnectAsync(serverName, port);
+            var completed = await Task.WhenAny(connectTask, Task.Delay(timeoutMs));
+            if (completed != connectTask)
+            {
+                return false;
+            }
+            await connectTask;
+            return client.Connected;
+        }
+
+        protected virtual async Task<bool> TryOpenSqlConnectionAsync(string serverName, string databaseName, int timeoutSeconds)
+        {
+            var builder = new SqlConnectionStringBuilder
+            {
+                DataSource = serverName,
+                InitialCatalog = databaseName,
+                ConnectTimeout = timeoutSeconds,
+                IntegratedSecurity = true
+            };
+            using var connection = new SqlConnection(builder.ConnectionString);
+            await connection.OpenAsync();
+            return true;
+        }
+
+        private static async Task<bool> TryProbeOrFalse(Func<Task<bool>> probe)
+        {
+            try { return await probe(); }
+            catch { return false; }
         }
     }
 }
