@@ -89,7 +89,7 @@ namespace Dorc.Monitor.Connectivity
 
                 _logger.LogInformation("Connectivity Check Service has stopped.");
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogCritical(ex, "FATAL ERROR in ConnectivityCheckService.ExecuteAsync - service crashed!");
                 throw;
@@ -126,11 +126,7 @@ namespace Dorc.Monitor.Connectivity
                                 _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", SanitizeForLog(server.Name), server.Id);
                             }
                         }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             _logger.LogError(ex, "Error checking server {ServerName} (ID: {ServerId})", SanitizeForLog(server.Name), server.Id);
                             serversPersistentSource.UpdateServerConnectivityStatus(server.Id, false, now);
@@ -144,11 +140,7 @@ namespace Dorc.Monitor.Connectivity
 
                 _logger.LogInformation("Completed connectivity check for {Processed} servers.", processedCount);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Error in CheckAllServersAsync");
             }
@@ -187,11 +179,7 @@ namespace Dorc.Monitor.Connectivity
                                 _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
                             }
                         }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             _logger.LogError(ex, "Error checking database {DbName} on {ServerName} (ID: {DbId})", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
                             databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, false, now);
@@ -205,11 +193,7 @@ namespace Dorc.Monitor.Connectivity
 
                 _logger.LogInformation("Completed connectivity check for {Processed} databases.", processedCount);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Error in CheckAllDatabasesAsync");
             }
