@@ -337,9 +337,12 @@ var app = builder.Build();
 
 app.UseIpRateLimiting();
 
+app.UseStaticFiles();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
+    c.InjectStylesheet("/swagger-dark.css?v=2");
+    c.InjectJavascript("/swagger-theme.js?v=2");
     c.OAuthClientId(configurationSettings.GetOAuthUiClientId());
     c.OAuthAppName("DORC API");
     c.OAuthUsePkce();
