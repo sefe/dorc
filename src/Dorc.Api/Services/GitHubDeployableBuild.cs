@@ -25,7 +25,7 @@ namespace Dorc.Api.Services
         private string _buildUri = string.Empty;
         private string _definitionName = string.Empty;
 
-        public GitHubDeployableBuild(IBuildServerClient buildServerClient, ILogger<GitHubDeployableBuild> log,
+        public GitHubDeployableBuild(IBuildServerClientFactory buildServerClientFactory, ILogger<GitHubDeployableBuild> log,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource)
         {
@@ -33,7 +33,7 @@ namespace Dorc.Api.Services
             _deployLibrary = deployLibrary;
             _projectsPersistentSource = projectsPersistentSource;
             _log = log;
-            _buildServerClient = buildServerClient;
+            _buildServerClient = buildServerClientFactory.Create(SourceControlType.GitHub);
         }
 
         public bool IsValid(BuildDetails dorcBuild)
