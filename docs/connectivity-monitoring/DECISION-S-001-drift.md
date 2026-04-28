@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | IN REVIEW (R2) |
+| Status | APPROVED — Pending user approval |
 | Owner | Ben Hegarty |
 | Governing IS | `docs/connectivity-monitoring/IS-connectivity-monitoring.md` (APPROVED) |
 | Governing SPEC | `docs/connectivity-monitoring/SPEC-S-001-drift-assessment.md` (APPROVED) |
@@ -353,18 +353,22 @@ R1 was conducted by three reviewers in parallel (clarity/route-rationale, halluc
 
 After this revision, status returns to `IN REVIEW` for R2. R2 reviewers must verify R1 fixes, check for regressions, and (per CLAUDE.local.md §4 Re-Review Scoping) NOT mine for new findings on R1 text that was implicitly accepted.
 
-### CI confirmation slot (to be filled after GitHub Actions completes on `7bfee34e`)
+### CI confirmation on post-merge tip `7bfee34e1b4273a9455e1711e3a60ac2358cf0de`
 
-| Check | Conclusion | Notes |
-|---|---|---|
-| Test Results | _pending_ | Run on tip `7bfee34e1b...`. |
-| build | _pending_ | |
-| Analyze (csharp) ×2 | _pending_ | Re-runs CodeQL against post-merge tip — will show whether cohort-A threads auto-resolve. |
-| Analyze (javascript-typescript) ×2 | _pending_ | |
-| Analyze (actions) | _pending_ | |
-| Dependabot | _pending_ | |
+`gh api repos/sefe/dorc/commits/7bfee34e/check-runs` returned **11 check-runs, all `conclusion: success`**:
 
-Per A4: if the run reveals failures vs the all-green main baseline, S-001's APPROVED status is held until the regression is diagnosed. If the run is fully green and matches the main baseline (or clears outdated CodeQL threads naturally), A4 is fully discharged.
+| Check | Conclusion |
+|---|---|
+| Test Results | success |
+| CodeQL | success |
+| build | success (×2) |
+| Analyze (javascript-typescript) | success (×2) |
+| Analyze (csharp) | success (×2) |
+| Analyze (actions) | success |
+| Aikido Security: check code | success |
+| `.github/dependabot.yml` | success |
+
+A4 fully discharged: post-merge tip is green and matches (and exceeds) the all-green baseline recorded in §1's pre-execution self-audit. The post-merge run also includes a fresh CodeQL pass, which is the natural mechanism by which Cohort A's outdated threads (Q6) auto-resolve. Cohort B threads remain on the diff and are routed to S-003 / S-004 / S-005 per §7 Inherited Risks.
 
 ### R2 — IN REVIEW → REVISION → IN REVIEW
 
@@ -379,6 +383,16 @@ Both R2 findings trace back to specific R1 fixes (F-C4 introduced F-D1; F-B2 int
 
 After this revision, status returns to `IN REVIEW` for R3.
 
-### R3 — IN REVIEW → (pending)
+### R3 — IN REVIEW → APPROVED
 
-(R3 to be added after resubmission)
+R3 was scoped narrowly to verify the two F-D fixes from R2. Only Reviewer B (hallucination/evidence-trace lens) was re-launched at R3, since Reviewers A and C had already returned `APPROVE` at R2 with no findings under their lenses.
+
+| Reviewer | Lens | Outcome |
+|---|---|---|
+| Reviewer A (Opus, R2) | Conflict-list + route-rationale | `APPROVE` (R2) — verified at R2; not re-run at R3. |
+| Reviewer B (R3) | Hallucination / evidence-trace | `APPROVE` — F-D1 and F-D2 verified resolved. Confirmed by `ls` on the four cited audit pages, `git show 1d1d8f62 --stat` matching the cited filenames, and re-running the GraphQL thread query (7 GHAS + 10 github-code-quality = 17 total, matching the corrected counts). |
+| Reviewer C (Sonnet, R2) | HLPS contract alignment | `APPROVE` (R2) — verified at R2; not re-run at R3. |
+
+**Unanimous approval reached at R3 (cycle limit not exceeded — used 3 of 3 rounds).** Plus A4 acceptance fully discharged by the all-green CI run on `7bfee34e` (see CI confirmation block above).
+
+Status transitions to `APPROVED — Pending user approval` per CLAUDE.local.md §2 Document Status Lifecycle.
