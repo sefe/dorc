@@ -15,6 +15,10 @@ namespace Dorc.Monitor
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
 
+        // Connectivity check settings
+        bool EnableConnectivityCheck { get; }
+        int ConnectivityCheckIntervalMinutes { get; }
+
         // High Availability settings
         bool HighAvailabilityEnabled { get; }
         string RabbitMqHostName { get; }

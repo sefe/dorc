@@ -32,6 +32,18 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(250);
 
             builder
+                .Property(e => e.LastChecked)
+                .HasColumnName("LastChecked");
+
+            builder
+                .Property(e => e.IsReachable)
+                .HasColumnName("IsReachable");
+
+            builder
+                .Property(e => e.UnreachableSince)
+                .HasColumnName("UnreachableSince");
+
+            builder
                 .HasMany(s => s.Daemons)
                 .WithMany(d => d.Server)
                 .UsingEntity(

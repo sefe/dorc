@@ -189,6 +189,9 @@ namespace Dorc.PersistentData.Sources
                         ApplicationTags = s.ApplicationTags,
                         OsName = s.OsName,
                         ServerId = s.Id,
+                        LastChecked = s.LastChecked,
+                        IsReachable = s.IsReachable,
+                        UnreachableSince = s.UnreachableSince,
                         UserEditable = (from environmentDetail in s.Environments
                                         select envPrivilegeInfos[environmentDetail.Name]
                                             into privilegeInfo
@@ -206,7 +209,15 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return context.Servers.Select(s => new ServerApiModel
-                { Name = s.Name, ServerId = s.Id, ApplicationTags = s.ApplicationTags, OsName = s.OsName })
+                { 
+                    Name = s.Name, 
+                    ServerId = s.Id, 
+                    ApplicationTags = s.ApplicationTags, 
+                    OsName = s.OsName,
+                    LastChecked = s.LastChecked,
+                    IsReachable = s.IsReachable,
+                    UnreachableSince = s.UnreachableSince
+                })
                     .ToList();
             }
         }
@@ -230,6 +241,9 @@ namespace Dorc.PersistentData.Sources
                     ApplicationTags = svr.ApplicationTags,
                     OsName = svr.OsName,
                     ServerId = svr.Id,
+                    LastChecked = svr.LastChecked,
+                    IsReachable = svr.IsReachable,
+                    UnreachableSince = svr.UnreachableSince
                 };
 
                 var totalEdit = (from environmentDetail in svr.Environments
@@ -370,7 +384,10 @@ namespace Dorc.PersistentData.Sources
                 ApplicationTags = server.ApplicationTags,
                 OsName = server.OsName,
                 ServerId = server.Id,
-                EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList()
+                EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList(),
+                LastChecked = server.LastChecked,
+                IsReachable = server.IsReachable,
+                UnreachableSince = server.UnreachableSince
             };
         }
 
@@ -385,8 +402,50 @@ namespace Dorc.PersistentData.Sources
                 OsName = serverData.Server.OsName,
                 ServerId = serverData.Server.Id,
                 EnvironmentNames = serverData.Server.Environments.Select(ed => ed.Name).ToList(),
-                UserEditable = serverData.UserEditable
+                UserEditable = serverData.UserEditable,
+                LastChecked = serverData.Server.LastChecked,
+                IsReachable = serverData.Server.IsReachable,
+                UnreachableSince = serverData.Server.UnreachableSince
             };
+        }
+
+        public void UpdateServerConnectivityStatus(int serverId, bool isReachable, DateTime lastChecked)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var server = context.Servers.FirstOrDefault(s => s.Id == serverId);
+                if (server != null)
+                {
+                    if (!isReachable && server.IsReachable != false)
+                        server.UnreachableSince = lastChecked;
+                    else if (isReachable)
+                        server.UnreachableSince = null;
+
+                    server.IsReachable = isReachable;
+                    server.LastChecked = lastChecked;
+                    context.SaveChanges();
+                }
+            }
+        }
+
+        public IEnumerable<Server> GetServersForConnectivityCheckBatch(int skip, int take)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.Servers
+                    .OrderBy(s => s.Id)
+                    .Skip(skip)
+                    .Take(take)
+                    .ToList();
+            }
+        }
+
+        public int GetTotalServerCount()
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.Servers.Count();
+            }
         }
     }
 }
