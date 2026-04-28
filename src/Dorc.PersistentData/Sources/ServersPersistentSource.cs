@@ -386,7 +386,8 @@ namespace Dorc.PersistentData.Sources
                 ServerId = server.Id,
                 EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList(),
                 LastChecked = server.LastChecked,
-                IsReachable = server.IsReachable
+                IsReachable = server.IsReachable,
+                UnreachableSince = server.UnreachableSince
             };
         }
 
@@ -424,14 +425,6 @@ namespace Dorc.PersistentData.Sources
                     server.LastChecked = lastChecked;
                     context.SaveChanges();
                 }
-            }
-        }
-
-        public List<Server> GetAllServersForConnectivityCheck()
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                return context.Servers.ToList();
             }
         }
 

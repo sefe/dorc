@@ -442,14 +442,6 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public List<Database> GetAllDatabasesForConnectivityCheck()
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                return context.Databases.ToList();
-            }
-        }
-
         public IEnumerable<Database> GetDatabasesForConnectivityCheckBatch(int skip, int take)
         {
             using (var context = _contextFactory.GetContext())

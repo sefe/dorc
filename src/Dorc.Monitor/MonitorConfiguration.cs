@@ -134,9 +134,12 @@ namespace Dorc.Monitor
         {
             get
             {
-                int interval = 60;
-                int.TryParse(configurationRoot.GetSection(appSettings)["ConnectivityCheckIntervalMinutes"], out interval);
-                return interval;
+                var raw = configurationRoot.GetSection(appSettings)["ConnectivityCheckIntervalMinutes"];
+                if (int.TryParse(raw, out var parsed) && parsed > 0)
+                {
+                    return parsed;
+                }
+                return 60;
             }
         }
 

@@ -782,7 +782,7 @@ export class PageServersList extends PageElement {
       statusHtml = html`<vaadin-icon icon="vaadin:warning" style="color: orange;"></vaadin-icon> <span>Unreachable (7+ days)</span>`;
       title = `Unreachable since: ${unreachableSince.toLocaleString()}`;
     } else {
-      statusHtml = html`<vaadin-icon icon="vaadin:close-circle" style="color: red;"></vaadin-icon> <span>Offline</span>`;
+      statusHtml = html`<vaadin-icon icon="vaadin:exclamation-circle" style="color: #d4a017;"></vaadin-icon> <span>Unreachable</span>`;
       title = `Unreachable since: ${unreachableSince ? unreachableSince.toLocaleString() : lastChecked.toLocaleString()}`;
     }
 
