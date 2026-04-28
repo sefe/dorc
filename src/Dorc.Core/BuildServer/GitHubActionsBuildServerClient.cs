@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using Dorc.Core.BuildServer.GitHubApi;
 using Dorc.Core.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -51,7 +51,7 @@ namespace Dorc.Core.BuildServer
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "Invalid build regex pattern provided");
+                _logger.LogError(ex, "Invalid build regex pattern provided");
                 return Enumerable.Empty<DeployableArtefact>();
             }
 
@@ -84,7 +84,7 @@ namespace Dorc.Core.BuildServer
                                            or System.Text.Json.JsonException
                                            or RegexMatchTimeoutException)
                 {
-                    _logger.LogWarning(ex, "Failed to fetch GitHub workflow definition");
+                    _logger.LogError(ex, "Failed to fetch GitHub workflow definition");
                 }
             }
 
@@ -103,7 +103,7 @@ namespace Dorc.Core.BuildServer
 
             if (workflowId == null)
             {
-                _logger.LogWarning("Could not find matching GitHub workflow by name");
+                _logger.LogError("Could not find matching GitHub workflow by name");
                 return Enumerable.Empty<DeployableArtefact>();
             }
 
@@ -312,84 +312,5 @@ namespace Dorc.Core.BuildServer
                 $"Cannot parse owner/repo from URL: {serverUrl}. " +
                 "Expected format: https://api.github.com/repos/{{owner}}/{{repo}}");
         }
-
-        #region GitHub API Response Models
-
-        private class GitHubWorkflow
-        {
-            [JsonPropertyName("id")]
-            public long Id { get; set; }
-
-            [JsonPropertyName("name")]
-            public string? Name { get; set; }
-
-            [JsonPropertyName("path")]
-            public string? Path { get; set; }
-
-            [JsonPropertyName("state")]
-            public string? State { get; set; }
-        }
-
-        private class GitHubWorkflowsResponse
-        {
-            [JsonPropertyName("total_count")]
-            public int TotalCount { get; set; }
-
-            [JsonPropertyName("workflows")]
-            public List<GitHubWorkflow>? Workflows { get; set; }
-        }
-
-        private class GitHubWorkflowRun
-        {
-            [JsonPropertyName("id")]
-            public long Id { get; set; }
-
-            [JsonPropertyName("run_number")]
-            public int RunNumber { get; set; }
-
-            [JsonPropertyName("display_title")]
-            public string? DisplayTitle { get; set; }
-
-            [JsonPropertyName("conclusion")]
-            public string? Conclusion { get; set; }
-
-            [JsonPropertyName("updated_at")]
-            public DateTime UpdatedAt { get; set; }
-
-            [JsonPropertyName("html_url")]
-            public string? HtmlUrl { get; set; }
-        }
-
-        private class GitHubWorkflowRunsResponse
-        {
-            [JsonPropertyName("total_count")]
-            public int TotalCount { get; set; }
-
-            [JsonPropertyName("workflow_runs")]
-            public List<GitHubWorkflowRun>? WorkflowRuns { get; set; }
-        }
-
-        private class GitHubArtifact
-        {
-            [JsonPropertyName("id")]
-            public long Id { get; set; }
-
-            [JsonPropertyName("name")]
-            public string? Name { get; set; }
-
-            [JsonPropertyName("archive_download_url")]
-            public string ArchiveDownloadUrl { get; set; } = string.Empty;
-        }
-
-        private class GitHubArtifactsResponse
-        {
-            [JsonPropertyName("total_count")]
-            public int TotalCount { get; set; }
-
-            [JsonPropertyName("artifacts")]
-            public List<GitHubArtifact>? Artifacts { get; set; }
-        }
-
-        #endregion
     }
 }

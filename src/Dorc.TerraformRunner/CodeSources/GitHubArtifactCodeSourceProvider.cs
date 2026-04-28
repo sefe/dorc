@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Runner.Logger;
+using Dorc.TerraformRunner.CodeSources.GitHubApi;
 using Microsoft.Extensions.Logging;
 using System.IO.Compression;
 using System.Net.Http.Headers;
@@ -180,27 +181,6 @@ namespace Dorc.TerraformRunner.CodeSources
                 $"GitHub API host '{uri.Host}' is not an allowed GitHub host. " +
                 "Public github.com / api.github.com are allowed by default; " +
                 "add enterprise hosts via the DORC_GITHUB_ENTERPRISE_HOSTS environment variable (comma-separated).");
-        }
-
-        private class GitHubArtifactsListResponse
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("total_count")]
-            public int TotalCount { get; set; }
-
-            [System.Text.Json.Serialization.JsonPropertyName("artifacts")]
-            public List<GitHubArtifactItem>? Artifacts { get; set; }
-        }
-
-        private class GitHubArtifactItem
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("id")]
-            public long Id { get; set; }
-
-            [System.Text.Json.Serialization.JsonPropertyName("name")]
-            public string? Name { get; set; }
-
-            [System.Text.Json.Serialization.JsonPropertyName("archive_download_url")]
-            public string ArchiveDownloadUrl { get; set; } = string.Empty;
         }
     }
 }
