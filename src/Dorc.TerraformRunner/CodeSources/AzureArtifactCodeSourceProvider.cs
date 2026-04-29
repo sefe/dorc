@@ -251,7 +251,7 @@ namespace Dorc.TerraformRunner.CodeSources
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (contentType == "application/zip" || downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                var tempZipFile = Path.Combine(DorcProgramData.Root, $"artifact-{Guid.NewGuid()}.zip");
+                var tempZipFile = Path.Join(DorcProgramData.Root, $"artifact-{Guid.NewGuid()}.zip");
                 try
                 {
                     using (var fileStream = File.Create(tempZipFile))

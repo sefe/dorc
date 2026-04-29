@@ -142,7 +142,7 @@ namespace Dorc.Monitor
 
                 _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                var planStorageDir = Path.Combine(DorcProgramData.Root, "terraform-plans");
+                var planStorageDir = Path.Join(DorcProgramData.Root, "terraform-plans");
                 if (!Directory.Exists(planStorageDir))
                     Directory.CreateDirectory(planStorageDir);
                 var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
