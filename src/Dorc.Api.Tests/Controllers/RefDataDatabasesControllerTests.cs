@@ -1,6 +1,8 @@
 using Dorc.Api.Controllers;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,8 +15,10 @@ namespace Dorc.Api.Tests.Controllers
     public class RefDataDatabasesControllerTests
     {
         private IDatabasesPersistentSource _databasesPersistentSource;
+        private IDatabasesAuditPersistentSource _databasesAuditPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private IClaimsPrincipalReader _claimsPrincipalReader;
         private RefDataDatabasesController _controller;
         private ClaimsPrincipal _user;
 
@@ -22,28 +26,40 @@ namespace Dorc.Api.Tests.Controllers
         public void Setup()
         {
             _databasesPersistentSource = Substitute.For<IDatabasesPersistentSource>();
+            _databasesAuditPersistentSource = Substitute.For<IDatabasesAuditPersistentSource>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
-            _controller = new RefDataDatabasesController(_databasesPersistentSource, _securityPrivilegesChecker, _environmentsPersistentSource)
+            _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+
+            _controller = new RefDataDatabasesController(
+                _databasesPersistentSource,
+                _databasesAuditPersistentSource,
+                _securityPrivilegesChecker,
+                _environmentsPersistentSource,
+                _claimsPrincipalReader)
             {
                 ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
                 }
             };
+
             _user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[] {
                 new Claim(ClaimTypes.Name, "TestUser")
             }));
             _controller.HttpContext.User = _user;
+
+            _claimsPrincipalReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>())
+                .Returns("DOMAIN\\TestUser");
         }
 
         [TestMethod]
         public void CreateDatabase_DuplicateNameAndServer_ReturnsBadRequest()
         {
             // Arrange
-            var newDatabase = new DatabaseApiModel 
-            { 
-                Name = "TestDB", 
+            var newDatabase = new DatabaseApiModel
+            {
+                Name = "TestDB",
                 ServerName = "TestServer",
                 Type = "Application"
             };
@@ -62,10 +78,10 @@ namespace Dorc.Api.Tests.Controllers
         public void UpdateDatabase_DuplicateNameAndServer_ReturnsBadRequest()
         {
             // Arrange
-            var updateDatabase = new DatabaseApiModel 
-            { 
+            var updateDatabase = new DatabaseApiModel
+            {
                 Id = 1,
-                Name = "ExistingDB", 
+                Name = "ExistingDB",
                 ServerName = "ExistingServer",
                 Type = "Application"
             };
@@ -76,7 +92,7 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.CanModifyEnvironment(_user, "TestEnv").Returns(true);
             _databasesPersistentSource.GetDatabase(updateDatabase.Id)
                 .Returns(new DatabaseApiModel { Id = 1 });
-            _databasesPersistentSource.When(x => x.UpdateDatabase(1, Arg.Any<DatabaseApiModel>(), _user))
+            _databasesPersistentSource.When(x => x.UpdateDatabase(1, Arg.Any<DatabaseApiModel>(), Arg.Any<System.Security.Claims.ClaimsPrincipal>()))
                 .Do(x => throw new ArgumentException("Database already exists ExistingServer:ExistingDB"));
 
             // Act
@@ -91,16 +107,16 @@ namespace Dorc.Api.Tests.Controllers
         public void CreateDatabase_UniqueNameAndServer_ReturnsSuccess()
         {
             // Arrange
-            var newDatabase = new DatabaseApiModel 
-            { 
-                Name = "UniqueDB", 
+            var newDatabase = new DatabaseApiModel
+            {
+                Name = "UniqueDB",
                 ServerName = "UniqueServer",
                 Type = "Application"
             };
-            var createdDatabase = new DatabaseApiModel 
-            { 
+            var createdDatabase = new DatabaseApiModel
+            {
                 Id = 1,
-                Name = "UniqueDB", 
+                Name = "UniqueDB",
                 ServerName = "UniqueServer",
                 Type = "Application"
             };
