@@ -6,15 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core.BuildServer
 {
-    /// <summary>
-    /// Downloads GitHub Actions artifacts from the API and extracts them
-    /// into a directory so PowerShell deployment scripts can use Join-Path
-    /// on the resulting file system path. The directory defaults to a
-    /// system-wide folder under %ProgramData%\dorc\artifacts (shared by
-    /// the Monitor and Runner on the same host), but can be pointed at a
-    /// UNC share if deployment targets need to read the artifact over the
-    /// network — see <c>AppSettings:GitHubArtifactDownloadFolder</c>.
-    /// </summary>
+    /// <summary>Downloads GitHub Actions artifacts; folder via <c>AppSettings:GitHubArtifactDownloadFolder</c>, defaults to %ProgramData%\dorc\artifacts.</summary>
     public class GitHubArtifactDownloader : IGitHubArtifactDownloader
     {
         private readonly ILogger<GitHubArtifactDownloader> _logger;
