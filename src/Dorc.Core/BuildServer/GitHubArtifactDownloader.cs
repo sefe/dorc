@@ -9,10 +9,11 @@ namespace Dorc.Core.BuildServer
     /// <summary>
     /// Downloads GitHub Actions artifacts from the API and extracts them
     /// into a directory so PowerShell deployment scripts can use Join-Path
-    /// on the resulting file system path. The directory defaults to the
-    /// local temp folder, but can be pointed at a UNC share so deployment
-    /// targets can read the artifact over the network — see
-    /// <c>AppSettings:GitHubArtifactDownloadFolder</c>.
+    /// on the resulting file system path. The directory defaults to a
+    /// system-wide folder under %ProgramData%\dorc\artifacts (shared by
+    /// the Monitor and Runner on the same host), but can be pointed at a
+    /// UNC share if deployment targets need to read the artifact over the
+    /// network — see <c>AppSettings:GitHubArtifactDownloadFolder</c>.
     /// </summary>
     public class GitHubArtifactDownloader : IGitHubArtifactDownloader
     {
@@ -48,10 +49,10 @@ namespace Dorc.Core.BuildServer
             }
             else
             {
-                _logger.LogWarning("GitHubArtifactDownloadFolder is not configured in AppSettings. " +
-                    "Downloads will use the monitor host's local temp folder, which is NOT reachable from " +
-                    "deployment targets. Set this to a UNC path accessible from every target if deploy " +
-                    "scripts need to invoke binaries out of the artifact.");
+                _logger.LogInformation("GitHubArtifactDownloadFolder is not configured in AppSettings. " +
+                    "Downloads will use the system-wide fallback %ProgramData%\\dorc\\artifacts on the " +
+                    "Monitor host. Set this to a UNC path if deploy scripts on remote targets need to " +
+                    "read the artifact directly.");
             }
         }
 
@@ -92,7 +93,7 @@ namespace Dorc.Core.BuildServer
 
             var baseDir = !string.IsNullOrEmpty(_downloadFolder)
                 ? _downloadFolder
-                : Path.Join(Path.GetTempPath(), "dorc-artifacts");
+                : Path.Join(DorcProgramData.Root, "artifacts");
             var tempDir = Path.Join(baseDir, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
 
@@ -165,7 +166,7 @@ namespace Dorc.Core.BuildServer
         {
             var baseDir = !string.IsNullOrEmpty(_downloadFolder)
                 ? _downloadFolder
-                : Path.Join(Path.GetTempPath(), "dorc-artifacts");
+                : Path.Join(DorcProgramData.Root, "artifacts");
 
             var canonicalBase = Path.GetFullPath(baseDir)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)

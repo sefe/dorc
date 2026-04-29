@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
@@ -141,7 +142,7 @@ namespace Dorc.Monitor
 
                 _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
+                var planStorageDir = Path.Combine(DorcProgramData.Root, "terraform-plans");
                 if (!Directory.Exists(planStorageDir))
                     Directory.CreateDirectory(planStorageDir);
                 var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();

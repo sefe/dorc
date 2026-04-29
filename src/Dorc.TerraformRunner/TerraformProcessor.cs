@@ -68,7 +68,7 @@ namespace Dorc.TerraformRunner
         {
             // Create a unique working directory for this deployment
             var workingDir = Path.Combine(
-                Path.GetTempPath(),
+                DorcProgramData.Root,
                 "terraform-workdir",
                 $"{requestId}-terraform-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
 

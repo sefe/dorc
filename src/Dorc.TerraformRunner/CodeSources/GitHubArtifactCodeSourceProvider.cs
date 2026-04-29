@@ -94,7 +94,7 @@ namespace Dorc.TerraformRunner.CodeSources
             using var downloadResponse = await httpClient.GetAsync(downloadUrl, cancellationToken);
             downloadResponse.EnsureSuccessStatusCode();
 
-            var tempZipFile = Path.Join(Path.GetTempPath(), $"gh-artifact-{Guid.NewGuid()}.zip");
+            var tempZipFile = Path.Join(DorcProgramData.Root, $"gh-artifact-{Guid.NewGuid()}.zip");
             try
             {
                 using (var fileStream = File.Create(tempZipFile))
