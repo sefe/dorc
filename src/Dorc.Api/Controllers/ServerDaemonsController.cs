@@ -16,17 +16,20 @@ namespace Dorc.Api.Controllers
     {
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDaemonAuditPersistentSource _daemonAuditPersistentSource;
+        private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ServerDaemonsController(
             IDaemonsPersistentSource daemonsPersistentSource,
             IDaemonAuditPersistentSource daemonAuditPersistentSource,
+            IServersAuditPersistentSource serversAuditPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
             IClaimsPrincipalReader claimsPrincipalReader)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
             _daemonAuditPersistentSource = daemonAuditPersistentSource;
+            _serversAuditPersistentSource = serversAuditPersistentSource;
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _claimsPrincipalReader = claimsPrincipalReader;
         }
@@ -80,12 +83,22 @@ namespace Dorc.Api.Controllers
 
             if (!alreadyAttached)
             {
+                var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                var payload = JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemonId });
+
                 _daemonAuditPersistentSource.InsertDaemonAudit(
-                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    username,
                     ActionType.Attach,
                     daemonId,
                     fromValue: null,
-                    toValue: JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemonId }));
+                    toValue: payload);
+
+                _serversAuditPersistentSource.InsertServerAudit(
+                    username,
+                    ActionType.Attach,
+                    serverId,
+                    fromValue: null,
+                    toValue: payload);
             }
 
             return Ok(true);
@@ -111,11 +124,21 @@ namespace Dorc.Api.Controllers
                 return NotFound($"Server {serverId} or Daemon {daemonId} not found.");
             }
 
+            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+            var payload = JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemonId });
+
             _daemonAuditPersistentSource.InsertDaemonAudit(
-                _claimsPrincipalReader.GetUserFullDomainName(User),
+                username,
                 ActionType.Detach,
                 daemonId,
-                fromValue: JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemonId }),
+                fromValue: payload,
+                toValue: null);
+
+            _serversAuditPersistentSource.InsertServerAudit(
+                username,
+                ActionType.Detach,
+                serverId,
+                fromValue: payload,
                 toValue: null);
 
             return Ok(true);

@@ -1,5 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +9,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
+using System.Text.Json;
 
 namespace Dorc.Api.Controllers
 {
@@ -16,16 +19,23 @@ namespace Dorc.Api.Controllers
     public class RefDataDatabasesController : ControllerBase
     {
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
+        private readonly IDatabasesAuditPersistentSource _databasesAuditPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RefDataDatabasesController(
-            IDatabasesPersistentSource databasesPersistentSource, ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IEnvironmentsPersistentSource environmentsPersistentSource)
+            IDatabasesPersistentSource databasesPersistentSource,
+            IDatabasesAuditPersistentSource databasesAuditPersistentSource,
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _databasesPersistentSource = databasesPersistentSource;
+            _databasesAuditPersistentSource = databasesAuditPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -77,6 +87,13 @@ namespace Dorc.Api.Controllers
             {
                 var databaseApiModel = _databasesPersistentSource.AddDatabase(newDatabaseApiModel);
 
+                _databasesAuditPersistentSource.InsertDatabaseAudit(
+                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    ActionType.Create,
+                    databaseApiModel.Id,
+                    fromValue: null,
+                    toValue: JsonSerializer.Serialize(databaseApiModel, new JsonSerializerOptions { WriteIndented = true }));
+
                 return StatusCode(StatusCodes.Status200OK, databaseApiModel);
             }
             catch (Exception exception)
@@ -117,9 +134,22 @@ namespace Dorc.Api.Controllers
                     return StatusCode(StatusCodes.Status409Conflict,
                         $"Cannot delete: this database is used by environments: {string.Join(", ", environmentNamesAttachedToDatabase)}. Detach it first and retry.");
 
+                // Capture before-state for the audit row before deleting
+                var beforeDatabase = _databasesPersistentSource.GetDatabase(databaseId);
+                var beforeJson = beforeDatabase != null
+                    ? JsonSerializer.Serialize(beforeDatabase, new JsonSerializerOptions { WriteIndented = true })
+                    : null;
+
                 var result = _databasesPersistentSource.DeleteDatabase(databaseId);
                 if (!result)
                     return BadRequest("Delete failed.");
+
+                _databasesAuditPersistentSource.InsertDatabaseAudit(
+                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    ActionType.Delete,
+                    databaseId,
+                    fromValue: beforeJson,
+                    toValue: null);
 
                 return Ok(new ApiBoolResult { Result = true });
             }
@@ -212,10 +242,25 @@ namespace Dorc.Api.Controllers
                 if (databaseApiModel != null && databaseApiModel.Id != id)
                     return BadRequest("Cannot set the server name to the same as one that already exists!");
 
+                // Capture before-state for the audit row
+                var beforeJson = databaseApiModel != null
+                    ? JsonSerializer.Serialize(databaseApiModel, new JsonSerializerOptions { WriteIndented = true })
+                    : null;
+
                 var result = _databasesPersistentSource.UpdateDatabase(id, database, User);
-                return result != null
-                    ? Ok(result)
-                    : NotFound("Error updating entry");
+                if (result == null)
+                    return NotFound("Error updating entry");
+
+                var afterJson = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+
+                _databasesAuditPersistentSource.InsertDatabaseAudit(
+                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    ActionType.Update,
+                    id,
+                    fromValue: beforeJson,
+                    toValue: afterJson);
+
+                return Ok(result);
             }
             catch (Exception exception)
             {

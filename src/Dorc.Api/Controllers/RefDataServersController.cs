@@ -1,11 +1,14 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Win32;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
+using System.Text.Json;
 
 namespace Dorc.Api.Controllers
 {
@@ -16,14 +19,22 @@ namespace Dorc.Api.Controllers
     {
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IServersPersistentSource _serversPersistentSource;
+        private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public RefDataServersController(ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IServersPersistentSource serversPersistentSource, IEnvironmentsPersistentSource environmentsPersistentSource)
+        public RefDataServersController(
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            IServersPersistentSource serversPersistentSource,
+            IServersAuditPersistentSource serversAuditPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
+            _serversAuditPersistentSource = serversAuditPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -117,10 +128,26 @@ namespace Dorc.Api.Controllers
             if (serverApiModel != null && serverApiModel.ServerId != id)
                 return BadRequest("Cannot set the server name to the same as one that already exists!");
 
+            // Capture before-state for the audit row
+            var beforeServer = _serversPersistentSource.GetServer(id, User);
+            var beforeJson = beforeServer != null
+                ? JsonSerializer.Serialize(beforeServer, new JsonSerializerOptions { WriteIndented = true })
+                : null;
+
             var result = _serversPersistentSource.UpdateServer(id, server, User);
-            return result != null
-                ? Ok(result)
-                : NotFound("Error updating entry" );
+            if (result == null)
+                return NotFound("Error updating entry");
+
+            var afterJson = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+
+            _serversAuditPersistentSource.InsertServerAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Update,
+                id,
+                fromValue: beforeJson,
+                toValue: afterJson);
+
+            return Ok(result);
         }
 
         /// <summary>
@@ -179,6 +206,14 @@ namespace Dorc.Api.Controllers
                 return BadRequest(
                     $"A server with the name {value.Name} already exists!");
             var response = _serversPersistentSource.AddServer(value, User);
+
+            _serversAuditPersistentSource.InsertServerAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Create,
+                response.ServerId,
+                fromValue: null,
+                toValue: JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
+
             return Ok(response);
         }
 
@@ -201,7 +236,24 @@ namespace Dorc.Api.Controllers
                     { Result = false, Message = "User doesn't have \"Write\" permission for this action on " + environmentApiModel?.EnvironmentName + "!" };
             }
 
+            // Capture before-state for the audit row before deleting
+            var beforeServer = _serversPersistentSource.GetServer(serverId, User);
+            var beforeJson = beforeServer != null
+                ? JsonSerializer.Serialize(beforeServer, new JsonSerializerOptions { WriteIndented = true })
+                : null;
+
             var result = _serversPersistentSource.DeleteServer(serverId);
+
+            if (result)
+            {
+                _serversAuditPersistentSource.InsertServerAudit(
+                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    ActionType.Delete,
+                    serverId,
+                    fromValue: beforeJson,
+                    toValue: null);
+            }
+
             return new ApiBoolResult { Result = result };
         }
     }
