@@ -247,6 +247,22 @@ export class DorcNavbar extends LitElement {
             </div>
           </a>
         </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('databases-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
+              Databases Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('servers-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
+              Servers Audit
+            </div>
+          </a>
+        </vaadin-tab>
         ${this.isAdmin
           ? html`
               <vaadin-tab>

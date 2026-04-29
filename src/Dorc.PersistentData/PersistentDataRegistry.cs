@@ -30,6 +30,8 @@ namespace Dorc.PersistentData
             For<IDaemonsPersistentSource>().Use<DaemonsPersistentSource>().Scoped();
             For<IDaemonAuditPersistentSource>().Use<DaemonAuditPersistentSource>().Scoped();
             For<IDaemonObservationPersistentSource>().Use<DaemonObservationPersistentSource>().Scoped();
+            For<IDatabasesAuditPersistentSource>().Use<DatabasesAuditPersistentSource>().Scoped();
+            For<IServersAuditPersistentSource>().Use<ServersAuditPersistentSource>().Scoped();
             For<IDatabasesPersistentSource>().Use<DatabasesPersistentSource>().Scoped();
             For<IEnvironmentHistoryPersistentSource>().Use<EnvironmentHistoryPersistentSource>().Scoped();
             For<IEnvironmentsPersistentSource>().Use<EnvironmentsPersistentSource>().Scoped();

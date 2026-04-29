@@ -305,6 +305,8 @@
     <Build Include="deploy\Tables\ServerDaemon.sql" />
     <Build Include="deploy\Tables\DaemonAudit.sql" />
     <Build Include="deploy\Tables\DaemonObservation.sql" />
+    <Build Include="deploy\Tables\ServerAudit.sql" />
+    <Build Include="deploy\Tables\DatabaseAudit.sql" />
     <Build Include="deploy\Stored Procedures\AppendRequestLog.sql" />
     <Build Include="deploy\Stored Procedures\get_global_properties.sql" />
     <Build Include="deploy\Stored Procedures\get_environment_properties.sql" />
