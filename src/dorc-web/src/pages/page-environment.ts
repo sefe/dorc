@@ -2,7 +2,6 @@ import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-access-control';
-import '../components/environment-tabs/env-control-center';
 import { Router } from '@vaadin/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
@@ -12,12 +11,9 @@ import { SuccessNotification } from '../components/notifications/success-notific
 
 export enum EnvPageTabNames {
   Metadata = 'metadata',
-  ControlCenter = 'control-center',
   Variables = 'variables',
-  Servers = 'servers',
-  Databases = 'databases',
+  Components = 'components',
   Projects = 'projects',
-  Daemons = 'daemons',
   Deployments = 'deployments',
   Tenants = 'tenants',
   Monitor = 'monitor',
@@ -125,6 +121,10 @@ export class PageEnvironment extends PageElement {
       'environment-not-found',
       this.environmentNotFound as EventListener
     );
+    this.addEventListener(
+      'environment-renamed',
+      this.environmentRenamed as EventListener
+    );
 
     const tabName = location.pathname.split('/')[3];
     if (tabName) this.tabId = this.tabNames.findIndex(p => p === tabName);
@@ -152,6 +152,11 @@ export class PageEnvironment extends PageElement {
     this.loading = false;
   }
 
+  environmentRenamed(e: CustomEvent) {
+    const env = e.detail.environment as EnvironmentApiModel;
+    this.environmentName = env.EnvironmentName ?? '';
+  }
+
   environmentDetailsUpdated() {
     const msg = `metadata saved for environment ${this.environmentName}`;
     const notification = new SuccessNotification();
@@ -163,9 +168,10 @@ export class PageEnvironment extends PageElement {
   handleSlotChange(e: Event) {
     const slot = e.target as HTMLSlotElement;
     const childNodes: Node[] = slot?.assignedNodes({ flatten: true });
-    const envTabs = childNodes as PageEnvBase[];
-    envTabs.forEach(value => {
-      value.slotChangeComplete();
+    childNodes.forEach(node => {
+      if (node instanceof HTMLElement && 'slotChangeComplete' in node) {
+        (node as PageEnvBase).slotChangeComplete();
+      }
     });
   }
 

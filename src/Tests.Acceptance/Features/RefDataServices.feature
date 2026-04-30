@@ -7,7 +7,7 @@ Feature: RefDataServices
 #TestCaseReference(3011)
 Scenario Outline:  Change service state. Returns new service status
 	Given I have created PUT request to RefDataServices with body contains json with '<ServerName>' '<ServiceName>' '<ServiceStatus>'
-	Then The '<result>' should be equal ServiceStatusApiModel ServiceStatus
+	Then The '<result>' should be equal DaemonStatusApiModel ServiceStatus
 	Examples: 
 		| ServerName | ServiceName              | ServiceStatus | result |
 		| DEPAPP02DV |DeploymentActionServiceNonProd| stop          |stopped|
