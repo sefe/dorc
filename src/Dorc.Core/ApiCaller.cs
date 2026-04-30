@@ -111,6 +111,10 @@ namespace Dorc.Core
 
         private string GetEndpointPath(Endpoints value)
         {
+            // ChangeRequestCreate maps to "ChangeRequest/create" - the controller route
+            if (value == Endpoints.ChangeRequestCreate)
+                return "ChangeRequest/create";
+
             string? endpointName = Enum.GetName(typeof(Endpoints), value);
             return endpointName ?? string.Empty;
         }

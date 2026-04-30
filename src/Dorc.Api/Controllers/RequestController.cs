@@ -26,6 +26,7 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IEmailNotificationService _emailNotificationService;
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IActiveDirectorySearcher _directorySearcher;
@@ -36,6 +37,7 @@ namespace Dorc.Api.Controllers
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
+            IEmailNotificationService emailNotificationService,
             IConfigurationSettings configurationSettings,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IDirectorySearcherFactory directorySearcherFactory,
@@ -50,6 +52,7 @@ namespace Dorc.Api.Controllers
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _emailNotificationService = emailNotificationService;
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
             _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
@@ -531,18 +534,23 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(RequestStatusDto))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [HttpPost]
-        public IActionResult Post([FromBody] RequestDto requestDto)
+        public async Task<IActionResult> Post([FromBody] RequestDto requestDto)
         {
             try
             {
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation($"Forbidden request to {requestDto.Environment} from {username}");
+                    var safeEnv = (requestDto.Environment ?? string.Empty)
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    _log.LogInformation("Forbidden deployment request to {Environment}", safeEnv);
                     return StatusCode(StatusCodes.Status403Forbidden,
-                            $"Forbidden request to {requestDto.Environment} from {username}");
+                            $"Forbidden request to {safeEnv}");
                 }
+
+                // Check if environment is prod (used for email notification below)
+                var isProd = _environmentsPersistentSource.EnvironmentIsProd(requestDto.Environment);
 
                 try
                 {
@@ -554,6 +562,28 @@ namespace Dorc.Api.Controllers
                         return BadRequest(result.Status);
 
                     _log.LogInformation($"Request {result.Id} created");
+
+                    // Send email notification when deploying to prod with CR override
+                    if (isProd && requestDto.OverrideCr)
+                    {
+                        try
+                        {
+                            var projectModel = _projectsPersistentSource.GetProject(requestDto.Project);
+                            var notificationEmail = projectModel?.NotificationEmail;
+                            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                            await _emailNotificationService.SendCrOverrideNotificationAsync(
+                                username,
+                                requestDto.Environment,
+                                requestDto.Project,
+                                requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty,
+                                notificationEmail ?? string.Empty);
+                        }
+                        catch (Exception)
+                        {
+                            _log.LogError("Failed to send CR override email notification for request {RequestId}", result.Id);
+                            // Don't fail the deployment because of email failure
+                        }
+                    }
 
                     StoreEnvironmentOwnerEmail(result.Id, requestDto.Environment);
 
