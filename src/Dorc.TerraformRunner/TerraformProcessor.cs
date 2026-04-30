@@ -67,8 +67,8 @@ namespace Dorc.TerraformRunner
             CancellationToken cancellationToken)
         {
             // Create a unique working directory for this deployment
-            var workingDir = Path.Combine(
-                Path.GetTempPath(),
+            var workingDir = Path.Join(
+                DorcProgramData.Root,
                 "terraform-workdir",
                 $"{requestId}-terraform-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
 

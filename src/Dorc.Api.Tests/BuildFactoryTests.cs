@@ -1,6 +1,8 @@
 using Dorc.Api.Interfaces;
 using Dorc.Api.Services;
+using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -11,30 +13,96 @@ namespace Dorc.Api.Tests
     [TestClass]
     public class BuildFactoryTests
     {
+        private IProjectsPersistentSource _mockedProjectsPds = null!;
+        private IDeployLibrary _mockedDeployLibrary = null!;
+        private IFileSystemHelper _mockedFileSystemHelper = null!;
+        private ILoggerFactory _mockedLoggerFactory = null!;
+        private IRequestsPersistentSource _mockedReqPs = null!;
+        private IBuildServerClientFactory _mockedBuildServerClientFactory = null!;
+        private Func<GitHubDeployableBuild> _mockedGitHubDeployableBuildFactory = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
+            _mockedDeployLibrary = Substitute.For<IDeployLibrary>();
+            _mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
+            _mockedLoggerFactory = Substitute.For<ILoggerFactory>();
+            _mockedReqPs = Substitute.For<IRequestsPersistentSource>();
+            _mockedBuildServerClientFactory = Substitute.For<IBuildServerClientFactory>();
+            _mockedBuildServerClientFactory.Create(SourceControlType.GitHub)
+                .Returns(Substitute.For<IBuildServerClient>());
+
+            var mockedLog = new MockedLog<GitHubDeployableBuild>();
+            _mockedGitHubDeployableBuildFactory = () => new GitHubDeployableBuild(
+                _mockedBuildServerClientFactory, mockedLog,
+                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs);
+        }
+
+        private DeployableBuildFactory CreateFactory()
+        {
+            return new DeployableBuildFactory(_mockedFileSystemHelper, _mockedLoggerFactory,
+                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs, _mockedGitHubDeployableBuildFactory);
+        }
+
         [TestMethod]
         public void CreateInstanceTest()
         {
-            var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-
             var project = new ProjectApiModel { ProjectName = "myProject", ArtefactsUrl = "https://tfs/tfs/org/" };
+            _mockedProjectsPds.GetProject(Arg.Any<string>()).Returns(project);
 
-            mockedProjectsPds.GetProject(Arg.Any<string>()).Returns(project);
-            var mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
-            var request = new RequestDto { BuildUrl = "file://some_path", Project = "myProject" };
+            var factory = CreateFactory();
 
-            ILoggerFactory mockedLoggerFactory = Substitute.For<ILoggerFactory>();
-            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
-            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
-            var fileShareBuild = factory.CreateInstance(request);
+            var fileShareBuild = factory.CreateInstance(new RequestDto { BuildUrl = "file://some_path", Project = "myProject" });
             Assert.IsTrue(fileShareBuild is FileShareDeployableBuild);
-            request = new RequestDto { BuildUrl = "http://some_path", Project = "myProject" };
 
-            var tfsBuild = factory.CreateInstance(request);
+            var tfsBuild = factory.CreateInstance(new RequestDto { BuildUrl = "http://some_path", Project = "myProject" });
             Assert.IsTrue(tfsBuild is AzureDevOpsDeployableBuild);
-            request = new RequestDto { BuildUrl = "ftp://some_path", Project = "myProject" };
-            var unknownBuild = factory.CreateInstance(request);
+
+            var unknownBuild = factory.CreateInstance(new RequestDto { BuildUrl = "ftp://some_path", Project = "myProject" });
             Assert.IsNull(unknownBuild);
+        }
+
+        [TestMethod]
+        public void CreateInstance_GitHubProject_HttpUrl_ReturnsGitHubBuild()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectName = "myProject",
+                ArtefactsUrl = "https://api.github.com/repos/owner/repo",
+                SourceControlType = SourceControlType.GitHub
+            };
+            _mockedProjectsPds.GetProject(Arg.Any<string>()).Returns(project);
+
+            var factory = CreateFactory();
+            var build = factory.CreateInstance(new RequestDto { BuildUrl = "https://api.github.com/repos/owner/repo", Project = "myProject" });
+            Assert.IsTrue(build is GitHubDeployableBuild);
+        }
+
+        [TestMethod]
+        public void CreateInstance_GitHubProject_NumericRunId_ReturnsGitHubBuild()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectName = "myProject",
+                ArtefactsUrl = "https://api.github.com/repos/owner/repo",
+                SourceControlType = SourceControlType.GitHub
+            };
+            _mockedProjectsPds.GetProject(Arg.Any<string>()).Returns(project);
+
+            var factory = CreateFactory();
+            var build = factory.CreateInstance(new RequestDto { BuildUrl = "12345678901", Project = "myProject" });
+            Assert.IsTrue(build is GitHubDeployableBuild);
+        }
+
+        [TestMethod]
+        public void CreateInstance_NullProject_ReturnsNull()
+        {
+            _mockedProjectsPds.GetProject(Arg.Any<string>()).Returns((ProjectApiModel?)null);
+
+            var factory = CreateFactory();
+            var build = factory.CreateInstance(new RequestDto { BuildUrl = "http://some_path", Project = "nonexistent" });
+            Assert.IsNull(build);
         }
     }
 }

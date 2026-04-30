@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -16,11 +17,14 @@ namespace Dorc.Monitor.TerraformSourceConfig
         
         private readonly ILogger _logger;
         private readonly IConfigurationSettings _configurationSettings;
+        private readonly IGitHubHostValidator _gitHubHostValidator;
 
-        public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings)
+        public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings,
+            IGitHubHostValidator gitHubHostValidator)
         {
             _logger = logger;
             _configurationSettings = configurationSettings;
+            _gitHubHostValidator = gitHubHostValidator;
         }
 
         public void ConfigureScriptGroup(
@@ -42,6 +46,10 @@ namespace Dorc.Monitor.TerraformSourceConfig
 
                 case TerraformSourceType.AzureArtifact:
                     ConfigureAzureArtifactSource(scriptGroup, request, project);
+                    break;
+
+                case TerraformSourceType.GitHubArtifact:
+                    ConfigureGitHubArtifactSource(scriptGroup, request, project);
                     break;
 
                 case TerraformSourceType.SharedFolder:
@@ -107,12 +115,19 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
 
             scriptGroup.ScriptsLocation = request.DropLocation;
-            scriptGroup.AzureProjects = project.ArtefactsSubPaths;
-            
+
             // Get bearer token for Azure DevOps
             scriptGroup.AzureBearerToken = GetAzureBearerToken();
-            
-            if (project != null && !string.IsNullOrEmpty(project.ArtefactsUrl))
+
+            if (project == null)
+            {
+                _logger.LogWarning("Project information not available for Azure artifact source configuration");
+                return;
+            }
+
+            scriptGroup.AzureProjects = project.ArtefactsSubPaths;
+
+            if (!string.IsNullOrEmpty(project.ArtefactsUrl))
             {
                 // Extract organization from ArtefactsUrl
                 var match = System.Text.RegularExpressions.Regex.Match(
@@ -122,6 +137,61 @@ namespace Dorc.Monitor.TerraformSourceConfig
                 {
                     scriptGroup.AzureOrganization = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
                 }
+            }
+        }
+
+        private void ConfigureGitHubArtifactSource(
+            ScriptGroup scriptGroup,
+            DeploymentRequestApiModel request,
+            ProjectApiModel? project)
+        {
+            if (project == null)
+            {
+                _logger.LogWarning("Project information not available for GitHub artifact source configuration");
+                return;
+            }
+
+            // Parse owner/repo from ArtefactsUrl (e.g., "https://api.github.com/repos/{owner}/{repo}")
+            if (!string.IsNullOrEmpty(project.ArtefactsUrl))
+            {
+                try
+                {
+                    var uri = new Uri(project.ArtefactsUrl);
+                    var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    var reposIndex = Array.IndexOf(segments, "repos");
+                    if (reposIndex >= 0 && reposIndex + 2 < segments.Length)
+                    {
+                        scriptGroup.GitHubOwner = segments[reposIndex + 1];
+                        scriptGroup.GitHubRepo = segments[reposIndex + 2];
+                    }
+
+                    // Derive API base URL with host validation to prevent SSRF/token exfiltration
+                    scriptGroup.GitHubApiBaseUrl = _gitHubHostValidator.GetApiBase(project.ArtefactsUrl);
+                }
+                catch (Exception ex) when (ex is UriFormatException
+                                           or FormatException
+                                           or ArgumentException
+                                           or InvalidOperationException)
+                {
+                    _logger.LogWarning(ex, "Failed to parse GitHub ArtefactsUrl for project");
+                }
+            }
+
+            // BuildUri contains the run ID for GitHub Actions
+            if (!string.IsNullOrEmpty(request.BuildUri))
+            {
+                scriptGroup.GitHubRunId = request.BuildUri;
+            }
+
+            // Get GitHub token from configuration
+            var gitHubToken = _configurationSettings.GetGitHubToken();
+            if (!string.IsNullOrEmpty(gitHubToken))
+            {
+                scriptGroup.GitHubToken = gitHubToken;
+            }
+            else
+            {
+                _logger.LogWarning("GitHub token not configured. Set 'GitHubToken' in AppSettings to download GitHub Actions artifacts.");
             }
         }
 

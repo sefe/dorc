@@ -3,7 +3,7 @@ namespace Dorc.Core
     [Serializable]
     public class BuildDetail : ICloneable
     {
-        public int BuildId { get; set; }
+        public long BuildId { get; set; }
         public string ProjectUrl { get; set; } = String.Empty;
         public string Project { get; set; } = String.Empty;
         public string BuildNumber { get; set; } = String.Empty;

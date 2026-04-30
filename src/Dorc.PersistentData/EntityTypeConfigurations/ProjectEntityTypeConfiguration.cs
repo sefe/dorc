@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using Dorc.ApiModel;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Dorc.PersistentData.Model;
@@ -34,6 +35,11 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
 
             builder
                 .Property(x => x.SourceDatabaseId);
+
+            builder
+                .Property(x => x.SourceControlType)
+                .HasDefaultValue(SourceControlType.AzureDevOps)
+                .HasConversion<int>();
 
             builder
                 .HasMany(x => x.Components)

@@ -8969,9 +8969,20 @@
           },
           "SourceDatabase": {
             "$ref": "#/components/schemas/DatabaseApiModel"
+          },
+          "SourceControlType": {
+            "$ref": "#/components/schemas/SourceControlType"
           }
         },
         "additionalProperties": false
+      },
+      "SourceControlType": {
+        "enum": [
+          "AzureDevOps",
+          "GitHub",
+          "FileShare"
+        ],
+        "type": "string"
       },
       "Property": {
         "type": "object",
@@ -9554,7 +9565,8 @@
         "enum": [
           "SharedFolder",
           "Git",
-          "AzureArtifact"
+          "AzureArtifact",
+          "GitHubArtifact"
         ],
         "type": "string"
       },

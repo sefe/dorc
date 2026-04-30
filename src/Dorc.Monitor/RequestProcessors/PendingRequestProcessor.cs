@@ -25,6 +25,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -36,11 +37,13 @@ namespace Dorc.Monitor.RequestProcessors
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IConfigValuesPersistentSource configValuesPersistentSource, 
             IPropertyEvaluator propertyEvaluator,
-            IDeploymentEventsPublisher eventPublisher)
+            IDeploymentEventsPublisher eventPublisher,
+            IGitHubArtifactDownloader gitHubArtifactDownloader)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
+            _gitHubArtifactDownloader = gitHubArtifactDownloader;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -61,6 +64,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
+                string? resolvedDropFolder = null;
                 try
                 {
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
@@ -88,7 +92,7 @@ namespace Dorc.Monitor.RequestProcessors
                             logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
                         }
 
-                        SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
+                        resolvedDropFolder = SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
 
                         SetUpDeploymentLogDirAsProperty();
 
@@ -325,6 +329,15 @@ namespace Dorc.Monitor.RequestProcessors
 
                     return;
                 }
+                finally
+                {
+                    // Clean up downloaded GitHub artifacts after deployment completes
+                    if (resolvedDropFolder != null &&
+                        _gitHubArtifactDownloader.IsGitHubArtifactUrl(requestToExecute.Details.BuildDetail.DropLocation))
+                    {
+                        _gitHubArtifactDownloader.Cleanup(resolvedDropFolder);
+                    }
+                }
             }
         }
 
@@ -492,13 +505,23 @@ namespace Dorc.Monitor.RequestProcessors
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ScriptRoot, scriptRoot);
         }
 
-        private void SetUpDropFolderAsProperty(string dropFolder)
+        private string SetUpDropFolderAsProperty(string dropFolder)
         {
             if (dropFolder.StartsWith("file"))
             {
                 dropFolder = new Uri(dropFolder).LocalPath;
             }
+            else if (_gitHubArtifactDownloader.IsGitHubArtifactUrl(dropFolder))
+            {
+                // GitHub Actions artifact URLs are HTTPS endpoints that must be
+                // downloaded and extracted to a local path before PowerShell scripts
+                // can use Join-Path on them.
+                var localPath = _gitHubArtifactDownloader.DownloadAndExtract(dropFolder);
+                logger.LogInformation("Resolved GitHub artifact to local path: {Path}", localPath);
+                dropFolder = localPath;
+            }
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DropFolder, dropFolder);
+            return dropFolder;
         }
 
         private void SetUpEnvironmentNameAsProperty(string environmentName)

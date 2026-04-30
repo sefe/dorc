@@ -4,6 +4,7 @@ using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
 using Dorc.Api.Services;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
@@ -290,6 +291,15 @@ builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPubl
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.AddTransient<GitHubRetryHandler>();
+builder.Services.AddHttpClient("GitHubActions", client =>
+{
+    client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("DORC", "1.0"));
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.Timeout = TimeSpan.FromSeconds(30);
+}).AddHttpMessageHandler<GitHubRetryHandler>();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();

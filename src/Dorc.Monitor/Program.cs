@@ -1,5 +1,6 @@
 using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
@@ -122,6 +123,16 @@ builder.Services.AddTransient<IComponentProcessor, ComponentProcessor>();
 builder.Services.AddTransient<IScriptDispatcher, ScriptDispatcher>();
 builder.Services.AddTransient<ITerraformDispatcher, TerraformDispatcher>();
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
+builder.Services.AddSingleton<IGitHubHostValidator, GitHubHostValidator>();
+
+builder.Services.AddHttpClient("GitHubActions", client =>
+{
+    client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+    client.DefaultRequestHeaders.Add("User-Agent", "DOrc-Monitor");
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.Timeout = TimeSpan.FromSeconds(300);
+});
+builder.Services.AddTransient<IGitHubArtifactDownloader, GitHubArtifactDownloader>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 

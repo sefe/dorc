@@ -219,7 +219,7 @@ export class ComponentDeploymentResults extends LitElement {
                 )}"
             >
               <vaadin-icon
-                icon="vaadin:ellipsis-dots-h"
+                icon="vaadin:file-text-o"
                 style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>

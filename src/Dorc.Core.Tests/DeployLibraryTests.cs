@@ -25,7 +25,8 @@ namespace Dorc.Core.Tests
                 Substitute.For<Microsoft.Extensions.Logging.ILoggerFactory>(),
                 Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>(),
-                Substitute.For<Dorc.Core.Interfaces.IDeploymentEventsPublisher>()
+                Substitute.For<Dorc.Core.Interfaces.IDeploymentEventsPublisher>(),
+                Substitute.For<Dorc.Core.BuildServer.IBuildServerClientFactory>()
             );
         }
 

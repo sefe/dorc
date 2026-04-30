@@ -51,6 +51,10 @@ export class DeployEnv extends LitElement {
     if (oldValue !== this._project) this.loadBuildDefinitions();
   }
 
+  private get isGitHubProject(): boolean {
+    return String(this._project?.SourceControlType) === 'GitHub';
+  }
+
   @property({ type: Array }) buildDefinitions: DeployArtefactDto[] = [];
 
   @property({ type: Array }) builds: DeployArtefactDto[] = [];
@@ -185,8 +189,8 @@ export class DeployEnv extends LitElement {
               @value-changed="${this._buildDefValueChanged}"
               .items="${this.buildDefinitions}"
               .renderer="${this._buildRenderer}"
-              placeholder="Select Build Definition"
-              label="Build Definition"
+              placeholder="${this.isGitHubProject ? 'Select Workflow' : 'Select Build Definition'}"
+              label="${this.isGitHubProject ? 'Workflow' : 'Build Definition'}"
               style="width: 600px"
               clear-button-visible
               item-label-path="Name"
@@ -206,8 +210,8 @@ export class DeployEnv extends LitElement {
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
               .renderer="${this._buildRenderer}"
-              placeholder="Select Build Number"
-              label="Build Number"
+              placeholder="${this.isGitHubProject ? 'Select Workflow Run' : 'Select Build Number'}"
+              label="${this.isGitHubProject ? 'Workflow Run' : 'Build Number'}"
               style="width: 600px"
               clear-button-visible
               item-label-path="Name"
@@ -366,8 +370,11 @@ export class DeployEnv extends LitElement {
   setBuildDefinitions(projects: DeployArtefactDto[]) {
     const sortedBuildDefinitions = projects.sort(this.sortBuildDefinitions);
     this.buildDefinitions = sortedBuildDefinitions;
+    const firstBuildDefinition = this.buildDefinitions[0];
     if (
-      this.buildDefinitions[0].Name === 'Not an Azure DevOps Server Project'
+      firstBuildDefinition &&
+      (firstBuildDefinition.Name === 'Not a CI/CD Server Project' ||
+        firstBuildDefinition.Name === 'Not an Azure DevOps Server Project')
     ) {
       this.isFolderProject = true;
     } else {
@@ -709,13 +716,13 @@ export class DeployEnv extends LitElement {
           error: (err: any) => {
             console.error(err);
 
-            let error = '';
-            if (err.response.ExceptionMessage !== undefined)
-              error = err.response.ExceptionMessage;
-            else error = err.response.Message;
+            const message =
+              err.response?.ExceptionMessage ??
+              err.response?.Message ??
+              (typeof err.response === 'string' ? err.response : 'An unexpected error occurred');
 
             const notification = new ErrorNotification();
-            notification.setAttribute('errorMessage', error);
+            notification.setAttribute('errorMessage', message);
 
             this.shadowRoot?.appendChild(notification);
             notification.open();
