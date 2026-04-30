@@ -1,0 +1,6 @@
+{"timestampUtc":"2026-04-14T19:29:24.3869765\u002B00:00","requestId":"req-D-1","version":0,"state":"Running-0","appliedBy":"cand-A"}
+{"timestampUtc":"2026-04-14T19:29:32.4176187\u002B00:00","requestId":"req-D-1","version":1,"state":"Running-1","appliedBy":"cand-A"}
+{"timestampUtc":"2026-04-14T19:29:55.9951164\u002B00:00","requestId":"req-D-2","version":0,"state":"Running-0","appliedBy":"cand-B"}
+{"timestampUtc":"2026-04-14T19:29:56.0311145\u002B00:00","requestId":"req-D-2","version":1,"state":"Running-1","appliedBy":"cand-B"}
+{"timestampUtc":"2026-04-14T19:29:56.0484669\u002B00:00","requestId":"req-D-3","version":0,"state":"Running-0","appliedBy":"cand-B"}
+{"timestampUtc":"2026-04-14T19:29:56.0646990\u002B00:00","requestId":"req-D-3","version":1,"state":"Running-1","appliedBy":"cand-B"}

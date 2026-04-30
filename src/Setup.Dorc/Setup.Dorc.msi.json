@@ -222,52 +222,48 @@
       "DeployProperty": "OTEL_COLLECTOR_URL"
     },
     {
-      "MSIParameter": "HA.ENABLED",
-      "DeployProperty": "HA_ENABLED"
+      "MSIParameter": "KAFKA.BOOTSTRAPSERVERS",
+      "DeployProperty": "KAFKA_BOOTSTRAPSERVERS"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.HOSTNAME",
-      "DeployProperty": "HA_RABBITMQ_HOSTNAME"
+      "MSIParameter": "KAFKA.SASL.USERNAME",
+      "DeployProperty": "KAFKA_SASL_USERNAME"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.PORT",
-      "DeployProperty": "HA_RABBITMQ_PORT"
+      "MSIParameter": "KAFKA.SASL.PASSWORD",
+      "DeployProperty": "KAFKA_SASL_PASSWORD"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.VIRTUALHOST",
-      "DeployProperty": "HA_RABBITMQ_VIRTUALHOST"
+      "MSIParameter": "KAFKA.SSLCA.LOCATION",
+      "DeployProperty": "KAFKA_SSLCA_LOCATION"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.CONSUMERTIMEOUTMS",
-      "DeployProperty": "HA_RABBITMQ_CONSUMERTIMEOUTMS"
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.URL",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_URL"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTID",
-      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTID"
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_USERNAME"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTSECRET",
-      "DeployProperty": "HA_RABBITMQ_OAUTH_CLIENTSECRET"
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.OAUTH.TOKENENDPOINT",
-      "DeployProperty": "HA_RABBITMQ_OAUTH_TOKENENDPOINT"
+      "MSIParameter": "KAFKA.TOPICS.LOCKS",
+      "DeployProperty": "KAFKA_TOPICS_LOCKS"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.OAUTH.SCOPE",
-      "DeployProperty": "HA_RABBITMQ_OAUTH_SCOPE"
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEW",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEW"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.SSL.ENABLED",
-      "DeployProperty": "HA_RABBITMQ_SSL_ENABLED"
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSSTATUS"
     },
     {
-      "MSIParameter": "HA.RABBITMQ.SSL.SERVERNAME",
-      "DeployProperty": "HA_RABBITMQ_SSL_SERVERNAME"
-    },
-    {
-      "MSIParameter": "HA.RABBITMQ.SSL.VERSION",
-      "DeployProperty": "HA_RABBITMQ_SSL_VERSION"
+      "MSIParameter": "KAFKA.TOPICS.RESULTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_RESULTSSTATUS"
     },
     {
       "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",

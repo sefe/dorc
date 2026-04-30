@@ -410,57 +410,78 @@
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA_ENABLED",
-          "Value": "false"
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_HOSTNAME",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_PORT",
-          "Value": "5672"
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "HA_RABBITMQ_VIRTUALHOST",
-          "Value": "/"
+          "Name": "KAFKA_BOOTSTRAPSERVERS",
+          "Value": "[Replace with your Kafka bootstrap servers, e.g. broker.example.com:9094]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
-          "Name": "HA_RABBITMQ_OAUTH_CLIENTID",
-          "Value": "[Replace with your RabbitMQ OAuth Client ID]"
+          "Name": "KAFKA_SASL_USERNAME",
+          "Value": "[Replace with your Kafka SASL username]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": true,
-          "Name": "HA_RABBITMQ_OAUTH_CLIENTSECRET",
-          "Value": "[Replace with your RabbitMQ OAuth Client Secret]"
+          "Name": "KAFKA_SASL_PASSWORD",
+          "Value": "[Replace with your Kafka SASL password]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA_RABBITMQ_OAUTH_TOKENENDPOINT",
-          "Value": ""
+          "Name": "KAFKA_SSLCA_LOCATION",
+          "Value": "[Optional path to Kafka CA bundle, e.g. C:\\ProgramData\\dorc\\ca.pem]"
         },
         {
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "HA_RABBITMQ_OAUTH_SCOPE",
-          "Value": ""
+          "Name": "KAFKA_SCHEMAREGISTRY_URL",
+          "Value": "[Replace with your Schema Registry URL, e.g. https://schema-registry.example.aivencloud.com:12345]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "KAFKA_SCHEMAREGISTRY_BASICAUTH_USERNAME",
+          "Value": "[Optional Schema Registry basic-auth username]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": true,
+          "Name": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD",
+          "Value": "[Optional Schema Registry basic-auth password]"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_LOCKS",
+          "Value": "dorc.locks"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_REQUESTSNEW",
+          "Value": "dorc.requests.new"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_REQUESTSSTATUS",
+          "Value": "dorc.requests.status"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_RESULTSSTATUS",
+          "Value": "dorc.results.status"
         },
         {
           "AccountNameProperty": "OTEL_COLLECTOR_URL",

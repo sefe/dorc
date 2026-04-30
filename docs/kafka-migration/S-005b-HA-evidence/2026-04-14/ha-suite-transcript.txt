@@ -1,0 +1,21 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Dorc.ApiModel -> C:\src\dorc\src\Dorc.ApiModel\bin\Debug\netstandard2.0\Dorc.ApiModel.dll
+  Dorc.Kafka.Client -> C:\src\dorc\src\Dorc.Kafka.Client\bin\Debug\net8.0\Dorc.Kafka.Client.dll
+  Org.OpenAPITools -> C:\src\dorc\src\Dorc.AzureDevOps\src\Org.OpenAPITools\bin\Debug\net8.0\Org.OpenAPITools.dll
+  Dorc.PersistentData -> C:\src\dorc\src\Dorc.PersistentData\bin\Debug\net8.0\Dorc.PersistentData.dll
+  Dorc.Kafka.ErrorLog -> C:\src\dorc\src\Dorc.Kafka.ErrorLog\bin\Debug\net8.0\Dorc.Kafka.ErrorLog.dll
+  Dorc.Core -> C:\src\dorc\src\Dorc.Core\bin\Debug\net8.0\Dorc.Core.dll
+  Dorc.Kafka.Events -> C:\src\dorc\src\Dorc.Kafka.Events\bin\Debug\net8.0\Dorc.Kafka.Events.dll
+  Dorc.Kafka.Lock -> C:\src\dorc\src\Dorc.Kafka.Lock\bin\Debug\net8.0\Dorc.Kafka.Lock.dll
+  Dorc.Kafka.Lock.HATests -> C:\src\dorc\src\Dorc.Kafka.Lock.HATests\bin\Debug\net8.0\Dorc.Kafka.Lock.HATests.dll
+Test run for C:\src\dorc\src\Dorc.Kafka.Lock.HATests\bin\Debug\net8.0\Dorc.Kafka.Lock.HATests.dll (.NETCoreApp,Version=v8.0)
+A total of 1 test files matched the specified pattern.
+  Passed SC2a_LeaderKillFailover [16 s]
+  Passed SC2b_NewDeploymentAcceptancePostFailover [16 s]
+  Passed SC2c_TwentyRebalancesZeroDuplicates [2 m 48 s]
+
+Test Run Successful.
+Total tests: 3
+     Passed: 3
+ Total time: 3.3641 Minutes

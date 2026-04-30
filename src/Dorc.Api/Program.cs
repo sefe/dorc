@@ -9,6 +9,9 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
+using Dorc.Kafka.Client.DependencyInjection;
+using Dorc.Kafka.ErrorLog.DependencyInjection;
+using Dorc.Kafka.Events.DependencyInjection;
 using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
@@ -286,8 +289,30 @@ if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
         conf.ApplicationName = configurationSettings.GetEnvironment(true);
     });
 }
-builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
+// Direct (SignalR-only) publisher: registered as a concrete service so the
+// S-007 fallback adapter can inject it, AND exposed as IDeploymentEventsPublisher
+// (backcompat default). The Kafka-substrate extension below will Replace the
+// interface mapping when Kafka mode is active.
+builder.Services.AddScoped<DirectDeploymentEventPublisher>();
+builder.Services.AddScoped<IDeploymentEventsPublisher>(sp =>
+    sp.GetRequiredService<DirectDeploymentEventPublisher>());
+builder.Services.AddScoped<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher,
+    Dorc.Api.Events.FallbackDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
+
+// Master Kafka switch. When false, the API skips Kafka producer / consumer
+// wiring and IDeploymentEventsPublisher resolves to the
+// DirectDeploymentEventPublisher registered above (SignalR-only path).
+// Default true.
+if (builder.Configuration.GetValue("Kafka:Enabled", true))
+{
+    builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,
+        Dorc.Api.Events.SignalRDeploymentResultBroadcaster>();
+    builder.Services.AddDorcKafkaClient(builder.Configuration);
+    builder.Services.AddDorcKafkaAvro(builder.Configuration);
+    builder.Services.AddDorcKafkaErrorLog(builder.Configuration);
+    builder.Services.AddDorcKafkaResultsStatusSubstrate(builder.Configuration);
+}
 
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);

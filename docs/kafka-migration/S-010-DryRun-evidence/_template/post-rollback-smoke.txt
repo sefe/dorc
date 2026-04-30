@@ -1,0 +1,3 @@
+# Post-rollback smoke transcript template
+# Same shape as pre-cutover-smoke.txt; every ST MUST be PASS for AT-8.
+# Use this file after §5 redeploy completes, against the rolled-back env.

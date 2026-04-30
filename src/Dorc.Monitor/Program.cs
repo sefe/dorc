@@ -6,7 +6,10 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
-using Dorc.Monitor.HighAvailability;
+using Dorc.Core.HighAvailability;
+using Dorc.Kafka.ErrorLog.DependencyInjection;
+using Dorc.Kafka.Events.DependencyInjection;
+using Dorc.Kafka.Lock.DependencyInjection;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -83,8 +86,22 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 
 builder.Services.AddTransient<ScriptDispatcher>();
 
-// Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
-builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
+// Master Kafka switch. When false, the Monitor runs in single-replica
+// DB-poll fallback mode: no Kafka consumers, no distributed lock, no
+// Avro/error-log wiring. Default true.
+var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", true);
+if (kafkaEnabled)
+{
+    builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
+    builder.Services.AddDorcKafkaErrorLog(configurationRoot);
+    builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
+    builder.Services.AddDorcKafkaAvro(configurationRoot);
+}
+else
+{
+    builder.Services.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
+    builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.RequestPollSignal>();
+}
 
 PersistentSourcesRegistry.Register(builder.Services);
 

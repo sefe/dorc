@@ -47,21 +47,23 @@
 
 					<Json:JsonFile Id="SetOtelUrlNonProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#NonProdDeployMonitorExeConfig]" />
 
-					<!-- High Availability Configuration -->
-					<Json:JsonFile Id="HAEnabledNonProd" ElementPath="$.AppSettings.HighAvailability.Enabled" Value="[HA.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQHostNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.HostName" Value="[HA.RABBITMQ.HOSTNAME]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQPortNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Port" Value="[HA.RABBITMQ.PORT]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQVirtualHostNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.VirtualHost" Value="[HA.RABBITMQ.VIRTUALHOST]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQConsumerTimeoutMsNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.ConsumerTimeoutMs" Value="[HA.RABBITMQ.CONSUMERTIMEOUTMS]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQOAuthClientIdNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientId" Value="[HA.RABBITMQ.OAUTH.CLIENTID]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQOAuthClientSecretNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientSecret" Value="[HA.RABBITMQ.OAUTH.CLIENTSECRET]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQOAuthTokenEndpointNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.TokenEndpoint" Value="[HA.RABBITMQ.OAUTH.TOKENENDPOINT]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQOAuthScopeNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.Scope" Value="[HA.RABBITMQ.OAUTH.SCOPE]" File="[#NonProdDeployMonitorExeConfig]" />
-					
-					<!-- High Availability SSL/TLS Configuration -->
-					<Json:JsonFile Id="HARabbitMQSslEnabledNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Enabled" Value="[HA.RABBITMQ.SSL.ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQSslServerNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.ServerName" Value="[HA.RABBITMQ.SSL.SERVERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#NonProdDeployMonitorExeConfig]" />
+					<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
+					<Json:JsonFile Id="KafkaAuthModeNonProd" ElementPath="$.Kafka.AuthMode" Value="SaslSsl" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaBootstrapServersNonProd" ElementPath="$.Kafka.BootstrapServers" Value="[KAFKA.BOOTSTRAPSERVERS]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSaslUsernameNonProd" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSaslPasswordNonProd" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSslCaLocationNonProd" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<!-- S-015: Kafka schema-registry (Karapace / Aiven) endpoint + optional basic-auth creds -->
+					<Json:JsonFile Id="KafkaSchemaRegistryUrlNonProd" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameNonProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordNonProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
+
+					<!-- S-017: Kafka topic names (per-environment override; e.g. SEFE Aiven enterprise naming convention) -->
+					<Json:JsonFile Id="KafkaTopicsLocksNonProd" ElementPath="$.Kafka.Topics.Locks" Value="[KAFKA.TOPICS.LOCKS]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsRequestsNewNonProd" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsRequestsStatusNonProd" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsResultsStatusNonProd" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">

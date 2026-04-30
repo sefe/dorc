@@ -74,6 +74,24 @@
 		<Json:JsonFile Id="ApiOtelUrl" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="PauseDeploymentEnabledApi" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="IsProductionApi" ElementPath="$.AppSettings.IsProduction" Value="False" File="[#DeployApiWebConfig]" />
+
+		<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
+		<Json:JsonFile Id="KafkaAuthModeApi" ElementPath="$.Kafka.AuthMode" Value="SaslSsl" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaBootstrapServersApi" ElementPath="$.Kafka.BootstrapServers" Value="[KAFKA.BOOTSTRAPSERVERS]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSaslUsernameApi" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSaslPasswordApi" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSslCaLocationApi" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#DeployApiWebConfig]" />
+
+		<!-- S-015: Kafka schema-registry (Karapace / Aiven) endpoint + optional basic-auth creds -->
+		<Json:JsonFile Id="KafkaSchemaRegistryUrlApi" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameApi" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordApi" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#DeployApiWebConfig]" />
+
+		<!-- S-017: Kafka topic names (per-environment override; e.g. SEFE Aiven enterprise naming convention) -->
+		<Json:JsonFile Id="KafkaTopicsLocksApi" ElementPath="$.Kafka.Topics.Locks" Value="[KAFKA.TOPICS.LOCKS]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaTopicsRequestsNewApi" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaTopicsRequestsStatusApi" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="KafkaTopicsResultsStatusApi" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -137,6 +155,24 @@
 			<Json:JsonFile Id="AzureSignalRConnectionStringProd" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
 			<Json:JsonFile Id="PauseDeploymentEnabledApiProd" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="IsProductionApiProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#DeployApiWebConfig]" />
+
+			<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
+			<Json:JsonFile Id="KafkaAuthModeApiProd" ElementPath="$.Kafka.AuthMode" Value="SaslSsl" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaBootstrapServersApiProd" ElementPath="$.Kafka.BootstrapServers" Value="[KAFKA.BOOTSTRAPSERVERS]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSaslUsernameApiProd" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSaslPasswordApiProd" ElementPath="$.Kafka.Sasl.Password" Value="[KAFKA.SASL.PASSWORD]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSslCaLocationApiProd" ElementPath="$.Kafka.SslCaLocation" Value="[KAFKA.SSLCA.LOCATION]" File="[#DeployApiWebConfig]" />
+
+			<!-- S-015: Kafka schema-registry (Karapace / Aiven) endpoint + optional basic-auth creds -->
+			<Json:JsonFile Id="KafkaSchemaRegistryUrlApiProd" ElementPath="$.Kafka.SchemaRegistry.Url" Value="[KAFKA.SCHEMAREGISTRY.URL]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthUsernameApiProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthUsername" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaSchemaRegistryBasicAuthPasswordApiProd" ElementPath="$.Kafka.SchemaRegistry.BasicAuthPassword" Value="[KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD]" File="[#DeployApiWebConfig]" />
+
+			<!-- S-017: Kafka topic names (per-environment override; e.g. SEFE Aiven enterprise naming convention) -->
+			<Json:JsonFile Id="KafkaTopicsLocksApiProd" ElementPath="$.Kafka.Topics.Locks" Value="[KAFKA.TOPICS.LOCKS]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaTopicsRequestsNewApiProd" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaTopicsRequestsStatusApiProd" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="KafkaTopicsResultsStatusApiProd" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#DeployApiWebConfig]" />
 	  </Component>
   </Fragment>
 </Wix>
