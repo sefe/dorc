@@ -125,7 +125,8 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 if (_byTopic.TryGetValue(topic, out var existing)) return existing;
 
                 var subject = topic + "-value";
-                var serializer = new SchemaRegistrySerializerBuilder(_registry)
+                using var builder = new SchemaRegistrySerializerBuilder(_registry);
+                var serializer = builder
                     .Build<T>(subject, AutomaticRegistrationBehavior.Always, TombstoneBehavior.None)
                     .GetAwaiter()
                     .GetResult();
@@ -182,7 +183,8 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 if (_byTopic.TryGetValue(topic, out var existing)) return existing;
 
                 var subject = topic + "-value";
-                var deserializer = new SchemaRegistryDeserializerBuilder(_registry)
+                using var builder = new SchemaRegistryDeserializerBuilder(_registry);
+                var deserializer = builder
                     .Build<T>(subject, TombstoneBehavior.None)
                     .GetAwaiter()
                     .GetResult();
