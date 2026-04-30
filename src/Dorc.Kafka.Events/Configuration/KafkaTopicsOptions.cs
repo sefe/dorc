@@ -21,4 +21,12 @@ public sealed class KafkaTopicsOptions
     public string RequestsNew { get; set; } = "dorc.requests.new";
     public string RequestsStatus { get; set; } = "dorc.requests.status";
     public string ResultsStatus { get; set; } = "dorc.results.status";
+
+    /// <summary>
+    /// DLQ topic for poison messages received on <see cref="RequestsNew"/>.
+    /// Per K-2 resolution: the DLQ tier is enabled only for the new-request
+    /// topic; <see cref="RequestsStatus"/> and <see cref="ResultsStatus"/>
+    /// poison messages fall straight through to the structured-log tier.
+    /// </summary>
+    public string RequestsNewDlq { get; set; } = "dorc.requests.new.dlq";
 }

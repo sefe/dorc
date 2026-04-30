@@ -20,6 +20,9 @@ public sealed class KafkaTopicsOptionsValidator : IValidateOptions<KafkaTopicsOp
         if (string.IsNullOrWhiteSpace(options.ResultsStatus))
             errors.Add($"{KafkaTopicsOptions.SectionName}:{nameof(KafkaTopicsOptions.ResultsStatus)} is required.");
 
+        if (string.IsNullOrWhiteSpace(options.RequestsNewDlq))
+            errors.Add($"{KafkaTopicsOptions.SectionName}:{nameof(KafkaTopicsOptions.RequestsNewDlq)} is required.");
+
         return errors.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(errors);

@@ -2,12 +2,35 @@
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED (user-approved 2026-04-14) |
+| **Status** | **SUPERSEDED 2026-04-30** by K-2 substrate change (per-source DLQ Kafka topic; see §0 below). The original SQL-table substrate described from §1 onward is retained for historical context only. |
 | **Author** | Claude (Opus 4.6) |
 | **Created** | 2026-04-14 |
 | **Step ID** | S-004 |
 | **Governing IS** | `IS-Kafka-Migration.md` §3 S-004 (APPROVED R3) |
-| **Governing HLPS** | `HLPS-Kafka-Migration.md` C-8, R-9 (APPROVED R3) |
+| **Governing HLPS** | `HLPS-Kafka-Migration.md` C-8, R-9 (APPROVED R3) — C-8 amended 2026-04-30 to per-source DLQ topic. |
+
+---
+
+## 0. K-2 Amendment (2026-04-30)
+
+Per PR #611 K-2 review-comment resolution, the poison-message substrate moved from a SQL table (`dbo.KAFKA_ERROR_LOG`) to a per-source Kafka DLQ topic. Scope cut: only the new-request topic (`Kafka:Topics:RequestsNew`) has a DLQ route; `RequestsStatus` and `ResultsStatus` poison messages fall straight through to the structured-log tier (the SPEC-S-006 R-8 / SPEC-S-007 R-3 #4 fallback is preserved).
+
+**What changed in code:**
+- `IKafkaErrorLog.InsertAsync` now produces an Avro `KafkaErrorEnvelope` to the DLQ topic configured for `entry.Topic`; throws `DlqNotConfiguredException` for unmapped sources, which the consumer catch escalates to structured `LogError` per the unchanged three-tier model.
+- `QueryAsync` and `PurgeAsync` removed — replaced by Kafka topic retention (`retention.ms`, default 30 d) and any standard Kafka tooling for read.
+- `dbo.KAFKA_ERROR_LOG` table, `KafkaErrorLogEntryEntityTypeConfiguration`, and `IKafkaErrorLogContext`/`DeploymentContextKafkaErrorLogAdapter` all deleted.
+- New: `KafkaErrorEnvelope` (Avro record), `KafkaErrorLogDlqTopicProvisioner` (idempotent at startup), DLQ DI extension lives in `Dorc.Kafka.Events.DependencyInjection` (bridges `KafkaTopicsOptions` into the producer impl without a circular project ref).
+- Topic name configurable via `Kafka:Topics:RequestsNewDlq` (default `dorc.requests.new.dlq`); producer-side knobs on `Kafka:ErrorLog` (partition count, RF, retention ms, payload truncation cap, produce timeout).
+- Avro snapshot at `docs/kafka-migration/schemas/{current,latest}/dorc.requests.new.dlq-value.avsc`.
+
+**What's unchanged:**
+- Three-tier failure model (DLQ → structured log → swallow) per SPEC-S-006 R-8 / SPEC-S-007 R-3 #4. Tier 1 substrate is now Kafka instead of SQL; tiers 2 and 3 are identical.
+- Offset-commit posture: offset commits only after Tier 1 or Tier 2 completes. The bounded `ProduceTimeoutMs` (default 5 s) replaces the SQL `InsertTimeoutMs` as the consumer-stall guard.
+- HLPS C-7 at-least-once posture: now guaranteed on the Kafka substrate AND on the per-source DLQ Kafka topic (both backed by the same broker durability).
+
+**Why the change:** the original C-8 framing assumed "no DLQ feature available". Re-evaluation against the actual Kafka deployment showed nothing prevents DOrc from producing to an additional topic — which gives at-least-once durability, retention via topic config, replay via standard Kafka consumer tooling, and avoids a net-new DB table on this branch.
+
+The remainder of this spec (§1 onward) describes the original SQL-table substrate and is retained as historical record only — the implementation does not match.
 
 ---
 

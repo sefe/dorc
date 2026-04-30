@@ -135,7 +135,7 @@ public class KafkaAvroServiceCollectionExtensionsTests
     }
 
     [TestMethod]
-    public void AvroFactory_InScopeTypes_ListsTheTwoEventContracts()
+    public void AvroFactory_InScopeTypes_ListsTheEventContracts()
     {
         var services = BuildBaseServices();
         services.AddDorcKafkaClient(ValidConfig());
@@ -147,7 +147,8 @@ public class KafkaAvroServiceCollectionExtensionsTests
 
         CollectionAssert.Contains(factory.InScopeTypes.ToList(), typeof(DeploymentRequestEventData));
         CollectionAssert.Contains(factory.InScopeTypes.ToList(), typeof(DeploymentResultEventData));
-        Assert.AreEqual(2, factory.InScopeTypes.Count);
+        CollectionAssert.Contains(factory.InScopeTypes.ToList(), typeof(Dorc.Kafka.ErrorLog.KafkaErrorEnvelope));
+        Assert.AreEqual(3, factory.InScopeTypes.Count);
     }
 
     private static ServiceCollection BuildBaseServices()

@@ -1,34 +1,17 @@
-using Dorc.PersistentData.Model;
-
 namespace Dorc.Kafka.ErrorLog;
 
 public interface IKafkaErrorLog
 {
     /// <summary>
-    /// Persists a poison-message failure. Applies the configured payload-size
-    /// truncation, server-populates <see cref="KafkaErrorLogEntry.LoggedAt"/>,
-    /// <see cref="KafkaErrorLogEntry.Id"/>, and <see cref="KafkaErrorLogEntry.PayloadTruncated"/>.
-    /// Honours <paramref name="cancellationToken"/>; bounding the wait under
-    /// SQL-slow-but-not-down conditions is the caller's responsibility.
-    /// Does not enlist in any ambient transaction.
+    /// Produces a poison-message <see cref="KafkaErrorEnvelope"/> to the DLQ
+    /// topic configured for <paramref name="entry"/><c>.Topic</c>. Applies the
+    /// configured payload-size truncation; honours <paramref name="cancellationToken"/>.
+    ///
+    /// Throws if the source topic has no DLQ configured (the consumer's
+    /// existing catch will then fall through to the structured-log tier per
+    /// SPEC-S-006 R-8 / SPEC-S-007 R-3 #4 three-tier model). Throws if the
+    /// produce itself fails (broker down, oversized payload, etc.) — same
+    /// fallback contract.
     /// </summary>
     Task InsertAsync(KafkaErrorLogEntry entry, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Returns up to <paramref name="maxRows"/> rows ordered by OccurredAt DESC,
-    /// Id DESC. Filter parameters left null mean "no filter on that dimension".
-    /// </summary>
-    Task<IReadOnlyList<KafkaErrorLogEntry>> QueryAsync(
-        string? topic,
-        string? consumerGroup,
-        DateTimeOffset? sinceUtc,
-        int maxRows,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Deletes rows with <c>OccurredAt &lt; UtcNow - RetentionDays</c> in batches of
-    /// <c>PurgeBatchSize</c>. Returns the total deleted across all batches.
-    /// Idempotent; a re-run on the same state deletes 0.
-    /// </summary>
-    Task<int> PurgeAsync(CancellationToken cancellationToken);
 }

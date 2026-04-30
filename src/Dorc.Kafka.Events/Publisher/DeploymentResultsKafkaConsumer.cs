@@ -6,7 +6,6 @@ using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Serialization;
 using Dorc.Kafka.ErrorLog;
 using Dorc.Kafka.Events.Configuration;
-using Dorc.PersistentData.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -204,7 +203,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             using var insertCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             insertCts.CancelAfter(TimeSpan.FromMilliseconds(InsertTimeoutMs));
             _errorLog.InsertAsync(entry, insertCts.Token).GetAwaiter().GetResult();
-            _logger.LogWarning(
+            _logger.LogError(
                 "error-logged topic={Topic} partition={Partition} offset={Offset} group={GroupId} error={Error}",
                 entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.Error);
         }

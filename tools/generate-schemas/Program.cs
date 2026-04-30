@@ -29,6 +29,7 @@ for (var i = 0; i < args.Length; i++)
         case "--topic-requests-new":
         case "--topic-requests-status":
         case "--topic-results-status":
+        case "--topic-requests-new-dlq":
             if (i + 1 >= args.Length || args[i + 1].StartsWith("--"))
             {
                 Console.Error.WriteLine($"[generate-schemas] error: flag {arg} requires a value");
@@ -36,9 +37,10 @@ for (var i = 0; i < args.Length; i++)
             }
             switch (arg)
             {
-                case "--topic-requests-new":    topics.RequestsNew    = args[++i]; break;
-                case "--topic-requests-status": topics.RequestsStatus = args[++i]; break;
-                case "--topic-results-status":  topics.ResultsStatus  = args[++i]; break;
+                case "--topic-requests-new":     topics.RequestsNew     = args[++i]; break;
+                case "--topic-requests-status":  topics.RequestsStatus  = args[++i]; break;
+                case "--topic-results-status":   topics.ResultsStatus   = args[++i]; break;
+                case "--topic-requests-new-dlq": topics.RequestsNewDlq  = args[++i]; break;
             }
             break;
         default:
@@ -59,7 +61,8 @@ var pairs = new (string SubjectFile, string SchemaJson)[]
 {
     ($"{topics.RequestsNew}-value.avsc", DorcEventSchemas.GenerateRequestEventSchema()),
     ($"{topics.RequestsStatus}-value.avsc", DorcEventSchemas.GenerateRequestEventSchema()),
-    ($"{topics.ResultsStatus}-value.avsc", DorcEventSchemas.GenerateResultEventSchema())
+    ($"{topics.ResultsStatus}-value.avsc", DorcEventSchemas.GenerateResultEventSchema()),
+    ($"{topics.RequestsNewDlq}-value.avsc", DorcEventSchemas.GenerateErrorEnvelopeSchema())
 };
 
 foreach (var (file, json) in pairs)

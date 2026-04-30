@@ -86,28 +86,22 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
 
 builder.Services.AddTransient<ScriptDispatcher>();
 
-// SPEC-S-009: Kafka is the only distributed-lock substrate. The substrate-
-// selector flag is gone; KafkaDistributedLockService + KafkaLockCoordinator
-// + the lock topic provisioner are registered unconditionally.
-builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
-
-// IKafkaErrorLog is consumed by DeploymentRequestsKafkaConsumer (registered
-// below by AddDorcKafkaRequestLifecycleSubstrate). Without this call the host
-// crashes during startup activating the consumer hosted service. Mirrors the
-// registration order in Dorc.Api/Program.cs.
-builder.Services.AddDorcKafkaErrorLog(configurationRoot);
-
-// SPEC-S-009: Kafka is the only request-lifecycle substrate. The substrate-
-// selector flag is gone; the latching RequestPollSignal + Kafka request
-// consumer are registered unconditionally.
-builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
-
-// SPEC-S-016: register the Avro serializer factory so the
-// DeploymentRequestsKafkaConsumer can deserialise Avro-encoded payloads on
-// dorc.requests.new / dorc.requests.status. Without this call,
-// AddDorcKafkaClient's no-op DefaultKafkaSerializerFactory is the resolved
-// IKafkaSerializerFactory and every consume raises ConsumeException.
-builder.Services.AddDorcKafkaAvro(configurationRoot);
+// Master Kafka switch. When false, the Monitor runs in single-replica
+// DB-poll fallback mode: no Kafka consumers, no distributed lock, no
+// Avro/error-log wiring. Default true.
+var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", true);
+if (kafkaEnabled)
+{
+    builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
+    builder.Services.AddDorcKafkaErrorLog(configurationRoot);
+    builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
+    builder.Services.AddDorcKafkaAvro(configurationRoot);
+}
+else
+{
+    builder.Services.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
+    builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.RequestPollSignal>();
+}
 
 PersistentSourcesRegistry.Register(builder.Services);
 

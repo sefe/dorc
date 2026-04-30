@@ -8,14 +8,16 @@ public sealed class KafkaErrorLogOptionsValidator : IValidateOptions<KafkaErrorL
     {
         var errors = new List<string>();
 
-        if (options.RetentionDays <= 0)
-            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.RetentionDays)} must be > 0.");
         if (options.MaxPayloadBytes <= 0)
             errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.MaxPayloadBytes)} must be > 0.");
-        if (options.PurgeBatchSize <= 0)
-            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.PurgeBatchSize)} must be > 0.");
-        if (options.QueryMaxRowsCap <= 0)
-            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.QueryMaxRowsCap)} must be > 0.");
+        if (options.ProduceTimeoutMs <= 0)
+            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.ProduceTimeoutMs)} must be > 0.");
+        if (options.PartitionCount <= 0)
+            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.PartitionCount)} must be > 0.");
+        if (options.ReplicationFactor <= 0)
+            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.ReplicationFactor)} must be > 0.");
+        if (options.RetentionMs <= 0)
+            errors.Add($"{KafkaErrorLogOptions.SectionName}:{nameof(KafkaErrorLogOptions.RetentionMs)} must be > 0.");
 
         return errors.Count == 0
             ? ValidateOptionsResult.Success

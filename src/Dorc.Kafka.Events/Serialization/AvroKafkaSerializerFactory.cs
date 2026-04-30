@@ -41,7 +41,8 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         _inScope = new HashSet<Type>
         {
             typeof(DeploymentRequestEventData),
-            typeof(DeploymentResultEventData)
+            typeof(DeploymentResultEventData),
+            typeof(Dorc.Kafka.ErrorLog.KafkaErrorEnvelope)
         };
         _logger = (ILogger?)logger ?? NullLogger.Instance;
         _ = options; // reserved for future subject-override use

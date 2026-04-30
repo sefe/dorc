@@ -1,251 +1,85 @@
-using Dorc.PersistentData.Model;
+using Confluent.Kafka;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.ErrorLog.Tests;
 
 [TestClass]
 public class KafkaErrorLogTests
 {
-    // ---- AT-2: Insert round-trip + truncation ----
+    [TestMethod]
+    public void TruncatePayload_NullPayload_ReturnsNullNotTruncated()
+    {
+        var (payload, truncated) = KafkaErrorLog.TruncatePayload(null, 100);
+        Assert.IsNull(payload);
+        Assert.IsFalse(truncated);
+    }
 
     [TestMethod]
-    public async Task Insert_AllFieldsPopulated_RoundTripsByteEqual()
+    public void TruncatePayload_UnderCap_ReturnsOriginalNotTruncated()
     {
-        using var harness = new InMemoryTestHarness();
-        var occurredAt = DateTimeOffset.Parse("2026-04-14T10:00:00Z");
-        var entry = new KafkaErrorLogEntry
+        var raw = new byte[] { 1, 2, 3, 4, 5 };
+        var (payload, truncated) = KafkaErrorLog.TruncatePayload(raw, 100);
+        CollectionAssert.AreEqual(raw, payload);
+        Assert.IsFalse(truncated);
+    }
+
+    [TestMethod]
+    public void TruncatePayload_OverCap_ReturnsTruncatedFlagged()
+    {
+        var raw = new byte[200];
+        for (var i = 0; i < raw.Length; i++) raw[i] = (byte)i;
+
+        var (payload, truncated) = KafkaErrorLog.TruncatePayload(raw, 50);
+
+        Assert.IsNotNull(payload);
+        Assert.AreEqual(50, payload!.Length);
+        Assert.IsTrue(truncated);
+        for (var i = 0; i < 50; i++) Assert.AreEqual((byte)i, payload[i]);
+    }
+
+    [TestMethod]
+    public async Task InsertAsync_UnmappedSourceTopic_ThrowsDlqNotConfigured()
+    {
+        var routes = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            Topic = "dorc.requests.new",
-            Partition = 7,
-            Offset = 12345,
-            ConsumerGroup = "dorc-monitor",
-            MessageKey = "42",
-            RawPayload = new byte[] { 1, 2, 3, 4, 5 },
-            Error = "Avro deserialisation failed",
-            Stack = "at Confluent.Kafka...",
-            OccurredAt = occurredAt
+            ["dorc.requests.new"] = "dorc.requests.new.dlq"
         };
+        var sut = new KafkaErrorLog(
+            new NoopProducer(),
+            Options.Create(new KafkaErrorLogOptions()),
+            routes,
+            NullLogger<KafkaErrorLog>.Instance);
 
-        await harness.DAL.InsertAsync(entry, CancellationToken.None);
+        var entry = new KafkaErrorLogEntry { Topic = "dorc.results.status" };
 
-        using var ctx = harness.NewContext();
-        var stored = ctx.KafkaErrorLogEntries.Single();
-        Assert.AreEqual("dorc.requests.new", stored.Topic);
-        Assert.AreEqual(7, stored.Partition);
-        Assert.AreEqual(12345L, stored.Offset);
-        Assert.AreEqual("dorc-monitor", stored.ConsumerGroup);
-        Assert.AreEqual("42", stored.MessageKey);
-        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4, 5 }, stored.RawPayload);
-        Assert.IsFalse(stored.PayloadTruncated);
-        Assert.AreEqual("Avro deserialisation failed", stored.Error);
-        Assert.AreEqual("at Confluent.Kafka...", stored.Stack);
-        Assert.AreEqual(occurredAt, stored.OccurredAt);
-        Assert.IsTrue(stored.LoggedAt > DateTimeOffset.UtcNow.AddSeconds(-10));
+        var ex = await Assert.ThrowsExactlyAsync<DlqNotConfiguredException>(
+            () => sut.InsertAsync(entry, CancellationToken.None));
+        Assert.AreEqual("dorc.results.status", ex.SourceTopic);
     }
 
-    [TestMethod]
-    public async Task Insert_OnlyMandatoryFields_NullablesLandAsNull()
+    private sealed class NoopProducer : IProducer<string, KafkaErrorEnvelope>
     {
-        using var harness = new InMemoryTestHarness();
-        var entry = new KafkaErrorLogEntry
-        {
-            Topic = "t",
-            Partition = 0,
-            Offset = 1,
-            ConsumerGroup = "g",
-            Error = "boom",
-            OccurredAt = DateTimeOffset.UtcNow
-        };
-
-        await harness.DAL.InsertAsync(entry, CancellationToken.None);
-
-        using var ctx = harness.NewContext();
-        var stored = ctx.KafkaErrorLogEntries.Single();
-        Assert.IsNull(stored.MessageKey);
-        Assert.IsNull(stored.RawPayload);
-        Assert.IsNull(stored.Stack);
-    }
-
-    [TestMethod]
-    public async Task Insert_PayloadStrictlyExceedsMax_TruncatedToMax_FlagSet()
-    {
-        using var harness = new InMemoryTestHarness(new KafkaErrorLogOptions { MaxPayloadBytes = 8 });
-        var payload = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-        await harness.DAL.InsertAsync(NewEntry(payload), CancellationToken.None);
-
-        using var ctx = harness.NewContext();
-        var stored = ctx.KafkaErrorLogEntries.Single();
-        Assert.IsTrue(stored.PayloadTruncated);
-        Assert.AreEqual(8, stored.RawPayload!.Length);
-        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, stored.RawPayload);
-    }
-
-    [TestMethod]
-    public async Task Insert_PayloadEqualToMax_StoredIntact_FlagFalse()
-    {
-        using var harness = new InMemoryTestHarness(new KafkaErrorLogOptions { MaxPayloadBytes = 8 });
-        var payload = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
-        await harness.DAL.InsertAsync(NewEntry(payload), CancellationToken.None);
-
-        using var ctx = harness.NewContext();
-        var stored = ctx.KafkaErrorLogEntries.Single();
-        Assert.IsFalse(stored.PayloadTruncated);
-        CollectionAssert.AreEqual(payload, stored.RawPayload);
-    }
-
-    // ---- AT-4: Query filters ----
-
-    [TestMethod]
-    public async Task Query_FilterByTopic_ReturnsOnlyMatchingTopic()
-    {
-        using var harness = new InMemoryTestHarness();
-        await Seed(harness, ("topic-a", "g1", DateTimeOffset.UtcNow));
-        await Seed(harness, ("topic-b", "g1", DateTimeOffset.UtcNow));
-
-        var rows = await harness.DAL.QueryAsync("topic-a", null, null, 100, CancellationToken.None);
-
-        Assert.AreEqual(1, rows.Count);
-        Assert.AreEqual("topic-a", rows[0].Topic);
-    }
-
-    [TestMethod]
-    public async Task Query_FilterByConsumerGroup_ReturnsOnlyMatchingGroup()
-    {
-        using var harness = new InMemoryTestHarness();
-        await Seed(harness, ("t", "g1", DateTimeOffset.UtcNow));
-        await Seed(harness, ("t", "g2", DateTimeOffset.UtcNow));
-
-        var rows = await harness.DAL.QueryAsync(null, "g2", null, 100, CancellationToken.None);
-
-        Assert.AreEqual(1, rows.Count);
-        Assert.AreEqual("g2", rows[0].ConsumerGroup);
-    }
-
-    [TestMethod]
-    public async Task Query_FilterBySinceUtc_ReturnsOnlyAfterCutoff()
-    {
-        using var harness = new InMemoryTestHarness();
-        var now = DateTimeOffset.UtcNow;
-        await Seed(harness, ("t", "g", now.AddHours(-2)));
-        await Seed(harness, ("t", "g", now.AddMinutes(-10)));
-
-        var rows = await harness.DAL.QueryAsync(null, null, now.AddHours(-1), 100, CancellationToken.None);
-
-        Assert.AreEqual(1, rows.Count);
-    }
-
-    [TestMethod]
-    public async Task Query_MaxRows_CapsResults()
-    {
-        using var harness = new InMemoryTestHarness();
-        for (var i = 0; i < 10; i++)
-            await Seed(harness, ("t", "g", DateTimeOffset.UtcNow.AddSeconds(-i)));
-
-        var rows = await harness.DAL.QueryAsync(null, null, null, 3, CancellationToken.None);
-
-        Assert.AreEqual(3, rows.Count);
-    }
-
-    [TestMethod]
-    public async Task Query_MaxRows_CappedByOptions()
-    {
-        using var harness = new InMemoryTestHarness(new KafkaErrorLogOptions { QueryMaxRowsCap = 5 });
-        for (var i = 0; i < 10; i++)
-            await Seed(harness, ("t", "g", DateTimeOffset.UtcNow.AddSeconds(-i)));
-
-        var rows = await harness.DAL.QueryAsync(null, null, null, 100, CancellationToken.None);
-
-        Assert.AreEqual(5, rows.Count);
-    }
-
-    [TestMethod]
-    public async Task Query_OrderedByOccurredAtDescThenIdDesc()
-    {
-        using var harness = new InMemoryTestHarness();
-        var t = DateTimeOffset.UtcNow;
-        // Insert two with the same OccurredAt to exercise the Id tiebreaker.
-        await Seed(harness, ("t", "g", t.AddSeconds(-10)));
-        await Seed(harness, ("t", "g", t));
-        await Seed(harness, ("t", "g", t));
-
-        var rows = await harness.DAL.QueryAsync(null, null, null, 100, CancellationToken.None);
-
-        Assert.AreEqual(3, rows.Count);
-        Assert.IsTrue(rows[0].OccurredAt >= rows[1].OccurredAt);
-        Assert.IsTrue(rows[1].OccurredAt >= rows[2].OccurredAt);
-        // Id tiebreaker between rows[0] and rows[1] (both at t).
-        Assert.IsTrue(rows[0].Id > rows[1].Id);
-    }
-
-    // ---- AT-5: Purge ----
-
-    [TestMethod]
-    public async Task Purge_DeletesOnlyOlderThanRetention()
-    {
-        using var harness = new InMemoryTestHarness(new KafkaErrorLogOptions { RetentionDays = 30 });
-        var now = DateTimeOffset.UtcNow;
-        await Seed(harness, ("t", "g", now.AddDays(-31)));   // delete
-        await Seed(harness, ("t", "g", now.AddDays(-45)));   // delete
-        await Seed(harness, ("t", "g", now.AddDays(-29)));   // keep
-        await Seed(harness, ("t", "g", now.AddDays(-1)));    // keep
-
-        var deleted = await harness.DAL.PurgeAsync(CancellationToken.None);
-
-        Assert.AreEqual(2, deleted);
-        using var ctx = harness.NewContext();
-        Assert.AreEqual(2, ctx.KafkaErrorLogEntries.Count());
-    }
-
-    [TestMethod]
-    public async Task Purge_SecondCall_ReturnsZero()
-    {
-        using var harness = new InMemoryTestHarness(new KafkaErrorLogOptions { RetentionDays = 30 });
-        await Seed(harness, ("t", "g", DateTimeOffset.UtcNow.AddDays(-100)));
-
-        await harness.DAL.PurgeAsync(CancellationToken.None);
-        var second = await harness.DAL.PurgeAsync(CancellationToken.None);
-
-        Assert.AreEqual(0, second);
-    }
-
-    [TestMethod]
-    public async Task Purge_AcrossMultipleBatches_DeletesAll()
-    {
-        using var harness = new InMemoryTestHarness(new KafkaErrorLogOptions
-        {
-            RetentionDays = 30,
-            PurgeBatchSize = 5
-        });
-        for (var i = 0; i < 12; i++)
-            await Seed(harness, ("t", "g", DateTimeOffset.UtcNow.AddDays(-100 - i)));
-
-        var deleted = await harness.DAL.PurgeAsync(CancellationToken.None);
-
-        Assert.AreEqual(12, deleted);
-        using var ctx = harness.NewContext();
-        Assert.AreEqual(0, ctx.KafkaErrorLogEntries.Count());
-    }
-
-    private static KafkaErrorLogEntry NewEntry(byte[] payload) => new()
-    {
-        Topic = "t",
-        Partition = 0,
-        Offset = 1,
-        ConsumerGroup = "g",
-        Error = "boom",
-        OccurredAt = DateTimeOffset.UtcNow,
-        RawPayload = payload
-    };
-
-    private static async Task Seed(InMemoryTestHarness harness, (string Topic, string Group, DateTimeOffset At) row)
-    {
-        await harness.DAL.InsertAsync(new KafkaErrorLogEntry
-        {
-            Topic = row.Topic,
-            Partition = 0,
-            Offset = 1,
-            ConsumerGroup = row.Group,
-            Error = "x",
-            OccurredAt = row.At
-        }, CancellationToken.None);
+        public Handle Handle => throw new NotSupportedException();
+        public string Name => "noop";
+        public int AddBrokers(string brokers) => 0;
+        public void SetSaslCredentials(string username, string password) { }
+        public Task<DeliveryResult<string, KafkaErrorEnvelope>> ProduceAsync(string topic, Message<string, KafkaErrorEnvelope> message, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<DeliveryResult<string, KafkaErrorEnvelope>> ProduceAsync(TopicPartition topicPartition, Message<string, KafkaErrorEnvelope> message, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public void Produce(string topic, Message<string, KafkaErrorEnvelope> message, Action<DeliveryReport<string, KafkaErrorEnvelope>>? deliveryHandler = null) => throw new NotSupportedException();
+        public void Produce(TopicPartition topicPartition, Message<string, KafkaErrorEnvelope> message, Action<DeliveryReport<string, KafkaErrorEnvelope>>? deliveryHandler = null) => throw new NotSupportedException();
+        public int Poll(TimeSpan timeout) => 0;
+        public int Flush(TimeSpan timeout) => 0;
+        public void Flush(CancellationToken cancellationToken = default) { }
+        public void InitTransactions(TimeSpan timeout) { }
+        public void BeginTransaction() { }
+        public void CommitTransaction(TimeSpan timeout) { }
+        public void CommitTransaction() { }
+        public void AbortTransaction(TimeSpan timeout) { }
+        public void AbortTransaction() { }
+        public void SendOffsetsToTransaction(IEnumerable<TopicPartitionOffset> offsets, IConsumerGroupMetadata groupMetadata, TimeSpan timeout) { }
+        public void Dispose() { }
     }
 }

@@ -72,6 +72,16 @@ This decision is binding. A future move to a SignalR backplane could revert to a
 
 ### R-3 — Failure path (HLPS C-8 + S-004 wiring)
 
+> **Substrate amendment 2026-04-30 (PR #611 K-2):** Tier 1's storage is now
+> a per-source Kafka DLQ topic, not a SQL row insert. See `SPEC-S-004 §0`.
+> The three-tier model below is preserved verbatim — only the Tier 1
+> substrate name changed. **Scope cut:** `ResultsStatus` has **no** DLQ
+> route under the new substrate; its poison messages skip Tier 1 and go
+> straight to Tier 2 via `DlqNotConfiguredException`. The text below still
+> reads "DAL" / "DB" / `KAFKA_ERROR_LOG` for historical context — read
+> those as "Tier 1 sink" (the Kafka DLQ topic when configured, or
+> elided-to-Tier-2 when not).
+
 On a per-message failure:
 
 1. Build a `KafkaErrorLogEntry` from the `ConsumeResult<string, DeploymentResultEventData>` + the captured exception, using the field map S-004 AT-7 anchored.
@@ -80,7 +90,7 @@ On a per-message failure:
 4. **Super-degraded mode:** if the structured-log fallback itself throws (e.g. log sink unavailable), the exception is swallowed (try/catch around the fallback). No silent stall is preferred over crashing the consumer loop; one missed log entry beats a halted consumer that takes down further status updates for every connected user.
 5. After the log path completes (success, DB-unavailable fallback, or super-degraded swallowed), **commit the offset**. The offset never advances on a silent failure of the *consume + handle* flow; the bounded timeout in step 2 is what prevents a degraded DB from stalling the consumer indefinitely.
 
-**HLPS C-7 at-least-once carve-out:** at-least-once delivery is guaranteed on the **Kafka substrate** (the log of record) and on the **`KAFKA_ERROR_LOG` sink** (S-004 DAL). The **SignalR projection** is best-effort per the SC-3 interpretation locked at IS R3 CHECKPOINT-2 — a UI client may miss an event during a broadcast failure or replica restart; the UI's existing reconnect/refresh path is the recovery story (see §5 row 4 for verification posture).
+**HLPS C-7 at-least-once carve-out:** at-least-once delivery is guaranteed on the **Kafka substrate** (the log of record) and on the **DLQ Kafka topic** (post-K-2 substrate; Tier 1 sink for sources that have a route — currently `RequestsNew` only). The **SignalR projection** is best-effort per the SC-3 interpretation locked at IS R3 CHECKPOINT-2 — a UI client may miss an event during a broadcast failure or replica restart; the UI's existing reconnect/refresh path is the recovery story (see §5 row 4 for verification posture).
 
 ### R-4 — Topic provisioning
 

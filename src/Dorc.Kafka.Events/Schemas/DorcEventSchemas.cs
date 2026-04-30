@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Chr.Avro.Abstract;
 using Chr.Avro.Representation;
 using Dorc.Core.Events;
+using Dorc.Kafka.ErrorLog;
 
 namespace Dorc.Kafka.Events.Schemas;
 
@@ -28,6 +29,9 @@ public static class DorcEventSchemas
 
     public static string GenerateResultEventSchema()
         => GenerateJsonFor<DeploymentResultEventData>();
+
+    public static string GenerateErrorEnvelopeSchema()
+        => GenerateJsonFor<KafkaErrorEnvelope>();
 
     private static JsonNode? Canonicalise(JsonNode? node)
     {

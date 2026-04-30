@@ -316,10 +316,22 @@ S-007 / S-003 `AvroKafkaSerializerFactory` precedent.
 
 ### R-8 — Failure-path + error-log routing
 
-- Deserialise failure on either topic: S-004 `IKafkaErrorLog.InsertAsync`
-  with raw payload bytes.
-- Handler exception (e.g. wake-up primitive disposed race): same.
-- DAL failure inside the handler path: structured `LogError`; loop continues.
+> **Substrate amendment 2026-04-30 (PR #611 K-2):** the "DAL" tier here is
+> now a per-source Kafka DLQ topic, not a SQL row insert. See
+> `SPEC-S-004 §0` for the substrate change. The three-tier model
+> (Tier 1 → Tier 2 → Tier 3) is preserved; only Tier 1's storage
+> substrate changed. **Scope cut:** only `RequestsNew` has a DLQ route;
+> `RequestsStatus` poison messages skip Tier 1 and go directly to
+> Tier 2 (`DlqNotConfiguredException` is caught by the existing handler
+> and falls through to structured-log).
+
+- Deserialise failure on `RequestsNew`: `IKafkaErrorLog.InsertAsync`
+  produces a `KafkaErrorEnvelope` to the DLQ topic with raw payload bytes.
+- Deserialise failure on `RequestsStatus`: structured `LogError` (Tier 2)
+  directly — no DLQ for this source.
+- Handler exception (e.g. wake-up primitive disposed race): same routing.
+- DLQ produce failure or `DlqNotConfiguredException`: structured
+  `LogError`; loop continues.
 
 **Commit-semantic clarification (Sonnet-F2):** Under `AutoCommit=true`
 (R-3) the consumer advances past a poison record because the handler

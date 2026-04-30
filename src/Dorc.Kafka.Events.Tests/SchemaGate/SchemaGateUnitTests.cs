@@ -12,6 +12,7 @@ public class SchemaGateUnitTests
     private static string DefaultRequestsNewSubject => $"{Defaults.RequestsNew}-value";
     private static string DefaultRequestsStatusSubject => $"{Defaults.RequestsStatus}-value";
     private static string DefaultResultsStatusSubject => $"{Defaults.ResultsStatus}-value";
+    private static string DefaultRequestsNewDlqSubject => $"{Defaults.RequestsNewDlq}-value";
 
     private string _tempRoot = null!;
     private string _canonicalDir = null!;
@@ -119,21 +120,23 @@ public class SchemaGateUnitTests
     }
 
     [TestMethod]
-    public async Task RunAsync_CoversAllThreeSubjects()
+    public async Task RunAsync_CoversAllSubjects()
     {
         await WriteCanonical(DefaultRequestsNewSubject, DorcEventSchemas.GenerateRequestEventSchema());
         await WriteCanonical(DefaultRequestsStatusSubject, DorcEventSchemas.GenerateRequestEventSchema());
         await WriteCanonical(DefaultResultsStatusSubject, DorcEventSchemas.GenerateResultEventSchema());
+        await WriteCanonical(DefaultRequestsNewDlqSubject, DorcEventSchemas.GenerateErrorEnvelopeSchema());
         await WriteSnapshot(DefaultRequestsNewSubject, DorcEventSchemas.GenerateRequestEventSchema());
         await WriteSnapshot(DefaultRequestsStatusSubject, DorcEventSchemas.GenerateRequestEventSchema());
         await WriteSnapshot(DefaultResultsStatusSubject, DorcEventSchemas.GenerateResultEventSchema());
+        await WriteSnapshot(DefaultRequestsNewDlqSubject, DorcEventSchemas.GenerateErrorEnvelopeSchema());
         var gate = new AvroSchemaGate(registryHttp: null, canonicalDir: _canonicalDir, snapshotDir: _snapshotDir);
 
         var reports = await gate.RunAsync();
 
-        Assert.AreEqual(3, reports.Count);
+        Assert.AreEqual(4, reports.Count);
         CollectionAssert.AreEquivalent(
-            new[] { DefaultRequestsNewSubject, DefaultRequestsStatusSubject, DefaultResultsStatusSubject },
+            new[] { DefaultRequestsNewSubject, DefaultRequestsStatusSubject, DefaultResultsStatusSubject, DefaultRequestsNewDlqSubject },
             reports.Select(r => r.Subject).ToList());
         Assert.IsTrue(reports.All(r => r.Outcome == GateOutcome.Pass));
     }
@@ -183,7 +186,7 @@ public class SchemaGateUnitTests
 
         var triples = gate.InScopeSchemas();
 
-        Assert.AreEqual(3, triples.Count);
+        Assert.AreEqual(4, triples.Count);
         foreach (var (canonicalKey, liveSubject, _) in triples)
             Assert.AreEqual(canonicalKey, liveSubject,
                 "When deployed topics match defaults, canonicalKey == liveSubject (production-default deploy).");

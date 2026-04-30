@@ -44,10 +44,12 @@ public sealed class AvroSchemaGate
     internal const string CanonicalRequestsNewKey    = "dorc.requests.new-value";
     internal const string CanonicalRequestsStatusKey = "dorc.requests.status-value";
     internal const string CanonicalResultsStatusKey  = "dorc.results.status-value";
+    internal const string CanonicalRequestsNewDlqKey = "dorc.requests.new.dlq-value";
 
     private const string CanonicalRequestsNewAvsc    = "dorc.requests.new-value.avsc";
     private const string CanonicalRequestsStatusAvsc = "dorc.requests.status-value.avsc";
     private const string CanonicalResultsStatusAvsc  = "dorc.results.status-value.avsc";
+    private const string CanonicalRequestsNewDlqAvsc = "dorc.requests.new.dlq-value.avsc";
 
     private readonly KafkaTopicsOptions _deployedTopics;
     private readonly HttpClient? _registryHttp;
@@ -79,7 +81,8 @@ public sealed class AvroSchemaGate
     {
         (CanonicalRequestsNewKey,    $"{_deployedTopics.RequestsNew}-value",    DorcEventSchemas.GenerateRequestEventSchema()),
         (CanonicalRequestsStatusKey, $"{_deployedTopics.RequestsStatus}-value", DorcEventSchemas.GenerateRequestEventSchema()),
-        (CanonicalResultsStatusKey,  $"{_deployedTopics.ResultsStatus}-value", DorcEventSchemas.GenerateResultEventSchema())
+        (CanonicalResultsStatusKey,  $"{_deployedTopics.ResultsStatus}-value", DorcEventSchemas.GenerateResultEventSchema()),
+        (CanonicalRequestsNewDlqKey, $"{_deployedTopics.RequestsNewDlq}-value", DorcEventSchemas.GenerateErrorEnvelopeSchema())
     };
 
     public async Task<IReadOnlyList<GateReport>> RunAsync(CancellationToken cancellationToken = default)
@@ -106,6 +109,7 @@ public sealed class AvroSchemaGate
             CanonicalRequestsNewKey    => CanonicalRequestsNewAvsc,
             CanonicalRequestsStatusKey => CanonicalRequestsStatusAvsc,
             CanonicalResultsStatusKey  => CanonicalResultsStatusAvsc,
+            CanonicalRequestsNewDlqKey => CanonicalRequestsNewDlqAvsc,
             _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
         };
         var canonicalPath = Path.Combine(_canonicalDir, canonicalFile);
@@ -205,6 +209,7 @@ public sealed class AvroSchemaGate
             CanonicalRequestsNewKey    => CanonicalRequestsNewAvsc,
             CanonicalRequestsStatusKey => CanonicalRequestsStatusAvsc,
             CanonicalResultsStatusKey  => CanonicalResultsStatusAvsc,
+            CanonicalRequestsNewDlqKey => CanonicalRequestsNewDlqAvsc,
             _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
         };
         var snapshotPath = Path.Combine(_snapshotDir, snapshotFile);
