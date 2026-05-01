@@ -104,7 +104,9 @@ internal sealed class S007TestHarness : IAsyncDisposable
         foreach (var d in _disposables.AsEnumerable().Reverse())
         {
             try { d.Dispose(); }
-            catch (Exception) { /* best-effort: harness teardown */ }
+            catch (ObjectDisposedException) { /* best-effort: already disposed */ }
+            catch (InvalidOperationException) { /* best-effort: client in invalid state */ }
+            catch (KafkaException) { /* best-effort: client teardown raced with broker */ }
         }
         return ValueTask.CompletedTask;
     }

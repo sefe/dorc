@@ -129,8 +129,12 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                     try { Task.Delay(1000, stoppingToken).Wait(stoppingToken); }
                     catch (OperationCanceledException) { break; }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!IsCritical(ex))
                 {
+                    // Safety net for the long-running consume loop: log and
+                    // continue rather than tear the host down on a transient
+                    // unknown failure. Process-fatal exceptions still escape
+                    // via IsCritical so the runtime can restart us cleanly.
                     _logger.LogError(ex, "KafkaLockCoordinator unexpected consume-loop error");
                     try { Task.Delay(1000, stoppingToken).Wait(stoppingToken); }
                     catch (OperationCanceledException) { break; }
@@ -139,9 +143,19 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         }
         finally
         {
-            try { _consumer?.Close(); } catch { /* best-effort */ }
+            try { _consumer?.Close(); }
+            catch (Exception ex) when (!IsCritical(ex))
+            {
+                _logger.LogWarning(ex, "KafkaLockCoordinator consumer-close failed");
+            }
         }
     }
+
+    private static bool IsCritical(Exception ex) =>
+        ex is OutOfMemoryException
+            or StackOverflowException
+            or AccessViolationException
+            or System.Threading.ThreadAbortException;
 
     /// <summary>
     /// Compute the partition for a resource key using Kafka's <c>MurmurHash2</c>
