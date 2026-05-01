@@ -171,16 +171,23 @@ static bool ApplyIdempotently(string stateFile, string requestId, int version, s
 static (int Version, string State)? ReadLatestVersion(string stateFile, string requestId)
 {
     if (!File.Exists(stateFile)) return null;
-    (int Version, string State)? latest = null;
-    foreach (var line in File.ReadLines(stateFile).Where(l => !string.IsNullOrWhiteSpace(l)))
+    return File.ReadLines(stateFile)
+        .Where(l => !string.IsNullOrWhiteSpace(l))
+        .Select(ParseRecord)
+        .Where(r => r.RequestId == requestId)
+        .Aggregate<(string RequestId, int Version, string State), (int Version, string State)?>(
+            null,
+            (max, r) => max is null || r.Version > max.Value.Version ? (r.Version, r.State) : max);
+
+    // Local helper so JsonDocument disposes per-line — keeping the LINQ
+    // chain free of disposable leaks.
+    static (string RequestId, int Version, string State) ParseRecord(string line)
     {
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
-        if (root.GetProperty("requestId").GetString() != requestId) continue;
-        var ver = root.GetProperty("version").GetInt32();
-        var state = root.GetProperty("state").GetString() ?? string.Empty;
-        if (latest is null || ver > latest.Value.Version)
-            latest = (ver, state);
+        return (
+            root.GetProperty("requestId").GetString() ?? string.Empty,
+            root.GetProperty("version").GetInt32(),
+            root.GetProperty("state").GetString() ?? string.Empty);
     }
-    return latest;
 }
