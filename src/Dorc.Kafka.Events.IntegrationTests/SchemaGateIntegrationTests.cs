@@ -38,12 +38,15 @@ public class SchemaGateIntegrationTests
             await ProduceBaselineAsync(topic);
 
             // Check that the same canonical passes the BACKWARD gate against itself.
+            // Post-S-017 #8: canonicalKey is whitelisted to a fixed set so the
+            // .avsc lookup is taint-free; we exercise the RequestsNew arm and
+            // route the per-test random subject through the liveSubject param.
             var schema = DorcEventSchemas.GenerateRequestEventSchema();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, $"{subject}.avsc"), schema);
+            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, "dorc.requests.new-value.avsc"), schema);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, subject, schema, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(AvroSchemaGate.CanonicalRequestsNewKey, subject, schema, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Pass, report.Outcome, report.Message);
             Assert.AreEqual("live", report.Source);
@@ -71,11 +74,11 @@ public class SchemaGateIntegrationTests
             var breaking = """
             {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"int"},{"name":"NewRequired","type":"string"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"}]}
             """.Trim();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, $"{subject}.avsc"), breaking);
+            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, "dorc.requests.new-value.avsc"), breaking);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, subject, breaking, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(AvroSchemaGate.CanonicalRequestsNewKey, subject, breaking, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Fail, report.Outcome);
             Assert.AreEqual("live", report.Source);
@@ -106,11 +109,11 @@ public class SchemaGateIntegrationTests
             var breakingType = """
             {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"string"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"}]}
             """.Trim();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, $"{subject}.avsc"), breakingType);
+            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, "dorc.requests.new-value.avsc"), breakingType);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, subject, breakingType, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(AvroSchemaGate.CanonicalRequestsNewKey, subject, breakingType, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Fail, report.Outcome);
             Assert.AreEqual("live", report.Source);
@@ -139,11 +142,11 @@ public class SchemaGateIntegrationTests
             var additive = """
             {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"int"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"},{"name":"Note","type":["null","string"],"default":null}]}
             """.Trim();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, $"{subject}.avsc"), additive);
+            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, "dorc.requests.new-value.avsc"), additive);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
-            var report = await gate.CheckSubjectAsync(subject, subject, additive, CancellationToken.None);
+            var report = await gate.CheckSubjectAsync(AvroSchemaGate.CanonicalRequestsNewKey, subject, additive, CancellationToken.None);
 
             Assert.AreEqual(GateOutcome.Pass, report.Outcome, report.Message);
             Assert.AreEqual("live", report.Source);
