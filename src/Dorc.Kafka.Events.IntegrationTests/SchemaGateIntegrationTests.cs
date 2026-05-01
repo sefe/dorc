@@ -15,10 +15,9 @@ public class SchemaGateIntegrationTests
     [TestInitialize]
     public void SetUp()
     {
-        // Path.GetFileName on the leaves rules out the static-analyzer concern
-        // about Path.Combine silently dropping the base path on a rooted leaf.
-        _tempRoot = Path.Combine(Path.GetTempPath(), Path.GetFileName($"schema-gate-it-{Guid.NewGuid():N}"));
-        _canonicalDir = Path.Combine(_tempRoot, Path.GetFileName("current"));
+        // Path.Join (not Combine) — never silently drops earlier segments.
+        _tempRoot = Path.Join(Path.GetTempPath(), $"schema-gate-it-{Guid.NewGuid():N}");
+        _canonicalDir = Path.Join(_tempRoot, "current");
         Directory.CreateDirectory(_canonicalDir);
     }
 
@@ -44,7 +43,7 @@ public class SchemaGateIntegrationTests
             // .avsc lookup is taint-free; we exercise the RequestsNew arm and
             // route the per-test random subject through the liveSubject param.
             var schema = DorcEventSchemas.GenerateRequestEventSchema();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, Path.GetFileName("dorc.requests.new-value.avsc")), schema);
+            await File.WriteAllTextAsync(Path.Join(_canonicalDir, "dorc.requests.new-value.avsc"), schema);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
@@ -76,7 +75,7 @@ public class SchemaGateIntegrationTests
             var breaking = """
             {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"int"},{"name":"NewRequired","type":"string"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"}]}
             """.Trim();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, Path.GetFileName("dorc.requests.new-value.avsc")), breaking);
+            await File.WriteAllTextAsync(Path.Join(_canonicalDir, "dorc.requests.new-value.avsc"), breaking);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
@@ -111,7 +110,7 @@ public class SchemaGateIntegrationTests
             var breakingType = """
             {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"string"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"}]}
             """.Trim();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, Path.GetFileName("dorc.requests.new-value.avsc")), breakingType);
+            await File.WriteAllTextAsync(Path.Join(_canonicalDir, "dorc.requests.new-value.avsc"), breakingType);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
@@ -144,7 +143,7 @@ public class SchemaGateIntegrationTests
             var additive = """
             {"name":"Dorc.Core.Events.DeploymentRequestEventData","type":"record","fields":[{"name":"CompletedTime","type":["null","string"]},{"name":"RequestId","type":"int"},{"name":"StartedTime","type":["null","string"]},{"name":"Status","type":["null","string"]},{"name":"Timestamp","type":"string"},{"name":"Note","type":["null","string"],"default":null}]}
             """.Trim();
-            await File.WriteAllTextAsync(Path.Combine(_canonicalDir, Path.GetFileName("dorc.requests.new-value.avsc")), additive);
+            await File.WriteAllTextAsync(Path.Join(_canonicalDir, "dorc.requests.new-value.avsc"), additive);
 
             using var http = AvroKafkaTestHarness.BuildRegistryHttpClient();
             var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);

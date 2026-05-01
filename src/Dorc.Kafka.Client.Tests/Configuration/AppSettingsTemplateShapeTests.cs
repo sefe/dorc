@@ -86,9 +86,9 @@ public class AppSettingsTemplateShapeTests
 
     private static IConfigurationRoot LoadTemplate(string linkedFileName)
     {
-        // Path.GetFileName guarantees the leaf cannot be rooted, so
-        // Path.Combine never silently discards the base directory.
-        var path = Path.Combine(AppContext.BaseDirectory, "Configuration", Path.GetFileName(linkedFileName));
+        // Path.Join (not Combine) — never silently drops earlier segments
+        // even if a future caller ever passes a rooted linkedFileName.
+        var path = Path.Join(AppContext.BaseDirectory, "Configuration", linkedFileName);
         Assert.IsTrue(File.Exists(path), $"Linked template not found at {path}. Check the Content/Link declarations in Dorc.Kafka.Client.Tests.csproj.");
 
         return new ConfigurationBuilder()

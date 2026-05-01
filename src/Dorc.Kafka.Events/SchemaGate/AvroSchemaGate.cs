@@ -112,11 +112,11 @@ public sealed class AvroSchemaGate
             CanonicalRequestsNewDlqKey => CanonicalRequestsNewDlqAvsc,
             _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
         };
-        // canonicalFile is one of four hardcoded const literals — Path.GetFileName
-        // is a belt-and-braces guard that defeats the static-analyzer concern
-        // about Path.Combine silently dropping _canonicalDir if a rooted leaf
-        // ever leaked in via a future code change.
-        var canonicalPath = Path.Combine(_canonicalDir, Path.GetFileName(canonicalFile));
+        // Path.Join (not Path.Combine) — Path.Combine silently drops the base
+        // directory if the leaf is rooted; Path.Join always concatenates.
+        // canonicalFile is a const-switch literal anyway, but the analyzer
+        // can't see that and Path.Join keeps it (and any future caller) safe.
+        var canonicalPath = Path.Join(_canonicalDir, canonicalFile);
         if (!File.Exists(canonicalPath))
             return new GateReport(GateOutcome.Fail, liveSubject, $"Canonical schema file not found at {canonicalPath}.");
 
@@ -216,8 +216,8 @@ public sealed class AvroSchemaGate
             CanonicalRequestsNewDlqKey => CanonicalRequestsNewDlqAvsc,
             _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
         };
-        // Same Path.GetFileName guard as the canonical-file path above.
-        var snapshotPath = Path.Combine(_snapshotDir, Path.GetFileName(snapshotFile));
+        // Same Path.Join (not Combine) safety as the canonical-file path above.
+        var snapshotPath = Path.Join(_snapshotDir, snapshotFile);
         if (!File.Exists(snapshotPath)) return null;
 
         var snapshot = File.ReadAllText(snapshotPath);
