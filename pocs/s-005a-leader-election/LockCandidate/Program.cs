@@ -156,7 +156,9 @@ while (!cts.IsCancellationRequested)
     catch (KafkaException ex) { Log("commit-failed", new { code = ex.Error.Code.ToString(), reason = ex.Error.Reason }); }
 }
 
-try { consumer.Close(); } catch { /* best effort */ }
+try { consumer.Close(); }
+catch (KafkaException ex) { Log("close-failed", new { code = ex.Error.Code.ToString(), reason = ex.Error.Reason }); }
+catch (ObjectDisposedException) { /* benign on shutdown */ }
 Log("shutdown", new { reason = "cancelled" });
 
 static (int Version, string State) ParseValue(string v)
