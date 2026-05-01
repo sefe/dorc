@@ -63,13 +63,13 @@ public class DorcEventSchemasTests
     private static string CanonicalPath(string subject)
     {
         var repoRoot = FindRepoRoot();
-        return Path.Combine(repoRoot, "docs", "kafka-migration", "schemas", "current", $"{subject}.avsc");
+        return Path.Join(repoRoot, "docs", "kafka-migration", "schemas", "current", $"{subject}.avsc");
     }
 
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "src", "Dorc.sln")))
+        while (dir is not null && !File.Exists(Path.Join(dir.FullName, "src", "Dorc.sln")))
             dir = dir.Parent;
         return dir?.FullName
             ?? throw new InvalidOperationException("Could not locate repo root containing src/Dorc.sln");

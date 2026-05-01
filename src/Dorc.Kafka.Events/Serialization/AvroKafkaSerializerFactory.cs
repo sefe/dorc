@@ -111,15 +111,12 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         {
             lock (_lock)
             {
-                foreach (var inner in _byTopic.Values)
+                foreach (var d in _byTopic.Values.OfType<IDisposable>())
                 {
-                    if (inner is IDisposable d)
+                    try { d.Dispose(); }
+                    catch (Exception ex) when (!IsCritical(ex))
                     {
-                        try { d.Dispose(); }
-                        catch (Exception ex) when (!IsCritical(ex))
-                        {
-                            _logger.LogWarning(ex, "avro-serializer-dispose-failed type={Type}", typeof(T).Name);
-                        }
+                        _logger.LogWarning(ex, "avro-serializer-dispose-failed type={Type}", typeof(T).Name);
                     }
                 }
                 _byTopic.Clear();
@@ -173,15 +170,12 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         {
             lock (_lock)
             {
-                foreach (var inner in _byTopic.Values)
+                foreach (var d in _byTopic.Values.OfType<IDisposable>())
                 {
-                    if (inner is IDisposable d)
+                    try { d.Dispose(); }
+                    catch (Exception ex) when (!IsCritical(ex))
                     {
-                        try { d.Dispose(); }
-                        catch (Exception ex) when (!IsCritical(ex))
-                        {
-                            _logger.LogWarning(ex, "avro-deserializer-dispose-failed type={Type}", typeof(T).Name);
-                        }
+                        _logger.LogWarning(ex, "avro-deserializer-dispose-failed type={Type}", typeof(T).Name);
                     }
                 }
                 _byTopic.Clear();

@@ -21,9 +21,9 @@ public class SchemaGateUnitTests
     [TestInitialize]
     public void SetUp()
     {
-        _tempRoot = Path.Combine(Path.GetTempPath(), $"schema-gate-{Guid.NewGuid():N}");
-        _canonicalDir = Path.Combine(_tempRoot, "current");
-        _snapshotDir = Path.Combine(_tempRoot, "latest");
+        _tempRoot = Path.Join(Path.GetTempPath(), $"schema-gate-{Guid.NewGuid():N}");
+        _canonicalDir = Path.Join(_tempRoot, "current");
+        _snapshotDir = Path.Join(_tempRoot, "latest");
         Directory.CreateDirectory(_canonicalDir);
         Directory.CreateDirectory(_snapshotDir);
     }
@@ -206,8 +206,8 @@ public class SchemaGateUnitTests
     }
 
     private Task WriteCanonical(string subject, string content)
-        => File.WriteAllTextAsync(Path.Combine(_canonicalDir, $"{subject}.avsc"), content);
+        => File.WriteAllTextAsync(Path.Join(_canonicalDir, $"{subject}.avsc"), content);
 
     private Task WriteSnapshot(string subject, string content)
-        => File.WriteAllTextAsync(Path.Combine(_snapshotDir, $"{subject}.avsc"), content);
+        => File.WriteAllTextAsync(Path.Join(_snapshotDir, $"{subject}.avsc"), content);
 }

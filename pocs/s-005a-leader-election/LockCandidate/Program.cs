@@ -172,9 +172,8 @@ static (int Version, string State)? ReadLatestVersion(string stateFile, string r
 {
     if (!File.Exists(stateFile)) return null;
     (int Version, string State)? latest = null;
-    foreach (var line in File.ReadLines(stateFile))
+    foreach (var line in File.ReadLines(stateFile).Where(l => !string.IsNullOrWhiteSpace(l)))
     {
-        if (string.IsNullOrWhiteSpace(line)) continue;
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
         if (root.GetProperty("requestId").GetString() != requestId) continue;
