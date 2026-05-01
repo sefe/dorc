@@ -57,7 +57,15 @@ public class RequestPollSignalTests
         cts.CancelAfter(50);
 
         var sw = Stopwatch.StartNew();
-        try { await waitTask; } catch (OperationCanceledException) { }
+        try
+        {
+            await waitTask;
+            Assert.Fail("Expected OperationCanceledException to surface from a cancelled WaitAsync.");
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected — cancellation observed.
+        }
         sw.Stop();
 
         Assert.IsTrue(sw.ElapsedMilliseconds < 1_000, $"Wait should observe cancellation; took {sw.ElapsedMilliseconds}ms.");

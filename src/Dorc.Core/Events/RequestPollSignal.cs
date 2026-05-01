@@ -30,7 +30,12 @@ public sealed class RequestPollSignal : IRequestPollSignal, IDisposable
         {
             // After disposal, fall back to a plain delay so the loop continues
             // its baseline cadence until host shutdown completes.
-            try { await Task.Delay(timeout, cancellationToken); } catch (OperationCanceledException) { }
+            try { await Task.Delay(timeout, cancellationToken); }
+            catch (OperationCanceledException)
+            {
+                // Cancellation during shutdown is the expected exit; swallow
+                // so callers don't see a TaskCanceledException on the way out.
+            }
             return;
         }
         try { await _sem.WaitAsync(timeout, cancellationToken); }
