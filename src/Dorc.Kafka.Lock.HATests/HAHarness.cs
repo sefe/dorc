@@ -48,7 +48,11 @@ internal sealed class HAHarness : IAsyncDisposable
                 Name = _topic, NumPartitions = _partitionCount, ReplicationFactor = 1
             }});
         }
-        catch (CreateTopicsException ex) when (ex.Results[0].Error.Code == ErrorCode.TopicAlreadyExists) { }
+        catch (CreateTopicsException ex) when (ex.Results[0].Error.Code == ErrorCode.TopicAlreadyExists)
+        {
+            // Idempotent: parallel HA harnesses race to create the same
+            // topic; whichever loses just continues against the existing one.
+        }
     }
 
     public async Task<(KafkaLockCoordinator Coord, KafkaDistributedLockService Svc)> AddCandidateAsync()

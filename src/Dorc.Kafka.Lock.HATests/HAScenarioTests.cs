@@ -137,7 +137,13 @@ public class HAScenarioTests
             rebalances++;
         }
         cts.Cancel();
-        try { await writer; } catch (OperationCanceledException) { }
+        try { await writer; }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Expected: the writer observes our explicit Cancel() above.
+            // Cancellations from other sources still surface so we don't
+            // mask unrelated failures.
+        }
 
         using (var check = keeper.CreateCommand())
         {
