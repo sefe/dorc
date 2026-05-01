@@ -112,7 +112,11 @@ public sealed class AvroSchemaGate
             CanonicalRequestsNewDlqKey => CanonicalRequestsNewDlqAvsc,
             _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
         };
-        var canonicalPath = Path.Combine(_canonicalDir, canonicalFile);
+        // canonicalFile is one of four hardcoded const literals — Path.GetFileName
+        // is a belt-and-braces guard that defeats the static-analyzer concern
+        // about Path.Combine silently dropping _canonicalDir if a rooted leaf
+        // ever leaked in via a future code change.
+        var canonicalPath = Path.Combine(_canonicalDir, Path.GetFileName(canonicalFile));
         if (!File.Exists(canonicalPath))
             return new GateReport(GateOutcome.Fail, liveSubject, $"Canonical schema file not found at {canonicalPath}.");
 
@@ -212,7 +216,8 @@ public sealed class AvroSchemaGate
             CanonicalRequestsNewDlqKey => CanonicalRequestsNewDlqAvsc,
             _ => throw new ArgumentException($"Unknown canonical schema key: {canonicalKey}", nameof(canonicalKey))
         };
-        var snapshotPath = Path.Combine(_snapshotDir, snapshotFile);
+        // Same Path.GetFileName guard as the canonical-file path above.
+        var snapshotPath = Path.Combine(_snapshotDir, Path.GetFileName(snapshotFile));
         if (!File.Exists(snapshotPath)) return null;
 
         var snapshot = File.ReadAllText(snapshotPath);
