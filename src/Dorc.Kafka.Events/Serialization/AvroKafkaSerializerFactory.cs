@@ -80,9 +80,19 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         }
         foreach (var d in snapshot)
         {
-            try { d.Dispose(); } catch { /* best-effort */ }
+            try { d.Dispose(); }
+            catch (Exception ex) when (!IsCritical(ex))
+            {
+                _logger.LogWarning(ex, "avro-dispose-failed inner={InnerType}", d.GetType().Name);
+            }
         }
     }
+
+    private static bool IsCritical(Exception ex) =>
+        ex is OutOfMemoryException
+            or StackOverflowException
+            or AccessViolationException
+            or System.Threading.ThreadAbortException;
 
     private sealed class TopicDispatchingSerializer<T> : ISerializer<T>, IDisposable
     {
@@ -105,7 +115,11 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 {
                     if (inner is IDisposable d)
                     {
-                        try { d.Dispose(); } catch { /* best-effort */ }
+                        try { d.Dispose(); }
+                        catch (Exception ex) when (!IsCritical(ex))
+                        {
+                            _logger.LogWarning(ex, "avro-serializer-dispose-failed type={Type}", typeof(T).Name);
+                        }
                     }
                 }
                 _byTopic.Clear();
@@ -163,7 +177,11 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 {
                     if (inner is IDisposable d)
                     {
-                        try { d.Dispose(); } catch { /* best-effort */ }
+                        try { d.Dispose(); }
+                        catch (Exception ex) when (!IsCritical(ex))
+                        {
+                            _logger.LogWarning(ex, "avro-deserializer-dispose-failed type={Type}", typeof(T).Name);
+                        }
                     }
                 }
                 _byTopic.Clear();
