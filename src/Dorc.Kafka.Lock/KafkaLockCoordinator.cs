@@ -236,24 +236,32 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
-        try { _loopCts?.Cancel(); } catch { /* best-effort */ }
+        try { _loopCts?.Cancel(); }
+        catch (ObjectDisposedException) { /* CTS already disposed */ }
+        catch (OperationCanceledException) { /* cancellation already observed */ }
         if (_loopTask is not null)
         {
-            try { await _loopTask.ConfigureAwait(false); } catch { /* best-effort */ }
+            try { await _loopTask.ConfigureAwait(false); }
+            catch (OperationCanceledException) { /* expected during shutdown */ }
+            catch (ObjectDisposedException) { /* loop torn down concurrently */ }
         }
 
         lock (_slotLock)
         {
             foreach (var kv in _slots)
             {
-                try { kv.Value.Cts.Cancel(); } catch { /* best-effort */ }
+                try { kv.Value.Cts.Cancel(); }
+                catch (ObjectDisposedException) { /* slot CTS already disposed */ }
                 kv.Value.AcquiredTcs.TrySetCanceled();
             }
             _slots.Clear();
         }
 
-        try { _consumer?.Dispose(); } catch { /* best-effort */ }
-        try { _loopCts?.Dispose(); } catch { /* best-effort */ }
+        try { _consumer?.Dispose(); }
+        catch (KafkaException) { /* best-effort: consumer torn down */ }
+        catch (ObjectDisposedException) { /* already disposed */ }
+        try { _loopCts?.Dispose(); }
+        catch (ObjectDisposedException) { /* already disposed */ }
     }
 
     internal sealed class PartitionSlot
