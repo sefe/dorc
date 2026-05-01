@@ -30,12 +30,30 @@ static string Req(string name) => Environment.GetEnvironmentVariable(name)
     ?? throw new InvalidOperationException($"Env var {name} is required.");
 static string Opt(string name, string fallback) => Environment.GetEnvironmentVariable(name) ?? fallback;
 
+// Path-traversal sanitisation for env-var-supplied file paths. Aikido's
+// taint analysis is per-function and recognises string-mutation operations
+// (.Replace, Path.GetFileName) as sanitisers — throw-based rejects do NOT
+// break the taint chain in its model. So we strip `..` and path separators
+// here at intake AND re-sanitise at every File.* sink via
+// `Path.Join(cwd, Path.GetFileName(p))`. In practice the POC's test scripts
+// pass simple filenames (e.g. `state-i1.jsonl`); both layers are
+// defence-in-depth, not a behaviour change.
+static string ReqLocalPath(string name)
+{
+    var raw = Req(name);
+    var sanitised = raw
+        .Replace("..", string.Empty, StringComparison.Ordinal)
+        .Replace('/', '_')
+        .Replace('\\', '_');
+    return Path.Join(Path.GetFullPath(Environment.CurrentDirectory), sanitised);
+}
+
 var instanceId = Req("INSTANCE_ID");
 var bootstrap = Req("KAFKA_BOOTSTRAP");
 var topic = Req("TOPIC");
 var groupId = Req("GROUP_ID");
-var stateFile = Req("STATE_FILE");
-var handlerInvocationsFile = Req("HANDLER_INVOCATIONS_FILE");
+var stateFile = ReqLocalPath("STATE_FILE");
+var handlerInvocationsFile = ReqLocalPath("HANDLER_INVOCATIONS_FILE");
 var forcePreCommitDelayMs = int.Parse(Opt("FORCE_PRE_COMMIT_DELAY_MS", "0"));
 
 void Log(string kind, object payload)
@@ -111,9 +129,12 @@ while (!cts.IsCancellationRequested)
     // Also record every invocation (even no-ops) into the append-only
     // handler-invocations file so the post-run analysis can distinguish
     // "handler ran twice but second was no-op" from "handler ran once".
+    var safeInvPath = Path.Join(
+        Path.GetFullPath(Environment.CurrentDirectory),
+        Path.GetFileName(handlerInvocationsFile));
     lock (stateLock)
     {
-        File.AppendAllText(handlerInvocationsFile, JsonSerializer.Serialize(new
+        File.AppendAllText(safeInvPath, JsonSerializer.Serialize(new
         {
             timestampUtc = DateTimeOffset.UtcNow.ToString("O"),
             instanceId,
@@ -149,6 +170,14 @@ static (int Version, string State) ParseValue(string v)
 
 static bool ApplyIdempotently(string stateFile, string requestId, int version, string nextState, string byInstance, object stateLock)
 {
+    // Re-sanitise inside the function — Aikido's taint analysis is
+    // per-function, so the intake-time strip in ReqLocalPath isn't visible
+    // to the analyser at this sink. Strip every byte the rule cares about
+    // by reducing the path to its filename component combined with the
+    // working directory; the analyser recognises this as a sanitiser.
+    var safePath = Path.Join(
+        Path.GetFullPath(Environment.CurrentDirectory),
+        Path.GetFileName(stateFile));
     lock (stateLock)
     {
         var latest = ReadLatestVersion(stateFile, requestId);
@@ -163,15 +192,19 @@ static bool ApplyIdempotently(string stateFile, string requestId, int version, s
             state = nextState,
             appliedBy = byInstance
         });
-        File.AppendAllText(stateFile, record + Environment.NewLine);
+        File.AppendAllText(safePath, record + Environment.NewLine);
         return true;
     }
 }
 
 static (int Version, string State)? ReadLatestVersion(string stateFile, string requestId)
 {
-    if (!File.Exists(stateFile)) return null;
-    return File.ReadLines(stateFile)
+    // Re-sanitise per-function (see ApplyIdempotently note).
+    var safePath = Path.Join(
+        Path.GetFullPath(Environment.CurrentDirectory),
+        Path.GetFileName(stateFile));
+    if (!File.Exists(safePath)) return null;
+    return File.ReadLines(safePath)
         .Where(l => !string.IsNullOrWhiteSpace(l))
         .Select(ParseRecord)
         .Where(r => r.RequestId == requestId)
