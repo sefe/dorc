@@ -80,7 +80,7 @@ podman compose -f compose.kafka.yml down -v
 | Image | Version | License |
 |---|---|---|
 | `apache/kafka` | 3.7.0 | Apache 2.0 |
-| `ghcr.io/aiven-open/karapace` | 3.11.1 | Apache 2.0 |
+| `ghcr.io/aiven-open/karapace` | 4.1.1 | Apache 2.0 |
 | `provectuslabs/kafka-ui` | v0.7.2 | Apache 2.0 |
 
 All three are OSI-approved. No Confluent Community-licensed components are used (see `HLPS-Kafka-Migration.md` R-7).

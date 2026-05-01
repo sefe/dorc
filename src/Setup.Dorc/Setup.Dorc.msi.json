@@ -266,6 +266,10 @@
       "DeployProperty": "KAFKA_TOPICS_RESULTSSTATUS"
     },
     {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEWDLQ",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEWDLQ"
+    },
+    {
       "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
       "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }

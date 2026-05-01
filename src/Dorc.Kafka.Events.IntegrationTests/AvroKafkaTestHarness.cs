@@ -42,7 +42,7 @@ internal static class AvroKafkaTestHarness
             using var admin = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = BootstrapServers }).Build();
             await admin.DeleteTopicsAsync(new[] { topic });
         }
-        catch { /* best-effort */ }
+        catch (DeleteTopicsException) { /* best-effort: topic may not exist */ }
     }
 
     public static async Task DeleteSubjectAsync(string subject)

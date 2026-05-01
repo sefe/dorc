@@ -62,8 +62,9 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         // TimeoutException, InvalidOperationException, or
         // ObjectDisposedException depending on hub state — narrowing to any
         // single type would let the others escape the publisher and break
-        // the "WARN and continue to Kafka emit" contract.
-        catch (Exception ex)
+        // the "WARN and continue to Kafka emit" contract. The when-filter
+        // still lets process-fatal exceptions (OOM / SOE / etc.) escape.
+        catch (Exception ex) when (!IsCritical(ex))
         {
             _logger.LogWarning(ex,
                 "signalr-fanout-failed kind=result requestId={RequestId} resultId={ResultId}",
@@ -99,7 +100,8 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         // Mirror PublishResultStatusChangedAsync — SignalR fan-out is
         // best-effort by design; catch broadly so any hub-side or transport
         // exception is logged WARN without suppressing the Kafka emit.
-        catch (Exception ex)
+        // Process-fatal exceptions still propagate via IsCritical.
+        catch (Exception ex) when (!IsCritical(ex))
         {
             _logger.LogWarning(ex,
                 "signalr-fanout-failed kind={Kind} requestId={RequestId}", kind, eventData.RequestId);
@@ -131,4 +133,10 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         _resultsProducer.Dispose();
         _requestsProducer.Dispose();
     }
+
+    private static bool IsCritical(Exception ex) =>
+        ex is OutOfMemoryException
+            or StackOverflowException
+            or AccessViolationException
+            or System.Threading.ThreadAbortException;
 }

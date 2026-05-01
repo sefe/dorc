@@ -66,6 +66,7 @@
 					<Json:JsonFile Id="KafkaTopicsRequestsNewProd" ElementPath="$.Kafka.Topics.RequestsNew" Value="[KAFKA.TOPICS.REQUESTSNEW]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="KafkaTopicsRequestsStatusProd" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="KafkaTopicsResultsStatusProd" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="KafkaTopicsRequestsNewDlqProd" ElementPath="$.Kafka.Topics.RequestsNewDlq" Value="[KAFKA.TOPICS.REQUESTSNEWDLQ]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">

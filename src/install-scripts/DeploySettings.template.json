@@ -429,7 +429,7 @@
         },
         {
           "AccountNameProperty": "",
-          "IsPath": false,
+          "IsPath": true,
           "IsSecure": false,
           "Name": "KAFKA_SSLCA_LOCATION",
           "Value": "[Optional path to Kafka CA bundle, e.g. C:\\ProgramData\\dorc\\ca.pem]"
@@ -482,6 +482,13 @@
           "IsSecure": false,
           "Name": "KAFKA_TOPICS_RESULTSSTATUS",
           "Value": "dorc.results.status"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_TOPICS_REQUESTSNEWDLQ",
+          "Value": "dorc.requests.new.dlq"
         },
         {
           "AccountNameProperty": "OTEL_COLLECTOR_URL",
