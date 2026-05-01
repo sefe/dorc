@@ -109,7 +109,10 @@ internal sealed class HAHarness : IAsyncDisposable
     {
         foreach (var c in _candidates)
         {
-            try { await c.Coord.DisposeAsync(); } catch { /* best-effort */ }
+            try { await c.Coord.DisposeAsync(); }
+            catch (ObjectDisposedException) { /* best-effort: already disposed */ }
+            catch (OperationCanceledException) { /* best-effort: cancellation in flight */ }
+            catch (KafkaException) { /* best-effort: client teardown raced */ }
         }
         _candidates.Clear();
     }

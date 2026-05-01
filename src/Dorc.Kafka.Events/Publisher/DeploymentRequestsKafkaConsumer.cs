@@ -110,8 +110,11 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId,
                     result.Message.Value.RequestId, result.Message.Value.Status);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsCritical(ex))
             {
+                // Broad by design: any handler-side failure (deserialize,
+                // DAL, cancellation) routes to the error log so the consume
+                // loop survives. Process-fatal exceptions still escape.
                 HandleFailureFromConsumeResult(result, ex);
             }
         }
@@ -183,7 +186,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                 "error-logged topic={Topic} partition={Partition} offset={Offset} group={GroupId} error={Error}",
                 entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.Error);
         }
-        catch (Exception dalEx)
+        catch (Exception dalEx) when (!IsCritical(dalEx))
         {
             try
             {
@@ -191,7 +194,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                     "error-fallback-structured-log topic={Topic} partition={Partition} offset={Offset} group={GroupId} key={Key} error={Error}",
                     entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.MessageKey, entry.Error);
             }
-            catch
+            catch (Exception logEx) when (!IsCritical(logEx))
             {
                 // Super-degraded: logger itself threw. Per SPEC-S-006 R-8 (mirrors
                 // S-007 R-3 #4) — swallow so the consumer loop survives a single
@@ -199,4 +202,10 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             }
         }
     }
+
+    private static bool IsCritical(Exception ex) =>
+        ex is OutOfMemoryException
+            or StackOverflowException
+            or AccessViolationException
+            or System.Threading.ThreadAbortException;
 }
