@@ -103,7 +103,8 @@ internal sealed class S007TestHarness : IAsyncDisposable
     {
         foreach (var d in _disposables.AsEnumerable().Reverse())
         {
-            try { d.Dispose(); } catch { /* best-effort */ }
+            try { d.Dispose(); }
+            catch (Exception) { /* best-effort: harness teardown */ }
         }
         return ValueTask.CompletedTask;
     }

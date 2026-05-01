@@ -54,7 +54,8 @@ internal static class AvroKafkaTestHarness
             await http.DeleteAsync($"/subjects/{subject}");
             await http.DeleteAsync($"/subjects/{subject}?permanent=true");
         }
-        catch { /* best-effort */ }
+        catch (HttpRequestException) { /* best-effort: registry unreachable / 404 */ }
+        catch (TaskCanceledException) { /* best-effort: request timed out */ }
     }
 
     public static ISchemaRegistryClient BuildRegistry()

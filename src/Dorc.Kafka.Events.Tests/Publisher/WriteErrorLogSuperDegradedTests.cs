@@ -60,13 +60,17 @@ public class WriteErrorLogSuperDegradedTests
         {
             errorLog.InsertAsync(entry, CancellationToken.None).GetAwaiter().GetResult();
         }
-        catch (Exception dalEx)
+        catch (Exception dalEx) when (dalEx is not OutOfMemoryException
+                                       and not StackOverflowException
+                                       and not AccessViolationException)
         {
             try
             {
                 logger.LogError(dalEx, "error-fallback-structured-log {E}", entry.Error);
             }
-            catch
+            catch (Exception logEx) when (logEx is not OutOfMemoryException
+                                           and not StackOverflowException
+                                           and not AccessViolationException)
             {
                 // Super-degraded: logger itself threw. Swallow.
             }
