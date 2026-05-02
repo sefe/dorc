@@ -40,6 +40,7 @@ import type { PropertyValues } from 'lit';
 import type { RouterLocation } from '@vaadin/router';
 import type { RouteMeta } from '../../router/routes';
 import { PageEnvBase } from './page-env-base';
+import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 
 const username = 'Username';
 const status = 'Status';
@@ -48,7 +49,7 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('env-monitor')
-export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
+export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
@@ -157,6 +158,13 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -306,6 +314,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -313,6 +322,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -335,6 +345,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
