@@ -60,7 +60,8 @@ namespace Dorc.Api.Tests
 
             _mockedBuildServerClient.ValidateBuildAsync(
                     Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>())
+                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<BuildServerBuildInfo?>(new BuildServerBuildInfo
                 {
                     BuildUri = "12345678",
@@ -91,7 +92,8 @@ namespace Dorc.Api.Tests
 
             _mockedBuildServerClient.ValidateBuildAsync(
                     Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>())
+                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<BuildServerBuildInfo?>(null));
 
             var sut = CreateSut();
@@ -137,7 +139,8 @@ namespace Dorc.Api.Tests
 
             _mockedBuildServerClient.ValidateBuildAsync(
                     Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>())
+                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<BuildServerBuildInfo?>(new BuildServerBuildInfo
                 {
                     BuildUri = "9876543210",
