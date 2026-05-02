@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// jsdom lacks window.matchMedia — stub it for ResponsiveMixin
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 // --- Hoisted mock values (available before vi.mock factories run) ---
 const { mockRequestStatusesPut, mockSubscribe } = vi.hoisted(() => {
   const mockSubscribe = vi.fn();
