@@ -207,9 +207,9 @@ export class EnvBundles extends PageEnvBase {
 
     let typeString: string;
 
-    if (bundle.Type === BundledRequestType.NUMBER_1) {
+    if (bundle.Type === BundledRequestType.JobRequest) {
       typeString = 'JobRequest';
-    } else if (bundle.Type === BundledRequestType.NUMBER_2) {
+    } else if (bundle.Type === BundledRequestType.CopyEnvBuild) {
       typeString = 'CopyEnvBuild';
     } else {
       typeString = 'Unknown';
