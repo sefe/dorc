@@ -57,7 +57,7 @@ function assertResponsiveCss(Cls: any, name: string) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// A. Structural CSS tests — verify all 14 components include the
+// A. Structural CSS tests — verify all 19 components include the
 //    @media (max-width: 768px) cell-wrapping rule
 // ════════════════════════════════════════════════════════════════════
 
@@ -128,6 +128,31 @@ describe('Responsive grid CSS (structural)', () => {
   it('page-variables-value-lookup CSS contains responsive cell wrapping', async () => {
     const mod = await import('../pages/page-variables-value-lookup.js');
     assertResponsiveCss(mod.PageVariablesValueLookup, 'page-variables-value-lookup');
+  });
+
+  it('page-daemons-audit CSS contains responsive cell wrapping', async () => {
+    const mod = await import('../pages/page-daemons-audit.js');
+    assertResponsiveCss(mod.PageDaemonsAudit, 'page-daemons-audit');
+  });
+
+  it('page-projects-audit CSS contains responsive cell wrapping', async () => {
+    const mod = await import('../pages/page-projects-audit.js');
+    assertResponsiveCss(mod.PageProjectsAudit, 'page-projects-audit');
+  });
+
+  it('page-scripts-audit CSS contains responsive cell wrapping', async () => {
+    const mod = await import('../pages/page-scripts-audit.js');
+    assertResponsiveCss(mod.PageScriptsAudit, 'page-scripts-audit');
+  });
+
+  it('page-project-components CSS contains responsive cell wrapping', async () => {
+    const mod = await import('../pages/page-project-components.js');
+    assertResponsiveCss(mod.PageProjectComponents, 'page-project-components');
+  });
+
+  it('env-monitor CSS contains responsive cell wrapping', async () => {
+    const mod = await import('./environment-tabs/env-monitor.js');
+    assertResponsiveCss(mod.EnvMonitor, 'env-monitor');
   });
 });
 
