@@ -18,7 +18,7 @@
     "dev": "vite",
     "preview": "vite preview",
     "start": "npm run serve",
-    "test": "web-test-runner",
+    "test": "web-test-runner && vitest run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "type-checking": "tsc --noEmit && npm run lit:type-checking",
