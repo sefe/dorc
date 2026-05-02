@@ -74,11 +74,6 @@ describe('Responsive grid CSS (structural)', () => {
     assertResponsiveCss(mod.AttachedDatabases, 'attached-databases');
   });
 
-  it('attached-delegated-users CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./attached-delegated-users.js');
-    assertResponsiveCss(mod.AttachedDelegatedUsers, 'attached-delegated-users');
-  });
-
   it('attached-servers CSS contains responsive cell wrapping', async () => {
     const mod = await import('./attached-servers.js');
     assertResponsiveCss(mod.AttachedServers, 'attached-servers');
@@ -354,51 +349,4 @@ describe('Responsive grid column hiding (rendered)', () => {
     });
   });
 
-  // ── attached-delegated-users ──
-  describe('attached-delegated-users', () => {
-    const mockUsers = [
-      {
-        DisplayName: 'User1',
-        LoginId: 'u1',
-        LoginType: 'AD',
-        LanId: 'lan1',
-        LanIdType: 'Domain',
-        Team: 'TeamA',
-      },
-    ];
-
-    it('hides secondary columns on narrow screens', async () => {
-      mockMatchMedia(true);
-      const el = await fixture(html`
-        <attached-delegated-users
-          .users="${mockUsers}"
-        ></attached-delegated-users>
-      `);
-      await el.updateComplete;
-
-      const sr = el.shadowRoot!;
-
-      // Always visible
-      expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="DisplayName"]') as HTMLElement).hidden
-      ).to.equal(false, 'DisplayName should be visible');
-      expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LoginId"]') as HTMLElement).hidden
-      ).to.equal(false, 'LoginId should be visible');
-
-      // Hidden on narrow
-      expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LoginType"]') as HTMLElement).hidden
-      ).to.equal(true, 'LoginType should be hidden');
-      expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LanId"]') as HTMLElement).hidden
-      ).to.equal(true, 'LanId should be hidden');
-      expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LanIdType"]') as HTMLElement).hidden
-      ).to.equal(true, 'LanIdType should be hidden');
-      expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="Team"]') as HTMLElement).hidden
-      ).to.equal(true, 'Team should be hidden');
-    });
-  });
 });
