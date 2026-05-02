@@ -22,10 +22,11 @@ import { PagedDataFilter } from '../apis/dorc-api/models';
 import { DaemonAuditApiModel } from '../apis/dorc-api/models/DaemonAuditApiModel';
 import { GetDaemonAuditListResponseDto } from '../apis/dorc-api/models/GetDaemonAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-daemons-audit')
-export class PageDaemonsAudit extends PageElement {
+export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -112,6 +113,13 @@ export class PageDaemonsAudit extends PageElement {
         margin: 0;
         font-size: 11px;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -177,6 +185,7 @@ export class PageDaemonsAudit extends PageElement {
           .renderer="${this.valueRenderer('FromValue')}"
           resizable
           flex-grow="1"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ToValue"
@@ -184,6 +193,7 @@ export class PageDaemonsAudit extends PageElement {
           .renderer="${this.valueRenderer('ToValue')}"
           resizable
           flex-grow="1"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

@@ -255,6 +255,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
                 path="DisplayName"
                 header="Display Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="AccountName"
@@ -273,6 +274,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
                 header="Last Seen"
                 resizable
                 direction="desc"
+                ?hidden="${this._narrowScreen}"
                 .renderer="${this._lastSeenRenderer}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column

@@ -44,14 +44,15 @@ export class CloneEnvironment extends LitElement {
     return css`
       paper-dialog.size-position {
         overflow: auto;
-        width: 550px;
+        width: min(90vw, 550px);
       }
       vaadin-text-field {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 400px;
+        width: 100%;
         padding: 5px;
+        box-sizing: border-box;
       }
       vaadin-checkbox {
         display: block;
