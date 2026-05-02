@@ -19,7 +19,7 @@ export class AttachedUsers extends LitElement {
     return html`
       <vaadin-grid
         id="grid"
-        .items="${this.users}"
+        .items="${this.sortedUsers}"
         theme="compact row-stripes no-row-borders no-border"
         style="height: 100%"
       >
@@ -41,5 +41,12 @@ export class AttachedUsers extends LitElement {
         </vaadin-grid-sort-column>
       </vaadin-grid>
     `;
+  }
+
+  private get sortedUsers(): UserApiModel[] {
+    return [...this.users].sort((a, b) => {
+    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
+    return -1;
+    });
   }
 }

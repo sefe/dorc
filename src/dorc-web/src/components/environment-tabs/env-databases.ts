@@ -1,28 +1,29 @@
-import '@polymer/paper-toggle-button';
+import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../add-edit-database.ts';
 import '../attach-database';
 import '../attached-databases';
 import { Notification } from '@vaadin/notification';
-import { AttachedDatabases } from '../attached-databases';
 import { PageEnvBase } from './page-env-base';
-import { DatabaseApiModel } from '../../apis/dorc-api';
+import '@vaadin/dialog';
+import { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
-  @property({ type: Boolean }) addDatabase = false;
-
-  @property({ type: Boolean }) attachDatabase = false;
-
   @property({ type: Array })
   databases: Array<DatabaseApiModel> | undefined = [];
 
   @property({ type: Boolean }) private envReadOnly = false;
+
+  @state()
+  private attachDatabaseDialogOpened = false;
 
   static get styles() {
     return css`
@@ -43,14 +44,14 @@ export class EnvDatabases extends PageEnvBase {
       }
       .buttons {
         font-size: 10px;
-        color: cornflowerblue;
+        color: var(--dorc-link-color);
         padding: 2px;
       }
       vaadin-details {
         overflow: auto;
         width: calc(100% - 4px);
         height: calc(100vh - 180px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
     `;
   }
@@ -60,55 +61,36 @@ export class EnvDatabases extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Database Details"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
         <div>
           <div class="inline">
             <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="addDatabase"
-                .checked="${this.addDatabase}"
-                @click="${this._addDatabase}"
-                .disabled="${this.envReadOnly}"
-                >ADD
-              </paper-toggle-button>
-            </div>
-            <div class="inline">
-              <paper-toggle-button
-                class="buttons"
-                id="attachDatabase"
-                .checked="${this.attachDatabase}"
-                @click="${this._attachDatabase}"
-                .disabled="${this.envReadOnly}"
-                >ATTACH
-              </paper-toggle-button>
+                  <vaadin-button
+                    title="Attach Database"
+                    @click="${this.openAttachDatabaseDialog}"
+                    .disabled="${!this.environment?.UserEditable}"
+                  >Attach Database</vaadin-button>
+              <vaadin-dialog
+                id='attach-database-dialog'
+                header-title='Attach Database'
+                .opened='${this.attachDatabaseDialogOpened}'
+                draggable
+                @opened-changed='${(event: DialogOpenedChangedEvent) => {
+                  this.attachDatabaseDialogOpened = event.detail.value;
+                }}'
+                ${dialogRenderer(this.renderAttachDatabaseDialog, [])}
+                ${dialogFooterRenderer(this.renderAttachDatabaseFooter, [])}
+              ></vaadin-dialog>
             </div>
           </div>
-          ${this.addDatabase
-            ? html` <div class="center-aligned">
-                <add-edit-database
-                  .envId="${this.environmentId}"
-                  attach="true"
-                  @database-attached="${this._dbAdded}"
-                ></add-edit-database>
-              </div>`
-            : html``}
-          ${this.attachDatabase
-            ? html` <div class="center-aligned">
-                <attach-database
-                  .envId="${this.environmentId}"
-                  @database-attached="${this._dbAttached}"
-                ></attach-database>
-              </div>`
-            : html``}
           <div>
             <attached-databases
               id="attached-databases"
               .envId="${this.environmentId}"
-              .envContent="${this.envContent}"
               .databases="${this.databases}"
               .readonly="${this.envReadOnly}"
+              @database-detached="${this._dbDetached}"
             ></attached-databases>
           </div>
         </div>
@@ -122,35 +104,17 @@ export class EnvDatabases extends PageEnvBase {
     super.loadEnvironmentInfo();
   }
 
-  _addDatabase() {
-    this.addDatabase = !this.addDatabase;
-    if (this.addDatabase) {
-      this.attachDatabase = !this.addDatabase;
-    }
-  }
-
-  _attachDatabase() {
-    this.attachDatabase = !this.attachDatabase;
-    if (this.attachDatabase) {
-      this.addDatabase = !this.attachDatabase;
-    }
-  }
-
   _dbAttached() {
     this.dbAttachSuccess('Database attached successfully');
-    this.attachDatabase = false;
+    this.closeAttachDatabaseDialog();
   }
 
-  _dbAdded() {
-    this.dbAttachSuccess('Database created & attached successfully');
-    this.addDatabase = false;
+  _dbDetached() {
+    this.dbAttachSuccess('Database detached successfully');
   }
 
   private dbAttachSuccess(text: string) {
-    const attachedDbs = this.shadowRoot?.getElementById(
-      'attached-databases'
-    ) as AttachedDatabases;
-    attachedDbs.refreshDatabases();
+    this.refreshDatabases();
     Notification.show(text, {
       theme: 'success',
       position: 'bottom-start',
@@ -158,16 +122,64 @@ export class EnvDatabases extends PageEnvBase {
     });
   }
 
-  override notifyEnvironmentContentReady() {
-    this.databases =
-      this.envContent?.DbServers !== null
-        ? this.envContent?.DbServers
-        : undefined;
-    this.envReadOnly = !this.environment?.UserEditable;
-    console.log(
-      `Setting Databases on env-databases page ${
-        this.environment?.EnvironmentName
-      }`
+  refreshDatabases() {
+    if (!this.environmentId || this.environmentId === -1) return;
+    const api = new RefDataEnvironmentsDetailsApi();
+    api.refDataEnvironmentsDetailsIdGet({ id: this.environmentId }).subscribe(
+      (data: EnvironmentContentApiModel) => {
+        this.setDatabases(data);
+      },
+      (err: any) => console.error(err),
+      () => console.log('done loading env details')
     );
+  }
+
+  setDatabases = (data: EnvironmentContentApiModel | undefined) => {
+    console.log(
+      `Setting Databases on env-databases page ${this.environment?.EnvironmentName}`
+    );
+
+    this.databases =
+      data?.DbServers !== null
+        ? data?.DbServers?.sort(this.sortDbs)
+        : undefined;
+  }
+
+  override notifyEnvironmentContentReady() {
+    this.envReadOnly = !this.environment?.UserEditable;
+    this.refreshDatabases();
+  }
+
+  sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
+    if (String(a.Name).toLowerCase() > String(b.Name).toLowerCase()) return 1;
+    if (a.Name?.toLowerCase() === b.Name?.toLowerCase()) {
+      if (String(a.ServerName).toLowerCase() > String(b.ServerName).toLowerCase()) return 1;
+      return -1;
+    }
+    return -1;
+  }
+    private renderAttachDatabaseDialog = () => html`
+    <attach-database
+      id="attach-database"
+      .envId="${this.environmentId}"
+      .existingDatabases="${this.databases}"
+      @database-attached="${this._dbAttached}"
+    ></attach-database>
+  `;
+
+  private renderAttachDatabaseFooter = () => html`
+  <div style="display: flex; justify-content: flex-end">
+    <vaadin-button @click="${this.closeAttachDatabaseDialog}"
+      >Close</vaadin-button
+    >
+    </div>
+  `;
+
+  private openAttachDatabaseDialog() {
+    this.attachDatabaseDialogOpened = true;
+  }
+
+  private closeAttachDatabaseDialog() {
+    this.attachDatabaseDialogOpened = false;
   }
 }

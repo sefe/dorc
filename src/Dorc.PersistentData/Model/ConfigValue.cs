@@ -6,5 +6,6 @@
         public string Key { get; set; } = null!;
         public string? Value { get; set; }
         public bool Secure { get; set; }
+        public bool? IsForProd { get; set; }
     }
 }

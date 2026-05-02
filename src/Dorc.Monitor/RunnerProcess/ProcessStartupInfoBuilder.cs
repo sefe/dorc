@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -12,11 +12,11 @@ namespace Dorc.Monitor.RunnerProcess
 
         private static readonly HandleRef NullHandleRef = new HandleRef(null, nint.Zero);
 
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         private ProcessStartupInfoBuilder() { }
 
-        internal ProcessStartupInfoBuilder(ILog logger)
+        internal ProcessStartupInfoBuilder(ILogger logger)
         {
             this.logger = logger;
         }

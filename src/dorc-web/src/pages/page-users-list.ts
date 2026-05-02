@@ -50,7 +50,7 @@ export class PageUsersList extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 110px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       .overlay {
         width: 100%;
@@ -73,8 +73,8 @@ export class PageUsersList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -110,7 +110,7 @@ export class PageUsersList extends PageElement {
         >
           <vaadin-icon
             icon="vaadin:user"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add User or Group...
         </vaadin-button>
@@ -193,7 +193,7 @@ export class PageUsersList extends PageElement {
       render(
         html`<vaadin-icon
           icon="hardware:desktop-windows"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>`,
         root
       );
@@ -202,7 +202,7 @@ export class PageUsersList extends PageElement {
       render(
         html`<vaadin-icon
           icon="vaadin:chart-grid"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>`,
         root
       );
@@ -211,7 +211,7 @@ export class PageUsersList extends PageElement {
       render(
         html`<vaadin-icon
           icon="vaadin:database"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>`,
         root
       );

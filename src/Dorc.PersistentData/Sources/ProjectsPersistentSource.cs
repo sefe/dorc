@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Security.Principal;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -16,12 +16,12 @@ namespace Dorc.PersistentData.Sources
         private const string HttpsProtocolPrefix = "https://";
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public ProjectsPersistentSource(IDeploymentContextFactory contextFactory,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ILog logger,
+            ILogger<ProjectsPersistentSource> logger,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -187,7 +187,8 @@ namespace Dorc.PersistentData.Sources
                 {
                     Name = apiProject.ProjectName,
                     Description = apiProject.ProjectDescription,
-                    ObjectId = Guid.NewGuid()
+                    ObjectId = Guid.NewGuid(),
+                    TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
                 };
 
                 if (ProjectArtifactsUriHttpValid(apiProject))
@@ -230,6 +231,7 @@ namespace Dorc.PersistentData.Sources
                     currentProj.Name = newProjectDetails.ProjectName;
 
                 currentProj.Description = newProjectDetails.ProjectDescription;
+                currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
 
                 if (ProjectArtifactsUriHttpValid(newProjectDetails) || ProjectArtifactsUriFileValid(newProjectDetails))
                 {
@@ -309,7 +311,7 @@ namespace Dorc.PersistentData.Sources
                 catch (Exception e)
                 {
                     var errMsg = $"Unable to map environment '{environment}' to '{project}'";
-                    _logger.Error(errMsg, e);
+                    _logger.LogError(errMsg, e);
                     throw new ArgumentOutOfRangeException(errMsg, e);
                 }
             }
@@ -413,6 +415,7 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsSubPaths = project.ArtefactsSubPaths,
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
+                TerraformGitRepoUrl = project.TerraformGitRepoUrl,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null
             };
         }
@@ -426,6 +429,28 @@ namespace Dorc.PersistentData.Sources
                 EnvironmentIsProd = env.IsProd,
                 EnvironmentSecure = env.Secure
             };
+        }
+
+        public void DeleteProject(int projectId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var project = context.Projects
+                    .Include(p => p.Components)
+                    .Include(p => p.Environments)
+                    .FirstOrDefault(p => p.Id == projectId);
+
+                if (project == null)
+                    throw new ArgumentException($"Project with ID {projectId} not found.");
+
+                // Remove relationships before deleting the project
+                project.Components.Clear();
+                project.Environments.Clear();
+
+                // Remove the project itself
+                context.Projects.Remove(project);
+                context.SaveChanges();
+            }
         }
 
     }

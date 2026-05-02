@@ -9,6 +9,8 @@ import { oauthSettings } from '../OAuthSettings.ts';
 new ApiConfigApi().apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
+    appConfig.pauseDeploymentEnabled = Boolean((apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']);
+    appConfig.isProduction = Boolean((apiConfig as Record<string, unknown>)['IsProduction']);
     if (appConfig.authenticationScheme == OAUTH_SCHEME) {
       const settings: OAuthServiceSettings = {
         ...oauthSettings,
@@ -32,4 +34,4 @@ new ApiConfigApi().apiConfigGet().subscribe({
     }
   },
   error: (err: string) => console.error(err)
-});
+}); 

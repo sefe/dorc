@@ -49,7 +49,7 @@ export class AttachedEnvTenants extends LitElement {
 
   private environmentActionsRenderer = (root: HTMLElement, _: HTMLElement, model: { item: EnvironmentApiModel }) => {
     const unlinkStyles = {
-      color: this.readonly ? 'grey' : '#FF3131'
+      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
     };
     const environment = model.item;
 
@@ -62,7 +62,7 @@ export class AttachedEnvTenants extends LitElement {
         >
           <vaadin-icon
             icon="hardware:developer-board"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
         <vaadin-button

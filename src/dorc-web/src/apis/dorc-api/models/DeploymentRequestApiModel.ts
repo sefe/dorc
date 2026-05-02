@@ -50,6 +50,16 @@ export interface DeploymentRequestApiModel {
      * @type {string}
      * @memberof DeploymentRequestApiModel
      */
+    CancelledTime?: string | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentRequestApiModel
+     */
+    CancelledBy?: string | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentRequestApiModel
+     */
     Status?: string | null;
     /**
      * @type {string}

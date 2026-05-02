@@ -1,15 +1,15 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace Dorc.Api.Services
 {
     public sealed class DefaultExceptionHandler : IExceptionHandler
     {
-        private readonly ILog _log;
+        private readonly ILogger _log;
 
-        public DefaultExceptionHandler(ILog log)
+        public DefaultExceptionHandler(ILogger<DefaultExceptionHandler> log)
         {
-            _log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod()?.DeclaringType ?? typeof(DefaultExceptionHandler));
+            _log = log;
         }
 
         public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ namespace Dorc.Api.Services
                 logMessage += Environment.NewLine + $"{GetRequestInfo(request)}";
             }
 
-            _log.Error(logMessage, exception);
+            _log.LogError(exception, logMessage);
 
             await httpContext.Response.WriteAsJsonAsync(result, cancellationToken: cancellationToken);
             return true;

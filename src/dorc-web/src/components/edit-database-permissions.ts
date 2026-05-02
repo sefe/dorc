@@ -128,7 +128,7 @@ export class EditDatabasePermissions extends LitElement {
                   <span>${userPerm.Database} - ${userPerm.Role}</span>
                   <vaadin-icon
                     icon="vaadin:unlink"
-                    style="color: #FF3131"
+                    style="color: var(--dorc-error-color)"
                     @click="${this._remove}"
                     .data="${userPerm}"
                   ></vaadin-icon>

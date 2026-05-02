@@ -2,7 +2,7 @@ using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Dorc.Core.Tests
@@ -11,15 +11,16 @@ namespace Dorc.Core.Tests
     public class VariableResolverTests
     {
         private IPropertyValuesPersistentSource _propertyValuesPersistentSource;
-        private ILog _logger;
+        private ILoggerFactory _loggerFactory;
         private VariableResolver _resolver;
 
         [TestInitialize]
         public void Setup()
         {
             _propertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
-            _logger = Substitute.For<ILog>();
-            _resolver = new VariableResolver(_propertyValuesPersistentSource, _logger, new PropertyEvaluator());
+            _loggerFactory = Substitute.For<ILoggerFactory>();
+            _loggerFactory.CreateLogger<PropertyExpressionEvaluator>().Returns(Substitute.For<ILogger<PropertyExpressionEvaluator>>());
+            _resolver = new VariableResolver(_propertyValuesPersistentSource, _loggerFactory, new PropertyEvaluator());
         }
 
         [TestMethod]

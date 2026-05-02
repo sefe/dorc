@@ -1,5 +1,5 @@
 ﻿using OpenSearch.Client;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using System;
 
 namespace Dorc.Runner.Logger

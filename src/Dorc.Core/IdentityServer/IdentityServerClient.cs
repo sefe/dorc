@@ -1,4 +1,4 @@
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -11,11 +11,11 @@ namespace Dorc.Core.IdentityServer
         private readonly string _authority;
         private readonly string _clientId;
         private readonly string _clientSecret;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private string? _accessToken;
         private DateTime _tokenExpiration = DateTime.MinValue;
 
-        public IdentityServerClient(string authority, string clientId, string clientSecret, ILog log)
+        public IdentityServerClient(string authority, string clientId, string clientSecret, ILogger<IdentityServerClient> log)
         {
             _authority = authority.TrimEnd('/');
             _clientId = clientId;
@@ -61,7 +61,7 @@ namespace Dorc.Core.IdentityServer
             }
             catch (Exception ex)
             {
-                _log.Error("Failed to obtain access token from IdentityServer", ex);
+                _log.LogError(ex, "Failed to obtain access token from IdentityServer");
                 throw;
             }
         }

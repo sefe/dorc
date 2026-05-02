@@ -19,10 +19,20 @@
         string? GetOnePasswordItemId();
         string? GetIdentityServerClientId();
         string? GetOnePasswordIdentityServerApiSecretItemId();
-        bool GetIsUseIdentityServerAsSearcher();
+        bool GetIsUseAdAsSearcher();
+        bool GetIsUseAdSidsForAccessControl();
 
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();
         string GetAzureEntraClientSecret();
+
+        string GetAzureStorageAccountTenantId();
+        string GetAzureStorageAccountClientId();
+        string GetAzureStorageAccountClientSecret();
+        string GetAzureStorageAccounUri();
+        string GetAzureStorageAccountTerraformBlobsContainerName();
+
+        bool GetPauseDeploymentEnabled();
+        bool GetIsProduction();
     }
 }

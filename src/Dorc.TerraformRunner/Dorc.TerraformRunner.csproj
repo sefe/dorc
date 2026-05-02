@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+    <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+    <PackageReference Include="System.Text.Encoding" Version="4.3.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="System.Xml.XmlSerializer" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
+    <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
+    <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="loggerSettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

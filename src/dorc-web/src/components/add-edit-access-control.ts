@@ -51,8 +51,6 @@ export class AddEditAccessControl extends LitElement {
 
   @property({ type: Boolean }) searchingUsers = false;
 
-  @property({ type: String }) selectedUser!: string;
-
   @property({ type: Boolean }) savingAccessControls = false;
 
   private AccessControls!: AccessSecureApiModel;
@@ -61,10 +59,22 @@ export class AddEditAccessControl extends LitElement {
   UserEditable = false;
 
   @state()
+  UserIsOwner = false;
+
+  @state()
+  UserCanReadSecrets = false;
+
+  @state()
   private loading = true;
+
+  private _ownerLimitNotified = false;
 
   static get styles() {
     return css`
+      paper-dialog.size-position {
+        overflow: auto;
+        width: 650px;
+      }
       vaadin-text-field {
         display: flex;
         align-items: center;
@@ -117,6 +127,18 @@ export class AddEditAccessControl extends LitElement {
     `;
   }
 
+  private acStyles = {
+    displayName: `color: var(--lumo-body-text-color);`,
+    username: `
+      font-size: var(--lumo-font-size-s);
+      color: var(--lumo-secondary-text-color);`,
+    additionalId: `
+      font-size: var(--lumo-font-size-xs);
+      color: var(--lumo-tertiary-text-color);
+      font-style: italic;
+      opacity: 0.8;`
+  };
+
   render() {
     return html`
       <paper-dialog
@@ -133,7 +155,7 @@ export class AddEditAccessControl extends LitElement {
                     <vaadin-button theme="icon">
                       <vaadin-icon
                         icon="vaadin:unlock"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   `
@@ -141,7 +163,7 @@ export class AddEditAccessControl extends LitElement {
                     <vaadin-button theme="icon">
                       <vaadin-icon
                         icon="vaadin:lock"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   `}
@@ -154,11 +176,11 @@ export class AddEditAccessControl extends LitElement {
             </td>
           </tr>
         </table>
-        <div style="padding-left: 10px;padding-right: 10px; width:600px">
+        <div style="padding-left: 10px;padding-right: 10px;">
           <vaadin-details
             opened
             summary="Add New User"
-            style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; width: 100%"
+            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
           >
             <table>
               <tr>
@@ -191,7 +213,6 @@ export class AddEditAccessControl extends LitElement {
                     item-label-path="DisplayName"
                     .items="${this.searchResults}"
                     .renderer="${this.searchResultsRenderer}"
-                    @value-changed="${this.searchResultsValueChanged}"
                   ></vaadin-combo-box>
                 </td>
                 <td style="display: table-cell; vertical-align: bottom;">
@@ -208,10 +229,12 @@ export class AddEditAccessControl extends LitElement {
           <vaadin-grid
             .items="${this.Privileges}"
             theme="compact row-stripes no-row-borders no-border"
+            style="width: 100%;"
           >
             <vaadin-grid-sort-column
-              path="Name"
               header="Name"
+              .renderer="${this.acNameRenderer}"
+              flex="3"
               resizable
               auto-width
             ></vaadin-grid-sort-column>
@@ -219,6 +242,7 @@ export class AddEditAccessControl extends LitElement {
               header="Write"
               .renderer="${this.acCanWrite}"
               .altThis="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
@@ -226,6 +250,7 @@ export class AddEditAccessControl extends LitElement {
               header="Read Secrets"
               .renderer="${this.acCanReadSecrets}"
               .altThis="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
@@ -233,18 +258,24 @@ export class AddEditAccessControl extends LitElement {
               header="Owner"
               .renderer="${this.acCanOwner}"
               .altThis="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
+              header="Actions"
               .renderer="${this._boundACButtonsRenderer}"
               .ACControl="${this}"
+              flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
           </vaadin-grid>
 
-          <div style="margin-right: 30px">
+          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <div>
             <vaadin-button
               ?disabled="${!this.UserEditable}"
               @click="${this.save}"
@@ -254,9 +285,6 @@ export class AddEditAccessControl extends LitElement {
               ? html` <div class="small-loader"></div> `
               : html``}
           </div>
-          <div style="color: #FF3131">${this.ErrorMessage}</div>
-        </div>
-        <div style="display: flex; justify-content: flex-end">
           <vaadin-button dialog-confirm @click="${this.close}"
             >Close</vaadin-button
           >
@@ -323,8 +351,10 @@ export class AddEditAccessControl extends LitElement {
   }
 
   removeAccessControl(accessControl: AccessControlApiModel) {
-    const actual = this.Privileges?.find(
-      value => value.Pid === accessControl.Pid
+    const actual = this.Privileges?.find(value =>
+      value.Id === accessControl.Id &&
+      value.Pid === accessControl.Pid &&
+      value.Sid === accessControl.Sid
     );
 
     if (actual !== undefined) {
@@ -388,45 +418,80 @@ export class AddEditAccessControl extends LitElement {
     return 0;
   }
 
-  searchResultsValueChanged(data: CustomEvent<any>) {
-    this.selectedUser = data.detail.value;
-  }
-
   addUser() {
-    const user = this.searchResults?.find(
-      p => p.DisplayName === this.selectedUser
-    );
+    const cbSelectedUser = this.shadowRoot?.getElementById('searchResults') as ComboBox;
+    const user = cbSelectedUser.selectedItem
 
     if (user !== undefined) {
+      const existing = this.Privileges?.find(item => (item.Sid && item.Sid === user.Sid) || (item.Pid && item.Pid === user.Pid));
+      if (existing) {
+        Notification.show(`User is already in the list`, {
+          theme: 'warning',
+          position: 'bottom-start',
+          duration: 3000
+        });
+        return;
+      }
+
       const acam: AccessControlApiModel = {
         Name: user.DisplayName,
         Allow: 0,
         Deny: 0,
-        Pid: user.Pid
+        Pid: user.Pid,
+        Sid: user.Sid,
       };
       this.Privileges?.push(acam);
       this.Privileges = JSON.parse(JSON.stringify(this.Privileges));
     }
   }
 
-  searchResultsRenderer(
+  searchResultsRenderer = (
     root: HTMLElement,
     _comboBox: ComboBox,
     model: ComboBoxItemModel<UserElementApiModel>
-  ) {
+  ) => {
+    if (!model.item) {
+      render(html``, root);
+      return;
+    }
+
+    const { DisplayName, Username } = model.item;
+    const displayName = DisplayName ?? '';
+    const username = Username ?? '';
+
     render(
-      html`<vaadin-vertical-layout>
-        <div style="line-height: var(--lumo-line-height-m);">
-          ${model.item.DisplayName ?? ''}
-        </div>
-        <div
-          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-        >
-          ${model.item.Username ?? ''}
-        </div>
-      </vaadin-vertical-layout>`,
+      html`
+        <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
+          <div style="${this.acStyles.displayName}">
+            ${displayName}
+          </div>
+          <div style="${this.acStyles.username}">
+            ${username}
+          </div>
+          ${this.renderUserId(model.item)}
+        </vaadin-vertical-layout>
+      `,
       root
     );
+  }
+
+  renderUserId(item: UserElementApiModel): unknown {
+    if (!item) {
+      return html``;
+    }
+    const pid = item.Pid ?? '';
+    const sid = item.Sid ?? '';
+
+    const hasAdditionalId = pid && pid !== item.Username;
+    const additionalId = hasAdditionalId ? pid : sid;
+
+    return additionalId
+      ? html`
+          <div style="${this.acStyles.additionalId}">
+            ${additionalId}
+          </div>
+        `
+      : html``;
   }
 
   updateSearchCriteria(data: any) {
@@ -465,7 +530,7 @@ export class AddEditAccessControl extends LitElement {
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable}"
+        ?disabled="${!addEditAccessControl.UserEditable || !addEditAccessControl.UserCanReadSecrets}"
         .checked="${canReadSecrets}"
       ></vaadin-checkbox>`,
       root
@@ -493,6 +558,21 @@ export class AddEditAccessControl extends LitElement {
       console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
     });
   }
+
+  acNameRenderer = (
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<AccessControlApiModel>
+  ) => {
+    const name = model.item.Name ?? '';
+
+    render(html`
+      <div style="padding: 4px 0;">
+        <div style="${this.acStyles.displayName}">${name}</div>
+        ${this.renderUserId(model.item)}
+      </div>
+    `, root);
+  };
 
   acCanWrite(
     root: HTMLElement,
@@ -541,15 +621,56 @@ export class AddEditAccessControl extends LitElement {
     _column: GridColumn,
     model: GridItemModel<AccessControlApiModel>
   ) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const addEditAccessControl = _column.altThis as AddEditAccessControl;
+
     const canOwnerRender = ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${true}"
+        ?disabled="${!addEditAccessControl.UserIsOwner}"
         ?checked="${canOwnerRender}"
       ></vaadin-checkbox>`,
       root
     );
+
+    const checkbox: Checkbox = root.querySelector(
+      'vaadin-checkbox'
+    ) as Checkbox;
+
+    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
+      const canOwner =
+        ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
+
+      const checked = e.detail.value as boolean;
+      if (checked && !canOwner) {
+        const ownerCount = addEditAccessControl.Privileges?.filter(
+          p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0
+        ).length ?? 0;
+        if (ownerCount >= 2) {
+          checkbox.checked = false;
+          if (!addEditAccessControl._ownerLimitNotified) {
+            addEditAccessControl._ownerLimitNotified = true;
+            Promise.resolve().then(() => { addEditAccessControl._ownerLimitNotified = false; });
+            Notification.show(`Maximum of 2 owners allowed per environment`, {
+              theme: 'warning',
+              position: 'bottom-start',
+              duration: 3000
+            });
+          }
+          return;
+        }
+        if (model.item.Allow !== undefined) {
+          model.item.Allow |= AC_ALLOW_OWNER;
+        }
+      }
+      if (!checked && canOwner) {
+        if (model.item.Allow !== undefined) {
+          model.item.Allow ^= AC_ALLOW_OWNER;
+        }
+      }
+    });
   }
 
 
@@ -576,11 +697,13 @@ export class AddEditAccessControl extends LitElement {
             data.Privileges = data.Privileges?.sort(this.sortAccessControls);
             this.Privileges = data.Privileges;
             this.UserEditable = data.UserEditable ?? false;
+            this.UserIsOwner = data.UserIsOwner ?? false;
+            this.UserCanReadSecrets = data.UserCanReadSecrets ?? false;
             this.AccessControls = data;
 
             this.loading = false;
           },
-          error: (err: string) => console.error(err),
+          error: (err: string) => { this.loading = false; console.error(err); },
           complete: () => console.log('finished loading access controls')
         });
     }

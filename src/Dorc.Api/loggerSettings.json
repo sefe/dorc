@@ -1,0 +1,27 @@
+{
+  "Serilog": {
+    "Using": [
+      "Serilog.Sinks.File"
+    ],
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft.AspNetCore": "Warning",
+        "System": "Warning"
+      }
+    },
+    "Enrich": [
+      "WithThreadId"
+    ],
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "c:\\Log\\DOrc\\Deploy\\Web\\Api\\Dorc.Api.log",
+          "rollingInterval": "Day",
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{ThreadId}] {Level:u3} {SourceContext} - {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  }
+}

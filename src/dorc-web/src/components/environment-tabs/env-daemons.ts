@@ -36,10 +36,10 @@ export class EnvDaemons extends PageEnvBase {
         width: 16px;
         height: 16px;
         margin: 2px;
-        border: 2px solid cornflowerblue;
+        border: 2px solid var(--dorc-link-color);
         border-radius: 50%;
         animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-        border-color: cornflowerblue transparent transparent transparent;
+        border-color: var(--dorc-link-color) transparent transparent transparent;
       }
 
       .lds-ring div:nth-child(1) {
@@ -70,7 +70,7 @@ export class EnvDaemons extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Daemon Details"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
         <table>
           <tr>
@@ -99,6 +99,7 @@ export class EnvDaemons extends PageEnvBase {
       <application-daemons
         id="app-daemons"
         .envName="${this.environmentName ?? ''}"
+        .userEditable="${this.environment?.UserEditable ?? false}"
         @daemons-loaded="${this.daemonsLoaded}"
       >
       </application-daemons>

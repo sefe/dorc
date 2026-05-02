@@ -4,6 +4,7 @@ using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -19,22 +20,17 @@ namespace Dorc.PersistentData.Sources
         {
             string username = ClaimsPrincipalReader.GetUserLogin(user);
             var userSids = ClaimsPrincipalReader.GetSidsForUser(user);
+
             var envGroups = (from ed in context.Environments
                 join environment in context.Environments on ed.Name equals environment.Name
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                 where environments.Contains(ed.Name)
-                let isDelegate =
-                    (from envDetail in context.Environments
-                        join env in context.Environments on envDetail.Name equals env.Name
-                        where env.Name == environment.Name &&
-                              envDetail.Users.Select(u => u.LoginId).Contains(username)
-                        select envDetail.Name).Any()
                 let permissions = (from envDetail in context.Environments
                     join env in context.Environments on envDetail.Name equals env.Name
                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                    where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
+                    where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
                           (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                     select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -42,7 +38,6 @@ namespace Dorc.PersistentData.Sources
                 {
                     Environment = ed,
                     IsOwner = permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
-                    IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);
 
@@ -56,7 +51,6 @@ namespace Dorc.PersistentData.Sources
                 {
                     Environment = epi.Environment,
                     IsOwner = epi.IsOwner,
-                    IsDelegate = epi.IsDelegate,
                     HasPermission = envGroup.Any(i => i.HasPermission)
                 });
             }
@@ -77,16 +71,10 @@ namespace Dorc.PersistentData.Sources
                 join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                let isDelegate =
-                    (from envDetail in context.Environments
-                        join env in context.Environments on envDetail.Name equals env.Name
-                        where env.Name == environment.Name &&
-                              envDetail.Users.Select(u => u.LoginId).Contains(username)
-                        select envDetail.Name).Any()
                 let permissions = (from envDetail in context.Environments
                                 join env in context.Environments on envDetail.Name equals env.Name
                                 join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                where env.Name == environment.Name && (userSids.Contains(ac.Sid) || ac.Pid != null && userSids.Contains(ac.Pid)) &&
+                                where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
                                         (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0
                                 select ac.Allow).ToList()
                 let hasPermission = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
@@ -94,7 +82,6 @@ namespace Dorc.PersistentData.Sources
                 {
                     Environment = ed,
                     IsOwner = permissions.Any(p => (p & (int)AccessLevel.Owner) != 0),
-                    IsDelegate = isDelegate,
                     HasPermission = hasPermission
                 }).GroupBy(info => info.Environment.Name);
 
@@ -108,7 +95,6 @@ namespace Dorc.PersistentData.Sources
                 {
                     Environment = epi.Environment,
                     IsOwner = epi.IsOwner,
-                    IsDelegate = epi.IsDelegate,
                     HasPermission = envGroup.Any(i => i.HasPermission)
                 });
             }

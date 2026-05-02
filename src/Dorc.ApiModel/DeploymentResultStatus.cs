@@ -15,6 +15,8 @@ namespace Dorc.ApiModel
         public static DeploymentResultStatus Disabled { get { return new DeploymentResultStatus("Disabled"); } }
         public static DeploymentResultStatus Pending { get { return new DeploymentResultStatus("Pending"); } }
         public static DeploymentResultStatus Running { get { return new DeploymentResultStatus("Running"); } }
+        public static DeploymentResultStatus WaitingConfirmation { get { return new DeploymentResultStatus("WaitingConfirmation"); } }
+        public static DeploymentResultStatus Confirmed { get { return new DeploymentResultStatus("Confirmed"); } }
 
         #region Completed
         public static DeploymentResultStatus Complete { get { return new DeploymentResultStatus("Complete"); } }

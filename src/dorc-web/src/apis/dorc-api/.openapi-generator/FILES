@@ -6,12 +6,15 @@ apis/AnalyticsDeploymentsMonthApi.ts
 apis/ApiConfigApi.ts
 apis/ApiRootApi.ts
 apis/BundledRequestsApi.ts
+apis/DaemonAuditApi.ts
+apis/DaemonObservationApi.ts
 apis/DaemonStatusApi.ts
 apis/DelegatedUsersApi.ts
 apis/DeploymentV2Api.ts
 apis/DirectorySearchApi.ts
 apis/MakeLikeProdApi.ts
 apis/MetadataApi.ts
+apis/PowerShellVersionsApi.ts
 apis/PropertiesApi.ts
 apis/PropertyValuesApi.ts
 apis/PropertyValuesAuditApi.ts
@@ -46,6 +49,7 @@ apis/RequestApi.ts
 apis/RequestStatusesApi.ts
 apis/ResetAppPasswordApi.ts
 apis/ResultStatusesApi.ts
+apis/ServerDaemonsApi.ts
 apis/index.ts
 index.ts
 models/AccessControlApiModel.ts
@@ -62,6 +66,9 @@ models/ComponentApiModel.ts
 models/ComponentApiModelTemplateApiModel.ts
 models/ConfigValueApiModel.ts
 models/DaemonApiModel.ts
+models/DaemonAuditApiModel.ts
+models/DaemonObservationApiModel.ts
+models/DaemonStatusApiModel.ts
 models/DatabaseApiModel.ts
 models/DatabaseApiModelEnvironmentComponentsDto.ts
 models/DeployArtefactDto.ts
@@ -78,6 +85,8 @@ models/EnvironmentDetailsApiModel.ts
 models/EnvironmentHistoryApiModel.ts
 models/EnvironmentOwnerApiModel.ts
 models/FlatPropertyValueApiModel.ts
+models/GetDaemonAuditListResponseDto.ts
+models/GetDaemonObservationListResponseDto.ts
 models/GetDatabaseApiModelListResponseDto.ts
 models/GetPropertyValuesAuditListResponseDto.ts
 models/GetRefDataAuditListResponseDto.ts
@@ -92,6 +101,7 @@ models/PagedDataFilter.ts
 models/PagedDataOperators.ts
 models/PagedDataSorting.ts
 models/PermissionDto.ts
+models/PowerShellVersionDto.ts
 models/ProjectApiModel.ts
 models/Property.ts
 models/PropertyApiModel.ts
@@ -110,10 +120,10 @@ models/Response.ts
 models/ScriptApiModel.ts
 models/ServerApiModel.ts
 models/ServerOperatingSystemApiModel.ts
-models/ServiceStatusApiModel.ts
 models/SqlPortApiModel.ts
 models/UserAccountType.ts
 models/UserApiModel.ts
+models/UserDbPermissionApiModel.ts
 models/UserElementApiModel.ts
 models/UserPermDto.ts
 models/UserSearchResult.ts

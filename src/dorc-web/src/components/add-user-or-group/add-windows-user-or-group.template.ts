@@ -10,6 +10,9 @@ import { AddWindowsUserOrGroup } from './add-windows-user-or-group';
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
 
 export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
+
+  const maxFieldLength = 50;
+
   return html` <div>
     <vaadin-vertical-layout>
       <table>
@@ -56,6 +59,8 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
         class="acc-form__block"
         id="team"
         label="Team"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         .invalid="${this.isTeamNameValid === false}"
         error-message="${this.teamNameErrorMessage}"
         @value-changed="${this.teamNameChanged}"
@@ -63,10 +68,10 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
       </vaadin-text-field>
     </vaadin-vertical-layout>
     <div>
-      <vaadin-button @click="${this.reset}">Clear</vaadin-button>
       <vaadin-button .disabled="${!this.isModelValid}" @click="${this.submit}"
         >Save</vaadin-button
       >
+      <vaadin-button @click="${this.reset}">Clear</vaadin-button>
     </div>
     <span class="acc-filter__span">${this.overlayMessage}</span>
   </div>`;

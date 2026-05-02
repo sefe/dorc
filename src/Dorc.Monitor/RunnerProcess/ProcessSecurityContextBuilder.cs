@@ -1,12 +1,12 @@
 ﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Monitor.RunnerProcess
 {
     internal partial class ProcessSecurityContextBuilder
     {
-        private readonly ILog logger;
+        private readonly ILogger logger;
 
         private const uint SECURITY_DESCRIPTOR_REVISION = 1;
 
@@ -16,7 +16,7 @@ namespace Dorc.Monitor.RunnerProcess
 
         private ProcessSecurityContextBuilder() { }
 
-        internal ProcessSecurityContextBuilder(ILog logger)
+        internal ProcessSecurityContextBuilder(ILogger logger)
         {
             this.logger = logger;
         }
@@ -80,10 +80,10 @@ namespace Dorc.Monitor.RunnerProcess
             if (!result)
             {
                 var winError = Marshal.GetLastWin32Error();
-                this.logger.Error($"LogonUser failed with win32 error: {winError}");
+                this.logger.LogError($"LogonUser failed with win32 error: {winError}");
                 throw new Exception($"Cannot process request under account {userName}");
             }
-            this.logger.Info($"Logon as {userName} succeeded");
+            this.logger.LogInformation($"Logon as {userName} succeeded");
 
             #region security attributes
 
@@ -99,7 +99,7 @@ namespace Dorc.Monitor.RunnerProcess
             if (!result)
             {
                 var winError = Marshal.GetLastWin32Error();
-                this.logger.Error($"SetSecurityDescriptorDacl failed with win32 error: {winError}");
+                this.logger.LogError($"SetSecurityDescriptorDacl failed with win32 error: {winError}");
             }
 
             result = Interop.Windows.Advapi32.Interop.Advapi32.DuplicateTokenEx(
@@ -113,7 +113,7 @@ namespace Dorc.Monitor.RunnerProcess
             if (!result)
             {
                 var winError = Marshal.GetLastWin32Error();
-                this.logger.Error($"DuplicateTokenEx failed with win32 error: {winError}");
+                this.logger.LogError($"DuplicateTokenEx failed with win32 error: {winError}");
             }
 
             processAttributes.lpSecurityDescriptor = securityDescriptorPointer;

@@ -29,6 +29,11 @@ namespace Dorc.Api.Security
             return user?.Identity?.Name ?? string.Empty;
         }
 
+        public string GetUserSafeIdentifier(IPrincipal user)
+        {
+            return user?.Identity?.Name ?? string.Empty;
+        }
+
         public string GetUserLogin(IPrincipal user)
         {
             return GetUserName(user); // returning name as this is the identifier was used in Windows auth

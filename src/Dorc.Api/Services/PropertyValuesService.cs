@@ -2,11 +2,9 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
-using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
-using log4net;
 
 namespace Dorc.Api.Services
 {
@@ -19,7 +17,7 @@ namespace Dorc.Api.Services
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyValuesAuditPersistentSource _propertyValuesAuditPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
-        private readonly ILog _log; 
+        private readonly ILogger _log; 
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public PropertyValuesService(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
@@ -28,7 +26,7 @@ namespace Dorc.Api.Services
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            ILog log,
+            ILogger<PropertyValuesService> log,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -159,7 +157,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -232,7 +230,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 
@@ -310,7 +308,7 @@ namespace Dorc.Api.Services
                 }
                 catch (Exception e)
                 {
-                    _log.Error($"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}", e);
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
                     result.Add(new Response { Item = propertyValueDto, Status = e.Message });
                 }
 

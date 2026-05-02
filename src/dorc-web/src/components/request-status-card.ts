@@ -21,7 +21,6 @@ import { Notification } from '@vaadin/notification';
 import '../icons/notification-icons.js';
 import '../icons/hardware-icons.js';
 import { ErrorNotification } from './notifications/error-notification';
-import { BuildsApi } from '../apis/azure-devops-build';
 import type { DeploymentRequestApiModel } from '../apis/dorc-api';
 import {
   EnvironmentApiModel,
@@ -29,6 +28,8 @@ import {
   RefDataEnvironmentsApi,
   RefDataProjectsApi
 } from '../apis/dorc-api';
+import './connection-status-indicator';
+import { HubConnectionState } from '@microsoft/signalr';
 
 @customElement('request-status-card')
 export class RequestStatusCard extends LitElement {
@@ -37,6 +38,8 @@ export class RequestStatusCard extends LitElement {
 
   @property({ type: String })
   selectedProject = '';
+
+  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
 
   @state()
   buildNumberHref = '';
@@ -59,6 +62,14 @@ export class RequestStatusCard extends LitElement {
       this.requestRestarted as EventListener
     );
     this.addEventListener(
+      'request-paused',
+      this.requestPaused as EventListener
+    );
+    this.addEventListener(
+      'request-resumed',
+      this.requestResumed as EventListener
+    );
+    this.addEventListener(
       'log-dialog-closed',
       this.logDialogClosed as EventListener
     );
@@ -79,13 +90,13 @@ export class RequestStatusCard extends LitElement {
       }
 
       .card-element__heading {
-        color: black;
+        color: var(--dorc-text-primary);
         margin-top: 0px;
         margin-bottom: 0px;
       }
 
       .card-element__text {
-        color: gray;
+        color: var(--dorc-text-secondary);
         margin: 2px;
       }
 
@@ -110,8 +121,8 @@ export class RequestStatusCard extends LitElement {
       color:
         this.deployRequest?.Status === 'Failed' ||
         this.deployRequest?.Status === 'Errored'
-          ? 'red'
-          : 'gray'
+          ? 'var(--dorc-error-color)'
+          : 'var(--dorc-text-secondary)'
     };
     return html`
       <log-dialog
@@ -134,9 +145,15 @@ export class RequestStatusCard extends LitElement {
               >
                 <vaadin-icon
                   icon="icons:refresh"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
+            </td>
+            <td style="vertical-align: middle">
+              <connection-status-indicator
+                mode="icon"
+                .state="${this.hubConnectionState}"
+              ></connection-status-indicator>
             </td>
             ${this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
               ? html` <td style="vertical-align: middle">
@@ -147,7 +164,7 @@ export class RequestStatusCard extends LitElement {
                   >
                     <vaadin-icon
                       icon="notification:sms-failed"
-                      style="color: indianred"
+                      style="color: var(--dorc-error-color)"
                     ></vaadin-icon>
                   </vaadin-button>
                 </td>`
@@ -173,7 +190,7 @@ export class RequestStatusCard extends LitElement {
                 >
                   <vaadin-icon
                     icon="hardware:developer-board"
-                    style="color: cornflowerblue"
+                    style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>
               </h4>
@@ -243,6 +260,28 @@ export class RequestStatusCard extends LitElement {
               </h4>
             </td>
           </tr>
+          ${this.deployRequest?.Status == 'Cancelled' || this.deployRequest?.Status == 'Cancelling'
+            ? html` <tr>
+                <td class="requested-titles card-element__text">Cancelled by:</td>
+                <td>
+                  <h4 class="card-element__text">
+                    ${this.deployRequest?.CancelledBy}
+              </h4>
+            </td>
+          </tr>
+          <tr>
+            <td class="requested-titles card-element__text">Cancelled Time:</td>
+            <td>
+              <h4 class="card-element__text">
+                ${this.convertToDate(
+                  this.deployRequest?.CancelledTime !== null
+                    ? this.deployRequest?.CancelledTime
+                    : undefined
+                )}
+              </h4>
+            </td>
+          </tr>
+        `: html``}
           ${this.deployRequest?.UncLogPath !== null
             ? html` <tr>
                 <td class="requested-titles card-element__text">Raw Log:</td>
@@ -256,7 +295,7 @@ export class RequestStatusCard extends LitElement {
                     >
                       <vaadin-icon
                         icon="icons:content-copy"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   </h4>
@@ -266,14 +305,20 @@ export class RequestStatusCard extends LitElement {
         </table>
         <request-controls
           style="position: absolute; right: 15px; top: 65px;"
-          .requestId="${this.deployRequest.Id}"
-          .cancelable="${this.deployRequest.UserEditable &&
+          .requestId="${this.deployRequest.Id ?? 0}"
+          .cancelable="${!!this.deployRequest.UserEditable &&
           (this.deployRequest.Status === 'Running' ||
             this.deployRequest.Status === 'Requesting' ||
             this.deployRequest.Status === 'Pending' ||
-            this.deployRequest.Status === 'Restarting')}"
-          .canRestart="${this.deployRequest.UserEditable &&
-          this.deployRequest.Status !== 'Pending'}"
+            this.deployRequest.Status === 'Restarting' ||
+            this.deployRequest.Status === 'Paused')}"
+          .canRestart="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status !== 'Pending' &&
+          this.deployRequest.Status !== 'Paused'}"
+          .canPause="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status === 'Pending'}"
+          .canResume="${!!this.deployRequest.UserEditable &&
+          this.deployRequest.Status === 'Paused'}"
         ></request-controls>
       </div>
     `;
@@ -353,6 +398,24 @@ export class RequestStatusCard extends LitElement {
     this.refresh();
   }
 
+  requestPaused(e: CustomEvent) {
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+    this.refresh();
+  }
+
+  requestResumed(e: CustomEvent) {
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+    this.refresh();
+  }
+
   convertToDate(dateVal: string | undefined): string {
     if (dateVal === undefined || dateVal === null) {
       return '';
@@ -370,35 +433,12 @@ export class RequestStatusCard extends LitElement {
         next: (project: ProjectApiModel) => {
           const org = project.ArtefactsUrl?.split('/')[3] ?? '';
           const adProject = project.ArtefactsSubPaths?.split(';')[0] ?? '';
-
-          const buildsApi = new BuildsApi();
-          buildsApi
-            .buildsList({
-              organization: org,
-              apiVersion: '6.0',
-              project: adProject,
-              buildNumber:
-                this.deployRequest?.BuildNumber !== null
-                  ? this.deployRequest?.BuildNumber
-                  : undefined
-            })
-            .subscribe({
-              next: (foundBuilds: any) => {
-                if (foundBuilds.count > 0) {
-                  this.buildNumberHref = `https://dev.azure.com/${
-                    org + '/' + adProject
-                  }/_build/results?buildId=${
-                    foundBuilds.value[0].id
-                  }&view=results`;
-                }
-              },
-              error: err => {
-                console.log(err);
-              },
-              complete: () => {
-                console.log('Completed attempting Build ID from Azure DevOps');
-              }
-            });
+          const buildId = this.deployRequest?.BuildUri?.split('/').pop() ?? '';
+          this.buildNumberHref = `https://dev.azure.com/${
+            org + '/' + adProject
+          }/_build/results?buildId=${
+            buildId
+          }&view=results`;
         }
       });
   }

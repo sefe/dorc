@@ -26,7 +26,7 @@ export class EnvTenants extends PageEnvBase {
       }
       .buttons {
         font-size: 10px;
-        color: cornflowerblue;
+        color: var(--dorc-link-color);
         padding: 2px;
       }
       .card-element__text {
@@ -57,7 +57,7 @@ export class EnvTenants extends PageEnvBase {
             >
               <vaadin-icon
                 icon="hardware:developer-board"
-                style="color: cornflowerblue"
+                style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
           </h4>
@@ -65,7 +65,7 @@ export class EnvTenants extends PageEnvBase {
       <vaadin-details
         opened
         summary="Environment tenants"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
         <div class="inline">
           <paper-toggle-button

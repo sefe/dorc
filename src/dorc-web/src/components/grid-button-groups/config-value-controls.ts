@@ -33,7 +33,7 @@ export class ConfigValueControls extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
@@ -74,7 +74,7 @@ export class ConfigValueControls extends LitElement {
       >
         <vaadin-icon
           icon="editor:mode-edit"
-          style="color: cornflowerblue"
+          style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
@@ -96,7 +96,7 @@ export class ConfigValueControls extends LitElement {
         theme="icon"
         @click="${this.removeConfigValue}"
       >
-        <vaadin-icon icon="icons:clear" style="color: #FF3131"></vaadin-icon>
+        <vaadin-icon icon="icons:clear" style="color: var(--dorc-error-color)"></vaadin-icon>
       </vaadin-button>
       ${this.additionalInformation !== ''
         ? html`<div style="display: inline-block">

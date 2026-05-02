@@ -85,3 +85,83 @@ Context "Export-DOrcProperties" {
         {Import-DOrcProperties $ApiUrl $CsvFile} | Should -Throw $file
     }
 }
+
+Context "Convert-CsvToCsvProperties validation" {
+    
+    It 'Should accept valid property data' {
+        $validData = [PSCustomObject]@{
+            PropertyName = "ValidProperty"
+            Environment = "Development"
+            Value = "ValidValue"
+            IsSecured = "false"
+        }
+        
+        $result = $validData | Convert-CsvToCsvProperties
+        $result.PropertyName | Should -Be "ValidProperty"
+        $result.Value | Should -Be "ValidValue"
+        $result.Environment | Should -Be "Development"
+        $result.IsSecured | Should -Be $false
+    }
+    
+    It 'Should reject blank PropertyName' {
+        $invalidData = [PSCustomObject]@{
+            PropertyName = ""
+            Environment = "Development"
+            Value = "SomeValue"
+            IsSecured = "false"
+        }
+        
+        { $invalidData | Convert-CsvToCsvProperties } | Should -Throw "PropertyName cannot be blank or empty"
+    }
+    
+    It 'Should reject whitespace-only PropertyName' {
+        $invalidData = [PSCustomObject]@{
+            PropertyName = "   "
+            Environment = "Development"
+            Value = "SomeValue"
+            IsSecured = "false"
+        }
+        
+        { $invalidData | Convert-CsvToCsvProperties } | Should -Throw "PropertyName cannot be blank or empty"
+    }
+    
+    It 'Should reject blank Value' {
+        $invalidData = [PSCustomObject]@{
+            PropertyName = "ValidProperty"
+            Environment = "Development"
+            Value = ""
+            IsSecured = "false"
+        }
+        
+        { $invalidData | Convert-CsvToCsvProperties } | Should -Throw "Property value cannot be blank or empty. Found blank value for property 'ValidProperty'"
+    }
+    
+    It 'Should reject whitespace-only Value' {
+        $invalidData = [PSCustomObject]@{
+            PropertyName = "ValidProperty"
+            Environment = "Development"
+            Value = "   "
+            IsSecured = "false"
+        }
+        
+        { $invalidData | Convert-CsvToCsvProperties } | Should -Throw "Property value cannot be blank or empty. Found blank value for property 'ValidProperty'"
+    }
+}
+
+Context "Bearer token management" {
+    It 'Set-DOrcBearerToken should accept token with Bearer prefix' {
+        Set-DOrcBearerToken -Token "Bearer abc.def.ghi" | Out-Null
+        [ApiCaller]::AccessToken | Should -Be "abc.def.ghi"
+    }
+
+    It 'Get-DOrcBearerTokenStatus should return true when token exists' {
+        [ApiCaller]::SetAccessToken("token123")
+        Get-DOrcBearerTokenStatus | Should -Be $true
+    }
+
+    It 'Clear-DOrcBearerToken should clear token' {
+        [ApiCaller]::SetAccessToken("token123")
+        Clear-DOrcBearerToken
+        [ApiCaller]::AccessToken | Should -Be $null
+    }
+}

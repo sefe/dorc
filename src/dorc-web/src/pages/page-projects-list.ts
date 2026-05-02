@@ -17,9 +17,12 @@ import { PageElement } from '../helpers/page-element';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
-import '../components/project-audit-data'
-import { ProjectAuditData } from '../components/project-audit-data';
+import '../components/confirm-dialog';
+import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
+import { ErrorNotification } from '../components/notifications/error-notification';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { SuccessNotification } from '../components/notifications/success-notification';
 
 @customElement('page-projects-list')
 export class PageProjectsList extends PageElement {
@@ -41,7 +44,8 @@ export class PageProjectsList extends PageElement {
 
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
-  @query('#open-project-audit-control') projectAuditData!: ProjectAuditData;
+
+  @query('#confirm-delete-dialog') confirmDeleteDialog!: ConfirmDialog;
 
   @property({ type: String }) secureName = '';
 
@@ -75,7 +79,8 @@ export class PageProjectsList extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser =
+      this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -89,14 +94,14 @@ export class PageProjectsList extends PageElement {
       'open-access-control',
       this.openAccessControl as EventListener
     );
-    this.addEventListener(
-      'open-project-audit-data',
-      this.openProjectAuditData as EventListener
-    );
     this.addEventListener('project-added', this.projectAdded as EventListener);
     this.addEventListener(
       'project-updated',
       this.projectUpdated as EventListener
+    );
+    this.addEventListener(
+      'delete-project',
+      this.deleteProject as EventListener
     );
   }
 
@@ -117,7 +122,7 @@ export class PageProjectsList extends PageElement {
       vaadin-grid#grid {
         overflow: hidden;
         height: calc(100vh - 115px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       .overlay {
         width: 100%;
@@ -140,8 +145,8 @@ export class PageProjectsList extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -177,7 +182,7 @@ export class PageProjectsList extends PageElement {
         >
           <vaadin-icon
             icon="vaadin:archive"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add Project...
         </vaadin-button>
@@ -193,11 +198,6 @@ export class PageProjectsList extends PageElement {
         id="add-edit-access-control"
         .secureName="${this.secureName}"
       ></add-edit-access-control>
-
-      <project-audit-data
-        id="open-project-audit-control"
-        .project="${this.selectedProject}">
-      </project-audit-data>
 
       ${this.loading
         ? html`
@@ -243,6 +243,7 @@ export class PageProjectsList extends PageElement {
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
+                .attachedPPLControl="${this}"
                 .renderer="${this._projectEnvsButtonsRenderer}"
               ></vaadin-grid-column>
             </vaadin-grid>
@@ -259,14 +260,6 @@ export class PageProjectsList extends PageElement {
     addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_0);
   }
 
-  openProjectAuditData(e: CustomEvent) {
-    const project = e.detail.Project as ProjectApiModel;
-    this.selectedProject = project;
-    this.projectAuditData.project = project;
-    this.projectAuditData.open();
-    // this.addEditProject.project = project;
-    // this.addEditProject.open();
-  }
 
   _projectEnvsButtonsRenderer(
     root: HTMLElement,
@@ -274,8 +267,15 @@ export class PageProjectsList extends PageElement {
     { item }: GridItemModel<ProjectApiModel>
   ) {
     const project = item as ProjectApiModel;
+    // The below line has a horrible hack
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const altThis = _column.attachedPPLControl as PageProjectsList;
     render(
-      html` <project-controls .project="${project}"></project-controls>`,
+      html` <project-controls
+        .project="${project}"
+        .deleteHidden="${!altThis.isAdmin}"
+      ></project-controls>`,
       root
     );
   }
@@ -300,7 +300,12 @@ export class PageProjectsList extends PageElement {
       .map(filter => new RegExp(filter, 'i'));
 
     this.filteredProjects = this.projects.filter(
-      ({ ProjectName, ProjectDescription, ArtefactsBuildRegex, ArtefactsSubPaths }) =>
+      ({
+        ProjectName,
+        ProjectDescription,
+        ArtefactsBuildRegex,
+        ArtefactsSubPaths
+      }) =>
         filters.some(
           filter =>
             filter.test(ProjectName || '') ||
@@ -357,5 +362,70 @@ export class PageProjectsList extends PageElement {
     });
     this.selectedProject = this.getEmptyProj();
     this.addEditProject.close();
+  }
+
+  private showSuccess(message: string) {
+    const n = new SuccessNotification();
+    n.setAttribute('successMessage', message);
+    this.shadowRoot?.appendChild(n);
+    n.open();
+  }
+
+  private showError(message: string) {
+    const n = new ErrorNotification();
+    n.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(n);
+    n.open();
+  }
+
+  private deleteProject(e: CustomEvent) {
+    const project = e.detail.Project as ProjectApiModel;
+    this.selectedProject = project;
+
+    if (
+      !confirm(
+        `Are you sure you want to delete project "${project.ProjectName}"? This action cannot be undone.`
+      )
+    ) {
+      this.selectedProject = this.getEmptyProj();
+      return;
+    }
+    const id = project.ProjectId;
+    if (typeof id !== 'number') {
+      console.warn('Delete aborted: ProjectId is missing');
+      this.selectedProject = this.getEmptyProj();
+      return;
+    }
+    this.performDelete(id);
+  }
+
+  private performDelete(projectId: number) {
+    const api = new RefDataProjectsApi();
+    api.refDataProjectsProjectIdDelete({ projectId }).subscribe(
+      (response: any) => {
+        const backendMessage = retrieveErrorMessage(response);
+        if (backendMessage) {
+          this.showSuccess(backendMessage);
+          this.getProjects();
+        } else {
+          console.error('Delete succeeded (no backend message)', response);
+        }
+      },
+      (err: any) => {
+        console.error(err);
+        const backendMessage = retrieveErrorMessage(err);
+        if (backendMessage) {
+          this.showError(backendMessage);
+        } else {
+          console.error('Delete failed (no backend message)', err);
+        }
+      },
+      () => {
+        console.log(
+          `Delete operation completed for ${this.selectedProject.ProjectName}`
+        );
+      }
+    );
+    this.selectedProject = this.getEmptyProj();
   }
 }

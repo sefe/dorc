@@ -2,7 +2,6 @@
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -17,18 +16,15 @@ namespace Dorc.Api.Controllers
         private readonly IEnvironmentsPersistentSource environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
-        private readonly ILog logger;
 
         public RefDataEnvironmentsController(
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IRolePrivilegesChecker rolePrivilegesChecker,
-            ILog logger)
+            IRolePrivilegesChecker rolePrivilegesChecker)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             this.environmentsPersistentSource = environmentsPersistentSource;
-            this.logger = logger;
         }
 
         /// <summary>
@@ -37,6 +33,7 @@ namespace Dorc.Api.Controllers
         /// <param name="env">Environment Name</param>
         /// <returns>Json string with EnvironmentApiModel object or empty model if error occurred</returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<EnvironmentApiModel>))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet]
         public IActionResult Get(string env = "")
         {
@@ -44,6 +41,9 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status200OK, environmentsPersistentSource.GetEnvironments(User));
 
             var environmentApiModel = environmentsPersistentSource.GetEnvironment(env, User);
+
+            if (environmentApiModel == null)
+                return NotFound($"The environment '{env}' is not found.");
 
             return StatusCode(StatusCodes.Status200OK, new List<EnvironmentApiModel?> { environmentApiModel });
         }
@@ -73,19 +73,6 @@ namespace Dorc.Api.Controllers
         public IActionResult GetIsEnvironmentOwner(string envName)
         {
             return Ok(environmentsPersistentSource.IsEnvironmentOwner(envName, User));
-        }
-
-        /// <summary>
-        ///     Returns whether this user is the env owner or delegate
-        /// </summary>
-        /// <param name="envName">Environment Name</param>
-        /// <returns>Json string with EnvironmentApiModel object or empty model if error occurred</returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
-        [Route("IsEnvironmentOwnerOrDelegate")]
-        [HttpGet]
-        public IActionResult GetIsEnvironmentOwnerOrDelegate(string envName)
-        {
-            return Ok(_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, envName));
         }
 
         /// <summary>
@@ -146,6 +133,52 @@ namespace Dorc.Api.Controllers
 
             var env = environmentsPersistentSource.UpdateEnvironment(content, User);
             return StatusCode(StatusCodes.Status200OK, env);
+        }
+
+        /// <summary>
+        /// Clone an environment including its variables/properties
+        /// </summary>
+        /// <param name="request">The clone request containing source environment ID and new environment name</param>
+        /// <returns>The newly created cloned environment</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [Route("Clone")]
+        [HttpPost]
+        public IActionResult Clone([FromBody] CloneEnvironmentRequest request)
+        {
+            try
+            {
+                // Check permissions: only Admin, PowerUser, or Owner of source environment can clone
+                if (!(_rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User)))
+                {
+                    // Not admin/poweruser - check if owner of source environment
+                    var sourceEnv = environmentsPersistentSource.GetEnvironment(request.SourceEnvironmentId, User);
+                    if (sourceEnv == null)
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            $"Source environment with ID {request.SourceEnvironmentId} not found.");
+
+                    if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, sourceEnv.EnvironmentName))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "Only Admin, PowerUser, or Environment Owner can clone an environment.");
+                }
+
+                var clonedEnv = environmentsPersistentSource.CloneEnvironment(request, User);
+                return StatusCode(StatusCodes.Status200OK, clonedEnv);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    $"An error occurred while cloning the environment: {ex.Message}");
+            }
         }
     }
 }

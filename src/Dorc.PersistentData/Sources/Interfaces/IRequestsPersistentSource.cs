@@ -10,6 +10,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         RequestStatusDto GetRequestStatus(int requestId);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, bool isProd);
+        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, bool isProd);
+        IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, DeploymentRequestStatus status4, bool isProd);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId);
         IEnumerable<DeploymentResultApiModel> GetDeploymentResultsForRequest(int requestId, int componentId);
         string GetRequestLog(int id);
@@ -22,14 +24,13 @@ namespace Dorc.PersistentData.Sources.Interfaces
             string? requestLogs = null);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime, string log);
-        void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, DateTimeOffset requestedTime);
         void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user);
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime);
+
         int UpdateNonProcessedRequest(
             DeploymentRequestApiModel deploymentRequest,
             DeploymentRequestStatus newStatus,
             DateTimeOffset requestedTime);
-        int ChangeRequestStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status);
-        int ChangeRequestStatus(DeploymentRequestApiModel deploymentRequest, DeploymentRequestStatus status, DateTimeOffset requestedTime);
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus);
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime);
         int SwitchDeploymentResultsStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentResultStatus fromStatus, DeploymentResultStatus toStatus);
@@ -45,5 +46,10 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool UpdateUncLogPath(int requestId, string uncLogPath);
         DeploymentRequestApiModel GetRequest(int requestId);
         int SubmitRequest(DeploymentRequest deploymentRequest);
+        void UpdateRequestDetails(int requestId, string requestDetails);
+        void UpdateEnvironmentOwnerEmail(int requestId, string email);
+        void ArchiveCurrentAttempt(int requestId);
+        IEnumerable<DeploymentRequestAttemptApiModel> GetAttemptsForRequest(int requestId);
+        int GetNextAttemptNumber(int requestId);
     }
 }

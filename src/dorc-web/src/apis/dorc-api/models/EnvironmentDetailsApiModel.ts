@@ -32,6 +32,11 @@ export interface EnvironmentDetailsApiModel {
      */
     EnvironmentOwnerId?: string | null;
     /**
+     * @type {Array<string>}
+     * @memberof EnvironmentDetailsApiModel
+     */
+    EnvironmentOwnerEmails?: Array<string> | null;
+    /**
      * @type {string}
      * @memberof EnvironmentDetailsApiModel
      */

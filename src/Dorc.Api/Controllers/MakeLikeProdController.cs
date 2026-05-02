@@ -8,7 +8,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -21,7 +21,7 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class MakeLikeProdController : ControllerBase
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
@@ -31,14 +31,16 @@ namespace Dorc.Api.Controllers
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IRequestsPersistentSource _requestsPersistentSource;
 
-        public MakeLikeProdController(ILog logger,
+        public MakeLikeProdController(ILogger<MakeLikeProdController> logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IRequestsPersistentSource requestsPersistentSource)
         {
             _projectsPersistentSource = projectsPersistentSource;
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
@@ -50,6 +52,7 @@ namespace Dorc.Api.Controllers
             _deployLibrary = deployLibrary;
             _logger = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _requestsPersistentSource = requestsPersistentSource;
         }
 
         /// <summary>
@@ -83,7 +86,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "An error occurred while retrieving data backups for project {ProjectId}", projectId);
                 return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
@@ -104,7 +107,7 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "An error occurred while retrieving the notify email address");
                 return Results.Problem(e.Message, statusCode: StatusCodes.Status500InternalServerError);
             }
         }
@@ -137,6 +140,7 @@ namespace Dorc.Api.Controllers
                 }
 
                 var initialRequestIdNotSet = true;
+                var allRequestIds = new List<int>();
 
                 foreach (var req in requestsForBundle)
                 {
@@ -160,8 +164,11 @@ namespace Dorc.Api.Controllers
                                 });
                             }
 
-                            reqIds.Add(_deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
-                                job.BuildText, job.Components.ToList(), variables, User));
+                            var jobRequestId = _deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
+                                job.BuildText, job.Components.ToList(), variables, User);
+                            reqIds.Add(jobRequestId);
+                            _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: JobRequest for project '{Project}' created request ID {RequestId}",
+                                mlpRequest.BundleName, req.Sequence, job.Project, jobRequestId);
                             break;
                         case BundledRequestType.CopyEnvBuild:
                             var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
@@ -169,32 +176,51 @@ namespace Dorc.Api.Controllers
                             {
                                 if (copyEnvBuildRequest.Components.Any())
                                 {
-                                    reqIds.AddRange(_deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
-                                        copyEnvBuildRequest.Components.ToArray(), User));
+                                        copyEnvBuildRequest.Components.ToArray(), User);
+                                    reqIds.AddRange(copyIds);
+                                    _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuild for project '{Project}' created request IDs [{RequestIds}]",
+                                        mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
                                 }
                                 else
                                 {
-                                    reqIds.AddRange(_deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
-                                        User));
+                                        User);
+                                    reqIds.AddRange(copyIds);
+                                    _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: CopyEnvBuildAllComponents for project '{Project}' created request IDs [{RequestIds}]",
+                                        mlpRequest.BundleName, req.Sequence, copyEnvBuildRequest.ProjectName, string.Join(",", copyIds));
                                 }
                             }
                             break;
                     }
 
-                    if (initialRequestIdNotSet)
+                    allRequestIds.AddRange(reqIds);
+
+                    if (initialRequestIdNotSet && reqIds.Any())
                     {
                         _variableResolver.SetPropertyValue("StartingRequestId", reqIds.First().ToString());
                         initialRequestIdNotSet = false;
                     }
                 }
 
+                if (allRequestIds.Any())
+                {
+                    var allRequestIdsValue = string.Join(",", allRequestIds);
+                    _logger.LogInformation("Bundle '{BundleName}' completed with {Count} total request IDs: [{AllRequestIds}]",
+                        mlpRequest.BundleName, allRequestIds.Count, allRequestIdsValue);
+                    _variableResolver.SetPropertyValue("AllRequestIds", allRequestIdsValue);
+
+                    // Update any request details that contain unresolved $AllRequestIds$ references
+                    ResolveAllRequestIdsInRequests(allRequestIds, allRequestIdsValue);
+                }
+
                 return Ok("The requests have been passed to DOrc");
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}", mlpRequest?.TargetEnv, mlpRequest);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
@@ -202,6 +228,56 @@ namespace Dorc.Api.Controllers
         private string GetUserEmail(ClaimsPrincipal user)
         {
             return _claimsPrincipalReader.GetUserEmail(user);
+        }
+
+        private void ResolveAllRequestIdsInRequests(List<int> requestIds, string allRequestIdsValue)
+        {
+            const string allRequestIdsPlaceholder = "$AllRequestIds$";
+            const string allRequestIdsPropertyName = "AllRequestIds";
+            var serializer = new DeploymentRequestDetailSerializer();
+
+            foreach (var requestId in requestIds)
+            {
+                try
+                {
+                    var request = _requestsPersistentSource.GetRequest(requestId);
+                    if (request?.RequestDetails == null)
+                    {
+                        continue;
+                    }
+
+                    var requestDetail = serializer.Deserialize(request.RequestDetails);
+                    var hasChanges = false;
+
+                    // 1. Replace $AllRequestIds$ placeholders in existing property values
+                    foreach (var property in requestDetail.Properties)
+                    {
+                        if (property.Value != null && property.Value.Contains(allRequestIdsPlaceholder))
+                        {
+                            property.Value = property.Value.Replace(allRequestIdsPlaceholder, allRequestIdsValue);
+                            hasChanges = true;
+                        }
+                    }
+
+                    // 2. Add AllRequestIds as a standalone property (so $AllRequestIds works in PowerShell)
+                    if (!requestDetail.Properties.Any(p => p.Name == allRequestIdsPropertyName))
+                    {
+                        requestDetail.Properties.Add(new PropertyPair(allRequestIdsPropertyName, allRequestIdsValue));
+                        hasChanges = true;
+                    }
+
+                    if (hasChanges)
+                    {
+                        var updatedRequestDetails = serializer.Serialize(requestDetail);
+                        _requestsPersistentSource.UpdateRequestDetails(requestId, updatedRequestDetails);
+                        _logger.LogInformation("Updated request {RequestId} with AllRequestIds: {AllRequestIds}", requestId, allRequestIdsValue);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to resolve AllRequestIds in request {RequestId}", requestId);
+                }
+            }
         }
     }
 }

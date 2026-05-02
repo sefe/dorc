@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -10,9 +10,9 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class MetadataController : ControllerBase
     {
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
-        public MetadataController(ILog logger)
+        public MetadataController(ILogger<MetadataController> logger)
         {
             _logger = logger;
         }
@@ -29,7 +29,7 @@ namespace Dorc.Api.Controllers
                 "environment"] ?? "nd";
             var envAndVersion = $"{env} - {GetType().Assembly.GetName().Version}";
 
-            _logger.Debug("Starting with " + envAndVersion);
+            _logger.LogDebug("Starting with " + envAndVersion);
 
             return Results.Ok(envAndVersion);
         }

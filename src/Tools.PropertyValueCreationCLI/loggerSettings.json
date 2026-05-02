@@ -1,0 +1,17 @@
+{
+  "Serilog": {
+    "MinimumLevel": "Debug",
+    "WriteTo": [
+      {
+        "Name": "File",
+        "Args": {
+          "path": "c:\\Log\\DOrc\\Deploy\\Tools\\PropertyValueCreationCLI.log",
+          "rollOnFileSizeLimit": true,
+          "fileSizeLimitBytes": 1048576,
+          "retainedFileCountLimit": 10,
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3} - {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  }
+}

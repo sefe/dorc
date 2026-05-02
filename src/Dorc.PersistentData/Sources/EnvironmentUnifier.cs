@@ -15,6 +15,17 @@ namespace Dorc.PersistentData.Sources
                     == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation))!;
         }
 
+        public static Environment GetEnvironmentWithParentChild(IDeploymentContext context, string envName)
+        {
+            return context.Environments
+                .Include(e => e.AccessControls)
+                .Include(e => e.ParentEnvironment)
+                .Include(e => e.ChildEnvironments)
+                .SingleOrDefault(
+                x => EF.Functions.Collate(x.Name, DeploymentContext.CaseInsensitiveCollation)
+                    == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation))!;
+        }
+
         public static Environment GetEnvironment(IDeploymentContext context, int envId)
         {
             return context.Environments

@@ -17,7 +17,6 @@ import type { AjaxConfig, AjaxResponse } from 'rxjs/ajax';
 import { ajax } from 'rxjs/ajax';
 import { concatMap, map } from 'rxjs/operators';
 import { servers } from './servers';
-import AppConfig from '../../app-config';
 
 export const BASE_PATH = servers[0].getUrl();
 
@@ -32,11 +31,7 @@ export interface ConfigurationParameters {
 
 export class Configuration {
   constructor(
-    private configuration: ConfigurationParameters = {
-      accessToken:
-        'Basic ' + btoa('' + ':' + new AppConfig().azureDevOpsAccessToken)
-    }
-  ) {}
+    private configuration: ConfigurationParameters) {}
 
   get basePath(): string {
     return this.configuration.basePath ?? BASE_PATH;
@@ -79,7 +74,7 @@ export class Configuration {
 export class BaseAPI {
   private middleware: Middleware[] = [];
 
-  constructor(protected configuration = new Configuration()) {
+  constructor(protected configuration: Configuration) {
     this.middleware = configuration.middleware;
   }
 

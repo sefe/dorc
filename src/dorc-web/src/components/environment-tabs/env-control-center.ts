@@ -7,9 +7,8 @@ import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import {
   AccessControlType,
-  ApiBoolResult,
-  RefDataEnvironmentsApi,
-  ResetAppPasswordApi
+  DatabaseApiModel,
+  RefDataEnvironmentsApi
 } from '../../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -51,10 +50,12 @@ export class EnvControlCenter extends PageEnvBase {
   @property({ type: String }) secureName = '';
 
   @state()
-  private isEnvOwnerOrDelegate = false;
+  private isEnvOwner = false;
 
   @state()
   private isAdmin = false;
+
+  private appDbServer: DatabaseApiModel | undefined;
 
   static get styles() {
     return css`
@@ -64,14 +65,14 @@ export class EnvControlCenter extends PageEnvBase {
       }
 
       vaadin-button {
-        color: rgba(27, 43, 65, 0.72);
-        background-color: #fde3bb;
+        color: var(--dorc-ctrl-btn-text, rgba(27, 43, 65, 0.72));
+        background-color: var(--dorc-ctrl-btn-bg, var(--dorc-warning-bg));
       }
 
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #cccccc;
-        color: #666666;
+        background-color: var(--dorc-ctrl-disabled-bg, var(--dorc-bg-tertiary));
+        color: var(--dorc-ctrl-disabled-text, var(--dorc-text-secondary));
       }
 
       vaadin-button.not-endur {
@@ -90,7 +91,7 @@ export class EnvControlCenter extends PageEnvBase {
 
       a.plain {
         text-decoration: underline;
-        color: blue;
+        color: var(--dorc-link-color);
       }
     `;
   }
@@ -99,9 +100,11 @@ export class EnvControlCenter extends PageEnvBase {
     return html`
       <reset-app-password-behalf
         id="reset-app-password-behalf"
-        .appUsers="${this.envContent?.EndurUsers}"
+        .appUsers="${this.envContent?.EndurUsers ?? []}"
         .envFilter="${this.envFilter}"
         .environmentName="${this.environment?.EnvironmentName}"
+        .serverName="${this.appDbServer?.ServerName}"
+        .databaseName="${this.appDbServer?.Name}"
       ></reset-app-password-behalf>
       <make-like-production-dialog
         id="make-like-prod-dialog"
@@ -114,7 +117,7 @@ export class EnvControlCenter extends PageEnvBase {
       ></add-edit-access-control>
       <vaadin-details
         opened
-        style="border-top: 6px solid #ffad33 !important; background-color: #fff5e6; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-ctrl-section-border, #ffad33) !important; background-color: var(--dorc-ctrl-section-bg, #fff5e6); padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
           <vaadin-horizontal-layout>
@@ -129,56 +132,41 @@ export class EnvControlCenter extends PageEnvBase {
           <vaadin-button
             title="Delete Environment &amp; Properties"
             @click="${this.deleteEnvironment}"
-            ?disabled="${!(this.isAdmin || this.isEnvOwnerOrDelegate)}"
+            ?disabled="${!(this.isAdmin || this.isEnvOwner)}"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>
-            Delete Environment...
-          </vaadin-button>
+            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
+            >Delete Environment...</vaadin-button>
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
-            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon>
-            Environment History
-          </vaadin-button>
+            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
+            >Environment History</vaadin-button>
           <vaadin-button
             title="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon>
-            Environment Access...
-          </vaadin-button>
+            <vaadin-icon icon="vaadin:lock"></vaadin-icon
+            >Environment Access...</vaadin-button>
           <vaadin-button
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
           >
-            <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon>
-            Bundle Request...
-          </vaadin-button>
-          <vaadin-button
-            id="reset-password"
-            title="Reset my Application Password"
-            @click="${this.resetAppPassword}"
-            .disabled="${this.environment?.EnvironmentIsProd}"
-            ?hidden="${!this.isEndur}"
-          >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>
-            Reset my App Password...
-          </vaadin-button>
+            <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
+            >Bundle Request...</vaadin-button>
           <vaadin-button
             id="reset-others-password"
-            title="Reset Application Password for another user"
+            title="Reset SQL Account Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
             .disabled="${this.environment?.EnvironmentIsProd ||
-            !(this.isEnvOwnerOrDelegate || this.isAdmin)}"
+            !(this.isEnvOwner || this.isAdmin)}"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>
-            Reset App Password for...
-          </vaadin-button>
+            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
+            >Reset SQL Account Password for...</vaadin-button>
         </div>
       </vaadin-details>
     `;
@@ -187,7 +175,11 @@ export class EnvControlCenter extends PageEnvBase {
   constructor() {
     super();
 
-    super.loadEnvironmentInfo();
+    this.addEventListener(
+      'close-mlp-dialog',
+      this.closeMlpDialog as EventListener
+    );
+
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
       gc.allRolesResp?.subscribe({
@@ -211,11 +203,11 @@ export class EnvControlCenter extends PageEnvBase {
   isEnvironmentOwner() {
     const api = new RefDataEnvironmentsApi();
     api
-      .refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({
+      .refDataEnvironmentsIsEnvironmentOwnerGet({
         envName: this.environment?.EnvironmentName ?? ''
       })
       .subscribe(value => {
-        this.isEnvOwnerOrDelegate = value;
+        this.isEnvOwner = value;
       });
   }
 
@@ -225,11 +217,6 @@ export class EnvControlCenter extends PageEnvBase {
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
-    this.addEventListener(
-      'close-mlp-dialog',
-      this.closeMlpDialog as EventListener
-    );
   }
 
   openAccessControl() {
@@ -302,48 +289,6 @@ export class EnvControlCenter extends PageEnvBase {
     dialog.open();
   }
 
-  resetAppPassword() {
-    const answer = confirm(
-      'Are you sure you want to reset your application password?'
-    );
-    if (answer) {
-      const api = new ResetAppPasswordApi();
-      api
-        .resetAppPasswordPut({
-          envFilter: this.envFilter ?? '',
-          envName: this.environment?.EnvironmentName ?? ''
-        })
-        .subscribe(
-          (result: ApiBoolResult) => {
-            if (result.Result) {
-              const appName = this.envFilter ?? '';
-              const message = `Password successfully reset, it is now set as the same as your ${
-                appName
-              } login name, you will need to login without encryption the first time.`;
-              const notification = new SuccessNotification();
-              notification.setAttribute('successMessage', message);
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-            } else {
-              this.errorAlert(result);
-            }
-          },
-          (err: any) => {
-            this.errorAlert(err.response);
-          }
-        );
-    }
-  }
-
-  errorAlert(result: any) {
-    const event = new CustomEvent('error-alert', {
-      detail: { description: 'Failed to reset your password: ', result },
-      bubbles: true,
-      composed: true
-    });
-    this.dispatchEvent(event);
-  }
-
   makeLikeProd() {
     const mlp = this.shadowRoot?.getElementById(
       'make-like-prod-dialog'
@@ -361,8 +306,16 @@ export class EnvControlCenter extends PageEnvBase {
       this.isEndur = false;
     }
 
+    this.envFilter =
+      this.environment?.Details?.ThinClient !== null
+        ? this.environment?.Details?.ThinClient
+        : undefined;
+
     this.mappedProjects = this.envContent?.MappedProjects?.map(
       p => p.ProjectName ?? ''
     );
+
+    // since ThinClient is a DB tag and DB type and environment filter, we can use it to find the app database server
+    this.appDbServer = this.envContent?.DbServers?.find(s => s.Type === this.environment?.Details?.ThinClient);
   }
 }

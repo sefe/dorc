@@ -1,6 +1,6 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/text-field';
-import { TextField } from '@vaadin/text-field';
+import type { TextField } from '@vaadin/text-field';
 import '@vaadin/button';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -9,6 +9,9 @@ import { RefDataDaemonsApi } from '../apis/dorc-api';
 
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
+
+  private readonly maxFieldLength = 250;
+
   @state() private displayName = '';
 
   @state() private displayNameValid = false;
@@ -69,6 +72,8 @@ export class AddDaemon extends LitElement {
             class="block"
             id="daemon-name"
             label="Daemon Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._daemonNameValueChanged}"
@@ -78,6 +83,8 @@ export class AddDaemon extends LitElement {
             class="block"
             id="display-name"
             label="Display Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._displayNameValueChanged}"
@@ -87,31 +94,32 @@ export class AddDaemon extends LitElement {
             class="block"
             id="account-name"
             label="Account Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
             auto-validate
             @input="${this._accountNameValueChanged}"
             .value="${this.accountName ?? ''}"
-            .readonly="${true}"
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
             id="service-type"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             label="Type"
             required
             auto-validate
             @input="${this._serviceTypeValueChanged}"
             .value="${this.serviceType ?? ''}"
-            .readonly="${true}"
           >
           </vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
-          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
           <vaadin-button
             .disabled="${!this.valid || this.isBusy}"
             @click="${this._submit}"
-            >Save</vaadin-button
-          >
+          >Save</vaadin-button>
+          <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
         <span style="color: darkred">${this.overlayMessage}</span>
       </div>
@@ -176,7 +184,7 @@ export class AddDaemon extends LitElement {
       },
       (err: any) => {
         this.isBusy = false;
-        this.overlayMessage = 'Error creating daemon!';
+        this.overlayMessage = this._extractErrorMessage(err) ?? 'Error creating daemon!';
         console.error(err);
       },
       () => {
@@ -184,6 +192,16 @@ export class AddDaemon extends LitElement {
         this.reset();
       }
     );
+  }
+
+  private _extractErrorMessage(err: any): string | null {
+    if (err?.response) {
+      if (typeof err.response === 'string') return err.response;
+      if (typeof err.response.ExceptionMessage === 'string') return err.response.ExceptionMessage;
+      if (typeof err.response.message === 'string') return err.response.message;
+    }
+    if (err?.message) return err.message;
+    return null;
   }
 
   _addDaemon(data: DaemonApiModel) {

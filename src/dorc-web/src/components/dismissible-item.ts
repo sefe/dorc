@@ -14,7 +14,8 @@ export class DismissibleItem extends LitElement {
     return css`
       :host {
         display: flex;
-        background: #c7e0ff;
+        background: var(--dorc-chip-bg, #c7e0ff);
+        color: var(--dorc-text-primary, #000000);
       }
     `;
   }

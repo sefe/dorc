@@ -44,9 +44,16 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ConfigValueApiModel))]
         public IActionResult Post([FromBody] ConfigValueApiModel model)
         {
-            return !_rolePrivilegesChecker.IsAdmin(User)
-                ? Forbid()
-                : Ok(_configValuesPersistentSource.Add(model));
+            if (!_rolePrivilegesChecker.IsAdmin(User))
+                return Forbid();
+            try
+            {
+                return Ok(_configValuesPersistentSource.Add(model));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>
@@ -59,15 +66,16 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ConfigValueApiModel))]
         public IActionResult Put(int id, [FromBody] ConfigValueApiModel model)
         {
-            return !_rolePrivilegesChecker.IsAdmin(User)
-                ? Forbid()
-                : Ok(_configValuesPersistentSource.UpdateConfigValue(new ConfigValue
-                {
-                    Secure = model.Secure,
-                    Id = model.Id,
-                    Key = model.Key,
-                    Value = model.Value
-                }));
+            if (!_rolePrivilegesChecker.IsAdmin(User))
+                return Forbid();
+            try
+            {
+                return Ok(_configValuesPersistentSource.UpdateConfigValue(model));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>

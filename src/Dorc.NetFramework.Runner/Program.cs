@@ -1,13 +1,13 @@
-﻿using System;
-using System.Diagnostics;
-using System.Management;
-using System.Threading;
-using CommandLine;
+﻿using CommandLine;
 using Dorc.ApiModel.Constants;
 using Dorc.NetFramework.Runner.Pipes;
 using Dorc.Runner.Logger;
 using Microsoft.Extensions.Configuration;
-using Serilog;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Diagnostics;
+using System.Management;
+using System.Threading;
 
 namespace Dorc.NetFramework.Runner
 {
@@ -29,23 +29,15 @@ namespace Dorc.NetFramework.Runner
 
         private static void Main(string[] args)
         {
+            IRunnerLogger runnerLogger = null;
             try
             {
-#if LoggingForDebugging
-                Log.Logger.Information("Passed arguments:");
-
-                foreach (string arg in args)
-                {
-                    Log.Logger.Information("\t" + arg);
-                }
-#endif
-
                 var arguments = Parser.Default.ParseArguments<Options>(args);
                 if (arguments.Tag != ParserResultType.Parsed)
                 {
                     foreach (var error in arguments.Errors)
                     {
-                        Log.Logger.Error(error.ToString());
+                        Console.Error.WriteLine(error.ToString());
                     }
 
                     if (Environment.UserInteractive)
@@ -61,25 +53,31 @@ namespace Dorc.NetFramework.Runner
                     .AddJsonFile("loggerSettings.json", optional: false)
                     .Build();
 
-                var runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
+                runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
-                Log.Logger = runnerLogger.FileLogger;
+#if LoggingForDebugging
+                runnerLogger.Information("Passed arguments:");
 
-                var contextLogger = Log.Logger.ForContext("PipeName", options.PipeName);
+                foreach (string arg in args)
+                {
+                    runnerLogger.Information("\t" + arg);
+                }
+#endif
+
                 var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
-                var dorcPath = loggerRegistry.LogFileName.Replace("c:",@"\\"+System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
-                contextLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
+                var dorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
+                runnerLogger.Information($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 
                 using (Process process = Process.GetCurrentProcess())
                 {
                     string owner = GetProcessOwner(process.Id);
-                    contextLogger.Information("Runner process is started on behalf of the user: {0}", owner);
+                    runnerLogger.Information($"Runner process is started on behalf of the user: {owner}");
                 }
 
                 var idx = 0;
                 foreach (var s in args)
                 {
-                    contextLogger.Information("args[{0}]: {1}", idx++, s);
+                    runnerLogger.Information($"args[{idx++}]: {s}");
                 }
 
                 Debug.Assert(arguments != null);
@@ -90,11 +88,11 @@ namespace Dorc.NetFramework.Runner
 
                     if (options.UseFile)
                     {
-                        contextLogger.Debug("Using file instead of pipes");
-                        scriptGroupReader = new ScriptGroupFileReader(contextLogger);
+                        runnerLogger.Debug("Using file instead of pipes");
+                        scriptGroupReader = new ScriptGroupFileReader(runnerLogger.FileLogger);
                     }
                     else
-                        scriptGroupReader = new ScriptGroupPipeClient(contextLogger);
+                        scriptGroupReader = new ScriptGroupPipeClient(runnerLogger.FileLogger);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         runnerLogger,
@@ -104,28 +102,27 @@ namespace Dorc.NetFramework.Runner
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error("Exception occured {0}",ex.Message);
-                    Exit(-1);
+                    runnerLogger.Error($"Exception occured {ex.Message}");
+                    Exit(-1, runnerLogger);
                 }
-                Exit(0);
+                Exit(0, runnerLogger);
             }
             finally
             {
-                FinalizeProgram();
+                FinalizeProgram(runnerLogger);
             }
         }
 
-         static void FinalizeProgram()
+        static void FinalizeProgram(IRunnerLogger runnerLogger = null)
         {
             Thread.Sleep(10000);
-
-            Log.Logger.Information(RunnerConstants.StandardStreamEndString);
+            runnerLogger?.Information(RunnerConstants.StandardStreamEndString);
         }
 
-        static void Exit(int exitCode)
+        static void Exit(int exitCode, IRunnerLogger runnerLogger = null)
         {
-            FinalizeProgram();
-            Log.Logger.Information("Program Exiting with code {0}",exitCode);
+            FinalizeProgram(runnerLogger);
+            runnerLogger?.Information($"Program Exiting with code {exitCode}");
             Environment.Exit(exitCode);
         }
 

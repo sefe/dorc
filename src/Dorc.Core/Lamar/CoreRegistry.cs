@@ -10,14 +10,14 @@ namespace Dorc.Core.Lamar
     {
         public CoreRegistry()
         {
-            For<IServiceStatus>().Use<ServiceStatus>();
+            For<IDaemonStatusProbe>().Use<DaemonStatusProbe>();
 
             For<IDeployLibrary>().Use<DeployLibrary>();
 
             For<IPropertyEncryptor>().Use(x =>
             {
                 var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
-                return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+                return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
                     secureKeyPersistentDataSource.GetSymmetricKey());
             });
 

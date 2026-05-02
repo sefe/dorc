@@ -117,7 +117,7 @@ export class MakeLikeProduction extends LitElement {
         <vaadin-details
           closed
           summary="Property Overrides (Optional)"
-          style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; width: 100%"
+          style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); width: 100%"
         >
           <vaadin-vertical-layout style="align-items: stretch">
             <vaadin-combo-box

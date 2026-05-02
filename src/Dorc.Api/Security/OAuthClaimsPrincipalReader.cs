@@ -42,8 +42,57 @@ namespace Dorc.Api.Security
 
         public string GetUserFullDomainName(IPrincipal user)
         {
-            var cUser = GetClaimsPrincipal(user);
-            return IsM2MAuthentication(cUser) ? GetClientId(cUser) : GetUserEmail(cUser);
+            var claimsPrincipal = GetClaimsPrincipal(user);
+
+            // for M2M authentication, we return the client ID as the name
+            if (IsM2MAuthentication(claimsPrincipal))
+            {
+                return GetClientId(claimsPrincipal);
+            }
+
+            // for normal Oauth user return the email (ideally UPN but token does not have it yet)
+            var email = GetUserEmail(claimsPrincipal);
+            if (!string.IsNullOrEmpty(email))
+            {
+                return email;
+            }
+
+            // if the email is not available (for test users for example) - return the SamAccountName if it exists or just the user name
+            return GetSamAccountName(claimsPrincipal) ?? GetUserName(user);
+        }
+
+        /// <summary>
+        /// Returns a privacy-safe identifier for the user suitable for logging/auditing.
+        /// Prefers non-PII stable identifiers over email addresses.
+        /// </summary>
+        public string GetUserSafeIdentifier(IPrincipal user)
+        {
+            var claimsPrincipal = GetClaimsPrincipal(user);
+
+            if (IsM2MAuthentication(claimsPrincipal))
+            {
+                return GetClientId(claimsPrincipal);
+            }
+
+            var userId = GetUserId(claimsPrincipal);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            var samAccountName = GetSamAccountName(claimsPrincipal);
+            if (!string.IsNullOrEmpty(samAccountName))
+            {
+                return samAccountName;
+            }
+
+            var email = GetUserEmail(claimsPrincipal);
+            if (!string.IsNullOrEmpty(email))
+            {
+                return RedactEmail(email);
+            }
+
+            return GetUserName(user);
         }
 
         public string GetUserLogin(IPrincipal user)
@@ -62,9 +111,25 @@ namespace Dorc.Api.Security
             return IsM2MAuthentication(user) ? GetClientId(user) : (user?.FindFirst(PidClaimType)?.Value ?? string.Empty);
         }
 
-        private string GetSamAccountName(ClaimsPrincipal user)
+        private string? GetSamAccountName(ClaimsPrincipal user)
         {
-            return user?.FindFirst(SamAccountNameClaimType)?.Value ?? string.Empty;
+            return user?.FindFirst(SamAccountNameClaimType)?.Value;
+        }
+
+        private static string RedactEmail(string email)
+        {
+            if (string.IsNullOrEmpty(email))
+            {
+                return string.Empty;
+            }
+
+            var atIndex = email.IndexOf('@');
+            if (atIndex <= 1)
+            {
+                return "REDACTED";
+            }
+
+            return email[0] + new string('*', atIndex - 1) + email.Substring(atIndex);
         }
 
         public List<string> GetSidsForUser(IPrincipal user)
@@ -76,7 +141,7 @@ namespace Dorc.Api.Security
                 return new List<string> { GetClientId(cUser) };
             }
 
-            var pids = _userGroupReader.GetSidsForUser(GetUserId(cUser));
+            var pids = new List<string>(_userGroupReader.GetSidsForUser(GetUserId(cUser)));
 
             // add samAccountName as one of pids for backward compatibility with AD
             var samAccountName = cUser?.FindFirst(SamAccountNameClaimType)?.Value;

@@ -15,6 +15,7 @@ import '../components/server-tags';
 import './server-tags';
 import '../components/add-edit-server';
 import './add-edit-server';
+import '../components/map-daemons.ts';
 import { Notification } from '@vaadin/notification';
 import { map } from 'lit/directives/map.js';
 import '../components/hegs-dialog';
@@ -43,6 +44,8 @@ export class AttachedServers extends LitElement {
 
   @query('#tags-dialog') tagsDialog!: HegsDialog;
 
+  @query('#daemon-mapping-dialog') daemonMappingDialog!: HegsDialog;
+
   static get styles() {
     return css`
       .center {
@@ -62,7 +65,7 @@ export class AttachedServers extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-button {
         padding: 0px;
@@ -71,8 +74,8 @@ export class AttachedServers extends LitElement {
       .tag {
         font-size: 14px;
         font-family: monospace;
-        background-color: cornflowerblue;
-        color: white;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
         display: inline-block;
         padding: 3px;
         margin: 3px;
@@ -110,6 +113,16 @@ export class AttachedServers extends LitElement {
           .server="${this.selectedServer}"
           @server-tags-updated="${this.serverTagsUpdated}"
         ></server-tags>
+      </hegs-dialog>
+
+      <hegs-dialog
+        id="daemon-mapping-dialog"
+        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+      >
+        <map-daemons
+          .server="${this.selectedServer}"
+          .readonly="${this.readonly}"
+        ></map-daemons>
       </hegs-dialog>
       
       <vaadin-grid
@@ -246,6 +259,9 @@ export class AttachedServers extends LitElement {
         @edit-server="${(e: CustomEvent) => {
           altThis.editServer(e);
         }}"
+        @map-daemons="${() => {
+          altThis.openDaemonMapping(server);
+        }}"
       >
       </server-controls>`,
       root
@@ -255,6 +271,11 @@ export class AttachedServers extends LitElement {
   public openEditServerTags(server: ServerApiModel) {
     this.selectedServer = server;
     this.tagsDialog.open = true;
+  }
+
+  public openDaemonMapping(server: ServerApiModel) {
+    this.selectedServer = server;
+    this.daemonMappingDialog.open = true;
   }
 
   private editServer(e: CustomEvent) {

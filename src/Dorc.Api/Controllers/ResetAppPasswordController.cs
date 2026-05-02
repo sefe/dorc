@@ -4,7 +4,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Win32.SafeHandles;
@@ -23,7 +23,7 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly ISqlUserPasswordReset _sqlUserPasswordReset;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IConfigurationSettings _configurationSettingsEngine;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -31,7 +31,7 @@ namespace Dorc.Api.Controllers
         public ResetAppPasswordController(IDatabasesPersistentSource databasesPersistentSource,
             ISqlUserPasswordReset sqlUserPasswordReset,
             IConfigValuesPersistentSource configValuesPersistentSource,
-            ILog logger,
+            ILogger<ResetAppPasswordController> logger,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IConfigurationSettings configurationSettingsEngine,
             IClaimsPrincipalReader claimsPrincipalReader)
@@ -46,25 +46,6 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Reset the password for the current user
-        /// </summary>
-        /// <param name="envFilter"></param>
-        /// <param name="envName"></param>
-        /// <returns></returns>
-        [Produces(typeof(ApiBoolResult))]
-        [HttpPut]
-        public IActionResult Put(string envFilter, string envName)
-        {
-            string username = _claimsPrincipalReader.GetUserName(User);
-            if (string.IsNullOrEmpty(username))
-            {
-                return Ok(new ApiBoolResult
-                    { Message = "You are not currently setup in this environment", Result = false });
-            }
-            return ResetPassword(envFilter, envName, username);
-        }
-
-        /// <summary>
         /// Reset the password for the specified user
         /// </summary>
         /// <param name="envFilter"></param>
@@ -76,7 +57,7 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(string envFilter, string envName, string username)
         {
-            return _securityPrivilegesChecker.IsEnvironmentOwnerOrAdminOrDelegate(User, envName)
+            return _securityPrivilegesChecker.CanModifyEnvironment(User, envName)
                 ? ResetPassword(envFilter, envName, username)
                 : StatusCode(StatusCodes.Status403Forbidden,
                     $"You are not authorized to reset passwords for {envName}");
@@ -89,45 +70,49 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var user = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployUsername");
-                var pwd = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployPassword");
-
-                var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
-
                 var db = _databasesPersistentSource.GetApplicationDatabaseForEnvFilter(username, envFilter, envName);
                 if (db == null)
                     return Ok(new ApiBoolResult
-                    { Message = "You are not currently setup in this environment", Result = false });
+                    { Message = $"No application database found for environment '{envName}' with users of login type '{envFilter}'", Result = false });
 
-                if (user == null || pwd == null)
-                    return Ok(new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false });
-
-
-                const int logon32ProviderDefault = 0;
-                //This parameter causes LogonUser to create a primary token.   
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (false == returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
-
-                return WindowsIdentity.RunImpersonated<IActionResult>(
-                    safeAccessTokenHandle,
-                    // User action  
-                    () => Ok(_sqlUserPasswordReset.ResetSqlUserPassword(db.ServerName, username)));
+                return Ok(ResetSqlServerPasswordForUser(username, db.ServerName));
             }
             catch (Exception e)
             {
-                _logger.Error(e);
+                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", username, envName, envFilter);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
+        }
+
+        private ApiBoolResult ResetSqlServerPasswordForUser(string username, string serverName)
+        {
+            var user = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployUsername");
+            var pwd = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployPassword");
+
+            var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            
+            if (user == null || pwd == null)
+                return new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false };
+
+            const int logon32ProviderDefault = 0;
+            //This parameter causes LogonUser to create a primary token.   
+            const int logon32LogonInteractive = 2;
+
+            bool returnValue = LogonUser(user, domainName, pwd,
+                logon32LogonInteractive, logon32ProviderDefault,
+                out var safeAccessTokenHandle);
+
+            if (false == returnValue)
+            {
+                int ret = Marshal.GetLastWin32Error();
+                Console.WriteLine("LogonUser failed with error code : {0}", ret);
+                throw new System.ComponentModel.Win32Exception(ret);
+            }
+
+            return WindowsIdentity.RunImpersonated(
+                safeAccessTokenHandle,
+                // User action  
+                () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
         }
     }
 }

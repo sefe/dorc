@@ -10,5 +10,6 @@ namespace Dorc.ApiModel
         public string Key { get; set; }
         public string Value { get; set; }
         public bool Secure { get; set; }
+        public Nullable<bool> IsForProd { get; set; }
     }
 }

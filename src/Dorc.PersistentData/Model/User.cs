@@ -16,6 +16,5 @@
 
         public string? LanIdType { get; set; }
 
-        public ICollection<Environment> Environments { set; get; } = new List<Environment>();
     }
 }

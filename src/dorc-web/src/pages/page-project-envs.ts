@@ -2,6 +2,8 @@ import { css, PropertyValues } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/icon';
+import '@vaadin/vertical-layout';
+import '@vaadin/horizontal-layout';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
@@ -9,6 +11,7 @@ import { Router } from '@vaadin/router';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
+import { AccessControlApi, AccessSecureApiModel, AccessControlType } from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
@@ -51,6 +54,9 @@ export class PageProjectEnvs extends PageElement {
   @state()
   private projects: ProjectApiModel[] | undefined;
 
+  @state()
+  private projectUserEditable = false;
+
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
   static get styles() {
@@ -60,7 +66,7 @@ export class PageProjectEnvs extends PageElement {
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
         height: 126px;
-        right: 50px;
+        position: relative;
       }
 
       .card-element__heading {
@@ -69,7 +75,7 @@ export class PageProjectEnvs extends PageElement {
 
       .card-element__text {
         color: gray;
-        width: 250px;
+        width: 180px;
         word-wrap: break-word;
         display: block;
         font-size: small;
@@ -84,7 +90,7 @@ export class PageProjectEnvs extends PageElement {
       .statistics-cards__item {
         margin: 5px;
         flex-shrink: 0;
-        background-color: #f5f6f8;
+        background-color: var(--dorc-bg-secondary);
       }
 
       .environments {
@@ -98,7 +104,7 @@ export class PageProjectEnvs extends PageElement {
       }
 
       a {
-        color: blue;
+        color: var(--dorc-link-color);
         text-decoration: none; /* no underline */
       }
 
@@ -126,8 +132,8 @@ export class PageProjectEnvs extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -141,7 +147,6 @@ export class PageProjectEnvs extends PageElement {
 
       vaadin-button {
         padding: 2px;
-        margin: 4px;
       }
     `;
   }
@@ -167,7 +172,7 @@ export class PageProjectEnvs extends PageElement {
       ></add-edit-project>
       <div class="environments">
         <div class="statistics-cards__item card-element">
-          <div style="float: left">
+          <div style="position: absolute; left: 10px; max-width: 250px">
             <h3 class="card-element__heading" style="margin: 0px">
               ${this.project}
             </h3>
@@ -181,37 +186,59 @@ export class PageProjectEnvs extends PageElement {
                   >${this.projectData?.ProjectDescription}</span
                 >`}
           </div>
-          <div style="float: right; width: 40px">
-            <vaadin-button
-              title="Attach Environment"
-              theme="icon"
-              @click="${this.openAttachEnv}"
-            >
-              <vaadin-icon
-                icon="icons:link"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-            <vaadin-button
-              title="Reference Data"
-              theme="icon"
-              @click="${this.openRefData}"
-            >
-              <vaadin-icon
-                icon="vaadin:curly-brackets"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-            <vaadin-button
-              title="Edit Metadata..."
-              theme="icon"
-              @click="${this.openProjectMetadata}"
-            >
-              <vaadin-icon
-                icon="lumo:edit"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
+
+          <div style="right: 8px; bottom: 8px; position: absolute;">
+            <vaadin-vertical-layout style="gap: 8px; align-items: end;">
+              <vaadin-horizontal-layout style="gap: 8px;">
+                <vaadin-button
+                  title="Attach Environment"
+                  theme="icon"
+                  @click="${this.openAttachEnv}"
+                  style="margin: 0;"
+                >
+                  <vaadin-icon
+                    icon="icons:link"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                </vaadin-button>
+                <vaadin-button
+                  title="Bundles"
+                  theme="icon"
+                  @click="${this.openBundles}"
+                  style="margin: 0;"
+                  ?hidden="${!this.projectUserEditable}"
+                >
+                  <vaadin-icon
+                    icon="vaadin:package"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                </vaadin-button>
+              </vaadin-horizontal-layout>
+              <vaadin-horizontal-layout style="gap: 8px;">
+                <vaadin-button
+                  title="Reference Data"
+                  theme="icon"
+                  @click="${this.openRefData}"
+                  style="margin: 0;"
+                >
+                  <vaadin-icon
+                    icon="vaadin:curly-brackets"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                </vaadin-button>
+                <vaadin-button
+                  title="Edit Metadata..."
+                  theme="icon"
+                  @click="${this.openProjectMetadata}"
+                  style="margin: 0;"
+                >
+                  <vaadin-icon
+                    icon="lumo:edit"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                </vaadin-button>
+              </vaadin-horizontal-layout>
+            </vaadin-vertical-layout>
           </div>
         </div>
         ${this.environments?.map(
@@ -309,6 +336,10 @@ export class PageProjectEnvs extends PageElement {
     this.dispatchEvent(event);
   }
 
+  openBundles() {
+    Router.go(`project-envs/${this.project}/bundles`);
+  }
+
   private renderMapEnvDialog = () => html`
     <attach-environment
       id="attach-environments"
@@ -378,6 +409,27 @@ export class PageProjectEnvs extends PageElement {
   private setEnvironments(data: EnvironmentApiModelTemplateApiModel) {
     this.projectData = data.Project;
     this.environments = data.Items?.sort(this.sortEnvironments);
+    this.checkProjectAccess();
+  }
+
+  private checkProjectAccess() {
+    if (this.project) {
+      const api = new AccessControlApi();
+      api
+        .accessControlGet({
+          accessControlType: AccessControlType.NUMBER_0,
+          accessControlName: this.project
+        })
+        .subscribe({
+          next: (data: AccessSecureApiModel) => {
+            this.projectUserEditable = data.UserEditable ?? false;
+          },
+          error: (err: string) => {
+            console.error('Error fetching project access control:', err);
+            this.projectUserEditable = false;
+          }
+        });
+    }
   }
 
   sortEnvironments(a: EnvironmentApiModel, b: EnvironmentApiModel): number {

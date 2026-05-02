@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 
 namespace Dorc.Api.Security
@@ -6,11 +6,11 @@ namespace Dorc.Api.Security
     public class WinAuthLoggingMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly ILog _logger;
+        private readonly ILogger _logger;
 
         private static readonly HashSet<string> LoggedUsers = new HashSet<string>();
 
-        public WinAuthLoggingMiddleware(RequestDelegate next, ILog logger)
+        public WinAuthLoggingMiddleware(RequestDelegate next, ILogger<WinAuthLoggingMiddleware> logger)
         {
             _next = next;
             _logger = logger;
@@ -27,7 +27,7 @@ namespace Dorc.Api.Security
                 // Log only if the user hasn't been logged yet after restart
                 if (LoggedUsers.Add(userName))
                 {
-                    _logger.Warn($"User '{userName}' is using Windows Authentication (NTLM/Kerberos)");
+                    _logger.LogWarning($"User '{userName}' is using Windows Authentication (NTLM/Kerberos)");
                 }
             }
 

@@ -21,13 +21,13 @@ export class AccessControlControls extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
 
   render() {
-    const styles = { color: this.disabled ? '#F3F5F7' : '#FF3131' };
+    const styles = { color: this.disabled ? 'var(--dorc-bg-secondary)' : 'var(--dorc-error-color)' };
     return html`
       <vaadin-button
         title="Remove Access"

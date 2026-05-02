@@ -5,10 +5,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign in to your account</title>
+  <script>
+    var s = localStorage.getItem('dorc-theme');
+    if (s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.setAttribute('theme', 'dark');
+    }
+  </script>
   <style>
     body {
       font-family: Roboto, Tahoma, Geneva, Verdana, sans-serif;
       background-color: #d5f2c270;
+      color: #333;
       margin: 0;
       display: flex;
       justify-content: center;
@@ -17,7 +24,6 @@
     }
 
     .signin-container {
-      background-color: #a3ec72d8;
       background-color: #ffffff;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -72,14 +78,48 @@
     .button-group button:hover {
       background-color: #005a9e;
     }
+
+    /* Dark mode */
+    html[theme~="dark"] body {
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+    }
+
+    html[theme~="dark"] .signin-container {
+      background-color: #2b2b2b;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    html[theme~="dark"] .logo h2 {
+      color: #b0b0b0;
+    }
+
+    html[theme~="dark"] .signin-title {
+      color: #e0e0e0;
+    }
+
+    html[theme~="dark"] .button-group button {
+      background-color: #3a8fd4;
+    }
+
+    html[theme~="dark"] .button-group button:hover {
+      background-color: #2a6fb0;
+    }
   </style>
+  <script>
+    // Restore saved theme preference or follow system default
+    var stored = localStorage.getItem('dorc-theme');
+    if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.setAttribute('theme', 'dark');
+    }
+  </script>
   <script type="module" src="src/signin.ts"></script>
 </head>
 
 <body>
   <div class="signin-container">
     <div class="logo">
-      <img src="https://www.sefe.eu/typo3temp/assets/_processed_/a/9/csm_SEFE_GROUP_logo_d4a06ffb59.png" />
+      <img src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png" style="height: 65px; padding: 3px" alt="DOrc mascot"/>
       <h2>You are not signed in</h2>
     </div>
     <div class="signin-title">Sign in to your account</div>

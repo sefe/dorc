@@ -1,4 +1,4 @@
-﻿using log4net;
+﻿using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.Collections.Concurrent;
 
@@ -8,26 +8,31 @@ namespace Dorc.Monitor.IntegrationTests.Tests
     public class DeploymentEngineTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public async Task ProcessShouldStopOnUnhandledException()
         {
-            var loggerMock = Substitute.For<ILog>();
+            var loggerMock = Substitute.For<ILogger<DeploymentEngine>>();
             var drsp = Substitute.For<IDeploymentRequestStateProcessor>();
+            var configMock = Substitute.For<IMonitorConfiguration>();
+            configMock.MaxConcurrentDeployments.Returns(0); // 0 = unlimited
             drsp.When(d => d.AbandonRequests(Arg.Any<bool>(), Arg.Any<ConcurrentDictionary<int, CancellationTokenSource>>(), Arg.Any<CancellationToken>())).Do(c => throw new ArgumentException());
-            var deploymentEngine = new DeploymentEngine(loggerMock, drsp);
-            await deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), new CancellationToken(), 100);
+            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, configMock);
 
-            Assert.Fail("method should throw exception and never get here");
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+            {
+                await deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), new CancellationToken(), 100);
+            });
         }
 
         [TestMethod]
         public async Task ProcessShouldStopOnTokenCancellation()
         {
-            var loggerMock = Substitute.For<ILog>();
+            var loggerMock = Substitute.For<ILogger<DeploymentEngine>>();
             var iterationDelayMs = 50;
             var drsp = Substitute.For<IDeploymentRequestStateProcessor>();
+            var configMock = Substitute.For<IMonitorConfiguration>();
+            configMock.MaxConcurrentDeployments.Returns(0); // 0 = unlimited
             CancellationTokenSource source = new CancellationTokenSource();
-            var deploymentEngine = new DeploymentEngine(loggerMock, drsp);
+            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, configMock);
             var task = deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), source.Token, iterationDelayMs);
             await Task.Delay(iterationDelayMs * 2);
 

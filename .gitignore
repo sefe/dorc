@@ -383,3 +383,4 @@ GitExtensions.settings.backup
 
 src/.NCrunch_Dorc/
 .idea
+/src/dorc/src/Tests.Acceptance/Features/*.cs 

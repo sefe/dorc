@@ -17,7 +17,7 @@
  * @enum {string}
  */
 export enum BundledRequestType {
-    NUMBER_1 = 1,
-    NUMBER_2 = 2
+    JobRequest = "JobRequest",
+    CopyEnvBuild = "CopyEnvBuild"
 }
 

@@ -34,12 +34,6 @@
 		</xsl:attribute>
 	</xsl:template>
 
-	<xsl:template match="wix:File[@Source='$(var.DorcMonitorDir)\log4net.config']/@Id">
-		<xsl:attribute name="{name()}">
-			<xsl:value-of select="'NonProdLog4NetConfig'" />
-		</xsl:attribute>
-	</xsl:template>
-
 	<!-- Non Prod Net Framework Runner -->
 
 	<xsl:template match="wix:File[@Source='$(var.DorcNetFrameworkRunnerDir)\appsettings.json']/@Id">
@@ -77,6 +71,26 @@
 	<xsl:template match="wix:File[@Source='$(var.DorcRunnerDir)\loggerSettings.json']/@Id">
 		<xsl:attribute name="{name()}">
 			<xsl:value-of select="'NonProdDorcRunnerExeLoggingConfig'" />
+		</xsl:attribute>
+	</xsl:template>
+
+	<!-- Non Prod Terraform Runner -->
+
+	<xsl:template match="wix:File[@Source='$(var.DorcTerraformRunnerDir)\appsettings.json']/@Id">
+		<xsl:attribute name="{name()}">
+			<xsl:value-of select="'NonProdTerraformRunnerExeConfig'" />
+		</xsl:attribute>
+	</xsl:template>
+
+	<xsl:template match="wix:File[@Source='$(var.DorcTerraformRunnerDir)\loggerSettings.json']/@Id">
+		<xsl:attribute name="{name()}">
+			<xsl:value-of select="'NonProdTerraformRunnerExeLoggingConfig'" />
+		</xsl:attribute>
+	</xsl:template>
+
+	<xsl:template match="wix:File[@Source='$(var.DorcTerraformRunnerDir)\Dorc.TerraformRunner.exe']/@Id">
+		<xsl:attribute name="{name()}">
+			<xsl:value-of select="'NonProdTerraformRunnerExe'" />
 		</xsl:attribute>
 	</xsl:template>
 

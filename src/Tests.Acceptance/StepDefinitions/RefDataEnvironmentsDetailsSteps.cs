@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Dorc.ApiModel;
 using FluentAssertions.Execution;
+using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
 

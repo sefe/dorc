@@ -3,6 +3,8 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
 
@@ -87,22 +89,55 @@ namespace Dorc.Api.Controllers
         /// <summary>
         ///     Delete Database entry
         /// </summary>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [Produces("application/json")]
+        [ProducesResponseType(typeof(ApiBoolResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         [HttpDelete]
-        public ApiBoolResult Delete(int databaseId)
+        public ActionResult<ApiBoolResult> Delete(int databaseId)
         {
-            var environmentNamesAttachedToDatabase = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId);
-
-            foreach (var environmentName in environmentNamesAttachedToDatabase)
+            try
             {
-                var environmentApiModel = _environmentsPersistentSource.GetEnvironment(environmentName);
-                if (environmentApiModel == null || !_securityPrivilegesChecker.CanModifyEnvironment(User, environmentApiModel.EnvironmentName))
-                    return new ApiBoolResult
-                        { Result = false, Message = "User doesn't have \"Write\" permission for this action on " + environmentApiModel?.EnvironmentName + "!" };
-            }
+                var environmentNamesAttachedToDatabase = (_databasesPersistentSource.GetEnvironmentNamesForDatabaseId(databaseId) ?? Enumerable.Empty<string>()).ToList();
 
-            var result = _databasesPersistentSource.DeleteDatabase(databaseId);
-            return new ApiBoolResult { Result = result };
+                foreach (var environmentName in environmentNamesAttachedToDatabase)
+                {
+                    var environmentApiModel = _environmentsPersistentSource.GetEnvironment(environmentName);
+                    if (environmentApiModel == null)
+                        return BadRequest("Error while checking permissions; Environment missing in Deployment database.");
+
+                    if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environmentApiModel.EnvironmentName))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            $"User doesn't have \"Write\" permission for this action on {environmentApiModel.EnvironmentName}!");
+                }
+
+                if (environmentNamesAttachedToDatabase.Any())
+                    return StatusCode(StatusCodes.Status409Conflict,
+                        $"Cannot delete: this database is used by environments: {string.Join(", ", environmentNamesAttachedToDatabase)}. Detach it first and retry.");
+
+                var result = _databasesPersistentSource.DeleteDatabase(databaseId);
+                if (!result)
+                    return BadRequest("Delete failed.");
+
+                return Ok(new ApiBoolResult { Result = true });
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException sql && sql.Number == 547)
+            {
+                return StatusCode(StatusCodes.Status409Conflict,
+                    "Cannot delete: the database is referenced by other records (users and their permissions to the database). Remove those references and try again.");
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, string.IsNullOrWhiteSpace(ex.GetBaseException()?.Message) ?
+                    "Delete failed due to a data persistence error. Please remove related references or try again later." : $"Delete failed: {ex.GetBaseException()?.Message.Trim()}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, string.IsNullOrWhiteSpace(ex.GetBaseException()?.Message) ?
+                    "Unexpected error while deleting the database. Please try again or contact support." : $"Unexpected error: {ex.GetBaseException()?.Message.Trim()}");
+            }
         }
 
         /// <summary>
@@ -150,35 +185,43 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put([FromQuery] int id, [FromBody] DatabaseApiModel database)
         {
-            var environmentIdsForServerName = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
-            foreach (var envIds in environmentIdsForServerName)
+            try
             {
-                var env = _environmentsPersistentSource.GetEnvironment(envIds, User);
-                if (env == null)
+                var environmentIdsForServerName = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
+                foreach (var envIds in environmentIdsForServerName)
                 {
-                    return BadRequest(
-                       "Error while checking permissions, probably Environment missing in Deployment database");
+                    var env = _environmentsPersistentSource.GetEnvironment(envIds, User);
+                    if (env == null)
+                    {
+                        return BadRequest(
+                           "Error while checking permissions, probably Environment missing in Deployment database");
+                    }
+                    if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
+                    {
+                        return StatusCode((int)HttpStatusCode.Forbidden, $"You should have write permission on " + env.EnvironmentName + " to modify this database");
+                    }
                 }
-                if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
-                {
-                    return StatusCode((int)HttpStatusCode.Forbidden, $"You should have write permission on " + env.EnvironmentName + " to modify this database");
-                }
+
+                if (id != database.Id)
+                    return BadRequest("'id' must be the same as database.Id");
+
+                if (id <= 0)
+                    return BadRequest("'id' cannot be 0");
+
+                var databaseApiModel = _databasesPersistentSource.GetDatabase(database.Id);
+                if (databaseApiModel != null && databaseApiModel.Id != id)
+                    return BadRequest("Cannot set the server name to the same as one that already exists!");
+
+                var result = _databasesPersistentSource.UpdateDatabase(id, database, User);
+                return result != null
+                    ? Ok(result)
+                    : NotFound("Error updating entry");
             }
-
-            if (id != database.Id)
-                return BadRequest("'id' must be the same as database.Id");
-
-            if (id <= 0)
-                return BadRequest("'id' cannot be 0");
-
-            var databaseApiModel = _databasesPersistentSource.GetDatabase(database.Id);
-            if (databaseApiModel != null && databaseApiModel.Id != id)
-                return BadRequest("Cannot set the server name to the same as one that already exists!");
-
-            var result = _databasesPersistentSource.UpdateDatabase(id, database, User);
-            return result != null
-                ? Ok(result)
-                : NotFound("Error updating entry");
+            catch (Exception exception)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    exception.Message);
+            }
         }
     }
 }

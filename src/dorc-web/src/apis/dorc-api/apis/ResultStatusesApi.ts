@@ -23,6 +23,11 @@ export interface ResultStatusesGetRequest {
     requestId?: number;
 }
 
+export interface ResultStatusesLogGetRequest {
+    requestId?: number;
+    resultId?: number;
+}
+
 /**
  * no description
  */
@@ -40,6 +45,24 @@ export class ResultStatusesApi extends BaseAPI {
 
         return this.request<Array<DeploymentResultApiModel>>({
             url: '/ResultStatuses',
+            method: 'GET',
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    resultStatusesLogGet({ requestId, resultId }: ResultStatusesLogGetRequest): Observable<string>
+    resultStatusesLogGet({ requestId, resultId }: ResultStatusesLogGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
+    resultStatusesLogGet({ requestId, resultId }: ResultStatusesLogGetRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+
+        const query: HttpQuery = {};
+
+        if (requestId != null) { query['requestId'] = requestId; }
+        if (resultId != null) { query['resultId'] = resultId; }
+
+        return this.request<string>({
+            url: '/ResultStatuses/Log',
             method: 'GET',
             query,
         }, opts?.responseOpts);

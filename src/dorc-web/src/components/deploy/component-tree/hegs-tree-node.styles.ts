@@ -56,20 +56,20 @@ export const addHegsTreeNodeStyles = css`
     height: 20px;
   }
   vaadin-icon {
-    color: #747f8d;
+    color: var(--dorc-text-secondary);
   }
   span {
-    color: #747f8d;
+    color: var(--dorc-text-secondary);
     font-family: var(--lumo-font-family);
     font-size: var(--lumo-font-size-m);
   }
   label {
-    color: #747f8d;
+    color: var(--dorc-text-secondary);
     font-family: var(--lumo-font-family);
     font-size: var(--lumo-font-size-m);
   }
   input[type='checkbox']:hover {
-    box-shadow: 0px 0px 10px #747f8d;
+    box-shadow: 0px 0px 10px var(--dorc-text-secondary);
   }
   ul {
     margin: 0;

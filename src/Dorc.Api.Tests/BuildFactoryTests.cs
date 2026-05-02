@@ -3,7 +3,7 @@ using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Dorc.Api.Tests
@@ -23,9 +23,9 @@ namespace Dorc.Api.Tests
             var mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
             var request = new RequestDto { BuildUrl = "file://some_path", Project = "myProject" };
 
-            ILog mockedLog = new MockedLog();
+            ILoggerFactory mockedLoggerFactory = Substitute.For<ILoggerFactory>();
             var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
-            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
+            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
             var fileShareBuild = factory.CreateInstance(request);
             Assert.IsTrue(fileShareBuild is FileShareDeployableBuild);
             request = new RequestDto { BuildUrl = "http://some_path", Project = "myProject" };

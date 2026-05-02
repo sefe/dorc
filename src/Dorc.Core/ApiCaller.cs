@@ -1,8 +1,10 @@
-﻿using System.Net;
-using System.Text.Json;
+﻿using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using RestSharp;
+using RestSharp.Authenticators.OAuth2;
+using System.Net;
+using System.Text.Json;
 
 namespace Dorc.Core
 {
@@ -18,26 +20,19 @@ namespace Dorc.Core
 
     public class ApiCaller : IApiCaller
     {
-        public readonly RestClient Client;
+        private RestClient Client;
+        
+        private readonly IOAuthClientConfiguration _configuration;
 
-        public ApiCaller()
+        public ApiCaller(IOAuthClientConfiguration configuration)
         {
-            var apiRoot =
-                    new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
-                        "ApiRoot"];
-            var options = new RestClientOptions
-            {
-                BaseUrl = new Uri(apiRoot),
-                UseDefaultCredentials = true,
-                UserAgent =
-                    @"Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36"
-            };
-
-            Client = new RestClient(options);
+            _configuration = configuration;
         }
 
         public ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string>? segments = null, string? body = null) where T : class
         {
+            EnsureClientCreatedAuthenticated();
+
             var result = new ApiResult<T>();
             //prepare request
             var request = new RestRequest(GetEndpointPath(endpoint), method);
@@ -92,6 +87,26 @@ namespace Dorc.Core
                 result.ErrorMessage = e.Message;
             }
             return result;
+        }
+
+        private void EnsureClientCreatedAuthenticated()
+        {
+            if (Client != null)
+            {
+                return;
+            }
+
+            var _tokenProvider = new DorcApiTokenProvider(_configuration);
+            var token = _tokenProvider.GetTokenAsync().Result;
+            var options = new RestClientOptions
+            {
+                BaseUrl = new Uri(_configuration.BaseUrl),
+                Authenticator = new OAuth2AuthorizationRequestHeaderAuthenticator(token, "Bearer"),
+                UserAgent =
+                    @"Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36"
+            };
+
+            Client = new RestClient(options);
         }
 
         private string GetEndpointPath(Endpoints value)

@@ -2,7 +2,7 @@
 using Dorc.Core.Configuration;
 using Dorc.Core.IdentityServer;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -15,26 +15,28 @@ namespace Dorc.Api.Services
         public DirectorySearcherFactory(IConfigurationSettings config,
             IMemoryCache cache,
             IConfigurationSecretsReader secretsReader,
-            ILog log)
+            ILoggerFactory loggerFactory)
         {
-            var adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), log);
-            var azEntraSearcher = new AzureEntraSearcher(config, log);
+            _adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), loggerFactory.CreateLogger<ActiveDirectorySearcher>());
+            var azEntraSearcher = new AzureEntraSearcher(config, loggerFactory.CreateLogger<AzureEntraSearcher>());
 
-            if (config.GetIsUseIdentityServerAsSearcher() == false)
+            var searchersList = new List<IActiveDirectorySearcher>();
+            if (config.GetIsUseAdAsSearcher() == true)
             {
-                _oauthDirectorySearcher = azEntraSearcher;
+                searchersList.Add(_adSearcher);
             }
             else
             {
-                var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, log);
-
-                var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
-                    new List<IActiveDirectorySearcher> { azEntraSearcher, identityServerSearcher },
-                    log);
-                _oauthDirectorySearcher = compositeOauthSearcher;
+                var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, loggerFactory.CreateLogger<IdentityServerSearcher>(), loggerFactory);
+                searchersList.Add(identityServerSearcher);
+                searchersList.Add(azEntraSearcher);
             }
 
-            _adSearcher = adSearcher;            
+            var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
+                    searchersList,
+                    loggerFactory.CreateLogger<CompositeActiveDirectorySearcher>());
+
+            _oauthDirectorySearcher = compositeOauthSearcher;
         }
 
         public IActiveDirectorySearcher GetActiveDirectorySearcher()

@@ -1,17 +1,8 @@
 import { css } from 'lit';
 import { registerStyles } from '@vaadin/vaadin-themable-mixin/vaadin-themable-mixin.js';
 
-registerStyles(
-  'vaadin-grid',
-  css`
-    .insert-type {
-      background-color: #b1ffb7;
-    }
-    .delete-type {
-      background-color: #ffd9d9;
-    }
-  `
-);
+// Note: Grid cell styling has been migrated to use cellPartNameGenerator with ::part() CSS
+// selectors in individual components (Vaadin 25 migration).
 
 registerStyles(
   'vaadin-notification-card',
@@ -23,32 +14,10 @@ registerStyles(
 );
 
 registerStyles(
-  'vaadin-grid',
-  css`
-    .success {
-      background-color: #b1ffb7;
-    }
-
-    .failure {
-      background-color: #ffd9d9;
-    }
-  `
-);
-
-registerStyles(
   'vaadin-notification-card',
   css`
     :host([slot^='bottom-start'][theme~='warning']) [part='overlay'] {
-      background: orange;
-    }
-  `
-);
-
-registerStyles(
-  'vaadin-grid',
-  css`
-    .variable-value-error {
-      background-color: #ffddb7;
+      background: var(--dorc-badge-text);
     }
   `
 );
@@ -59,5 +28,15 @@ registerStyles(
       :host([orientation^='vertical']) {
           min-height: var(--lumo-size-s);
       }
+  `
+);
+
+registerStyles(
+  'vaadin-dialog-overlay',
+  css`
+    [part='overlay'] {
+      background: var(--lumo-base-color);
+      color: var(--lumo-body-text-color);
+    }
   `
 );

@@ -41,7 +41,7 @@ namespace Dorc.Api.Controllers
         {
             if (!User.IsInRole("PowerUser") && !User.IsInRole("Admin"))
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    "User must be part of the 'PowerUser' group to create new Permissions");
+                    "User must be part of the 'PowerUser' or 'Admin' group to create new Permissions");
 
             try
             {
@@ -68,8 +68,16 @@ namespace Dorc.Api.Controllers
             if (!User.IsInRole("Admin"))
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "User must be part of the 'Admin' group to edit Permissions");
+            try 
+            { 
+                _permissionsPersistentSource.UpdatePermission(id, value);
+            }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    ex.Message);
+            }
 
-            _permissionsPersistentSource.UpdatePermission(id, value);
             return StatusCode(StatusCodes.Status200OK);
         }
 

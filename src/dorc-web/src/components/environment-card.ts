@@ -49,11 +49,12 @@ export class EnvironmentCard extends LitElement {
         flex-shrink: 0;
       }
       a {
-        color: blue;
+        color: var(--dorc-link-color);
         text-decoration: none; /* no underline */
       }
+
       vaadin-button {
-        margin: 4px;
+        padding: 2px;
       }
     `;
   }
@@ -71,17 +72,18 @@ export class EnvironmentCard extends LitElement {
           >
         </div>
 
-        <div style="left: 200px; top: 40px; position: relative">
-          <vaadin-vertical-layout>
-            <vaadin-horizontal-layout>
+        <div style="right: 8px; bottom: 8px; position: absolute;">
+          <vaadin-vertical-layout style="gap: 8px; align-items: end;">
+            <vaadin-horizontal-layout style="gap: 8px;">
               <vaadin-button
                 title="Environment Details"
                 theme="icon"
                 @click="${this.openEnvironmentDetails}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="hardware:developer-board"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
@@ -89,33 +91,36 @@ export class EnvironmentCard extends LitElement {
                 theme="icon"
                 ?disabled="${this.environment === undefined}"
                 @click="${this.openEnvHistory}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="icons:history"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>
-            <vaadin-horizontal-layout>
+            <vaadin-horizontal-layout style="gap: 8px;">
               <vaadin-button
                 title="Detach Environment"
                 theme="icon"
                 @click="${this.removeMapping}"
                 .env="${this.environment}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="vaadin:unlink"
-                  style="color: #FF3131"
+                  style="color: var(--dorc-error-color)"
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
                 title="Access Control..."
                 theme="icon"
                 @click="${this.openAccessControl}"
+                style="margin: 0;"
               >
                 <vaadin-icon
                   icon="vaadin:lock"
-                  style="color: cornflowerblue"
+                  style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
             </vaadin-horizontal-layout>

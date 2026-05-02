@@ -4,8 +4,10 @@
   <Fragment>
       <DirectoryRef Id="RequestDir" >
         <Component Id="ToolsRequestConfigSetup" Guid="{AC31A032-30D6-48A8-A322-086DF884A2A2}">
-			<Json:JsonFile Id="ApiRoot" ElementPath="$.AppSettings.ApiRoot" Value="[DEPLOYAPI.ENDPOINT]" File="[#ToolsRequestConfig]" />
-			
+        <Json:JsonFile Id="ToolRequestDorcApiUrl" ElementPath="$.DorcApi.BaseUrl" Value="[DEPLOYAPI.ENDPOINT]" File="[#ToolsRequestConfig]" />
+        <Json:JsonFile Id="ToolRequestDorcApiClientId" ElementPath="$.DorcApi.ClientId" Value="[DORC.API.CLIENTID]" File="[#ToolsRequestConfig]" />
+        <Json:JsonFile Id="ToolRequestDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" Value="[DORC.API.CLIENTSECRET]" File="[#ToolsRequestConfig]" />
+
           <CreateFolder/>
         </Component>
       </DirectoryRef>

@@ -1,6 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
-using log4net;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
@@ -17,10 +17,10 @@ namespace Dorc.Core
     public class ActiveDirectorySearcher : IActiveDirectorySearcher
     {
         private readonly DirectoryEntry _activeDirectoryRoot;
-        private readonly ILog _log;
+        private readonly ILogger _log;
         private static readonly string[] adProps = { "cn", "displayname", "objectsid", "mail" };
 
-        public ActiveDirectorySearcher(string domainName, ILog log)
+        public ActiveDirectorySearcher(string domainName, ILogger<ActiveDirectorySearcher> log)
         {
             _log = log;
 
@@ -35,15 +35,16 @@ namespace Dorc.Core
         {
             var output = new List<UserElementApiModel>();
 
-            // restrict the username and password to letters only
-            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ]+$"))
+            // restrict the username and password to letters and parenthesis only
+            if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ()]+$"))
             {
                 return output;
             }
 
             using (var searcher = new DirectorySearcher(_activeDirectoryRoot)
                 {
-                    Filter = $"(&(anr={objectName})(|(objectCategory=group)(objectCategory=person)))"
+                    // anr (Ambiguous Name Resolution) has some limitations with special characters, have to escape them
+                    Filter = $"(&(anr={EscapeLdapFilter(objectName)})(|(objectCategory=group)(objectCategory=person)))"
                 })
             {
                 searcher.PropertiesToLoad.AddRange(adProps);
@@ -78,6 +79,41 @@ namespace Dorc.Core
             return output;
         }
 
+        public static string EscapeLdapFilter(string filter)
+        {
+            if (string.IsNullOrEmpty(filter)) return filter;
+
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in filter)
+            {
+                switch (c)
+                {
+                    case '\\':
+                        sb.Append("\\5c");
+                        break;
+                    case '*':
+                        sb.Append("\\2a");
+                        break;
+                    case '(':
+                        sb.Append("\\28");
+                        break;
+                    case ')':
+                        sb.Append("\\29");
+                        break;
+                    case '\u0000':
+                        sb.Append("\\00");
+                        break;
+                    case '/':
+                        sb.Append("\\2f");
+                        break;
+                    default:
+                        sb.Append(c);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
         private UserElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
         {
             var displayName = GetSafeString(de.Properties, "displayName");
@@ -90,7 +126,7 @@ namespace Dorc.Core
             {
                 Username = GetSafeString(de.Properties, "SAMAccountName"),
                 DisplayName = displayName,
-                Pid = GetSidString((byte[])de.Properties["objectSid"].Value),
+                Sid = GetSidString((byte[])de.Properties["objectSid"].Value),
                 IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
                 Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
             };
@@ -159,7 +195,7 @@ namespace Dorc.Core
 
                         var entity = GetModelFromDirectoryEntry(de);
 
-                        entity.Pid = sid;
+                        entity.Sid = sid;
 
                         return entity;
                     }
@@ -200,7 +236,7 @@ namespace Dorc.Core
                         { continue; }
 
                         var user = GetModelFromDirectoryEntry(de);
-                        user.Pid = Sid;
+                        user.Sid = Sid;
 
                         return user;
                     }
@@ -210,10 +246,10 @@ namespace Dorc.Core
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
 
-        public List<string> GetSidsForUser(string username)
+        public List<string> GetSidsForUser(string samAccountName)
         {
             var result = new HashSet<string>();
-            var name = username;
+            var name = samAccountName;
 
             DirectorySearcher ds = new DirectorySearcher();
 
@@ -229,7 +265,7 @@ namespace Dorc.Core
                 result.Add(sid.ToString());
             }
 
-            var f = new NTAccount(username);
+            var f = new NTAccount(samAccountName);
             var s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
             var sidString = s.ToString();
 

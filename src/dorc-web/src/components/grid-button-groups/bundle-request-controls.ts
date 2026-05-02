@@ -16,7 +16,7 @@ export class BundleRequestControls extends LitElement {
 
     vaadin-button:disabled,
     vaadin-button[disabled] {
-      background-color: #dde2e8;
+      background-color: var(--dorc-border-color);
     }
   `;
 

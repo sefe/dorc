@@ -82,7 +82,7 @@ export class MakeLikeProductionDialog extends LitElement {
 
       .buttons {
         font-size: 10px;
-        color: cornflowerblue;
+        color: var(--dorc-link-color);
         text-align: justify;
       }
     `;

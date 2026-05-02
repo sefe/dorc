@@ -5,11 +5,11 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
-using log4net;
 using NSubstitute;
 using System.Security.Principal;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Api.Tests
 {
@@ -20,7 +20,7 @@ namespace Dorc.Api.Tests
         private ISecurityObjectFilter _objectFilter;
         private IRolePrivilegesChecker _rolePrivilegesChecker;
         private IPropertyValuesPersistentSource _propertyValuesPersistentSource;
-        private ILog _logger;
+        private ILogger<EnvironmentsPersistentSource> _logger;
         private IClaimsPrincipalReader _claimsPrincipalReader;
         private IAccessControlPersistentSource _accessControlPersistentSource;
         private EnvironmentsPersistentSource _environmentsPersistentSource;
@@ -34,7 +34,7 @@ namespace Dorc.Api.Tests
             _objectFilter = Substitute.For<ISecurityObjectFilter>();
             _rolePrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             _propertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
-            _logger = Substitute.For<ILog>();
+            _logger = Substitute.For<ILogger<EnvironmentsPersistentSource>>();
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             _accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
             _user = Substitute.For<IPrincipal>();
