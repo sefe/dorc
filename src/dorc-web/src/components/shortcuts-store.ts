@@ -77,14 +77,13 @@ export class ShortcutsStore extends LitElement {
     const existingEnvs = this.dorcNavbar?.openEnvTabs.find(
       value => value.EnvironmentName === env.EnvironmentName
     );
-    let path = '';
     if (existingEnvs === undefined) {
       this.dorcNavbar?.openEnvTabs.push(env);
       this.dorcNavbar?.insertEnvTab(env);
       console.log('inserted new tab');
     }
 
-    path = this.getEnvDetailPath(env, tab);
+    const path = this.getEnvDetailPath(env, tab);
 
     Router.go(path);
 
@@ -104,7 +103,7 @@ export class ShortcutsStore extends LitElement {
     const existingResults = this.dorcNavbar?.openResultTabs.find(
       value => value.Id === request.Id
     );
-    let path = '';
+    let path: string;
     if (existingResults === undefined) {
       this.dorcNavbar?.openResultTabs.push(request);
       path = this.dorcNavbar?.insertResultTab(request) ?? '';
@@ -141,7 +140,7 @@ export class ShortcutsStore extends LitElement {
     const existingProjs = this.dorcNavbar?.openProjTabs.find(
       value => value.ProjectName === project.ProjectName
     );
-    let path = '';
+    let path: string;
     if (existingProjs === undefined) {
       project.ArtefactsSubPaths = ''; // This field can occasionally contain ';' which breaks the cookies
       this.dorcNavbar?.openProjTabs.push(project);
