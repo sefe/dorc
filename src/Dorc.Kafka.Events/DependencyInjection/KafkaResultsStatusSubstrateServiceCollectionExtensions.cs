@@ -15,41 +15,37 @@ namespace Dorc.Kafka.Events.DependencyInjection;
 public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the results-status Kafka substrate (S-007). After SPEC-S-009
-    /// the substrate-selector flag is gone and Kafka is unconditional: the
-    /// publisher, both producers, the consumer, and the topic provisioner
-    /// are always registered. The retained <see cref="IFallbackDeploymentEventPublisher"/>
-    /// continues to provide the SignalR fan-out for UI continuity (request-
-    /// lifecycle events; the API-side <see cref="DeploymentResultsKafkaConsumer"/>
-    /// projects results-status events to SignalR via the broadcaster).
+    /// Registers the dual-publish <see cref="KafkaDeploymentEventPublisher"/>
+    /// and its two producers, replacing whatever <see cref="IDeploymentEventsPublisher"/>
+    /// was already in the container. Both API (request-lifecycle events) and
+    /// Monitor (result-status events) call this so every publish lands on
+    /// the authoritative Kafka substrate. The caller is expected to have
+    /// already registered an <see cref="IFallbackDeploymentEventPublisher"/>
+    /// suitable for its host (API: SignalR-direct; Monitor: SignalR client).
     /// Idempotent via marker singleton.
     /// </summary>
-    public static IServiceCollection AddDorcKafkaResultsStatusSubstrate(
+    public static IServiceCollection AddDorcKafkaPublisher(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        if (services.Any(sd => sd.ServiceType == typeof(DorcKafkaResultsStatusSubstrateMarker)))
+        if (services.Any(sd => sd.ServiceType == typeof(DorcKafkaPublisherMarker)))
             return services;
 
-        services.AddSingleton<DorcKafkaResultsStatusSubstrateMarker>();
+        services.AddSingleton<DorcKafkaPublisherMarker>();
 
+        // KafkaTopicsOptions / KafkaSubstrateOptions are registered by every
+        // Kafka.Events entry-point that needs them — see the long-running
+        // idempotency comments on the consumer extensions. Repeating here
+        // means publisher-only callers (Monitor) get a fully-validated
+        // options graph without taking on the consumer wiring.
         services.AddOptions<KafkaSubstrateOptions>()
             .Bind(configuration.GetSection(KafkaSubstrateOptions.SectionName))
             .ValidateOnStart();
-
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaSubstrateOptions>, KafkaSubstrateOptionsValidator>());
 
-        // KafkaTopicsOptions registration is idempotent across the substrate
-        // entry-points: the lock substrate (S-005b) registers it too, so
-        // either entry-point standing alone is sufficient. Multiple calls to
-        // AddOptions<T>() return the same builder; TryAddEnumerable on the
-        // validator is idempotent by implementation type (the
-        // ServiceCollection deduplicates on (ServiceType, ImplementationType)
-        // so the validator registers exactly once regardless of call count).
         services.AddOptions<KafkaTopicsOptions>()
             .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
             .ValidateOnStart();
-
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaTopicsOptions>, KafkaTopicsOptionsValidator>());
 
         services.TryAddSingleton<IProducer<string, DeploymentResultEventData>>(sp =>
@@ -66,13 +62,44 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
         services.Replace(ServiceDescriptor.Scoped<IDeploymentEventsPublisher>(sp =>
             sp.GetRequiredService<KafkaDeploymentEventPublisher>()));
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the API-side results-status consumer-substrate (S-007).
+    /// Calls <see cref="AddDorcKafkaPublisher"/> for the publisher half then
+    /// adds the topic provisioner, the Kafka→SignalR projection consumer,
+    /// and an Avro warmup hosted service.
+    ///
+    /// <para>The retained <see cref="IFallbackDeploymentEventPublisher"/>
+    /// continues to provide the SignalR fan-out for UI continuity (request-
+    /// lifecycle events; the API-side <see cref="DeploymentResultsKafkaConsumer"/>
+    /// projects results-status events to SignalR via the broadcaster).
+    /// Idempotent via marker singleton.</para>
+    /// </summary>
+    public static IServiceCollection AddDorcKafkaResultsStatusSubstrate(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        if (services.Any(sd => sd.ServiceType == typeof(DorcKafkaResultsStatusSubstrateMarker)))
+            return services;
+
+        services.AddSingleton<DorcKafkaResultsStatusSubstrateMarker>();
+
+        services.AddDorcKafkaPublisher(configuration);
+
+        // Hosted services start in registration order. The topic provisioner
+        // must run before the consumer subscribes — otherwise on a fresh
+        // deployment the consumer hits UnknownTopicOrPartition in a tight
+        // loop until provisioning completes.
+        services.AddHostedService<KafkaResultsStatusTopicProvisioner>();
+
         services.AddSingleton<DeploymentResultsKafkaConsumer>();
         services.AddHostedService(sp => sp.GetRequiredService<DeploymentResultsKafkaConsumer>());
-
-        services.AddHostedService<KafkaResultsStatusTopicProvisioner>();
 
         return services;
     }
 
+    internal sealed class DorcKafkaPublisherMarker { }
     internal sealed class DorcKafkaResultsStatusSubstrateMarker { }
 }

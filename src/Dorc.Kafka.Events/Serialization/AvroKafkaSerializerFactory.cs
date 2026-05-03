@@ -28,9 +28,10 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
 {
     private readonly ISchemaRegistryClient _registry;
     private readonly HashSet<Type> _inScope;
-    private readonly List<IDisposable> _disposables = new();
-    private readonly object _disposableLock = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Type, object> _serializers = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Type, object> _deserializers = new();
     private readonly ILogger _logger;
+    private readonly AutomaticRegistrationBehavior _registrationBehavior;
 
     public AvroKafkaSerializerFactory(
         ISchemaRegistryClient registry,
@@ -45,7 +46,9 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
             typeof(Dorc.Kafka.ErrorLog.KafkaErrorEnvelope)
         };
         _logger = (ILogger?)logger ?? NullLogger.Instance;
-        _ = options; // reserved for future subject-override use
+        _registrationBehavior = (options?.Value.AllowAutomaticSchemaRegistration ?? false)
+            ? AutomaticRegistrationBehavior.Always
+            : AutomaticRegistrationBehavior.Never;
     }
 
     public IReadOnlySet<Type> InScopeTypes => _inScope;
@@ -57,28 +60,30 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
     public ISerializer<T>? GetValueSerializer<T>()
     {
         if (!_inScope.Contains(typeof(T))) return null;
-        var serializer = new TopicDispatchingSerializer<T>(_registry, _logger);
-        lock (_disposableLock) _disposables.Add(serializer);
-        return serializer;
+        return (TopicDispatchingSerializer<T>)_serializers.GetOrAdd(
+            typeof(T),
+            _ => new TopicDispatchingSerializer<T>(_registry, _logger, _registrationBehavior));
     }
 
     public IDeserializer<T>? GetValueDeserializer<T>()
     {
         if (!_inScope.Contains(typeof(T))) return null;
-        var deserializer = new TopicDispatchingDeserializer<T>(_registry, _logger);
-        lock (_disposableLock) _disposables.Add(deserializer);
-        return deserializer;
+        return (TopicDispatchingDeserializer<T>)_deserializers.GetOrAdd(
+            typeof(T),
+            _ => new TopicDispatchingDeserializer<T>(_registry, _logger));
     }
 
     public void Dispose()
     {
-        List<IDisposable> snapshot;
-        lock (_disposableLock)
+        foreach (var s in _serializers.Values.OfType<IDisposable>())
         {
-            snapshot = new List<IDisposable>(_disposables);
-            _disposables.Clear();
+            try { s.Dispose(); }
+            catch (Exception ex) when (!IsCritical(ex))
+            {
+                _logger.LogWarning(ex, "avro-dispose-failed inner={InnerType}", s.GetType().Name);
+            }
         }
-        foreach (var d in snapshot)
+        foreach (var d in _deserializers.Values.OfType<IDisposable>())
         {
             try { d.Dispose(); }
             catch (Exception ex) when (!IsCritical(ex))
@@ -86,6 +91,8 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 _logger.LogWarning(ex, "avro-dispose-failed inner={InnerType}", d.GetType().Name);
             }
         }
+        _serializers.Clear();
+        _deserializers.Clear();
     }
 
     private static bool IsCritical(Exception ex) =>
@@ -94,17 +101,71 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
             or AccessViolationException
             or System.Threading.ThreadAbortException;
 
+    /// <summary>
+    /// Pre-builds the deserializer for <typeparamref name="T"/> against each
+    /// supplied topic so the first <c>Consume()</c> call doesn't pay the
+    /// schema-registry round-trip on the consume thread (where exceeding
+    /// max.poll.interval.ms would fence the consumer and trigger a group
+    /// rebalance). Idempotent. A registry failure on any single topic is
+    /// logged at Warning; the per-message lazy path remains the safety net.
+    /// </summary>
+    public void WarmupDeserializer<T>(IEnumerable<string> topics)
+    {
+        if (!_inScope.Contains(typeof(T))) return;
+        var d = (TopicDispatchingDeserializer<T>)_deserializers.GetOrAdd(
+            typeof(T),
+            _ => new TopicDispatchingDeserializer<T>(_registry, _logger));
+        foreach (var topic in topics)
+        {
+            try { d.Prebuild(topic); }
+            catch (Exception ex) when (!IsCritical(ex))
+            {
+                _logger.LogWarning(ex,
+                    "avro-warmup-failed kind=deserializer topic={Topic} type={Type}",
+                    topic, typeof(T).Name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Producer-side counterpart to <see cref="WarmupDeserializer{T}"/>. Useful
+    /// for publisher startup where the first publish to an unfamiliar topic
+    /// would otherwise block. Idempotent; failures logged at Warning.
+    /// </summary>
+    public void WarmupSerializer<T>(IEnumerable<string> topics)
+    {
+        if (!_inScope.Contains(typeof(T))) return;
+        var s = (TopicDispatchingSerializer<T>)_serializers.GetOrAdd(
+            typeof(T),
+            _ => new TopicDispatchingSerializer<T>(_registry, _logger, _registrationBehavior));
+        foreach (var topic in topics)
+        {
+            try { s.Prebuild(topic); }
+            catch (Exception ex) when (!IsCritical(ex))
+            {
+                _logger.LogWarning(ex,
+                    "avro-warmup-failed kind=serializer topic={Topic} type={Type}",
+                    topic, typeof(T).Name);
+            }
+        }
+    }
+
     private sealed class TopicDispatchingSerializer<T> : ISerializer<T>, IDisposable
     {
         private readonly ISchemaRegistryClient _registry;
         private readonly ILogger _logger;
+        private readonly AutomaticRegistrationBehavior _registrationBehavior;
         private readonly Dictionary<string, ISerializer<T>> _byTopic = new();
         private readonly object _lock = new();
 
-        public TopicDispatchingSerializer(ISchemaRegistryClient registry, ILogger logger)
+        public TopicDispatchingSerializer(
+            ISchemaRegistryClient registry,
+            ILogger logger,
+            AutomaticRegistrationBehavior registrationBehavior)
         {
             _registry = registry;
             _logger = logger;
+            _registrationBehavior = registrationBehavior;
         }
 
         public void Dispose()
@@ -129,27 +190,42 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
             return inner.Serialize(data, context);
         }
 
+        public void Prebuild(string topic) => GetOrCreate(topic);
+
         private ISerializer<T> GetOrCreate(string topic)
         {
+            // Fast path: cache hit under read-only lock acquisition.
             lock (_lock)
             {
                 if (_byTopic.TryGetValue(topic, out var existing)) return existing;
-
-                var subject = topic + "-value";
-                using var builder = new SchemaRegistrySerializerBuilder(_registry);
-                var serializer = builder
-                    .Build<T>(subject, AutomaticRegistrationBehavior.Always, TombstoneBehavior.None)
-                    .GetAwaiter()
-                    .GetResult();
-                _byTopic[topic] = serializer;
-                // SPEC-S-006 R-6 schema-resolution observability: one INFO line
-                // per first-use of a subject so a stuck consumer/producer can be
-                // triaged from logs alone.
-                _logger.LogInformation(
-                    "avro-schema-resolved subject={Subject} type={Type} kind=serializer",
-                    subject, typeof(T).Name);
-                return serializer;
             }
+
+            // Build the schema-registry serializer OUTSIDE the lock so a slow
+            // registry round-trip can't stall the consume thread holding it
+            // (and from there fence the consumer group via max.poll.interval).
+            // A concurrent caller may build the same subject twice; we
+            // de-duplicate at insert time and dispose the loser.
+            var subject = topic + "-value";
+            using var builder = new SchemaRegistrySerializerBuilder(_registry);
+            var built = builder
+                .Build<T>(subject, _registrationBehavior, TombstoneBehavior.None)
+                .GetAwaiter()
+                .GetResult();
+
+            lock (_lock)
+            {
+                if (_byTopic.TryGetValue(topic, out var existing))
+                {
+                    if (built is IDisposable d) d.Dispose();
+                    return existing;
+                }
+                _byTopic[topic] = built;
+            }
+
+            _logger.LogInformation(
+                "avro-schema-resolved subject={Subject} type={Type} kind=serializer",
+                subject, typeof(T).Name);
+            return built;
         }
     }
 
@@ -188,24 +264,36 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
             return inner.Deserialize(data, isNull, context);
         }
 
+        public void Prebuild(string topic) => GetOrCreate(topic);
+
         private IDeserializer<T> GetOrCreate(string topic)
         {
             lock (_lock)
             {
                 if (_byTopic.TryGetValue(topic, out var existing)) return existing;
-
-                var subject = topic + "-value";
-                using var builder = new SchemaRegistryDeserializerBuilder(_registry);
-                var deserializer = builder
-                    .Build<T>(subject, TombstoneBehavior.None)
-                    .GetAwaiter()
-                    .GetResult();
-                _byTopic[topic] = deserializer;
-                _logger.LogInformation(
-                    "avro-schema-resolved subject={Subject} type={Type} kind=deserializer",
-                    subject, typeof(T).Name);
-                return deserializer;
             }
+
+            var subject = topic + "-value";
+            using var builder = new SchemaRegistryDeserializerBuilder(_registry);
+            var built = builder
+                .Build<T>(subject, TombstoneBehavior.None)
+                .GetAwaiter()
+                .GetResult();
+
+            lock (_lock)
+            {
+                if (_byTopic.TryGetValue(topic, out var existing))
+                {
+                    if (built is IDisposable d) d.Dispose();
+                    return existing;
+                }
+                _byTopic[topic] = built;
+            }
+
+            _logger.LogInformation(
+                "avro-schema-resolved subject={Subject} type={Type} kind=deserializer",
+                subject, typeof(T).Name);
+            return built;
         }
     }
 }

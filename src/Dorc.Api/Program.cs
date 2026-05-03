@@ -303,8 +303,10 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 // Master Kafka switch. When false, the API skips Kafka producer / consumer
 // wiring and IDeploymentEventsPublisher resolves to the
 // DirectDeploymentEventPublisher registered above (SignalR-only path).
-// Default true.
-if (builder.Configuration.GetValue("Kafka:Enabled", true))
+// Default false: an existing installation that upgrades without configuring
+// BootstrapServers must remain functional. Operators opt in by setting
+// Kafka:Enabled=true once brokers are wired.
+if (builder.Configuration.GetValue("Kafka:Enabled", false))
 {
     builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,
         Dorc.Api.Events.SignalRDeploymentResultBroadcaster>();

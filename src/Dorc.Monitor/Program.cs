@@ -88,14 +88,27 @@ builder.Services.AddTransient<ScriptDispatcher>();
 
 // Master Kafka switch. When false, the Monitor runs in single-replica
 // DB-poll fallback mode: no Kafka consumers, no distributed lock, no
-// Avro/error-log wiring. Default true.
-var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", true);
+// Avro/error-log wiring. Default false: an existing installation that
+// upgrades without configuring BootstrapServers must remain functional.
+// Operators opt in by setting Kafka:Enabled=true once brokers are wired.
+var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", false);
 if (kafkaEnabled)
 {
     builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
     builder.Services.AddDorcKafkaErrorLog(configurationRoot);
     builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
     builder.Services.AddDorcKafkaAvro(configurationRoot);
+    // Per SPEC-S-007 R-1, the Monitor is the producer of results-status
+    // events. Without this registration the new dorc.results.status topic
+    // would never be produced to and the API-side projection consumer
+    // would subscribe to a permanently empty topic. The dual-publish
+    // KafkaDeploymentEventPublisher uses SignalRDeploymentEventPublisher
+    // as its IFallbackDeploymentEventPublisher so the SignalR-direct UI
+    // path still fires on Kafka outages.
+    builder.Services.AddSingleton<SignalRDeploymentEventPublisher>();
+    builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher>(
+        sp => sp.GetRequiredService<SignalRDeploymentEventPublisher>());
+    builder.Services.AddDorcKafkaPublisher(configurationRoot);
 }
 else
 {
@@ -119,7 +132,12 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddTransient<Dorc.Monitor.IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 
-builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEventPublisher>();
+// When Kafka is enabled the Kafka publisher (registered above) wins via
+// services.Replace; otherwise SignalR-direct is the only IDeploymentEventsPublisher.
+if (!kafkaEnabled)
+{
+    builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEventPublisher>();
+}
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
 

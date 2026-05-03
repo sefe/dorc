@@ -74,6 +74,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
 
     private void RunLoop(CancellationToken stoppingToken)
     {
+        WarmupSerializers();
         using var consumer = BuildConsumer();
         consumer.Subscribe(Topics);
         _logger.LogInformation(
@@ -91,7 +92,22 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             catch (ConsumeException ex)
             {
                 HandleFailure(ex.ConsumerRecord, ex);
-                if (ex.ConsumerRecord is null)
+                // Offset-store is disabled globally; advance past the poison
+                // message so the consume loop doesn't busy-spin on it once the
+                // error log is written. Best-effort — StoreOffset only stages,
+                // commit happens on the auto-commit timer.
+                if (ex.ConsumerRecord is not null)
+                {
+                    try
+                    {
+                        consumer.StoreOffset(new TopicPartitionOffset(
+                            ex.ConsumerRecord.Topic,
+                            ex.ConsumerRecord.Partition,
+                            new Offset(ex.ConsumerRecord.Offset.Value + 1)));
+                    }
+                    catch (KafkaException) { /* best-effort */ }
+                }
+                else
                 {
                     try { Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).Wait(stoppingToken); }
                     catch (OperationCanceledException) { break; }
@@ -105,6 +121,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             {
                 _handler.HandleAsync(result.Topic, result.Message.Value, stoppingToken)
                     .GetAwaiter().GetResult();
+                consumer.StoreOffset(result);
                 _logger.LogInformation(
                     "request-event-consumed topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId} status={Status}",
                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId,
@@ -116,17 +133,40 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                 // DAL, cancellation) routes to the error log so the consume
                 // loop survives. Process-fatal exceptions still escape.
                 HandleFailureFromConsumeResult(result, ex);
+                try { consumer.StoreOffset(result); }
+                catch (KafkaException) { /* best-effort */ }
             }
         }
 
         try { consumer.Close(); } catch (KafkaException) { /* best-effort */ }
     }
 
+    private void WarmupSerializers()
+    {
+        // Eagerly resolve the (topic, type) → schema-registry deserializer
+        // before Subscribe so the first Consume() call doesn't pay the
+        // registry round-trip on the consume thread. A blocking call inside
+        // Consume() that exceeds max.poll.interval.ms fences the consumer
+        // and triggers a group rebalance — preventable failure mode.
+        if (_serializerFactory is Serialization.AvroKafkaSerializerFactory avro)
+        {
+            avro.WarmupDeserializer<DeploymentRequestEventData>(Topics);
+        }
+    }
+
     private IConsumer<string, DeploymentRequestEventData> BuildConsumer()
     {
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
         config.AutoOffsetReset = AutoOffsetReset.Earliest;
+        // Auto-commit timer is left enabled (low-overhead) but offset storage
+        // is moved off the consume() call and onto explicit StoreOffset after
+        // handler success. This prevents a crash between consume() return and
+        // handler completion from silently advancing past an unprocessed
+        // record — important because the handler is a no-op signal today but
+        // future stateful additions (metrics, dedup state) would silently
+        // lose messages otherwise.
         config.EnableAutoCommit = true;
+        config.EnableAutoOffsetStore = false;
 
         var handlers = new KafkaRebalanceHandlers<string, DeploymentRequestEventData>(_logger, ConsumerGroupId);
         var builder = new ConsumerBuilder<string, DeploymentRequestEventData>(config)

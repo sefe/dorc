@@ -62,10 +62,19 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
         using var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         produceCts.CancelAfter(TimeSpan.FromMilliseconds(_options.ProduceTimeoutMs));
 
-        var result = await _producer.ProduceAsync(
+        // ProduceAsync's CancellationToken is best-effort under librdkafka:
+        // when the local produce queue is full (e.g. brokers unreachable), the
+        // synchronous prologue inside librdkafka can block the calling thread
+        // before the call ever yields. Force the call onto the thread pool
+        // and wait via WaitAsync(token) so the caller's consume thread gets
+        // freed by ProduceTimeoutMs even when librdkafka itself ignores the
+        // cancellation request.
+        var produceTask = Task.Run(() => _producer.ProduceAsync(
             dlqTopic,
             new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
-            produceCts.Token);
+            produceCts.Token));
+
+        var result = await produceTask.WaitAsync(produceCts.Token);
 
         _logger.LogDebug(
             "dlq-produce-ok dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} truncated={Truncated}",

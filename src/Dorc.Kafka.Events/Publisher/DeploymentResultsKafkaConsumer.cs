@@ -76,6 +76,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
     private void RunLoop(CancellationToken stoppingToken)
     {
+        WarmupSerializers();
         using var consumer = BuildConsumer();
         consumer.Subscribe(TopicName);
         _logger.LogInformation(
@@ -130,6 +131,19 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         try { consumer.Close(); } catch (KafkaException) { /* best-effort */ }
     }
 
+    private void WarmupSerializers()
+    {
+        // Eagerly resolve the (topic, type) → schema-registry deserializer
+        // before Subscribe so the first Consume() call doesn't pay the
+        // registry round-trip on the consume thread. A blocking call inside
+        // Consume() that exceeds max.poll.interval.ms fences the consumer
+        // and triggers a group rebalance — preventable failure mode.
+        if (_serializerFactory is Serialization.AvroKafkaSerializerFactory avro)
+        {
+            avro.WarmupDeserializer<DeploymentResultEventData>(new[] { TopicName });
+        }
+    }
+
     private IConsumer<string, DeploymentResultEventData> BuildConsumer()
     {
         // Use S-002's connection provider for SASL / bootstrap / timeouts,
@@ -138,6 +152,13 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // identity per R-2.
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
         config.AutoOffsetReset = AutoOffsetReset.Latest;
+        // Manual commit-only: every offset advances via consumer.Commit(result)
+        // after broadcast success or via WriteErrorLogAndCommit's typed
+        // TopicPartitionOffset commit on the error path. Setting this
+        // explicitly defends against an operator setting Kafka:EnableAutoCommit
+        // = true globally and silently dropping a SignalR broadcast on crash
+        // between the timer-fired auto-commit and BroadcastAsync completion.
+        config.EnableAutoCommit = false;
 
         var handlers = new KafkaRebalanceHandlers<string, DeploymentResultEventData>(_logger, ConsumerGroupId);
         var builder = new ConsumerBuilder<string, DeploymentResultEventData>(config)
@@ -231,7 +252,15 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
         try
         {
-            consumer.Commit();
+            // Scope commit to the failed message's partition only. The no-arg
+            // overload would commit every assigned partition's last consumed
+            // offset, which under CooperativeSticky rebalancing can advance
+            // partitions whose in-flight messages haven't been processed yet.
+            var nextOffset = new TopicPartitionOffset(
+                entry.Topic,
+                new Partition(entry.Partition),
+                new Offset(entry.Offset + 1));
+            consumer.Commit(new[] { nextOffset });
         }
         catch (KafkaException commitEx)
         {
