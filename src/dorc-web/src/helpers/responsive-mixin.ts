@@ -16,7 +16,7 @@ export const ResponsiveMixin = <T extends Constructor<LitElement>>(
 ) => {
   class ResponsiveElement extends superClass {
     @state()
-    protected _narrowScreen = false;
+    _narrowScreen = false;
 
     private _mediaQuery: MediaQueryList | undefined;
     private _mediaHandler = (e: MediaQueryListEvent) => {
