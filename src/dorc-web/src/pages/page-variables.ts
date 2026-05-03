@@ -818,7 +818,7 @@ export class PageVariables extends PageElement {
             // Update the local property object
             existingProperty.Secure = !originallySecured;
             
-            let message = '';
+            let message: string;
             if (!originallySecured) {
               message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
@@ -1012,8 +1012,7 @@ export class PageVariables extends PageElement {
     console.error(errs);
 
     errs.forEach(element => {
-      let msg = '';
-      msg = this.processError(element);
+      const msg = this.processError(element);
       if (msg !== '') {
         const notification = new ErrorNotification();
         notification.setAttribute('errorMessage', msg);
