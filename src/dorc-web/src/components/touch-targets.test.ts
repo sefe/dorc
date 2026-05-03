@@ -61,16 +61,16 @@ describe('Touch target structure', () => {
   });
 
   describe('Style registration for icon buttons', () => {
-    it('should have registered global min-size styles for icon buttons', async () => {
-      // Import the style registrations module to ensure it's loaded
+    it('should give vaadin-button[theme="icon"] a 44x44 minimum touch target', async () => {
       await import('../router/style-registrations.js');
+      await import('@vaadin/button');
 
-      // Verify the module loaded without errors
-      // The registerStyles call sets min-width: 44px and min-height: 44px
-      // for vaadin-button[theme~="icon"]. This is applied at the Vaadin
-      // theme level and takes effect when the full Lumo theme is loaded.
-      // We verify the registration exists by checking the import succeeds.
-      expect(true).to.equal(true, 'Style registrations loaded successfully');
+      const button = await fixture<HTMLElement>(html`
+        <vaadin-button theme="icon" aria-label="probe"></vaadin-button>
+      `);
+      const computed = getComputedStyle(button);
+      expect(parseFloat(computed.minWidth)).to.be.at.least(44);
+      expect(parseFloat(computed.minHeight)).to.be.at.least(44);
     });
   });
 

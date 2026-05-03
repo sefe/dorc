@@ -66,3 +66,14 @@ registerStyles(
     }
   `
 );
+
+registerStyles(
+  'vaadin-button',
+  css`
+    :host([theme~='icon']) {
+      min-width: 44px;
+      min-height: 44px;
+    }
+  `
+);
+

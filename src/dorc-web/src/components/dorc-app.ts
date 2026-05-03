@@ -302,8 +302,11 @@ export class DorcApp extends ShortcutsStore {
         this.dorcNavbar.style.width = '';
         this.dorcNavbar.classList.toggle('open');
       } else {
+        const sidebarWidth =
+          getComputedStyle(this).getPropertyValue('--dorc-sidebar-width').trim() ||
+          '300px';
         if (this.dorcNavbar.style.width === '0px') {
-          this.dorcNavbar.style.width = '300px';
+          this.dorcNavbar.style.width = sidebarWidth;
         } else {
           this.dorcNavbar.style.width = '0px';
         }
