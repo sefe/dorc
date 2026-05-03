@@ -234,7 +234,7 @@ namespace Dorc.Monitor
                 return configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:Ssl:Version"];
             }
         }
-                
+
         public string Environment
         {
             get
@@ -292,6 +292,19 @@ namespace Dorc.Monitor
                     return minutes;
                 }
                 return 15; // Default 15 minutes
+            }
+        }
+
+        public long RabbitMqConsumerTimeoutMs
+        {
+            get
+            {
+                var str = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:ConsumerTimeoutMs"];
+                if (long.TryParse(str, out long milliseconds) && milliseconds >= 0)
+                {
+                    return milliseconds;
+                }
+                return (long)TimeSpan.FromHours(24).TotalMilliseconds; // Default 24 hours (86400000 ms)
             }
         }
     }

@@ -18,7 +18,7 @@ namespace Dorc.Core.BuildServer
             _loggerFactory = loggerFactory;
         }
 
-        public IEnumerable<DeployableArtefact> GetBuildDefinitions(string serverUrl, string projectPaths, string buildRegex)
+        public IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex)
         {
             var client = CreateClient(serverUrl);
             var output = client.GetBuildDefinitionsForProjects(serverUrl, projectPaths, buildRegex);
@@ -52,7 +52,7 @@ namespace Dorc.Core.BuildServer
                 {
                     Id = build.Url,
                     Date = build.FinishTime,
-                    Name = build.KeepForever == true ? build.BuildNumber + " [PINNED]" : build.BuildNumber
+                    Name = build.KeepForever ? build.BuildNumber + " [PINNED]" : build.BuildNumber
                 }).ToList();
 
             return builds.OrderByDescending(b => b.Date);
@@ -105,8 +105,10 @@ namespace Dorc.Core.BuildServer
 
             if (buildText != null && buildText.Contains(";"))
             {
-                var buildDef = buildText.Split(';')[1].Trim();
-                var bDef = buildDefsForProject.Where(def => buildDef.Equals(def.Name)).ToList();
+                var (projectName, buildDef) = ParseDefinitionName(buildText);
+                var bDef = buildDefsForProject
+                    .Where(def => buildDef.Equals(def.Name) && projectName.Equals(def.Project.Name))
+                    .ToList();
                 if (!bDef.Any()) return null;
 
                 var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl, bDef);

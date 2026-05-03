@@ -31,6 +31,10 @@
 					<Json:JsonFile Id="SMTPHostNonProd" ElementPath="$.AppSettings.SMTPHost" File="[#NonProdDeployMonitorExeConfig]" Value="[SMTPHOST]" />
 					<Json:JsonFile Id="ScriptRootNonProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 					<Json:JsonFile Id="RunnerLogPathNonProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
+
+					<Json:JsonFile Id="GitHubTokenNonProd" ElementPath="$.AppSettings.GitHubToken" File="[#NonProdDeployMonitorExeConfig]" Value="[GITHUBTOKEN]" />
+					<Json:JsonFile Id="GitHubArtifactDownloadFolderNonProd" ElementPath="$.AppSettings.GitHubArtifactDownloadFolder" File="[#NonProdDeployMonitorExeConfig]" Value="[GITHUBARTIFACTDOWNLOADFOLDER]" />
+
 					<Json:JsonFile Id="DorcApiClientId" ElementPath="$.AppSettings.DorcApi.ClientId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTID]" />
 					<Json:JsonFile Id="DorcApiClientSecret" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
 					<Json:JsonFile Id="DorcApiScope" ElementPath="$.AppSettings.DorcApi.Scope" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />
@@ -52,6 +56,7 @@
 					<Json:JsonFile Id="HARabbitMQHostNameNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.HostName" Value="[HA.RABBITMQ.HOSTNAME]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQPortNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Port" Value="[HA.RABBITMQ.PORT]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQVirtualHostNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.VirtualHost" Value="[HA.RABBITMQ.VIRTUALHOST]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQConsumerTimeoutMsNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.ConsumerTimeoutMs" Value="[HA.RABBITMQ.CONSUMERTIMEOUTMS]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQOAuthClientIdNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientId" Value="[HA.RABBITMQ.OAUTH.CLIENTID]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQOAuthClientSecretNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.ClientSecret" Value="[HA.RABBITMQ.OAUTH.CLIENTSECRET]" File="[#NonProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQOAuthTokenEndpointNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.OAuth.TokenEndpoint" Value="[HA.RABBITMQ.OAUTH.TOKENENDPOINT]" File="[#NonProdDeployMonitorExeConfig]" />

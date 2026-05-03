@@ -4,8 +4,9 @@ using Microsoft.Extensions.Logging;
 namespace Dorc.Core.BuildServer
 {
     /// <summary>
-    /// DelegatingHandler that retries GitHub API requests on transient failures (429, 502, 503)
-    /// with exponential backoff. Respects GitHub's Retry-After header for rate limiting.
+    /// DelegatingHandler that retries GitHub API requests on transient failures
+    /// (429, 502, 503, 504) with exponential backoff. Respects GitHub's Retry-After
+    /// header for rate limiting.
     /// </summary>
     public class GitHubRetryHandler : DelegatingHandler
     {
@@ -28,7 +29,10 @@ namespace Dorc.Core.BuildServer
 
             for (var attempt = 0; attempt <= MaxRetries; attempt++)
             {
-                var response = await base.SendAsync(request, cancellationToken);
+                // HttpRequestMessage cannot be sent more than once — sending the same instance
+                // twice throws InvalidOperationException. Clone for each attempt.
+                using var attemptRequest = CloneRequest(request);
+                var response = await base.SendAsync(attemptRequest, cancellationToken);
 
                 if (!IsTransientFailure(response.StatusCode) || attempt == MaxRetries)
                     return response;
@@ -42,7 +46,26 @@ namespace Dorc.Core.BuildServer
             }
 
             // Unreachable, but satisfies compiler
-            return await base.SendAsync(request, cancellationToken);
+            using var fallbackRequest = CloneRequest(request);
+            return await base.SendAsync(fallbackRequest, cancellationToken);
+        }
+
+        private static HttpRequestMessage CloneRequest(HttpRequestMessage original)
+        {
+            var clone = new HttpRequestMessage(original.Method, original.RequestUri)
+            {
+                Version = original.Version,
+                VersionPolicy = original.VersionPolicy
+            };
+            foreach (var header in original.Headers)
+            {
+                clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            foreach (var option in original.Options)
+            {
+                ((IDictionary<string, object?>)clone.Options)[option.Key] = option.Value;
+            }
+            return clone;
         }
 
         private static bool IsTransientFailure(HttpStatusCode statusCode)

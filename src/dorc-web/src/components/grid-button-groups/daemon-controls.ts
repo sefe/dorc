@@ -3,11 +3,11 @@ import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { DaemonStatusApi, ServiceStatusApiModel } from '../../apis/dorc-api';
+import { DaemonStatusApi, DaemonStatusApiModel } from '../../apis/dorc-api';
 
 @customElement('daemon-controls')
 export class DaemonControls extends LitElement {
-  @property({ type: Object }) daemonDetails: ServiceStatusApiModel | undefined;
+  @property({ type: Object }) daemonDetails: DaemonStatusApiModel | undefined;
 
   @property({ type: Number })
   envId = 0;
@@ -74,15 +74,15 @@ export class DaemonControls extends LitElement {
   }
 
   get startDisabled() {
-    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'running' || this.userEditable === true;
+    return this.daemonDetails?.Status?.toLowerCase() === 'running' || this.userEditable !== true;
   }
 
   get stopDisabled() {
-    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'stopped' || this.userEditable === true; 
+    return this.daemonDetails?.Status?.toLowerCase() === 'stopped' || this.userEditable !== true; 
   }
 
   get restartDisabled() {
-    return this.daemonDetails?.ServiceStatus?.toLowerCase() === 'stopped' || this.userEditable === true;
+    return this.daemonDetails?.Status?.toLowerCase() === 'stopped' || this.userEditable !== true;
   }
 
   serviceStart() {
@@ -101,12 +101,12 @@ export class DaemonControls extends LitElement {
     if (this.daemonDetails !== undefined) {
       const api = new DaemonStatusApi();
       
-      this.daemonDetails.ServiceStatus = requestedChange; 
+      this.daemonDetails.Status = requestedChange;
       this.updateParentWith(this.daemonDetails);
       api
-        .daemonStatusPut({ serviceStatusApiModel: this.daemonDetails })
+        .daemonStatusPut({ daemonStatusApiModel: this.daemonDetails })
         .subscribe(
-          (data: ServiceStatusApiModel) => {
+          (data: DaemonStatusApiModel) => {
             this.daemonDetails = data;
             this.updateParentWith(data);
           },
@@ -118,14 +118,14 @@ export class DaemonControls extends LitElement {
             console.log(
               `Error while trying to ${requestedChange} on ${
                 this.daemonDetails?.ServerName
-              }: ${this.daemonDetails?.ServiceName}`
+              }: ${this.daemonDetails?.DaemonName}`
             );
           }
         );
     }
   }
 
-  private updateParentWith(data: ServiceStatusApiModel) {
+  private updateParentWith(data: DaemonStatusApiModel) {
     const event = new CustomEvent('daemon-status-changed', {
       detail: data,
       bubbles: true,

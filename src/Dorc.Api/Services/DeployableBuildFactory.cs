@@ -16,19 +16,19 @@ namespace Dorc.Api.Services
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
-        private readonly IBuildServerClientFactory _buildServerClientFactory;
+        private readonly Func<GitHubDeployableBuild> _gitHubDeployableBuildFactory;
 
         public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource,
-            IBuildServerClientFactory buildServerClientFactory)
+            Func<GitHubDeployableBuild> gitHubDeployableBuildFactory)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _deployLibrary = deployLibrary;
             _projectsPersistentSource = projectsPersistentSource;
             _loggerFactory = loggerFactory;
             _fileSystemHelper = fileSystemHelper;
-            _buildServerClientFactory = buildServerClientFactory;
+            _gitHubDeployableBuildFactory = gitHubDeployableBuildFactory;
         }
         public IDeployableBuild CreateInstance(RequestDto request)
         {
@@ -53,11 +53,7 @@ namespace Dorc.Api.Services
                     }
 
                 case BuildType.GitHubBuild:
-                    {
-                        var gitHubClient = _buildServerClientFactory.Create(SourceControlType.GitHub);
-                        var buildLogger = _loggerFactory.CreateLogger<GitHubDeployableBuild>();
-                        return new GitHubDeployableBuild(gitHubClient, buildLogger, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
-                    }
+                    return _gitHubDeployableBuildFactory();
 
                 case BuildType.UnknownBuildType:
                 default:

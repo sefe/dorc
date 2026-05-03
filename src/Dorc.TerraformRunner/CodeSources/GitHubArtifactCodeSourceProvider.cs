@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Runner.Logger;
+using Dorc.TerraformRunner.CodeSources.GitHubApi;
 using Microsoft.Extensions.Logging;
 using System.IO.Compression;
 using System.Net.Http.Headers;
@@ -16,11 +17,11 @@ namespace Dorc.TerraformRunner.CodeSources
         private readonly IHttpClientFactory? _httpClientFactory;
 
         /// <summary>
-        /// Allowed GitHub API hostnames. The upstream TerraformSourceConfigurator validates
-        /// enterprise hosts via IGitHubHostValidator before setting GitHubApiBaseUrl, but
-        /// we enforce a strict allow-list here as defense-in-depth.
+        /// Default GitHub API hostnames that are always allowed.
+        /// Enterprise hosts are accepted when they match the GitHubApiBaseUrl that has
+        /// already been validated upstream by IGitHubHostValidator in the Monitor service.
         /// </summary>
-        private static readonly HashSet<string> AllowedHosts = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> DefaultAllowedHosts = new(StringComparer.OrdinalIgnoreCase)
         {
             "api.github.com",
             "github.com"
@@ -54,7 +55,8 @@ namespace Dorc.TerraformRunner.CodeSources
                 ? "https://api.github.com"
                 : scriptGroup.GitHubApiBaseUrl;
 
-            // Validate the API base URL host against strict allow-list to prevent SSRF
+            // Validate the API base URL to prevent SSRF. Enterprise hosts are accepted
+            // because the upstream Monitor/API already validated them via IGitHubHostValidator.
             ValidateApiBaseHost(apiBase);
 
             using var httpClient = CreateHttpClient(scriptGroup.GitHubToken);
@@ -92,7 +94,7 @@ namespace Dorc.TerraformRunner.CodeSources
             using var downloadResponse = await httpClient.GetAsync(downloadUrl, cancellationToken);
             downloadResponse.EnsureSuccessStatusCode();
 
-            var tempZipFile = Path.Combine(Path.GetTempPath(), $"gh-artifact-{Guid.NewGuid()}.zip");
+            var tempZipFile = Path.Join(DorcProgramData.Root, $"gh-artifact-{Guid.NewGuid()}.zip");
             try
             {
                 using (var fileStream = File.Create(tempZipFile))
@@ -100,21 +102,9 @@ namespace Dorc.TerraformRunner.CodeSources
                     await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
                 }
 
-                // Extract flat to workingDir. Uses entry.Name (filename only) instead of
-                // entry.FullName to prevent directory traversal (Zip Slip).
-                using (var archive = ZipFile.OpenRead(tempZipFile))
-                {
-                    foreach (var entry in archive.Entries)
-                    {
-                        if (string.IsNullOrEmpty(entry.Name))
-                            continue;
-
-                        var destPath = Path.Combine(workingDir, entry.Name);
-                        using var entryStream = entry.Open();
-                        using var outputStream = File.Create(destPath);
-                        entryStream.CopyTo(outputStream);
-                    }
-                }
+                // ExtractToDirectory has built-in Zip Slip prevention in .NET 6+:
+                // it validates that all resolved entry paths stay within the target directory.
+                ZipFile.ExtractToDirectory(tempZipFile, workingDir, overwriteFiles: true);
                 _logger.Information($"Successfully extracted GitHub artifact '{artifact.Name}'");
             }
             finally
@@ -145,7 +135,16 @@ namespace Dorc.TerraformRunner.CodeSources
             return client;
         }
 
-        private static void ValidateApiBaseHost(string apiBase)
+        /// <summary>
+        /// Validates the API base URL. Default github.com hosts are always allowed.
+        /// Non-default hosts (e.g. github.mycompany.com) are accepted because the
+        /// upstream Monitor/API service already validated them via
+        /// <c>IGitHubHostValidator</c> before setting <c>GitHubApiBaseUrl</c>.
+        /// We still enforce HTTPS, valid URI format, and — for defence in depth —
+        /// a match against <see cref="DefaultAllowedHosts"/> when the host isn't
+        /// configured as an allowed enterprise host via environment variable.
+        /// </summary>
+        internal static void ValidateApiBaseHost(string apiBase)
         {
             Uri uri;
             try
@@ -160,32 +159,28 @@ namespace Dorc.TerraformRunner.CodeSources
             if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"GitHub API base URL must use HTTPS, got '{uri.Scheme}'");
 
-            if (!AllowedHosts.Contains(uri.Host))
-                throw new ArgumentException(
-                    $"GitHub API host '{uri.Host}' is not allowed. " +
-                    "Only api.github.com and github.com are permitted. " +
-                    "GitHub Enterprise hosts must be validated upstream by the Monitor service.");
-        }
+            if (DefaultAllowedHosts.Contains(uri.Host))
+                return;
 
-        private class GitHubArtifactsListResponse
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("total_count")]
-            public int TotalCount { get; set; }
+            // Enterprise hosts are accepted only if listed in the runner's
+            // environment allow-list (mirrors the upstream Monitor-side
+            // IGitHubHostValidator behaviour). This is defence in depth:
+            // primary validation happens in the Monitor before the value ever
+            // reaches the runner, but we refuse to send the bearer token to
+            // an unexpected host in any case.
+            var enterpriseHostsEnv = Environment.GetEnvironmentVariable("DORC_GITHUB_ENTERPRISE_HOSTS");
+            if (!string.IsNullOrEmpty(enterpriseHostsEnv))
+            {
+                var enterpriseHosts = enterpriseHostsEnv
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (enterpriseHosts.Contains(uri.Host, StringComparer.OrdinalIgnoreCase))
+                    return;
+            }
 
-            [System.Text.Json.Serialization.JsonPropertyName("artifacts")]
-            public List<GitHubArtifactItem>? Artifacts { get; set; }
-        }
-
-        private class GitHubArtifactItem
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("id")]
-            public long Id { get; set; }
-
-            [System.Text.Json.Serialization.JsonPropertyName("name")]
-            public string? Name { get; set; }
-
-            [System.Text.Json.Serialization.JsonPropertyName("archive_download_url")]
-            public string ArchiveDownloadUrl { get; set; } = string.Empty;
+            throw new ArgumentException(
+                $"GitHub API host '{uri.Host}' is not an allowed GitHub host. " +
+                "Public github.com / api.github.com are allowed by default; " +
+                "add enterprise hosts via the DORC_GITHUB_ENTERPRISE_HOSTS environment variable (comma-separated).");
         }
     }
 }

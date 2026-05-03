@@ -11,7 +11,7 @@ namespace Dorc.Core.BuildServer
         /// <summary>
         /// Gets workflow/pipeline definitions matching the given project and regex filter.
         /// </summary>
-        IEnumerable<DeployableArtefact> GetBuildDefinitions(string serverUrl, string projectPaths, string buildRegex);
+        IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex);
 
         /// <summary>
         /// Gets completed builds/runs for a specific workflow/pipeline definition.
@@ -31,18 +31,5 @@ namespace Dorc.Core.BuildServer
         /// </summary>
         Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths, string buildRegex,
             string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly);
-    }
-
-    /// <summary>
-    /// Represents the key identifiers of a validated build from any build server platform.
-    /// </summary>
-    public class BuildServerBuildInfo
-    {
-        public string BuildUri { get; set; } = string.Empty;
-        public string ProjectName { get; set; } = string.Empty;
-        public string DefinitionName { get; set; } = string.Empty;
-        public long BuildId { get; set; }
-        public string BuildNumber { get; set; } = string.Empty;
-        public string ArtifactDownloadUrl { get; set; } = string.Empty;
     }
 }

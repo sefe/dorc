@@ -62,7 +62,12 @@ export class AddEditAccessControl extends LitElement {
   UserIsOwner = false;
 
   @state()
+  UserCanReadSecrets = false;
+
+  @state()
   private loading = true;
+
+  private _ownerLimitNotified = false;
 
   static get styles() {
     return css`
@@ -525,7 +530,7 @@ export class AddEditAccessControl extends LitElement {
 
     render(
       html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable}"
+        ?disabled="${!addEditAccessControl.UserEditable || !addEditAccessControl.UserCanReadSecrets}"
         .checked="${canReadSecrets}"
       ></vaadin-checkbox>`,
       root
@@ -640,6 +645,22 @@ export class AddEditAccessControl extends LitElement {
 
       const checked = e.detail.value as boolean;
       if (checked && !canOwner) {
+        const ownerCount = addEditAccessControl.Privileges?.filter(
+          p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0
+        ).length ?? 0;
+        if (ownerCount >= 2) {
+          checkbox.checked = false;
+          if (!addEditAccessControl._ownerLimitNotified) {
+            addEditAccessControl._ownerLimitNotified = true;
+            Promise.resolve().then(() => { addEditAccessControl._ownerLimitNotified = false; });
+            Notification.show(`Maximum of 2 owners allowed per environment`, {
+              theme: 'warning',
+              position: 'bottom-start',
+              duration: 3000
+            });
+          }
+          return;
+        }
         if (model.item.Allow !== undefined) {
           model.item.Allow |= AC_ALLOW_OWNER;
         }
@@ -677,11 +698,12 @@ export class AddEditAccessControl extends LitElement {
             this.Privileges = data.Privileges;
             this.UserEditable = data.UserEditable ?? false;
             this.UserIsOwner = data.UserIsOwner ?? false;
+            this.UserCanReadSecrets = data.UserCanReadSecrets ?? false;
             this.AccessControls = data;
 
             this.loading = false;
           },
-          error: (err: string) => console.error(err),
+          error: (err: string) => { this.loading = false; console.error(err); },
           complete: () => console.log('finished loading access controls')
         });
     }

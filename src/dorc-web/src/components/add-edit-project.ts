@@ -223,7 +223,7 @@ export class AddEditProject extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            pattern="^(https?|file)?:\\/\\/(.*)"
+            pattern="^((https?|file):\\/\\/(.*)|\\\\\\\\(.*))"
             value="${this._project?.ArtefactsUrl ?? ''}"
             @value-changed="${this._artefactsUrlChanged}"
           ></vaadin-text-field>
@@ -334,6 +334,7 @@ export class AddEditProject extends LitElement {
 
       model.ArtefactsUrl = data.target.value;
       this._project = model;
+      this._validateUrlForProvider();
       this._inputValueChanged();
     }
   }
@@ -365,8 +366,64 @@ export class AddEditProject extends LitElement {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
       model.SourceControlType = newValue as any;
       this._project = model;
+      this._validateUrlForProvider();
       this.requestUpdate();
     }
+  }
+
+  private _validateUrlForProvider() {
+    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
+    if (!urlField) return;
+
+    const url = (this._project?.ArtefactsUrl ?? '').trim();
+    const provider = String(this._project?.SourceControlType ?? 'AzureDevOps');
+
+    if (!url) {
+      urlField.errorMessage = '';
+      urlField.invalid = false;
+      return;
+    }
+
+    const isFileUrl = url.toLowerCase().startsWith('file:') || url.startsWith('\\\\');
+
+    let hostname = '';
+    if (!isFileUrl) {
+      try {
+        hostname = new URL(url).hostname.toLowerCase();
+      } catch {
+        // Not a valid URL yet — skip validation until it is
+        urlField.errorMessage = '';
+        urlField.invalid = false;
+        return;
+      }
+    }
+
+    const isGitHubHost = hostname === 'github.com' || hostname.endsWith('.github.com');
+    const isDevOpsHost = hostname === 'dev.azure.com' || hostname.endsWith('.dev.azure.com') ||
+      hostname === 'visualstudio.com' || hostname.endsWith('.visualstudio.com') ||
+      // TFS-style on-prem hosts typically look like `tfs.<corp-domain>` or
+      // `tfs<N>.<corp-domain>`; `.endsWith('.tfs.')` can never match because
+      // a hostname never ends with a trailing dot. Use a substring / prefix
+      // check so common on-prem conventions are recognised.
+      hostname === 'tfs' || hostname.startsWith('tfs.') || hostname.includes('.tfs.');
+
+    let error = '';
+
+    if (provider === 'GitHub' && !isGitHubHost && !isFileUrl) {
+      if (isDevOpsHost) {
+        error = 'This looks like an Azure DevOps URL. Change the provider or use a GitHub API URL.';
+      }
+    } else if (provider === 'AzureDevOps' && isGitHubHost) {
+      error = 'This looks like a GitHub URL. Change the provider to GitHub or use an Azure DevOps URL.';
+    } else if (provider === 'FileShare' && !isFileUrl) {
+      if (isGitHubHost || isDevOpsHost) {
+        error = 'FileShare projects require a file:// path, not a web URL.';
+      }
+    }
+
+    urlField.errorMessage = error;
+    urlField.invalid = !!error;
+    this._canSubmit();
   }
 
   _checkName(data: string) {
@@ -412,7 +469,9 @@ export class AddEditProject extends LitElement {
   }
 
   _canSubmit() {
-    this.canSubmit = this.projValid && this.isNameValid && !this.isBusy;
+    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
+    const urlValid = !urlField?.invalid;
+    this.canSubmit = this.projValid && this.isNameValid && urlValid && !this.isBusy;
   }
 
   _submit() {

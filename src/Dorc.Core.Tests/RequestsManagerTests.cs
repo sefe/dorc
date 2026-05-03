@@ -73,7 +73,7 @@ namespace Dorc.Core.Tests
                 SourceControlType = SourceControlType.AzureDevOps
             };
 
-            _mockBuildClient.GetBuildDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            _mockBuildClient.GetDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<DeployableArtefact> { new() { Id = "1", Name = "Build1" } });
 
             var sut = CreateSut();
@@ -95,7 +95,7 @@ namespace Dorc.Core.Tests
                 SourceControlType = SourceControlType.GitHub
             };
 
-            _mockBuildClient.GetBuildDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            _mockBuildClient.GetDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<DeployableArtefact> { new() { Id = "42", Name = "CI Workflow" } });
 
             var sut = CreateSut();

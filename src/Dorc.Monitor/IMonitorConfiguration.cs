@@ -20,7 +20,7 @@ namespace Dorc.Monitor
         string RabbitMqHostName { get; }
         int RabbitMqPort { get; }
         string? RabbitMqVirtualHost { get; }
-        
+
         // RabbitMQ OAuth settings (client credentials flow)
         string RabbitMqOAuthClientId { get; }
         string RabbitMqOAuthClientSecret { get; }
@@ -54,5 +54,12 @@ namespace Dorc.Monitor
         /// Interval in minutes for background OAuth token refresh checks. Default: 15.
         /// </summary>
         int OAuthTokenRefreshCheckIntervalMinutes { get; }
+
+        /// <summary>
+        /// Consumer timeout in milliseconds for RabbitMQ lock queues. Setting to 0 disables the broker's
+        /// per-consumer acknowledgement timeout, preventing channel closure on long-running deployments.
+        /// Default: 86400000 (24 hours). Must be long (Int64) as RabbitMQ AMQP time arguments are 64-bit.
+        /// </summary>
+        long RabbitMqConsumerTimeoutMs { get; }
     }
 }

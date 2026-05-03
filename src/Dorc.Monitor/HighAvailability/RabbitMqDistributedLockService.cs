@@ -640,18 +640,18 @@ namespace Dorc.Monitor.HighAvailability
 
         /// <summary>
         /// Returns the queue arguments used when declaring a distributed lock queue.
-        /// Setting x-consumer-timeout to 0 disables the broker's per-consumer acknowledgement
-        /// timeout, preventing PRECONDITION_FAILED channel closure on deployments longer than
-        /// the broker's default 30-minute timeout (FM-2 fix, S-001).
+        /// Setting x-consumer-timeout to the configured value (default 24h = 86400000ms) prevents
+        /// the broker's per-consumer acknowledgement timeout from closing the channel on
+        /// long-running deployments (FM-2 fix, S-001).
         /// The value must be long (Int64) — RabbitMQ AMQP time arguments are 64-bit.
         /// </summary>
-        internal static Dictionary<string, object?> BuildLockQueueArguments()
+        internal Dictionary<string, object?> BuildLockQueueArguments()
         {
             return new Dictionary<string, object?>
             {
                 { "x-queue-type", "quorum" },           // Quorum queue for cluster replication
                 { "x-single-active-consumer", true },   // Only one consumer receives messages at a time
-                { "x-consumer-timeout", 86400000L }     // 24hs; prevents broker closing channel on long-running deployments
+                { "x-consumer-timeout", configuration.RabbitMqConsumerTimeoutMs }  // Prevents broker closing channel on long-running deployments
             };
         }
 

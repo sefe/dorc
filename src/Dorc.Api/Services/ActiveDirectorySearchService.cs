@@ -7,13 +7,14 @@ using Dorc.ApiModel;
 namespace Dorc.Api.Services
 {
     [SupportedOSPlatform("windows")]
-    public class ActiveDirectorySearchService : IDirectorySearchService
+    public class ActiveDirectorySearchService : IDirectorySearchService, IDisposable
     {
         private const int ADS_UF_ACCOUNTDISABLE = 0x0002;
         private const string DefaultDisplayName = "DEFAULT DISPLAY NAME";
         private const string DefaultLogonName = "DEFAULT LOGON NAME";
 
         private readonly DirectorySearcher _directorySearcher;
+        private bool _disposed;
 
         public ActiveDirectorySearchService(DirectorySearcher directorySearcher)
         {
@@ -25,12 +26,27 @@ namespace Dorc.Api.Services
             _directorySearcher.Tombstone = false;
         }
 
+        public void Dispose()
+        {
+            if (_disposed) return;
+            // DirectorySearcher does not own the DirectoryEntry it was constructed
+            // from (we receive both via DI) — dispose the searcher first, then any
+            // backing DirectoryEntry owned by the searcher. The DI container will
+            // dispose the service at scope end, which cascades to the underlying
+            // unmanaged AD handles.
+            _directorySearcher.SearchRoot?.Dispose();
+            _directorySearcher.Dispose();
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
+
         public IList<UserSearchResult> FindUsers(string searchCriteria, string domainName)
         {
             const string samAccountNamePropertyName = "SAMAccountName";
             const string userAccountControlPropertyName = "userAccountControl";
             const string displayNamePropertyName = "DisplayName";
 
+            _directorySearcher.PropertiesToLoad.Clear();
             _directorySearcher.PropertiesToLoad.Add(samAccountNamePropertyName);
             _directorySearcher.PropertiesToLoad.Add(userAccountControlPropertyName);
             _directorySearcher.PropertiesToLoad.Add(displayNamePropertyName);
@@ -44,7 +60,7 @@ namespace Dorc.Api.Services
             {
                 foreach (SearchResult searchResult in searchResults)
                 {
-                    DirectoryEntry foundUser = searchResult.GetDirectoryEntry();
+                    using DirectoryEntry foundUser = searchResult.GetDirectoryEntry();
                     if (foundUser.NativeGuid == null)
                         continue;
 
@@ -78,6 +94,7 @@ namespace Dorc.Api.Services
         {
             const string namePropertyName = "Name";
 
+            _directorySearcher.PropertiesToLoad.Clear();
             _directorySearcher.PropertiesToLoad.Add(namePropertyName);
 
             var escaped = EscapeLdapSearchFilter(searchCriteria);
@@ -89,7 +106,7 @@ namespace Dorc.Api.Services
             {
                 foreach (SearchResult searchResult in searchResults)
                 {
-                    DirectoryEntry foundGroup = searchResult.GetDirectoryEntry();
+                    using DirectoryEntry foundGroup = searchResult.GetDirectoryEntry();
                     if (foundGroup.NativeGuid == null)
                         continue;
 

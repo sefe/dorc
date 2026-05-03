@@ -27,6 +27,7 @@
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
+    <ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
   </ItemGroup>
 
   <ItemGroup>
