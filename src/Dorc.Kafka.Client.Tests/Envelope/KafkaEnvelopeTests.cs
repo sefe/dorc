@@ -4,6 +4,7 @@ using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Envelope;
+using Dorc.Kafka.Client.Observability;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.Client.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -72,7 +73,7 @@ public class KafkaEnvelopeTests
         var producerBuilder = new KafkaProducerBuilder<string, byte[]>(
             connection, factory, NullLogger<KafkaProducerBuilder<string, byte[]>>.Instance);
         var consumerBuilder = new KafkaConsumerBuilder<string, byte[]>(
-            connection, factory, NullLogger<KafkaConsumerBuilder<string, byte[]>>.Instance);
+            connection, factory, new NoOpKafkaConsumerMetrics(), NullLogger<KafkaConsumerBuilder<string, byte[]>>.Instance);
 
         using var producer = producerBuilder.Build("shared-producer");
         using var consumer = consumerBuilder.Build("shared-consumer");

@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Dorc.Core.Events;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
+using Dorc.Kafka.Client.Observability;
 using Dorc.Kafka.Client.Serialization;
 using Dorc.Kafka.ErrorLog;
 using Dorc.Kafka.Events.Configuration;
@@ -39,6 +40,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     private readonly IKafkaSerializerFactory _serializerFactory;
     private readonly IRequestEventHandler _handler;
     private readonly IKafkaErrorLog _errorLog;
+    private readonly IKafkaConsumerMetrics _metrics;
     private readonly ILogger<DeploymentRequestsKafkaConsumer> _logger;
 
     public DeploymentRequestsKafkaConsumer(
@@ -47,12 +49,14 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         IRequestEventHandler handler,
         IKafkaErrorLog errorLog,
         IOptions<KafkaTopicsOptions> topics,
+        IKafkaConsumerMetrics metrics,
         ILogger<DeploymentRequestsKafkaConsumer> logger)
     {
         _connectionProvider = connectionProvider;
         _serializerFactory = serializerFactory;
         _handler = handler;
         _errorLog = errorLog;
+        _metrics = metrics;
         _logger = logger;
         Topics = new[] { topics.Value.RequestsNew, topics.Value.RequestsStatus };
     }
@@ -168,7 +172,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         config.EnableAutoCommit = true;
         config.EnableAutoOffsetStore = false;
 
-        var handlers = new KafkaRebalanceHandlers<string, DeploymentRequestEventData>(_logger, ConsumerGroupId);
+        var handlers = new KafkaRebalanceHandlers<string, DeploymentRequestEventData>(_logger, ConsumerGroupId, _metrics);
         var builder = new ConsumerBuilder<string, DeploymentRequestEventData>(config)
             .SetErrorHandler(handlers.OnError)
             .SetStatisticsHandler(handlers.OnStatistics)

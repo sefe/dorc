@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Client.Observability;
 using Dorc.Kafka.Client.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -9,22 +10,25 @@ public sealed class KafkaConsumerBuilder<TKey, TValue> : IKafkaConsumerBuilder<T
 {
     private readonly IKafkaConnectionProvider _connectionProvider;
     private readonly IKafkaSerializerFactory _serializerFactory;
+    private readonly IKafkaConsumerMetrics _metrics;
     private readonly ILogger<KafkaConsumerBuilder<TKey, TValue>> _logger;
 
     public KafkaConsumerBuilder(
         IKafkaConnectionProvider connectionProvider,
         IKafkaSerializerFactory serializerFactory,
+        IKafkaConsumerMetrics metrics,
         ILogger<KafkaConsumerBuilder<TKey, TValue>> logger)
     {
         _connectionProvider = connectionProvider;
         _serializerFactory = serializerFactory;
+        _metrics = metrics;
         _logger = logger;
     }
 
     public IConsumer<TKey, TValue> Build(string name, string? groupIdOverride = null)
     {
         var config = _connectionProvider.GetConsumerConfig(groupIdOverride);
-        var handlers = new KafkaRebalanceHandlers<TKey, TValue>(_logger, name);
+        var handlers = new KafkaRebalanceHandlers<TKey, TValue>(_logger, name, _metrics);
 
         var builder = new ConsumerBuilder<TKey, TValue>(config)
             .SetErrorHandler(handlers.OnError)

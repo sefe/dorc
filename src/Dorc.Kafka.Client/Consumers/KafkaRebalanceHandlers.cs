@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Dorc.Kafka.Client.Observability;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Kafka.Client.Consumers;
@@ -15,11 +16,13 @@ public sealed class KafkaRebalanceHandlers<TKey, TValue>
 {
     private readonly ILogger _logger;
     private readonly string _consumerName;
+    private readonly IKafkaConsumerMetrics _metrics;
 
-    public KafkaRebalanceHandlers(ILogger logger, string consumerName)
+    public KafkaRebalanceHandlers(ILogger logger, string consumerName, IKafkaConsumerMetrics? metrics = null)
     {
         _logger = logger;
         _consumerName = consumerName;
+        _metrics = metrics ?? new NoOpKafkaConsumerMetrics();
     }
 
     public void OnPartitionsAssigned(IConsumer<TKey, TValue> consumer, List<TopicPartition> partitions)
@@ -66,5 +69,6 @@ public sealed class KafkaRebalanceHandlers<TKey, TValue>
     public void OnStatistics(IConsumer<TKey, TValue> consumer, string json)
     {
         _logger.LogDebug("Kafka consumer '{ConsumerName}' statistics: {Statistics}", _consumerName, json);
+        _metrics.RecordStatistics(_consumerName, json);
     }
 }

@@ -25,6 +25,14 @@ public sealed class KafkaClientOptions
     public int HeartbeatIntervalMs { get; set; } = 10_000;
 
     public int MaxPollIntervalMs { get; set; } = 300_000;
+
+    /// <summary>
+    /// How often librdkafka emits a statistics JSON blob (consumed by
+    /// <see cref="Observability.IKafkaConsumerMetrics"/> for lag and state
+    /// gauges). 0 disables the callback. Default 30 seconds — frequent
+    /// enough for human monitoring without flooding the metrics path.
+    /// </summary>
+    public int StatisticsIntervalMs { get; set; } = 30_000;
 }
 
 public sealed class KafkaSaslOptions

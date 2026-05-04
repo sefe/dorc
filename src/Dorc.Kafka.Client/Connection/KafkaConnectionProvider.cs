@@ -40,6 +40,7 @@ public sealed class KafkaConnectionProvider : IKafkaConnectionProvider
             SessionTimeoutMs = _options.SessionTimeoutMs,
             HeartbeatIntervalMs = _options.HeartbeatIntervalMs,
             MaxPollIntervalMs = _options.MaxPollIntervalMs,
+            StatisticsIntervalMs = _options.StatisticsIntervalMs,
             PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
         };
         ApplySecurity(config);

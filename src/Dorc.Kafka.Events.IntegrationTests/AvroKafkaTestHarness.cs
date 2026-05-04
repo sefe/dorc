@@ -80,7 +80,8 @@ internal static class AvroKafkaTestHarness
     {
         var connection = BuildConnection(groupId);
         return new KafkaConsumerBuilder<string, TValue>(
-            connection, factory, NullLogger<KafkaConsumerBuilder<string, TValue>>.Instance);
+            connection, factory, new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
+            NullLogger<KafkaConsumerBuilder<string, TValue>>.Instance);
     }
 
     private static IKafkaConnectionProvider BuildConnection(string? groupId = null)

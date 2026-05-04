@@ -90,6 +90,7 @@ internal sealed class S007TestHarness : IAsyncDisposable
             ErrorLog,
             Options.Create(new KafkaErrorLogOptions()),
             topicsOptions,
+            new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentResultsKafkaConsumer>.Instance)
         {
             TopicName = topic ?? topicsOptions.Value.ResultsStatus,

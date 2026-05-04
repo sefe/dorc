@@ -3,6 +3,7 @@ using Dorc.Core.Events;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
+using Dorc.Kafka.Client.Observability;
 using Dorc.Kafka.Client.Serialization;
 using Dorc.Kafka.ErrorLog;
 using Dorc.Kafka.Events.Configuration;
@@ -39,6 +40,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     private readonly IDeploymentResultBroadcaster _broadcaster;
     private readonly IKafkaErrorLog _errorLog;
     private readonly KafkaErrorLogOptions _errorLogOptions;
+    private readonly IKafkaConsumerMetrics _metrics;
     private readonly ILogger<DeploymentResultsKafkaConsumer> _logger;
 
     public DeploymentResultsKafkaConsumer(
@@ -48,6 +50,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         IKafkaErrorLog errorLog,
         IOptions<KafkaErrorLogOptions> errorLogOptions,
         IOptions<KafkaTopicsOptions> topics,
+        IKafkaConsumerMetrics metrics,
         ILogger<DeploymentResultsKafkaConsumer> logger)
     {
         _connectionProvider = connectionProvider;
@@ -55,6 +58,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         _broadcaster = broadcaster;
         _errorLog = errorLog;
         _errorLogOptions = errorLogOptions.Value;
+        _metrics = metrics;
         _logger = logger;
         TopicName = topics.Value.ResultsStatus;
     }
@@ -160,7 +164,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // between the timer-fired auto-commit and BroadcastAsync completion.
         config.EnableAutoCommit = false;
 
-        var handlers = new KafkaRebalanceHandlers<string, DeploymentResultEventData>(_logger, ConsumerGroupId);
+        var handlers = new KafkaRebalanceHandlers<string, DeploymentResultEventData>(_logger, ConsumerGroupId, _metrics);
         var builder = new ConsumerBuilder<string, DeploymentResultEventData>(config)
             .SetErrorHandler(handlers.OnError)
             .SetStatisticsHandler(handlers.OnStatistics)

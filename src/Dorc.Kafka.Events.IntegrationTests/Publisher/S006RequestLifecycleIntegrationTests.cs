@@ -44,6 +44,7 @@ public class S006RequestLifecycleIntegrationTests
                 handler,
                 new NoopErrorLog(),
                 Options.Create(new KafkaTopicsOptions()),
+                new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
             {
                 Topics = new[] { newTopic, statusTopic },
@@ -100,6 +101,7 @@ public class S006RequestLifecycleIntegrationTests
                 new PollSignalRequestEventHandler(signal),
                 new NoopErrorLog(),
                 Options.Create(new KafkaTopicsOptions()),
+                new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
             {
                 Topics = new[] { topic },
@@ -151,6 +153,7 @@ public class S006RequestLifecycleIntegrationTests
                 handler,
                 new NoopErrorLog(),
                 Options.Create(new KafkaTopicsOptions()),
+                new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
             {
                 Topics = new[] { topic },
