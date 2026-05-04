@@ -158,7 +158,15 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         _serializerFactory.WarmupDeserializer<DeploymentRequestEventData>(Topics);
     }
 
-    private IConsumer<string, DeploymentRequestEventData> BuildConsumer()
+    /// <summary>
+    /// Shapes the consumer configuration. Exposed as <c>internal</c> so the
+    /// tests can pin the commit-semantics invariants (the auto-commit timer
+    /// is left running but offset *storage* is moved off Consume() onto
+    /// explicit StoreOffset only after the handler runs to completion —
+    /// otherwise a crash mid-handler silently advances past an unprocessed
+    /// record).
+    /// </summary>
+    internal ConsumerConfig BuildConsumerConfig()
     {
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
         config.AutoOffsetReset = AutoOffsetReset.Earliest;
@@ -171,7 +179,12 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         // lose messages otherwise.
         config.EnableAutoCommit = true;
         config.EnableAutoOffsetStore = false;
+        return config;
+    }
 
+    private IConsumer<string, DeploymentRequestEventData> BuildConsumer()
+    {
+        var config = BuildConsumerConfig();
         var handlers = new KafkaRebalanceHandlers<string, DeploymentRequestEventData>(_logger, ConsumerGroupId, _metrics);
         var builder = new ConsumerBuilder<string, DeploymentRequestEventData>(config)
             .SetErrorHandler(handlers.OnError)

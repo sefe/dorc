@@ -148,7 +148,14 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         _serializerFactory.WarmupDeserializer<DeploymentResultEventData>(new[] { TopicName });
     }
 
-    private IConsumer<string, DeploymentResultEventData> BuildConsumer()
+    /// <summary>
+    /// Shapes the consumer configuration. Exposed as <c>internal</c> so the
+    /// tests can pin the commit-semantics invariants (see SPEC-S-007 R-3
+    /// strong-2/3 finding: a global <c>EnableAutoCommit=true</c> override
+    /// must not leak into this consumer or a crash mid-broadcast can
+    /// silently drop a SignalR projection).
+    /// </summary>
+    internal ConsumerConfig BuildConsumerConfig()
     {
         // Use S-002's connection provider for SASL / bootstrap / timeouts,
         // but override AutoOffsetReset to Latest (status events are
@@ -163,7 +170,12 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // = true globally and silently dropping a SignalR broadcast on crash
         // between the timer-fired auto-commit and BroadcastAsync completion.
         config.EnableAutoCommit = false;
+        return config;
+    }
 
+    private IConsumer<string, DeploymentResultEventData> BuildConsumer()
+    {
+        var config = BuildConsumerConfig();
         var handlers = new KafkaRebalanceHandlers<string, DeploymentResultEventData>(_logger, ConsumerGroupId, _metrics);
         var builder = new ConsumerBuilder<string, DeploymentResultEventData>(config)
             .SetErrorHandler(handlers.OnError)
