@@ -89,34 +89,91 @@ public class KafkaConsumerMetricsTests
     }
 
     [TestMethod]
-    public void RecordStatistics_EncodesConsumerStateNumerically()
+    public void ForgetPartitions_EvictsLagEntriesForRevokedPartitions()
     {
-        const string upJson = """{ "state": "up" }""";
-        const string downJson = """{ "state": "down" }""";
+        // CooperativeSticky rebalance: the consumer kept partition 0, lost
+        // partition 1. Lag for partition 1 must disappear from the gauge so
+        // dashboards don't alert on a partition this replica no longer owns.
+        const string statsJson = """
+            {
+                "name": "rdkafka#consumer-1",
+                "state": "up",
+                "topics": {
+                    "dorc.results.status": {
+                        "partitions": {
+                            "0": { "partition": 0, "consumer_lag": 5 },
+                            "1": { "partition": 1, "consumer_lag": 12 }
+                        }
+                    }
+                }
+            }
+            """;
 
         using var listener = new MeterListener();
-        var stateValues = new Dictionary<string, int>();
+        var measurements = new List<(long value, IDictionary<string, object?> tags)>();
+        listener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == KafkaConsumerMetrics.MeterName &&
+                instrument.Name == "kafka.consumer.lag")
+                l.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+        {
+            var copy = new Dictionary<string, object?>();
+            foreach (var t in tags) copy[t.Key] = t.Value;
+            measurements.Add((value, copy));
+        });
+        listener.Start();
+
+        using var metrics = new KafkaConsumerMetrics();
+        metrics.RecordStatistics("c", statsJson);
+
+        // Revoke partition 1. The remaining gauge collection should publish
+        // partition 0 only; partition 1's stale lag must be evicted.
+        metrics.ForgetPartitions("c", new[]
+        {
+            new Confluent.Kafka.TopicPartition("dorc.results.status", 1)
+        });
+
+        listener.RecordObservableInstruments();
+
+        Assert.AreEqual(1, measurements.Count, "Only partition 0 should remain after revocation.");
+        Assert.AreEqual(0, (int)measurements[0].tags["partition"]!);
+        Assert.AreEqual(5L, measurements[0].value);
+    }
+
+    [DataTestMethod]
+    [DataRow("down", 0)]
+    [DataRow("init", 1)]
+    [DataRow("connect", 2)]
+    [DataRow("connecting", 2)]
+    [DataRow("up", 3)]
+    [DataRow("consuming", 4)]
+    [DataRow("active", 4)]
+    [DataRow("rebalance", -1)]      // unknown librdkafka state -> sentinel
+    [DataRow("WaitAssignor", -1)]   // case-folded fallback
+    public void RecordStatistics_EncodesConsumerStateNumerically(string stateString, int expectedCode)
+    {
+        // Pin the full numeric encoding so a future refactor can't silently
+        // shift code values out from under dashboards alerting on `state < 3`.
+        var json = $$"""{ "state": "{{stateString}}" }""";
+
+        using var listener = new MeterListener();
+        int? observed = null;
         listener.InstrumentPublished = (instrument, l) =>
         {
             if (instrument.Meter.Name == KafkaConsumerMetrics.MeterName &&
                 instrument.Name == "kafka.consumer.state")
                 l.EnableMeasurementEvents(instrument);
         };
-        listener.SetMeasurementEventCallback<int>((_, value, tags, _) =>
-        {
-            string consumer = "";
-            foreach (var t in tags)
-                if (t.Key == "consumer") consumer = (string)t.Value!;
-            stateValues[consumer] = value;
-        });
+        listener.SetMeasurementEventCallback<int>((_, value, _, _) => observed = value);
         listener.Start();
 
         using var metrics = new KafkaConsumerMetrics();
-        metrics.RecordStatistics("up-consumer", upJson);
-        metrics.RecordStatistics("down-consumer", downJson);
+        metrics.RecordStatistics("c", json);
         listener.RecordObservableInstruments();
 
-        Assert.AreEqual(3, stateValues["up-consumer"]);
-        Assert.AreEqual(0, stateValues["down-consumer"]);
+        Assert.AreEqual(expectedCode, observed,
+            $"State '{stateString}' should map to code {expectedCode}.");
     }
 }

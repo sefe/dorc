@@ -20,6 +20,13 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 /// mid-broadcast / mid-handler can silently advance past an unprocessed
 /// record. The tests exercise <c>BuildConsumerConfig()</c> directly so any
 /// future refactor that drops the explicit override fails CI.
+///
+/// Connection-provider behaviour is stubbed out — the test plants the
+/// "hostile" config (EnableAutoCommit=true) directly on the returned
+/// ConsumerConfig and asserts the consumer override flips it. That way a
+/// future refactor of <see cref="KafkaConnectionProvider"/> that stops
+/// honouring the global option can't make these tests pass for the wrong
+/// reason.
 /// </summary>
 [TestClass]
 public class ConsumerCommitSemanticsTests
@@ -27,15 +34,15 @@ public class ConsumerCommitSemanticsTests
     [TestMethod]
     public void ResultsConsumer_OverridesGlobalEnableAutoCommitToFalse()
     {
-        // Operator sets EnableAutoCommit=true globally — exactly the
-        // misconfiguration that motivated the strong 2/3 finding.
-        var options = Options.Create(new KafkaClientOptions
-        {
-            BootstrapServers = "127.0.0.1:1",
-            ConsumerGroupId = "test-group",
-            EnableAutoCommit = true
-        });
-        var sut = NewResultsConsumer(options);
+        // Hostile baseline: provider returns a config with auto-commit on,
+        // exactly the misconfiguration that motivated the strong 2/3 finding.
+        var sut = NewResultsConsumer(new StubConnectionProvider(
+            new ConsumerConfig
+            {
+                BootstrapServers = "127.0.0.1:1",
+                GroupId = "ignored-by-consumer",
+                EnableAutoCommit = true
+            }));
 
         var config = sut.BuildConsumerConfig();
 
@@ -44,16 +51,15 @@ public class ConsumerCommitSemanticsTests
     }
 
     [TestMethod]
-    public void ResultsConsumer_AutoOffsetResetIsLatest()
+    public void ResultsConsumer_AutoOffsetResetIsLatest_EvenWhenProviderSaysEarliest()
     {
-        // Status events are real-time; we don't replay history on restart.
-        var options = Options.Create(new KafkaClientOptions
-        {
-            BootstrapServers = "127.0.0.1:1",
-            ConsumerGroupId = "test-group",
-            AutoOffsetReset = KafkaAutoOffsetReset.Earliest
-        });
-        var sut = NewResultsConsumer(options);
+        var sut = NewResultsConsumer(new StubConnectionProvider(
+            new ConsumerConfig
+            {
+                BootstrapServers = "127.0.0.1:1",
+                GroupId = "ignored",
+                AutoOffsetReset = AutoOffsetReset.Earliest
+            }));
 
         var config = sut.BuildConsumerConfig();
 
@@ -61,39 +67,43 @@ public class ConsumerCommitSemanticsTests
     }
 
     [TestMethod]
-    public void ResultsConsumer_GroupIdIsPerReplica_NotTheGlobalDefault()
+    public void ResultsConsumer_GroupIdHasPerReplicaDiscriminatorAfterPrefix()
     {
-        var options = Options.Create(new KafkaClientOptions
-        {
-            BootstrapServers = "127.0.0.1:1",
-            ConsumerGroupId = "global-shared-group" // wrong default for fan-out
-        });
-        var sut = NewResultsConsumer(options);
+        var sut = NewResultsConsumer(new StubConnectionProvider(
+            new ConsumerConfig { BootstrapServers = "127.0.0.1:1", GroupId = "global-shared-group" }));
 
         var config = sut.BuildConsumerConfig();
 
-        StringAssert.StartsWith(config.GroupId,
-            DeploymentResultsKafkaConsumer.ConsumerGroupPrefix,
-            "Per-replica fan-out (SPEC-S-007 R-2) requires a per-consumer group id, not the global Kafka:ConsumerGroupId.");
+        // Stronger than StartsWith: a refactor that hardcoded GroupId =
+        // ConsumerGroupPrefix (no suffix) would still satisfy StartsWith
+        // but silently collapses the per-replica fan-out invariant
+        // (SPEC-S-007 R-2). Require the prefix + a '.'-separated suffix
+        // and an actual non-empty discriminator after it.
+        var prefix = DeploymentResultsKafkaConsumer.ConsumerGroupPrefix + ".";
+        StringAssert.StartsWith(config.GroupId, prefix);
+        Assert.IsTrue(config.GroupId.Length > prefix.Length,
+            $"GroupId '{config.GroupId}' must include a per-replica discriminator after the prefix.");
         Assert.AreNotEqual("global-shared-group", config.GroupId);
     }
 
     [TestMethod]
-    public void RequestsConsumer_KeepsAutoCommit_ButDisablesOffsetStore()
+    public void RequestsConsumer_KeepsAutoCommit_ButDisablesOffsetStore_OverridingProvider()
     {
-        var options = Options.Create(new KafkaClientOptions
-        {
-            BootstrapServers = "127.0.0.1:1",
-            ConsumerGroupId = "test-group"
-        });
-        var sut = NewRequestsConsumer(options);
+        // Hostile baseline: provider returns a config with auto-offset-store
+        // ON (the librdkafka default). The consumer must turn it OFF so
+        // offsets only advance via explicit StoreOffset() after handler
+        // success.
+        var sut = NewRequestsConsumer(new StubConnectionProvider(
+            new ConsumerConfig
+            {
+                BootstrapServers = "127.0.0.1:1",
+                GroupId = "ignored",
+                EnableAutoCommit = false,
+                EnableAutoOffsetStore = true
+            }));
 
         var config = sut.BuildConsumerConfig();
 
-        // The fix-branch's chosen at-least-once shape: timer keeps committing
-        // *stored* offsets, but we control storage explicitly via
-        // StoreOffset() after handler success. A crash mid-handler means the
-        // offset was never stored, so the next replica picks the record up.
         Assert.IsTrue(config.EnableAutoCommit ?? false,
             "Requests consumer leaves the auto-commit timer enabled (low-overhead).");
         Assert.IsFalse(config.EnableAutoOffsetStore ?? true,
@@ -101,17 +111,15 @@ public class ConsumerCommitSemanticsTests
     }
 
     [TestMethod]
-    public void RequestsConsumer_AutoOffsetResetIsEarliest()
+    public void RequestsConsumer_AutoOffsetResetIsEarliest_EvenWhenProviderSaysLatest()
     {
-        // Narrow the visibility gap on consumer restart; rebalance-replay
-        // is harmless because the handler is idempotent.
-        var options = Options.Create(new KafkaClientOptions
-        {
-            BootstrapServers = "127.0.0.1:1",
-            ConsumerGroupId = "test-group",
-            AutoOffsetReset = KafkaAutoOffsetReset.Latest
-        });
-        var sut = NewRequestsConsumer(options);
+        var sut = NewRequestsConsumer(new StubConnectionProvider(
+            new ConsumerConfig
+            {
+                BootstrapServers = "127.0.0.1:1",
+                GroupId = "ignored",
+                AutoOffsetReset = AutoOffsetReset.Latest
+            }));
 
         var config = sut.BuildConsumerConfig();
 
@@ -119,27 +127,22 @@ public class ConsumerCommitSemanticsTests
     }
 
     [TestMethod]
-    public void RequestsConsumer_GroupIdIsPerReplica_NotTheGlobalDefault()
+    public void RequestsConsumer_GroupIdHasPerReplicaDiscriminatorAfterPrefix()
     {
-        var options = Options.Create(new KafkaClientOptions
-        {
-            BootstrapServers = "127.0.0.1:1",
-            ConsumerGroupId = "global-shared-group"
-        });
-        var sut = NewRequestsConsumer(options);
+        var sut = NewRequestsConsumer(new StubConnectionProvider(
+            new ConsumerConfig { BootstrapServers = "127.0.0.1:1", GroupId = "global-shared-group" }));
 
         var config = sut.BuildConsumerConfig();
 
-        StringAssert.StartsWith(config.GroupId,
-            DeploymentRequestsKafkaConsumer.ConsumerGroupPrefix,
-            "Per-replica fan-out (SPEC-S-006 R-3) requires a per-consumer group id.");
+        var prefix = DeploymentRequestsKafkaConsumer.ConsumerGroupPrefix + ".";
+        StringAssert.StartsWith(config.GroupId, prefix);
+        Assert.IsTrue(config.GroupId.Length > prefix.Length,
+            $"GroupId '{config.GroupId}' must include a per-replica discriminator after the prefix.");
     }
 
-    private static DeploymentResultsKafkaConsumer NewResultsConsumer(IOptions<KafkaClientOptions> options)
-    {
-        var connection = new KafkaConnectionProvider(options);
-        return new DeploymentResultsKafkaConsumer(
-            connection,
+    private static DeploymentResultsKafkaConsumer NewResultsConsumer(IKafkaConnectionProvider provider)
+        => new DeploymentResultsKafkaConsumer(
+            provider,
             new DefaultKafkaSerializerFactory(),
             new StubBroadcaster(),
             new NoopErrorLog(),
@@ -147,19 +150,41 @@ public class ConsumerCommitSemanticsTests
             Options.Create(new KafkaTopicsOptions()),
             new NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentResultsKafkaConsumer>.Instance);
-    }
 
-    private static DeploymentRequestsKafkaConsumer NewRequestsConsumer(IOptions<KafkaClientOptions> options)
-    {
-        var connection = new KafkaConnectionProvider(options);
-        return new DeploymentRequestsKafkaConsumer(
-            connection,
+    private static DeploymentRequestsKafkaConsumer NewRequestsConsumer(IKafkaConnectionProvider provider)
+        => new DeploymentRequestsKafkaConsumer(
+            provider,
             new DefaultKafkaSerializerFactory(),
             new StubHandler(),
             new NoopErrorLog(),
             Options.Create(new KafkaTopicsOptions()),
             new NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentRequestsKafkaConsumer>.Instance);
+
+    /// <summary>
+    /// Returns a caller-controlled <see cref="ConsumerConfig"/> verbatim,
+    /// ignoring any group-id override. Lets each test plant the "hostile"
+    /// baseline the consumer's BuildConsumerConfig is supposed to override.
+    /// </summary>
+    private sealed class StubConnectionProvider : IKafkaConnectionProvider
+    {
+        private readonly ConsumerConfig _consumerConfig;
+
+        public StubConnectionProvider(ConsumerConfig consumerConfig) => _consumerConfig = consumerConfig;
+
+        public ConsumerConfig GetConsumerConfig(string? groupIdOverride = null)
+        {
+            // Honour the per-replica group id the consumer passes in (so the
+            // GroupId tests can observe it) but preserve every other field
+            // exactly as the test planted it.
+            var copy = new ConsumerConfig();
+            foreach (var kv in _consumerConfig)
+                copy.Set(kv.Key, kv.Value);
+            if (groupIdOverride is not null) copy.GroupId = groupIdOverride;
+            return copy;
+        }
+
+        public ProducerConfig GetProducerConfig() => throw new NotImplementedException();
     }
 
     private sealed class StubBroadcaster : IDeploymentResultBroadcaster

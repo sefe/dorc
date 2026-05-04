@@ -49,6 +49,7 @@ public sealed class KafkaRebalanceHandlers<TKey, TValue>
             _consumerName,
             string.Join(",", partitions.Select(p => p.Partition.Value)),
             string.Join(",", remaining.Select(p => p.Partition.Value)));
+        _metrics.ForgetPartitions(_consumerName, partitions.Select(p => p.TopicPartition));
     }
 
     public void OnPartitionsLost(IConsumer<TKey, TValue> consumer, List<TopicPartitionOffset> partitions)
@@ -57,6 +58,7 @@ public sealed class KafkaRebalanceHandlers<TKey, TValue>
             "Kafka consumer '{ConsumerName}' partitions were lost: [{LostPartitions}]",
             _consumerName,
             string.Join(",", partitions.Select(p => p.Partition.Value)));
+        _metrics.ForgetPartitions(_consumerName, partitions.Select(p => p.TopicPartition));
     }
 
     public void OnError(IConsumer<TKey, TValue> consumer, Error error)

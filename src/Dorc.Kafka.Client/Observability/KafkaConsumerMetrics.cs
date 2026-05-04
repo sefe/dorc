@@ -54,6 +54,31 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
             description: "Consumer state (0=down, 1=init, 2=connecting, 3=up, 4=consuming).");
     }
 
+    public void ForgetPartitions(string consumerName, IEnumerable<Confluent.Kafka.TopicPartition> partitions)
+    {
+        // CooperativeSticky rebalancing reassigns partitions across replicas
+        // throughout a process's lifetime. Without this eviction step, every
+        // partition this replica ever owned remains in _lagByPartition with
+        // its last-observed lag, exported as a stale metric on every scrape.
+        foreach (var tp in partitions)
+        {
+            var key = new MetricKey(consumerName, string.Empty, tp.Topic, tp.Partition.Value);
+            // The group dimension is unknown at revocation time (librdkafka
+            // doesn't pass it through), so remove every matching
+            // (consumer, topic, partition) tuple regardless of group.
+            foreach (var stored in _lagByPartition.Keys)
+            {
+                if (stored.Consumer == consumerName &&
+                    stored.Topic == tp.Topic &&
+                    stored.Partition == tp.Partition.Value)
+                {
+                    _lagByPartition.TryRemove(stored, out _);
+                }
+            }
+            _ = key; // suppress 'unused' warning; left for future-proofing if librdkafka starts surfacing group at revocation
+        }
+    }
+
     public void RecordStatistics(string consumerName, string statsJson)
     {
         if (string.IsNullOrEmpty(statsJson)) return;

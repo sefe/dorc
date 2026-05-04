@@ -22,6 +22,16 @@ public interface IKafkaConsumerMetrics
     /// collide.</param>
     /// <param name="statsJson">Raw librdkafka statistics payload.</param>
     void RecordStatistics(string consumerName, string statsJson);
+
+    /// <summary>
+    /// Called on partition revocation / loss so per-partition state
+    /// (notably consumer lag) can be evicted. Without this, long-running
+    /// processes that experience CooperativeSticky rebalances accumulate
+    /// stale lag entries for partitions they no longer own — dashboards
+    /// then alert on phantom lag forever. Default no-op; sinks that don't
+    /// keep per-partition state can ignore.
+    /// </summary>
+    void ForgetPartitions(string consumerName, IEnumerable<Confluent.Kafka.TopicPartition> partitions) { }
 }
 
 /// <summary>

@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using Dorc.Kafka.Client.Consumers;
+using Dorc.Kafka.Client.Observability;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Kafka.Client.Tests.Consumers;
@@ -144,5 +145,45 @@ public class KafkaRebalanceHandlersTests
         Assert.AreEqual("broker gone", entry.Properties["Reason"]);
         Assert.AreEqual(ErrorCode.BrokerNotAvailable, entry.Properties["Code"]);
         Assert.IsFalse((bool)entry.Properties["Fatal"]!);
+    }
+
+    [TestMethod]
+    public void OnStatistics_ForwardsPayloadToMetricsSinkWithConsumerName()
+    {
+        // The metrics path is dormant unless something forwards librdkafka's
+        // statistics payload to IKafkaConsumerMetrics. A future refactor that
+        // simplifies the constructor and forgets to thread metrics through
+        // would silently drop every consumer's lag/state metrics — this test
+        // catches that regression.
+        var logger = new CapturingLogger();
+        var sink = new RecordingMetrics();
+        var handlers = new KafkaRebalanceHandlers<string, byte[]>(logger, "results-consumer", sink);
+        var consumer = new StubConsumer<string, byte[]>();
+        const string statsJson = """{ "name": "rdkafka#consumer-1", "state": "up" }""";
+
+        handlers.OnStatistics(consumer, statsJson);
+
+        Assert.AreEqual(1, sink.Calls.Count);
+        Assert.AreEqual("results-consumer", sink.Calls[0].consumer);
+        Assert.AreEqual(statsJson, sink.Calls[0].json);
+    }
+
+    [TestMethod]
+    public void OnStatistics_NoMetricsSinkSupplied_DoesNotThrow()
+    {
+        // Backwards-compat path: passing only (logger, name) must continue
+        // to work, with metrics quietly defaulting to no-op.
+        var handlers = new KafkaRebalanceHandlers<string, byte[]>(new CapturingLogger(), "no-metrics");
+        var consumer = new StubConsumer<string, byte[]>();
+
+        handlers.OnStatistics(consumer, "{ \"state\": \"up\" }");
+        // No assertion needed — reaching here without throwing is the test.
+    }
+
+    private sealed class RecordingMetrics : IKafkaConsumerMetrics
+    {
+        public List<(string consumer, string json)> Calls { get; } = new();
+        public void RecordStatistics(string consumerName, string statsJson)
+            => Calls.Add((consumerName, statsJson));
     }
 }
