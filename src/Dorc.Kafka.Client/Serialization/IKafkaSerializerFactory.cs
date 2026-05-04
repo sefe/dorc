@@ -17,6 +17,22 @@ public interface IKafkaSerializerFactory
     IDeserializer<T>? GetKeyDeserializer<T>();
 
     IDeserializer<T>? GetValueDeserializer<T>();
+
+    /// <summary>
+    /// Pre-resolve the (topic, type) → serializer mapping for the supplied
+    /// topics so the first publish doesn't block on a schema-registry
+    /// round-trip. Implementations that don't talk to a registry are no-ops.
+    /// </summary>
+    void WarmupSerializer<T>(IEnumerable<string> topics) { }
+
+    /// <summary>
+    /// Pre-resolve the (topic, type) → deserializer mapping for the supplied
+    /// topics so the first <c>Consume()</c> call doesn't block on a schema-
+    /// registry round-trip (which would risk exceeding <c>max.poll.interval.ms</c>
+    /// and fencing the consumer). Implementations that don't talk to a
+    /// registry are no-ops.
+    /// </summary>
+    void WarmupDeserializer<T>(IEnumerable<string> topics) { }
 }
 
 public sealed class DefaultKafkaSerializerFactory : IKafkaSerializerFactory

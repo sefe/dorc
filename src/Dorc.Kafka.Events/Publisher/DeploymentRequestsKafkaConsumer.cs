@@ -147,11 +147,11 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         // before Subscribe so the first Consume() call doesn't pay the
         // registry round-trip on the consume thread. A blocking call inside
         // Consume() that exceeds max.poll.interval.ms fences the consumer
-        // and triggers a group rebalance — preventable failure mode.
-        if (_serializerFactory is Serialization.AvroKafkaSerializerFactory avro)
-        {
-            avro.WarmupDeserializer<DeploymentRequestEventData>(Topics);
-        }
+        // and triggers a group rebalance — preventable failure mode. The
+        // call goes through IKafkaSerializerFactory so a wrapped/replaced
+        // factory still gets the warmup hook (or no-ops via the interface's
+        // default implementation if it doesn't talk to a registry).
+        _serializerFactory.WarmupDeserializer<DeploymentRequestEventData>(Topics);
     }
 
     private IConsumer<string, DeploymentRequestEventData> BuildConsumer()

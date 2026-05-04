@@ -88,10 +88,33 @@ builder.Services.AddTransient<ScriptDispatcher>();
 
 // Master Kafka switch. When false, the Monitor runs in single-replica
 // DB-poll fallback mode: no Kafka consumers, no distributed lock, no
-// Avro/error-log wiring. Default false: an existing installation that
-// upgrades without configuring BootstrapServers must remain functional.
-// Operators opt in by setting Kafka:Enabled=true once brokers are wired.
-var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", false);
+// Avro/error-log wiring. Default true per the migration intent (this PR
+// replaces RabbitMQ with Kafka). Operators upgrading an existing install
+// can either ship a Kafka:Enabled=false override or rely on the empty-
+// BootstrapServers startup-validation fallback to skip Kafka cleanly.
+var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", true);
+if (kafkaEnabled && string.IsNullOrWhiteSpace(configurationRoot["Kafka:BootstrapServers"]))
+{
+    // Upgrade-safety: an existing install that picked up the new Kafka
+    // section without setting BootstrapServers shouldn't crash. Run in
+    // DB-poll fallback and surface a warning so operators see the gap.
+    Console.WriteLine("[startup] Kafka:Enabled=true but Kafka:BootstrapServers is empty; running in DB-poll fallback mode.");
+    kafkaEnabled = false;
+}
+// SignalR-client publisher is registered unconditionally as a single
+// concrete singleton with two interface forwards. This mirrors the API's
+// DirectDeploymentEventPublisher pattern: one instance reachable through
+// IDeploymentEventsPublisher (the regular publish path) and through
+// IFallbackDeploymentEventPublisher (the dual-publish fallback used by
+// KafkaDeploymentEventPublisher when the broker is unreachable).
+// When Kafka is enabled, AddDorcKafkaPublisher Replaces only the
+// IDeploymentEventsPublisher mapping, leaving the fallback intact.
+builder.Services.AddSingleton<SignalRDeploymentEventPublisher>();
+builder.Services.AddSingleton<IDeploymentEventsPublisher>(sp =>
+    sp.GetRequiredService<SignalRDeploymentEventPublisher>());
+builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher>(sp =>
+    sp.GetRequiredService<SignalRDeploymentEventPublisher>());
+
 if (kafkaEnabled)
 {
     builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
@@ -101,13 +124,9 @@ if (kafkaEnabled)
     // Per SPEC-S-007 R-1, the Monitor is the producer of results-status
     // events. Without this registration the new dorc.results.status topic
     // would never be produced to and the API-side projection consumer
-    // would subscribe to a permanently empty topic. The dual-publish
-    // KafkaDeploymentEventPublisher uses SignalRDeploymentEventPublisher
-    // as its IFallbackDeploymentEventPublisher so the SignalR-direct UI
-    // path still fires on Kafka outages.
-    builder.Services.AddSingleton<SignalRDeploymentEventPublisher>();
-    builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher>(
-        sp => sp.GetRequiredService<SignalRDeploymentEventPublisher>());
+    // would subscribe to a permanently empty topic. AddDorcKafkaPublisher
+    // Replaces the IDeploymentEventsPublisher registration above with the
+    // dual-publish KafkaDeploymentEventPublisher.
     builder.Services.AddDorcKafkaPublisher(configurationRoot);
 }
 else
@@ -132,12 +151,6 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddTransient<Dorc.Monitor.IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 
-// When Kafka is enabled the Kafka publisher (registered above) wins via
-// services.Replace; otherwise SignalR-direct is the only IDeploymentEventsPublisher.
-if (!kafkaEnabled)
-{
-    builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEventPublisher>();
-}
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
 

@@ -303,10 +303,17 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 // Master Kafka switch. When false, the API skips Kafka producer / consumer
 // wiring and IDeploymentEventsPublisher resolves to the
 // DirectDeploymentEventPublisher registered above (SignalR-only path).
-// Default false: an existing installation that upgrades without configuring
-// BootstrapServers must remain functional. Operators opt in by setting
-// Kafka:Enabled=true once brokers are wired.
-if (builder.Configuration.GetValue("Kafka:Enabled", false))
+// Default true per the migration intent (this PR replaces RabbitMQ with
+// Kafka). Operators upgrading an existing install can either ship a
+// Kafka:Enabled=false override or rely on the empty-BootstrapServers
+// startup-validation fallback below to skip Kafka without crashing.
+var kafkaEnabledApi = builder.Configuration.GetValue("Kafka:Enabled", true);
+if (kafkaEnabledApi && string.IsNullOrWhiteSpace(builder.Configuration["Kafka:BootstrapServers"]))
+{
+    Console.WriteLine("[startup] Kafka:Enabled=true but Kafka:BootstrapServers is empty; running in SignalR-only fallback mode.");
+    kafkaEnabledApi = false;
+}
+if (kafkaEnabledApi)
 {
     builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,
         Dorc.Api.Events.SignalRDeploymentResultBroadcaster>();
