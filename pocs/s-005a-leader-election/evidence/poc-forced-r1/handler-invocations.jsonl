@@ -1,0 +1,7 @@
+{"timestampUtc":"2026-04-14T19:29:24.4003578\u002B00:00","instanceId":"cand-A","partition":1,"offset":0,"requestId":"req-D-1","version":0,"outcome":"accepted"}
+{"timestampUtc":"2026-04-14T19:29:32.4200764\u002B00:00","instanceId":"cand-A","partition":1,"offset":1,"requestId":"req-D-1","version":1,"outcome":"accepted"}
+{"timestampUtc":"2026-04-14T19:29:54.9991318\u002B00:00","instanceId":"cand-B","partition":1,"offset":1,"requestId":"req-D-1","version":1,"outcome":"idempotent-noop"}
+{"timestampUtc":"2026-04-14T19:29:56.0090507\u002B00:00","instanceId":"cand-B","partition":2,"offset":0,"requestId":"req-D-2","version":0,"outcome":"accepted"}
+{"timestampUtc":"2026-04-14T19:29:56.0322677\u002B00:00","instanceId":"cand-B","partition":2,"offset":1,"requestId":"req-D-2","version":1,"outcome":"accepted"}
+{"timestampUtc":"2026-04-14T19:29:56.0497744\u002B00:00","instanceId":"cand-B","partition":2,"offset":2,"requestId":"req-D-3","version":0,"outcome":"accepted"}
+{"timestampUtc":"2026-04-14T19:29:56.0663870\u002B00:00","instanceId":"cand-B","partition":2,"offset":3,"requestId":"req-D-3","version":1,"outcome":"accepted"}

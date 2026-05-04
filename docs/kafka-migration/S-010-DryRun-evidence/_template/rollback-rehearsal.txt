@@ -1,0 +1,14 @@
+# Rollback rehearsal transcript template
+# Total elapsed (T0 → "rollback complete") MUST be <= 60 min.
+
+[R+0:00] decision trigger=<§4 class.id> authority=<role> reason=<rationale>
+[R+0:01] §7 channel notified
+[R+0:01] step=pause-deployments mechanism="AppSettings.PauseDeploymentEnabled=true" + API bounce
+[R+0:06] verify pause: synthetic request rejected by PauseDeploymentEnabled
+[R+0:07] step=drain-publishes wait=30s
+[R+0:07] step=redeploy-api tag=release/pre-kafka-cutover commit=481f4830 budget=20min
+[R+0:27] step=redeploy-monitor tag=release/pre-kafka-cutover commit=481f4830 budget=20min
+[R+0:47] verify rolled-back DI: RabbitMqDistributedLockService registered, SignalR-only publisher
+[R+0:50] step=lift-pause AppSettings.PauseDeploymentEnabled=false + API bounce
+[R+0:53] §2 smoke catalogue against rolled-back env
+[R+1:00] declare rollback complete; §7 channel notified; total_elapsed=60min target=60min

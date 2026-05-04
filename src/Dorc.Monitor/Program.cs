@@ -6,7 +6,10 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor;
 using Dorc.Monitor.Events;
-using Dorc.Monitor.HighAvailability;
+using Dorc.Core.HighAvailability;
+using Dorc.Kafka.ErrorLog.DependencyInjection;
+using Dorc.Kafka.Events.DependencyInjection;
+using Dorc.Kafka.Lock.DependencyInjection;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -19,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using Serilog;
 using System.Reflection;
@@ -78,13 +82,79 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
             options.Endpoint = new Uri(otlpEndpoint);
         });
     });
+
+    // Export the Kafka consumer lag/state meter alongside logs. Operators
+    // wiring an OTLP collector get consumer lag dashboards for free.
+    builder.Services.AddOpenTelemetry().WithMetrics(metrics =>
+    {
+        metrics.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Monitor", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0")
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["service.namespace"] = "DOrc",
+                ["deployment.environment"] = monitorConfiguration.Environment,
+                ["host.name"] = Environment.MachineName
+            }));
+
+        metrics.AddMeter(Dorc.Kafka.Client.Observability.KafkaConsumerMetrics.MeterName);
+        metrics.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
 }
 #endregion
 
 builder.Services.AddTransient<ScriptDispatcher>();
 
-// Register distributed lock service - RabbitMqDistributedLockService checks config and returns null locks if HA disabled
-builder.Services.AddSingleton<IDistributedLockService, RabbitMqDistributedLockService>();
+// Master Kafka switch. When false, the Monitor runs in single-replica
+// DB-poll fallback mode: no Kafka consumers, no distributed lock, no
+// Avro/error-log wiring. Default true per the migration intent (this PR
+// replaces RabbitMQ with Kafka). Operators upgrading an existing install
+// can either ship a Kafka:Enabled=false override or rely on the empty-
+// BootstrapServers startup-validation fallback to skip Kafka cleanly.
+var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", true);
+if (kafkaEnabled && string.IsNullOrWhiteSpace(configurationRoot["Kafka:BootstrapServers"]))
+{
+    // Upgrade-safety: an existing install that picked up the new Kafka
+    // section without setting BootstrapServers shouldn't crash. Run in
+    // DB-poll fallback and surface a warning so operators see the gap.
+    Console.WriteLine("[startup] Kafka:Enabled=true but Kafka:BootstrapServers is empty; running in DB-poll fallback mode.");
+    kafkaEnabled = false;
+}
+// SignalR-client publisher is registered unconditionally as a single
+// concrete singleton with two interface forwards. This mirrors the API's
+// DirectDeploymentEventPublisher pattern: one instance reachable through
+// IDeploymentEventsPublisher (the regular publish path) and through
+// IFallbackDeploymentEventPublisher (the dual-publish fallback used by
+// KafkaDeploymentEventPublisher when the broker is unreachable).
+// When Kafka is enabled, AddDorcKafkaPublisher Replaces only the
+// IDeploymentEventsPublisher mapping, leaving the fallback intact.
+builder.Services.AddSingleton<SignalRDeploymentEventPublisher>();
+builder.Services.AddSingleton<IDeploymentEventsPublisher>(sp =>
+    sp.GetRequiredService<SignalRDeploymentEventPublisher>());
+builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher>(sp =>
+    sp.GetRequiredService<SignalRDeploymentEventPublisher>());
+
+if (kafkaEnabled)
+{
+    builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
+    builder.Services.AddDorcKafkaErrorLog(configurationRoot);
+    builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
+    builder.Services.AddDorcKafkaAvro(configurationRoot);
+    // Per SPEC-S-007 R-1, the Monitor is the producer of results-status
+    // events. Without this registration the new dorc.results.status topic
+    // would never be produced to and the API-side projection consumer
+    // would subscribe to a permanently empty topic. AddDorcKafkaPublisher
+    // Replaces the IDeploymentEventsPublisher registration above with the
+    // dual-publish KafkaDeploymentEventPublisher.
+    builder.Services.AddDorcKafkaPublisher(configurationRoot);
+}
+else
+{
+    builder.Services.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
+    builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.RequestPollSignal>();
+}
 
 PersistentSourcesRegistry.Register(builder.Services);
 
@@ -102,7 +172,6 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddTransient<Dorc.Monitor.IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 
-builder.Services.AddSingleton<IDeploymentEventsPublisher, SignalRDeploymentEventPublisher>();
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
 

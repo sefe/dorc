@@ -7,7 +7,7 @@ using TypedSignalR.Client;
 
 namespace Dorc.Monitor.Events
 {
-    public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IAsyncDisposable
+    public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IFallbackDeploymentEventPublisher, IAsyncDisposable
     {
         private readonly string? _hubUrl;
         private readonly ILogger _logger;

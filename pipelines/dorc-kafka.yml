@@ -1,0 +1,71 @@
+name: $(Build.DefinitionName).$(Build.SourceBranchName)_$(Date:yy).$(Date:MM).$(Date:dd)$(rev:.r)
+
+# S-003 AT-5 CI gate. Brings up the local Kafka+Karapace stack via Podman and
+# runs the Avro schema PR-gate against the live Karapace registry, then tears
+# the stack down.
+#
+# Note: the S-001 AT-3 smoke-test round-trip previously invoked here via
+# Dorc.Kafka.SmokeTests was removed in S-015 follow-on cleanup. The S-002
+# client-layer test suite (Dorc.Kafka.Client.Tests + Dorc.Kafka.Events.Tests)
+# supersedes that smoke test, and the live-broker round-trip is now covered
+# by Dorc.Kafka.Events.IntegrationTests (opt-in, excluded from the GitHub
+# Actions CI filter).
+
+trigger:
+  branches:
+    include:
+      - feat/kafka-migration
+
+pr: none
+
+pool:
+  name: TRADING-DOTNET-03
+  demands:
+  - DotNetFramework
+  - podman
+
+variables:
+- name: buildConfiguration
+  value: 'Release'
+- name: composeFile
+  value: 'compose.kafka.yml'
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Use .NET 8 SDK'
+  inputs:
+    version: '8.x'
+
+- script: |
+    podman compose -f $(composeFile) up -d
+  displayName: 'Podman compose up (Kafka + Karapace)'
+
+- script: |
+    podman compose -f $(composeFile) ps
+  displayName: 'Podman compose status (diagnostic)'
+
+- script: |
+    dotnet run --project tools/schema-gate/schema-gate.csproj -- \
+      docs/kafka-migration/schemas/current \
+      docs/kafka-migration/schemas/latest \
+      http://localhost:8081
+  displayName: 'S-003 AT-5: Avro schema PR-gate (BACKWARD, live-preferred + snapshot fallback)'
+  env:
+    KAFKA_SCHEMA_REGISTRY: 'http://localhost:8081'
+
+- script: |
+    podman compose -f $(composeFile) logs --no-color > $(Build.ArtifactStagingDirectory)/compose.log || true
+  displayName: 'Capture compose logs (diagnostic)'
+  condition: always()
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish compose logs'
+  condition: always()
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/compose.log'
+    ArtifactName: 'kafka-schema-gate-logs'
+
+- script: |
+    podman compose -f $(composeFile) down -v
+  displayName: 'Podman compose down (teardown)'
+  condition: always()
