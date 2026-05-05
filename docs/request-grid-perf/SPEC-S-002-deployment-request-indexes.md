@@ -26,9 +26,9 @@ The index(es) added by S-002 must provide an index-seek access path for the foll
 - **Q-Env-Prefix** — prefix-match predicate on `Environment` (`LIKE '@p%'`, used by S-004's `EnvironmentName StartsWith`).
 - **Q-Proj-Prefix** — prefix-match predicate on `Project` (`LIKE '@p%'`, used by S-004's `Project StartsWith`).
 
-For each shape, the chosen plan when the predicate is selective enough must include an index seek (not a scan) on the new index. Plan verification is owned by S-006; this spec does not prescribe the verification mechanism.
+For each shape, the chosen plan when the predicate is selective enough must include an index seek (not a scan) on a new index added by S-002. **All three query shapes must be served**, not just one or two — if a single composite key cannot cover both Environment-leading and Project-leading predicates simultaneously (which is the typical case for SQL Server, since a composite key only seeks on its leading column or a contiguous prefix), then S-002 ships **two** indexes: one supporting Q-Env-* and one supporting Q-Proj-Prefix. Plan verification is owned by S-006; this spec does not prescribe the verification mechanism.
 
-The index design should also reasonably support the common combination of an Environment-bearing predicate and the page's typical sort order (the request grid orders by `Id` by default, descending in most consumer surfaces). A composite key whose trailing component matches the sort eliminates a separate sort operation and is the recommended candidate; an alternative design that satisfies R1 is acceptable if the JIT-Spec author records the rationale.
+The index design should also reasonably support the common combination of an Environment-bearing predicate and the page's typical sort order (the request grid orders by `Id` by default, descending in most consumer surfaces). A composite key whose trailing component matches the sort eliminates a separate sort operation and is the recommended shape; an alternative shape that satisfies R1 is acceptable if the JIT-Spec author records the rationale at Delivery time.
 
 ### R2 — Plan-interaction with `IX_Status_IsProd`
 The existing `IX_Status_IsProd` non-clustered index (on `Status, IsProd`) supports queries that filter by Status and IsProd. The new index(es) from S-002 must not regress those queries — i.e., for a query that today seeks `IX_Status_IsProd`, the optimiser must continue to choose `IX_Status_IsProd` (or a strictly better path) post-deploy. Verification of plan stability for combined Status + Environment queries is owned by S-006 (per the IS amendment).
@@ -44,7 +44,7 @@ The DDL must not require an exclusive lock that blocks live workload during crea
 - **U4 → Enterprise**: the DDL uses `WITH (ONLINE = ON)` so creation is online; deployment can run during business hours.
 - **U4 → Standard**: `ONLINE = ON` is unavailable; the DDL omits it and the deployment plan calls for a maintenance window. The SSDT script itself must be edition-agnostic — it does not specify `ONLINE` — and the maintenance-window approach is documented in the deployment notes (see R7).
 
-The default authored DDL omits `ONLINE` so the script is safe on Standard and the maintenance-window default is the conservative position. If U4 is resolved as Enterprise, the JIT-Spec author may choose to add `ONLINE = ON`; the additional risk of a hot-creation pass is delegated to the user / DBA.
+The default authored DDL omits `ONLINE` so the script is safe on Standard and the maintenance-window default is the conservative position. If U4 is resolved as **Enterprise**, the recommended path is to add `ONLINE = ON` so the index can be deployed without a maintenance window; the JIT-Spec author records the chosen path in the deployment notes (R7). The risk profile of a hot-creation pass on Enterprise is the user / DBA's call but the default *recommendation* is "use ONLINE if available."
 
 ### R5 — U7 (per-environment skew) impact
 Open per-step blocking unknown U7 informs whether a single composite key is sufficient or whether a filtered index, included columns, or a different column order is preferable. **U7 must be resolved before Delivery entry.** The spec accepts U7's resolution as belonging to the Delivery phase; the JIT-Spec author drafts the DDL on the basis of HLPS's default candidate (composite `(Environment, Id DESC)` and `(Project, Id DESC)`) and refines based on the actual U7 answer at Delivery time. If skew is severe enough to motivate a non-default design (e.g., filtered indexes), the JIT-Spec author updates this spec rather than improvising at Delivery time.
@@ -74,7 +74,7 @@ The deployment notes ship as part of this spec's revision trail or in a sibling 
 
 S-002 is "done" when **all** hold:
 1. The new index DDL exists in the SSDT project and matches the chosen pattern (separate file under `Indexes/` or inline in `DeploymentRequest.table.sql`).
-2. The DDL satisfies R1, R3, R4 (edition-agnostic by default per R4), and the index name(s) follow the convention.
+2. The DDL satisfies R1, R2 (no design that obviously duplicates `IX_Status_IsProd`'s key prefix; verification of plan stability is S-006), R3, and R4 (edition-agnostic by default per R4); the index name(s) follow the convention.
 3. The SSDT project builds cleanly (R6).
 4. Deployment notes (R7) exist and cover the four bullets.
 5. Open unknowns U4 and U7 are recorded as resolved in the deployment notes (or this spec, if updated post-resolution) before the work enters Delivery.
@@ -92,3 +92,4 @@ S-002 is "done" when **all** hold:
 |-------|------|--------|-----------|---------|
 | —     | 2026-05-05 | DRAFT | — | Initial draft. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted to a 3-model panel — schema-changing step, higher risk profile. GPT 5.4 substituted with Haiku 4.5. |
+| R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Opus and Sonnet **APPROVE WITH MINOR FINDINGS**; Haiku **APPROVE** (no findings). Triage: 3 ACCEPTED (Sonnet F1 MEDIUM — R1 now explicitly requires seek paths for *all three* query patterns, with two-index outcome stated when a single composite cannot cover both Environment- and Project-leading predicates; Opus F2 LOW — R2 added to AC2; Sonnet F2 LOW — R4 ONLINE recommendation strengthened from "may" to "recommended" on Enterprise); 1 NOTED (Opus F4 — Haiku 4.5 / Opus 4.7 are out-of-band substitutes for the formally listed reviewer pool, transparent acknowledgement); 3 DEFERRED (Opus F1 R5 redundancy, Opus F3 SSDT publish mechanism, Sonnet F3 R3 path over-prescription, Sonnet F4 AC item 6 governing-spec pointer — all stylistic). |
