@@ -204,10 +204,7 @@ namespace Dorc.Api.Tests
         {
             var data = new List<TestModel>().AsQueryable();
 
-            Assert.Throws<ArgumentException>(() =>
-            {
-                var expression = data.StartsWithExpression("InvalidProperty", "Test");
-            });
+            Assert.Throws<ArgumentException>(() => data.StartsWithExpression("InvalidProperty", "Test"));
         }
     }
 }
