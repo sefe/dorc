@@ -828,6 +828,7 @@ export class PageMonitorRequests
           ></vaadin-grid-sorter>
           <vaadin-text-field
             placeholder="Project"
+            title="starts with"
             clear-button-visible
             focus-target
             style="width: 90px;"
@@ -855,6 +856,7 @@ export class PageMonitorRequests
           ></vaadin-grid-sorter>
           <vaadin-text-field
             placeholder="Environment"
+            title="starts with"
             clear-button-visible
             focus-target
             style="width: 110px;"
@@ -878,7 +880,8 @@ export class PageMonitorRequests
             style="align-items: normal; flex: 0 0 auto;"
           ></vaadin-grid-sorter>
           <vaadin-text-field
-            placeholder="Build"
+            placeholder="Build#"
+            title="contains"
             clear-button-visible
             focus-target
             style="width: 80px;"
