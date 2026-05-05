@@ -23,7 +23,7 @@ This IS is a strategic roadmap. Per `CLAUDE.local.md` §2 abstraction rules, it 
 | S-001 | Audit other `ContainsExpression` consumers against the §3 critical-instance definition | — | No | No |
 | S-002 | Add supporting non-clustered index(es) on `deploy.DeploymentRequest` | — | No | **Yes** |
 | S-003 | Replace `EnvironmentNameExact` substring with equality predicate | S-002 (for seek) | Yes — env-monitor query plan changes from scan to seek; row-set unchanged | No |
-| S-004 | Switch Project + EnvironmentName per-field filters from substring (`Contains`) to prefix (`StartsWith`) in **both** the AND-path and the OR-path of the request-grid endpoint | S-002 (for seek), S-003 (for code-path adjacency) | Yes — substring matches narrow to prefix matches for these two fields | No |
+| S-004 | Switch Project + EnvironmentName per-field filters from substring (`Contains`) to prefix (`StartsWith`) in **both** the AND-path and the OR-path of the request-grid endpoint | S-002 (hard); S-003 (soft — adjacent code only) | Yes — substring matches narrow to prefix matches for these two fields | No |
 | S-005 | Update dorc-web UI affordances in the affected components to reflect the new filter semantics | S-004 (must accompany the backend change) | Yes — visible UI text changes | No |
 | S-006 | Performance verification against a representative `deploy.DeploymentRequest` dataset; capture plan + logical reads against the HLPS SC3 target | S-002, S-003, S-004 | No (verification only) | No |
 | S-007 | Release notes update describing the substring → prefix tightening, the new indexes, and the affordance changes | S-004, S-005 | No (documentation only) | No |
@@ -54,13 +54,13 @@ The index ships through the existing SSDT database project (`src/Dorc.Database`)
 
 **Why.** HLPS SC1, SC2, SC3 and §3 In Scope. The new predicates (equality and prefix) are SARGable, but they only achieve seek behaviour against a supporting index. Without S-002, S-003 and S-004 deliver less of the intended cost reduction.
 
-**Dependencies.** None on prior IS steps. Carries HLPS U4 (Enterprise vs Standard determines whether `ONLINE = ON` is available) and HLPS U7 (per-environment skew informs column order). Both are non-blocking on this step's planning but **block its entry into Delivery** until resolved by the user / DBA.
+**Dependencies.** None on prior IS steps. **Per-step blocking on Delivery entry: HLPS U4 and HLPS U7.** U4 (Enterprise vs Standard) determines whether `ONLINE = ON` is available; U7 (per-environment skew) informs column order. Both are non-blocking on this step's JIT Spec drafting (which may include a conditional fork) but block its entry into Delivery until resolved by the user / DBA.
 
 **Verification intent.**
 - The schema change builds clean against the SSDT project.
 - Deployment to a non-production environment succeeds without an exclusive lock that would block live workload (the production deployment plan is a JIT-Spec deliverable subject to U4).
 - The new index(es) are visible in `sys.indexes` post-deploy and have non-zero row count after a representative seed.
-- No regression to existing queries: the existing `IX_Status_IsProd` continues to be used where it was previously chosen (verified empirically as part of S-006).
+- (Plan-regression check against existing queries — including the existing `IX_Status_IsProd` continuing to be selected where appropriate — is performed in S-006, not here. S-002's local verification is bounded by what is observable without exercising the runtime query workload.)
 
 ---
 
@@ -86,9 +86,9 @@ The index ships through the existing SSDT database project (`src/Dorc.Database`)
 
 The IS does not specify how the predicate switch is implemented (a small targeted helper alongside `ContainsExpression`, or a parameter on the existing helper, or inlined LINQ — JIT Spec decides). It does specify that BuildNumber must continue to use substring semantics and that the path-name routing logic that distinguishes Project/Environment/BuildNumber from `EnvironmentNameExact` and from generic columns must remain coherent.
 
-**Why.** HLPS SC2, SC5; HLPS §3 In Scope (both call paths). SARGable predicates on Project and EnvironmentName let the supporting indexes from S-002 deliver seek behaviour; BuildNumber is acknowledged in HLPS as not fully SARGable in isolation.
+**Why.** HLPS SC2, SC5; HLPS §3 In Scope (both call paths). SARGable predicates on Project and EnvironmentName let the supporting indexes from S-002 deliver seek behaviour. BuildNumber is acknowledged in HLPS SC2 as not fully SARGable in isolation: when a Project or Environment filter is also supplied, the BuildNumber predicate operates on the row set already narrowed by the SARGable seek and the residual scan is bounded; BuildNumber-only filtering is explicitly carved out of the SC3 perf guarantee.
 
-**Dependencies.** S-002 (for seek behaviour to be achieved). S-003 is recommended-before but not strictly required (S-003 and S-004 touch adjacent code; bundling them reduces churn and keeps reviewers' mental model coherent).
+**Dependencies.** **S-002 (hard — required for seek behaviour).** S-003 is **soft** (adjacent code; bundling reduces churn and keeps the reviewers' mental model coherent, but S-004 can land independently of S-003 if circumstances require).
 
 **Verification intent.**
 - The captured EF SQL for Project / EnvironmentName filters contains `LIKE '@p%'` (prefix), not `LIKE '%@p%'` (substring), in **both** call paths. The OR-path is exercised by simulating the env-monitor input pattern (identical value pushed to multiple paths).
@@ -116,7 +116,7 @@ The IS does not specify how the predicate switch is implemented (a small targete
 
 ### S-006 — Performance verification
 
-**What changes.** A measured performance verification against a representative `deploy.DeploymentRequest` dataset (matching production row counts and per-environment skew within an order of magnitude — HLPS SC3 wording). Captures: query plan (seek vs scan), logical reads, and elapsed time for (a) the env-monitor `EnvironmentNameExact` query, (b) a typical multi-filter main-grid query with non-empty Project + EnvironmentName + BuildNumber (AND-path), and (c) the env-monitor `detailsFilter` query exercising the OR-path. Captures pre- and post-fix numbers.
+**What changes.** A measured performance verification against a representative `deploy.DeploymentRequest` dataset (matching production row counts and per-environment skew within an order of magnitude — HLPS SC3 wording). Captures: query plan (seek vs scan), logical reads, and elapsed time for (a) the env-monitor `EnvironmentNameExact` query — exercised **with** and **without** a Status filter combined, so the HLPS §8 risk of plan interaction with `IX_Status_IsProd` is directly observable, (b) a typical multi-filter main-grid query with non-empty Project + EnvironmentName + BuildNumber (AND-path), and (c) the env-monitor `detailsFilter` query exercising the OR-path. Pre-fix numbers are captured against the current `main` baseline (i.e., before any of S-002 / S-003 / S-004 lands) and post-fix numbers are captured after the three steps are integrated.
 
 The IS does not specify the seeding mechanism, the harness, or the exact numerical ceiling — those are JIT-Spec decisions. The HLPS SC3 ceiling deferral instruction means the spec must propose a justifiable seek-driven target and the user signs off on it as part of the spec review.
 
@@ -133,7 +133,7 @@ The IS does not specify the seeding mechanism, the harness, or the exact numeric
 
 ### S-007 — Release notes update
 
-**What changes.** A release-note entry for the next release describes (a) the substring → prefix tightening for Project and EnvironmentName filters in the request grid, (b) the unchanged substring behaviour for BuildNumber, (c) the new index(es) on `deploy.DeploymentRequest`, (d) any notable affordance changes in dorc-web, and (e) the recommendation for the operations team to confirm post-deploy CPU baseline (SC4 hand-off).
+**What changes.** A release-note entry for the next release describes (a) the substring → prefix tightening for Project and EnvironmentName filters in the request grid, (b) the unchanged substring behaviour for BuildNumber, (c) the new index(es) on `deploy.DeploymentRequest`, and (d) any notable affordance changes in dorc-web. The SC4 ops hand-off (asking the ops team to confirm post-deploy CPU baseline against the S-006 evidence report) is **separate** from the customer-facing release notes — it lands in the S-006 evidence document or a runbook entry, not in the release notes themselves.
 
 The IS does not specify the exact release-notes file path — that follows the existing project convention discovered or confirmed during JIT Spec.
 
@@ -169,3 +169,22 @@ The IS does not specify the exact release-notes file path — that follows the e
 |-------|------|--------|-----------|---------|
 | —     | 2026-05-05 | DRAFT | — | Initial draft. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted to adversarial panel. GPT 5.4 substituted with Haiku 4.5 — out-of-band model unavailable. |
+| R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | All three returned **APPROVE WITH MINOR FINDINGS**. No HIGH defects; five MEDIUM ambiguities accepted, two LOW improvements accepted, six LOW improvements deferred per fix-scope discipline. See §6 below. |
+
+## 6. R1 Adversarial Review — Triage
+
+| Finding | Reviewer | Severity | Disposition | Action / Resolution |
+|---------|----------|----------|-------------|---------------------|
+| F1 (Sonnet) | Sonnet 4.6 | MEDIUM | **ACCEPT** | S-002 Dependencies field now explicitly lists U4 and U7 together as per-step Delivery-blocking. |
+| F1 (Opus) / F1 (Haiku) | Both | MEDIUM | **ACCEPT** | §1 summary table for S-004 annotated as `S-002 (hard); S-003 (soft — adjacent code only)`. S-004 step body matches: S-002 hard, S-003 soft. |
+| F2 (Opus) | Opus 4.7 | MEDIUM | **ACCEPT** | S-002 Verification Intent rewritten to remove the "verified empirically as part of S-006" line. Plan-regression check is the responsibility of S-006 only. S-002's local verification is bounded by static / non-runtime checks. |
+| F2 (Sonnet) / F4 (Haiku) | Both | MEDIUM | **ACCEPT** | S-006 step body now explicitly requires query (a) — env-monitor `EnvironmentNameExact` — to be exercised both **with** and **without** a Status filter combined, so the HLPS §8 plan-interaction risk with `IX_Status_IsProd` is directly observable. |
+| F3 (Haiku) | Haiku 4.5 | MEDIUM | **ACCEPT** | S-004 Why section now references HLPS SC2's bounded-scan language for BuildNumber, including the explicit BuildNumber-only carve-out from SC3. |
+| F6 (Opus) | Opus 4.7 | LOW | **ACCEPT** | S-007 What-changes section now separates the customer-facing release notes (a)–(d) from the SC4 ops hand-off, which lands in the S-006 evidence document or a runbook entry. |
+| F2 (Haiku) | Haiku 4.5 | LOW | **ACCEPT** | S-006 step body now states pre-fix numbers are captured against current `main` baseline before any of S-002/S-003/S-004 land; post-fix after integration. |
+| F3 (Opus) | Opus 4.7 | LOW | **DEFER** | S-002 mentions a specific filesystem path. Kept — informational and load-bearing as scope context; fix-scope discipline says minimum effective edit. |
+| F4 (Opus) | Opus 4.7 | LOW | **DEFER** | S-005 names specific component files. Kept — explicit traceability outweighs strict abstraction here. |
+| F5 (Opus) | Opus 4.7 | LOW | **DEFER** | Verification-intent literal SQL substrings (`=`, `LIKE 'X%'`, `LIKE '%X%'`). Appropriate at IS verification-intent level; would over-prescribe to remove. |
+| F3 (Sonnet) | Sonnet 4.6 | LOW | **DEFER** | Summary table missing "Frontend-changing?" column. Stylistic, would expand surface; reader can infer from step bodies. |
+| F4 (Sonnet) | Sonnet 4.6 | LOW | **DEFER** | S-001 explicit reference to "Adversarial Quality Gate". Verbose but not incorrect; kept. |
+| F5 (Haiku) | Haiku 4.5 | LOW | **DEFER** | S-007 create-vs-update of release-notes file. JIT Spec resolves trivially. |
