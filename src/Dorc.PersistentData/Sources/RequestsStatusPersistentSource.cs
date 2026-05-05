@@ -75,14 +75,20 @@ namespace Dorc.PersistentData.Sources
                             if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                                 continue;
 
-                            var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
+                            // Project + EnvironmentName use prefix (StartsWith) -- SARGable, seeks
+                            // IX_DeploymentRequest_Project / IX_DeploymentRequest_Environment.
+                            // BuildNumber retains substring (Contains); when combined with a
+                            // SARGable Project/Environment predicate the residual scan is bounded
+                            // (HLPS SC2). BuildNumber-only filtering is explicitly out of perf scope.
+                            var predicate = pagedDataFilter.Path == "BuildNumber"
+                                ? reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue)
+                                : reqStatusesQueryable.StartsWithExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
+                            if (predicate != null)
                             {
                                 if (hasDistinctDetailValues)
-                                    reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                                    reqStatusesQueryable = reqStatusesQueryable.Where(predicate);
                                 else
-                                    filterLambdas.Add(containsExpression);
+                                    filterLambdas.Add(predicate);
                             }
                             continue;
                         }

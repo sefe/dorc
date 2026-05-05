@@ -149,5 +149,65 @@ namespace Dorc.Api.Tests
                 var expression = data.ContainsExpression("InvalidProperty", "Test");
             });
         }
+
+        [TestMethod]
+        public void StartsWithExpression_ShouldReturnValidExpressionForString()
+        {
+            var data = new List<TestModel>().AsQueryable();
+
+            var expression = data.StartsWithExpression("Name", "Pro");
+
+            Assert.IsNotNull(expression);
+            var compiledExpression = expression.Compile();
+
+            Assert.IsTrue(compiledExpression(new TestModel { Name = "ProjectAlpha" }));
+            Assert.IsTrue(compiledExpression(new TestModel { Name = "Pro" }));
+            Assert.IsFalse(compiledExpression(new TestModel { Name = "MyProject" })); // substring no longer matches
+            Assert.IsFalse(compiledExpression(new TestModel { Name = "pro" })); // case-sensitive
+        }
+
+        [TestMethod]
+        public void StartsWithExpression_NarrowerThanContains_OnPrefixOverlap()
+        {
+            // PROD vs PROD-NA: equality/prefix narrower than substring; documents the
+            // intentional behaviour change for SC5.
+            var data = new List<TestModel>().AsQueryable();
+
+            var expression = data.StartsWithExpression("Name", "PROD-NA");
+            var compiled = expression.Compile();
+
+            // PROD-NA prefix returns rows starting with PROD-NA
+            Assert.IsTrue(compiled(new TestModel { Name = "PROD-NA" }));
+            Assert.IsTrue(compiled(new TestModel { Name = "PROD-NA-DR" }));
+            // PROD does NOT start with PROD-NA -- previously substring would have not matched either,
+            // but a partial-match scenario like "TIER1-PROD-NA" (substring would match, prefix would not)
+            // is also excluded:
+            Assert.IsFalse(compiled(new TestModel { Name = "PROD" }));
+            Assert.IsFalse(compiled(new TestModel { Name = "TIER1-PROD-NA" }));
+        }
+
+        [TestMethod]
+        public void StartsWithExpression_ShouldReturnNullForUnsupportedPropertyType()
+        {
+            var data = new List<TestModel>().AsQueryable();
+
+            // int and DateTime properties are not supported by StartsWithExpression.
+            var intExpression = data.StartsWithExpression("Id", "1");
+            var dateExpression = data.StartsWithExpression("CreatedDate", "2026-01-01");
+
+            Assert.IsNull(intExpression);
+            Assert.IsNull(dateExpression);
+        }
+
+        [TestMethod]
+        public void StartsWithExpression_ShouldThrowForInvalidPropertyName()
+        {
+            var data = new List<TestModel>().AsQueryable();
+
+            Assert.Throws<ArgumentException>(() =>
+            {
+                var expression = data.StartsWithExpression("InvalidProperty", "Test");
+            });
+        }
     }
 }
