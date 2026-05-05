@@ -1,6 +1,6 @@
 # SPEC — S-001 — `ContainsExpression` Consumer Audit
 
-**Status:** IN REVIEW
+**Status:** APPROVED — auto-pilot grant 2026-05-05 (CHECKPOINT-3 skipped per user instruction "continue without my input until complete")
 **Date:** 2026-05-05
 **Step ID:** S-001
 **Author:** Ben Hegarty (with Claude Opus 4.7)
@@ -94,6 +94,7 @@ S-001 is "done" when **all** of the following hold:
 | —     | 2026-05-05 | DRAFT | — | Initial draft. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6 | Submitted to a 2-model panel — audit-only, no code change, lower risk profile per `CLAUDE.local.md` panel-sizing guidance. GPT 5.4 substituted with Sonnet 4.6 — out-of-band model unavailable. Note: this satisfies the minimum-size-2 panel rule but not the "2 distinct architectures" preference, given out-of-band access constraint. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6 | Both returned **APPROVE WITH MINOR FINDINGS**. No HIGH defects. Triage applied: 6 ACCEPTED (3 MEDIUM ambiguities — escalation gate scoping, mixed-disposition handling, "polled or auto-refreshed" definition; 3 LOW improvements — record commit SHA, cross-ref HLPS enumeration, record user sign-off in audit doc); 2 DEFERRED (R7 wording clarification, panel-composition meta-note). See §7 below. |
+| R2    | 2026-05-05 | APPROVED | Opus 4.7, Sonnet 4.6 | Submitted post-triage. Both reviewers returned **APPROVE** with zero new findings; all R1 fixes verified ADEQUATE. Status transitioned to APPROVED. CHECKPOINT-3 skipped per user auto-pilot grant; proceeding to S-001 execution. |
 
 ## 7. R1 Adversarial Review — Triage
 
