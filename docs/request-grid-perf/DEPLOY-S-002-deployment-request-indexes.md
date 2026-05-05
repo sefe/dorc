@@ -32,7 +32,7 @@ This decision must be confirmed with the user / DBA before the SSDT artefact is 
 Per index:
 - Key width: ~128–256 bytes (NVARCHAR(64) Environment + INT Id) for the Environment index; ~128–256 bytes (NVARCHAR(64) Project + INT Id) for the Project index.
 - Order-of-magnitude estimate at 1M rows: ~150–300 MB per index. At 10M rows: ~1.5–3 GB per index. These are upper bounds; SQL Server compresses and pads page boundaries so actual figures will be lower.
-- Add-time temp space: roughly equivalent to the final index size for sort-in-tempdb; the authored DDL has `SORT_IN_TEMPDB = OFF` so the build uses the data file's filegroup. If tempdb capacity is tight versus user filegroup capacity, the DBA may flip `SORT_IN_TEMPDB = ON` at deploy time.
+- Add-time temp space: roughly equivalent to the final index size for sort-in-tempdb; the authored DDL has `SORT_IN_TEMPDB = OFF` so the build uses the data file's filegroup. If tempdb capacity is tight versus user filegroup capacity, the DBA may flip `SORT_IN_TEMPDB = ON` — note this requires editing the `.index.sql` files **before publish** (or running a manual `CREATE INDEX` statement); it is not a publish-dialog toggle.
 
 The DBA should sanity-check available space on the data filegroup before running the publish.
 
