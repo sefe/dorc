@@ -1,6 +1,6 @@
 # IS — Request Grid Substring-Scan Performance Fix
 
-**Status:** IN REVIEW
+**Status:** APPROVED — Pending user approval
 **Date:** 2026-05-05
 **Author:** Ben Hegarty (with Claude Opus 4.7)
 **Topic slug:** `request-grid-perf`
@@ -170,6 +170,7 @@ The IS does not specify the exact release-notes file path — that follows the e
 | —     | 2026-05-05 | DRAFT | — | Initial draft. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted to adversarial panel. GPT 5.4 substituted with Haiku 4.5 — out-of-band model unavailable. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | All three returned **APPROVE WITH MINOR FINDINGS**. No HIGH defects; five MEDIUM ambiguities accepted, two LOW improvements accepted, six LOW improvements deferred per fix-scope discipline. See §6 below. |
+| R2    | 2026-05-05 | APPROVED | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted post-triage. Opus APPROVE; Haiku APPROVE; Sonnet selected the verdict label "APPROVE WITH MINOR FINDINGS" but raised **zero** new findings, marked every R1 fix ADEQUATE, and concluded "ready for unanimous approval; no R3 is required." Same labelling quirk as HLPS R2. Panel unanimous; status transitioned to APPROVED. |
 
 ## 6. R1 Adversarial Review — Triage
 
