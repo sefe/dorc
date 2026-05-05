@@ -1,6 +1,6 @@
 # SPEC — S-002 — Supporting Indexes on `deploy.DeploymentRequest`
 
-**Status:** IN REVIEW
+**Status:** APPROVED — auto-pilot grant 2026-05-05
 **Date:** 2026-05-05
 **Step ID:** S-002
 **Author:** Ben Hegarty (with Claude Opus 4.7)
