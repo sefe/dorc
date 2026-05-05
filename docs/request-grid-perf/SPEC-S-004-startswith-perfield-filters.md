@@ -1,6 +1,6 @@
 # SPEC — S-004 — Project + EnvironmentName per-field filters: substring → `StartsWith`
 
-**Status:** IN REVIEW
+**Status:** APPROVED — auto-pilot grant 2026-05-05
 **Date:** 2026-05-05
 **Step ID:** S-004
 **Author:** Ben Hegarty (with Claude Opus 4.7)
@@ -27,7 +27,7 @@ The branches in `GetRequestStatusesByPage` that today route `Project`, `Environm
 
 - `Project` filter values produce a LINQ predicate that EF Core compiles to `WHERE [Project] LIKE '@p%'` — i.e., prefix, SARGable.
 - `EnvironmentName` filter values produce a LINQ predicate that EF Core compiles to `WHERE [Environment] LIKE '@p%'` — prefix, SARGable.
-- `BuildNumber` filter values continue to produce a substring predicate (`LIKE '%@p%'`); behaviour and SQL are unchanged for that field.
+- `BuildNumber` filter values continue to produce a substring predicate (`LIKE '%@p%'`); behaviour and SQL are unchanged for that field. Whether the BuildNumber path remains routed through `ContainsExpression` or is inlined alongside the new prefix predicates for symmetry is the JIT author's choice — both are acceptable provided the emitted SQL is unchanged.
 
 The implementation approach is unconstrained at spec level: the JIT author may add a new `StartsWithExpression` helper alongside `ContainsExpression` in `DataPagerExtension`, branch inline in `GetRequestStatusesByPage` per filter path, or any other approach that produces the required SQL. The constraint is the *generated SQL*, not the C# shape.
 
@@ -35,7 +35,7 @@ The implementation approach is unconstrained at spec level: the JIT author may a
 The predicate change applies in **both** code paths. Specifically:
 
 - **AND-path** (`hasDistinctDetailValues == true`): when the request grid sends distinct Project / EnvironmentName / BuildNumber values, each is ANDed via `Where(...)`. Project and EnvironmentName must use `StartsWith`; BuildNumber must use substring.
-- **OR-path** (`hasDistinctDetailValues == false`): the env-monitor's shared `detailsFilter` pushes one value to multiple paths; predicates are accumulated into `filterLambdas` and combined via `WhereAny`. The Project and BuildNumber lambdas (and EnvironmentName, if present) must respect the same per-path predicate semantics — so the OR-combination is `Project StartsWith @p OR BuildNumber Contains @p` (heterogeneous semantics within one OR is intentional and matches HLPS SC2 wording).
+- **OR-path** (`hasDistinctDetailValues == false`): the env-monitor's shared `detailsFilter` pushes one value to multiple paths; predicates are accumulated into `filterLambdas` and combined via `WhereAny`. The Project and BuildNumber lambdas (and EnvironmentName, if present) must respect the same per-path predicate semantics — so the OR-combination is `Project StartsWith @p OR BuildNumber Contains @p` (heterogeneous semantics within one OR is intentional and matches HLPS SC2 wording). When `EnvironmentNameExact` is also present alongside OR-path filters, the equality predicate from S-003 continues to apply directly to `reqStatusesQueryable` (it bypasses `filterLambdas` via its own `continue`), so the composed result is `WHERE [Environment] = @p AND (Project LIKE '@p%' OR BuildNumber LIKE '%@p%')` — correct and unchanged from S-003's contract.
 
 ### R3 — Helper untouched (or extended additively)
 `DataPagerExtension.ContainsExpression` is not modified in a way that changes its current callers' behaviour. If the JIT author adds a `StartsWithExpression` helper, it is a new function alongside `ContainsExpression`, not a parameterisation of the existing one (the additive change preserves binary compatibility for any external consumer and keeps the diff narrow).
@@ -47,7 +47,7 @@ The `EnvironmentNameExact` equality branch from S-003 is **not** modified by S-0
 Test coverage for S-004 follows the same pragmatic envelope as S-003: the `Dorc.Api.Tests` project today has no EF Core relational test infrastructure (no SQLite / no InMemory provider that supports `ToQueryString()`), so SQL-shape assertions are not feasible without scope expansion. The JIT author MUST add at least the following testable evidence:
 
 - Unit-testable assertions, where feasible without new infrastructure, that:
-  - The Project / EnvironmentName / BuildNumber predicate selection paths route correctly. If a new `StartsWithExpression` helper is added, it has its own unit tests modelled on the existing `ContainsExpression` tests in `Dorc.Api.Tests/DataPagerExtensionTests.cs` (which assert the LINQ expression tree shape — that pattern works without an EF context).
+  - The Project / EnvironmentName / BuildNumber predicate selection paths route correctly. If a new `StartsWithExpression` helper is added, it has its own unit tests modelled on the existing `ContainsExpression` tests in `Dorc.Api.Tests/DataPagerExtensionTests.cs` (which compile the returned expression and assert in-memory evaluation outcomes — that pattern works without an EF context).
 - The deviation from the SPEC's preferred SQL-shape assertion is explicitly recorded in the commit message and is the same deviation taken on S-003.
 
 If the JIT author chooses to invest in adding SQLite-backed EF Core test infrastructure, that is acceptable scope expansion **iff** the user explicitly approves before delivery. Otherwise, the deviation is the same as S-003.
@@ -97,3 +97,4 @@ S-004 is "done" when **all** hold:
 |-------|------|--------|-----------|---------|
 | —     | 2026-05-05 | DRAFT | — | Initial draft. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted to a 3-model panel — main behaviour change. |
+| R1    | 2026-05-05 | APPROVED | Opus 4.7, Sonnet 4.6, Haiku 4.5 | All three **APPROVE WITH MINOR FINDINGS**. No HIGH defects. ACCEPTED 3 MEDIUM (Opus F1 — corrected R5's factual misstatement about existing test pattern from "expression tree shape" to "compile + in-memory evaluation"; Opus F2 — clarified R1 BuildNumber routing as JIT-author choice; Sonnet F1 — added R2 OR-path note that EnvironmentNameExact bypass via S-003 composes correctly as AND with the OR-path filterLambdas). DEFERRED LOWs (Haiku F2 OR-path test-coverage tightening — coverage envelope inherits S-003's documented infrastructure deviation; Opus F3-F6 stylistic; Sonnet F2-F4 stylistic). Status APPROVED. |
