@@ -1,6 +1,6 @@
 # HLPS — Request Grid Substring-Scan Performance Fix
 
-**Status:** IN REVIEW
+**Status:** APPROVED — Pending user approval
 **Date:** 2026-05-05
 **Author:** Ben Hegarty (with Claude Opus 4.7)
 **Topic slug:** `request-grid-perf`
@@ -113,6 +113,7 @@ A blocking unknown halts entry into the Delivery Loop until resolved.
 | —     | 2026-05-05 | DRAFT | — | U1–U3 resolved; success criteria and §1 references updated. Ready for adversarial panel submission pending user sign-off. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted to adversarial panel. **Reviewer substitution:** GPT 5.4 substituted with Haiku 4.5 — out-of-band model access unavailable from this harness. Panel size = 3, distinct Claude size classes. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6, Haiku 4.5 | All three returned **APPROVE WITH MINOR FINDINGS**. Sonnet raised 2 HIGH defects: (a) overstated removal of multi-sort guard; (b) missing acknowledgement of `env-monitor.ts`'s `WhereAny` OR-path. Both verified against code and accepted. R1 triage applied: 9 findings ACCEPTED, 1 REJECTED (Sonnet F5 — `Indexes/` subdir does exist in the codebase, see U5 resolution), 2 DEFERRED as stylistic (Opus F6, Haiku F4). See §11 below. |
+| R2    | 2026-05-05 | APPROVED | Opus 4.7, Sonnet 4.6, Haiku 4.5 | Submitted post-triage. Sonnet 4.6 and Haiku 4.5 returned **APPROVE** with no new findings; all R1 fixes verified ADEQUATE. Opus 4.7 returned the verdict label "APPROVE WITH MINOR FINDINGS" but raised **zero** new findings, marked every R1 fix ADEQUATE, and concluded "ready for unanimous approval; no R3 round is warranted." Sonnet independently glob-verified the F5 rejection (six `.index.sql` files exist under `Schema Objects/Schemas/deploy/Tables/Indexes/`). Panel unanimous; status transitioned to APPROVED. |
 
 ## 11. R1 Adversarial Review — Triage
 
