@@ -757,7 +757,8 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
     render(
       html`
         <vaadin-text-field
-          placeholder="Details"
+          placeholder="Project / Build"
+          title="Project starts with the entered text, or Build contains it"
           clear-button-visible
           focus-target
           style="width: 110px"
