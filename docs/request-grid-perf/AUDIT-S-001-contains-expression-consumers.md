@@ -1,6 +1,6 @@
 # AUDIT — S-001 — `ContainsExpression` Consumer Audit
 
-**Status:** IN REVIEW
+**Status:** APPROVED — auto-pilot grant 2026-05-05
 **Date:** 2026-05-05
 **Step ID:** S-001
 **Author:** Ben Hegarty (with Claude Opus 4.7)
@@ -19,7 +19,7 @@
 - Pattern: `\bContainsExpression\b`
 - Commit SHA: `3af8a7f426532f74b41565ab417be7e17bfd54a1` (branch `perf/request-grid-sargable-filters`)
 
-**Result set:** 19 hits. Excluding (a) the helper definition itself, (b) the request-status grid path (`RequestsStatusPersistentSource` — the subject of this HLPS), (c) test code (`*Tests*` per spec §3 out-of-scope), and (d) two comment-only hits in `DaemonAuditPersistentSource.cs`, the audited consumer set is **9 call sites across 8 files**:
+**Result set:** 20 hits. Excluding (a) the helper definition itself in `DataPagerExtension.cs` (1), (b) three call sites in the request-status grid path `RequestsStatusPersistentSource.cs` (the subject of this HLPS), (c) five hits in test code `DataPagerExtensionTests.cs` (per spec §3 out-of-scope), and (d) two comment-only hits in `DaemonAuditPersistentSource.cs` (lines 57 and 99 — comments referring to the helper; the live call site at line 101 is included as consumer #9 below), the audited consumer set is **9 call sites across 8 files**. Arithmetic: 20 − 1 helper − 3 request-status − 5 tests − 2 DaemonAudit-comments = 9 audited consumers.
 
 | # | File | Line | Underlying Entity | API Surface |
 |---|------|------|-------------------|-------------|
@@ -57,27 +57,27 @@ The three conditions per HLPS §3 / SPEC-S-001 §2 R2:
 2. **(Polling)** Filter invoked from a polled or auto-refreshed UI surface (per the SPEC-S-001 R2 definition: timer, SignalR push, focus re-fetch — anything that re-issues the request without explicit user action).
 3. **(Index gap)** At least one filter column lacks a supporting index.
 
-**Polling assessment basis:** comprehensive grep of `src/dorc-web` for `setInterval`, `setTimeout` (re-fetch patterns vs. debounce), and SignalR `hubConnection` usage at commit `3af8a7f4`. The only SignalR consumer is `env-monitor.ts` (which consumes the request-status grid being fixed elsewhere in this HLPS). All `setTimeout` matches in the audited consumers' UI surfaces are filter-input debouncing (`later(); window.setTimeout(later, wait);`), not periodic re-fetch. **None of the audited consumers' UI surfaces re-issue the request without explicit user action.** Condition (2) is therefore **False** for every audited consumer.
+**Polling assessment basis:** comprehensive grep of `src/dorc-web` for `setInterval`, `setTimeout` (re-fetch patterns vs. debounce), and SignalR `hubConnection` usage at commit `3af8a7f4`. SignalR-subscribed surfaces are confined to the deployment-monitor stack (`env-monitor.ts`, `page-monitor-requests.ts`, `page-monitor-result.ts`, `request-status-card.ts`, `connection-status-indicator.ts`) — *none* of which consume any of the 9 audited endpoints; they all consume the request-status grid being fixed elsewhere in this HLPS. The audited consumers' surfaces inspected directly for periodic re-fetch were `page-servers-list.ts`, `page-scripts-list.ts`, `page-scripts-audit.ts`, `page-databases-list.ts`, `page-variables.ts`, `env-variables.ts`, and the projects/daemons audit pages — all `setTimeout` matches in those files are the standard filter-input debounce pattern (`later(); window.setTimeout(later, wait);`), and no `setInterval` exists anywhere in `src/dorc-web/src`. **None of the audited consumers' UI surfaces re-issue the request without explicit user action.** Condition (2) is therefore **False** for every audited consumer.
 
 | # | Consumer | (1) Rows >100K? | (2) Polled? | (3) Index gap? | Disposition |
 |---|----------|-----------------|-------------|----------------|-------------|
-| 1 | ServersPersistentSource | Indeterminate (DBA) | **False** (user-triggered list page; debounced filter input only) | Likely (no NC index on Server columns observed in SSDT project beyond keys) | **Non-critical** (Condition 2 false) |
-| 2 | ScriptsPersistentSource | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
-| 3 | ScriptsAuditPersistentSource | Indeterminate (DBA) | **False** (audit pages are user-navigated, not auto-refreshed) | Likely | **Non-critical** (Condition 2 false) |
-| 4 | PropertyValuesPersistentSource (env-scoped) | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
-| 5 | PropertyValuesPersistentSource (global-scoped) | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
-| 6 | PropertyValuesAuditPersistentSource | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
-| 7 | ManageProjectsPersistentSource (RefDataAudit) | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
-| 8 | DatabasesPersistentSource | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
-| 9 | DaemonAuditPersistentSource | Indeterminate (DBA) | **False** | Likely | **Non-critical** (Condition 2 false) |
+| 1 | ServersPersistentSource | Indeterminate (DBA) | **False** (user-triggered list page; debounced filter input only) | Indeterminate (not exhaustively verified across SSDT) | **Non-critical** (Condition 2 false) |
+| 2 | ScriptsPersistentSource | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
+| 3 | ScriptsAuditPersistentSource | Indeterminate (DBA) | **False** (audit pages are user-navigated, not auto-refreshed) | Indeterminate | **Non-critical** (Condition 2 false) |
+| 4 | PropertyValuesPersistentSource (env-scoped) | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
+| 5 | PropertyValuesPersistentSource (global-scoped) | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
+| 6 | PropertyValuesAuditPersistentSource | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
+| 7 | ManageProjectsPersistentSource (RefDataAudit) | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
+| 8 | DatabasesPersistentSource | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
+| 9 | DaemonAuditPersistentSource | Indeterminate (DBA) | **False** | Indeterminate | **Non-critical** (Condition 2 false) |
 
-**Disposition summary:** **0 Critical, 0 Potentially Critical, 0 Indeterminate, 9 Non-critical.**
+**Disposition summary:** **0 Critical, 0 Potentially Critical, 0 Indeterminate (final), 9 Non-critical.** (Per-condition Indeterminate values for Conditions 1 and 3 do not promote any consumer to the Indeterminate *disposition* because Condition 2 is decisively False — the conjunctive test resolves to Non-critical regardless of the values of (1) and (3).)
 
 The Critical-instance test is conjunctive — all three conditions must be True for a Critical disposition. Condition 2 (polled / auto-refreshed) is the discriminating factor: the request-status grid was uniquely subject to high-frequency polling because `env-monitor.ts` re-issues it via SignalR push subscriptions and `page-monitor-requests.ts` is the most actively-used grid on the platform. None of the audited consumers share that property.
 
 Row counts (Condition 1) are recorded as Indeterminate because production row counts are not derivable from the repository alone; however, the conjunctive nature of the test means this Indeterminate value cannot promote any consumer to Critical or Potentially Critical given Condition 2 is False.
 
-Index-gap (Condition 3) was assessed as "likely" for all consumers without exhaustive per-column SSDT analysis, on the basis that the SSDT project shows few non-clustered indexes outside of FK columns and no string-search indexes on the filter columns of these tables. A more thorough index inventory would refine this column, but again does not affect the conjunctive disposition.
+Index-gap (Condition 3) is recorded as **Indeterminate** for all consumers because exhaustive per-column SSDT analysis was not performed — the SSDT project shows few non-clustered indexes outside of FK columns and no string-search indexes on the filter columns of these tables, but a definitive True classification would require column-by-column verification per consumer. The Indeterminate value does not affect the conjunctive disposition (Condition 2 is False, so Non-critical regardless).
 
 ## 3. Escalation (R3)
 
@@ -114,3 +114,4 @@ The HLPS hypothesis — that the request-status grid is the unique acute case am
 |-------|------|--------|-----------|---------|
 | —     | 2026-05-05 | DRAFT | — | Initial audit. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6 | Submitted to a 2-model panel — audit deliverable, no code change. |
+| R1    | 2026-05-05 | APPROVED | Opus 4.7, Sonnet 4.6 | Opus: APPROVE WITH MINOR FINDINGS (3 LOW). Sonnet: APPROVE (3 LOW + 1 INFORMATIONAL). All findings are presentation-level — none change the dispositions or conclusion. Three accepted and applied: result-set count corrected (19 → 20 with arithmetic shown); "Likely" Condition 3 values changed to "Indeterminate" (spec-vocabulary compliance); SignalR claim broadened to enumerate all deployment-monitor stack surfaces. Sonnet F1 (prose clarity on DaemonAudit comment exclusions) absorbed by the rewritten Method paragraph; Sonnet F2 (per-surface inspection naming) addressed by enumerating the inspected surfaces in the Polling assessment basis. Status APPROVED. |
