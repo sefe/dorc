@@ -827,7 +827,7 @@ export class PageMonitorRequests
             style="align-items: normal; flex: 0 0 auto;"
           ></vaadin-grid-sorter>
           <vaadin-text-field
-            placeholder="Project starts with"
+            placeholder="starts with"
             clear-button-visible
             focus-target
             style="width: 90px;"
@@ -854,7 +854,7 @@ export class PageMonitorRequests
             style="align-items: normal; flex: 0 0 auto;"
           ></vaadin-grid-sorter>
           <vaadin-text-field
-            placeholder="Env starts with"
+            placeholder="starts with"
             clear-button-visible
             focus-target
             style="width: 110px;"
@@ -878,7 +878,7 @@ export class PageMonitorRequests
             style="align-items: normal; flex: 0 0 auto;"
           ></vaadin-grid-sorter>
           <vaadin-text-field
-            placeholder="Build contains"
+            placeholder="contains"
             clear-button-visible
             focus-target
             style="width: 80px;"
