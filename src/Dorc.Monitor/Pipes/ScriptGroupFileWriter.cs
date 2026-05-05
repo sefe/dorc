@@ -6,6 +6,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text.Json;
 using Dorc.ApiModel.MonitorRunnerApi;
+using AccessControlType = System.Security.AccessControl.AccessControlType;
 
 namespace Dorc.Monitor.Pipes
 {

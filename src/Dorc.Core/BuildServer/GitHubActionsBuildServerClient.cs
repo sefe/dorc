@@ -350,9 +350,8 @@ namespace Dorc.Core.BuildServer
             // RFC 5988: <https://...>; rel="next", <https://...>; rel="last"
             foreach (var value in values)
             {
-                foreach (var part in value.Split(','))
+                foreach (var segment in value.Split(',').Select(p => p.Trim()))
                 {
-                    var segment = part.Trim();
                     if (!segment.Contains("rel=\"next\"", StringComparison.OrdinalIgnoreCase))
                         continue;
                     var start = segment.IndexOf('<');
