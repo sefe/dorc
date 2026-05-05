@@ -56,13 +56,16 @@ namespace Dorc.PersistentData.Sources
                         if (pagedDataFilter == null)
                             continue;
 
-                        // For env specific monitor
+                        // For env specific monitor: equality predicate on Environment, SARGable
+                        // against IX_DeploymentRequest_Environment. The sole consumer
+                        // (env-monitor.ts) always pushes a fully-qualified environment name,
+                        // so equality is row-set-equivalent to the previous substring match for
+                        // production input while removing the LIKE '%...%' table-scan cost.
                         if (pagedDataFilter.Path == "EnvironmentNameExact")
                         {
-                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
-                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                            var environmentName = pagedDataFilter.FilterValue;
+                            if (!string.IsNullOrEmpty(environmentName))
+                                reqStatusesQueryable = reqStatusesQueryable.Where(req => req.EnvironmentName == environmentName);
                             continue;
                         }
 
