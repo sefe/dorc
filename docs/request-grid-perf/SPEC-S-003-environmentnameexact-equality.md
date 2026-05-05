@@ -1,6 +1,6 @@
 # SPEC — S-003 — `EnvironmentNameExact` Substring → Equality
 
-**Status:** IN REVIEW
+**Status:** APPROVED — auto-pilot grant 2026-05-05
 **Date:** 2026-05-05
 **Step ID:** S-003
 **Author:** Ben Hegarty (with Claude Opus 4.7)
@@ -25,7 +25,7 @@ The branch in `GetRequestStatusesByPage` that today routes `EnvironmentNameExact
 The implementation approach is unconstrained at IS / spec level: a small inline LINQ `Where(req => req.EnvironmentName == filterValue)`, a tiny dedicated helper alongside `ContainsExpression`, or any other SARGable equality construction is acceptable. The constraint is the *generated SQL*, not the C# shape.
 
 ### R2 — Generated SQL is an equality predicate
-The EF-translated SQL for the `EnvironmentNameExact` filter contains an exact `=` comparison and **does not** contain `LIKE '%…%'`. This must be assertable in test (see R5).
+The EF-translated SQL for the `EnvironmentNameExact` filter contains an exact `=` comparison and **does not** contain `LIKE '%…%'`. This must be assertable in test (see R5). Tolerated companion patterns: under default EF null-handling, EF Core may emit an `IS NULL` companion branch alongside `=` (see §5); R2 is satisfied as long as `=` is present and `LIKE '%` is absent — additional `IS NULL` clauses are not failures.
 
 ### R3 — Helper untouched
 `DataPagerExtension.ContainsExpression` is not modified. No call site outside `RequestsStatusPersistentSource.GetRequestStatusesByPage` changes behaviour.
@@ -36,14 +36,14 @@ The other filter branches in `GetRequestStatusesByPage` — `Project`, `Environm
 ### R5 — Test coverage
 Add or update unit tests in the appropriate test project (`Dorc.Api.Tests` or `Dorc.PersistentData.Tests`, JIT author chooses based on existing test placement) covering:
 
-- A request with an `EnvironmentNameExact` filter produces a queryable whose translated SQL contains `=` and not `LIKE '%`. The assertion mechanism is delivery-time (e.g., `IQueryable.ToQueryString()` against an in-memory provider, or capture from a SQLite-backed integration test).
-- A request with no `EnvironmentNameExact` filter does not produce an equality predicate (regression guard for accidental always-on application).
+- A request with an `EnvironmentNameExact` filter produces a queryable whose translated SQL contains `=` and not `LIKE '%`. The assertion mechanism is delivery-time (`IQueryable.ToQueryString()` requires a relational provider — SQLite-backed or SQL-Server-backed; the EF Core in-memory provider does not support `ToQueryString()` and is unsuitable for SQL-shape assertions).
+- A request with no `EnvironmentNameExact` filter does not produce the new `EnvironmentName` equality predicate (regression guard against the new equality clause being applied unconditionally — does not assert absence of `=` elsewhere in the SQL, since other legitimate equality predicates may exist on integer columns or joins).
 - Existing grid filter tests for the other branches (Project, EnvironmentName, BuildNumber) continue to pass without modification.
 
 The exact assertion library, naming, and test-fixture pattern are JIT-author choices guided by adjacent test code in the chosen project.
 
 ### R6 — Behaviour parity for the env-monitor consumer
-The `env-monitor.ts` consumer pushes a fully-qualified environment name (per HLPS U3). Equality and substring-against-the-same-value return the same row set when the value is the complete environment name — so the change is row-set-neutral for the production caller. Verification: the test in R5 uses a value that would have matched as substring in a multi-environment dataset, and confirms equality returns the same single row.
+The `env-monitor.ts` consumer pushes a fully-qualified environment name (per HLPS U3). Equality and substring-against-the-same-value return the same row set when the value is the complete environment name — so the change is row-set-neutral for the production caller. Verification: the test in R5 uses a multi-environment seed where one environment name is a substring of another (e.g., `PROD`, `PROD-NA`). For a filter value equal to a complete env name (the production caller's pattern), equality returns the same row(s) the substring path would have returned — and explicitly does **not** return the partial-match row that the substring path *would* have included. The latter assertion confirms the predicate is correctly narrower than substring in the multi-entry case, which is the safety property HLPS U3's resolution rests on.
 
 ### R7 — Build cleanly
 The solution builds (`dotnet build` for the affected projects) without new warnings. CI is the canonical build gate; local verification of the affected projects (`Dorc.PersistentData`, `Dorc.Api`, `Dorc.Api.Tests`) is sufficient for the JIT-author's local check.
@@ -79,3 +79,4 @@ S-003 is "done" when **all** hold:
 |-------|------|--------|-----------|---------|
 | —     | 2026-05-05 | DRAFT | — | Initial draft. |
 | R1    | 2026-05-05 | IN REVIEW | Opus 4.7, Sonnet 4.6 | Submitted to a 2-model panel — narrow surgical change. |
+| R1    | 2026-05-05 | APPROVED | Opus 4.7, Sonnet 4.6 | Both **APPROVE WITH MINOR FINDINGS**. Triage: ACCEPTED 4 (Sonnet F1 MEDIUM — R2 cross-references §5's IS NULL acceptance; Opus F1 LOW — R5 wording on "no equality predicate" tightened to refer to the *new* equality clause; Opus F2 + Sonnet F3 LOW — R6 verification scenario expanded to explicitly assert the multi-entry narrower-than-substring property; Sonnet F2 LOW — R5 mention of "in-memory provider" corrected to relational-only). DEFERRED 4 (Opus F3 column-name agnosticism, Opus F4 R7 test project list, Opus F5 R5 IS NULL tolerance hint redundant with new R2 wording, Opus F6 informational). Status APPROVED — auto-pilot grant; CHECKPOINT-3 skipped per user instruction. |
