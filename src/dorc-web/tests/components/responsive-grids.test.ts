@@ -1,4 +1,4 @@
-import { expect, fixture, html } from '@open-wc/testing';
+import { expect, fixture, html } from '../_helpers';
 
 // ─── mockMatchMedia helper (same pattern as grid-column-hiding.test.ts) ───
 let originalMatchMedia: typeof window.matchMedia;
@@ -64,94 +64,93 @@ function assertResponsiveCss(Cls: any, name: string) {
 describe('Responsive grid CSS (structural)', () => {
   // Sub-components
   it('attached-app-users CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./attached-app-users.js');
+    const mod = await import('../../src/components/attached-app-users.js');
     assertResponsiveCss(mod.AttachedUsers, 'attached-app-users');
   });
 
-  it('attached-databases CSS contains responsive cell wrapping', async function () {
-    this.timeout(30000);
-    const mod = await import('./attached-databases.js');
+  it('attached-databases CSS contains responsive cell wrapping', async () => {
+    const mod = await import('../../src/components/attached-databases.js');
     assertResponsiveCss(mod.AttachedDatabases, 'attached-databases');
   });
 
   it('attached-servers CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./attached-servers.js');
+    const mod = await import('../../src/components/attached-servers.js');
     assertResponsiveCss(mod.AttachedServers, 'attached-servers');
   });
 
   it('component-deployment-results CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./component-deployment-results.js');
+    const mod = await import('../../src/components/component-deployment-results.js');
     assertResponsiveCss(mod.ComponentDeploymentResults, 'component-deployment-results');
   });
 
   it('env-deployments CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./env-deployments.js');
+    const mod = await import('../../src/components/env-deployments.js');
     assertResponsiveCss(mod.EnvDeployments, 'env-deployments');
   });
 
   it('env-variables CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./environment-tabs/env-variables.js');
+    const mod = await import('../../src/components/environment-tabs/env-variables.js');
     assertResponsiveCss(mod.EnvVariables, 'env-variables');
   });
 
   // Page-level components
   it('page-config-values-list CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-config-values-list.js');
+    const mod = await import('../../src/pages/page-config-values-list.js');
     assertResponsiveCss(mod.PageConfigValuesList, 'page-config-values-list');
   });
 
   it('page-daemons-list CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-daemons-list.js');
+    const mod = await import('../../src/pages/page-daemons-list.js');
     assertResponsiveCss(mod.PageDaemonsList, 'page-daemons-list');
   });
 
   it('page-permissions-list CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-permissions-list.js');
+    const mod = await import('../../src/pages/page-permissions-list.js');
     assertResponsiveCss(mod.PagePermissionsList, 'page-permissions-list');
   });
 
   it('page-project-bundles CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-project-bundles.js');
+    const mod = await import('../../src/pages/page-project-bundles.js');
     assertResponsiveCss(mod.PageProjectBundles, 'page-project-bundles');
   });
 
   it('page-scripts-list CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-scripts-list.js');
+    const mod = await import('../../src/pages/page-scripts-list.js');
     assertResponsiveCss(mod.PageScriptsList, 'page-scripts-list');
   });
 
   it('page-variables-audit CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-variables-audit.js');
+    const mod = await import('../../src/pages/page-variables-audit.js');
     assertResponsiveCss(mod.PageVariablesAudit, 'page-variables-audit');
   });
 
   it('page-variables-value-lookup CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-variables-value-lookup.js');
+    const mod = await import('../../src/pages/page-variables-value-lookup.js');
     assertResponsiveCss(mod.PageVariablesValueLookup, 'page-variables-value-lookup');
   });
 
   it('page-daemons-audit CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-daemons-audit.js');
+    const mod = await import('../../src/pages/page-daemons-audit.js');
     assertResponsiveCss(mod.PageDaemonsAudit, 'page-daemons-audit');
   });
 
   it('page-projects-audit CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-projects-audit.js');
+    const mod = await import('../../src/pages/page-projects-audit.js');
     assertResponsiveCss(mod.PageProjectsAudit, 'page-projects-audit');
   });
 
   it('page-scripts-audit CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-scripts-audit.js');
+    const mod = await import('../../src/pages/page-scripts-audit.js');
     assertResponsiveCss(mod.PageScriptsAudit, 'page-scripts-audit');
   });
 
   it('page-project-components CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../pages/page-project-components.js');
+    const mod = await import('../../src/pages/page-project-components.js');
     assertResponsiveCss(mod.PageProjectComponents, 'page-project-components');
   });
 
   it('env-monitor CSS contains responsive cell wrapping', async () => {
-    const mod = await import('./environment-tabs/env-monitor.js');
+    const mod = await import('../../src/components/environment-tabs/env-monitor.js');
     assertResponsiveCss(mod.EnvMonitor, 'env-monitor');
   });
 });

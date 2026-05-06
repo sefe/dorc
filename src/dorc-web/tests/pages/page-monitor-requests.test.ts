@@ -1,20 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// jsdom lacks window.matchMedia — stub it for ResponsiveMixin
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-});
-
 // --- Hoisted mock values (available before vi.mock factories run) ---
 const { mockRequestStatusesPut, mockSubscribe } = vi.hoisted(() => {
   const mockSubscribe = vi.fn();
@@ -38,13 +23,13 @@ vi.mock('@vaadin/notification', () => ({
 vi.mock('@vaadin/grid', () => ({}));
 
 // Internal component side-effect registrations
-vi.mock('../components/grid-button-groups/request-controls', () => ({}));
-vi.mock('../icons/iron-icons.js', () => ({}));
-vi.mock('../icons/custom-icons.js', () => ({}));
-vi.mock('../components/notifications/error-notification', () => ({
+vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
+vi.mock('../../src/icons/iron-icons.js', () => ({}));
+vi.mock('../../src/icons/custom-icons.js', () => ({}));
+vi.mock('../../src/components/notifications/error-notification', () => ({
   ErrorNotification: class {}
 }));
-vi.mock('../components/connection-status-indicator', () => ({}));
+vi.mock('../../src/components/connection-status-indicator', () => ({}));
 
 // SignalR
 vi.mock('@microsoft/signalr', () => ({
@@ -53,7 +38,7 @@ vi.mock('@microsoft/signalr', () => ({
     Connected: 'Connected'
   }
 }));
-vi.mock('../services/ServerEvents', () => ({
+vi.mock('../../src/services/ServerEvents', () => ({
   DeploymentHub: {
     getConnection: vi.fn(() => ({
       onclose: vi.fn(),
@@ -68,27 +53,27 @@ vi.mock('../services/ServerEvents', () => ({
 }));
 
 // Helpers & router
-vi.mock('../helpers/user-extensions.js', () => ({
+vi.mock('../../src/helpers/user-extensions.js', () => ({
   getShortLogonName: vi.fn((name: string) => name)
 }));
-vi.mock('../helpers/errorMessage-retriever.js', () => ({
+vi.mock('../../src/helpers/errorMessage-retriever.js', () => ({
   retrieveErrorMessage: vi.fn((err: unknown) => String(err))
 }));
-vi.mock('../helpers/html-meta-manager', () => ({
+vi.mock('../../src/helpers/html-meta-manager', () => ({
   updateMetadata: vi.fn()
 }));
-vi.mock('../router/routes.ts', () => ({}));
+vi.mock('../../src/router/routes.ts', () => ({}));
 vi.mock('@vaadin/router', () => ({}));
 
 // DOrc API
-vi.mock('../apis/dorc-api', () => ({
+vi.mock('../../src/apis/dorc-api', () => ({
   RequestStatusesApi: class {
     requestStatusesPut = mockRequestStatusesPut;
   }
 }));
 
 // --- Import component after mocks are defined ---
-import { PageMonitorRequests } from './page-monitor-requests';
+import { PageMonitorRequests } from '../../src/pages/page-monitor-requests';
 
 /** Flush microtask queue so async firstUpdated (SignalR init) completes. */
 async function flushAsync(): Promise<void> {
@@ -99,7 +84,7 @@ describe('PageMonitorRequests', () => {
   let el: PageMonitorRequests;
 
   beforeEach(async () => {
-    // Use class constructor directly — more reliable than document.createElement in jsdom
+    // Use class constructor directly — more reliable than document.createElement
     el = new PageMonitorRequests();
     document.body.appendChild(el);
     await el.updateComplete;

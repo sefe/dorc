@@ -1,8 +1,8 @@
-import { expect, fixture, html } from '@open-wc/testing';
-import './environment-card.js';
-import type { EnvironmentCard } from './environment-card.js';
-import './project-card.js';
-import type { ProjectCard } from './project-card.js';
+import { expect, fixture, html } from '../_helpers';
+import '../../src/components/environment-card.js';
+import type { EnvironmentCard } from '../../src/components/environment-card.js';
+import '../../src/components/project-card.js';
+import type { ProjectCard } from '../../src/components/project-card.js';
 
 describe('Touch target structure', () => {
   describe('Environment card buttons', () => {
@@ -62,7 +62,7 @@ describe('Touch target structure', () => {
 
   describe('Style registration for icon buttons', () => {
     it('should give vaadin-button[theme="icon"] a 44x44 minimum touch target', async () => {
-      await import('../router/style-registrations.js');
+      await import('../../src/router/style-registrations.js');
       await import('@vaadin/button');
 
       const button = await fixture<HTMLElement>(html`
@@ -77,7 +77,7 @@ describe('Touch target structure', () => {
   describe('Database list tag/env buttons', () => {
     it('should verify tag and env button styles exist', async () => {
       // Import the page to check its styles
-      const module = await import('../pages/page-databases-list.js');
+      const module = await import('../../src/pages/page-databases-list.js');
       const PageDatabasesList = module.PageDatabasesList;
 
       const styles = PageDatabasesList.styles;
