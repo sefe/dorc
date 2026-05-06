@@ -2,7 +2,7 @@
 
 | Field      | Value                                  |
 |------------|----------------------------------------|
-| **Status** | DRAFT — Pending user input on unknowns |
+| **Status** | APPROVED                               |
 | **Author** | Agent                                  |
 | **Date**   | 2026-05-06                             |
 | **Folder** | docs/api-tab/                          |
@@ -102,18 +102,18 @@ Replace the `env-apis.ts` placeholder with a real component modelled directly on
 
 ## 6. Unknowns Register
 
-| ID  | Question | Blocking? | Why it matters |
-|-----|----------|-----------|----------------|
-| U-1 | What attributes does an "API" record carry beyond Name + Endpoint + Description? Candidates: Type/Protocol (REST/SOAP/gRPC), AuthType (None/Basic/Bearer/OAuth), HealthCheckPath, OwnerProject, Tags. | **YES** | Drives the SQL DDL, EF entity, ApiModel, and form fields. Adding columns later is cheap; getting them wrong on day one is not. |
-| U-2 | Is an API a **first-class shared entity** (like `Server`/`Database`, with attach/detach to many environments via a join table), or an **environment-private composition** (FK back to environment, deleted on env delete)? | **YES** | Determines whether the FE needs an attach dialog (`attach-database.ts` pattern) or just an inline add/edit. Determines table topology. |
-| U-3 | Where does variable substitution happen — server-side (BE returns `EndpointResolved`), client-side (FE walks tokens), or both? | NO (default: server-side, option (b) in §5/SD-2) | Server-side keeps a single source of truth (`IVariableResolver`) and avoids re-implementing the parser in TypeScript. Confirm or override. |
-| U-4 | Permission model — is `UserEditable` (already on `EnvironmentApiModel`) sufficient, or do APIs need their own privilege class? | NO (default: reuse `UserEditable`) | Reuse keeps scope tight; a new privilege class would expand the work into `Dorc.PersistentData/Sources/RolePrivilegesChecker.cs` and the access-control UI. |
-| U-5 | Is v1 full CRUD, or list-only with create/edit/delete deferred? | NO (default: full CRUD) | Confirms scope. The placeholder commit suggests CRUD is the intent. |
-| U-6 | Should the endpoint input offer autocomplete from environment-scoped property names? | NO (default: no autocomplete in v1, free-form `$Var$`) | Autocomplete is a nice-to-have that doubles the FE complexity. Plain text input ships faster; we can layer autocomplete later without breaking data. |
-| U-7 | Do API changes flow through the existing `RefDataAudit` / environment-history audit trail? | NO (default: yes — same as databases/servers) | Reuse keeps consistency with sibling tabs; "no" would be a deliberate exception requiring justification. |
-| U-8 | Should resolved endpoints be **clickable** (open in a new tab) when fully resolved? | NO (default: yes for `https?://` schemes) | Quality-of-life; trivially gated on the resolved string being a valid absolute URL. |
+| ID  | Question | Blocking? | Resolution |
+|-----|----------|-----------|------------|
+| U-1 | What attributes does an "API" record carry beyond Name + Endpoint + Description? Candidates: Type/Protocol, AuthType, HealthCheckPath, OwnerProject, Tags. | **YES** | **RESOLVED 2026-05-06 — user accepted all candidates.** v1 attributes: `Name`, `Endpoint` (raw, with `$Var$` placeholders allowed), `Description`, `Type` (REST / SOAP / gRPC), `AuthType` (None / Basic / Bearer / OAuth), `HealthCheckPath`, `OwnerProject` (FK to existing `Project`), `Tags` (free-form string, mirroring `Server.ApplicationTags` — `Server.cs:11`). |
+| U-2 | Is an API a **first-class shared entity** with attach/detach to many environments, or an **environment-private composition** (FK back to environment, deleted on env delete)? | **YES** | **RESOLVED 2026-05-06 — user chose env-private composition.** `dbo.API` carries an `EnvironmentId` FK with `ON DELETE CASCADE`. No join table. No attach/detach UI. The FE pattern of choice is therefore inline add/edit, not the `attach-database.ts` pattern. |
+| U-3 | Where does variable substitution happen — server-side (BE returns `EndpointResolved`), client-side, or both? | NO | **DEFAULT TAKEN: server-side.** BE populates `EndpointResolved` using `IVariableResolver` seeded from `IPropertyValuesPersistentSource.GetEnvironmentProperties(envName)`. Override at IS review if you'd rather keep resolution client-side. |
+| U-4 | Permission model — is `UserEditable` sufficient, or do APIs need their own privilege class? | NO | **DEFAULT TAKEN: reuse `UserEditable`.** Same gate the Databases / Servers / Daemons tabs already enforce. |
+| U-5 | Is v1 full CRUD, or list-only with create/edit/delete deferred? | NO | **DEFAULT TAKEN: full CRUD.** |
+| U-6 | Should the endpoint input offer autocomplete from environment-scoped property names? | NO | **DEFAULT TAKEN: no autocomplete in v1.** Free-form `$Var$` text. Tracked as a follow-up. |
+| U-7 | Do API changes flow through the existing `RefDataAudit` / environment-history audit trail? | NO | **DEFAULT TAKEN: yes.** Wired through `RefDataAudit` for symmetry with Databases / Servers. |
+| U-8 | Should resolved endpoints be **clickable** when the resolved string parses as `https?://…`? | NO | **DEFAULT TAKEN: yes.** Click opens in a new tab. Unresolved or non-URL values render as plain text. |
 
-**Blocking unknowns halt progress per `CLAUDE.md`.** U-1 and U-2 must be resolved by the user before the IS document is drafted; the others have proposed defaults that the user can override at IS-review time.
+All blocking unknowns are resolved; the IS may proceed.
 
 ---
 
@@ -127,11 +127,6 @@ Replace the `env-apis.ts` placeholder with a real component modelled directly on
 
 ## 8. Acceptance and Next Step
 
-This HLPS is **DRAFT**. Per `CLAUDE.md`, only the adversarial panel can move it to APPROVED, and the user must resolve U-1 and U-2 before the IS document can be drafted.
+This HLPS is **DRAFT** with all blocking unknowns resolved (U-1, U-2). Defaults are taken on U-3 through U-8 and may be overridden at IS review. Only the adversarial panel can move this document to APPROVED.
 
-**Requested user input:**
-1. Resolve **U-1**: confirm or extend the attribute list (Name, Endpoint, Description, plus any of Type, AuthType, HealthCheckPath, OwnerProject, Tags).
-2. Resolve **U-2**: confirm shared-entity-with-attach (Server/Database pattern) **or** environment-private composition.
-3. Confirm or override the proposed defaults on U-3 through U-8.
-
-Once resolved, the next checkpoint is the **IS document** (`docs/api-tab/IS-api-tab.md`) breaking the work into ordered atomic steps (S-001 schema, S-002 EF + persistent source, S-003 controller + ApiModel, S-004 OpenAPI regen, S-005 FE component, S-006 tests).
+The next checkpoint is the **IS document** (`docs/api-tab/IS-api-tab.md`) breaking the work into ordered atomic steps. The IS is drafted in the same commit as this update.
