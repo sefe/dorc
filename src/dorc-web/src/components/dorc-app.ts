@@ -23,11 +23,13 @@ function fMouseMoveListener(event: MouseEvent) {
     dorcNavbar.style.width = widthInPx;
   });
 }
+// Invoked from `_wrappedMouseUpListener` in DorcApp. The wrapper owns
+// registration/removal of itself; this function only handles the splitter
+// drag teardown (release the global user-select lock and the mousemove
+// handler) and commits the final width.
 function fMouseUpListener(event: MouseEvent) {
   document.body.style.removeProperty('user-select');
-
   document.body.removeEventListener('mousemove', fMouseMoveListener);
-  document.body.removeEventListener('mouseup', fMouseUpListener);
 
   const width = Math.max(200, Math.min(1000, event.clientX));
   dorcNavbar.style.width = width + 'px';
