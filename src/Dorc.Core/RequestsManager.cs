@@ -206,9 +206,20 @@ namespace Dorc.Core
                     var matchedBuild = builds.FirstOrDefault(b =>
                         (b.Name ?? "").Replace(" [PINNED]", "").Equals(buildItem.Key));
 
+                    // Fail fast with a clear message when the bundle references a build the
+                    // CI/CD server no longer surfaces. Passing a null BuildUrl downstream
+                    // produced a confusing "Unknown build type" or null-deref far from the
+                    // root cause; surfacing it here points the operator at the real problem.
+                    if (matchedBuild == null)
+                        throw new InvalidOperationException(
+                            $"Build '{buildItem.Key}' (definition '{buildDefinitionName}') was not " +
+                            $"found in {project.SourceControlType} for project '{createRequest.Project}'. " +
+                            "The build may have been deleted, retention-purged, or the bundle " +
+                            "may have been created against a different project/source-control type.");
+
                     var request = new CreateRequest
                     {
-                        BuildUrl = matchedBuild?.Id,
+                        BuildUrl = matchedBuild.Id,
                         BuildDefinitionName = buildDefinitionName,
                         Environment = createRequest.Environment,
                         Project = createRequest.Project,

@@ -13,6 +13,12 @@ namespace Dorc.Core.BuildServer
         private const int MaxRetries = 3;
         private static readonly TimeSpan BaseDelay = TimeSpan.FromSeconds(1);
 
+        // Cap Retry-After honoring so a hostile or misconfigured server can't stall a Monitor
+        // worker thread for hours by replying with `Retry-After: 86400`. GitHub's secondary
+        // rate limit can return multi-minute values; a one-minute cap is well within typical
+        // backoff budgets while preventing DoS via the retry path.
+        private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(60);
+
         private readonly ILogger<GitHubRetryHandler> _logger;
 
         public GitHubRetryHandler(ILogger<GitHubRetryHandler> logger)
@@ -78,15 +84,16 @@ namespace Dorc.Core.BuildServer
 
         private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
         {
-            // Respect Retry-After header if present (GitHub sends this with 429)
+            // Respect Retry-After header if present (GitHub sends this with 429), but clamp
+            // to MaxRetryDelay so a server can't stall the worker thread for hours.
             if (response.Headers.RetryAfter?.Delta is { } retryAfter)
-                return retryAfter;
+                return retryAfter < MaxRetryDelay ? retryAfter : MaxRetryDelay;
 
             if (response.Headers.RetryAfter?.Date is { } retryDate)
             {
                 var delay = retryDate - DateTimeOffset.UtcNow;
                 if (delay > TimeSpan.Zero)
-                    return delay;
+                    return delay < MaxRetryDelay ? delay : MaxRetryDelay;
             }
 
             // Exponential backoff: 1s, 2s, 4s

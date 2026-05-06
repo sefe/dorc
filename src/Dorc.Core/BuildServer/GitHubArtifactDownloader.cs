@@ -76,7 +76,7 @@ namespace Dorc.Core.BuildServer
 
             _logger.LogInformation("Downloading GitHub Actions artifact from: {Url}", artifactUrl);
 
-            var client = _httpClientFactory.CreateClient("GitHubActions");
+            using var client = _httpClientFactory.CreateClient("GitHubActions");
             if (!string.IsNullOrEmpty(_gitHubToken))
             {
                 client.DefaultRequestHeaders.Authorization =

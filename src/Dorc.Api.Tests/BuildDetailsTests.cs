@@ -37,6 +37,17 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
+        public void BuildType_GitHub_EnterpriseHtmlUrl_ReturnsGitHubBuild()
+        {
+            // GitHub Enterprise run URLs ("https://github.acme.local/owner/repo/actions/runs/...")
+            // contain neither "github.com" nor "/repos/", but SourceControlType.GitHub is the
+            // authoritative classifier so this must still resolve to GitHubBuild.
+            var request = new RequestDto { BuildUrl = "https://github.acme.local/owner/repo/actions/runs/12345" };
+            var details = new BuildDetails(request, SourceControlType.GitHub);
+            Assert.AreEqual(BuildType.GitHubBuild, details.Type);
+        }
+
+        [TestMethod]
         public void BuildType_AzureDevOps_HttpUrl_ReturnsTfsBuild()
         {
             var request = new RequestDto { BuildUrl = "http://tfs/tfs/build" };

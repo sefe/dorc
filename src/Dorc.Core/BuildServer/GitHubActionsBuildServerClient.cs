@@ -64,7 +64,7 @@ namespace Dorc.Core.BuildServer
 
             var result = new List<DeployableArtefact>();
 
-            var client = CreateHttpClient();
+            using var client = CreateHttpClient();
 
             foreach (var workflowFile in workflowFiles)
             {
@@ -103,7 +103,7 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
-            var client = CreateHttpClient();
+            using var client = CreateHttpClient();
 
             // Find the workflow ID by name
             var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, definitionName);
@@ -146,7 +146,7 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
-            var client = CreateHttpClient();
+            using var client = CreateHttpClient();
 
             // buildUrl is the run ID for GitHub Actions — must be numeric
             var runId = buildUrl;
@@ -174,7 +174,7 @@ namespace Dorc.Core.BuildServer
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
-            var client = CreateHttpClient();
+            using var client = CreateHttpClient();
 
             // For GitHub, buildText is the workflow name
             if (string.IsNullOrEmpty(buildText))
@@ -334,12 +334,21 @@ namespace Dorc.Core.BuildServer
                 var next = TryGetNextLink(response);
                 if (next == null)
                     return aggregated;
+
+                // Re-validate the host of the server-supplied next-link against the allow-list.
+                // The client attaches a bearer token to every request, so a Link header pointing
+                // anywhere off the allowed GitHub host(s) — whether from a hostile server or a
+                // future API change — would otherwise leak the token.
+                if (!Uri.TryCreate(next, UriKind.Absolute, out var nextUri))
+                    throw new ApplicationException(
+                        $"GitHub pagination 'next' link is not a valid absolute URL: '{next}'");
+                _hostValidator.ValidateHost(nextUri.Host);
                 url = next;
             }
 
             throw new ApplicationException(
                 $"GitHub API pagination exceeded {MaxPages} pages ({MaxPages * PerPage} items) " +
-                $"without finding the target. Starting URL: {firstPageUrl}");
+                $"without finding the target. Starting URL: {firstPageUrl}. Last attempted URL: {url}");
         }
 
         private static string? TryGetNextLink(HttpResponseMessage response)
