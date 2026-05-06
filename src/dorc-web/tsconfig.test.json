@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": true,
+    // `types` REPLACES (does not merge) the parent value. If a future
+    // `@types/*` package is added to tsconfig.json's `types`, mirror it here
+    // or test compilation will silently lose those globals.
     "types": ["vitest/globals", "chai"]
   },
   "include": ["tests/**/*.ts"],

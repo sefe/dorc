@@ -119,6 +119,12 @@ export class PageAbout extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
       .page-about {
         padding: 1rem;
       }

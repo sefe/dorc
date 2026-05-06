@@ -81,6 +81,12 @@ jobs:
           $version = (npm ls playwright --json 2>$null `
             | ConvertFrom-Json).dependencies.playwright.version
         }
+        if (-not $version) {
+          # Refuse to write an empty cache key — would produce
+          # `playwright-Windows-` and silently match every run forever.
+          Write-Error "Could not determine installed Playwright version"
+          exit 1
+        }
         echo "version=$version" >> $env:GITHUB_OUTPUT
 
     - name: Cache Playwright browsers

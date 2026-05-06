@@ -200,14 +200,15 @@ export class DorcApp extends ShortcutsStore {
   private _narrowMq: MediaQueryList | undefined;
   private _previouslyFocused: HTMLElement | null = null;
   private _drawerLockedScroll = false;
-  private _splitterMouseDownHandler: (() => void) | undefined;
   private _splitterDragInProgress = false;
 
   private _narrowMqHandler = (e: MediaQueryListEvent) => {
     this._narrowScreen = e.matches;
-    // Clear any inline width carried across the breakpoint so each media's
-    // CSS takes over cleanly (e.g. desktop `width: var(...)` after mobile use).
-    if (this.dorcNavbar) {
+    // Only clear inline width when ENTERING mobile, so the desktop CSS can
+    // take over the drawer. On wide, leaving the user's splitter-dragged
+    // width intact (the alternative would silently reset it on every resize
+    // across the breakpoint).
+    if (e.matches && this.dorcNavbar) {
       this.dorcNavbar.style.width = '';
     }
     if (!this._narrowScreen && this._drawerOpen) {
@@ -307,6 +308,10 @@ export class DorcApp extends ShortcutsStore {
       this._routerLocationChanged
     );
     document.addEventListener('keydown', this._keydownHandler);
+    // After a disconnect/reconnect cycle, firstUpdated does not re-fire but
+    // the splitter element still exists in our shadow DOM. Re-attach the
+    // mousedown listener once the next render has settled.
+    void this.updateComplete.then(() => this._attachSplitterListener());
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -319,16 +324,25 @@ export class DorcApp extends ShortcutsStore {
     super.firstUpdated(_changedProperties);
 
     this._applyDrawerAria();
+    this._attachSplitterListener();
+  }
 
-    this._splitterMouseDownHandler = () => {
-      this._splitterDragInProgress = true;
-      document.body.addEventListener('mousemove', fMouseMoveListener, {
-        passive: true
-      });
-      document.body.addEventListener('mouseup', this._wrappedMouseUpListener);
+  // Splitter mousedown handler is a class field so it has a stable reference
+  // across attach/detach cycles (firstUpdated only fires once per element).
+  private _splitterMouseDownHandler = () => {
+    this._splitterDragInProgress = true;
+    document.body.addEventListener('mousemove', fMouseMoveListener, {
+      passive: true
+    });
+    document.body.addEventListener('mouseup', this._wrappedMouseUpListener);
+    document.body.style.setProperty('user-select', 'none');
+  };
 
-      document.body.style.setProperty('user-select', 'none');
-    };
+  // Idempotent: removeEventListener with an unregistered handler is a no-op,
+  // so calling this from both firstUpdated and connectedCallback is safe.
+  private _attachSplitterListener() {
+    if (!this.splitter) return;
+    this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
     this.splitter.addEventListener('mousedown', this._splitterMouseDownHandler);
   }
 
@@ -349,7 +363,7 @@ export class DorcApp extends ShortcutsStore {
     );
     document.removeEventListener('keydown', this._keydownHandler);
     document.removeEventListener('focusin', this._focusGuardHandler, true);
-    if (this.splitter && this._splitterMouseDownHandler) {
+    if (this.splitter) {
       this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
     }
     // Only release body styles we own, so coexisting modals/drags aren't clobbered.
@@ -414,10 +428,17 @@ export class DorcApp extends ShortcutsStore {
     document.removeEventListener('focusin', this._focusGuardHandler, true);
     this._applyDrawerAria();
     // Restore focus to whatever opened the drawer (typically the menu button).
+    // If that element is no longer in the DOM (SPA navigation, re-render),
+    // fall back to the menu button so AT users have a sensible landing point.
     const toFocus = this._previouslyFocused;
     this._previouslyFocused = null;
-    if (toFocus && typeof toFocus.focus === 'function') {
+    if (toFocus && document.contains(toFocus) && typeof toFocus.focus === 'function') {
       toFocus.focus();
+    } else {
+      const menuBtn = this.shadowRoot?.querySelector(
+        '.menu-btn'
+      ) as HTMLElement | null;
+      menuBtn?.focus();
     }
   }
 

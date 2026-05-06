@@ -29,12 +29,13 @@ export function _cleanupFixtures(): void {
  *
  * The container is tracked and removed in the global `afterEach`.
  *
- * The returned type asserts a LitElement-style `updateComplete` so tests can
- * await further updates after dispatching events. The body still guards
- * against the property being absent for non-Lit hosts.
+ * `updateComplete` is typed as optional `Promise<unknown>` to accommodate both
+ * LitElement hosts (resolves to a boolean) and plain DOM nodes (no property).
+ * Tests can `await el.updateComplete` either way — `await undefined` resolves
+ * to undefined.
  */
 export type FixtureElement<T extends Element = HTMLElement> = T & {
-  updateComplete: Promise<void>;
+  updateComplete?: Promise<unknown>;
 };
 
 export async function fixture<T extends Element = HTMLElement>(
