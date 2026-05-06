@@ -123,3 +123,59 @@ describe('Drawer auto-close on mobile', () => {
     });
   });
 });
+
+describe('Splitter listener survives reconnect', () => {
+  let container: HTMLDivElement;
+
+  beforeAll(async () => {
+    await import('../../src/components/dorc-app.js');
+  });
+
+  beforeEach(() => {
+    mockMatchMedia(false); // desktop layout — splitter is interactive
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  /** Returns the splitter element from a mounted dorc-app. */
+  function splitterOf(el: ReadyDorcApp): HTMLElement {
+    const splitter = el.shadowRoot?.getElementById('splitter');
+    if (!splitter) throw new Error('dorc-app rendered without #splitter');
+    return splitter;
+  }
+
+  // We observe the `_splitterDragInProgress` flag rather than
+  // body.style.user-select because WebKit silently drops setProperty calls
+  // for the unprefixed `user-select`, making it an unreliable signal.
+  it('still flips drag-in-progress on mousedown after disconnect/reconnect', async () => {
+    const { el } = await mountDorcApp(container);
+
+    splitterOf(el).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect((el as any)._splitterDragInProgress).to.equal(
+      true,
+      'splitter mousedown should set _splitterDragInProgress on first mount'
+    );
+
+    // End the drag so cleanup runs.
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+    // Disconnect…
+    el.remove();
+    // …reconnect to the same container. firstUpdated will not re-fire; the
+    // re-attach path is connectedCallback's deferred updateComplete handler.
+    container.appendChild(el);
+    await el.updateComplete;
+
+    (el as any)._splitterDragInProgress = false;
+    splitterOf(el).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect((el as any)._splitterDragInProgress).to.equal(
+      true,
+      'splitter mousedown should still fire after reconnect'
+    );
+  });
+});
