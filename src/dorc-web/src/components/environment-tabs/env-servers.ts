@@ -28,7 +28,10 @@ export class EnvServers extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        height: 100%;
       }
       .span {
         font-family: var(--lumo-font-family);

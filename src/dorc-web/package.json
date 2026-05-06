@@ -10,7 +10,7 @@
     "npm": ">=7.0.0"
   },
   "scripts": {
-    "build": "eslint && tsc && vite build",
+    "build": "eslint && tsc && npm run typecheck:tests && vite build",
     "buildLocal": "set NODE_OPTIONS=--openssl-legacy-provider && rimraf server/dist/ && rollup --config",
     "dorc-api-gen": "openapi-generator-cli generate -g typescript-rxjs -i .\\src\\apis\\dorc-api\\swagger.json -o .\\src\\apis\\dorc-api\\ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec",
     "format": "prettier \"**/*.ts\" --write --ignore-path .gitignore",
@@ -20,7 +20,8 @@
     "start": "npm run serve",
     "test": "vitest run",
     "test:watch": "vitest",
-    "type-checking": "tsc --noEmit && npm run lit:type-checking",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
+    "type-checking": "tsc --noEmit && npm run typecheck:tests && npm run lit:type-checking",
     "prepare": "husky"
   },
   "dependencies": {
@@ -72,7 +73,6 @@
     "@openapitools/openapi-generator-cli": "^2.32.0",
     "@types/chai": "^5.2.3",
     "@types/node": "^25.6.2",
-    "@types/sinon": "^21.0.0",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
     "@vitest/browser": "^4.1.5",
@@ -93,7 +93,6 @@
     "rimraf": "^6.1.3",
     "rollup": "^4.60.3",
     "rollup-plugin-copy": "^3.5.0",
-    "sinon": "^21.0.1",
     "stylelint": "^17.11.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",

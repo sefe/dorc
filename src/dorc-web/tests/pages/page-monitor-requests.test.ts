@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // --- Hoisted mock values (available before vi.mock factories run) ---
+// Cast to `any` so test code can index `.mock.calls[i][j]` without strict-mode
+// noise; vi.fn()'s inferred call tuple is empty when the factory takes no args.
 const { mockRequestStatusesPut, mockSubscribe } = vi.hoisted(() => {
   const mockSubscribe = vi.fn();
-  const mockRequestStatusesPut = vi.fn(() => ({ subscribe: mockSubscribe }));
+  const mockRequestStatusesPut: any = vi.fn(() => ({ subscribe: mockSubscribe }));
   return { mockRequestStatusesPut, mockSubscribe };
 });
 

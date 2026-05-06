@@ -34,7 +34,7 @@ describe('Touch target structure', () => {
       // Verify the card doesn't use padding: 2px on vaadin-button (old value)
       const styles = (el.constructor as typeof EnvironmentCard).styles;
       const cssText = Array.isArray(styles)
-        ? styles.map(s => s.cssText).join('')
+        ? styles.map((s: any) => s.cssText).join('')
         : (styles as any).cssText || '';
 
       // Should not have padding: 2px for vaadin-button (the old problematic value)

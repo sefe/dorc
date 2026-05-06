@@ -18,46 +18,41 @@ function mockMatchMedia(matches: boolean) {
   return mql;
 }
 
-/** Wait for the element's shadow DOM to settle enough to have #dorcNavbar */
-async function waitForNavbar(el: HTMLElement, timeoutMs = 5000): Promise<HTMLElement> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const navbar = el.shadowRoot?.getElementById('dorcNavbar');
-    if (navbar) return navbar;
-    await new Promise(r => setTimeout(r, 50));
-  }
-  throw new Error('Timed out waiting for #dorcNavbar');
+interface ReadyDorcApp extends HTMLElement {
+  updateComplete: Promise<unknown>;
+}
+
+/**
+ * Append dorc-app to a container, wait for its first update to settle, and
+ * return both the host element and its #dorcNavbar shadow descendant.
+ *
+ * Uses element/Lit lifecycle promises rather than fixed sleeps so the test
+ * doesn't get racy on slow CI runners.
+ */
+async function mountDorcApp(
+  container: HTMLDivElement
+): Promise<{ el: ReadyDorcApp; navbar: HTMLElement }> {
+  const el = document.createElement('dorc-app') as ReadyDorcApp;
+  container.appendChild(el);
+  // updateComplete resolves after firstUpdated, when our event listeners are attached.
+  await el.updateComplete;
+  const navbar = el.shadowRoot?.getElementById('dorcNavbar');
+  if (!navbar) throw new Error('dorc-app rendered without #dorcNavbar');
+  return { el, navbar };
 }
 
 describe('Drawer auto-close on mobile', () => {
-  // Suppress uncaught errors from dorc-app's constructor API calls
-  let origOnError: OnErrorEventHandler;
   let container: HTMLDivElement;
 
-  // Pre-load the heavy dorc-app module before any test timers start
+  // Pre-load the heavy dorc-app module before any test timers start.
+  // Unhandled SUT-init errors are filtered by tests/_setup.ts.
   beforeAll(async () => {
     originalMatchMedia = window.matchMedia;
-    origOnError = window.onerror;
-    window.onerror = (msg, ...rest) => {
-      const msgStr = String(msg);
-      if (
-        msgStr.includes('ajax error') ||
-        msgStr.includes('AjaxError') ||
-        msgStr.includes('Route')
-      ) {
-        return true;
-      }
-      if (origOnError) {
-        return (origOnError as (...args: any[]) => any).call(window, msg, ...rest);
-      }
-      return false;
-    };
     await import('../../src/components/dorc-app.js');
   });
 
   afterAll(() => {
     window.matchMedia = originalMatchMedia;
-    window.onerror = origOnError;
   });
 
   beforeEach(() => {
@@ -72,16 +67,11 @@ describe('Drawer auto-close on mobile', () => {
   it('closes drawer on vaadin-router-location-changed when narrow', async () => {
     mockMatchMedia(true);
 
-    const el = document.createElement('dorc-app');
-    container.appendChild(el);
-    const navbar = await waitForNavbar(el);
-    await new Promise(r => setTimeout(r, 200));
-
+    const { el, navbar } = await mountDorcApp(container);
     navbar.classList.add('open');
     (el as any)._drawerOpen = true;
 
     window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
-    await new Promise(r => setTimeout(r, 50));
 
     expect(navbar.classList.contains('open')).to.equal(
       false,
@@ -92,16 +82,11 @@ describe('Drawer auto-close on mobile', () => {
   it('does NOT close drawer on vaadin-router-location-changed when wide', async () => {
     mockMatchMedia(false);
 
-    const el = document.createElement('dorc-app');
-    container.appendChild(el);
-    const navbar = await waitForNavbar(el);
-    await new Promise(r => setTimeout(r, 200));
-
+    const { el, navbar } = await mountDorcApp(container);
     navbar.classList.add('open');
     (el as any)._drawerOpen = true;
 
     window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
-    await new Promise(r => setTimeout(r, 50));
 
     expect(navbar.classList.contains('open')).to.equal(
       true,
@@ -112,16 +97,11 @@ describe('Drawer auto-close on mobile', () => {
   it('closes drawer on Escape when narrow', async () => {
     mockMatchMedia(true);
 
-    const el = document.createElement('dorc-app');
-    container.appendChild(el);
-    const navbar = await waitForNavbar(el);
-    await new Promise(r => setTimeout(r, 200));
-
+    const { el, navbar } = await mountDorcApp(container);
     navbar.classList.add('open');
     (el as any)._drawerOpen = true;
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    await new Promise(r => setTimeout(r, 50));
 
     expect(navbar.classList.contains('open')).to.equal(
       false,
