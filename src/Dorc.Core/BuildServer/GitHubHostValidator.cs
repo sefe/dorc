@@ -55,13 +55,21 @@ namespace Dorc.Core.BuildServer
         public string GetApiBase(string serverUrl)
         {
             var uri = new Uri(serverUrl);
+
+            // Refuse to silently upgrade a misconfigured http:// project URL to https://.
+            // The bearer token is attached by callers regardless of the configured scheme,
+            // so we must reject cleartext at the entry point rather than masking the issue.
+            if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    $"GitHub server URL must use https://, got '{uri.Scheme}://' for '{serverUrl}'.");
+
             ValidateHost(uri.Host);
 
             if (uri.Host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase) ||
                 uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
                 return "https://api.github.com";
 
-            // GitHub Enterprise: enforce HTTPS
+            // GitHub Enterprise
             return $"https://{uri.Host}/api/v3";
         }
     }

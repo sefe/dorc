@@ -9,6 +9,11 @@ namespace Dorc.Core.BuildServer
     /// <summary>Downloads GitHub Actions artifacts; folder via <c>AppSettings:GitHubArtifactDownloadFolder</c>, defaults to %ProgramData%\dorc\artifacts.</summary>
     public class GitHubArtifactDownloader : IGitHubArtifactDownloader
     {
+        // 2 GiB cap on downloaded zip — GitHub itself caps artifacts at 10 GB, but 2 GiB
+        // covers any sensible deploy payload while preventing disk exhaustion from a hostile
+        // or misconfigured workflow.
+        private const long MaxArtifactBytes = 2L * 1024 * 1024 * 1024;
+
         private readonly ILogger<GitHubArtifactDownloader> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IGitHubHostValidator _hostValidator;
@@ -98,7 +103,7 @@ namespace Dorc.Core.BuildServer
                     response.EnsureSuccessStatusCode();
                     using var stream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
                     using var fileStream = File.Create(zipPath);
-                    stream.CopyTo(fileStream);
+                    CopyWithLimit(stream, fileStream, MaxArtifactBytes);
                 }
 
                 _logger.LogInformation("Downloaded artifact zip ({Size} bytes) to: {Path}",
@@ -151,6 +156,23 @@ namespace Dorc.Core.BuildServer
                                        or System.Security.SecurityException)
             {
                 _logger.LogWarning(ex, "Failed to clean up artifact directory: {Path}", extractedPath);
+            }
+        }
+
+        private static void CopyWithLimit(Stream source, Stream destination, long maxBytes)
+        {
+            var buffer = new byte[81920];
+            long total = 0;
+            int read;
+            while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                total += read;
+                if (total > maxBytes)
+                {
+                    throw new InvalidOperationException(
+                        $"GitHub artifact download exceeded the {maxBytes:N0} byte limit; aborting to prevent disk exhaustion.");
+                }
+                destination.Write(buffer, 0, read);
             }
         }
 

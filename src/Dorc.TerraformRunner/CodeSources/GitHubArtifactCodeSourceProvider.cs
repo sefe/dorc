@@ -29,10 +29,33 @@ namespace Dorc.TerraformRunner.CodeSources
 
         public TerraformSourceType SourceType => TerraformSourceType.GitHubArtifact;
 
+        // 2 GiB cap on downloaded zip — GitHub itself caps artifacts at 10 GB, but 2 GiB
+        // covers any sensible Terraform-plan payload while preventing disk exhaustion from
+        // a hostile or misconfigured workflow.
+        private const long MaxArtifactBytes = 2L * 1024 * 1024 * 1024;
+
         public GitHubArtifactCodeSourceProvider(IRunnerLogger logger, IHttpClientFactory? httpClientFactory = null)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+        }
+
+        private static async Task CopyWithLimitAsync(HttpContent content, Stream destination, long maxBytes, CancellationToken cancellationToken)
+        {
+            await using var source = await content.ReadAsStreamAsync(cancellationToken);
+            var buffer = new byte[81920];
+            long total = 0;
+            int read;
+            while ((read = await source.ReadAsync(buffer.AsMemory(), cancellationToken)) > 0)
+            {
+                total += read;
+                if (total > maxBytes)
+                {
+                    throw new InvalidOperationException(
+                        $"GitHub artifact download exceeded the {maxBytes:N0} byte limit; aborting to prevent disk exhaustion.");
+                }
+                await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            }
         }
 
         public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
@@ -49,6 +72,16 @@ namespace Dorc.TerraformRunner.CodeSources
                 throw new ArgumentException("Cannot download artifact as no GitHub token provided.");
             }
 
+            // The run id is interpolated into a URL path segment below. The Dorc.Api side
+            // (GitHubActionsBuildServerClient.GetBuildArtifactDownloadUrlAsync) enforces this;
+            // mirror the check here so the runner refuses bogus values that would otherwise
+            // produce a malformed request URL like /actions/runs/../../foo/artifacts.
+            if (!long.TryParse(scriptGroup.GitHubRunId, out _))
+            {
+                throw new ArgumentException(
+                    $"GitHub Actions run id must be numeric, got '{scriptGroup.GitHubRunId}'.");
+            }
+
             _logger.Information($"Downloading GitHub Actions artifact from run '{scriptGroup.GitHubRunId}' in '{scriptGroup.GitHubOwner}/{scriptGroup.GitHubRepo}'");
 
             var apiBase = string.IsNullOrEmpty(scriptGroup.GitHubApiBaseUrl)
@@ -61,8 +94,13 @@ namespace Dorc.TerraformRunner.CodeSources
 
             using var httpClient = CreateHttpClient(scriptGroup.GitHubToken);
 
-            // List artifacts for the run
-            var artifactsUrl = $"{apiBase}/repos/{scriptGroup.GitHubOwner}/{scriptGroup.GitHubRepo}/actions/runs/{scriptGroup.GitHubRunId}/artifacts";
+            // Encode owner/repo so a value containing '?', '#', or '/' (which can survive the
+            // serialise → ScriptGroup file → deserialise round-trip from TerraformSourceConfigurator)
+            // cannot inject query/fragment/path segments into the artifacts URL.
+            var artifactsUrl =
+                $"{apiBase}/repos/{Uri.EscapeDataString(scriptGroup.GitHubOwner)}" +
+                $"/{Uri.EscapeDataString(scriptGroup.GitHubRepo)}" +
+                $"/actions/runs/{scriptGroup.GitHubRunId}/artifacts";
             using var response = await httpClient.GetAsync(artifactsUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
@@ -89,6 +127,12 @@ namespace Dorc.TerraformRunner.CodeSources
                 "drop".Equals(a.Name, StringComparison.OrdinalIgnoreCase)) ?? artifactsResponse.Artifacts[0];
             var downloadUrl = artifact.ArchiveDownloadUrl;
 
+            // SSRF defence in depth: archive_download_url comes from the JSON body of the previous
+            // request, not from a configured value. A compromised or spoofed upstream could swap
+            // the host. The bearer token is attached by CreateHttpClient(), so re-validate the
+            // host before issuing the request — same check the Dorc.Core side already performs.
+            ValidateApiBaseHost(downloadUrl);
+
             _logger.Information($"Downloading artifact '{artifact.Name}'");
 
             using var downloadResponse = await httpClient.GetAsync(downloadUrl, cancellationToken);
@@ -99,7 +143,10 @@ namespace Dorc.TerraformRunner.CodeSources
             {
                 using (var fileStream = File.Create(tempZipFile))
                 {
-                    await downloadResponse.Content.CopyToAsync(fileStream, cancellationToken);
+                    // Cap the on-disk size so a misbehaving or hostile workflow can't fill the
+                    // runner host's disk with a multi-GB / zip-bomb artifact. GitHub itself caps
+                    // artifacts at 10 GB; 2 GB is well above any sensible Terraform plan payload.
+                    await CopyWithLimitAsync(downloadResponse.Content, fileStream, MaxArtifactBytes, cancellationToken);
                 }
 
                 // ExtractToDirectory has built-in Zip Slip prevention in .NET 6+:

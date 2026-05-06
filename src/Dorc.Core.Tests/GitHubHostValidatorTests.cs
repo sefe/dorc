@@ -105,11 +105,14 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void GetApiBase_EnterpriseHost_EnforcesHttps()
+        public void GetApiBase_HttpScheme_Throws()
         {
+            // Cleartext http:// is rejected at the entry point; silently upgrading to https://
+            // would mask a misconfiguration and let the bearer token reach a server that may
+            // not actually be serving TLS at all (or be MITM-vulnerable on path).
             var validator = CreateValidator(new[] { "github.mycompany.com" });
-            var result = validator.GetApiBase("http://github.mycompany.com/api/v3/repos/owner/repo");
-            Assert.AreEqual("https://github.mycompany.com/api/v3", result);
+            Assert.Throws<ArgumentException>(() =>
+                validator.GetApiBase("http://github.mycompany.com/api/v3/repos/owner/repo"));
         }
 
         [TestMethod]

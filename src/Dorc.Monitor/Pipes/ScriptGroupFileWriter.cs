@@ -56,11 +56,20 @@ namespace Dorc.Monitor.Pipes
 
         private static void EnsureRestrictedDirectory(string path)
         {
-            if (Directory.Exists(path))
+            var security = BuildRestrictedDirectorySecurity();
+            if (!Directory.Exists(path))
+            {
+                // FileSystemAclExtensions: creates the directory with the supplied DACL atomically,
+                // so the secrets folder never exists with the default Users-readable ACL.
+                security.CreateDirectory(path);
                 return;
-            // FileSystemAclExtensions: creates the directory with the supplied DACL atomically,
-            // so the secrets folder never exists with the default Users-readable ACL.
-            BuildRestrictedDirectorySecurity().CreateDirectory(path);
+            }
+
+            // Re-apply the restricted DACL on every start. If an admin manually deletes and
+            // re-creates the folder with default permissions (or restores from backup with
+            // looser ACLs), skipping this would leave subsequent secret files readable by
+            // any local authenticated user. The reapply is a single SetAccessControl call.
+            new DirectoryInfo(path).SetAccessControl(security);
         }
 
         private static DirectorySecurity BuildRestrictedDirectorySecurity()
