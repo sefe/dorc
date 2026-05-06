@@ -377,7 +377,7 @@ describe('PageMonitorRequests', () => {
       const inputs = root.querySelectorAll('vaadin-text-field');
       expect(inputs[0].getAttribute('placeholder')).toBe('Project');
       expect(inputs[1].getAttribute('placeholder')).toBe('Environment');
-      expect(inputs[2].getAttribute('placeholder')).toBe('Build');
+      expect(inputs[2].getAttribute('placeholder')).toBe('Build#');
     });
 
     it('renders three sort toggles', () => {
@@ -401,7 +401,7 @@ describe('PageMonitorRequests', () => {
       expect(inputs.length).toBe(3);
       expect(inputs[0].getAttribute('placeholder')).toBe('Project');
       expect(inputs[1].getAttribute('placeholder')).toBe('Environment');
-      expect(inputs[2].getAttribute('placeholder')).toBe('Build');
+      expect(inputs[2].getAttribute('placeholder')).toBe('Build#');
 
       expect(container!.querySelector('span')?.textContent).toBe('-');
     });
