@@ -95,7 +95,6 @@ export class PageMonitorRequests
         flex-direction: column;
         height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid {

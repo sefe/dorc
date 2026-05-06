@@ -1,6 +1,6 @@
 import { css, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import '@vaadin/button';
 import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
 import './dorc-navbar.ts';
@@ -11,6 +11,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
 import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
+import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
 
 let dorcNavbar: DorcNavbar;
 
@@ -37,7 +38,6 @@ export class DorcApp extends ShortcutsStore {
   static get styles() {
     return css`
       :host {
-        --header-height: 50px;
         display: flex;
         flex-direction: column;
         height: 100vh;
@@ -49,7 +49,7 @@ export class DorcApp extends ShortcutsStore {
       }
 
       #header {
-        height: var(--header-height);
+        height: var(--dorc-header-height, 50px);
         flex-shrink: 0;
         display: flex;
         align-items: center;
@@ -151,7 +151,7 @@ export class DorcApp extends ShortcutsStore {
       @media (max-width: 768px) {
         #dorcNavbar {
           position: fixed;
-          top: var(--header-height);
+          top: var(--dorc-header-height, 50px);
           left: 0;
           bottom: 0;
           z-index: 100;
@@ -166,7 +166,7 @@ export class DorcApp extends ShortcutsStore {
         }
 
         #dorcNavbar.open {
-          width: 280px;
+          width: var(--dorc-sidebar-width, 300px);
           visibility: visible;
           pointer-events: auto;
           transform: translateX(0);
@@ -194,7 +194,24 @@ export class DorcApp extends ShortcutsStore {
 
   @query('#splitter') splitter!: HTMLDivElement;
 
-  private _drawerClickHandler: ((e: Event) => void) | undefined;
+  @state() private _drawerOpen = false;
+  @state() private _narrowScreen = false;
+
+  private _narrowMq: MediaQueryList | undefined;
+  private _narrowMqHandler = (e: MediaQueryListEvent) => {
+    this._narrowScreen = e.matches;
+    this._applyDrawerAria();
+  };
+  private _routerLocationChanged = () => {
+    if (this._narrowScreen && this._drawerOpen) {
+      this._closeDrawer();
+    }
+  };
+  private _keydownHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && this._narrowScreen && this._drawerOpen) {
+      this._closeDrawer();
+    }
+  };
 
   render() {
     return html`
@@ -203,6 +220,8 @@ export class DorcApp extends ShortcutsStore {
           class="menu-btn"
           theme="icon"
           aria-label="Toggle Menu"
+          aria-expanded="${this._drawerOpen ? 'true' : 'false'}"
+          aria-controls="dorcNavbar"
           @click="${this.toggleSideBar}"
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
@@ -258,6 +277,18 @@ export class DorcApp extends ShortcutsStore {
     this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this._narrowMq = window.matchMedia(`(max-width: ${NARROW_BREAKPOINT}px)`);
+    this._narrowScreen = this._narrowMq.matches;
+    this._narrowMq.addEventListener('change', this._narrowMqHandler);
+    window.addEventListener(
+      'vaadin-router-location-changed',
+      this._routerLocationChanged
+    );
+    document.addEventListener('keydown', this._keydownHandler);
+  }
+
   protected firstUpdated(_changedProperties: PropertyValues) {
     // Assign dorcNavbar BEFORE calling super to ensure it's available for event handlers
     this.dorcNavbar = this.shadowRoot?.getElementById(
@@ -267,15 +298,7 @@ export class DorcApp extends ShortcutsStore {
 
     super.firstUpdated(_changedProperties);
 
-    // Auto-close drawer on mobile after navigation click
-    const navbar = this.dorcNavbar;
-    this._drawerClickHandler = (e: Event) => {
-      const isMobile = window.matchMedia('(max-width: 768px)').matches;
-      if (isMobile && e.composedPath().some(el => (el as HTMLElement).tagName === 'A')) {
-        navbar.classList.remove('open');
-      }
-    };
-    navbar.addEventListener('click', this._drawerClickHandler);
+    this._applyDrawerAria();
 
     this.splitter.addEventListener('mousedown', () => {
       document.body.addEventListener('mousemove', fMouseMoveListener, {
@@ -289,28 +312,85 @@ export class DorcApp extends ShortcutsStore {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this.dorcNavbar && this._drawerClickHandler) {
-      this.dorcNavbar.removeEventListener('click', this._drawerClickHandler);
-    }
+    this._narrowMq?.removeEventListener('change', this._narrowMqHandler);
+    window.removeEventListener(
+      'vaadin-router-location-changed',
+      this._routerLocationChanged
+    );
+    document.removeEventListener('keydown', this._keydownHandler);
+    // Drop any in-flight splitter drag listeners so they don't outlive this element
+    document.body.removeEventListener('mousemove', fMouseMoveListener);
+    document.body.removeEventListener('mouseup', fMouseUpListener);
+    document.body.style.removeProperty('user-select');
+    document.body.style.removeProperty('overflow');
   }
 
   private toggleSideBar() {
-    if (this.dorcNavbar) {
-      const isMobile = window.matchMedia('(max-width: 768px)').matches;
-      if (isMobile) {
-        // Clear any desktop/splitter inline width so mobile CSS can control the drawer
-        this.dorcNavbar.style.width = '';
-        this.dorcNavbar.classList.toggle('open');
+    if (!this.dorcNavbar) return;
+    if (this._narrowScreen) {
+      // Clear any desktop/splitter inline width so mobile CSS can control the drawer
+      this.dorcNavbar.style.width = '';
+      if (this._drawerOpen) {
+        this._closeDrawer();
       } else {
-        const sidebarWidth =
-          getComputedStyle(this).getPropertyValue('--dorc-sidebar-width').trim() ||
-          '300px';
-        if (this.dorcNavbar.style.width === '0px') {
-          this.dorcNavbar.style.width = sidebarWidth;
-        } else {
-          this.dorcNavbar.style.width = '0px';
-        }
+        this._openDrawer();
       }
+    } else {
+      const sidebarWidth =
+        getComputedStyle(this).getPropertyValue('--dorc-sidebar-width').trim() ||
+        '300px';
+      if (this.dorcNavbar.style.width === '0px') {
+        this.dorcNavbar.style.width = sidebarWidth;
+      } else {
+        this.dorcNavbar.style.width = '0px';
+      }
+    }
+  }
+
+  private _openDrawer() {
+    if (!this.dorcNavbar) return;
+    this._drawerOpen = true;
+    this.dorcNavbar.classList.add('open');
+    if (this._narrowScreen) {
+      document.body.style.overflow = 'hidden';
+    }
+    this._applyDrawerAria();
+  }
+
+  private _closeDrawer() {
+    if (!this.dorcNavbar) return;
+    this._drawerOpen = false;
+    this.dorcNavbar.classList.remove('open');
+    document.body.style.removeProperty('overflow');
+    this._applyDrawerAria();
+  }
+
+  // Drawer is reachable on desktop regardless of `_drawerOpen`; on mobile we
+  // hide it from AT and the tab order when closed, and announce it as a modal
+  // dialog when open.
+  private _applyDrawerAria() {
+    if (!this.dorcNavbar) return;
+    if (this._narrowScreen) {
+      if (this._drawerOpen) {
+        this.dorcNavbar.removeAttribute('inert');
+        this.dorcNavbar.removeAttribute('aria-hidden');
+        this.dorcNavbar.setAttribute('role', 'dialog');
+        this.dorcNavbar.setAttribute('aria-modal', 'true');
+        this.dorcNavbar.setAttribute('aria-label', 'Navigation');
+      } else {
+        this.dorcNavbar.setAttribute('inert', '');
+        this.dorcNavbar.setAttribute('aria-hidden', 'true');
+        this.dorcNavbar.removeAttribute('role');
+        this.dorcNavbar.removeAttribute('aria-modal');
+        this.dorcNavbar.removeAttribute('aria-label');
+      }
+    } else {
+      this.dorcNavbar.removeAttribute('inert');
+      this.dorcNavbar.removeAttribute('aria-hidden');
+      this.dorcNavbar.removeAttribute('role');
+      this.dorcNavbar.removeAttribute('aria-modal');
+      this.dorcNavbar.removeAttribute('aria-label');
+      document.body.style.removeProperty('overflow');
     }
   }
 

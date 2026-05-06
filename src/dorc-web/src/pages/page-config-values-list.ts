@@ -99,7 +99,6 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         overflow: hidden;
       }
       vaadin-grid#grid {
-        height: calc(100vh - 110px);
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);

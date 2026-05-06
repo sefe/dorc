@@ -50,7 +50,6 @@ export class EnvServers extends PageEnvBase {
       vaadin-details {
         overflow: auto;
         width: calc(100% - 4px);
-        height: calc(100vh - 175px);
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);

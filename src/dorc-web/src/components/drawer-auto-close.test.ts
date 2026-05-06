@@ -70,35 +70,27 @@ describe('Drawer auto-close on mobile', () => {
     container.remove();
   });
 
-  it('removes open class when a link is clicked on narrow screens', async () => {
+  it('closes drawer on vaadin-router-location-changed when narrow', async () => {
     mockMatchMedia(true);
 
     const el = document.createElement('dorc-app');
     container.appendChild(el);
     const navbar = await waitForNavbar(el);
-
-    // Wait for firstUpdated to attach the click handler
     await new Promise(r => setTimeout(r, 200));
 
     navbar.classList.add('open');
-    expect(navbar.classList.contains('open')).to.equal(true);
+    (el as any)._drawerOpen = true;
 
-    const anchor = document.createElement('a');
-    anchor.href = '/some-page';
-    const clickEvent = new MouseEvent('click', { bubbles: true, composed: true });
-    Object.defineProperty(clickEvent, 'composedPath', {
-      value: () => [anchor, navbar, el.shadowRoot!, el, document.body, document],
-    });
-
-    navbar.dispatchEvent(clickEvent);
+    window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
+    await new Promise(r => setTimeout(r, 50));
 
     expect(navbar.classList.contains('open')).to.equal(
       false,
-      'Drawer should auto-close after link click on mobile'
+      'Drawer should auto-close after navigation on mobile'
     );
   });
 
-  it('does NOT remove open class when a link is clicked on wide screens', async () => {
+  it('does NOT close drawer on vaadin-router-location-changed when wide', async () => {
     mockMatchMedia(false);
 
     const el = document.createElement('dorc-app');
@@ -107,15 +99,10 @@ describe('Drawer auto-close on mobile', () => {
     await new Promise(r => setTimeout(r, 200));
 
     navbar.classList.add('open');
+    (el as any)._drawerOpen = true;
 
-    const anchor = document.createElement('a');
-    anchor.href = '/other-page';
-    const clickEvent = new MouseEvent('click', { bubbles: true, composed: true });
-    Object.defineProperty(clickEvent, 'composedPath', {
-      value: () => [anchor, navbar, el.shadowRoot!, el, document.body, document],
-    });
-
-    navbar.dispatchEvent(clickEvent);
+    window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
+    await new Promise(r => setTimeout(r, 50));
 
     expect(navbar.classList.contains('open')).to.equal(
       true,
@@ -123,7 +110,7 @@ describe('Drawer auto-close on mobile', () => {
     );
   });
 
-  it('does NOT remove open class when a non-link element is clicked on mobile', async () => {
+  it('closes drawer on Escape when narrow', async () => {
     mockMatchMedia(true);
 
     const el = document.createElement('dorc-app');
@@ -132,18 +119,14 @@ describe('Drawer auto-close on mobile', () => {
     await new Promise(r => setTimeout(r, 200));
 
     navbar.classList.add('open');
+    (el as any)._drawerOpen = true;
 
-    const div = document.createElement('div');
-    const clickEvent = new MouseEvent('click', { bubbles: true, composed: true });
-    Object.defineProperty(clickEvent, 'composedPath', {
-      value: () => [div, navbar, el.shadowRoot!, el, document.body, document],
-    });
-
-    navbar.dispatchEvent(clickEvent);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await new Promise(r => setTimeout(r, 50));
 
     expect(navbar.classList.contains('open')).to.equal(
-      true,
-      'Drawer should stay open when non-link clicked on mobile'
+      false,
+      'Escape should close the drawer on mobile'
     );
   });
 
