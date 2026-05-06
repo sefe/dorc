@@ -68,8 +68,9 @@ describe('Drawer auto-close on mobile', () => {
     mockMatchMedia(true);
 
     const { el, navbar } = await mountDorcApp(container);
-    navbar.classList.add('open');
-    (el as any)._drawerOpen = true;
+    // Open via the real path so focus capture, body lock, and aria all run.
+    (el as any)._openDrawer();
+    expect(navbar.classList.contains('open')).to.equal(true, 'precondition');
 
     window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
 
@@ -83,8 +84,7 @@ describe('Drawer auto-close on mobile', () => {
     mockMatchMedia(false);
 
     const { el, navbar } = await mountDorcApp(container);
-    navbar.classList.add('open');
-    (el as any)._drawerOpen = true;
+    (el as any)._openDrawer();
 
     window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
 
@@ -98,8 +98,8 @@ describe('Drawer auto-close on mobile', () => {
     mockMatchMedia(true);
 
     const { el, navbar } = await mountDorcApp(container);
-    navbar.classList.add('open');
-    (el as any)._drawerOpen = true;
+    (el as any)._openDrawer();
+    expect(navbar.classList.contains('open')).to.equal(true, 'precondition');
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
