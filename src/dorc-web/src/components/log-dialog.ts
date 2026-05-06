@@ -63,6 +63,7 @@ export class LogDialog extends LitElement {
   render() {
     return html`
       <vaadin-dialog
+        theme="log-viewer"
         .opened="${this.isOpened}"
         draggable="true"
         @opened-changed="${(event: DialogOpenedChangedEvent) => {

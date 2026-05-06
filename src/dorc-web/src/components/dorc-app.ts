@@ -198,8 +198,22 @@ export class DorcApp extends ShortcutsStore {
   @state() private _narrowScreen = false;
 
   private _narrowMq: MediaQueryList | undefined;
+  private _previouslyFocused: HTMLElement | null = null;
+  private _drawerLockedScroll = false;
+  private _splitterMouseDownHandler: (() => void) | undefined;
+  private _splitterDragInProgress = false;
+
   private _narrowMqHandler = (e: MediaQueryListEvent) => {
     this._narrowScreen = e.matches;
+    // Clear any inline width carried across the breakpoint so each media's
+    // CSS takes over cleanly (e.g. desktop `width: var(...)` after mobile use).
+    if (this.dorcNavbar) {
+      this.dorcNavbar.style.width = '';
+    }
+    if (!this._narrowScreen && this._drawerOpen) {
+      // Drawer is always reachable on desktop; collapse the mobile-modal state.
+      this._closeDrawer();
+    }
     this._applyDrawerAria();
   };
   private _routerLocationChanged = () => {
@@ -212,6 +226,13 @@ export class DorcApp extends ShortcutsStore {
       this._closeDrawer();
     }
   };
+  // Pull focus back into the drawer when it tries to escape on mobile.
+  // Cheaper than enumerating focusables across nested shadow roots.
+  private _focusGuardHandler = (e: FocusEvent) => {
+    if (!this._drawerOpen || !this._narrowScreen || !this.dorcNavbar) return;
+    if (e.composedPath().includes(this.dorcNavbar)) return;
+    this.dorcNavbar.focus();
+  };
 
   render() {
     return html`
@@ -221,7 +242,6 @@ export class DorcApp extends ShortcutsStore {
           theme="icon"
           aria-label="Toggle Menu"
           aria-expanded="${this._drawerOpen ? 'true' : 'false'}"
-          aria-controls="dorcNavbar"
           @click="${this.toggleSideBar}"
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
@@ -300,15 +320,25 @@ export class DorcApp extends ShortcutsStore {
 
     this._applyDrawerAria();
 
-    this.splitter.addEventListener('mousedown', () => {
+    this._splitterMouseDownHandler = () => {
+      this._splitterDragInProgress = true;
       document.body.addEventListener('mousemove', fMouseMoveListener, {
         passive: true
       });
-      document.body.addEventListener('mouseup', fMouseUpListener);
+      document.body.addEventListener('mouseup', this._wrappedMouseUpListener);
 
       document.body.style.setProperty('user-select', 'none');
-    });
+    };
+    this.splitter.addEventListener('mousedown', this._splitterMouseDownHandler);
   }
+
+  // Wrapper around fMouseUpListener that also clears the in-progress flag so
+  // disconnectedCallback can tell whether to release body styles.
+  private _wrappedMouseUpListener = (event: MouseEvent) => {
+    document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+    this._splitterDragInProgress = false;
+    fMouseUpListener(event);
+  };
 
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -318,11 +348,21 @@ export class DorcApp extends ShortcutsStore {
       this._routerLocationChanged
     );
     document.removeEventListener('keydown', this._keydownHandler);
-    // Drop any in-flight splitter drag listeners so they don't outlive this element
-    document.body.removeEventListener('mousemove', fMouseMoveListener);
-    document.body.removeEventListener('mouseup', fMouseUpListener);
-    document.body.style.removeProperty('user-select');
-    document.body.style.removeProperty('overflow');
+    document.removeEventListener('focusin', this._focusGuardHandler, true);
+    if (this.splitter && this._splitterMouseDownHandler) {
+      this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+    }
+    // Only release body styles we own, so coexisting modals/drags aren't clobbered.
+    if (this._splitterDragInProgress) {
+      document.body.removeEventListener('mousemove', fMouseMoveListener);
+      document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+      document.body.style.removeProperty('user-select');
+      this._splitterDragInProgress = false;
+    }
+    if (this._drawerLockedScroll) {
+      document.body.style.removeProperty('overflow');
+      this._drawerLockedScroll = false;
+    }
   }
 
   private toggleSideBar() {
@@ -352,7 +392,13 @@ export class DorcApp extends ShortcutsStore {
     this._drawerOpen = true;
     this.dorcNavbar.classList.add('open');
     if (this._narrowScreen) {
+      this._previouslyFocused = this._activeFocusedElement();
       document.body.style.overflow = 'hidden';
+      this._drawerLockedScroll = true;
+      document.addEventListener('focusin', this._focusGuardHandler, true);
+      // Move focus into the drawer so AT users land inside the modal.
+      this.dorcNavbar.tabIndex = -1;
+      this.dorcNavbar.focus();
     }
     this._applyDrawerAria();
   }
@@ -361,8 +407,28 @@ export class DorcApp extends ShortcutsStore {
     if (!this.dorcNavbar) return;
     this._drawerOpen = false;
     this.dorcNavbar.classList.remove('open');
-    document.body.style.removeProperty('overflow');
+    if (this._drawerLockedScroll) {
+      document.body.style.removeProperty('overflow');
+      this._drawerLockedScroll = false;
+    }
+    document.removeEventListener('focusin', this._focusGuardHandler, true);
     this._applyDrawerAria();
+    // Restore focus to whatever opened the drawer (typically the menu button).
+    const toFocus = this._previouslyFocused;
+    this._previouslyFocused = null;
+    if (toFocus && typeof toFocus.focus === 'function') {
+      toFocus.focus();
+    }
+  }
+
+  // Walk composed-path to find the active element across shadow roots,
+  // so we can restore focus precisely on close.
+  private _activeFocusedElement(): HTMLElement | null {
+    let el = document.activeElement as HTMLElement | null;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) {
+      el = el.shadowRoot.activeElement as HTMLElement;
+    }
+    return el;
   }
 
   // Drawer is reachable on desktop regardless of `_drawerOpen`; on mobile we

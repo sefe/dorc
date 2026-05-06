@@ -14,7 +14,10 @@ export class EnvProjects extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        height: 100%;
       }
       vaadin-details {
         overflow: auto;
