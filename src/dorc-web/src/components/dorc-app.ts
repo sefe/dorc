@@ -310,8 +310,11 @@ export class DorcApp extends ShortcutsStore {
     document.addEventListener('keydown', this._keydownHandler);
     // After a disconnect/reconnect cycle, firstUpdated does not re-fire but
     // the splitter element still exists in our shadow DOM. Re-attach the
-    // mousedown listener once the next render has settled.
-    void this.updateComplete.then(() => this._attachSplitterListener());
+    // mousedown listener once the next render has settled. Catch rejections
+    // (render errors) so they're surfaced rather than swallowed silently.
+    this.updateComplete
+      .then(() => this._attachSplitterListener())
+      .catch(err => console.error('dorc-app deferred splitter attach failed:', err));
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -428,11 +431,15 @@ export class DorcApp extends ShortcutsStore {
     document.removeEventListener('focusin', this._focusGuardHandler, true);
     this._applyDrawerAria();
     // Restore focus to whatever opened the drawer (typically the menu button).
-    // If that element is no longer in the DOM (SPA navigation, re-render),
-    // fall back to the menu button so AT users have a sensible landing point.
+    // Use `isConnected` rather than `document.contains` because the latter
+    // doesn't traverse shadow boundaries — and `_activeFocusedElement()`
+    // returns the deepest shadow-root activeElement, which is the common case
+    // for openers inside Vaadin custom elements.
+    // If the element is gone (SPA navigation, re-render), fall back to the
+    // menu button so AT users have a sensible landing point.
     const toFocus = this._previouslyFocused;
     this._previouslyFocused = null;
-    if (toFocus && document.contains(toFocus) && typeof toFocus.focus === 'function') {
+    if (toFocus && toFocus.isConnected && typeof toFocus.focus === 'function') {
       toFocus.focus();
     } else {
       const menuBtn = this.shadowRoot?.querySelector(
