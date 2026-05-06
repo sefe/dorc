@@ -27,13 +27,15 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ inputs.version }}
+      DRAFT: ${{ inputs.draft }}
+      REPO: ${{ github.repository }}
 
     steps:
       - name: Locate build artifact
         id: artifact
         run: |
           set -euo pipefail
-          payload=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=dorc-release-${VERSION}&per_page=1")
+          payload=$(gh api "repos/${REPO}/actions/artifacts?name=dorc-release-${VERSION}&per_page=1")
           count=$(echo "$payload" | jq '.total_count')
           if [ "$count" -eq 0 ]; then
             echo "::error::No artifact named dorc-release-${VERSION} found. Has release.yml run for that version?"
@@ -50,18 +52,22 @@ jobs:
           exit 1
 
       - name: Download artifact zip
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.id }}
         run: |
           set -euo pipefail
           mkdir -p ./release
-          gh api "repos/${{ github.repository }}/actions/artifacts/${{ steps.artifact.outputs.id }}/zip" \
+          gh api "repos/${REPO}/actions/artifacts/${ARTIFACT_ID}/zip" \
             > "./release/dorc-release-${VERSION}.zip"
           ls -lh "./release/dorc-release-${VERSION}.zip"
 
       - name: Create release
+        env:
+          HEAD_SHA: ${{ steps.artifact.outputs.head_sha }}
         run: |
           set -euo pipefail
-          flags=(--target "${{ steps.artifact.outputs.head_sha }}" --title "v${VERSION}" --generate-notes)
-          if [ "${{ inputs.draft }}" = "true" ]; then
+          flags=(--target "$HEAD_SHA" --title "v${VERSION}" --generate-notes)
+          if [ "$DRAFT" = "true" ]; then
             flags+=(--draft)
           fi
           gh release create "v${VERSION}" "${flags[@]}" "./release/dorc-release-${VERSION}.zip"
