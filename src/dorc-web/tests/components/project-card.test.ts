@@ -1,6 +1,6 @@
-import { expect, fixture, html } from '@open-wc/testing';
-import './project-card.js';
-import type { ProjectCard } from './project-card.js';
+import { expect, fixture, html } from '../_helpers';
+import '../../src/components/project-card.js';
+import type { ProjectCard } from '../../src/components/project-card.js';
 
 describe('ProjectCard responsive layout', () => {
   const mockProject = {

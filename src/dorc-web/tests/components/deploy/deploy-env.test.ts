@@ -1,5 +1,5 @@
-import { expect, fixture, html } from '@open-wc/testing';
-import { DeployEnv } from './deploy-env.js';
+import { expect, fixture, html } from '../../_helpers';
+import { DeployEnv } from '../../../src/components/deploy/deploy-env.js';
 
 describe('DeployEnv responsive layout', () => {
   it('should NOT contain any table elements', async () => {

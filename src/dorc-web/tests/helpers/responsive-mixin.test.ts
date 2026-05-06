@@ -1,7 +1,7 @@
-import { expect, fixture, html } from '@open-wc/testing';
+import { expect, fixture, html } from '../_helpers';
 import { LitElement, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { ResponsiveMixin } from './responsive-mixin.js';
+import { ResponsiveMixin } from '../../src/helpers/responsive-mixin.js';
 
 // Test element that uses the ResponsiveMixin
 @customElement('test-responsive-element')

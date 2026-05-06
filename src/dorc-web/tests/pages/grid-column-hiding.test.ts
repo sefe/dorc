@@ -1,7 +1,7 @@
-import { expect, fixture, html } from '@open-wc/testing';
+import { expect, fixture, html } from '../_helpers';
 import { LitElement, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { ResponsiveMixin } from '../helpers/responsive-mixin.js';
+import { ResponsiveMixin } from '../../src/helpers/responsive-mixin.js';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 

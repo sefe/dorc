@@ -12,10 +12,7 @@ export default [
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
   {
-    files: ['**/*.test.ts', '**/*.vitest.ts'],
-    languageOptions: {
-      globals: globals.mocha,
-    },
+    files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-expressions': 0,
     },

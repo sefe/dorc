@@ -1,6 +1,6 @@
-import { expect, fixture, html } from '@open-wc/testing';
-import './environment-card.js';
-import type { EnvironmentCard } from './environment-card.js';
+import { expect, fixture, html } from '../_helpers';
+import '../../src/components/environment-card.js';
+import type { EnvironmentCard } from '../../src/components/environment-card.js';
 
 describe('EnvironmentCard responsive layout', () => {
   const mockEnvironment = {

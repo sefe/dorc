@@ -1,6 +1,6 @@
-import { expect, fixture, html } from '@open-wc/testing';
-import './page-deploy.js';
-import type { PageDeploy } from './page-deploy.js';
+import { expect, fixture, html } from '../_helpers';
+import '../../src/pages/page-deploy.js';
+import type { PageDeploy } from '../../src/pages/page-deploy.js';
 
 describe('PageDeploy responsive layout', () => {
   it('should NOT contain any table elements', async () => {

@@ -1,4 +1,4 @@
-import { expect } from '@open-wc/testing';
+import { expect } from '../_helpers';
 
 // ─── mockMatchMedia helper ───
 let originalMatchMedia: typeof window.matchMedia;
@@ -35,8 +35,7 @@ describe('Drawer auto-close on mobile', () => {
   let container: HTMLDivElement;
 
   // Pre-load the heavy dorc-app module before any test timers start
-  before(async function () {
-    this.timeout(30000);
+  beforeAll(async () => {
     originalMatchMedia = window.matchMedia;
     origOnError = window.onerror;
     window.onerror = (msg, ...rest) => {
@@ -53,10 +52,10 @@ describe('Drawer auto-close on mobile', () => {
       }
       return false;
     };
-    await import('./dorc-app.js');
+    await import('../../src/components/dorc-app.js');
   });
 
-  after(() => {
+  afterAll(() => {
     window.matchMedia = originalMatchMedia;
     window.onerror = origOnError;
   });
@@ -132,7 +131,7 @@ describe('Drawer auto-close on mobile', () => {
 
   describe('Drawer CSS (structural)', () => {
     it('dorc-app CSS contains mobile drawer styles', async () => {
-      const mod = await import('./dorc-app.js');
+      const mod = await import('../../src/components/dorc-app.js');
       const styles = mod.DorcApp.styles;
       const cssText = Array.isArray(styles)
         ? styles.map((s: any) => s.cssText ?? '').join('')
