@@ -217,6 +217,10 @@ export class PageProjectsAudit extends PageElement {
         cursor: pointer;
         overflow: hidden;
       }
+      .diff-overview:focus-visible {
+        outline: 2px solid var(--dorc-link-color);
+        outline-offset: -2px;
+      }
       .diff-overview-marker {
         position: absolute;
         left: 1px;
@@ -648,8 +652,12 @@ export class PageProjectsAudit extends PageElement {
             </div>
             <div
               class="diff-overview"
-              title="${markers.length} changed row${markers.length === 1 ? '' : 's'} · click to jump"
+              role="button"
+              tabindex="0"
+              aria-label="Diff overview, ${markers.length} changed row${markers.length === 1 ? '' : 's'}. Press Enter or Down Arrow to jump to the next change, Up Arrow for previous."
+              title="${markers.length} changed row${markers.length === 1 ? '' : 's'} · click or press Enter to jump"
               @click="${this.onOverviewClick}"
+              @keydown="${this.onOverviewKeydown}"
             >
               ${markerEls}
               <div class="diff-overview-viewport"></div>
@@ -706,6 +714,59 @@ export class PageProjectsAudit extends PageElement {
     const target = ratio * pane.scrollHeight - pane.clientHeight / 2;
     pane.scrollTo({
       top: Math.max(0, Math.min(target, pane.scrollHeight - pane.clientHeight)),
+      behavior: 'smooth'
+    });
+  };
+
+  // Keyboard equivalent of clicking the ruler: cycles through the change
+  // markers so the ruler remains usable without a mouse. Enter/Space/Down
+  // jump to the next change, Up jumps to the previous, Home/End to the
+  // first/last. Marker pixel positions are derived from the rendered
+  // marker DOM (style.top is set as a percentage of pane.scrollHeight).
+  private onOverviewKeydown = (e: KeyboardEvent) => {
+    const key = e.key;
+    if (
+      key !== 'Enter' &&
+      key !== ' ' &&
+      key !== 'ArrowDown' &&
+      key !== 'ArrowUp' &&
+      key !== 'Home' &&
+      key !== 'End'
+    ) {
+      return;
+    }
+    e.preventDefault();
+    const overview = e.currentTarget as HTMLElement;
+    const pane = overview.parentElement?.querySelector(
+      '.diff-pane-scroll'
+    ) as HTMLElement | null;
+    if (!pane) return;
+    const markers = Array.from(
+      overview.querySelectorAll<HTMLElement>('.diff-overview-marker')
+    );
+    if (markers.length === 0) return;
+
+    const positions = markers
+      .map(m => (parseFloat(m.style.top) / 100) * pane.scrollHeight)
+      .sort((a, b) => a - b);
+
+    const viewCenter = pane.scrollTop + pane.clientHeight / 2;
+    let target: number;
+    if (key === 'Home') {
+      target = positions[0];
+    } else if (key === 'End') {
+      target = positions[positions.length - 1];
+    } else if (key === 'ArrowUp') {
+      const prev = [...positions].reverse().find(p => p < viewCenter - 1);
+      target = prev ?? positions[positions.length - 1];
+    } else {
+      // Enter, Space, ArrowDown — next change, cycling at the end.
+      const next = positions.find(p => p > viewCenter + 1);
+      target = next ?? positions[0];
+    }
+    const top = target - pane.clientHeight / 2;
+    pane.scrollTo({
+      top: Math.max(0, Math.min(top, pane.scrollHeight - pane.clientHeight)),
       behavior: 'smooth'
     });
   };
