@@ -72,7 +72,6 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
       }
       vaadin-grid#grid {
         overflow: hidden;
-        height: calc(100vh - 110px);
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);

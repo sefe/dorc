@@ -73,7 +73,6 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         flex-direction: column;
         height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid {

@@ -149,14 +149,6 @@ export class PageAbout extends PageElement {
         min-width: 120px;
       }
 
-      #chart-all {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        height: 100dvh;
-        width: 100%;
-      }
-
       .main-info {
         display: flex;
         flex-wrap: wrap;
