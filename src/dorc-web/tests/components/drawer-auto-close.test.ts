@@ -160,8 +160,8 @@ describe('Splitter listener survives reconnect', () => {
       'splitter mousedown should set _splitterDragInProgress on first mount'
     );
 
-    // End the drag so cleanup runs.
-    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    // End the drag so cleanup runs. The wrapper is registered on
+    // document.body; an event dispatched on document does not reach it.
     document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 
     // Disconnect…
