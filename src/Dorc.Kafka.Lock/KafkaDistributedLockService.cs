@@ -6,14 +6,12 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Lock;
 
 /// <summary>
-/// Kafka consumer-group-based implementation of <see cref="IDistributedLockService"/>
-/// per SPEC-S-005b R-2 / ADR-S-005.
+/// Kafka consumer-group-based implementation of <see cref="IDistributedLockService"/>.
 ///
 /// Resource-key → partition via <see cref="MurmurHash2"/>; ownership acquired
 /// by awaiting the coordinator's partition assignment. <paramref name="leaseTimeMs"/>
 /// is reinterpreted as a wait-cap (ms): the call blocks up to that long waiting
-/// for ownership, then returns null on timeout (ADR-deviation documented in
-/// SPEC-S-005b R-2). Caller cancellation also yields null.
+/// for ownership, then returns null on timeout. Caller cancellation also yields null.
 /// </summary>
 public sealed class KafkaDistributedLockService : IDistributedLockService
 {

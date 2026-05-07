@@ -7,7 +7,7 @@ using Microsoft.Extensions.Hosting;
 namespace Dorc.Kafka.Lock.Tests.DependencyInjection;
 
 /// <summary>
-/// Post-SPEC-S-009 the substrate-selector flag is gone; Kafka lock is
+/// the substrate-selector flag is gone; Kafka lock is
 /// unconditional. Remaining DI invariants: KafkaDistributedLockService
 /// replaces any upstream IDistributedLockService registration; coordinator
 /// is registered; idempotency holds.

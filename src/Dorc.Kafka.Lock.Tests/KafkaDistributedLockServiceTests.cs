@@ -7,8 +7,8 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Lock.Tests;
 
 /// <summary>
-/// AT-1 (acquire/release), AT-10 (LockLostToken on both shapes), and the
-/// wait-cap null-return path (R-2 ADR-deviation shim).
+/// (acquire/release),  (LockLostToken on both shapes), and the
+/// wait-cap null-return path ( ADR-deviation shim).
 /// </summary>
 [TestClass]
 public class KafkaDistributedLockServiceTests

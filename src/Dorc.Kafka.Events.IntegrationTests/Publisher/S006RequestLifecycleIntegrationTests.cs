@@ -13,10 +13,10 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Events.IntegrationTests.Publisher;
 
 /// <summary>
-/// SPEC-S-006 integration tests against the local compose stack.
-/// AT-3 (consumer subscribes both topics, handler invoked per record),
-/// AT-10 (E2E producer→consumer wake-up signal),
-/// AT-11 (per-RequestId ordering preserved by key-partition FIFO).
+/// integration tests against the local compose stack.
+/// (consumer subscribes both topics, handler invoked per record),
+/// (E2E producer→consumer wake-up signal),
+/// (per-RequestId ordering preserved by key-partition FIFO).
 /// </summary>
 [TestClass]
 public class S006RequestLifecycleIntegrationTests

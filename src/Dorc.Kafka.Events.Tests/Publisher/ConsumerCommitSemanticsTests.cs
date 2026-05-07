@@ -18,7 +18,7 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 /// invariants regardless of what an operator sets globally on
 /// <see cref="KafkaClientOptions.EnableAutoCommit"/>; otherwise a crash
 /// mid-broadcast / mid-handler can silently advance past an unprocessed
-/// record. The tests exercise <c>BuildConsumerConfig()</c> directly so any
+/// record. The tests exercise <c>BuildConsumerConfig</c> directly so any
 /// future refactor that drops the explicit override fails CI.
 ///
 /// Connection-provider behaviour is stubbed out — the test plants the
@@ -77,7 +77,7 @@ public class ConsumerCommitSemanticsTests
         // Stronger than StartsWith: a refactor that hardcoded GroupId =
         // ConsumerGroupPrefix (no suffix) would still satisfy StartsWith
         // but silently collapses the per-replica fan-out invariant
-        // (SPEC-S-007 R-2). Require the prefix + a '.'-separated suffix
+        // . Require the prefix + a '.'-separated suffix
         // and an actual non-empty discriminator after it.
         var prefix = DeploymentResultsKafkaConsumer.ConsumerGroupPrefix + ".";
         StringAssert.StartsWith(config.GroupId, prefix);
@@ -91,7 +91,7 @@ public class ConsumerCommitSemanticsTests
     {
         // Hostile baseline: provider returns a config with auto-offset-store
         // ON (the librdkafka default). The consumer must turn it OFF so
-        // offsets only advance via explicit StoreOffset() after handler
+        // offsets only advance via explicit StoreOffset after handler
         // success.
         var sut = NewRequestsConsumer(new StubConnectionProvider(
             new ConsumerConfig

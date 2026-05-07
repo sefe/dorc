@@ -6,7 +6,7 @@ namespace Dorc.Kafka.Events.IntegrationTests;
 [TestClass]
 public class CompatibilityModeTests
 {
-    // AT-3: each registered subject's effective compatibility mode is BACKWARD.
+    // : each registered subject's effective compatibility mode is BACKWARD.
     // Karapace may return 40408 for subjects with no per-subject config, in which
     // case they inherit the registry-global mode (compose sets this to BACKWARD).
 

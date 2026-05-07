@@ -3,11 +3,11 @@
 // and writing the registry's acknowledged shape per subject.
 //
 // Usage: dotnet run -- [--registry http://localhost:8081] [--out <dir>]
-//   [--topic-requests-new <name>] [--topic-requests-status <name>] [--topic-results-status <name>]
+// [--topic-requests-new <name>] [--topic-requests-status <name>] [--topic-results-status <name>]
 //
 // Topic-name args are MANDATORY when run against a non-default registry
 // (e.g. SEFE Karapace) — without them the tool would register schemas under
-// the historical dorc.* default subjects (SPEC-S-017 §2 #9, AC-8).
+// the historical dorc.* default subjects.
 //
 // Intended to be run as a standalone developer / dry-run action when a schema
 // change is intentionally introduced and the PR-gate snapshot baseline needs

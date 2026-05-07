@@ -9,7 +9,7 @@ public interface IKafkaErrorLog
     ///
     /// Throws if the source topic has no DLQ configured (the consumer's
     /// existing catch will then fall through to the structured-log tier per
-    /// SPEC-S-006 R-8 / SPEC-S-007 R-3 #4 three-tier model). Throws if the
+    /// #4 three-tier model). Throws if the
     /// produce itself fails (broker down, oversized payload, etc.) — same
     /// fallback contract.
     /// </summary>

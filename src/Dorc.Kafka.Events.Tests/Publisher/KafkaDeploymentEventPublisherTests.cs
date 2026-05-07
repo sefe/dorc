@@ -32,7 +32,7 @@ public class KafkaDeploymentEventPublisherTests
         RequestId: requestId, Status: status,
         StartedTime: DateTimeOffset.UtcNow, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow);
 
-    // AT-1 — producer emits to correct topic with RequestId key.
+    // — producer emits to correct topic with RequestId key.
     [TestMethod]
     public async Task PublishNewRequest_EmitsToRequestsNewTopic_KeyedByRequestId()
     {
@@ -75,7 +75,7 @@ public class KafkaDeploymentEventPublisherTests
         Assert.AreEqual("4242", resultsProd.Produced[0].Message.Key);
     }
 
-    // AT-2 — dual-publish: SignalR called regardless of Kafka outcome; Kafka throw propagates.
+    // — dual-publish: SignalR called regardless of Kafka outcome; Kafka throw propagates.
     [TestMethod]
     public async Task PublishNewRequest_AlsoCallsFallback_BeforeKafka()
     {
@@ -113,7 +113,7 @@ public class KafkaDeploymentEventPublisherTests
         await sut.PublishNewRequestAsync(NewRequest(11, "Pending"));
 
         Assert.AreEqual(1, requestsProd.Produced.Count,
-            "Kafka emit must NOT be suppressed by SignalR fallback failure (R-1 invariant).");
+            "Kafka emit must NOT be suppressed by SignalR fallback failure.");
     }
 
     [TestMethod]

@@ -2,7 +2,7 @@ using Dorc.Kafka.Lock.Configuration;
 
 namespace Dorc.Kafka.Lock.Tests;
 
-/// <summary>AT-9 — options validator fails fast on invalid values.</summary>
+/// <summary> — options validator fails fast on invalid values.</summary>
 [TestClass]
 public class KafkaLocksOptionsValidatorTests
 {

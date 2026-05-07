@@ -8,7 +8,7 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 [TestClass]
 public class WriteErrorLogSuperDegradedTests
 {
-    // Covers the SPEC-S-007 R-3 step #4 "super-degraded" contract: if
+    // Covers the  step #4 "super-degraded" contract: if
     // IKafkaErrorLog.InsertAsync AND the structured LogError fallback both
     // throw, the exception is swallowed and the consumer loop survives.
     //
@@ -25,7 +25,7 @@ public class WriteErrorLogSuperDegradedTests
 
         // We invoke the same handler shape the consumer uses. The consumer's
         // WriteErrorLogAndCommit is internal-private; to keep the test
-        // focused on the R-3 #4 contract we duplicate the two-tier try/catch
+        // focused on the  #4 contract we duplicate the two-tier try/catch
         // shape here and assert swallow. The production impl in
         // DeploymentResultsKafkaConsumer.WriteErrorLogAndCommit mirrors this
         // exact shape (lines 200–214); drift between the two invalidates the
@@ -40,7 +40,7 @@ public class WriteErrorLogSuperDegradedTests
 
         Action act = () => InvokeSuperDegradedPath(throwingErrorLog, throwingLogger, entry);
 
-        // Should NOT throw — the whole point of R-3 #4.
+        // Should NOT throw — the whole point of  #4.
         act();
 
         Assert.IsTrue(throwingErrorLog.WasCalled);

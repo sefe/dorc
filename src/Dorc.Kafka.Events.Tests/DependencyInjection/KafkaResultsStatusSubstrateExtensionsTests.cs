@@ -14,7 +14,7 @@ namespace Dorc.Kafka.Events.Tests.DependencyInjection;
 [TestClass]
 public class KafkaResultsStatusSubstrateExtensionsTests
 {
-    // SPEC-S-009: substrate-selector flag is gone. Kafka is unconditional.
+    // : substrate-selector flag is gone. Kafka is unconditional.
     // The remaining DI invariants worth pinning are: (a) Kafka publisher +
     // hosted services are registered; (b) re-calling the extension is a no-op.
 

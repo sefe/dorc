@@ -7,7 +7,7 @@ namespace Dorc.Kafka.Client.IntegrationTests;
 [TestClass]
 public class RebalanceTests
 {
-    // AT-3 live: two consumers join the same group against a 4-partition topic;
+    // live: two consumers join the same group against a 4-partition topic;
     // both emit rebalance entries with the §4.3 shape contract.
 
     [TestMethod]

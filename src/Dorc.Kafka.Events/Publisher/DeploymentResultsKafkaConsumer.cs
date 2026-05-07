@@ -15,18 +15,18 @@ namespace Dorc.Kafka.Events.Publisher;
 
 /// <summary>
 /// API-side hosted service that subscribes to <c>dorc.results.status</c>,
-/// deserialises Avro via S-003's factory, and rebroadcasts via the
+/// deserialises Avro via factory, and rebroadcasts via the
 /// injected <see cref="IDeploymentResultBroadcaster"/> (production: SignalR).
 ///
-/// Per SPEC-S-007 R-2 multi-replica fan-out: consumer group id is
+/// multi-replica fan-out: consumer group id is
 /// <c>dorc-api-results-status.{HostInstanceId}</c> so every API replica
 /// consumes every event and broadcasts to its locally-pinned SignalR
 /// clients. AutoOffsetReset overridden to Latest because status events
 /// are real-time signals — a UI doesn't need historical replay on
 /// consumer restart.
 ///
-/// Failure path per R-3: poison messages and broadcast exceptions write a
-/// KafkaErrorLogEntry via S-004's IKafkaErrorLog; if the DAL itself
+/// Failure path: poison messages and broadcast exceptions write a
+/// KafkaErrorLogEntry via IKafkaErrorLog; if the DAL itself
 /// throws, fall back to a structured LogError; super-degraded (logger
 /// throws too) is swallowed so the consumer loop never crashes.
 /// Offset commits only after the log path completes.
@@ -138,9 +138,9 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     private void WarmupSerializers()
     {
         // Eagerly resolve the (topic, type) → schema-registry deserializer
-        // before Subscribe so the first Consume() call doesn't pay the
+        // before Subscribe so the first Consume call doesn't pay the
         // registry round-trip on the consume thread. A blocking call inside
-        // Consume() that exceeds max.poll.interval.ms fences the consumer
+        // Consume that exceeds max.poll.interval.ms fences the consumer
         // and triggers a group rebalance — preventable failure mode. The
         // call goes through IKafkaSerializerFactory so a wrapped/replaced
         // factory still gets the warmup hook (or no-ops via the interface's
@@ -150,17 +150,17 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
     /// <summary>
     /// Shapes the consumer configuration. Exposed as <c>internal</c> so the
-    /// tests can pin the commit-semantics invariants (see SPEC-S-007 R-3
+    /// tests can pin the commit-semantics invariants (see
     /// strong-2/3 finding: a global <c>EnableAutoCommit=true</c> override
     /// must not leak into this consumer or a crash mid-broadcast can
     /// silently drop a SignalR projection).
     /// </summary>
     internal ConsumerConfig BuildConsumerConfig()
     {
-        // Use S-002's connection provider for SASL / bootstrap / timeouts,
+        // Use connection provider for SASL / bootstrap / timeouts,
         // but override AutoOffsetReset to Latest (status events are
         // real-time; no historical replay) and group.id to the per-replica
-        // identity per R-2.
+        // identity.
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
         config.AutoOffsetReset = AutoOffsetReset.Latest;
         // Manual commit-only: every offset advances via consumer.Commit(result)
@@ -260,7 +260,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 // Super-degraded: logger itself threw. Swallow so the consumer
                 // loop survives — one missed log entry beats a halted consumer
                 // that takes down further status updates for every connected
-                // user. Per SPEC-S-007 R-3 #4.
+                // user. #4.
             }
         }
 

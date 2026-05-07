@@ -6,7 +6,7 @@ namespace Dorc.Kafka.Client.IntegrationTests;
 [TestClass]
 public class RoundTripTests
 {
-    // AT-2: producer/consumer round-trip + manual-commit resume
+    // : producer/consumer round-trip + manual-commit resume
 
     [TestMethod]
     public async Task Produce_Then_Consume_RoundTripsKeyAndValue()

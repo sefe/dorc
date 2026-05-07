@@ -6,7 +6,7 @@ namespace Dorc.Kafka.Lock;
 /// Handle returned from <see cref="KafkaDistributedLockService.TryAcquireLockAsync"/>.
 /// <see cref="LockLostToken"/> is the coordinator's per-partition CTS token
 /// captured at acquisition time; it fires on cooperative-rebalance revoke,
-/// session-timeout partition loss, or coordinator shutdown (SPEC-S-005b R-3).
+/// session-timeout partition loss, or coordinator shutdown.
 /// Dispose is a no-op beyond bookkeeping — there is no explicit release
 /// message in the partition-ownership model.
 /// </summary>

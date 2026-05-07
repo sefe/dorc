@@ -60,7 +60,7 @@ public class KafkaEnvelopeTests
     [TestMethod]
     public void SameBuilders_DriveBothEnvelopeAndRawPaths_R6Optionality()
     {
-        // AT-5 tightening: both sub-tests must be driven by the same R-2/R-3
+        // tightening: both sub-tests must be driven by the same
         // builder entry points; envelope engagement is call-site opt-in.
         var options = Options.Create(new KafkaClientOptions
         {

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Hosting;
 namespace Dorc.Kafka.Events.Tests.DependencyInjection;
 
 /// <summary>
-/// Post-SPEC-S-009 the substrate-selector flag is gone; Kafka is unconditional.
+/// the substrate-selector flag is gone; Kafka is unconditional.
 /// Remaining DI invariants: latching signal + handler + consumer registered;
 /// idempotency holds; the extension does NOT touch the publisher interfaces.
 /// </summary>
@@ -40,9 +40,9 @@ public class KafkaRequestLifecycleSubstrateExtensionsTests
     [TestMethod]
     public void DoesNotRegisterPublisherInterfaces()
     {
-        // SPEC-S-006 R-2 GPT-F7 guard: this extension must NOT register
-        // IDeploymentEventsPublisher or IFallbackDeploymentEventPublisher —
-        // both stay owned by S-007's AddDorcKafkaResultsStatusSubstrate.
+        // guard: this extension must NOT register
+        // IDeploymentEventsPublisher or IFallbackDeploymentEventPublisher
+        // both stay owned by AddDorcKafkaResultsStatusSubstrate.
         var services = BaseServices();
         services.AddDorcKafkaRequestLifecycleSubstrate(EmptyConfig());
         Assert.IsFalse(services.Any(sd => sd.ServiceType == typeof(Dorc.Core.Interfaces.IDeploymentEventsPublisher)));

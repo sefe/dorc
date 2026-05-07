@@ -10,9 +10,9 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Lock;
 
 /// <summary>
-/// Provisioning hook for the dorc.locks topic (SPEC-S-005b R-5). Partition
-/// count is immutable post-cutover (ADR-S-005 §4 #2); the S-010 runbook
-/// enforces that operationally. Mirrors the S-007 results-status provisioner
+/// Provisioning hook for the dorc.locks topic. Partition
+/// count is immutable post-cutover; the  runbook
+/// enforces that operationally. Mirrors the  results-status provisioner
 /// in error classification (ACL vs RF rejection vs other).
 /// </summary>
 public sealed class KafkaLocksTopicProvisioner : IHostedService
@@ -109,12 +109,12 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
             _logger.LogCritical(
                 "Kafka lock topic partition-count mismatch: topic={Topic} expected={Expected} actual={Actual}. " +
                 "Lock hashing uses the configured count (KafkaLockCoordinator.cs), so a mismatch would make some " +
-                "locks unacquirable. Partition-count is immutable post-cutover (ADR-S-005 §4 #2); " +
-                "reconcile via the S-010 runbook before restarting.",
+                "locks unacquirable. Partition-count is immutable post-cutover; " +
+                "reconcile via the cutover runbook before restarting.",
                 topic, expected, actual);
             throw new InvalidOperationException(
                 $"Kafka lock topic '{topic}' has {actual} partitions but KafkaLocksOptions.PartitionCount is {expected}. " +
-                "Refusing to start: reconcile via the S-010 runbook.");
+                "Refusing to start: reconcile via the cutover runbook.");
         }
     }
 }

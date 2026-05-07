@@ -16,27 +16,27 @@ public enum GateOutcome
 public sealed record GateReport(GateOutcome Outcome, string Subject, string Message, string? Source = null);
 
 /// <summary>
-/// PR-gate logic per SPEC-S-003 R-5. Always enforces BACKWARD compatibility
+/// PR-gate logic. Always enforces BACKWARD compatibility
 /// regardless of any observed registry mode. Source selection: prefer live
 /// Karapace when reachable; fall back to a committed snapshot; fail closed
 /// if neither is available.
 ///
-/// Per SPEC-S-017 §2 #4 + R1.1: <see cref="InScopeSchemas"/> emits
+/// <see cref="InScopeSchemas"/> emits
 /// <c>(CanonicalKey, LiveSubject, Schema)</c> triples. <c>CanonicalKey</c>
 /// is derived from <see cref="KafkaTopicsOptions"/> defaults and drives
 /// both <c>current/</c> (canonical-equality) and <c>latest/</c> (snapshot-
 /// fallback) on-disk file lookups; <c>LiveSubject</c> is derived from the
 /// *deployed* options and drives the live-registry POST URL. When defaults
-/// and deployed names match (the production default), the two are equal —
+/// and deployed names match (the production default), the two are equal
 /// the indirection only matters when the deployed cluster (e.g. SEFE Aiven)
 /// uses an enterprise topic-naming convention.
 /// </summary>
 public sealed class AvroSchemaGate
 {
     // Canonical schema-snapshot filenames are environment-neutral by design
-    // (SPEC-S-017 §2 #4) — they always reflect the historical default topic
-    // names so committed .avsc files diff cleanly across environments.
-    // The .avsc filenames returned by ResolveCanonicalAvscFileName are
+    // — they always reflect the historical default topic
+    // names so committed.avsc files diff cleanly across environments.
+    // The.avsc filenames returned by ResolveCanonicalAvscFileName are
     // hard-coded string literals (not interpolated from canonicalKey) so
     // Aikido's PathTraversal taint analysis sees no flow from the parameter
     // into the file-read sink — the only inputs to Path.Combine are the
@@ -101,7 +101,7 @@ public sealed class AvroSchemaGate
     {
         // Step 2: regenerated must match checked-in canonical. File lookup is
         // keyed off the *default*-derived canonicalKey so committed schema
-        // contracts stay environment-neutral (SPEC-S-017 §2 #4). Filename
+        // contracts stay environment-neutral. Filename
         // resolved through a literal-arm switch so no parameter content flows
         // into Path.Combine.
         var canonicalFile = canonicalKey switch

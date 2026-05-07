@@ -12,13 +12,13 @@ namespace Dorc.Kafka.Events.DependencyInjection;
 public static class KafkaRequestLifecycleSubstrateServiceCollectionExtensions
 {
     /// <summary>
-    /// SPEC-S-006 DI extension. After SPEC-S-009 the substrate-selector flag
+    /// DI extension. After  the substrate-selector flag
     /// is gone and Kafka is unconditional: registers the latching
     /// <see cref="RequestPollSignal"/>, the
     /// <see cref="PollSignalRequestEventHandler"/>, and the
     /// <see cref="DeploymentRequestsKafkaConsumer"/> as a hosted service.
-    /// Does NOT re-register <c>IDeploymentEventsPublisher</c> /
-    /// <c>IFallbackDeploymentEventPublisher</c> — those remain owned by S-007's
+    /// Does NOT re-register <c>IDeploymentEventsPublisher</c>
+    /// <c>IFallbackDeploymentEventPublisher</c> — those remain owned by
     /// <see cref="KafkaResultsStatusSubstrateServiceCollectionExtensions"/>.
     /// Idempotent via marker singleton.
     /// </summary>
@@ -33,7 +33,7 @@ public static class KafkaRequestLifecycleSubstrateServiceCollectionExtensions
 
         // KafkaTopicsOptions registration is idempotent — the consumer
         // resolves IOptions<KafkaTopicsOptions> in its constructor, so this
-        // extension must register it independently of S-007's results-status
+        // extension must register it independently of results-status
         // extension. TryAddEnumerable is idempotent by implementation type
         // (ServiceCollection dedup on (ServiceType, ImplementationType)) so
         // the validator registers exactly once even when both substrate

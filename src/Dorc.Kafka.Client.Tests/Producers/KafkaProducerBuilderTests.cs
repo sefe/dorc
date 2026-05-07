@@ -23,7 +23,7 @@ public class KafkaProducerBuilderTests
     [TestMethod]
     public void Build_NonStringKeyType_AlsoSucceeds_ConfirmingGenericity()
     {
-        // R-2: builder must not hard-code string keys.
+        // : builder must not hard-code string keys.
         var producer = BuildProducer<long, byte[]>();
 
         Assert.IsNotNull(producer);

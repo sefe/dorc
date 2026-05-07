@@ -141,7 +141,7 @@ public class SchemaGateUnitTests
         Assert.IsTrue(reports.All(r => r.Outcome == GateOutcome.Pass));
     }
 
-    // SPEC-S-017 AC-13 — diverged-name path: deployed topic differs from default.
+    // — diverged-name path: deployed topic differs from default.
     // Verifies (a) the gate reads canonical/snapshot files under the
     // *default*-derived filename, and (b) the resulting GateReport.Subject
     // reflects the *deployed* live subject (so PR-gate output is keyed to the

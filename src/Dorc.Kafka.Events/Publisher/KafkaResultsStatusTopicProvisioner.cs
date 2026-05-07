@@ -10,18 +10,18 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Events.Publisher;
 
 /// <summary>
-/// Startup hook that provisions the S-007/S-006 Kafka topics on an
+/// Startup hook that provisions the / Kafka topics on an
 /// idempotent best-effort basis. Owns the provisioning entry-point
-/// because S-007 lands first; S-006 inherits it via the same hook.
+/// because  lands first;  inherits it via the same hook.
 ///
-/// Per SPEC-S-007 R-4:
-///  - Topic creation with 12 partitions, RF from KafkaSubstrateOptions,
-///    min.insync.replicas = 2 (or 1 for RF=1 dev).
-///  - Existing topic with same partition count -> Information log, no-op.
-///  - Existing topic with different partition count -> Warning log, no
-///    throw (per-RequestId ordering is preserved for a fixed count).
-///  - RF-rejection on single-broker dev -> Warning, no throw (producer
-///    will fail-loud on first publish if topic genuinely missing).
+/// :
+/// - Topic creation with 12 partitions, RF from KafkaSubstrateOptions,
+/// min.insync.replicas = 2 (or 1 for RF=1 dev).
+/// - Existing topic with same partition count -> Information log, no-op.
+/// - Existing topic with different partition count -> Warning log, no
+/// throw (per-RequestId ordering is preserved for a fixed count).
+/// - RF-rejection on single-broker dev -> Warning, no throw (producer
+/// will fail-loud on first publish if topic genuinely missing).
 /// </summary>
 public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 {
@@ -46,11 +46,11 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
     {
         // Validator (KafkaTopicsOptionsValidator) guarantees non-empty values
         // post-startup, so iteration here may treat each property as non-null
-        // without runtime defensive checks (SPEC-S-017 §4 R1).
+        // without runtime defensive checks.
         var topics = new[]
         {
             _topics.ResultsStatus,
-            // S-006 inherits — provisioned here so its consumer/producer can assume presence.
+            // inherits — provisioned here so its consumer/producer can assume presence.
             _topics.RequestsNew,
             _topics.RequestsStatus
         };

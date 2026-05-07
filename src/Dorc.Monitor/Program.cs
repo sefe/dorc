@@ -142,7 +142,7 @@ if (kafkaEnabled)
     builder.Services.AddDorcKafkaErrorLog(configurationRoot);
     builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
     builder.Services.AddDorcKafkaAvro(configurationRoot);
-    // Per SPEC-S-007 R-1, the Monitor is the producer of results-status
+    // , the Monitor is the producer of results-status
     // events. Without this registration the new dorc.results.status topic
     // would never be produced to and the API-side projection consumer
     // would subscribe to a permanently empty topic. AddDorcKafkaPublisher
@@ -162,7 +162,7 @@ PersistentSourcesRegistry.Register(builder.Services);
 // (_runningTasks, environmentRequestIdRunning, environmentLockBackoff) that must be scoped
 // to a single MonitorService hosted-service lifetime. Transient ensures each resolution
 // gets a fresh instance, which is correct because MonitorService resolves them once at startup.
-// Explicit shutdown timeout matching the Windows SCM ServicesPipeTimeout (S-003).
+// Explicit shutdown timeout matching the Windows SCM ServicesPipeTimeout.
 // The host's graceful window is the single controlling timeout for in-flight deployments.
 builder.Services.Configure<HostOptions>(options =>
 {
@@ -180,7 +180,6 @@ builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
 #else
     builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupPipeServer>();
 #endif
-
 
 builder.Services.AddTransient<ISecurityObjectFilter, SecurityObjectFilter>();
 builder.Services.AddTransient<IRolePrivilegesChecker, RolePrivilegesChecker>();
@@ -206,7 +205,6 @@ builder.Services.AddDbContext<DeploymentContext>(options =>
             maxRetryDelay: TimeSpan.FromSeconds(2),
             errorNumbersToAdd: null);
     }));
-
 
 builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
 {

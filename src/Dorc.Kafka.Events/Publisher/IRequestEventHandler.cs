@@ -3,7 +3,7 @@ using Dorc.Core.Events;
 namespace Dorc.Kafka.Events.Publisher;
 
 /// <summary>
-/// SPEC-S-006 R-3 handler hook. Receives a <see cref="DeploymentRequestEventData"/>
+/// handler hook. Receives a <see cref="DeploymentRequestEventData"/>
 /// pulled from <c>dorc.requests.new</c> or <c>dorc.requests.status</c> and
 /// performs the acceleration-only side effect (raising the poll signal in
 /// production). The consumer never executes requests through this handler;

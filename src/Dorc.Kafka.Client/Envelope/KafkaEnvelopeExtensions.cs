@@ -5,7 +5,7 @@ using Confluent.Kafka;
 namespace Dorc.Kafka.Client.Envelope;
 
 /// <summary>
-/// Call-site opt-in envelope helpers per SPEC-S-002 R-6. Producers choose
+/// Call-site opt-in envelope helpers. Producers choose
 /// to call WithEnvelope; consumers choose to call AsEnvelope. Neither
 /// producer nor consumer builders require envelope use to function.
 /// </summary>

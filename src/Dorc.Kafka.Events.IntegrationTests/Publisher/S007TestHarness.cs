@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Events.IntegrationTests.Publisher;
 
 /// <summary>
-/// Shared harness for S-007 integration tests (AT-2..AT-6). Builds a full
+/// Shared harness for  integration tests (..). Builds a full
 /// Kafka client layer (producer + consumer) against the local compose
 /// stack, wires it through the Dorc.Kafka.Events production classes, and
 /// substitutes fakes only where the spec explicitly permits (broadcaster,
@@ -62,7 +62,7 @@ internal sealed class S007TestHarness : IAsyncDisposable
     {
         var producer = ProducerBuilder.Build("test-publisher");
         _disposables.Add(producer);
-        // S-006 R-1: publisher now also requires a request producer. The S-007
+        // : publisher now also requires a request producer. The
         // harness exercises only result-status flows so a separate dedicated
         // request producer is built per harness instance for completeness.
         var requestsBuilder = new KafkaProducerBuilder<string, DeploymentRequestEventData>(

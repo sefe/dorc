@@ -3,13 +3,13 @@ using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Schemas;
 
 // Usage: dotnet run -- [target-dir]
-//   [--topic-requests-new <name>] [--topic-requests-status <name>] [--topic-results-status <name>]
+// [--topic-requests-new <name>] [--topic-requests-status <name>] [--topic-results-status <name>]
 //
 // Defaults: targetDir resolves to docs/kafka-migration/schemas/current/; topic
 // names default to KafkaTopicsOptions defaults (dorc.requests.new etc.). Per
-// SPEC-S-017 R2 the topic-name args are an explicit override surface so the
+// the topic-name args are an explicit override surface so the
 // tool can be invoked against a non-default registry (e.g. SEFE Karapace)
-// during S-010 dry-run pre-flight.
+// during  dry-run pre-flight.
 
 static string RepoRoot()
 {

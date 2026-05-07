@@ -1,13 +1,13 @@
-// One-shot Aiven connectivity probe — closes S-001 AT-4 / S-002 AT-7 / S-003 AT-7.
+// One-shot Aiven connectivity probe — closes.
 // Reads credentials from environment variables at runtime; never persists them.
 //
 // Required env vars:
-//   AIVEN_BOOTSTRAP            e.g. traveler-unstable-dev-trading-traveler.e.aivencloud.com:26427
-//   AIVEN_USER                 SASL username
-//   AIVEN_PASSWORD             SASL password
-//   AIVEN_CA_LOCATION          path to CA pem file
-//   AIVEN_SCHEMA_REGISTRY_URL  e.g. https://traveler-unstable-dev-trading-traveler.e.aivencloud.com:26419
-//                              (also uses AIVEN_USER / AIVEN_PASSWORD as basic-auth credentials)
+// AIVEN_BOOTSTRAP            e.g. traveler-unstable-dev-trading-traveler.e.aivencloud.com:26427
+// AIVEN_USER                 SASL username
+// AIVEN_PASSWORD             SASL password
+// AIVEN_CA_LOCATION          path to CA pem file
+// AIVEN_SCHEMA_REGISTRY_URL  e.g. https://traveler-unstable-dev-trading-traveler.e.aivencloud.com:26419
+// (also uses AIVEN_USER / AIVEN_PASSWORD as basic-auth credentials)
 
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;

@@ -3,8 +3,8 @@ using Confluent.Kafka;
 namespace Dorc.Kafka.Events.Tests.Publisher;
 
 /// <summary>
-/// Minimal IProducer&lt;TKey,TValue&gt; implementation for AT-1 unit tests.
-/// Only ProduceAsync (the single-arg overload S-007 uses) is meaningful;
+/// Minimal IProducer&lt;TKey,TValue&gt; implementation for  unit tests.
+/// Only ProduceAsync (the single-arg overload  uses) is meaningful;
 /// any other call throws to surface unintended surface use.
 /// </summary>
 internal sealed class StubProducer<TKey, TValue> : IProducer<TKey, TValue>

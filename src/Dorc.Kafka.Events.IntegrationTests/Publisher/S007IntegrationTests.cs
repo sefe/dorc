@@ -9,10 +9,10 @@ namespace Dorc.Kafka.Events.IntegrationTests.Publisher;
 [TestClass]
 public class S007IntegrationTests
 {
-    // Integration tests for SPEC-S-007 AT-2 / AT-3 / AT-4 / AT-5 / AT-6
+    // Integration tests for
     // against the local compose stack (Kafka + Karapace).
 
-    // -------- AT-2: End-to-end round-trip via Kafka → Broadcaster --------
+    // --------: End-to-end round-trip via Kafka → Broadcaster --------
 
     [TestMethod]
     public async Task AT2_ProduceThreeEventsSameRequestId_BroadcasterReceivesInOrder()
@@ -62,7 +62,7 @@ public class S007IntegrationTests
         }
     }
 
-    // -------- AT-3: Per-RequestId ordering under multi-key interleaving --------
+    // --------: Per-RequestId ordering under multi-key interleaving --------
 
     [TestMethod]
     public async Task AT3_InterleavedBurstsOfTwoRequestIds_PerKeyOrderPreserved()
@@ -119,7 +119,7 @@ public class S007IntegrationTests
         }
     }
 
-    // -------- AT-4: Poison message → KAFKA_ERROR_LOG with C-8 value correctness --------
+    // --------: Poison message → KAFKA_ERROR_LOG with  value correctness --------
 
     [TestMethod]
     public async Task AT4_PoisonMessage_WritesKafkaErrorLogEntry_ThenConsumerContinues()
@@ -178,7 +178,7 @@ public class S007IntegrationTests
         }
     }
 
-    // -------- AT-5: DB-unavailable + super-degraded fallback --------
+    // --------: DB-unavailable + super-degraded fallback --------
 
     [TestMethod]
     public async Task AT5_ErrorLogInsertThrows_ConsumerSurvivesAndAdvances()
@@ -225,7 +225,7 @@ public class S007IntegrationTests
         }
     }
 
-    // -------- AT-6: Topic provisioner idempotency --------
+    // --------: Topic provisioner idempotency --------
 
     [TestMethod]
     public async Task AT6_Provisioner_CreatesTopic_DoubleRunIsNoOp_PartitionMismatchWarnsNotThrows()
@@ -234,7 +234,7 @@ public class S007IntegrationTests
         // substitute per-test unique names. Instead, verify the underlying
         // CreateTopicsAsync + partition-count-verify logic by invoking the
         // same shape directly via AdminClient. This is a thinner surface
-        // than invoking the full provisioner, but it proves the R-4
+        // than invoking the full provisioner, but it proves the
         // contract (idempotency + partition-count-drift Warning-not-throw).
         var topic = AvroKafkaTestHarness.NewTopic("s007-at6");
         using var admin = new Confluent.Kafka.AdminClientBuilder(

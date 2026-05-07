@@ -4,11 +4,11 @@ using Microsoft.Extensions.Configuration;
 namespace Dorc.Kafka.Client.Tests.Configuration;
 
 /// <summary>
-/// S-014 regression tests: both checked-in <c>appsettings.json</c> templates
+/// regression tests: both checked-in <c>appsettings.json</c> templates
 /// (API + Monitor) must expose the <c>Kafka</c> section at the JSON root — the
 /// canonical binding path <see cref="KafkaClientOptions.SectionName"/> resolves
-/// to. A prior defect (S-009 commit 012f3987) nested the Monitor's block under
-/// <c>AppSettings</c> which silently broke <c>IHost.StartAsync()</c> on fresh
+/// to. A prior defect ( commit 012f3987) nested the Monitor's block under
+/// <c>AppSettings</c> which silently broke <c>IHost.StartAsync</c> on fresh
 /// MSI installs.
 /// </summary>
 [TestClass]
@@ -23,7 +23,7 @@ public class AppSettingsTemplateShapeTests
 
         Assert.IsNotNull(bootstrapServers,
             "Kafka:BootstrapServers must be present at the JSON root of src/Dorc.Api/appsettings.json. " +
-            "Any nesting under AppSettings would silently break IHost.StartAsync() with OptionsValidationException. See SPEC-S-014.");
+            "Any nesting under AppSettings would silently break IHost.StartAsync() with OptionsValidationException.");
     }
 
     [TestMethod]
@@ -34,8 +34,8 @@ public class AppSettingsTemplateShapeTests
         var bootstrapServers = config[$"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.BootstrapServers)}"];
 
         Assert.IsNotNull(bootstrapServers,
-            "Kafka:BootstrapServers must be present at the JSON root of src/Dorc.Monitor/appsettings.json. " +
-            "Kafka was previously nested under AppSettings (S-009 commit 012f3987); S-014 relocated it to root.");
+            "Kafka:BootstrapServers must be present at the JSON root of src/Dorc.Monitor/appsettings.json — " +
+            "Kafka must bind from the JSON root, not from under AppSettings.");
     }
 
     [TestMethod]
@@ -68,7 +68,7 @@ public class AppSettingsTemplateShapeTests
         var url = config[$"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)}"];
 
         Assert.IsNotNull(url,
-            "Kafka:SchemaRegistry:Url must be present at JSON root of src/Dorc.Api/appsettings.json so the installer (S-015) can write into it. " +
+            "Kafka:SchemaRegistry:Url must be present at JSON root of src/Dorc.Api/appsettings.json so the installer can write into it. " +
             "The parent key must exist as a template placeholder; AddDorcKafkaAvro throws InvalidOperationException on first serialize if Url is unset at runtime.");
     }
 
@@ -80,8 +80,8 @@ public class AppSettingsTemplateShapeTests
         var url = config[$"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)}"];
 
         Assert.IsNotNull(url,
-            "Kafka:SchemaRegistry:Url must be present at JSON root of src/Dorc.Monitor/appsettings.json so the installer (S-015) can write into it. " +
-            "S-014 pre-provisioned the placeholder for template-shape parity with the API.");
+            "Kafka:SchemaRegistry:Url must be present at JSON root of src/Dorc.Monitor/appsettings.json so the installer can write into it. " +
+            "The placeholder is pre-provisioned for template-shape parity with the API.");
     }
 
     private static IConfigurationRoot LoadTemplate(string linkedFileName)

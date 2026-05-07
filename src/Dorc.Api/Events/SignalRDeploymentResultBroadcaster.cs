@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.SignalR;
 namespace Dorc.Api.Events
 {
     /// <summary>
-    /// Bridges the S-007 <see cref="IDeploymentResultBroadcaster"/> contract
+    /// Bridges the  <see cref="IDeploymentResultBroadcaster"/> contract
     /// onto the existing <see cref="DeploymentsHub"/> / SignalR pipeline.
     /// The DeploymentResultsKafkaConsumer (running in each API replica)
     /// calls <see cref="BroadcastAsync"/> for each Kafka message it
@@ -14,7 +14,7 @@ namespace Dorc.Api.Events
     /// existing group-tracker so the web UI sees the event identically to
     /// the direct-SignalR path.
     ///
-    /// Per SPEC-S-007 R-2 multi-replica fan-out: every API replica has its
+    /// multi-replica fan-out: every API replica has its
     /// own Kafka consumer group (so all replicas receive all events) and
     /// this broadcaster fans out to whichever clients are pinned to THIS
     /// replica's SignalR hub instance. Combined with the per-replica

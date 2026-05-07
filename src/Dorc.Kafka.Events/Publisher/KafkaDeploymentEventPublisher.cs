@@ -10,7 +10,7 @@ namespace Dorc.Kafka.Events.Publisher;
 /// <summary>
 /// Kafka-substrate implementation of <see cref="IDeploymentEventsPublisher"/>.
 ///
-/// All three methods follow the SPEC-S-006 R-1 / R-2 dual-publish ordering
+/// All three methods follow the   dual-publish ordering
 /// invariant: SignalR fan-out (via the injected
 /// <see cref="IFallbackDeploymentEventPublisher"/>) is attempted FIRST,
 /// then the Kafka produce. Kafka failure throws after the SignalR attempt
@@ -19,8 +19,8 @@ namespace Dorc.Kafka.Events.Publisher;
 /// acceleration-layer framing: DB is authoritative, Kafka is the
 /// authoritative event substrate, SignalR is best-effort UI fan-out.
 ///
-/// Result-status method (S-007) and the two request-lifecycle methods
-/// (S-006) all share the same pattern; the only differences are topic
+/// Result-status method and the two request-lifecycle methods
+/// all share the same pattern; the only differences are topic
 /// name, value type, and producer instance.
 /// </summary>
 public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, IDisposable
@@ -55,9 +55,9 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
 
     public async Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData)
     {
-        // SignalR fan-out first per S-006 R-1 ordering invariant.
+        // SignalR fan-out first ordering invariant.
         try { await _fallback.PublishResultStatusChangedAsync(eventData); }
-        // SignalR is best-effort UI fan-out (class doc, R-1). The fallback
+        // SignalR is best-effort UI fan-out (class doc, ). The fallback
         // implementation can surface HubException, IOException,
         // TimeoutException, InvalidOperationException, or
         // ObjectDisposedException depending on hub state — narrowing to any

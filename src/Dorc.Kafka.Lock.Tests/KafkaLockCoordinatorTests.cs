@@ -9,8 +9,8 @@ namespace Dorc.Kafka.Lock.Tests;
 /// <summary>
 /// In-process tests for the coordinator's partition-ownership state machine.
 /// Does not touch Kafka — exercises the slot transitions directly via private
-/// callbacks (AT-10) so the CTS/TCS semantics are unit-testable without a
-/// broker. The HA suite (R-8) covers the librdkafka integration end-to-end.
+/// callbacks so the CTS/TCS semantics are unit-testable without a
+/// broker. The HA suite covers the librdkafka integration end-to-end.
 /// </summary>
 [TestClass]
 public class KafkaLockCoordinatorTests

@@ -12,7 +12,7 @@ namespace Dorc.Core.HighAvailability
         /// <param name="resourceKey">Unique identifier for the resource to lock (e.g., "request:123" or "env:Production")</param>
         /// <param name="leaseTimeMs">
         /// Upper bound on time spent waiting for partition ownership before the call returns null
-        /// (see SPEC-S-005b R-2). Caller cancellation also yields null.
+        /// . Caller cancellation also yields null.
         /// </param>
         /// <param name="cancellationToken">Cancellation token to abort lock acquisition</param>
         /// <returns>A lock handle if successful, null if lock could not be acquired. The lock is held until disposed.</returns>

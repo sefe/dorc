@@ -6,10 +6,10 @@ namespace Dorc.Kafka.Client.Consumers;
 
 /// <summary>
 /// Structured logging for Kafka consumer lifecycle callbacks. The log-shape
-/// contract is the R-4 requirement from SPEC-S-002 §4.3: operators must be
+/// contract is the  requirement from: operators must be
 /// able to tell what changed and what the new steady state is from a single
-/// entry. Exposed as a standalone class so AT-3's lost-partition-path test
-/// can invoke the same handler R-3 production consumers use (per the spec's
+/// entry. Exposed as a standalone class so 's lost-partition-path test
+/// can invoke the same handler  production consumers use (per the spec's
 /// documented substitution), not a test double.
 /// </summary>
 public sealed class KafkaRebalanceHandlers<TKey, TValue>

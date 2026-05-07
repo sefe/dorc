@@ -9,7 +9,7 @@ namespace Dorc.Kafka.ErrorLog;
 /// to the DLQ topic configured for the source topic; throws
 /// <see cref="DlqNotConfiguredException"/> when the source topic has no DLQ
 /// (the consumer's catch then falls through to the structured-log tier per
-/// the SPEC-S-006 R-8 / SPEC-S-007 R-3 #4 three-tier model). Throws on produce
+/// the   #4 three-tier model). Throws on produce
 /// failure (broker down, oversized payload, etc.) — same fallback contract.
 /// </summary>
 public sealed class KafkaErrorLog : IKafkaErrorLog
@@ -94,7 +94,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
 /// <summary>
 /// Thrown by <see cref="KafkaErrorLog.InsertAsync"/> when the source topic of
 /// the failed message has no DLQ configured. Caught by the consumer's
-/// existing structured-log fallback path (SPEC-S-006 R-8 / SPEC-S-007 R-3 #4
+/// existing structured-log fallback path (  #4
 /// three-tier model).
 /// </summary>
 public sealed class DlqNotConfiguredException : Exception

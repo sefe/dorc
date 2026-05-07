@@ -39,7 +39,7 @@ public class SchemaGateIntegrationTests
             await ProduceBaselineAsync(topic);
 
             // Check that the same canonical passes the BACKWARD gate against itself.
-            // Post-S-017 #8: canonicalKey is whitelisted to a fixed set so the
+            // #8: canonicalKey is whitelisted to a fixed set so the
             // .avsc lookup is taint-free; we exercise the RequestsNew arm and
             // route the per-test random subject through the liveSubject param.
             var schema = DorcEventSchemas.GenerateRequestEventSchema();
@@ -99,7 +99,7 @@ public class SchemaGateIntegrationTests
         // Complementary to AT5_LivePath_IncompatibleChange_...: a type change
         // (int → string on RequestId) is a different flavour of BACKWARD-break
         // than adding a required field. Together they demonstrate the gate
-        // catches both shapes the spec's AT-5 alludes to.
+        // catches both shapes the spec's  alludes to.
         var topic = AvroKafkaTestHarness.NewTopic("gate-typechange");
         var subject = topic + "-value";
         await AvroKafkaTestHarness.CreateTopicAsync(topic);

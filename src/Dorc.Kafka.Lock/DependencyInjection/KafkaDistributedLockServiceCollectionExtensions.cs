@@ -13,7 +13,7 @@ namespace Dorc.Kafka.Lock.DependencyInjection;
 public static class KafkaDistributedLockServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the distributed-lock substrate (S-005b). After SPEC-S-009 the
+    /// Registers the distributed-lock substrate. After  the
     /// substrate-selector flag is gone and Kafka is unconditional: the
     /// <see cref="KafkaLockCoordinator"/> hosted service, the
     /// <see cref="KafkaDistributedLockService"/> implementation of

@@ -3,7 +3,7 @@ using Dorc.Kafka.Events.Publisher;
 
 namespace Dorc.Kafka.Events.Tests.Publisher;
 
-/// <summary>AT-4 — handler raises the wake-up signal exactly once per record.</summary>
+/// <summary> — handler raises the wake-up signal exactly once per record.</summary>
 [TestClass]
 public class PollSignalRequestEventHandlerTests
 {
@@ -23,7 +23,7 @@ public class PollSignalRequestEventHandlerTests
     [TestMethod]
     public async Task Handle_DuplicateRecords_RaiseSignalEachTime_ButPrimitiveCollapses()
     {
-        // Per R-4 / AT-4, the handler signals every record. The downstream
+        // , the handler signals every record. The downstream
         // SemaphoreSlim collapses to one pending wake; the handler itself
         // does not pre-collapse.
         var signal = new CountingSignal();

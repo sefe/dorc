@@ -12,7 +12,7 @@ namespace Dorc.Kafka.Lock;
 
 /// <summary>
 /// Singleton consumer-group wrapper that owns the single Kafka consumer joined
-/// to the lock topic. Partition ownership = distributed lock ownership (ADR-S-005).
+/// to the lock topic. Partition ownership = distributed lock ownership.
 ///
 /// Cooperative-sticky rebalance provides per-partition revoke/assign events;
 /// each partition has a <see cref="PartitionSlot"/> carrying a live
@@ -196,7 +196,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
             if (slot.AcquiredTcs.Task.IsCompleted)
             {
                 // No-op rebalance: already owned. Leave the existing CTS intact
-                // per ADR-S-005 and SPEC-S-005b R-1 ("recycling is scoped to the
+                // ("recycling is scoped to the
                 // revoke→assign cycle, not fired on every assignment event").
                 return;
             }
@@ -215,8 +215,8 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                 // a fresh slot for the next ownership cycle in the same critical
                 // section. Any concurrent WaitForPartitionOwnershipAsync caller
                 // that resolves to this partition sees exactly one of:
-                //   - the old slot with a cancelled CTS (and they re-wait), or
-                //   - the new slot with a live uncancelled CTS.
+                // - the old slot with a cancelled CTS (and they re-wait), or
+                // - the new slot with a live uncancelled CTS.
                 slot.Cts.Cancel();
                 // Wake any waiter still blocked on the old slot's TCS (orphan-waiter edge:
                 // a caller who captured AcquiredTcs.Task while ownership was pending and

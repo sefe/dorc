@@ -13,22 +13,22 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Events.Publisher;
 
 /// <summary>
-/// SPEC-S-006 R-3 Monitor-side hosted service. Subscribes to BOTH
+/// Monitor-side hosted service. Subscribes to BOTH
 /// <c>dorc.requests.new</c> and <c>dorc.requests.status</c>, deserialises Avro
-/// via S-003's factory, and invokes <see cref="IRequestEventHandler"/> per
+/// via factory, and invokes <see cref="IRequestEventHandler"/> per
 /// record. The handler's only effect is to raise the poll-loop wake-up
 /// signal — this consumer NEVER executes requests; that remains the
-/// existing DB-poll path's responsibility (S-005b's env-lock continues to
+/// existing DB-poll path's responsibility (env-lock continues to
 /// guard mutual exclusion).
 ///
 /// Consumer group id: per-replica <c>dorc-monitor-requests.{HostInstanceId}</c>
-/// so every Monitor replica sees every event (fan-out, mirroring S-007).
+/// so every Monitor replica sees every event (fan-out, mirroring ).
 /// AutoOffsetReset overridden to Earliest to narrow the visibility gap on
 /// consumer restart; rebalance-replay is harmless because handler is
 /// idempotent + DB-state guards downstream paths.
 ///
-/// Failure path mirrors S-007's results consumer: deserialise failure or
-/// handler exception → S-004 IKafkaErrorLog DAL → fall back to structured
+/// Failure path mirrors results consumer: deserialise failure or
+/// handler exception →  IKafkaErrorLog DAL → fall back to structured
 /// LogError → super-degraded swallow. The consumer loop never crashes on a
 /// single record; AutoCommit advances the offset past the poison record.
 /// </summary>
@@ -148,9 +148,9 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     private void WarmupSerializers()
     {
         // Eagerly resolve the (topic, type) → schema-registry deserializer
-        // before Subscribe so the first Consume() call doesn't pay the
+        // before Subscribe so the first Consume call doesn't pay the
         // registry round-trip on the consume thread. A blocking call inside
-        // Consume() that exceeds max.poll.interval.ms fences the consumer
+        // Consume that exceeds max.poll.interval.ms fences the consumer
         // and triggers a group rebalance — preventable failure mode. The
         // call goes through IKafkaSerializerFactory so a wrapped/replaced
         // factory still gets the warmup hook (or no-ops via the interface's
@@ -161,8 +161,8 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     /// <summary>
     /// Shapes the consumer configuration. Exposed as <c>internal</c> so the
     /// tests can pin the commit-semantics invariants (the auto-commit timer
-    /// is left running but offset *storage* is moved off Consume() onto
-    /// explicit StoreOffset only after the handler runs to completion —
+    /// is left running but offset *storage* is moved off Consume onto
+    /// explicit StoreOffset only after the handler runs to completion
     /// otherwise a crash mid-handler silently advances past an unprocessed
     /// record).
     /// </summary>
@@ -171,8 +171,8 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
         config.AutoOffsetReset = AutoOffsetReset.Earliest;
         // Auto-commit timer is left enabled (low-overhead) but offset storage
-        // is moved off the consume() call and onto explicit StoreOffset after
-        // handler success. This prevents a crash between consume() return and
+        // is moved off the consume call and onto explicit StoreOffset after
+        // handler success. This prevents a crash between consume return and
         // handler completion from silently advancing past an unprocessed
         // record — important because the handler is a no-op signal today but
         // future stateful additions (metrics, dedup state) would silently
@@ -253,8 +253,8 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             }
             catch (Exception logEx) when (!IsCritical(logEx))
             {
-                // Super-degraded: logger itself threw. Per SPEC-S-006 R-8 (mirrors
-                // S-007 R-3 #4) — swallow so the consumer loop survives a single
+                // Super-degraded: logger itself threw. (mirrors
+                // ) — swallow so the consumer loop survives a single
                 // bad record instead of crashing the whole acceleration layer.
             }
         }

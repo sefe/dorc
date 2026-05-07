@@ -1,7 +1,7 @@
 namespace Dorc.Kafka.Lock.HATests;
 
 /// <summary>
-/// Gate for SPEC-S-005b R-8 HA tests. Opt-in via <c>DORC_KAFKA_HA_TESTS=1</c>
+/// Gate for  HA tests. Opt-in via <c>DORC_KAFKA_HA_TESTS=1</c>
 /// so CI default stays fast. Also reads bootstrap / credentials from env so
 /// the same suite runs against compose or Aiven non-prod.
 /// </summary>

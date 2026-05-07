@@ -4,11 +4,8 @@ using Microsoft.Data.Sqlite;
 namespace Dorc.Kafka.Lock.HATests;
 
 /// <summary>
-/// SPEC-S-005b §R-8 / AT-3..AT-5: HA suite for SC-2a/b/c bars.
+/// HA suite covering leader-kill failover and rebalance robustness.
 /// Opt-in via <c>DORC_KAFKA_HA_TESTS=1</c>; requires a reachable broker.
-/// On a green run, capture the transcript under
-/// <c>docs/kafka-migration/S-005b-HA-evidence/&lt;timestamp&gt;/</c> per the
-/// Definition of Done.
 /// </summary>
 [TestClass]
 public class HAScenarioTests
@@ -16,7 +13,7 @@ public class HAScenarioTests
     private static string UniqueGroup(string tag) => $"dorc.ha.{tag}.{Guid.NewGuid():N}";
     private static string UniqueTopic(string tag) => $"dorc.ha.locks.{tag}.{Guid.NewGuid():N}";
 
-    /// <summary>AT-3 / SC-2a — leader-kill failover within 60s.</summary>
+    /// <summary>Leader-kill failover within 60s.</summary>
     [TestMethod]
     public async Task SC2a_LeaderKillFailover()
     {
@@ -49,7 +46,7 @@ public class HAScenarioTests
         Assert.IsNotNull(l2, $"Failover acquire must succeed within 60s (elapsed={sw.Elapsed}).");
     }
 
-    /// <summary>AT-4 / SC-2b — new-deployment acceptance post-failover ≤30s.</summary>
+    /// <summary> / SC-2b — new-deployment acceptance post-failover ≤30s.</summary>
     [TestMethod]
     public async Task SC2b_NewDeploymentAcceptancePostFailover()
     {
@@ -76,7 +73,7 @@ public class HAScenarioTests
     }
 
     /// <summary>
-    /// AT-5 / SC-2c — ≥20 induced rebalances, zero duplicate (RequestId, Version)
+    /// / SC-2c — ≥20 induced rebalances, zero duplicate (RequestId, Version)
     /// rows under a monotonic-guarded UPSERT against SQLite.
     /// </summary>
     [TestMethod]
@@ -140,7 +137,7 @@ public class HAScenarioTests
         try { await writer; }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
-            // Expected: the writer observes our explicit Cancel() above.
+            // Expected: the writer observes our explicit Cancel above.
             // Cancellations from other sources still surface so we don't
             // mask unrelated failures.
         }

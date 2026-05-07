@@ -89,7 +89,7 @@ public class KafkaRebalanceHandlersTests
     [TestMethod]
     public void OnPartitionsAssigned_AssignmentAlreadyIncludesIncoming_NoDuplicateInAll()
     {
-        // R-4 robustness: if a future librdkafka version exposes Assignment post-merge,
+        // robustness: if a future librdkafka version exposes Assignment post-merge,
         // the rendered 'all' set must still be the correct post-assignment set, not a
         // double-counted view.
         var logger = new CapturingLogger();
@@ -117,7 +117,7 @@ public class KafkaRebalanceHandlersTests
     [TestMethod]
     public void OnPartitionsAssigned_EmptyDelta_StillLogsWithShape()
     {
-        // Cooperative-sticky edge case covered in AT-3: empty deltas are permitted
+        // Cooperative-sticky edge case covered in: empty deltas are permitted
         // and must still be logged with the §4.3 shape.
         var logger = new CapturingLogger();
         var handlers = new KafkaRebalanceHandlers<string, byte[]>(logger, "monitor-d");

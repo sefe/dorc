@@ -3,14 +3,14 @@ using Dorc.Core.Events;
 
 namespace Dorc.Kafka.Events.Tests.Publisher;
 
-/// <summary>AT-5 / AT-12 / AT-13 — wake-up primitive semantics.</summary>
+/// <summary>   — wake-up primitive semantics.</summary>
 [TestClass]
 public class RequestPollSignalTests
 {
     [TestMethod]
     public async Task Signal_BeforeWait_LatchesAndReleasesNextWaitImmediately()
     {
-        // AT-12: latch across no-waiter window.
+        // : latch across no-waiter window.
         using var s = new RequestPollSignal();
         s.Signal();
 
@@ -24,7 +24,7 @@ public class RequestPollSignalTests
     [TestMethod]
     public async Task Signal_AfterWaitStarts_ShortCircuitsTimeout()
     {
-        // AT-5: signal short-circuits a pending wait.
+        // : signal short-circuits a pending wait.
         using var s = new RequestPollSignal();
         var sw = Stopwatch.StartNew();
         var waitTask = s.WaitAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
@@ -74,7 +74,7 @@ public class RequestPollSignalTests
     [TestMethod]
     public void Signal_AfterDispose_IsNoOp()
     {
-        // AT-13: disposed-signal must not throw.
+        // : disposed-signal must not throw.
         var s = new RequestPollSignal();
         s.Dispose();
         s.Signal(); // must not throw
@@ -83,7 +83,7 @@ public class RequestPollSignalTests
     [TestMethod]
     public async Task Signal_DuplicateCollapses_OnlyOneWaitReleased()
     {
-        // R-4 duplicate-collapse semantic.
+        // duplicate-collapse semantic.
         using var s = new RequestPollSignal();
         s.Signal();
         s.Signal();
