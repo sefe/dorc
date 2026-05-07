@@ -48,14 +48,17 @@ namespace Dorc.Api.Services
             if (properties == null)
                 return bag;
 
-            foreach (var pv in properties)
-            {
-                if (pv?.Property?.Name == null || pv.Value == null)
-                    continue;
-                if (pv.Property.Secure)
-                    continue;
+            // Filter into the sequence so the loop body has only the assignment. Excluded:
+            // null shells (defence — provider returns non-null today), entries missing a name
+            // or value (cannot key the bag), and Secure properties (must never be substituted
+            // into a stored, non-secret endpoint string).
+            var resolvable = properties.Where(pv =>
+                pv?.Property?.Name != null
+                && pv.Value != null
+                && !pv.Property.Secure);
+
+            foreach (var pv in resolvable)
                 bag[pv.Property.Name] = pv.Value;
-            }
             return bag;
         }
 
