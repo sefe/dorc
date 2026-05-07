@@ -16,21 +16,21 @@ namespace Dorc.ApiModel
 
         public ApiEndpointResolutionStatus ResolutionStatus { get; set; }
 
-        public string? UnresolvedTokens { get; set; }
+        public string UnresolvedTokens { get; set; }
 
-        public string? Description { get; set; }
+        public string Description { get; set; }
 
         public string Type { get; set; } = string.Empty;
 
         public string AuthType { get; set; } = string.Empty;
 
-        public string? HealthCheckPath { get; set; }
+        public string HealthCheckPath { get; set; }
 
         public int? OwnerProjectId { get; set; }
 
-        public string? OwnerProjectName { get; set; }
+        public string OwnerProjectName { get; set; }
 
-        public string? Tags { get; set; }
+        public string Tags { get; set; }
 
         public bool UserEditable { get; set; }
     }
