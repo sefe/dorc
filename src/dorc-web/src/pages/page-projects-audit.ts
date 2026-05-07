@@ -710,7 +710,12 @@ export class PageProjectsAudit extends PageElement {
     ) as HTMLElement | null;
     if (!pane) return;
     const rect = overview.getBoundingClientRect();
-    const ratio = (e.clientY - rect.top) / rect.height;
+    // Bail on a degenerate (collapsed) ruler — dividing by 0 would taint the
+    // scrollTo target with NaN/Infinity.
+    if (rect.height <= 0) return;
+    // Clamp into [0, 1] so a clientY outside the ruler (synthetic events,
+    // racy resize) still produces a sensible target.
+    const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
     const target = ratio * pane.scrollHeight - pane.clientHeight / 2;
     pane.scrollTo({
       top: Math.max(0, Math.min(target, pane.scrollHeight - pane.clientHeight)),

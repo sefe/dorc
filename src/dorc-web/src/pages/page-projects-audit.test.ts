@@ -182,6 +182,54 @@ describe('PageProjectsAudit overview ruler', () => {
       // Should not throw and there's nothing to assert other than no crash.
       expect(() => (el as any).onOverviewClick(ev)).not.toThrow();
     });
+
+    it('does nothing when the ruler has zero height (avoids NaN scrollTo)', () => {
+      // A collapsed ruler would yield ratio = clientY / 0 = ±Infinity / NaN
+      // and taint the scrollTo target. The handler must early-return instead.
+      const pane = makePane(1000, 200);
+      const wrapper = document.createElement('div');
+      const overview = document.createElement('div');
+      overview.className = 'diff-overview';
+      overview.getBoundingClientRect = () =>
+        ({ top: 0, height: 0, left: 0, right: 0, bottom: 0, width: 12, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
+      wrapper.appendChild(pane);
+      wrapper.appendChild(overview);
+      document.body.appendChild(wrapper);
+      const ev = { currentTarget: overview, clientY: 50 } as unknown as MouseEvent;
+
+      (el as any).onOverviewClick(ev);
+
+      expect(pane.scrollTo).not.toHaveBeenCalled();
+    });
+
+    it('clamps clientY above the ruler to the top of the scrollable range', () => {
+      // clientY = -50 is above the ruler — ratio would be negative; clamp to 0
+      // so the target is computed at the very top (pre-clamp 0 - 100 = -100,
+      // post-clamp 0).
+      const pane = makePane(1000, 200);
+      const overview = mountOverview(pane);
+      const ev = { currentTarget: overview, clientY: -50 } as unknown as MouseEvent;
+
+      (el as any).onOverviewClick(ev);
+
+      expect(pane.scrollTo).toHaveBeenCalledWith(
+        expect.objectContaining({ top: 0, behavior: 'smooth' })
+      );
+    });
+
+    it('clamps clientY below the ruler to the bottom of the scrollable range', () => {
+      // clientY = 9999 is far below the ruler — ratio would be > 1; clamp to 1
+      // so target = 1000 - 100 = 900, then bottom-clamped to 800.
+      const pane = makePane(1000, 200);
+      const overview = mountOverview(pane);
+      const ev = { currentTarget: overview, clientY: 9999 } as unknown as MouseEvent;
+
+      (el as any).onOverviewClick(ev);
+
+      expect(pane.scrollTo).toHaveBeenCalledWith(
+        expect.objectContaining({ top: 800, behavior: 'smooth' })
+      );
+    });
   });
 
   // -------------------------------------------------------
