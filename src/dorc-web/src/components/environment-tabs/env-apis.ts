@@ -306,7 +306,9 @@ export class EnvApis extends PageEnvBase {
   ) => {
     const api = model.item;
     const resolved = api.EndpointResolved ?? '';
-    const status = api.ResolutionStatus;
+    // Default to NoTokens when the field is absent so a missing/legacy server response
+    // never silently falls into the plain-text branch when it should warn.
+    const status = api.ResolutionStatus ?? ApiEndpointResolutionStatus.NoTokens;
     const isUrl = /^https?:\/\//i.test(resolved);
 
     let body;

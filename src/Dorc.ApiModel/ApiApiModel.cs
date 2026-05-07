@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Dorc.ApiModel
 {
     public class ApiApiModel
@@ -35,6 +37,13 @@ namespace Dorc.ApiModel
         public bool UserEditable { get; set; }
     }
 
+    // Serialise as the enum name string, not the integer. The global Program.cs JSON
+    // options register JsonStringEnumConverter, but the TS client (generated from the
+    // OpenAPI spec) treats this enum as a string enum ('NoTokens' / 'Resolved' /
+    // 'PartiallyResolved'). The explicit type-level converter pins the wire format
+    // here so the FE↔BE contract stays correct even if a future code path bypasses
+    // the global pipeline.
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ApiEndpointResolutionStatus
     {
         NoTokens = 0,

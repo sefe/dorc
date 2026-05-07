@@ -3,6 +3,7 @@ using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Environment = Dorc.PersistentData.Model.Environment;
 
@@ -16,6 +17,27 @@ namespace Dorc.PersistentData.Sources
 
         private static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal) { "REST", "SOAP", "gRPC" };
         private static readonly HashSet<string> AllowedAuthTypes = new(StringComparer.Ordinal) { "None", "Basic", "Bearer", "OAuth" };
+
+        // Mirror the column lengths declared in [deploy].[Api].
+        private const int MaxNameLength = 128;
+        private const int MaxEndpointLength = 1024;
+        private const int MaxTypeLength = 16;
+        private const int MaxHealthCheckPathLength = 512;
+        private const int MaxTagsLength = 512;
+
+        // Endpoint stores either a literal URL or one with $Var$ tokens that resolve at read time.
+        // Restrict to the schemes any DOrc-deployed API can plausibly speak so that javascript:,
+        // file:, data:, etc. cannot be persisted and later rendered into href= or fed to a future
+        // resolver that might issue a request.
+        private static readonly HashSet<string> AllowedEndpointSchemes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "http", "https", "grpc", "grpcs"
+        };
+
+        // SQL Server unique-key violation codes — used to map the unique-name TOCTOU race
+        // to a clean ArgumentException ("already exists") instead of a 500.
+        private const int SqlErrorUniqueIndex = 2601;
+        private const int SqlErrorUniqueConstraint = 2627;
 
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -90,7 +112,7 @@ namespace Dorc.PersistentData.Sources
                 env, string.Empty, model.Endpoint, updatedBy, UpdateTypeCreate,
                 $"API '{model.Name}' added with endpoint '{model.Endpoint}'", context);
 
-            context.SaveChanges();
+            SaveChangesMappingUniqueViolation(context, model.Name);
 
             return MapToApiModel(LoadWithIncludes(context, entity.Id));
         }
@@ -127,7 +149,7 @@ namespace Dorc.PersistentData.Sources
                 entity.Environment!, oldEndpoint, model.Endpoint, updatedBy, UpdateTypeUpdate,
                 $"API '{model.Name}' updated", context);
 
-            context.SaveChanges();
+            SaveChangesMappingUniqueViolation(context, model.Name);
 
             return MapToApiModel(LoadWithIncludes(context, entity.Id));
         }
@@ -165,16 +187,82 @@ namespace Dorc.PersistentData.Sources
         {
             if (string.IsNullOrWhiteSpace(model.Name))
                 throw new ArgumentException("API Name is required.");
+            if (model.Name.Length > MaxNameLength)
+                throw new ArgumentException($"API Name must be {MaxNameLength} characters or fewer.");
+
             if (string.IsNullOrWhiteSpace(model.Endpoint))
                 throw new ArgumentException("API Endpoint is required.");
+            if (model.Endpoint.Length > MaxEndpointLength)
+                throw new ArgumentException($"API Endpoint must be {MaxEndpointLength} characters or fewer.");
+            ValidateEndpointScheme(model.Endpoint);
+
             if (string.IsNullOrWhiteSpace(model.Type))
                 throw new ArgumentException("API Type is required.");
+            if (model.Type.Length > MaxTypeLength)
+                throw new ArgumentException($"API Type must be {MaxTypeLength} characters or fewer.");
             if (!AllowedTypes.Contains(model.Type))
                 throw new ArgumentException($"API Type '{model.Type}' is not supported. Allowed: {string.Join(", ", AllowedTypes)}.");
+
             if (string.IsNullOrWhiteSpace(model.AuthType))
                 throw new ArgumentException("API AuthType is required.");
+            if (model.AuthType.Length > MaxTypeLength)
+                throw new ArgumentException($"API AuthType must be {MaxTypeLength} characters or fewer.");
             if (!AllowedAuthTypes.Contains(model.AuthType))
                 throw new ArgumentException($"API AuthType '{model.AuthType}' is not supported. Allowed: {string.Join(", ", AllowedAuthTypes)}.");
+
+            if (model.HealthCheckPath?.Length > MaxHealthCheckPathLength)
+                throw new ArgumentException($"API HealthCheckPath must be {MaxHealthCheckPathLength} characters or fewer.");
+            if (model.Tags?.Length > MaxTagsLength)
+                throw new ArgumentException($"API Tags must be {MaxTagsLength} characters or fewer.");
+        }
+
+        /// <summary>
+        /// Reject endpoint values whose scheme is outside the allow-list. The endpoint is
+        /// stored verbatim and later rendered into href=, so an unrestricted value is a
+        /// stored-XSS / SSRF / phishing surface for any future consumer that doesn't add
+        /// its own scheme guard. Tokens like "$Host$" parse as a host, not a scheme, so
+        /// templates such as "https://$Host$/v1" still pass.
+        /// </summary>
+        private static void ValidateEndpointScheme(string endpoint)
+        {
+            // The endpoint may contain unresolved $Var$ tokens before the scheme; only the
+            // pre-token prefix can be the scheme.
+            var tokenStart = endpoint.IndexOf('$');
+            var schemeRegion = tokenStart >= 0 ? endpoint[..tokenStart] : endpoint;
+
+            // Locate the scheme separator inside the pre-token region. If absent, the whole
+            // endpoint is relative or token-prefixed — accept (resolution may produce a valid
+            // absolute URL at read time, and the read-side renderer guards href separately).
+            var schemeSep = schemeRegion.IndexOf("://", StringComparison.Ordinal);
+            if (schemeSep < 0)
+                return;
+
+            var scheme = schemeRegion[..schemeSep];
+            if (!AllowedEndpointSchemes.Contains(scheme))
+                throw new ArgumentException(
+                    $"API Endpoint scheme '{scheme}' is not supported. Allowed: {string.Join(", ", AllowedEndpointSchemes)}.");
+        }
+
+        private static void SaveChangesMappingUniqueViolation(IDeploymentContext context, string apiName)
+        {
+            try
+            {
+                context.SaveChanges();
+            }
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            {
+                // Concurrent insert lost the race against the unique index. Surface as a
+                // clean ArgumentException so the controller maps it to 400 with a useful
+                // message, instead of leaking a 500 + DB stack trace.
+                throw new ArgumentException(
+                    $"An API named '{apiName}' already exists for this environment.", ex);
+            }
+        }
+
+        private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+        {
+            return ex.InnerException is SqlException sql
+                   && (sql.Number == SqlErrorUniqueIndex || sql.Number == SqlErrorUniqueConstraint);
         }
 
         public static ApiApiModel MapToApiModel(Api entity)
