@@ -220,27 +220,46 @@ namespace Dorc.PersistentData.Sources
         /// Reject endpoint values whose scheme is outside the allow-list. The endpoint is
         /// stored verbatim and later rendered into href=, so an unrestricted value is a
         /// stored-XSS / SSRF / phishing surface for any future consumer that doesn't add
-        /// its own scheme guard. Tokens like "$Host$" parse as a host, not a scheme, so
+        /// its own scheme guard. Catches both authority-form schemes (https://host/...) and
+        /// opaque-form schemes (javascript:..., data:..., mailto:...) — the original
+        /// `://`-only check missed the latter. Tokens like "$Host$" parse as relative, so
         /// templates such as "https://$Host$/v1" still pass.
         /// </summary>
         private static void ValidateEndpointScheme(string endpoint)
         {
-            // The endpoint may contain unresolved $Var$ tokens before the scheme; only the
-            // pre-token prefix can be the scheme.
+            // The endpoint may contain unresolved $Var$ tokens; only the pre-token prefix
+            // can carry a scheme. A leading $-token means the whole value is relative or
+            // token-resolved at read time — accept.
             var tokenStart = endpoint.IndexOf('$');
             var schemeRegion = tokenStart >= 0 ? endpoint[..tokenStart] : endpoint;
 
-            // Locate the scheme separator inside the pre-token region. If absent, the whole
-            // endpoint is relative or token-prefixed — accept (resolution may produce a valid
-            // absolute URL at read time, and the read-side renderer guards href separately).
-            var schemeSep = schemeRegion.IndexOf("://", StringComparison.Ordinal);
-            if (schemeSep < 0)
-                return;
+            // RFC 3986: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ) ":". The single
+            // colon is the canonical separator; "://" is just the most common form (with a
+            // following authority component). We must check the single-colon form too.
+            var colonPos = schemeRegion.IndexOf(':');
+            if (colonPos <= 0)
+                return; // no colon, or colon at position 0 — not a scheme prefix
 
-            var scheme = schemeRegion[..schemeSep];
+            var scheme = schemeRegion[..colonPos];
+            if (!IsValidSchemeChars(scheme))
+                return; // pre-colon prefix is not a syntactic scheme — e.g. "foo bar:..."
+
             if (!AllowedEndpointSchemes.Contains(scheme))
                 throw new ArgumentException(
                     $"API Endpoint scheme '{scheme}' is not supported. Allowed: {string.Join(", ", AllowedEndpointSchemes)}.");
+        }
+
+        private static bool IsValidSchemeChars(string s)
+        {
+            if (s.Length == 0 || !char.IsAsciiLetter(s[0]))
+                return false;
+            for (var i = 1; i < s.Length; i++)
+            {
+                var c = s[i];
+                if (!char.IsAsciiLetterOrDigit(c) && c != '+' && c != '-' && c != '.')
+                    return false;
+            }
+            return true;
         }
 
         private static void SaveChangesMappingUniqueViolation(IDeploymentContext context, string apiName)

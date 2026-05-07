@@ -94,7 +94,7 @@ namespace Dorc.Api.Controllers
 
                 var env = _environmentsPersistentSource.GetEnvironment(environmentId, User);
                 if (env == null)
-                    return BadRequest("Environment not found.");
+                    return NotFound($"Environment {environmentId} not found.");
 
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
                     return StatusCode((int)HttpStatusCode.Forbidden,
@@ -129,7 +129,7 @@ namespace Dorc.Api.Controllers
 
                 var env = _environmentsPersistentSource.GetEnvironment(existing.EnvironmentId, User);
                 if (env == null)
-                    return BadRequest("Environment not found.");
+                    return NotFound($"Environment {existing.EnvironmentId} not found.");
 
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
                     return StatusCode((int)HttpStatusCode.Forbidden,
@@ -168,7 +168,7 @@ namespace Dorc.Api.Controllers
 
             var env = _environmentsPersistentSource.GetEnvironment(existing.EnvironmentId, User);
             if (env == null)
-                return BadRequest("Environment not found.");
+                return NotFound($"Environment {existing.EnvironmentId} not found.");
 
             if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
                 return StatusCode((int)HttpStatusCode.Forbidden,
