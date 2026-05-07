@@ -162,9 +162,16 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                // Note: delete permission check is not changed here. If you need
-                // delete to be protected by project write rights, add a lookup
-                // for the bundle/project and check CanModifyProject like above.
+                var bundle = _bundledRequestsPersistentSource.GetBundleById(id);
+                if (bundle == null)
+                {
+                    return NotFound();
+                }
+                // Check user has write/modify rights for the project
+                if (!_securityPrivilegesChecker.CanModifyProject(User, (int)bundle.ProjectId.Value))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                }
 
                 // Call the persistent source to delete the bundled request by ID
                 _bundledRequestsPersistentSource.DeleteRequestFromBundle(id);
