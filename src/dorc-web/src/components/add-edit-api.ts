@@ -124,6 +124,8 @@ export class AddEditApi extends LitElement {
           <div class="row">
             <vaadin-combo-box
               label="Type"
+              required
+              ?allow-custom-value="${false}"
               .items="${apiTypes}"
               .value="${this.Type}"
               @value-changed="${(e: CustomEvent) =>
@@ -131,6 +133,8 @@ export class AddEditApi extends LitElement {
             ></vaadin-combo-box>
             <vaadin-combo-box
               label="Auth Type"
+              required
+              ?allow-custom-value="${false}"
               .items="${authTypes}"
               .value="${this.AuthType}"
               @value-changed="${(e: CustomEvent) =>
@@ -198,8 +202,8 @@ export class AddEditApi extends LitElement {
   private canSubmit(): boolean {
     if (!this.Name || this.Name.trim().length === 0) return false;
     if (!this.Endpoint || this.Endpoint.trim().length === 0) return false;
-    if (!this.Type) return false;
-    if (!this.AuthType) return false;
+    if (!apiTypes.includes(this.Type)) return false;
+    if (!authTypes.includes(this.AuthType)) return false;
     return true;
   }
 
@@ -257,9 +261,30 @@ export class AddEditApi extends LitElement {
     this.reset();
   }
 
-  private handleError(err: any) {
+  private handleError(err: unknown) {
     console.error(err);
-    this.errorMessage = err?.response ?? err?.message ?? 'Save failed';
+    const e = err as { response?: unknown; message?: unknown } | null | undefined;
+    if (e == null) {
+      this.errorMessage = 'Save failed';
+      return;
+    }
+    if (typeof e.response === 'string' && e.response.length > 0) {
+      this.errorMessage = e.response;
+      return;
+    }
+    if (typeof e.message === 'string' && e.message.length > 0) {
+      this.errorMessage = e.message;
+      return;
+    }
+    if (e.response != null) {
+      try {
+        this.errorMessage = JSON.stringify(e.response);
+        return;
+      } catch {
+        // fall through
+      }
+    }
+    this.errorMessage = 'Save failed';
   }
 
   private reset() {

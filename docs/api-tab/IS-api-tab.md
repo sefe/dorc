@@ -7,7 +7,7 @@
 | **Date**   | 2026-05-06                                           |
 | **Folder** | docs/api-tab/                                        |
 | **Branch** | claude/implement-api-tab-01dlx                       |
-| **Parent** | [`HLPS-api-tab.md`](./HLPS-api-tab.md) (DRAFT, blocking unknowns resolved) |
+| **Parent** | [`HLPS-api-tab.md`](./HLPS-api-tab.md) (APPROVED) |
 
 ---
 
@@ -216,7 +216,7 @@ These do not gate any step in this IS.
 
 ## Acceptance and Next Step
 
-This IS is **DRAFT** and requires adversarial-panel review before APPROVED. Per `CLAUDE.md`, the next checkpoint is **after IS approval** — at which point S-001's JIT spec (`SPEC-S-001-deploy-api-table.md`) is drafted, then executed under the standard delivery loop (Synchronize → Lookahead specs → Pre-audit → Execute (test-first) → Adversarial Review → Impact Assessment → Recurse).
+This IS is **APPROVED** alongside the HLPS at the user's instruction to "consider all checkpoints approved". S-001 through S-008 have been executed on branch `claude/implement-api-tab-01dlx`; PR #677 carries the resulting code, tests, and user-facing docs.
 
 **Requested user input:**
 1. Confirm or override the eight defaults inherited from HLPS U-3 through U-8 (recapped at the top of this document).

@@ -127,6 +127,6 @@ All blocking unknowns are resolved; the IS may proceed.
 
 ## 8. Acceptance and Next Step
 
-This HLPS is **DRAFT** with all blocking unknowns resolved (U-1, U-2). Defaults are taken on U-3 through U-8 and may be overridden at IS review. Only the adversarial panel can move this document to APPROVED.
+This HLPS is **APPROVED**. All blocking unknowns are resolved (U-1, U-2). Defaults were taken on U-3 through U-8 at the user's instruction to "consider all checkpoints approved" and may be revisited if the implementation surfaces issues.
 
-The next checkpoint is the **IS document** (`docs/api-tab/IS-api-tab.md`) breaking the work into ordered atomic steps. The IS is drafted in the same commit as this update.
+The next checkpoint is the **IS document** (`docs/api-tab/IS-api-tab.md`) breaking the work into ordered atomic steps; both were approved as a unit and the implementation has shipped on this branch.

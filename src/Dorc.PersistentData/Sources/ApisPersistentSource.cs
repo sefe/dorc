@@ -14,6 +14,9 @@ namespace Dorc.PersistentData.Sources
         private const string UpdateTypeUpdate = "API Updated";
         private const string UpdateTypeDelete = "API Deleted";
 
+        private static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal) { "REST", "SOAP", "gRPC" };
+        private static readonly HashSet<string> AllowedAuthTypes = new(StringComparer.Ordinal) { "None", "Basic", "Bearer", "OAuth" };
+
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
@@ -166,8 +169,12 @@ namespace Dorc.PersistentData.Sources
                 throw new ArgumentException("API Endpoint is required.");
             if (string.IsNullOrWhiteSpace(model.Type))
                 throw new ArgumentException("API Type is required.");
+            if (!AllowedTypes.Contains(model.Type))
+                throw new ArgumentException($"API Type '{model.Type}' is not supported. Allowed: {string.Join(", ", AllowedTypes)}.");
             if (string.IsNullOrWhiteSpace(model.AuthType))
                 throw new ArgumentException("API AuthType is required.");
+            if (!AllowedAuthTypes.Contains(model.AuthType))
+                throw new ArgumentException($"API AuthType '{model.AuthType}' is not supported. Allowed: {string.Join(", ", AllowedAuthTypes)}.");
         }
 
         public static ApiApiModel MapToApiModel(Api entity)

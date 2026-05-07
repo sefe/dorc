@@ -5,7 +5,7 @@ import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icon';
 import { css, render } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
@@ -26,9 +26,9 @@ import { AddEditApi } from '../add-edit-api';
 
 @customElement('env-apis')
 export class EnvApis extends PageEnvBase {
-  @property({ type: Array }) apis: ApiApiModel[] = [];
+  @state() apis: ApiApiModel[] = [];
 
-  @property({ type: Boolean }) private envReadOnly = true;
+  @state() private envReadOnly = true;
 
   @state() private editDialogOpened = false;
 
@@ -242,13 +242,28 @@ export class EnvApis extends PageEnvBase {
       },
       error: err => {
         console.error(err);
-        Notification.show(err?.response ?? 'Delete failed', {
+        Notification.show(this.formatError(err, 'Delete failed'), {
           theme: 'error',
           position: 'bottom-start',
           duration: 5000
         });
       }
     });
+  }
+
+  private formatError(err: unknown, fallback: string): string {
+    const e = err as { response?: unknown; message?: unknown } | null | undefined;
+    if (e == null) return fallback;
+    if (typeof e.response === 'string' && e.response.length > 0) return e.response;
+    if (typeof e.message === 'string' && e.message.length > 0) return e.message;
+    if (e.response != null) {
+      try {
+        return JSON.stringify(e.response);
+      } catch {
+        // fall through
+      }
+    }
+    return fallback;
   }
 
   private onApiSaved(eventLabel: string) {
