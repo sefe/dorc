@@ -1,14 +1,9 @@
-# S-010 — DOrc Kafka Cutover Runbook
+# DOrc Kafka Cutover Runbook
 
 | Field | Value |
 |---|---|
-| **Status** | APPROVED — Pending user approval (operator dry-run pending) |
-| **Author** | Claude (Opus 4.6) |
-| **Created** | 2026-04-15 |
-| **Governing** | `SPEC-S-010-Cutover-Runbook.md` (APPROVED — Pending user approval); IS §3 S-010 / S-011; HLPS SC-8 / C-2 / R-3 |
-| **Cutover artefact** | `feat/kafka-migration` HEAD (post-S-009) |
 | **Rollback target** | annotated tag `release/pre-kafka-cutover` (tag object `0d5146c8` → commit `481f4830`) |
-| **Hard ceiling** | 240 minutes from "go" to "verified" (binding per IS §3 S-010) |
+| **Hard ceiling** | 240 minutes from "go" to "verified" |
 
 ---
 
@@ -23,7 +18,6 @@ Read top to bottom. Sections in order:
 5. §6 Post-cutover monitoring — operator checks at T+1h / +4h / +12h / +24h.
 6. §7 Communication + authority plan — comm channel, schedule, decision authority.
 7. §8 Operator-facing tuning notes carried forward.
-8. §9 Dry-run evidence pointer.
 
 The same §2 smoke-test catalogue is re-run at four points: pre-cutover,
 the post-deploy gate, post-cutover-verified, and post-rollback (if §5
@@ -31,7 +25,7 @@ fires).
 
 ---
 
-## 2. Smoke-test catalogue (R-1)
+## 2. Smoke-test catalogue
 
 Run from operator workstation against the deployed environment under
 test. Each test logs PASS / FAIL and wall-clock duration to the
@@ -52,7 +46,7 @@ ST-4 deployment.
 
 ---
 
-## 3. Wall-clock-budgeted cutover sequence (R-3)
+## 3. Wall-clock-budgeted cutover sequence
 
 | T (min from "go") | Step | Owner role | Budget | Cumulative ceiling |
 |---|---|---|---|---|
@@ -74,7 +68,7 @@ window collapses below 30 minutes, treat as a §4 trigger and fire §5.
 
 ---
 
-## 4. Rollback triggers (R-4)
+## 4. Rollback triggers
 
 Each trigger fires §5. Two classes:
 
@@ -100,7 +94,7 @@ roster and may execute §5 on a unilateral observation.
 
 ---
 
-## 5. Rollback procedure (R-5) — target ≤60 minutes
+## 5. Rollback procedure — target ≤60 minutes
 
 | T (min from "rollback decision") | Step | Owner role | Budget |
 |---|---|---|---|
@@ -109,18 +103,19 @@ roster and may execute §5 on a unilateral observation.
 | T+6 | Wait 30 s for in-flight Kafka publishes to drain (producer linger budget). | Release engineer | 1 |
 | T+7 | Redeploy API replicas from `release/pre-kafka-cutover` via the standard MSI pipeline (annotated tag, dereferences to commit `481f4830`). Rolling, one replica at a time; wait for ST-1 PASS on each. **Verify before deploy:** `git rev-parse release/pre-kafka-cutover^{commit}` returns `481f4830` (commit SHA). The bare `git rev-parse release/pre-kafka-cutover` returns the annotated tag object SHA `0d5146c8` — that is normal for annotated tags and not a defect. | Release engineer | 20 |
 | T+27 | Redeploy Monitor replicas from the same tag. Rolling, one host at a time; wait for ST-2 PASS on each. | Release engineer | 20 |
-| T+47 | Verify: the rolled-back build registers `RabbitMqDistributedLockService` + the SignalR-only publisher path (rollback build pre-dates S-005b/S-006/S-007 cutover wiring). | Tech lead | 3 |
+| T+47 | Verify: the rolled-back build registers `RabbitMqDistributedLockService` + the SignalR-only publisher path (rollback build pre-dates the Kafka cutover wiring). | Tech lead | 3 |
 | T+50 | Lift the pause: set `AppSettings.PauseDeploymentEnabled = "false"`; bounce the API process. | Release engineer | 3 |
 | T+53 | Run full §2 smoke catalogue against the rolled-back environment. Every ST-1..ST-7 must PASS. | Release engineer + tech lead | 7 |
 | T+60 | Declare "rollback complete"; notify §7 channel; archive transcript. | Tech lead | 0 |
 
-**Pre-requisite:** RabbitMQ infrastructure must remain hot through
-S-011 + the C-9 14-day window. Cold-standby decommissioning is S-012
-per IS §3 S-011.
+**Pre-requisite:** RabbitMQ infrastructure must remain hot for at
+least 14 days after cutover so a delayed rollback is still possible.
+Cold-standby decommissioning is a follow-up activity outside this
+runbook.
 
 ---
 
-## 6. Post-cutover monitoring (R-6)
+## 6. Post-cutover monitoring
 
 After GATE E declares "verified", operator checks at:
 
@@ -132,11 +127,11 @@ After GATE E declares "verified", operator checks at:
 | T+24h | Same; plus API request latency p95 / p99 trend (no anomalous step-change) | Same |
 
 If any checkpoint fails, escalate per §7 roster — possibly fire §5 if
-within the C-9 rollback window.
+within the 14-day rollback window.
 
 ---
 
-## 7. Communication + authority plan (R-8a)
+## 7. Communication + authority plan
 
 ### 7.1 Primary comm channel
 
@@ -150,7 +145,7 @@ rollback fires.
 
 | Time | Audience | Message contents | Sender role |
 |---|---|---|---|
-| T−24h | Deployment-ops distribution list | "Cutover scheduled for <T0 timestamp>; in-flight deployments at T0 will be terminated per HLPS C-2; rollback target = `release/pre-kafka-cutover`" | Release engineer |
+| T−24h | Deployment-ops distribution list | "Cutover scheduled for <T0 timestamp>; in-flight deployments at T0 will be terminated; rollback target = `release/pre-kafka-cutover`" | Release engineer |
 | T−1h | Same + on-call SRE roster | "Final readiness check — comm channel is `<channel>`; bridge is `<bridge>`" | Release engineer |
 | T0 | Same | "Cutover started" | Release engineer |
 | T+verified | Same | "Cutover verified at <wall clock>; post-cutover monitoring window begins" | Release engineer |
@@ -177,13 +172,13 @@ rollback fires.
 | On-call SRE | T−1h to T+24h (continuous) |
 | Leadership escalation | T0 to T+24h (paged on §5 fire; not paged on green path) |
 
-Names filled in at S-011 time, not in this runbook.
+Names filled in at cutover time, not in this runbook.
 
 ---
 
-## 8. Operator-facing tuning notes carried forward (R-8)
+## 8. Operator-facing tuning notes
 
-### 8.1 Lock-wait-cap (S-005b Caller Survey §3 operational note)
+### 8.1 Lock-wait-cap
 
 The Monitor caller `DeploymentRequestStateProcessor.cs:501` passes
 `EnvironmentLockLeaseTimeMs` as the wait-cap for `TryAcquireLockAsync`.
@@ -195,7 +190,7 @@ that in the Kafka substrate would block API calls for too long on
 the null path. Operators verify the deployed value is in the
 recommended range during pre-cutover GATE A.
 
-### 8.2 `Kafka:Locks:*` defaults (S-009 R-7 GPT-F5 note)
+### 8.2 `Kafka:Locks:*` defaults
 
 The `Kafka:Locks:*` block in Monitor's `appsettings.json` carries:
 
@@ -206,11 +201,11 @@ The `Kafka:Locks:*` block in Monitor's `appsettings.json` carries:
 
 These ship as defaults and are NOT driven by an MSI parameter — they
 are baked into the deployed `appsettings.json`. **Partition count is
-immutable post-cutover** per ADR-S-005 §4 #2. If a partition-count
-change is ever required, it requires a fresh topic + a controlled
-re-cutover, not a config flip.
+immutable post-cutover.** If a partition-count change is ever
+required, it requires a fresh topic + a controlled re-cutover, not a
+config flip.
 
-### 8.3 Kafka cluster connectivity (S-009 installer migration)
+### 8.3 Kafka cluster connectivity
 
 Cutover deploy passes the following MSI parameters (per
 `Setup.Dorc.msi.json` / `Install.Orchestrator.bat`):
@@ -226,62 +221,17 @@ Cutover deploy passes the following MSI parameters (per
 Verified routing in `*ActionService.wxs` writes these into
 `$.AppSettings.Kafka.{BootstrapServers, Sasl.Username, Sasl.Password, SslCaLocation}`.
 
-If a future earlier-step audit produces additional operator-facing
-notes after this runbook is committed, the runbook is amended in a
-follow-up commit.
-
 ---
 
-## 9. Dry-run evidence (R-7 / AT-5..AT-8)
-
-The staging dry-run is operator-executed (the AI assistant cannot
-deploy to staging). When the dry-run is performed, capture under
-`docs/kafka-migration/S-010-DryRun-evidence/<timestamp>/`:
-
-- `pre-cutover-smoke.txt` — §2 transcript against staging-pre-cutover.
-- `cutover-wallclock.txt` — actual wall-clock per §3 step; final
-  T+verified time. **Must show ≤ 240 minutes from "go" to "verified"
-  per AT-2 / AT-6.**
-- `rollback-rehearsal.txt` — full §5 procedure transcript including
-  decision time, redeploy time, post-rollback smoke time. **Must show
-  ≤ 60 minutes from "rollback decision" to "rollback complete" per
-  AT-7.**
-- `post-rollback-smoke.txt` — §2 transcript after the rollback
-  rehearsal. **Every ST-1..ST-7 PASS per AT-8.**
-- `summary.md` — verdict (`Pass` / `Pass-with-runbook-revision` /
-  `Fail-rerun-required`); durations vs budgets; runbook revisions
-  required (if any) and their dispositions.
-
-If the dry-run produces a `Pass-with-runbook-revision` verdict, this
-runbook is amended in a follow-up commit and the dry-run re-run on
-the revised version. S-010 closes only on a `Pass` verdict per the
-spec's AT-2 / AT-6 / AT-7 / AT-8.
-
----
-
-## 10. Review note (R1 — 2026-04-15)
-
-Single-reviewer light pass (GPT-5.3-codex) raised one CRITICAL claim
-that the rollback tag SHA was wrong (`0d5146c8` vs `481f4830`). On
-inspection: `release/pre-kafka-cutover` is an **annotated** tag —
-`git rev-parse release/pre-kafka-cutover` returns the tag-object SHA
-(`0d5146c8`), but the underlying commit (the actual rollback target)
-is `481f4830`. Both reference the same artefact. The §header,
-§5 T+7 row, and §10 summary card now state both SHAs explicitly so
-operators have zero ambiguity. The reviewer's two LOW notes
-(line-number-citation hygiene; rollback-build content verification
-contingent on F-1) are deferred to dry-run validation.
-
-## 11. Summary card (operator quick-reference)
+## 9. Summary card (operator quick-reference)
 
 ```
-Cutover artefact:    feat/kafka-migration HEAD (post-S-009)
 Rollback target:     release/pre-kafka-cutover (tag obj 0d5146c8 -> commit 481f4830)
-Hard ceiling:        240 minutes (binding, IS S-010)
-Rollback target:     ≤60 minutes (S-005b R-8 calibration)
-Comm channel:        <fill in at S-011 time>
-Conference bridge:   <fill in at S-011 time>
-Tech lead:           <fill in at S-011 time>
-Release engineer:    <fill in at S-011 time>
-On-call SRE:         <fill in at S-011 time>
+Hard ceiling:        240 minutes (binding)
+Rollback target:     ≤60 minutes
+Comm channel:        <fill in at cutover time>
+Conference bridge:   <fill in at cutover time>
+Tech lead:           <fill in at cutover time>
+Release engineer:    <fill in at cutover time>
+On-call SRE:         <fill in at cutover time>
 ```
