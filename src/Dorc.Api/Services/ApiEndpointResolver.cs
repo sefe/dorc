@@ -74,11 +74,11 @@ namespace Dorc.Api.Services
             {
                 tokens = _parser.Parse(model.Endpoint).ToList();
             }
-            catch
+            catch (InvalidOperationException ex)
             {
                 model.EndpointResolved = model.Endpoint;
                 model.ResolutionStatus = ApiEndpointResolutionStatus.PartiallyResolved;
-                model.UnresolvedTokens = null;
+                model.UnresolvedTokens = $"invalid placeholder syntax: {ex.Message}";
                 return;
             }
 

@@ -11,7 +11,7 @@ CREATE TABLE [deploy].[Api] (
     [Tags]            NVARCHAR (512) NULL,
     CONSTRAINT [PK_Api] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_Api_Environment] FOREIGN KEY ([EnvId]) REFERENCES [deploy].[Environment] ([Id]) ON DELETE CASCADE,
-    CONSTRAINT [FK_Api_Project] FOREIGN KEY ([OwnerProjectId]) REFERENCES [deploy].[Project] ([Id]),
+    CONSTRAINT [FK_Api_Project] FOREIGN KEY ([OwnerProjectId]) REFERENCES [deploy].[Project] ([Id]) ON DELETE SET NULL,
     CONSTRAINT [CK_Api_Type] CHECK ([Type] IN (N'REST', N'SOAP', N'gRPC')),
     CONSTRAINT [CK_Api_AuthType] CHECK ([AuthType] IN (N'None', N'Basic', N'Bearer', N'OAuth')),
     CONSTRAINT [UQ_Api_EnvId_Name] UNIQUE ([EnvId], [Name])

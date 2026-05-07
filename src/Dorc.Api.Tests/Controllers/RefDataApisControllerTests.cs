@@ -57,12 +57,13 @@ namespace Dorc.Api.Tests.Controllers
                 new ApiApiModel { Id = 1, Name = "Orders", Endpoint = "https://orders" }
             });
 
-            var result = _controller.GetForEnvironment(7) as OkObjectResult;
+            var actionResult = _controller.GetForEnvironment(7);
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(OkObjectResult));
+            var result = (OkObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
-            var list = result.Value as List<ApiApiModel>;
-            Assert.IsNotNull(list);
+            Assert.IsInstanceOfType(result.Value, typeof(List<ApiApiModel>));
+            var list = (List<ApiApiModel>)result.Value!;
             Assert.AreEqual(1, list.Count);
             Assert.IsTrue(list[0].UserEditable);
             _resolver.Received(1).ResolveEndpoints(Arg.Any<IEnumerable<ApiApiModel>>(), "ENV1");
@@ -71,8 +72,9 @@ namespace Dorc.Api.Tests.Controllers
         [TestMethod]
         public void GetForEnvironment_InvalidId_ReturnsBadRequest()
         {
-            var result = _controller.GetForEnvironment(0) as BadRequestObjectResult;
-            Assert.IsNotNull(result);
+            var actionResult = _controller.GetForEnvironment(0);
+            Assert.IsInstanceOfType(actionResult, typeof(BadRequestObjectResult));
+            var result = (BadRequestObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
         }
 
@@ -83,9 +85,10 @@ namespace Dorc.Api.Tests.Controllers
                 .Returns(new EnvironmentApiModel { EnvironmentId = 7, EnvironmentName = "ENV1" });
             _security.CanModifyEnvironment(_controller.HttpContext.User, "ENV1").Returns(false);
 
-            var result = _controller.Post(7, new ApiApiModel { Name = "x", Endpoint = "y" }) as ObjectResult;
+            var actionResult = _controller.Post(7, new ApiApiModel { Name = "x", Endpoint = "y" });
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
         }
 
@@ -105,10 +108,11 @@ namespace Dorc.Api.Tests.Controllers
             var created = new ApiApiModel { Id = 11, Name = "Orders", Endpoint = "https://orders" };
             _apis.AddApi(7, input, _controller.HttpContext.User).Returns(created);
 
-            var result = _controller.Post(7, input) as OkObjectResult;
-            Assert.IsNotNull(result);
-            var returned = result.Value as ApiApiModel;
-            Assert.IsNotNull(returned);
+            var actionResult = _controller.Post(7, input);
+            Assert.IsInstanceOfType(actionResult, typeof(OkObjectResult));
+            var result = (OkObjectResult)actionResult;
+            Assert.IsInstanceOfType(result.Value, typeof(ApiApiModel));
+            var returned = (ApiApiModel)result.Value!;
             Assert.AreEqual(11, returned.Id);
             Assert.IsTrue(returned.UserEditable);
         }
@@ -122,8 +126,9 @@ namespace Dorc.Api.Tests.Controllers
             _apis.When(x => x.AddApi(Arg.Any<int>(), Arg.Any<ApiApiModel>(), Arg.Any<ClaimsPrincipal>()))
                 .Do(_ => throw new ArgumentException("duplicate"));
 
-            var result = _controller.Post(7, new ApiApiModel { Name = "x", Endpoint = "y" }) as BadRequestObjectResult;
-            Assert.IsNotNull(result);
+            var actionResult = _controller.Post(7, new ApiApiModel { Name = "x", Endpoint = "y" });
+            Assert.IsInstanceOfType(actionResult, typeof(BadRequestObjectResult));
+            var result = (BadRequestObjectResult)actionResult;
             Assert.AreEqual("duplicate", result.Value);
         }
 
@@ -131,8 +136,8 @@ namespace Dorc.Api.Tests.Controllers
         public void Delete_NotFound_Returns404()
         {
             _apis.GetApi(99).Returns((ApiApiModel?)null);
-            var result = _controller.Delete(99) as NotFoundResult;
-            Assert.IsNotNull(result);
+            var actionResult = _controller.Delete(99);
+            Assert.IsInstanceOfType(actionResult, typeof(NotFoundResult));
         }
 
         [TestMethod]
@@ -144,11 +149,12 @@ namespace Dorc.Api.Tests.Controllers
             _security.CanModifyEnvironment(_controller.HttpContext.User, "ENV1").Returns(true);
             _apis.DeleteApi(11, _controller.HttpContext.User).Returns(true);
 
-            var result = _controller.Delete(11) as OkObjectResult;
-            Assert.IsNotNull(result);
-            var bool_ = result.Value as ApiBoolResult;
-            Assert.IsNotNull(bool_);
-            Assert.IsTrue(bool_.Result);
+            var actionResult = _controller.Delete(11);
+            Assert.IsInstanceOfType(actionResult, typeof(OkObjectResult));
+            var result = (OkObjectResult)actionResult;
+            Assert.IsInstanceOfType(result.Value, typeof(ApiBoolResult));
+            var apiBool = (ApiBoolResult)result.Value!;
+            Assert.IsTrue(apiBool.Result);
         }
     }
 }

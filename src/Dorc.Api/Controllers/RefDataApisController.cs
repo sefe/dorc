@@ -54,7 +54,9 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Return a single API.
+        ///     Return a single API. Returns NotFound if the caller cannot
+        ///     access the API's environment, so the existence of an API row
+        ///     is not leaked across environment-permission boundaries.
         /// </summary>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiApiModel))]
         [HttpGet]
@@ -68,12 +70,12 @@ namespace Dorc.Api.Controllers
             if (api == null)
                 return NotFound();
 
-            if (!string.IsNullOrEmpty(api.EnvironmentName))
-                _apiEndpointResolver.ResolveEndpoint(api, api.EnvironmentName);
-
             var env = _environmentsPersistentSource.GetEnvironment(api.EnvironmentId, User);
-            if (env != null)
-                api.UserEditable = env.UserEditable;
+            if (env == null)
+                return NotFound();
+
+            _apiEndpointResolver.ResolveEndpoint(api, env.EnvironmentName);
+            api.UserEditable = env.UserEditable;
 
             return Ok(api);
         }

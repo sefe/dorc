@@ -29,8 +29,8 @@ export class AddEditApi extends LitElement {
     return this._api;
   }
 
-  set api(value: ApiApiModel) {
-    if (value === undefined) return;
+  set api(value: ApiApiModel | null | undefined) {
+    if (value == null) return;
     const old = this._api;
     this._api = JSON.parse(JSON.stringify(value));
 
