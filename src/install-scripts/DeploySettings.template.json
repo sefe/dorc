@@ -410,6 +410,13 @@
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
+          "Name": "KAFKA_ENABLED",
+          "Value": "true"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
           "Name": "KAFKA_BOOTSTRAPSERVERS",
           "Value": "[Replace with your Kafka bootstrap servers, e.g. broker.example.com:9094]"
         },

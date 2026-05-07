@@ -222,6 +222,10 @@
       "DeployProperty": "OTEL_COLLECTOR_URL"
     },
     {
+      "MSIParameter": "KAFKA.ENABLED",
+      "DeployProperty": "KAFKA_ENABLED"
+    },
+    {
       "MSIParameter": "KAFKA.BOOTSTRAPSERVERS",
       "DeployProperty": "KAFKA_BOOTSTRAPSERVERS"
     },

@@ -60,22 +60,22 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
         // throughout a process's lifetime. Without this eviction step, every
         // partition this replica ever owned remains in _lagByPartition with
         // its last-observed lag, exported as a stale metric on every scrape.
+        // The group dimension is unknown at revocation time (librdkafka doesn't
+        // pass it through), so we match (consumer, topic, partition) tuples
+        // regardless of group.
         foreach (var tp in partitions)
         {
-            var key = new MetricKey(consumerName, string.Empty, tp.Topic, tp.Partition.Value);
-            // The group dimension is unknown at revocation time (librdkafka
-            // doesn't pass it through), so remove every matching
-            // (consumer, topic, partition) tuple regardless of group.
-            foreach (var stored in _lagByPartition.Keys)
-            {
-                if (stored.Consumer == consumerName &&
-                    stored.Topic == tp.Topic &&
-                    stored.Partition == tp.Partition.Value)
-                {
-                    _lagByPartition.TryRemove(stored, out _);
-                }
-            }
-            _ = key; // suppress 'unused' warning; left for future-proofing if librdkafka starts surfacing group at revocation
+            // Snapshot keys to a list before removing — modifying the dictionary
+            // during enumeration of .Keys would otherwise risk InvalidOperationException
+            // even though ConcurrentDictionary tolerates it. The Where filter makes the
+            // matching condition explicit and removes the dead `_ = key` placeholder.
+            var matching = _lagByPartition.Keys
+                .Where(k => k.Consumer == consumerName
+                            && k.Topic == tp.Topic
+                            && k.Partition == tp.Partition.Value)
+                .ToList();
+            foreach (var stored in matching)
+                _lagByPartition.TryRemove(stored, out _);
         }
     }
 
@@ -124,9 +124,12 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
         }
         catch (JsonException ex)
         {
-            // Malformed payload from librdkafka shouldn't crash the consume
-            // loop — just record and move on.
-            _logger.LogDebug(ex, "kafka-metrics-parse-failed consumer={Consumer}", consumerName);
+            // Malformed payload from librdkafka shouldn't crash the consume loop — but it
+            // also shouldn't be silent: parse failures stop lag/state from being published
+            // for the affected consumer until the next stats tick succeeds, so dashboards
+            // would see flat-lining metrics with no other signal. Log at Warning so the
+            // problem is visible to operators without being lost in Debug noise.
+            _logger.LogWarning(ex, "kafka-metrics-parse-failed consumer={Consumer}", consumerName);
         }
     }
 
