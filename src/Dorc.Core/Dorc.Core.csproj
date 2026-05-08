@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.95.0" />
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.76.0" />
     <PackageReference Include="NSwag.ApiDescription.Client" Version="14.6.1">
       <PrivateAssets>all</PrivateAssets>

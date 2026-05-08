@@ -24,19 +24,19 @@ namespace Dorc.Core.Tests
             public List<(string host, int port, int timeoutMs)> TcpCalls { get; } = new();
             public List<(string host, string db, int timeoutSec)> SqlCalls { get; } = new();
 
-            protected override Task<bool> TryPingAsync(string serverName, int timeoutMs)
+            protected override Task<bool> TryPingAsync(string serverName, int timeoutMs, CancellationToken cancellationToken)
             {
                 PingCalls.Add((serverName, timeoutMs));
                 return OnPing is null ? Task.FromResult(false) : OnPing(serverName, timeoutMs);
             }
 
-            protected override Task<bool> TryTcpConnectAsync(string serverName, int port, int timeoutMs)
+            protected override Task<bool> TryTcpConnectAsync(string serverName, int port, int timeoutMs, CancellationToken cancellationToken)
             {
                 TcpCalls.Add((serverName, port, timeoutMs));
                 return OnTcp is null ? Task.FromResult(false) : OnTcp(serverName, port, timeoutMs);
             }
 
-            protected override Task<bool> TryOpenSqlConnectionAsync(string serverName, string databaseName, int timeoutSeconds)
+            protected override Task<bool> TryOpenSqlConnectionAsync(string serverName, string databaseName, int timeoutSeconds, CancellationToken cancellationToken)
             {
                 SqlCalls.Add((serverName, databaseName, timeoutSeconds));
                 return OnSql is null ? Task.FromResult(false) : OnSql(serverName, databaseName, timeoutSeconds);
@@ -262,6 +262,28 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("server", host);
             Assert.AreEqual("db", db);
             Assert.AreEqual(DbTimeoutSeconds, timeoutSec);
+        }
+
+        // ----- cancellation propagation tests (review finding #2) -----
+
+        [TestMethod]
+        public async Task CheckServerConnectivityAsync_PingThrowsOperationCanceled_Propagates()
+        {
+            var fake = new FakeProbe
+            {
+                OnPing = (_, _) => throw new OperationCanceledException(),
+            };
+            await Assert.ThrowsAsync<OperationCanceledException>(() => fake.CheckServerConnectivityAsync("host01"));
+        }
+
+        [TestMethod]
+        public async Task CheckDatabaseConnectivityAsync_OpenThrowsOperationCanceled_Propagates()
+        {
+            var fake = new FakeProbe
+            {
+                OnSql = (_, _, _) => throw new OperationCanceledException(),
+            };
+            await Assert.ThrowsAsync<OperationCanceledException>(() => fake.CheckDatabaseConnectivityAsync("server", "db"));
         }
     }
 }

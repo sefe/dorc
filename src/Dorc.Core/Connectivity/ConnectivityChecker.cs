@@ -1,4 +1,4 @@
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
@@ -11,75 +11,77 @@ namespace Dorc.Core.Connectivity
         private const int SmbPort = 445;
         private const int DatabaseConnectionTimeoutSeconds = 5;
 
-        public async Task<bool> CheckServerConnectivityAsync(string serverName)
+        public async Task<bool> CheckServerConnectivityAsync(string serverName, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(serverName))
             {
                 return false;
             }
 
-            if (await TryProbeOrFalse(() => TryPingAsync(serverName, PingTimeoutMs)))
+            if (await TryProbeOrFalse(ct => TryPingAsync(serverName, PingTimeoutMs, ct), cancellationToken))
             {
                 return true;
             }
 
-            return await TryProbeOrFalse(() => TryTcpConnectAsync(serverName, SmbPort, TcpProbeTimeoutMs));
+            return await TryProbeOrFalse(ct => TryTcpConnectAsync(serverName, SmbPort, TcpProbeTimeoutMs, ct), cancellationToken);
         }
 
-        public async Task<bool> CheckDatabaseConnectivityAsync(string serverName, string databaseName)
+        public async Task<bool> CheckDatabaseConnectivityAsync(string serverName, string databaseName, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(databaseName))
             {
                 return false;
             }
 
-            return await TryProbeOrFalse(() => TryOpenSqlConnectionAsync(serverName, databaseName, DatabaseConnectionTimeoutSeconds));
+            return await TryProbeOrFalse(ct => TryOpenSqlConnectionAsync(serverName, databaseName, DatabaseConnectionTimeoutSeconds, ct), cancellationToken);
         }
 
-        protected virtual async Task<bool> TryPingAsync(string serverName, int timeoutMs)
+        protected virtual async Task<bool> TryPingAsync(string serverName, int timeoutMs, CancellationToken cancellationToken)
         {
             using var ping = new Ping();
-            var probeTask = ping.SendPingAsync(serverName, timeoutMs);
-            var completed = await Task.WhenAny(probeTask, Task.Delay(timeoutMs));
-            if (completed != probeTask)
-            {
-                return false;
-            }
-            var reply = await probeTask;
+            var reply = await ping.SendPingAsync(serverName, TimeSpan.FromMilliseconds(timeoutMs), cancellationToken: cancellationToken);
             return reply.Status == IPStatus.Success;
         }
 
-        protected virtual async Task<bool> TryTcpConnectAsync(string serverName, int port, int timeoutMs)
+        protected virtual async Task<bool> TryTcpConnectAsync(string serverName, int port, int timeoutMs, CancellationToken cancellationToken)
         {
             using var client = new TcpClient();
-            var connectTask = client.ConnectAsync(serverName, port);
-            var completed = await Task.WhenAny(connectTask, Task.Delay(timeoutMs));
-            if (completed != connectTask)
-            {
-                return false;
-            }
-            await connectTask;
+            await client.ConnectAsync(serverName, port, cancellationToken).AsTask().WaitAsync(TimeSpan.FromMilliseconds(timeoutMs), cancellationToken);
             return client.Connected;
         }
 
-        protected virtual async Task<bool> TryOpenSqlConnectionAsync(string serverName, string databaseName, int timeoutSeconds)
+        protected virtual async Task<bool> TryOpenSqlConnectionAsync(string serverName, string databaseName, int timeoutSeconds, CancellationToken cancellationToken)
         {
+            // Encrypt=false preserves the reachability-probe semantics from the previous
+            // System.Data.SqlClient implementation; Microsoft.Data.SqlClient flipped the
+            // default to true, which would fail probes against servers without TLS certs.
             var builder = new SqlConnectionStringBuilder
             {
                 DataSource = serverName,
                 InitialCatalog = databaseName,
                 ConnectTimeout = timeoutSeconds,
-                IntegratedSecurity = true
+                IntegratedSecurity = true,
+                Encrypt = false
             };
             using var connection = new SqlConnection(builder.ConnectionString);
-            await connection.OpenAsync();
+            await connection.OpenAsync(cancellationToken);
             return true;
         }
 
-        private static async Task<bool> TryProbeOrFalse(Func<Task<bool>> probe)
+        private static async Task<bool> TryProbeOrFalse(Func<CancellationToken, Task<bool>> probe, CancellationToken cancellationToken)
         {
-            try { return await probe(); }
-            catch { return false; }
+            try
+            {
+                return await probe(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
