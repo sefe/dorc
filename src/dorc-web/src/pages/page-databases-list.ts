@@ -694,7 +694,7 @@ export class PageDatabasesList extends PageElement {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     let statusHtml;
-    let title = '';
+    let title: string;
 
     if (lastChecked === null) {
       statusHtml = html`<span style="color: gray;">Not checked</span>`;
