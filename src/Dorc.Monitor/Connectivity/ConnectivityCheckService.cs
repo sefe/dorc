@@ -99,7 +99,6 @@ namespace Dorc.Monitor.Connectivity
                 var serversPersistentSource = scope.ServiceProvider.GetRequiredService<IServersPersistentSource>();
 
                 var processedCount = 0;
-                var now = DateTime.UtcNow;
                 var lastId = 0;
 
                 _logger.LogInformation("Starting server connectivity check in keyset batches of {BatchSize}...", BatchSize);
@@ -124,20 +123,26 @@ namespace Dorc.Monitor.Connectivity
                             continue;
                         }
 
+                        bool isReachable;
                         try
                         {
-                            var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name!, cancellationToken);
-                            serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, now);
-
-                            if (!isReachable)
-                            {
-                                _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", SanitizeForLog(server.Name), server.Id);
-                            }
+                            isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name!, cancellationToken);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             _logger.LogError(ex, "Error checking server {ServerName} (ID: {ServerId})", SanitizeForLog(server.Name), server.Id);
-                            serversPersistentSource.UpdateServerConnectivityStatus(server.Id, false, now);
+                            isReachable = false;
+                        }
+
+                        // Capture the timestamp per-item so LastChecked reflects when this row was probed,
+                        // not when the cycle started. Update outside the probe try/catch so a DB write failure
+                        // on a successful probe propagates to the cycle catch (and is retried next cycle)
+                        // instead of silently overwriting a reachable row with isReachable=false.
+                        serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, DateTime.UtcNow);
+
+                        if (!isReachable)
+                        {
+                            _logger.LogWarning("Server {ServerName} (ID: {ServerId}) is not reachable.", SanitizeForLog(server.Name), server.Id);
                         }
 
                         processedCount++;
@@ -168,7 +173,6 @@ namespace Dorc.Monitor.Connectivity
                 var databasesPersistentSource = scope.ServiceProvider.GetRequiredService<IDatabasesPersistentSource>();
 
                 var processedCount = 0;
-                var now = DateTime.UtcNow;
                 var lastId = 0;
 
                 _logger.LogInformation("Starting database connectivity check in keyset batches of {BatchSize}...", BatchSize);
@@ -193,20 +197,24 @@ namespace Dorc.Monitor.Connectivity
                             continue;
                         }
 
+                        bool isReachable;
                         try
                         {
-                            var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName!, database.Name!, cancellationToken);
-                            databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, now);
-
-                            if (!isReachable)
-                            {
-                                _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
-                            }
+                            isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName!, database.Name!, cancellationToken);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             _logger.LogError(ex, "Error checking database {DbName} on {ServerName} (ID: {DbId})", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
-                            databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, false, now);
+                            isReachable = false;
+                        }
+
+                        // See server-loop comment above for the rationale on per-item timestamps and
+                        // splitting the DB write out of the probe try/catch.
+                        databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, DateTime.UtcNow);
+
+                        if (!isReachable)
+                        {
+                            _logger.LogWarning("Database {DbName} on {ServerName} (ID: {DbId}) is not reachable.", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
                         }
 
                         processedCount++;

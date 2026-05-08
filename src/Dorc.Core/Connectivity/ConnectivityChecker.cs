@@ -45,9 +45,22 @@ namespace Dorc.Core.Connectivity
 
         protected virtual async Task<bool> TryTcpConnectAsync(string serverName, int port, int timeoutMs, CancellationToken cancellationToken)
         {
+            // Linked CTS: timeout cancels the ConnectAsync task itself instead of leaving it
+            // orphaned (as WaitAsync(timeout, ct) would, which faults later against the
+            // already-disposed TcpClient and produces an unobserved-task exception).
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
             using var client = new TcpClient();
-            await client.ConnectAsync(serverName, port, cancellationToken).AsTask().WaitAsync(TimeSpan.FromMilliseconds(timeoutMs), cancellationToken);
-            return client.Connected;
+            try
+            {
+                await client.ConnectAsync(serverName, port, timeoutCts.Token);
+                return client.Connected;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Timeout fired; outer cancellation token was not the source.
+                return false;
+            }
         }
 
         protected virtual async Task<bool> TryOpenSqlConnectionAsync(string serverName, string databaseName, int timeoutSeconds, CancellationToken cancellationToken)
