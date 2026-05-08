@@ -13,14 +13,12 @@ import AppConfig from '../app-config';
 import '../components/grid-button-groups/edit-comments-controls';
 import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
-import { PageElement } from '../helpers/page-element';
+import { PageElement, PageLocation } from '../helpers/page-element';
 import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
 
 @customElement('page-env-history')
 export class PageEnvironmentHistory extends PageElement {
-  @property({ type: Object }) location = router.location;
-
   @property({ type: Array })
   envHistory: EnvironmentHistoryApiModelExtended[] = [];
 
@@ -28,6 +26,7 @@ export class PageEnvironmentHistory extends PageElement {
 
   constructor() {
     super();
+    this.location = router.location as PageLocation;
 
     const appConfig = new Configuration({
       basePath: new AppConfig().dorcApi

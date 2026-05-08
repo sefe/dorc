@@ -37,9 +37,7 @@ import {
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
-import type { RouterLocation } from '@vaadin/router';
-import { PageElement } from '../helpers/page-element';
-import type { RouteMeta } from '../router/routes';
+import { PageElement, PageLocation } from '../helpers/page-element';
 
 const username = 'Username';
 const status = 'Status';
@@ -387,7 +385,7 @@ export class PageMonitorRequests
   }
 
   // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
-  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  public onAfterEnter(location: PageLocation) {
     this.location = location;
   }
 
