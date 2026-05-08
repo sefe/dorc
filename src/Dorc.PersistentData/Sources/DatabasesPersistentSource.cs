@@ -442,23 +442,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<Database> GetDatabasesForConnectivityCheckBatch(int skip, int take)
+        public IEnumerable<Database> GetDatabasesForConnectivityCheckBatchAfter(int afterId, int take)
         {
             using (var context = _contextFactory.GetContext())
             {
                 return context.Databases
+                    .Where(d => d.Id > afterId)
                     .OrderBy(d => d.Id)
-                    .Skip(skip)
                     .Take(take)
                     .ToList();
-            }
-        }
-
-        public int GetTotalDatabaseCount()
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                return context.Databases.Count();
             }
         }
     }

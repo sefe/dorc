@@ -39,7 +39,12 @@ namespace Dorc.Monitor
 
         protected override async Task ExecuteAsync(CancellationToken monitorCancellationToken)
         {
-            await Task.Yield(); 
+            // Yield to the host so sibling BackgroundServices (notably ConnectivityCheckService)
+            // can complete their StartAsync before this loop begins. BackgroundServices are
+            // started in registration order on a single thread, so omitting this yield blocks
+            // any later-registered hosted service from ever starting. Do not remove without
+            // adopting an alternative ordering mechanism.
+            await Task.Yield();
 
             logger.LogInformation("Deployment Monitor service is started.");
 

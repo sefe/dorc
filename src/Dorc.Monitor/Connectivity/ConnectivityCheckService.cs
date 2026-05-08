@@ -9,6 +9,7 @@ namespace Dorc.Monitor.Connectivity
     public sealed class ConnectivityCheckService : BackgroundService
     {
         private const int InitialDelaySeconds = 30;
+        private const int BatchSize = 100;
 
         private readonly ILogger<ConnectivityCheckService> _logger;
         private readonly IServiceProvider _serviceProvider;
@@ -25,11 +26,6 @@ namespace Dorc.Monitor.Connectivity
             _serviceProvider = serviceProvider;
             _connectivityChecker = connectivityChecker;
             _configuration = configuration;
-        }
-
-        public override Task StartAsync(CancellationToken cancellationToken)
-        {
-            return base.StartAsync(cancellationToken);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -61,8 +57,8 @@ namespace Dorc.Monitor.Connectivity
                     try
                     {
                         _logger.LogInformation("Starting connectivity check cycle...");
-                        await CheckAllServersAsync();
-                        await CheckAllDatabasesAsync();
+                        await CheckAllServersAsync(stoppingToken);
+                        await CheckAllDatabasesAsync(stoppingToken);
                         _logger.LogInformation("Connectivity check cycle completed.");
                     }
                     catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -75,7 +71,6 @@ namespace Dorc.Monitor.Connectivity
                         _logger.LogError(ex, "Error during connectivity check cycle");
                     }
 
-                    // Wait for next cycle
                     try
                     {
                         await Task.Delay(interval, stoppingToken);
@@ -96,29 +91,42 @@ namespace Dorc.Monitor.Connectivity
             }
         }
 
-        private async Task CheckAllServersAsync()
+        private async Task CheckAllServersAsync(CancellationToken cancellationToken)
         {
             try
             {
                 using var scope = _serviceProvider.CreateScope();
                 var serversPersistentSource = scope.ServiceProvider.GetRequiredService<IServersPersistentSource>();
 
-                var totalServers = serversPersistentSource.GetTotalServerCount();
-                var batchSize = 100;
                 var processedCount = 0;
                 var now = DateTime.UtcNow;
+                var lastId = 0;
 
-                _logger.LogInformation("Starting server connectivity check for {Total} servers in batches of {BatchSize}...", totalServers, batchSize);
+                _logger.LogInformation("Starting server connectivity check in keyset batches of {BatchSize}...", BatchSize);
 
-                for (int skip = 0; skip < totalServers; skip += batchSize)
+                while (true)
                 {
-                    var servers = serversPersistentSource.GetServersForConnectivityCheckBatch(skip, batchSize);
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    foreach (var server in servers.Where(s => !string.IsNullOrWhiteSpace(s.Name)))
+                    var servers = serversPersistentSource.GetServersForConnectivityCheckBatchAfter(lastId, BatchSize).ToList();
+                    if (servers.Count == 0)
                     {
+                        break;
+                    }
+
+                    foreach (var server in servers)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (string.IsNullOrWhiteSpace(server.Name))
+                        {
+                            processedCount++;
+                            continue;
+                        }
+
                         try
                         {
-                            var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name!);
+                            var isReachable = await _connectivityChecker.CheckServerConnectivityAsync(server.Name!, cancellationToken);
                             serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, now);
 
                             if (!isReachable)
@@ -135,7 +143,13 @@ namespace Dorc.Monitor.Connectivity
                         processedCount++;
                     }
 
-                    _logger.LogInformation("Processed {Processed}/{Total} servers...", processedCount, totalServers);
+                    lastId = servers[^1].Id;
+                    _logger.LogInformation("Processed {Processed} servers (lastId={LastId})...", processedCount, lastId);
+
+                    if (servers.Count < BatchSize)
+                    {
+                        break;
+                    }
                 }
 
                 _logger.LogInformation("Completed connectivity check for {Processed} servers.", processedCount);
@@ -146,32 +160,42 @@ namespace Dorc.Monitor.Connectivity
             }
         }
 
-        private static string SanitizeForLog(string? value) =>
-            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
-
-        private async Task CheckAllDatabasesAsync()
+        private async Task CheckAllDatabasesAsync(CancellationToken cancellationToken)
         {
             try
             {
                 using var scope = _serviceProvider.CreateScope();
                 var databasesPersistentSource = scope.ServiceProvider.GetRequiredService<IDatabasesPersistentSource>();
 
-                var totalDatabases = databasesPersistentSource.GetTotalDatabaseCount();
-                var batchSize = 100;
                 var processedCount = 0;
                 var now = DateTime.UtcNow;
+                var lastId = 0;
 
-                _logger.LogInformation("Starting database connectivity check for {Total} databases in batches of {BatchSize}...", totalDatabases, batchSize);
+                _logger.LogInformation("Starting database connectivity check in keyset batches of {BatchSize}...", BatchSize);
 
-                for (int skip = 0; skip < totalDatabases; skip += batchSize)
+                while (true)
                 {
-                    var databases = databasesPersistentSource.GetDatabasesForConnectivityCheckBatch(skip, batchSize);
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    foreach (var database in databases.Where(d => !string.IsNullOrWhiteSpace(d.ServerName) && !string.IsNullOrWhiteSpace(d.Name)))
+                    var databases = databasesPersistentSource.GetDatabasesForConnectivityCheckBatchAfter(lastId, BatchSize).ToList();
+                    if (databases.Count == 0)
                     {
+                        break;
+                    }
+
+                    foreach (var database in databases)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (string.IsNullOrWhiteSpace(database.ServerName) || string.IsNullOrWhiteSpace(database.Name))
+                        {
+                            processedCount++;
+                            continue;
+                        }
+
                         try
                         {
-                            var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName!, database.Name!);
+                            var isReachable = await _connectivityChecker.CheckDatabaseConnectivityAsync(database.ServerName!, database.Name!, cancellationToken);
                             databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, now);
 
                             if (!isReachable)
@@ -188,7 +212,13 @@ namespace Dorc.Monitor.Connectivity
                         processedCount++;
                     }
 
-                    _logger.LogInformation("Processed {Processed}/{Total} databases...", processedCount, totalDatabases);
+                    lastId = databases[^1].Id;
+                    _logger.LogInformation("Processed {Processed} databases (lastId={LastId})...", processedCount, lastId);
+
+                    if (databases.Count < BatchSize)
+                    {
+                        break;
+                    }
                 }
 
                 _logger.LogInformation("Completed connectivity check for {Processed} databases.", processedCount);
@@ -198,5 +228,8 @@ namespace Dorc.Monitor.Connectivity
                 _logger.LogError(ex, "Error in CheckAllDatabasesAsync");
             }
         }
+
+        private static string SanitizeForLog(string? value) =>
+            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
     }
 }

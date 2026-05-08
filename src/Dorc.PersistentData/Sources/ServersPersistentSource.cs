@@ -428,23 +428,15 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<Server> GetServersForConnectivityCheckBatch(int skip, int take)
+        public IEnumerable<Server> GetServersForConnectivityCheckBatchAfter(int afterId, int take)
         {
             using (var context = _contextFactory.GetContext())
             {
                 return context.Servers
+                    .Where(s => s.Id > afterId)
                     .OrderBy(s => s.Id)
-                    .Skip(skip)
                     .Take(take)
                     .ToList();
-            }
-        }
-
-        public int GetTotalServerCount()
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                return context.Servers.Count();
             }
         }
     }
