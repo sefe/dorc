@@ -135,10 +135,20 @@ namespace Dorc.Monitor.Connectivity
                         }
 
                         // Capture the timestamp per-item so LastChecked reflects when this row was probed,
-                        // not when the cycle started. Update outside the probe try/catch so a DB write failure
-                        // on a successful probe propagates to the cycle catch (and is retried next cycle)
-                        // instead of silently overwriting a reachable row with isReachable=false.
-                        serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, DateTime.UtcNow);
+                        // not when the cycle started. The DB write sits outside the probe try/catch so a
+                        // probe-success + DB-throw cannot silently overwrite a reachable row with isReachable=false.
+                        // It has its own try/catch so a single row's transient SQL failure logs and continues
+                        // to the next row instead of aborting the rest of this batch and every later batch
+                        // in the cycle (the foreach unwind would otherwise leave lastId unadvanced and lose
+                        // up to BatchSize-1 already-completed probes).
+                        try
+                        {
+                            serversPersistentSource.UpdateServerConnectivityStatus(server.Id, isReachable, DateTime.UtcNow);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogError(ex, "Failed to persist connectivity status for server {ServerName} (ID: {ServerId})", SanitizeForLog(server.Name), server.Id);
+                        }
 
                         if (!isReachable)
                         {
@@ -208,9 +218,17 @@ namespace Dorc.Monitor.Connectivity
                             isReachable = false;
                         }
 
-                        // See server-loop comment above for the rationale on per-item timestamps and
-                        // splitting the DB write out of the probe try/catch.
-                        databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, DateTime.UtcNow);
+                        // See server-loop comment above for the rationale on per-item timestamps,
+                        // splitting the DB write out of the probe try/catch, and the per-row
+                        // try/catch around the persistence call.
+                        try
+                        {
+                            databasesPersistentSource.UpdateDatabaseConnectivityStatus(database.Id, isReachable, DateTime.UtcNow);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogError(ex, "Failed to persist connectivity status for database {DbName} on {ServerName} (ID: {DbId})", SanitizeForLog(database.Name), SanitizeForLog(database.ServerName), database.Id);
+                        }
 
                         if (!isReachable)
                         {

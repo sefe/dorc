@@ -4,6 +4,11 @@ using System.Net.Sockets;
 
 namespace Dorc.Core.Connectivity
 {
+    /// <remarks>
+    /// Registered as a singleton (see <c>Dorc.Monitor.Program</c>); implementations and any
+    /// future field added to this class MUST remain stateless and thread-safe. Avoid mutable
+    /// caches, retry-policy state, or non-thread-safe SDK clients held as fields.
+    /// </remarks>
     public class ConnectivityChecker : IConnectivityChecker
     {
         private const int PingTimeoutMs = 5000;
@@ -58,7 +63,10 @@ namespace Dorc.Core.Connectivity
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                // Timeout fired; outer cancellation token was not the source.
+                // Timeout fired and the outer token was not (yet) cancelled. If the outer
+                // token races and cancels before this filter is evaluated the OCE will
+                // propagate instead — that is intentional: a shutdown in flight should win
+                // over the per-host "return false" path.
                 return false;
             }
         }
