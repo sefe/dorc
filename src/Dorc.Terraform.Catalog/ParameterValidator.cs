@@ -26,15 +26,19 @@ namespace Dorc.Terraform.Catalog
             IReadOnlyDictionary<string, string?> supplied,
             List<ParameterValidationError> errors)
         {
-            foreach (var p in manifest.Parameters.Where(p => p.Required))
+            // Iterate only over required parameters that the caller failed to
+            // supply (or supplied as empty). The two conditions live in the
+            // sequence expression so the loop body is purely the side effect
+            // of recording the error.
+            var missing = manifest.Parameters
+                .Where(p => p.Required)
+                .Where(p => !supplied.TryGetValue(p.Name, out var v) || string.IsNullOrEmpty(v));
+            foreach (var p in missing)
             {
-                if (!supplied.TryGetValue(p.Name, out var v) || string.IsNullOrEmpty(v))
-                {
-                    errors.Add(new ParameterValidationError(
-                        p.Name,
-                        ParameterValidationErrorKind.Missing,
-                        $"required parameter '{p.Name}' was not supplied"));
-                }
+                errors.Add(new ParameterValidationError(
+                    p.Name,
+                    ParameterValidationErrorKind.Missing,
+                    $"required parameter '{p.Name}' was not supplied"));
             }
         }
 
