@@ -51,7 +51,12 @@ namespace Dorc.Terraform.Catalog
             // caller actually supplied with a non-empty value. The filter
             // hoists the previous in-loop guard into the sequence expression.
             var pairs = manifest.Parameters
-                .Select(p => (Param: p, Raw: supplied.TryGetValue(p.Name, out var v) ? v : null))
+                .Select(p =>
+                {
+                    string? raw = null;
+                    if (supplied.TryGetValue(p.Name, out var v)) raw = v;
+                    return (Param: p, Raw: raw);
+                })
                 .Where(t => !string.IsNullOrEmpty(t.Raw));
 
             foreach (var (p, rawNullable) in pairs)
