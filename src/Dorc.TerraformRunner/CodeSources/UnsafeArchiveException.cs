@@ -12,7 +12,7 @@ namespace Dorc.TerraformRunner.CodeSources
         Symlink
     }
 
-    public sealed class UnsafeArchiveException : System.IO.InvalidDataException
+    public sealed class UnsafeArchiveException : System.IO.IOException
     {
         public UnsafeArchiveReason Reason { get; }
 
