@@ -26,9 +26,8 @@ namespace Dorc.Terraform.Catalog
             IReadOnlyDictionary<string, string?> supplied,
             List<ParameterValidationError> errors)
         {
-            foreach (var p in manifest.Parameters)
+            foreach (var p in manifest.Parameters.Where(p => p.Required))
             {
-                if (!p.Required) continue;
                 if (!supplied.TryGetValue(p.Name, out var v) || string.IsNullOrEmpty(v))
                 {
                     errors.Add(new ParameterValidationError(
@@ -44,9 +43,19 @@ namespace Dorc.Terraform.Catalog
             IReadOnlyDictionary<string, string?> supplied,
             List<ParameterValidationError> errors)
         {
-            foreach (var p in manifest.Parameters)
+            // Project (parameter, raw-value) pairs for parameters that the
+            // caller actually supplied with a non-empty value. The filter
+            // hoists the previous in-loop guard into the sequence expression.
+            var pairs = manifest.Parameters
+                .Select(p => (Param: p, Raw: supplied.TryGetValue(p.Name, out var v) ? v : null))
+                .Where(t => !string.IsNullOrEmpty(t.Raw));
+
+            foreach (var (p, rawNullable) in pairs)
             {
-                if (!supplied.TryGetValue(p.Name, out var raw) || string.IsNullOrEmpty(raw)) continue;
+                // The Where above guarantees Raw is non-null and non-empty;
+                // bind to a non-nullable local so callees with non-null
+                // string parameters do not fire CS8604.
+                var raw = rawNullable!;
 
                 if (!TryCoerceType(raw, p.Type))
                 {
@@ -90,24 +99,23 @@ namespace Dorc.Terraform.Catalog
                     }
                 }
 
-                if ((p.Min is not null || p.Max is not null) && p.Type == TerraformParameterType.Number)
+                if ((p.Min is not null || p.Max is not null)
+                    && p.Type == TerraformParameterType.Number
+                    && decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var n))
                 {
-                    if (decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var n))
+                    if (p.Min is not null && n < p.Min)
                     {
-                        if (p.Min is not null && n < p.Min)
-                        {
-                            errors.Add(new ParameterValidationError(
-                                p.Name,
-                                ParameterValidationErrorKind.OutOfRange,
-                                $"parameter '{p.Name}' value '{n}' is below minimum {p.Min}"));
-                        }
-                        if (p.Max is not null && n > p.Max)
-                        {
-                            errors.Add(new ParameterValidationError(
-                                p.Name,
-                                ParameterValidationErrorKind.OutOfRange,
-                                $"parameter '{p.Name}' value '{n}' is above maximum {p.Max}"));
-                        }
+                        errors.Add(new ParameterValidationError(
+                            p.Name,
+                            ParameterValidationErrorKind.OutOfRange,
+                            $"parameter '{p.Name}' value '{n}' is below minimum {p.Min}"));
+                    }
+                    if (p.Max is not null && n > p.Max)
+                    {
+                        errors.Add(new ParameterValidationError(
+                            p.Name,
+                            ParameterValidationErrorKind.OutOfRange,
+                            $"parameter '{p.Name}' value '{n}' is above maximum {p.Max}"));
                     }
                 }
             }
@@ -119,15 +127,12 @@ namespace Dorc.Terraform.Catalog
             List<ParameterValidationError> errors)
         {
             var declared = new HashSet<string>(manifest.Parameters.Select(p => p.Name), StringComparer.Ordinal);
-            foreach (var name in supplied.Keys)
+            foreach (var name in supplied.Keys.Where(n => !declared.Contains(n)))
             {
-                if (!declared.Contains(name))
-                {
-                    errors.Add(new ParameterValidationError(
-                        name,
-                        ParameterValidationErrorKind.UnknownParameter,
-                        $"parameter '{name}' is not declared by manifest '{manifest.Name}@{manifest.Version}'"));
-                }
+                errors.Add(new ParameterValidationError(
+                    name,
+                    ParameterValidationErrorKind.UnknownParameter,
+                    $"parameter '{name}' is not declared by manifest '{manifest.Name}@{manifest.Version}'"));
             }
         }
 
