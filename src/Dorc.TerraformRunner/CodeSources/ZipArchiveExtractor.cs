@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Linq;
 
 namespace Dorc.TerraformRunner.CodeSources
 {
@@ -100,9 +101,13 @@ namespace Dorc.TerraformRunner.CodeSources
 
         private static string ResolveAndContain(string canonicalTarget, string entryFullName, ZipArchiveEntry entry)
         {
-            // Normalize separators; reject absolute paths up front.
+            // Normalize separators; reject absolute paths up front. Path.IsPathRooted
+            // catches Windows drive letters, UNC paths, and forward-slash absolute paths
+            // that would cause Path.Combine below to silently discard the target dir.
             var normalized = entryFullName.Replace('\\', '/');
-            if (normalized.StartsWith('/') || (normalized.Length >= 2 && normalized[1] == ':'))
+            if (normalized.StartsWith('/')
+                || (normalized.Length >= 2 && normalized[1] == ':')
+                || Path.IsPathRooted(normalized))
             {
                 throw new UnsafeArchiveException(
                     UnsafeArchiveReason.AbsolutePath,
@@ -113,15 +118,12 @@ namespace Dorc.TerraformRunner.CodeSources
             // Reject any explicit '..' segment; canonicalisation will also catch it,
             // but explicit detection produces a clearer error and avoids relying on
             // GetFullPath's behaviour.
-            foreach (var segment in normalized.Split('/'))
+            foreach (var _ in normalized.Split('/').Where(segment => segment == ".."))
             {
-                if (segment == "..")
-                {
-                    throw new UnsafeArchiveException(
-                        UnsafeArchiveReason.ParentSegment,
-                        entry.FullName,
-                        "archive entry contains a parent-directory segment");
-                }
+                throw new UnsafeArchiveException(
+                    UnsafeArchiveReason.ParentSegment,
+                    entry.FullName,
+                    "archive entry contains a parent-directory segment");
             }
 
             var combined = Path.GetFullPath(Path.Combine(canonicalTarget, normalized));

@@ -11,7 +11,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         [TestInitialize]
         public void Setup()
         {
-            _tempRoot = Path.Combine(Path.GetTempPath(), "zaet-" + Guid.NewGuid().ToString("N"));
+            _tempRoot = CombineUnder(Path.GetTempPath(), "zaet-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempRoot);
         }
 
@@ -19,11 +19,20 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         public void Cleanup()
         {
             try { if (Directory.Exists(_tempRoot)) Directory.Delete(_tempRoot, true); }
-            catch { /* best-effort */ }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { /* best-effort */ }
         }
 
-        private string TargetDir() => Path.Combine(_tempRoot, "out");
-        private string ArchivePath() => Path.Combine(_tempRoot, "archive.zip");
+        private static string CombineUnder(string root, string relative)
+        {
+            if (Path.IsPathRooted(relative))
+            {
+                throw new ArgumentException("relative path must not be rooted", nameof(relative));
+            }
+            return Path.Combine(root, relative);
+        }
+
+        private string TargetDir() => CombineUnder(_tempRoot, "out");
+        private string ArchivePath() => CombineUnder(_tempRoot, "archive.zip");
 
         private string BuildArchive(Action<ZipArchive> populate)
         {
@@ -56,9 +65,9 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             var extractor = new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default);
             extractor.Extract(ArchivePath(), TargetDir());
 
-            Assert.IsTrue(File.Exists(Path.Combine(TargetDir(), "file.txt")));
-            Assert.IsTrue(File.Exists(Path.Combine(TargetDir(), "subdir", "inner.txt")));
-            Assert.AreEqual("hello", File.ReadAllText(Path.Combine(TargetDir(), "file.txt")));
+            Assert.IsTrue(File.Exists(CombineUnder(TargetDir(), "file.txt")));
+            Assert.IsTrue(File.Exists(CombineUnder(TargetDir(), Path.Combine("subdir", "inner.txt"))));
+            Assert.AreEqual("hello", File.ReadAllText(CombineUnder(TargetDir(), "file.txt")));
         }
 
         [TestMethod]
@@ -165,7 +174,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             var extractor = new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default);
             extractor.Extract(ArchivePath(), TargetDir());
 
-            Assert.IsTrue(Directory.Exists(Path.Combine(TargetDir(), "emptydir")));
+            Assert.IsTrue(Directory.Exists(CombineUnder(TargetDir(), "emptydir")));
         }
     }
 }
