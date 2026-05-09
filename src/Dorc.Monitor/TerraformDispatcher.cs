@@ -168,9 +168,26 @@ namespace Dorc.Monitor
                 var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
                 var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
+
+                // S-006b: persist .terraform.lock.hcl across plan+apply so
+                // both phases resolve identical provider versions.
+                var terraformLockFileName = $"{deploymentResult.Id}.terraform.lock.hcl";
+                var terraformLockFilePath = Path.Combine(planStorageDir, terraformLockFileName);
+
                 if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                 {
                     _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
+                    // Lock-file may not exist yet if the plan ran on the legacy
+                    // path; download is best-effort. The runner falls back to
+                    // a fresh provider resolve when the file is missing.
+                    try
+                    {
+                        _azureStorageAccountWorker.DownloadFileFromBlobs(terraformLockFileName, terraformLockFilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, $"No persisted .terraform.lock.hcl found for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                    }
                 }
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
@@ -180,6 +197,7 @@ namespace Dorc.Monitor
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
                     PlanContentFilePath = terraformPlanContentFilePath,
+                    LockFilePath = terraformLockFilePath,
                     TerraformRunnerOperation = terreformOperation
                 };
                 try
@@ -264,6 +282,15 @@ namespace Dorc.Monitor
                         _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                         // save Terraform human-readable plan file to Azure Storage Account
                         _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
+                        // S-006b: save .terraform.lock.hcl alongside the plan so
+                        // the apply phase resolves identical provider versions.
+                        // Lock file is only present when terraform init wrote
+                        // it (i.e. for projects with required_providers). The
+                        // runner skips persistence cleanly when missing.
+                        if (File.Exists(terraformLockFilePath))
+                        {
+                            _azureStorageAccountWorker.SaveFileToBlobs(terraformLockFilePath);
+                        }
 
                         // Update status to WaitingConfirmation
                         _requestsPersistentSource.UpdateResultStatus(

@@ -104,10 +104,10 @@ namespace Dorc.TerraformRunner
                 switch (options.TerraformRunnerOperation)
                 {
                     case TerraformRunnerOperations.CreatePlan:
-                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, CancellationToken.None);
                         break;
                     case TerraformRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, CancellationToken.None);
                         break;
                 }
             }

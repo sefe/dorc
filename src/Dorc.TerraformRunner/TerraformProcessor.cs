@@ -31,6 +31,7 @@ namespace Dorc.TerraformRunner
             int requestId,
             string resultFilePath,
             string planContentFilePath,
+            string? lockFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -42,13 +43,22 @@ namespace Dorc.TerraformRunner
             this.logger.SetDeploymentResultId(deployResultId);
 
             logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
-            
+
             var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroupProperties, cancellationToken);
 
             try
             {
                 // Create terraform plan
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
+
+                // S-006b: persist .terraform.lock.hcl alongside the plan binary
+                // so the apply phase resolves identical provider versions. The
+                // dispatcher uploads this to blob storage; the apply path
+                // restores it into the working dir before init.
+                if (!string.IsNullOrEmpty(lockFilePath))
+                {
+                    PersistLockFile(terraformWorkingDir, lockFilePath);
+                }
 
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
                 DeleteTempTerraformFolder(terraformWorkingDir);
@@ -60,6 +70,39 @@ namespace Dorc.TerraformRunner
                 logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 return false;
             }
+        }
+
+        // S-006b helpers. Per-operation execution-bundle persistence is bound
+        // to .terraform.lock.hcl only at this stage; full .terraform/ tarball
+        // + SHA-256 verification is the follow-up under the consolidated
+        // lifecycle owner (S-006d).
+        private void PersistLockFile(string workingDir, string lockFilePath)
+        {
+            var source = Path.Combine(workingDir, ".terraform.lock.hcl");
+            if (!File.Exists(source))
+            {
+                logger.Warning(
+                    $".terraform.lock.hcl not found in working dir; lock-file persistence skipped (no provider lock to record).");
+                return;
+            }
+            var destDir = Path.GetDirectoryName(lockFilePath);
+            if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
+            File.Copy(source, lockFilePath, true);
+            logger.FileLogger.LogInformation($"Persisted .terraform.lock.hcl to {lockFilePath}");
+        }
+
+        private void RestoreLockFile(string workingDir, string lockFilePath)
+        {
+            if (string.IsNullOrEmpty(lockFilePath) || !File.Exists(lockFilePath))
+            {
+                logger.Warning(
+                    $"Persisted .terraform.lock.hcl not found at '{lockFilePath}'; apply will resolve provider versions afresh.");
+                return;
+            }
+            var dest = Path.Combine(workingDir, ".terraform.lock.hcl");
+            File.Copy(lockFilePath, dest, true);
+            logger.FileLogger.LogInformation(
+                $"Restored .terraform.lock.hcl into working dir from {lockFilePath}");
         }
 
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
@@ -342,6 +385,7 @@ namespace Dorc.TerraformRunner
             string pipeName,
             int requestId,
             string planFile,
+            string? lockFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -355,12 +399,13 @@ namespace Dorc.TerraformRunner
             logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
             // Execute the actual Terraform plan
-            return await ExecuteTerraformPlanAsync(requestId, planFile, scriptGroupProperties, cancellationToken);
+            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, scriptGroupProperties, cancellationToken);
         }
 
         private async Task<bool> ExecuteTerraformPlanAsync(
             int requestId,
             string planFile,
+            string? lockFilePath,
             ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
@@ -370,6 +415,14 @@ namespace Dorc.TerraformRunner
             try
             {
                 terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroup, cancellationToken);
+
+                // S-006b: restore the persisted .terraform.lock.hcl into the
+                // working dir before init so apply resolves identical provider
+                // versions to the plan run.
+                if (!string.IsNullOrEmpty(lockFilePath))
+                {
+                    RestoreLockFile(terraformWorkingDir, lockFilePath);
+                }
 
                 await RunTerraformCommandAsync(
                     terraformWorkingDir,

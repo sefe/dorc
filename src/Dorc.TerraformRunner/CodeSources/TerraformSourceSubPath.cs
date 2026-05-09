@@ -50,6 +50,13 @@ namespace Dorc.TerraformRunner.CodeSources
 
         public static async Task ApplyAsync(string workingDir, string subPath, CancellationToken cancellationToken)
         {
+            // Reject parent-directory segments in the working dir up front;
+            // Validate(subPath) handles the same for the user-supplied subpath.
+            if (workingDir.Contains(".."))
+            {
+                throw new ArgumentException("workingDir must not contain parent-directory segments", nameof(workingDir));
+            }
+
             var normalizedSubPath = Validate(subPath);
 
             // Path.Join concatenates without the silent-discard semantics of

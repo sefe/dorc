@@ -45,8 +45,15 @@ namespace Dorc.TerraformRunner.State
         public static void WriteToWorkingDirectory(string workingDirectory, AzureBlobBackend backend)
         {
             if (string.IsNullOrEmpty(workingDirectory)) throw new ArgumentException("workingDirectory required", nameof(workingDirectory));
+            // Reject parent-directory segments before any disk write; the
+            // backend file must land inside the explicit working dir, never
+            // somewhere reachable via '../'.
+            if (workingDirectory.Contains(".."))
+            {
+                throw new ArgumentException("workingDirectory must not contain parent-directory segments", nameof(workingDirectory));
+            }
             Directory.CreateDirectory(workingDirectory);
-            var path = Path.Combine(workingDirectory, BackendFileName);
+            var path = Path.Join(workingDirectory, BackendFileName);
             File.WriteAllText(path, RenderAzureBlob(backend));
         }
 

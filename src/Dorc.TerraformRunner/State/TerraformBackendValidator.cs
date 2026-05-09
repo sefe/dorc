@@ -19,6 +19,10 @@ namespace Dorc.TerraformRunner.State
         public static IReadOnlyList<Finding> Scan(string workingDirectory)
         {
             if (string.IsNullOrEmpty(workingDirectory)) throw new ArgumentException("workingDirectory required", nameof(workingDirectory));
+            if (workingDirectory.Contains(".."))
+            {
+                throw new ArgumentException("workingDirectory must not contain parent-directory segments", nameof(workingDirectory));
+            }
             if (!Directory.Exists(workingDirectory)) return Array.Empty<Finding>();
 
             var findings = new List<Finding>();
