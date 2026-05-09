@@ -71,6 +71,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.TerraformRunner", "Dor
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dorc.TerraformRunner.Tests", "Dorc.TerraformRunner.Tests\Dorc.TerraformRunner.Tests.csproj", "{C71F0E8A-7D5E-4F1C-9E3D-2F5A8B6C7D90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dorc.Terraform.Catalog", "Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj", "{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tools.RabbitMqOAuthTest", "Tools.RabbitMqOAuthTest\Tools.RabbitMqOAuthTest.csproj", "{9F8A1B2C-4A5E-4C3F-B9D8-1E2A3B4C5D6E}"
 EndProject
 Global
@@ -317,6 +319,22 @@ Global
 		{C71F0E8A-7D5E-4F1C-9E3D-2F5A8B6C7D90}.Release|x64.Build.0 = Release|Any CPU
 		{C71F0E8A-7D5E-4F1C-9E3D-2F5A8B6C7D90}.Release|x86.ActiveCfg = Release|Any CPU
 		{C71F0E8A-7D5E-4F1C-9E3D-2F5A8B6C7D90}.Release|x86.Build.0 = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|x64.Build.0 = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Debug|x86.Build.0 = Debug|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|ARM64.Build.0 = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|x64.ActiveCfg = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|x64.Build.0 = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|x86.ActiveCfg = Release|Any CPU
+		{D82A1F4B-3C7E-4E9D-AC8F-1B2C5E7F8A91}.Release|x86.Build.0 = Release|Any CPU
 		{4EB83507-3529-4E2E-831E-743A2696979A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4EB83507-3529-4E2E-831E-743A2696979A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4EB83507-3529-4E2E-831E-743A2696979A}.Debug|ARM64.ActiveCfg = Debug|Any CPU
