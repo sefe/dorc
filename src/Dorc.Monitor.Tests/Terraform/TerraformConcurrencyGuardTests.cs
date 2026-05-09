@@ -33,10 +33,12 @@ namespace Dorc.Monitor.Tests.Terraform
         public void Acquire_DifferentKeys_DoNotBlock()
         {
             var guard = NewGuard();
-            using var first = guard.Acquire("env-a", "comp-a", "op-1");
-            using var second = guard.Acquire("env-a", "comp-b", "op-2");
-            using var third = guard.Acquire("env-b", "comp-a", "op-3");
-            // No exception = pass.
+            using var held = guard.Acquire("env-a", "comp-a", "op-1");
+            // While the (env-a, comp-a) slot is held, acquiring on different
+            // (env, component) keys must succeed without blocking. Dispose
+            // immediately - we only care that the call returns.
+            guard.Acquire("env-a", "comp-b", "op-2").Dispose();
+            guard.Acquire("env-b", "comp-a", "op-3").Dispose();
         }
 
         [TestMethod]

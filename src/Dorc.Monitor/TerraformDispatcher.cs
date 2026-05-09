@@ -183,23 +183,34 @@ namespace Dorc.Monitor
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
 
                 // S-006b: persist .terraform.lock.hcl across plan+apply so
-                // both phases resolve identical provider versions.
+                // both phases resolve identical provider versions. Path.Join
+                // is used instead of Path.Combine to avoid the rooted-arg
+                // silent-discard rule the latter has.
                 var terraformLockFileName = $"{deploymentResult.Id}.terraform.lock.hcl";
-                var terraformLockFilePath = Path.Combine(planStorageDir, terraformLockFileName);
+                var terraformLockFilePath = Path.Join(planStorageDir, terraformLockFileName);
 
                 if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                 {
                     _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
                     // Lock-file may not exist yet if the plan ran on the legacy
-                    // path; download is best-effort. The runner falls back to
-                    // a fresh provider resolve when the file is missing.
+                    // path; download is best-effort. Narrow catches: only treat
+                    // file/blob-not-found as the warn-and-continue case;
+                    // anything else propagates so it gets investigated.
                     try
                     {
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformLockFileName, terraformLockFilePath);
                     }
-                    catch (Exception ex)
+                    catch (FileNotFoundException ex)
                     {
                         logger.LogWarning(ex, $"No persisted .terraform.lock.hcl found for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                    }
+                    catch (DirectoryNotFoundException ex)
+                    {
+                        logger.LogWarning(ex, $"Lock-file path missing for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                    }
+                    catch (Win32Exception ex) when (ex.NativeErrorCode == 2 || ex.NativeErrorCode == 3)
+                    {
+                        logger.LogWarning(ex, $"Lock-file download not-found (Win32 {ex.NativeErrorCode}); apply will resolve providers afresh.");
                     }
                 }
 

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Dorc.TerraformRunner.State
@@ -26,12 +27,14 @@ namespace Dorc.TerraformRunner.State
             if (!Directory.Exists(workingDirectory)) return Array.Empty<Finding>();
 
             var findings = new List<Finding>();
-            foreach (var file in Directory.EnumerateFiles(workingDirectory, "*.tf", SearchOption.AllDirectories))
-            {
-                // Skip the platform-rendered file itself if it ever ends up
-                // inside the working dir during a re-scan.
-                if (Path.GetFileName(file) == TerraformBackendRenderer.BackendFileName) continue;
+            // Filter out the platform-rendered file in the source sequence so
+            // re-scans don't flag DOrc's own backend file.
+            var inputFiles = Directory
+                .EnumerateFiles(workingDirectory, "*.tf", SearchOption.AllDirectories)
+                .Where(f => Path.GetFileName(f) != TerraformBackendRenderer.BackendFileName);
 
+            foreach (var file in inputFiles)
+            {
                 var content = File.ReadAllText(file);
                 var match = BackendBlockRegex.Match(content);
                 if (match.Success)
