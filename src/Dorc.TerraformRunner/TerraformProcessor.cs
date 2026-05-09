@@ -3,6 +3,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Dorc.TerraformRunner.CodeSources;
 using Dorc.TerraformRunner.Pipes;
+using Dorc.TerraformRunner.State;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Text;
@@ -87,6 +88,31 @@ namespace Dorc.TerraformRunner
             {
                 await TerraformSourceSubPath.ApplyAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
                 logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
+            }
+
+            // Reject any user-checked-in `terraform { backend ... }` block before
+            // we render the platform backend; DOrc owns the backend (HLPS SC-01).
+            // The validator throws with a precise error string identifying the
+            // offending file when the engineer must remove the declaration.
+            TerraformBackendValidator.RejectIfUserBackendBlocksPresent(workingDir);
+
+            // Render the platform-managed backend if the dispatcher provided one.
+            // Empty TerraformStateKey is the legacy path (no backend rendered);
+            // this preserves backward compatibility until the consolidated
+            // lifecycle is the default.
+            if (!string.IsNullOrEmpty(scriptGroup.TerraformStateKey)
+                && !string.IsNullOrEmpty(scriptGroup.TerraformStateStorageAccount)
+                && !string.IsNullOrEmpty(scriptGroup.TerraformStateContainerName))
+            {
+                TerraformBackendRenderer.WriteToWorkingDirectory(
+                    workingDir,
+                    new TerraformBackendRenderer.AzureBlobBackend(
+                        StorageAccount: scriptGroup.TerraformStateStorageAccount,
+                        ContainerName: scriptGroup.TerraformStateContainerName,
+                        Key: scriptGroup.TerraformStateKey,
+                        ResourceGroup: scriptGroup.TerraformStateResourceGroup));
+                logger.FileLogger.LogInformation(
+                    $"Rendered platform backend (key={scriptGroup.TerraformStateKey})");
             }
 
             logger.Information($"Terraform working directory has been set up at: {workingDir}");

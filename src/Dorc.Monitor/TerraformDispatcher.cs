@@ -114,6 +114,27 @@ namespace Dorc.Monitor
                 request,
                 project);
 
+            // Per HLPS S-006a: render a platform-managed Azure Blob backend in
+            // the runner working dir before `terraform init`. Configuration is
+            // sourced from appsettings.json under Terraform:State; when any of
+            // the values are missing the runner falls back to the legacy
+            // (no-backend) path. The state key is keyed by environment +
+            // component so plan and apply for the same logical (env, component)
+            // operation share the same state.
+            var stateConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                .GetSection("Terraform:State");
+            var stateAccount = stateConfig["StorageAccount"];
+            var stateContainer = stateConfig["ContainerName"];
+            var stateRg = stateConfig["ResourceGroup"];
+            if (!string.IsNullOrEmpty(stateAccount) && !string.IsNullOrEmpty(stateContainer))
+            {
+                scriptGroup.TerraformStateStorageAccount = stateAccount;
+                scriptGroup.TerraformStateContainerName = stateContainer;
+                scriptGroup.TerraformStateResourceGroup = stateRg;
+                scriptGroup.TerraformStateKey =
+                    SanitizeStateKey(environmentName) + "/" + SanitizeStateKey(component.ComponentName) + ".tfstate";
+            }
+
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
             {
@@ -307,6 +328,26 @@ namespace Dorc.Monitor
             _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
 
             return scriptGroup;
+        }
+
+        // Project/component/environment names can contain spaces and other
+        // characters that are inadvisable in a blob storage key. Map to a
+        // conservative, reversible-ish set: lowercase alnum + dash. Two names
+        // that differ only by case will collide; documented as a known
+        // limitation - the practical environment + component naming rules in
+        // DOrc do not produce such pairs.
+        private static string SanitizeStateKey(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "unknown";
+            var sb = new StringBuilder(raw.Length);
+            foreach (var c in raw)
+            {
+                if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+                else if (c == '-' || c == '_') sb.Append(c);
+                else sb.Append('-');
+            }
+            var trimmed = sb.ToString().Trim('-');
+            return string.IsNullOrEmpty(trimmed) ? "unknown" : trimmed;
         }
 
         private class TerraformPlanInfo

@@ -23,6 +23,17 @@ namespace Dorc.ApiModel
         public string AzureProjects { get; set; }
         public string AzureOrganization { get; set; }
 
+        // Platform-rendered Terraform state backend.
+        // Set by the Monitor dispatcher; consumed by the runner to write
+        // _dorc_backend.tf into the working directory before `terraform init`.
+        // When TerraformStateKey is null/empty the runner skips backend
+        // rendering (legacy behaviour) - this preserves backward compatibility
+        // until the consolidated lifecycle path is the default.
+        public string? TerraformStateStorageAccount { get; set; }
+        public string? TerraformStateContainerName { get; set; }
+        public string? TerraformStateKey { get; set; }
+        public string? TerraformStateResourceGroup { get; set; }
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }
