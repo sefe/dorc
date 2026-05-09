@@ -11,8 +11,18 @@ namespace Dorc.TerraformRunner.CodeSources
         {
             if (string.IsNullOrEmpty(directory)) return;
 
-            // Canonicalize at the entry point. Any '..' segments are resolved
-            // before they reach Directory.Delete; defence-in-depth in line with
+            // Reject parent-directory segments in the raw input before the
+            // path reaches any Directory.* API. Path.GetFullPath would resolve
+            // '..' segments, but rejecting them up front keeps the contract
+            // explicit (and silences SAST heuristics that don't model
+            // canonicalisation as sanitisation).
+            if (directory.Contains(".."))
+            {
+                throw new ArgumentException(
+                    "directory must not contain parent-directory segments", nameof(directory));
+            }
+
+            // Canonicalize at the entry point. Defence-in-depth in line with
             // the path-traversal contract DOrc enforces elsewhere.
             var canonical = Path.GetFullPath(directory);
             if (!Directory.Exists(canonical)) return;

@@ -4,6 +4,16 @@ namespace Dorc.TerraformRunner.CodeSources
     {
         public static async Task CopyAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
         {
+            // Reject parent-directory segments in raw inputs before they
+            // reach Directory.*/Path.* APIs. Redundant with the
+            // canonicalisation below, but keeps the contract explicit and
+            // satisfies SAST heuristics that don't model GetFullPath as
+            // sanitisation.
+            if (sourceDir.Contains("..") || destDir.Contains(".."))
+            {
+                throw new ArgumentException("paths must not contain parent-directory segments");
+            }
+
             // Canonicalize at the entry point so any '..' segments in the
             // caller's input are resolved before they reach Directory.* APIs.
             // Defence-in-depth: callers are already trusted, but this prevents
