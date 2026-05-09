@@ -55,6 +55,23 @@ The execution sandbox in this session **had no .NET runtime**. Implementation st
 | S-014 | DirectoryHelper split, dead-code removal, DI cleanup | Partial (typo only). |
 | S-015 | Final naming audit + coverage report + flag removal | Not applicable until S-006d lands. |
 
+## Round-3 final-review findings (2026-05-09)
+
+A 3-model panel reviewed the shipped diff (S-001/2/4/5/14) and returned **APPROVE-WITH-FIXUPS**. No CRITICAL findings. Findings addressed:
+
+- **H-1 RESOLVED** — `Dorc.TerraformRunner.Tests` added to `src/Dorc.sln` (project entry + GUID + standard build configurations).
+- **M-2 RESOLVED** — second copy of the typoed file at `src/Dorc.Monitor/RunnerProcess/TerrafromRunnerOperations.cs` renamed to `TerraformRunnerOperations.cs`. The enum type inside was already correctly named in `origin/main`.
+
+Findings deferred (folded into the deferred-work backlog below):
+
+- **M-1** — Wiring tests for the redactor at `ScriptGroupPipeClient.cs` and `ScriptGroupFileReader.cs` (NSubstitute the logger, assert no captured log argument contains a known-secret value). The unit-level redactor tests (`SensitivePropertyRedactorTests`, 13 cases) cover the primitive; the wiring assertion is a thin integration test that bites if the redactor call is dropped during a future refactor. Track in S-004 follow-up.
+- **M-3** — `ZipArchiveExtractor` path-containment uses `StringComparison.Ordinal`. Safer on Windows is `OrdinalIgnoreCase` (file paths are case-insensitive there, and on macOS by default). Current call sites pass `Path.GetFullPath`-derived target dirs from a single `Path.GetTempPath()` source so the risk is residual; flag for an S-002 amendment.
+- **M-4** — Symlink check is Unix-only (`unixMode == 0xA000`). Windows-produced zips encode `FILE_ATTRIBUTE_REPARSE_POINT` (0x400) in the low 16 bits and aren't covered. `FileMode.Create + FileAccess.Write` won't follow into an existing reparse point and the path-containment check still fires, so the risk is residual; flag for S-002 amendment.
+- **M-5** — `RedactJson` returns input unchanged on `JsonException`. Documented (and tested) contract. None of the current call sites can produce input that fails `JsonNode.Parse` (they go through `JsonSerializer.Serialize` first), but if a future caller is added, secrets in malformed JSON would leak. Add a logger-warn-on-parse-failure as a defensive signal in a follow-up.
+- **M-6** — `RedactJson` does not recurse into JSON-encoded-as-string values. `VariableValueJsonConverter.Write` emits `VariableValue` as a string whose body is itself escaped JSON; nested sensitive sub-keys inside such a string are not redacted. None of the shipped log sites exhibit this shape (the wrapping value is itself the redactable string). Track for the deferred S-006d work where the pipe payload itself is reshaped.
+
+LOW notes recorded for future work: introduce an `IRedactor` seam if/when S-006d wiring needs NSubstitute; `ZipArchiveExtractor` does not delete partial state on failure (callers create per-request fresh dirs — verified against `TerraformProcessor.cs:70-75`); RBAC choices are defensible and there is no fail-open path.
+
 ## Items requiring user verification
 
 The sandbox lacked a .NET runtime. Before this branch is merged, the user must:
