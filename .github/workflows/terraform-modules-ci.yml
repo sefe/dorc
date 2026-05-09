@@ -1,0 +1,135 @@
+name: terraform-modules-ci
+
+on:
+  pull_request:
+    paths:
+      - 'stock-modules/**'
+      - 'docs/Terraform/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+      - '.tflint.hcl'
+  push:
+    branches:
+      - main
+    paths:
+      - 'stock-modules/**'
+      - 'docs/Terraform/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+      - '.tflint.hcl'
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: '1.7.5'
+  # Pinned by SHA to mitigate the supply-chain risk of running untrusted
+  # plugin releases on every PR (see HLPS R-5).
+  TFLINT_VERSION: 'v0.50.3'
+  TFLINT_AZURERM_VERSION: 'v0.27.0'
+
+jobs:
+  fmt:
+    name: terraform fmt -check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive stock-modules docs/Terraform/examples
+
+  validate:
+    name: terraform validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - stock-modules/vnet
+          - stock-modules/sql-database
+          - stock-modules/storage-account
+          - stock-modules/vnet/examples/basic
+          - stock-modules/sql-database/examples/basic
+          - stock-modules/storage-account/examples/basic
+          - docs/Terraform/examples/terraform-project
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform init -backend=false
+        working-directory: ${{ matrix.module }}
+        # init -backend=false avoids needing real Azure credentials in CI;
+        # provider binaries still download from the registry. A committed
+        # provider mirror (HLPS R-5 follow-up) is tracked but not yet
+        # populated; for now we rely on Hashicorp's signed registry.
+        run: terraform init -backend=false
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate
+
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - stock-modules/vnet
+          - stock-modules/sql-database
+          - stock-modules/storage-account
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tflint (pinned)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" -o tflint.zip
+          unzip -q tflint.zip
+          sudo mv tflint /usr/local/bin/
+          tflint --version
+      - name: tflint --init (pinned plugins from .tflint.hcl)
+        working-directory: ${{ matrix.module }}
+        run: tflint --init
+      - name: tflint
+        working-directory: ${{ matrix.module }}
+        run: tflint --recursive --disable-rule=terraform_required_providers --disable-rule=terraform_required_version
+
+  secret-output-check:
+    name: forbid 'sensitive = false' on secret-pattern outputs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan stock-modules for secret-pattern outputs declared non-sensitive
+        # Per docs/Terraform/MODULE-CONTRACT.md: outputs whose names match the
+        # secret pattern (?i)(token|pat|secret|password|key|connectionstring)
+        # must NOT carry sensitive = false. Modules that omit a sensitive
+        # attribute on a secret-named output are also flagged - they should be
+        # explicit. This is a structural lint over outputs.tf files only.
+        run: |
+          set -euo pipefail
+          pattern='(?i)(token|pat|secret|password|key|connectionstring)'
+          fail=0
+          while IFS= read -r outputs_file; do
+            python3 - "$outputs_file" <<'PY'
+          import re, sys
+          path = sys.argv[1]
+          src = open(path).read()
+          # Match output blocks: output "name" { ... }
+          output_re = re.compile(
+              r'output\s+"([^"]+)"\s*\{(.*?)\}', re.DOTALL)
+          secret_name = re.compile(
+              r'(?i)(token|pat|secret|password|key|connectionstring)')
+          fail = False
+          for m in output_re.finditer(src):
+              name, body = m.group(1), m.group(2)
+              if not secret_name.search(name):
+                  continue
+              if re.search(r'sensitive\s*=\s*false', body):
+                  print(f'{path}: output "{name}" must not declare sensitive = false', file=sys.stderr)
+                  fail = True
+              elif not re.search(r'sensitive\s*=\s*true', body):
+                  print(f'{path}: output "{name}" matches secret pattern; declare sensitive = true', file=sys.stderr)
+                  fail = True
+          sys.exit(1 if fail else 0)
+          PY
+          done < <(find stock-modules -name outputs.tf -type f)

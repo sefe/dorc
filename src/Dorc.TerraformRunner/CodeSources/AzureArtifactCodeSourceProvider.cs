@@ -207,7 +207,7 @@ namespace Dorc.TerraformRunner.CodeSources
             {
                 // Copy entire directory
                 _logger.FileLogger.LogInformation($"Copying directory from {sourcePath} to {workingDir}");
-                await DirectoryHelper.CopyDirectoryAsync(sourcePath, workingDir, cancellationToken);
+                await DirectoryTreeCopy.CopyAsync(sourcePath, workingDir, cancellationToken);
             }
             else
             {

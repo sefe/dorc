@@ -85,7 +85,7 @@ namespace Dorc.TerraformRunner
             // If a sub-path is specified, move only that directory to the root
             if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
             {
-                await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                await TerraformSourceSubPath.ApplyAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
                 logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
             }
 
@@ -320,14 +320,8 @@ namespace Dorc.TerraformRunner
             if (String.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
                 return;
 
-            DirectoryHelper.SafeRemoveDirectory(folderPath);
+            ResilientDirectoryDeletion.Delete(folderPath);
         }
 
-        private class TerraformExecutionResult
-        {
-            public bool Success { get; set; }
-            public string? Output { get; set; }
-            public string? ErrorMessage { get; set; }
-        }
     }
 }

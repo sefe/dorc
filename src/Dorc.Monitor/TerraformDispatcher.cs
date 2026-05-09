@@ -132,8 +132,9 @@ namespace Dorc.Monitor
                         pipeCancellationTokenSource.Token);
                 logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
-                var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["RunnerLogPath"]!;
+                var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                    .GetSection("AppSettings");
+                var runnerLogPathSetting = appSettings["RunnerLogPath"]!;
                 var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
                 var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
@@ -153,7 +154,7 @@ namespace Dorc.Monitor
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
-                    RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
+                    RunnerExecutableFullName = appSettings["TerraformDeploymentRunnerPath"],
                     ScriptGroupPipeName = startedScriptGroupPipeName,
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
@@ -306,13 +307,6 @@ namespace Dorc.Monitor
             _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
 
             return scriptGroup;
-        }
-
-        private class TerraformExecutionResult
-        {
-            public bool Success { get; set; }
-            public string? Output { get; set; }
-            public string? ErrorMessage { get; set; }
         }
 
         private class TerraformPlanInfo
