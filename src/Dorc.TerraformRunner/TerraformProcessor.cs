@@ -240,11 +240,16 @@ namespace Dorc.TerraformRunner
                             process.Kill(entireProcessTree: true);
                         }
                     }
-                    catch
+                    catch (InvalidOperationException killEx)
                     {
-                        // Best-effort: if the process exited between the check
-                        // and the kill, swallowing the resulting exception is
-                        // correct.
+                        // Process exited between HasExited check and Kill - benign.
+                        logger.Debug($"Process exited before kill could fire: {killEx.Message}");
+                    }
+                    catch (Win32Exception killEx)
+                    {
+                        // OS-level kill failure (e.g. permissions). Log but do
+                        // not re-throw so the cancellation flow proceeds.
+                        logger.Warning($"OS-level kill failed for terraform process: {killEx.Message}");
                     }
                     logger.Warning($"Terraform command {command} was cancelled; killed process tree.");
                     throw;

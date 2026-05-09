@@ -248,13 +248,10 @@ export class TerraformPlanDialog extends LitElement {
     `;
   }
 
-  // Pattern matches secret-like JSON keys/HCL attributes; mirrors the
-  // server-side SensitivePropertyRedactor default pattern so what an
-  // engineer sees in the plan dialog reflects the same contract the
-  // runner enforces in logs.
-  private static readonly SENSITIVE_NAME_PATTERN =
-    /(token|pat|secret|password|key|connectionstring)/i;
-
+  // The secret-name pattern below mirrors the server-side
+  // SensitivePropertyRedactor default so the plan dialog redacts the
+  // same shape of values the runner redacts in logs. Inlined in
+  // _maskSensitiveValues for a single source of truth at the call site.
   private _renderPlanBody() {
     const content = this.plan?.PlanContent;
     if (!content || content.trim() === '') {
