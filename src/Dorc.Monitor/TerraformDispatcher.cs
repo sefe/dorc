@@ -158,7 +158,7 @@ namespace Dorc.Monitor
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
                     PlanContentFilePath = terraformPlanContentFilePath,
-                    TerrafromRunnerOperation = terreformOperation
+                    TerraformRunnerOperation = terreformOperation
                 };
                 try
                 {

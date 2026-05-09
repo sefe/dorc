@@ -1,6 +1,6 @@
 ﻿namespace Dorc.TerraformRunner
 {
-    public enum TerrafromRunnerOperations
+    public enum TerraformRunnerOperations
     {
         None = 0,
         CreatePlan = 1,

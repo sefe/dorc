@@ -26,6 +26,6 @@ namespace Dorc.TerraformRunner
         [Option('f', "useFile", Required = false, HelpText = "File be used instead of named pipe to get all script properties.")]
         public bool UseFile { get; set; }
 
-        public TerrafromRunnerOperations TerrafromRunnerOperation => (TerrafromRunnerOperations)Operation;
+        public TerraformRunnerOperations TerraformRunnerOperation => (TerraformRunnerOperations)Operation;
     }
 }

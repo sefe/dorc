@@ -101,12 +101,12 @@ namespace Dorc.TerraformRunner
                     scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
 
                 var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
-                switch (options.TerrafromRunnerOperation)
+                switch (options.TerraformRunnerOperation)
                 {
-                    case TerrafromRunnerOperations.CreatePlan:
+                    case TerraformRunnerOperations.CreatePlan:
                         result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
                         break;
-                    case TerrafromRunnerOperations.ApplyPlan:
+                    case TerraformRunnerOperations.ApplyPlan:
                         result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
                         break;
                 }

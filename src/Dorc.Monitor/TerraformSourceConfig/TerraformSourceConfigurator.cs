@@ -82,7 +82,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
             else
             {
-                _logger.LogWarning($"PAT token not found in properties. Expected property: {TerraformGitPatPropertyName}");
+                _logger.LogWarning("Required PAT property is missing for Terraform Git source.");
             }
         }
 
