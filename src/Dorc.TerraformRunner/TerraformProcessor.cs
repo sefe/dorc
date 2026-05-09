@@ -78,7 +78,14 @@ namespace Dorc.TerraformRunner
         // lifecycle owner (S-006d).
         private void PersistLockFile(string workingDir, string lockFilePath)
         {
-            var source = Path.Combine(workingDir, ".terraform.lock.hcl");
+            // Defence-in-depth: reject `..` segments before composing paths.
+            // Both inputs are platform-supplied today, but the rejection is
+            // documented contract that matches DOrc's path-traversal posture.
+            if (workingDir.Contains("..") || lockFilePath.Contains(".."))
+            {
+                throw new ArgumentException("paths must not contain parent-directory segments");
+            }
+            var source = Path.Join(workingDir, ".terraform.lock.hcl");
             if (!File.Exists(source))
             {
                 logger.Warning(
@@ -93,13 +100,17 @@ namespace Dorc.TerraformRunner
 
         private void RestoreLockFile(string workingDir, string lockFilePath)
         {
+            if (workingDir.Contains("..") || (lockFilePath?.Contains("..") ?? false))
+            {
+                throw new ArgumentException("paths must not contain parent-directory segments");
+            }
             if (string.IsNullOrEmpty(lockFilePath) || !File.Exists(lockFilePath))
             {
                 logger.Warning(
                     $"Persisted .terraform.lock.hcl not found at '{lockFilePath}'; apply will resolve provider versions afresh.");
                 return;
             }
-            var dest = Path.Combine(workingDir, ".terraform.lock.hcl");
+            var dest = Path.Join(workingDir, ".terraform.lock.hcl");
             File.Copy(lockFilePath, dest, true);
             logger.FileLogger.LogInformation(
                 $"Restored .terraform.lock.hcl into working dir from {lockFilePath}");

@@ -5,6 +5,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.Terraform;
 using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -69,6 +70,18 @@ namespace Dorc.Monitor
             cancellationToken.ThrowIfCancellationRequested();
 
             logger.LogInformation($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+
+            // S-006c: serialise plan/apply per (environment, component) within
+            // this monitor instance. Acquired once around the whole Dispatch
+            // body; released on scope exit. Cross-monitor concurrency relies
+            // on the azurerm backend's blob-lease state lock under the hood.
+            using var concurrencyGuard = TryAcquireConcurrencyGuard(
+                environmentName, component.ComponentName, deploymentResult.Id, terreformOperation);
+            if (concurrencyGuard is null)
+            {
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
 
             // Update status to Running
             _requestsPersistentSource.UpdateResultStatus(
@@ -355,6 +368,31 @@ namespace Dorc.Monitor
             _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
 
             return scriptGroup;
+        }
+
+        private IDisposable? TryAcquireConcurrencyGuard(
+            string environmentName,
+            string componentName,
+            int deploymentResultId,
+            TerraformRunnerOperations operation)
+        {
+            try
+            {
+                // Use a short timeout: by the time this dispatcher is called the
+                // upstream queue has already done its own gating; a wait here
+                // longer than a couple of minutes signals a genuinely stuck
+                // sibling operation and we should refuse rather than queue.
+                return TerraformConcurrencyGuard.Instance.Acquire(
+                    environmentName,
+                    componentName,
+                    operationCorrelationId: $"{operation}:{deploymentResultId}");
+            }
+            catch (TerraformConcurrentOperationException ex)
+            {
+                logger.LogError(ex,
+                    $"Refused to start Terraform {operation} for component '{componentName}' on environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
+                return null;
+            }
         }
 
         // Project/component/environment names can contain spaces and other
