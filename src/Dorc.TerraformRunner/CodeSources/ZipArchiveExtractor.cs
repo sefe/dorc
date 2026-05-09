@@ -126,7 +126,11 @@ namespace Dorc.TerraformRunner.CodeSources
                     "archive entry contains a parent-directory segment");
             }
 
-            var combined = Path.GetFullPath(Path.Combine(canonicalTarget, normalized));
+            // canonicalTarget ends in a directory separator (NormalizeWithSeparator);
+            // normalized has had rooted/absolute forms rejected. String concatenation
+            // is safer than Path.Combine here because Path.Combine resets to the second
+            // arg if it is rooted.
+            var combined = Path.GetFullPath(canonicalTarget + normalized);
             if (!combined.StartsWith(canonicalTarget, StringComparison.Ordinal))
             {
                 throw new UnsafeArchiveException(

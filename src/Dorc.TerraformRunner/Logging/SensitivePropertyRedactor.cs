@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -51,23 +52,22 @@ namespace Dorc.TerraformRunner.Logging
             switch (node)
             {
                 case JsonObject obj:
-                    foreach (var key in obj.Select(p => p.Key).ToList())
+                    var keys = obj.Select(p => p.Key).ToList();
+                    foreach (var key in keys.Where(k => obj[k] is JsonValue v
+                                                        && v.TryGetValue<string>(out _)
+                                                        && IsSensitive(k)))
                     {
-                        var child = obj[key];
-                        if (child is JsonValue value && value.TryGetValue<string>(out _) && IsSensitive(key))
-                        {
-                            obj[key] = JsonValue.Create(RedactedMarker);
-                        }
-                        else if (child is not null)
-                        {
-                            RedactNode(child);
-                        }
+                        obj[key] = JsonValue.Create(RedactedMarker);
+                    }
+                    foreach (var key in keys.Where(k => obj[k] is JsonObject || obj[k] is JsonArray))
+                    {
+                        RedactNode(obj[key]!);
                     }
                     break;
                 case JsonArray array:
-                    foreach (var element in array)
+                    foreach (var element in array.Where(e => e is not null))
                     {
-                        if (element is not null) RedactNode(element);
+                        RedactNode(element!);
                     }
                     break;
             }

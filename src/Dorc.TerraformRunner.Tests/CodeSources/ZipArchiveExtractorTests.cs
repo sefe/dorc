@@ -28,7 +28,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             {
                 throw new ArgumentException("relative path must not be rooted", nameof(relative));
             }
-            return Path.Combine(root, relative);
+            return Path.Join(root, relative);
         }
 
         private string TargetDir() => CombineUnder(_tempRoot, "out");
@@ -66,7 +66,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             extractor.Extract(ArchivePath(), TargetDir());
 
             Assert.IsTrue(File.Exists(CombineUnder(TargetDir(), "file.txt")));
-            Assert.IsTrue(File.Exists(CombineUnder(TargetDir(), Path.Combine("subdir", "inner.txt"))));
+            Assert.IsTrue(File.Exists(CombineUnder(TargetDir(), Path.Join("subdir", "inner.txt"))));
             Assert.AreEqual("hello", File.ReadAllText(CombineUnder(TargetDir(), "file.txt")));
         }
 
