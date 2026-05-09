@@ -77,7 +77,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
 
             var extractor = new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default);
 
-            var ex = Assert.ThrowsException<UnsafeArchiveException>(
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
                 () => extractor.Extract(ArchivePath(), TargetDir()));
             Assert.AreEqual(UnsafeArchiveReason.ParentSegment, ex.Reason);
         }
@@ -89,7 +89,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
 
             var extractor = new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default);
 
-            var ex = Assert.ThrowsException<UnsafeArchiveException>(
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
                 () => extractor.Extract(ArchivePath(), TargetDir()));
             Assert.AreEqual(UnsafeArchiveReason.AbsolutePath, ex.Reason);
         }
@@ -107,7 +107,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             var options = new ZipArchiveExtractionOptions { MaxEntryCount = 2 };
             var extractor = new ZipArchiveExtractor(options);
 
-            var ex = Assert.ThrowsException<UnsafeArchiveException>(
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
                 () => extractor.Extract(ArchivePath(), TargetDir()));
             Assert.AreEqual(UnsafeArchiveReason.EntryCountExceeded, ex.Reason);
         }
@@ -120,7 +120,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             var options = new ZipArchiveExtractionOptions { MaxBytesPerEntry = 10 };
             var extractor = new ZipArchiveExtractor(options);
 
-            var ex = Assert.ThrowsException<UnsafeArchiveException>(
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
                 () => extractor.Extract(ArchivePath(), TargetDir()));
             Assert.AreEqual(UnsafeArchiveReason.EntrySizeExceeded, ex.Reason);
         }
@@ -141,7 +141,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             };
             var extractor = new ZipArchiveExtractor(options);
 
-            var ex = Assert.ThrowsException<UnsafeArchiveException>(
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
                 () => extractor.Extract(ArchivePath(), TargetDir()));
             Assert.AreEqual(UnsafeArchiveReason.TotalSizeExceeded, ex.Reason);
         }
@@ -154,7 +154,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
 
             var extractor = new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default);
 
-            var ex = Assert.ThrowsException<UnsafeArchiveException>(
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
                 () => extractor.Extract(ArchivePath(), TargetDir()));
             Assert.AreEqual(UnsafeArchiveReason.ParentSegment, ex.Reason);
         }
@@ -162,7 +162,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         [TestMethod]
         public void Constructor_NullOptions_Throws()
         {
-            Assert.ThrowsException<ArgumentNullException>(
+            Assert.ThrowsExactly<ArgumentNullException>(
                 () => new ZipArchiveExtractor(null!));
         }
 

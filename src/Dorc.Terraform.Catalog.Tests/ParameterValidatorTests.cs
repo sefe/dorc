@@ -138,7 +138,7 @@ namespace Dorc.Terraform.Catalog.Tests
         [TestMethod]
         public void Validate_NullManifest_Throws()
         {
-            Assert.ThrowsException<ArgumentNullException>(
+            Assert.ThrowsExactly<ArgumentNullException>(
                 () => validator.Validate(null!, new Dictionary<string, string?>()));
         }
 
@@ -146,7 +146,7 @@ namespace Dorc.Terraform.Catalog.Tests
         public void Validate_NullSupplied_Throws()
         {
             var manifest = Manifest();
-            Assert.ThrowsException<ArgumentNullException>(
+            Assert.ThrowsExactly<ArgumentNullException>(
                 () => validator.Validate(manifest, null!));
         }
     }

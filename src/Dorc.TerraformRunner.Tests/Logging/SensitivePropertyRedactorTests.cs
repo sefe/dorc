@@ -184,7 +184,7 @@ namespace Dorc.TerraformRunner.Tests.Logging
         [TestMethod]
         public void Constructor_NullOptions_Throws()
         {
-            Assert.ThrowsException<ArgumentNullException>(
+            Assert.ThrowsExactly<ArgumentNullException>(
                 () => new SensitivePropertyRedactor(null!));
         }
     }
