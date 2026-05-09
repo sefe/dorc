@@ -7,15 +7,20 @@ namespace Dorc.TerraformRunner.CodeSources
 
         public static void Delete(string directory)
         {
-            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
-                return;
+            if (string.IsNullOrEmpty(directory)) return;
+
+            // Canonicalize at the entry point. Any '..' segments are resolved
+            // before they reach Directory.Delete; defence-in-depth in line with
+            // the path-traversal contract DOrc enforces elsewhere.
+            var canonical = Path.GetFullPath(directory);
+            if (!Directory.Exists(canonical)) return;
 
             for (int attempt = 1; attempt <= MaxRetries; attempt++)
             {
                 try
                 {
-                    StripReadOnly(directory);
-                    Directory.Delete(directory, true);
+                    StripReadOnly(canonical);
+                    Directory.Delete(canonical, true);
                     return;
                 }
                 catch (UnauthorizedAccessException) when (attempt < MaxRetries)
@@ -30,12 +35,12 @@ namespace Dorc.TerraformRunner.CodeSources
 
             try
             {
-                StripReadOnly(directory);
-                Directory.Delete(directory, true);
+                StripReadOnly(canonical);
+                Directory.Delete(canonical, true);
             }
             catch (Exception ex)
             {
-                throw new IOException($"Failed to delete directory '{directory}' after {MaxRetries} attempts.", ex);
+                throw new IOException($"Failed to delete directory '{canonical}' after {MaxRetries} attempts.", ex);
             }
         }
 

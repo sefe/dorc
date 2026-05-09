@@ -106,20 +106,25 @@ namespace Dorc.TerraformRunner
                         
             try
             {
-                // Initialize Terraform if needed
-                await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
-                
-                // Create Terraform variables file
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Init,
+                    new[] { "init", "-no-color" },
+                    cancellationToken);
+
                 await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
-                
-                // Generate the plan
-                var planArgs = $"plan -out={resultFilePath} -detailed-exitcode -no-color";
-                
-                var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
-                
-                // Get human-readable plan output
-                var showArgs = $"show {resultFilePath} -no-color";
-                var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
+
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.PlanDetailedExitCode,
+                    new[] { "plan", $"-out={resultFilePath}", "-detailed-exitcode", "-no-color" },
+                    cancellationToken);
+
+                var planContent = await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Show,
+                    new[] { "show", resultFilePath, "-no-color" },
+                    cancellationToken);
                 if (!String.IsNullOrEmpty(planContent))
                 {
                     File.WriteAllText(planContentFilePath, planContent);
@@ -175,13 +180,18 @@ namespace Dorc.TerraformRunner
         }
 
         private async Task<string> RunTerraformCommandAsync(
-            string workingDir, 
-            string arguments, 
+            string workingDir,
+            TerraformCommand command,
+            IReadOnlyList<string> commandArgs,
             CancellationToken cancellationToken)
         {
             using var process = new System.Diagnostics.Process();
             process.StartInfo.FileName = "terraform";
-            process.StartInfo.Arguments = arguments;
+            // ArgumentList passes each argument as a discrete value; the runtime
+            // applies platform-correct quoting. This eliminates the prior
+            // "Arguments = string concatenation" injection surface where paths
+            // with spaces or shell metacharacters could split into extra tokens.
+            foreach (var arg in commandArgs) process.StartInfo.ArgumentList.Add(arg);
             process.StartInfo.WorkingDirectory = workingDir;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;
@@ -191,7 +201,7 @@ namespace Dorc.TerraformRunner
             var outputBuilder = new StringBuilder();
             var errorBuilder = new StringBuilder();
 
-            process.OutputDataReceived += (sender, e) =>
+            process.OutputDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
@@ -199,7 +209,7 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            process.ErrorDataReceived += (sender, e) =>
+            process.ErrorDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
@@ -207,9 +217,7 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            var tfCommand = arguments.Split(' ')[0];
-
-            logger.Debug($"Running Terraform command: terraform {tfCommand}");
+            logger.Debug($"Running Terraform command: terraform {command}");
 
             try
             {
@@ -217,11 +225,29 @@ namespace Dorc.TerraformRunner
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
-                // Wait for the process to complete or be cancelled
-                while (!process.HasExited)
+                try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await Task.Delay(100, cancellationToken);
+                    await process.WaitForExitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            // Kill the entire tree so any terraform-spawned
+                            // provider plugins are also reaped.
+                            process.Kill(entireProcessTree: true);
+                        }
+                    }
+                    catch
+                    {
+                        // Best-effort: if the process exited between the check
+                        // and the kill, swallowing the resulting exception is
+                        // correct.
+                    }
+                    logger.Warning($"Terraform command {command} was cancelled; killed process tree.");
+                    throw;
                 }
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
@@ -239,27 +265,46 @@ namespace Dorc.TerraformRunner
             }
             catch (OperationCanceledException)
             {
-                logger.Warning($"Terraform command {tfCommand} was cancelled.");
                 throw;
             }
             catch (Exception e)
             {
-                logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
+                logger.Error($"Running of the Terraform process failed. Command: {command}, args: [{string.Join(" ", commandArgs)}] in {workingDir}", e);
                 throw;
             }
 
             var output = outputBuilder.ToString();
             var error = errorBuilder.ToString();
 
-            if (process.ExitCode == 1)
+            InterpretExitCode(command, process.ExitCode, error);
+
+            logger.Information($"Terraform command {command} completed successfully. Output:{Environment.NewLine}{output}");
+            return output;
+        }
+
+        // Per-command exit-code semantics. Documented at SC-03 of the
+        // terraform-hardening HLPS.
+        //
+        // - PlanDetailedExitCode: 0 = no changes, 1 = error, 2 = changes
+        //   pending (success). Anything not 0/1/2 is also treated as an
+        //   error so we don't silently accept unknown codes.
+        // - Init / Apply / Show: any non-zero exit code is an error.
+        private void InterpretExitCode(TerraformCommand command, int exitCode, string errorOutput)
+        {
+            if (command == TerraformCommand.PlanDetailedExitCode)
             {
-                var errorMessage = $"Terraform command {tfCommand} failed with exit code {process.ExitCode}";
-                logger.Error($"{errorMessage}. Error: {error}");
-                throw new InvalidOperationException(errorMessage);
+                if (exitCode == 0 || exitCode == 2) return;
+                var planMsg = $"terraform plan failed with exit code {exitCode}";
+                logger.Error($"{planMsg}. Error: {errorOutput}");
+                throw new InvalidOperationException(planMsg);
             }
 
-            logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
-            return output;
+            if (exitCode != 0)
+            {
+                var msg = $"terraform {command} failed with exit code {exitCode}";
+                logger.Error($"{msg}. Error: {errorOutput}");
+                throw new InvalidOperationException(msg);
+            }
         }
 
         public async Task<bool> ExecuteConfirmedPlanAsync(
@@ -295,12 +340,17 @@ namespace Dorc.TerraformRunner
             {
                 terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroup, cancellationToken);
 
-                // Initialize Terraform if needed
-                await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Init,
+                    new[] { "init", "-no-color" },
+                    cancellationToken);
 
-                // Execute terraform apply using the stored plan
-                var applyArgs = $"apply -auto-approve {planFile}  -no-color";
-                await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Apply,
+                    new[] { "apply", "-auto-approve", planFile, "-no-color" },
+                    cancellationToken);
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 

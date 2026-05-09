@@ -282,7 +282,7 @@ export class TerraformPlanDialog extends LitElement {
     if (trimmed.startsWith('-/+') || trimmed.startsWith('+/-')) {
       return 'plan-line-replace';
     }
-    if (trimmed.startsWith('+ ') || trimmed.startsWith('+ ')) {
+    if (trimmed.startsWith('+ ')) {
       return 'plan-line-add';
     }
     if (trimmed.startsWith('- ')) {

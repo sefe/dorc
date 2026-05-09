@@ -22,7 +22,7 @@ provider "azurerm" {
 # component property Terraform_Template_Name = "sql-database" and
 # Terraform_Template_Version = "1.0.0" (catalog API; see docs/Terraform/MODULE-CONTRACT.md).
 module "sql" {
-  source = "../../../stock-modules/sql-database"
+  source = "../../../../stock-modules/sql-database"
 
   resource_group_name    = var.resource_group_name
   location               = var.location
