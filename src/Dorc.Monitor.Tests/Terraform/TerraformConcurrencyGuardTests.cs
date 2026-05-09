@@ -45,9 +45,9 @@ namespace Dorc.Monitor.Tests.Terraform
         public void Acquire_AfterRelease_LetsNextWaiterIn()
         {
             var guard = NewGuard();
-            using (var first = guard.Acquire("env-a", "comp-a", "op-1"))
-            {
-            }
+            // First acquire+release pattern: we only need the disposer to fire,
+            // we never read the value.
+            guard.Acquire("env-a", "comp-a", "op-1").Dispose();
             using var next = guard.Acquire("env-a", "comp-a", "op-2");
             // Re-acquisition succeeds = pass.
         }
