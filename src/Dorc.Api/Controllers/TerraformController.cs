@@ -57,10 +57,11 @@ namespace Dorc.Api.Controllers
                     return NotFound($"Deployment result with ID {deploymentResultId} not found");
                 }
 
-                // Check if user has permission to view this deployment
-                if (!HasViewPermission(deploymentResult))
+                var deploymentRequest = _requestsPersistentSource.GetRequest(deploymentResult.RequestId);
+
+                if (!HasViewPermission(deploymentRequest))
                 {
-                    return Forbid("You do not have permission to view this Terraform plan");
+                    return Forbid();
                 }
 
                 // Load plan content from storage
@@ -104,10 +105,11 @@ namespace Dorc.Api.Controllers
                     return NotFound($"Deployment result with ID {deploymentResultId} not found");
                 }
 
-                // Security check - ensure user has permission to confirm
-                if (!HasConfirmPermission(deploymentResult))
+                var deploymentRequest = _requestsPersistentSource.GetRequest(deploymentResult.RequestId);
+
+                if (!HasConfirmPermission(deploymentRequest))
                 {
-                    return Forbid("You do not have permission to confirm this Terraform plan");
+                    return Forbid();
                 }
 
                 // Validate that the deployment is in the correct status
@@ -167,10 +169,11 @@ namespace Dorc.Api.Controllers
                     return NotFound($"Deployment result with ID {deploymentResultId} not found");
                 }
 
-                // Security check - ensure user has permission to decline
-                if (!HasDeclinePermission(deploymentResult))
+                var deploymentRequest = _requestsPersistentSource.GetRequest(deploymentResult.RequestId);
+
+                if (!HasDeclinePermission(deploymentRequest))
                 {
-                    return Forbid("You do not have permission to decline this Terraform plan");
+                    return Forbid();
                 }
 
                 // Validate that the deployment is in the correct status
@@ -207,21 +210,31 @@ namespace Dorc.Api.Controllers
             }
         }
 
-        private bool HasViewPermission(DeploymentResultApiModel deploymentResult)
+        private bool HasViewPermission(DeploymentRequestApiModel? request)
         {
-            return true;
+            if (request is null) return false;
+            if (!string.IsNullOrEmpty(request.EnvironmentName)
+                && _apiSecurityService.IsEnvironmentOwnerOrAdmin(User, request.EnvironmentName))
+            {
+                return true;
+            }
+            if (!string.IsNullOrEmpty(request.Project)
+                && _apiSecurityService.IsProjectOwnerOrAdmin(User, request.Project))
+            {
+                return true;
+            }
+            return false;
         }
 
-        private bool HasConfirmPermission(DeploymentResultApiModel deploymentResult)
+        private bool HasConfirmPermission(DeploymentRequestApiModel? request)
         {
-            return true;
+            if (request is null) return false;
+            if (string.IsNullOrEmpty(request.EnvironmentName)) return false;
+            return _apiSecurityService.CanModifyEnvironment(User, request.EnvironmentName);
         }
 
-        private bool HasDeclinePermission(DeploymentResultApiModel deploymentResult)
-        {
-            // Same permission logic as confirm for now
-            return HasConfirmPermission(deploymentResult);
-        }
+        private bool HasDeclinePermission(DeploymentRequestApiModel? request)
+            => HasConfirmPermission(request);
 
         private string LoadPlanContentFromStorage(int deploymentResultId)
         {
