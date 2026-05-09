@@ -25,7 +25,12 @@ namespace Dorc.TerraformRunner.CodeSources
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var fileName = Path.GetFileName(file);
-                var destFile = Path.Combine(destDir, fileName);
+                if (Path.IsPathRooted(fileName))
+                {
+                    throw new InvalidOperationException(
+                        $"GetFileName returned a rooted path: '{fileName}'. Refusing to combine.");
+                }
+                var destFile = Path.Join(destDir, fileName);
                 File.Copy(file, destFile, true);
             }
 
@@ -33,7 +38,12 @@ namespace Dorc.TerraformRunner.CodeSources
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var dirName = Path.GetFileName(directory);
-                var destSubDir = Path.Combine(destDir, dirName);
+                if (Path.IsPathRooted(dirName))
+                {
+                    throw new InvalidOperationException(
+                        $"GetFileName returned a rooted path: '{dirName}'. Refusing to combine.");
+                }
+                var destSubDir = Path.Join(destDir, dirName);
                 await CopyCanonicalisedAsync(directory, destSubDir, cancellationToken);
             }
         }

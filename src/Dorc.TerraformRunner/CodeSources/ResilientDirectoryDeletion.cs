@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Dorc.TerraformRunner.CodeSources
 {
     public static class ResilientDirectoryDeletion
@@ -38,7 +40,11 @@ namespace Dorc.TerraformRunner.CodeSources
                 StripReadOnly(canonical);
                 Directory.Delete(canonical, true);
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new IOException($"Failed to delete directory '{canonical}' after {MaxRetries} attempts.", ex);
+            }
+            catch (IOException ex)
             {
                 throw new IOException($"Failed to delete directory '{canonical}' after {MaxRetries} attempts.", ex);
             }
@@ -53,20 +59,16 @@ namespace Dorc.TerraformRunner.CodeSources
                 directoryInfo.Attributes &= ~FileAttributes.ReadOnly;
             }
 
-            foreach (var file in directoryInfo.GetFiles("*", SearchOption.AllDirectories))
+            foreach (var file in directoryInfo.GetFiles("*", SearchOption.AllDirectories)
+                .Where(f => f.Attributes.HasFlag(FileAttributes.ReadOnly)))
             {
-                if (file.Attributes.HasFlag(FileAttributes.ReadOnly))
-                {
-                    file.Attributes &= ~FileAttributes.ReadOnly;
-                }
+                file.Attributes &= ~FileAttributes.ReadOnly;
             }
 
-            foreach (var dir in directoryInfo.GetDirectories("*", SearchOption.AllDirectories))
+            foreach (var dir in directoryInfo.GetDirectories("*", SearchOption.AllDirectories)
+                .Where(d => d.Attributes.HasFlag(FileAttributes.ReadOnly)))
             {
-                if (dir.Attributes.HasFlag(FileAttributes.ReadOnly))
-                {
-                    dir.Attributes &= ~FileAttributes.ReadOnly;
-                }
+                dir.Attributes &= ~FileAttributes.ReadOnly;
             }
         }
     }

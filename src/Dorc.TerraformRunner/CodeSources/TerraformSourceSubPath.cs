@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Dorc.TerraformRunner.CodeSources
 {
     public static class TerraformSourceSubPath
@@ -33,30 +35,32 @@ namespace Dorc.TerraformRunner.CodeSources
             }
 
             var invalidChars = Path.GetInvalidFileNameChars();
-            foreach (var part in parts)
+            if (parts.Any(part => part.IndexOfAny(invalidChars) >= 0))
             {
-                if (part.IndexOfAny(invalidChars) >= 0)
-                {
-                    throw new ArgumentException(
-                        $"Invalid sub-path '{subPath}'. Path contains invalid characters.",
-                        nameof(subPath));
-                }
+                throw new ArgumentException(
+                    $"Invalid sub-path '{subPath}'. Path contains invalid characters.",
+                    nameof(subPath));
             }
 
-            return Path.Combine(parts);
+            // string.Join over a vetted, non-rooted list of segments avoids the
+            // Path.Combine(params) silent-discard rule. Each part has been
+            // validated above to be a single non-rooted name.
+            return string.Join(Path.DirectorySeparatorChar, parts);
         }
 
         public static async Task ApplyAsync(string workingDir, string subPath, CancellationToken cancellationToken)
         {
             var normalizedSubPath = Validate(subPath);
 
-            var subPathDir = Path.Combine(workingDir, normalizedSubPath);
+            // Path.Join concatenates without the silent-discard semantics of
+            // Path.Combine; normalizedSubPath is guaranteed non-rooted by Validate.
+            var subPathDir = Path.Join(workingDir, normalizedSubPath);
             if (!Directory.Exists(subPathDir))
             {
                 throw new ArgumentException($"Terraform sub-path '{subPath}' not found in repository.");
             }
 
-            var tempExtractDir = Path.Combine(Path.GetTempPath(), $"terraform-extract-{Guid.NewGuid()}");
+            var tempExtractDir = Path.Join(Path.GetTempPath(), $"terraform-extract-{Guid.NewGuid()}");
             Directory.CreateDirectory(tempExtractDir);
 
             try
