@@ -36,5 +36,24 @@ namespace Dorc.Api.Tests
             var unknownBuild = factory.CreateInstance(request);
             Assert.IsNull(unknownBuild);
         }
+
+        // factory routes catalog-sentinel BuildUrl to CatalogDeployableBuild.
+        [TestMethod]
+        public void CreateInstance_RoutesCatalogSentinel_ToCatalogDeployableBuild()
+        {
+            var mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
+            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
+            var mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
+            var mockedLoggerFactory = Substitute.For<ILoggerFactory>();
+            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
+            IDeployableBuildFactory factory = new DeployableBuildFactory(
+                mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
+
+            var request = new RequestDto { BuildUrl = "dorc-catalog://", Project = "myProject" };
+            var catalogBuild = factory.CreateInstance(request);
+
+            Assert.IsTrue(catalogBuild is CatalogDeployableBuild,
+                $"BuildUrl=dorc-catalog:// must route to CatalogDeployableBuild; got {catalogBuild?.GetType().Name ?? "null"}.");
+        }
     }
 }

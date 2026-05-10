@@ -42,6 +42,8 @@ namespace Dorc.Api.Services
                         var buildLogger = _loggerFactory.CreateLogger<AzureDevOpsDeployableBuild>();
                         return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(tfsUrl, webClientLogger), buildLogger, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
                     }
+                case BuildType.Catalog:
+                    return new CatalogDeployableBuild(_deployLibrary, _requestsPersistentSource);
                 case BuildType.UnknownBuildType:
                     {
                         return null;

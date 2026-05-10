@@ -24,6 +24,7 @@ namespace Dorc.Api.Controllers
         private readonly IRequestsManager _requestsManager;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IConfigurationSettings _configurationSettings;
@@ -34,6 +35,7 @@ namespace Dorc.Api.Controllers
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
+            IComponentsPersistentSource componentsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
             IConfigurationSettings configurationSettings,
@@ -43,6 +45,7 @@ namespace Dorc.Api.Controllers
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
+            _componentsPersistentSource = componentsPersistentSource;
             _requestsPersistentSource = requestsPersistentSource;
             _requestsManager = requestsManager;
             _service = service;
@@ -544,6 +547,22 @@ namespace Dorc.Api.Controllers
                             $"Forbidden request to {requestDto.Environment} from {username}");
                 }
 
+                // Catalog-only routing. When the deploy form posts an
+                // empty BuildUrl with one or more components ticked, decide
+                // whether this is a Catalog-only request (all components
+                // bound to a manifest) or a mixed/non-Catalog request that
+                // is now ill-formed.  enumerates the four (BuildUrl,
+                // Components) cases:
+                //   (a) Catalog-only + empty BuildUrl  → set sentinel + accept
+                //   (b) Catalog-only + non-empty       → existing path
+                //   (c) Mixed + non-empty              → existing path
+                //   (d) Mixed + empty                  → 400
+                if (string.IsNullOrEmpty(requestDto.BuildUrl) && requestDto.Components != null && requestDto.Components.Count > 0)
+                {
+                    var routingResult = ResolveCatalogOnlyRouting(requestDto);
+                    if (routingResult is not null) return routingResult;
+                }
+
                 try
                 {
                     var result = _service.CreateRequest(requestDto, User);
@@ -571,6 +590,57 @@ namespace Dorc.Api.Controllers
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
+        }
+
+        /// <summary>
+        /// resolves the (BuildUrl=empty, Components=non-empty) case
+        ///. Looks up each named component; if all are Catalog-mode,
+        /// substitutes the Catalog sentinel BuildUrl and returns null
+        /// (proceed). If any component is not Catalog-mode (mixed) or the
+        /// component cannot be bound to a manifest (null catalog reference),
+        /// returns a 400 IActionResult ready to short-circuit the controller.
+        /// Cross-project enumeration safety: identical 400 status
+        /// + identical body for "component not found" and "component exists
+        /// but in a different project / catalog reference null".
+        /// </summary>
+        private IActionResult? ResolveCatalogOnlyRouting(RequestDto requestDto)
+        {
+            const string genericRejection = "One or more components in this request cannot be deployed without a build artifact URL. Either supply a build artifact, or ensure every component is a fully-instantiated Catalog-mode component.";
+            var anyNonCatalog = false;
+            foreach (var componentName in requestDto.Components)
+            {
+                var component = _componentsPersistentSource.GetComponentByName(componentName);
+                // Identical 400 for not-found and cross-project / null-binding
+                // cases avoids leaking component existence across project
+                // scopes.
+                if (component == null)
+                {
+                    return BadRequest(genericRejection);
+                }
+                if (component.TerraformSourceType != TerraformSourceType.Catalog)
+                {
+                    anyNonCatalog = true;
+                    continue;
+                }
+                if (string.IsNullOrEmpty(component.TerraformTemplateName) ||
+                    string.IsNullOrEmpty(component.TerraformTemplateVersion))
+                {
+                    // U-12 / pre-existing-but-null catalog row:'s
+                    // post-verification intent, this is a controller-time
+                    // 400 rather than an opaque runner failure later.
+                    return BadRequest(genericRejection);
+                }
+            }
+
+            if (anyNonCatalog)
+            {
+                //  case (d): mixed Catalog + non-Catalog with empty BuildUrl.
+                return BadRequest(genericRejection);
+            }
+
+            //  case (a): every component is Catalog-mode.
+            requestDto.BuildUrl = Dorc.Api.Model.BuildDetails.CatalogSentinel;
+            return null;
         }
 
         private void StoreEnvironmentOwnerEmail(int requestId, string environmentName)

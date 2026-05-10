@@ -16,8 +16,26 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts } from '../runtime';
 import type {
+    ComponentApiModel,
     TerraformPlanApiModel,
+    TerraformTemplateManifest,
+    TerraformTemplateInstantiateRequestApiModel,
 } from '../models';
+
+export interface TerraformTemplateInstantiateRequest {
+    name: string;
+    version: string;
+    body: TerraformTemplateInstantiateRequestApiModel;
+}
+
+export interface TerraformTemplateGetByNameRequest {
+    name: string;
+}
+
+export interface TerraformTemplateGetByNameVersionRequest {
+    name: string;
+    version: string;
+}
 
 export interface TerraformPlanDeploymentResultIdConfirmPostRequest {
     deploymentResultId: number;
@@ -72,6 +90,68 @@ export class TerraformApi extends BaseAPI {
         return this.request<TerraformPlanApiModel>({
             url: '/Terraform/plan/{deploymentResultId}'.replace('{deploymentResultId}', encodeURI(deploymentResultId)),
             method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Lists every stock Terraform template available in the DOrc catalog.
+     */
+    terraformTemplatesGet(): Observable<TerraformTemplateManifest[]>
+    terraformTemplatesGet(opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateManifest[]>>
+    terraformTemplatesGet(opts?: OperationOpts): Observable<TerraformTemplateManifest[] | AjaxResponse<TerraformTemplateManifest[]>> {
+        return this.request<TerraformTemplateManifest[]>({
+            url: '/Terraform/templates',
+            method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Latest version of a named stock template.
+     */
+    terraformTemplateLatestGet({ name }: TerraformTemplateGetByNameRequest): Observable<TerraformTemplateManifest>
+    terraformTemplateLatestGet({ name }: TerraformTemplateGetByNameRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateManifest>>
+    terraformTemplateLatestGet({ name }: TerraformTemplateGetByNameRequest, opts?: OperationOpts): Observable<TerraformTemplateManifest | AjaxResponse<TerraformTemplateManifest>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateLatestGet');
+        return this.request<TerraformTemplateManifest>({
+            url: '/Terraform/templates/{name}'.replace('{name}', encodeURI(name)),
+            method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Specific (name, version) of a stock template.
+     */
+    terraformTemplateVersionGet({ name, version }: TerraformTemplateGetByNameVersionRequest): Observable<TerraformTemplateManifest>
+    terraformTemplateVersionGet({ name, version }: TerraformTemplateGetByNameVersionRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateManifest>>
+    terraformTemplateVersionGet({ name, version }: TerraformTemplateGetByNameVersionRequest, opts?: OperationOpts): Observable<TerraformTemplateManifest | AjaxResponse<TerraformTemplateManifest>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateVersionGet');
+        throwIfNullOrUndefined(version, 'version', 'terraformTemplateVersionGet');
+        return this.request<TerraformTemplateManifest>({
+            url: '/Terraform/templates/{name}/{version}'
+                .replace('{name}', encodeURI(name))
+                .replace('{version}', encodeURI(version)),
+            method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Instantiate a stock template as a new Catalog-mode component in the
+     * destination project. Does not trigger a deployment - the engineer
+     * deploys the resulting component via the existing DOrc deploy flow.
+     */
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest): Observable<ComponentApiModel>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<AjaxResponse<ComponentApiModel>>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<ComponentApiModel | AjaxResponse<ComponentApiModel>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateInstantiatePost');
+        throwIfNullOrUndefined(version, 'version', 'terraformTemplateInstantiatePost');
+        throwIfNullOrUndefined(body, 'body', 'terraformTemplateInstantiatePost');
+        return this.request<ComponentApiModel>({
+            url: '/Terraform/templates/{name}/{version}/instantiate'
+                .replace('{name}', encodeURI(name))
+                .replace('{version}', encodeURI(version)),
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
         }, opts?.responseOpts);
     };
 

@@ -5,6 +5,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.Terraform;
 using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -70,6 +71,18 @@ namespace Dorc.Monitor
 
             logger.LogInformation($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
 
+            // serialise plan/apply per (environment, component) within
+            // this monitor instance. Acquired once around the whole Dispatch
+            // body; released on scope exit. Cross-monitor concurrency relies
+            // on the azurerm backend's blob-lease state lock under the hood.
+            using var concurrencyGuard = TryAcquireConcurrencyGuard(
+                environmentName, component.ComponentName, deploymentResult.Id, terreformOperation);
+            if (concurrencyGuard is null)
+            {
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
+
             // Update status to Running
             _requestsPersistentSource.UpdateResultStatus(
                 deploymentResult,
@@ -114,6 +127,27 @@ namespace Dorc.Monitor
                 request,
                 project);
 
+            // Per  : render a platform-managed Azure Blob backend in
+            // the runner working dir before `terraform init`. Configuration is
+            // sourced from appsettings.json under Terraform:State; when any of
+            // the values are missing the runner falls back to the legacy
+            // (no-backend) path. The state key is keyed by environment +
+            // component so plan and apply for the same logical (env, component)
+            // operation share the same state.
+            var stateConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                .GetSection("Terraform:State");
+            var stateAccount = stateConfig["StorageAccount"];
+            var stateContainer = stateConfig["ContainerName"];
+            var stateRg = stateConfig["ResourceGroup"];
+            if (!string.IsNullOrEmpty(stateAccount) && !string.IsNullOrEmpty(stateContainer))
+            {
+                scriptGroup.TerraformStateStorageAccount = stateAccount;
+                scriptGroup.TerraformStateContainerName = stateContainer;
+                scriptGroup.TerraformStateResourceGroup = stateRg;
+                scriptGroup.TerraformStateKey =
+                    SanitizeStateKey(environmentName) + "/" + SanitizeStateKey(component.ComponentName) + ".tfstate";
+            }
+
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
             {
@@ -132,8 +166,9 @@ namespace Dorc.Monitor
                         pipeCancellationTokenSource.Token);
                 logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
-                var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["RunnerLogPath"]!;
+                var appSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                    .GetSection("AppSettings");
+                var runnerLogPathSetting = appSettings["RunnerLogPath"]!;
                 var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
                 var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
@@ -146,19 +181,48 @@ namespace Dorc.Monitor
                 var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
                 var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
                 var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
+
+                // persist .terraform.lock.hcl across plan+apply so
+                // both phases resolve identical provider versions. Path.Join
+                // is used instead of Path.Combine to avoid the rooted-arg
+                // silent-discard rule the latter has.
+                var terraformLockFileName = $"{deploymentResult.Id}.terraform.lock.hcl";
+                var terraformLockFilePath = Path.Join(planStorageDir, terraformLockFileName);
+
                 if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                 {
                     _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
+                    // Lock-file may not exist yet if the plan ran on the legacy
+                    // path; download is best-effort. Narrow catches: only treat
+                    // file/blob-not-found as the warn-and-continue case;
+                    // anything else propagates so it gets investigated.
+                    try
+                    {
+                        _azureStorageAccountWorker.DownloadFileFromBlobs(terraformLockFileName, terraformLockFilePath);
+                    }
+                    catch (FileNotFoundException ex)
+                    {
+                        logger.LogWarning(ex, $"No persisted .terraform.lock.hcl found for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                    }
+                    catch (DirectoryNotFoundException ex)
+                    {
+                        logger.LogWarning(ex, $"Lock-file path missing for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                    }
+                    catch (Win32Exception ex) when (ex.NativeErrorCode == 2 || ex.NativeErrorCode == 3)
+                    {
+                        logger.LogWarning(ex, $"Lock-file download not-found (Win32 {ex.NativeErrorCode}); apply will resolve providers afresh.");
+                    }
                 }
 
                 var processStarter = new TerraformRunnerProcessStarter(logger)
                 {
-                    RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
+                    RunnerExecutableFullName = appSettings["TerraformDeploymentRunnerPath"],
                     ScriptGroupPipeName = startedScriptGroupPipeName,
                     RunnerLogPath = runnerLogPath,
                     PlanFilePath = terraformPlanFilePath,
                     PlanContentFilePath = terraformPlanContentFilePath,
-                    TerrafromRunnerOperation = terreformOperation
+                    LockFilePath = terraformLockFilePath,
+                    TerraformRunnerOperation = terreformOperation
                 };
                 try
                 {
@@ -233,7 +297,7 @@ namespace Dorc.Monitor
                     logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
                     throw;
                 }
-                
+
                 if (isScriptExecutionSuccessful)
                 switch (terreformOperation)
                 {
@@ -242,6 +306,15 @@ namespace Dorc.Monitor
                         _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                         // save Terraform human-readable plan file to Azure Storage Account
                         _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
+                        // save .terraform.lock.hcl alongside the plan so
+                        // the apply phase resolves identical provider versions.
+                        // Lock file is only present when terraform init wrote
+                        // it (i.e. for projects with required_providers). The
+                        // runner skips persistence cleanly when missing.
+                        if (File.Exists(terraformLockFilePath))
+                        {
+                            _azureStorageAccountWorker.SaveFileToBlobs(terraformLockFilePath);
+                        }
 
                         // Update status to WaitingConfirmation
                         _requestsPersistentSource.UpdateResultStatus(
@@ -308,11 +381,49 @@ namespace Dorc.Monitor
             return scriptGroup;
         }
 
-        private class TerraformExecutionResult
+        private IDisposable? TryAcquireConcurrencyGuard(
+            string environmentName,
+            string componentName,
+            int deploymentResultId,
+            TerraformRunnerOperations operation)
         {
-            public bool Success { get; set; }
-            public string? Output { get; set; }
-            public string? ErrorMessage { get; set; }
+            try
+            {
+                // Use a short timeout: by the time this dispatcher is called the
+                // upstream queue has already done its own gating; a wait here
+                // longer than a couple of minutes signals a genuinely stuck
+                // sibling operation and we should refuse rather than queue.
+                return TerraformConcurrencyGuard.Instance.Acquire(
+                    environmentName,
+                    componentName,
+                    operationCorrelationId: $"{operation}:{deploymentResultId}");
+            }
+            catch (TerraformConcurrentOperationException ex)
+            {
+                logger.LogError(ex,
+                    $"Refused to start Terraform {operation} for component '{componentName}' on environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
+                return null;
+            }
+        }
+
+        // Project/component/environment names can contain spaces and other
+        // characters that are inadvisable in a blob storage key. Map to a
+        // conservative, reversible-ish set: lowercase alnum + dash. Two names
+        // that differ only by case will collide; documented as a known
+        // limitation - the practical environment + component naming rules in
+        // DOrc do not produce such pairs.
+        private static string SanitizeStateKey(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "unknown";
+            var sb = new StringBuilder(raw.Length);
+            foreach (var c in raw)
+            {
+                if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+                else if (c == '-' || c == '_') sb.Append(c);
+                else sb.Append('-');
+            }
+            var trimmed = sb.ToString().Trim('-');
+            return string.IsNullOrEmpty(trimmed) ? "unknown" : trimmed;
         }
 
         private class TerraformPlanInfo
