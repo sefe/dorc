@@ -24,7 +24,9 @@ namespace Dorc.TerraformRunner.CodeSources
             _logger = logger;
         }
 
-        public Task<bool> ProvisionCodeAsync(
+        public TerraformSourceType SourceType => TerraformSourceType.Catalog;
+
+        public Task ProvisionCodeAsync(
             ScriptGroup scriptGroup,
             string workingDir,
             CancellationToken cancellationToken)
