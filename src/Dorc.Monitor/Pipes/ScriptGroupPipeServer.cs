@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text.Json;
 using Dorc.ApiModel.MonitorRunnerApi;
 
@@ -38,12 +39,22 @@ namespace Dorc.Monitor.Pipes
 
                 try
                 {
-                    using (NamedPipeServerStream pipeServer = new NamedPipeServerStream(
-                        namedPipeName,
-                        PipeDirection.Out,
-                        1,
-                        PipeTransmissionMode.Byte,
-                        PipeOptions.Asynchronous))
+                    // S-006d (partial): apply a restrictive PipeSecurity on
+                    // Windows so only LocalSystem, the Monitor identity, and
+                    // authenticated users (the runner connects under the
+                    // deployment user) can attach to the pipe carrying the
+                    // ScriptGroup payload (which contains PATs / bearer
+                    // tokens). On non-Windows targets the platform doesn't
+                    // honour PipeSecurity, so we fall back to the default
+                    // pipe constructor.
+                    using (NamedPipeServerStream pipeServer = OperatingSystem.IsWindows()
+                        ? CreatePipeWithAcl(namedPipeName)
+                        : new NamedPipeServerStream(
+                            namedPipeName,
+                            PipeDirection.Out,
+                            1,
+                            PipeTransmissionMode.Byte,
+                            PipeOptions.Asynchronous))
                     {
                         logger.LogInformation($"Waiting for pipe client to connect. Pipe name: '{namedPipeName}'.");
 
@@ -99,6 +110,20 @@ namespace Dorc.Monitor.Pipes
             pipeServerConfiguration, cancellationToken);
 
             return scriptGroupPipeTask;
+        }
+
+        [SupportedOSPlatform("windows")]
+        private static NamedPipeServerStream CreatePipeWithAcl(string namedPipeName)
+        {
+            return NamedPipeServerStreamAcl.Create(
+                namedPipeName,
+                PipeDirection.Out,
+                maxNumberOfServerInstances: 1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous,
+                inBufferSize: 0,
+                outBufferSize: 0,
+                pipeSecurity: TerraformPipeAcl.Build());
         }
     }
 }
