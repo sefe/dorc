@@ -100,7 +100,14 @@ namespace Dorc.TerraformRunner
                 else
                     scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
 
-                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
+                // Catalog binding for the runner. The manifests directory
+                // is configurable via Terraform:Catalog:ManifestsDirectory
+                // and defaults to a sibling directory next to the runner exe.
+                var catalogManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"]
+                    ?? System.IO.Path.Combine(AppContext.BaseDirectory, "stock-modules-manifests");
+                var templateCatalog = new Dorc.Terraform.Catalog.GitTemplateCatalog(catalogManifestsDir);
+
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog);
                 switch (options.TerraformRunnerOperation)
                 {
                     case TerraformRunnerOperations.CreatePlan:

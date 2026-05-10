@@ -289,6 +289,18 @@ if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
 builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
+// Terraform stock-template catalog. Manifest YAMLs live under
+// stock-modules-manifests/ at repo root by default; the path is overridable
+// via Terraform:Catalog:ManifestsDirectory in appsettings.json. The runner
+// also reads its own catalog binding (S-008 follow-up); this binding is for
+// the API surface that exposes templates to the dorc-web UI.
+builder.Services.AddSingleton<Dorc.Terraform.Catalog.ITemplateCatalog>(sp =>
+{
+    var dir = configBuilder.GetValue<string>("Terraform:Catalog:ManifestsDirectory")
+              ?? Path.Combine(AppContext.BaseDirectory, "stock-modules-manifests");
+    return new Dorc.Terraform.Catalog.GitTemplateCatalog(dir);
+});
+
 builder.Services.AddMemoryCache();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);

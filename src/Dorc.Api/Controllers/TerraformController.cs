@@ -5,6 +5,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -21,19 +22,57 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
+        private readonly ITemplateCatalog _templateCatalog;
 
         public TerraformController(
             ILogger<TerraformController> log,
             IRequestsPersistentSource requestsPersistentSource,
             ISecurityPrivilegesChecker apiSecurityService,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IAzureStorageAccountWorker azureStorageAccountWorker)
+            IAzureStorageAccountWorker azureStorageAccountWorker,
+            ITemplateCatalog templateCatalog)
         {
             _log = log;
             _requestsPersistentSource = requestsPersistentSource;
             _apiSecurityService = apiSecurityService;
             _claimsPrincipalReader = claimsPrincipalReader;
             _azureStorageAccountWorker = azureStorageAccountWorker;
+            _templateCatalog = templateCatalog;
+        }
+
+        /// <summary>
+        /// Lists all stock Terraform templates available in the catalog.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IReadOnlyList<TerraformTemplateManifest>))]
+        [HttpGet("templates")]
+        public async Task<IActionResult> ListTemplates(CancellationToken cancellationToken)
+        {
+            var manifests = await _templateCatalog.ListAsync(cancellationToken);
+            return Ok(manifests);
+        }
+
+        /// <summary>
+        /// Gets the latest version of a named stock template.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateManifest))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [HttpGet("templates/{name}")]
+        public async Task<IActionResult> GetTemplateLatest(string name, CancellationToken cancellationToken)
+        {
+            var manifest = await _templateCatalog.GetAsync(name, cancellationToken);
+            return manifest is null ? NotFound() : Ok(manifest);
+        }
+
+        /// <summary>
+        /// Gets a specific (name, version) of a stock template.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateManifest))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [HttpGet("templates/{name}/{version}")]
+        public async Task<IActionResult> GetTemplateVersion(string name, string version, CancellationToken cancellationToken)
+        {
+            var manifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
+            return manifest is null ? NotFound() : Ok(manifest);
         }
 
         /// <summary>

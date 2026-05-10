@@ -1,0 +1,56 @@
+name: vnet
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc.git
+  ref: stock-modules/vnet/v1.0.0
+parameters:
+  - name: resource_group_name
+    type: String
+    required: true
+    description: Existing resource group name (1-90 characters).
+  - name: location
+    type: String
+    required: true
+    description: Azure region; must match the resource group.
+  - name: vnet_name
+    type: String
+    required: true
+    description: Name of the virtual network. 2-64 alphanumeric chars plus . _ -, start/end alphanumeric.
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}[A-Za-z0-9]$"
+  - name: address_space
+    type: List
+    required: true
+    description: One or more CIDR blocks for the vnet address space.
+  - name: subnets
+    type: List
+    required: false
+    description: Subnets to create inside the vnet (list of object{name, address_prefix}).
+  - name: tags
+    type: Map
+    required: false
+    description: Tags applied to every resource.
+outputs:
+  - name: vnet_id
+    type: String
+    description: Resource ID of the virtual network.
+  - name: vnet_name
+    type: String
+    description: Name of the virtual network.
+  - name: subnet_ids
+    type: Map
+    description: Map of subnet name to subnet resource ID.
+  - name: address_space
+    type: List
+    description: CIDR address space(s) of the virtual network.
+description: Azure virtual network with a configurable list of subnets. Foundational for any deployment that places compute or data resources inside a private network boundary.
+tags:
+  - networking
+  - azure
+category: Networking
+required_providers:
+  azurerm: "~> 3.100"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""

@@ -30,6 +30,7 @@
     <ProjectReference Include="..\Dorc.Api\Dorc.Api.csproj" />
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
+    <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
   </ItemGroup>
 
   <ItemGroup>

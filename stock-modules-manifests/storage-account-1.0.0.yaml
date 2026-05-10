@@ -1,0 +1,76 @@
+name: storage-account
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc.git
+  ref: stock-modules/storage-account/v1.0.0
+parameters:
+  - name: resource_group_name
+    type: String
+    required: true
+    description: Existing resource group name (1-90 characters).
+  - name: location
+    type: String
+    required: true
+    description: Azure region; must match the resource group.
+  - name: account_name
+    type: String
+    required: true
+    description: Storage account name. 3-24 chars, lowercase alphanumeric only (Azure constraint).
+    pattern: "^[a-z0-9]{3,24}$"
+  - name: account_tier
+    type: String
+    required: false
+    description: Performance tier.
+    default: Standard
+    allowed_values:
+      - Standard
+      - Premium
+  - name: replication_type
+    type: String
+    required: false
+    description: Replication strategy.
+    default: LRS
+    allowed_values:
+      - LRS
+      - ZRS
+      - GRS
+      - RAGRS
+      - GZRS
+      - RAGZRS
+  - name: min_tls_version
+    type: String
+    required: false
+    description: Minimum TLS version. TLS1_2 only.
+    default: TLS1_2
+    allowed_values:
+      - TLS1_2
+  - name: public_network_access_enabled
+    type: Bool
+    required: false
+    description: If true, the storage account is reachable from the public network. Default false.
+    default: "false"
+  - name: tags
+    type: Map
+    required: false
+    description: Tags applied to every resource.
+outputs:
+  - name: storage_account_id
+    type: String
+  - name: storage_account_name
+    type: String
+  - name: primary_blob_endpoint
+    type: String
+  - name: primary_dfs_endpoint
+    type: String
+description: Azure storage account with secure-by-default settings (TLS 1.2 minimum, nested-public-access disabled, public network opt-in only).
+tags:
+  - storage
+  - azure
+category: Storage
+required_providers:
+  azurerm: "~> 3.100"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""

@@ -5,6 +5,7 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,6 +21,7 @@ namespace Dorc.Api.Tests.Controllers
         private ISecurityPrivilegesChecker _security = null!;
         private IClaimsPrincipalReader _claimsReader = null!;
         private IAzureStorageAccountWorker _storage = null!;
+        private ITemplateCatalog _catalog = null!;
         private TerraformController _controller = null!;
 
         private const int DeploymentResultId = 42;
@@ -34,13 +36,15 @@ namespace Dorc.Api.Tests.Controllers
             _security = Substitute.For<ISecurityPrivilegesChecker>();
             _claimsReader = Substitute.For<IClaimsPrincipalReader>();
             _storage = Substitute.For<IAzureStorageAccountWorker>();
+            _catalog = Substitute.For<ITemplateCatalog>();
 
             _controller = new TerraformController(
                 NullLogger<TerraformController>.Instance,
                 _requests,
                 _security,
                 _claimsReader,
-                _storage)
+                _storage,
+                _catalog)
             {
                 ControllerContext = new ControllerContext
                 {

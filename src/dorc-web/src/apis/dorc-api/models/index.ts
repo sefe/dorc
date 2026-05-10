@@ -71,6 +71,7 @@ export * from './ServerOperatingSystemApiModel';
 export * from './SqlPortApiModel';
 export * from './TerraformPlanApiModel';
 export * from './TerraformSourceType';
+export * from './TerraformTemplateManifest';
 export * from './UserAccountType';
 export * from './UserApiModel';
 export * from './UserDbPermissionApiModel';

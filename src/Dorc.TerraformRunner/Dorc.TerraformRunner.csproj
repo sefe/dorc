@@ -20,6 +20,7 @@
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
+    <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,6 +30,16 @@
     <None Update="loggerSettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <!-- Bundle stock-module manifests with the runner output so the catalog
+       runtime resolves out of the box. Operators may override the directory
+       via Terraform:Catalog:ManifestsDirectory in appsettings.json. -->
+  <ItemGroup>
+    <None Include="..\..\stock-modules-manifests\**\*.yaml"
+          Link="stock-modules-manifests\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

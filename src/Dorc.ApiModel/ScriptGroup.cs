@@ -36,6 +36,12 @@ namespace Dorc.ApiModel
         public string TerraformStateKey { get; set; }
         public string TerraformStateResourceGroup { get; set; }
 
+        // Catalog reference. When TerraformSourceType=Catalog these identify
+        // the stock template the runner should resolve via ITemplateCatalog
+        // (S-008 runtime).
+        public string TerraformTemplateName { get; set; }
+        public string TerraformTemplateVersion { get; set; }
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }

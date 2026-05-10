@@ -1,6 +1,7 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
+using Dorc.Terraform.Catalog;
 using Dorc.TerraformRunner.CodeSources;
 using Dorc.TerraformRunner.Pipes;
 using Dorc.TerraformRunner.State;
@@ -19,11 +20,12 @@ namespace Dorc.TerraformRunner
 
         public TerraformProcessor(
             IRunnerLogger logger,
-            IScriptGroupPipeClient scriptGroupPipeClient)
+            IScriptGroupPipeClient scriptGroupPipeClient,
+            ITemplateCatalog catalog)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
-            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger);
+            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger, catalog);
         }
 
         public async Task<bool> PreparePlanAsync(
