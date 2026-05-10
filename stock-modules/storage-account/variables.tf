@@ -1,11 +1,21 @@
 variable "resource_group_name" {
   description = "Name of an existing resource group."
   type        = string
+
+  validation {
+    condition     = length(var.resource_group_name) > 0 && length(var.resource_group_name) <= 90
+    error_message = "resource_group_name must be 1-90 characters (Azure constraint)."
+  }
 }
 
 variable "location" {
   description = "Azure region; must match the resource group."
   type        = string
+
+  validation {
+    condition     = length(var.location) > 0
+    error_message = "location is required."
+  }
 }
 
 variable "account_name" {
