@@ -213,7 +213,11 @@ export class PageStockModules extends PageElement {
     root.appendChild(ref);
   }
 
-  private detailRenderer = (template: TerraformTemplateManifest | null) => {
+  // Vaadin dialogRenderer always passes the Dialog instance as the renderer
+  // argument; deps array is for re-render reactivity, not value-passing.
+  // Read this.detail directly.
+  private detailRenderer = () => {
+    const template = this.detail;
     if (!template) return html``;
     return html`
       <div style="padding: 8px 16px 16px 16px; max-width: 720px;">
