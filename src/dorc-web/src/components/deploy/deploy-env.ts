@@ -600,6 +600,15 @@ export class DeployEnv extends LitElement {
     const checkedElems = hegsTree.getCheckedComponents();
     const components = checkedElems.map(e => e.data.name);
 
+    // (v1 partial): the deploy-page's source-type awareness requires
+    // DeployComponentDto + TreeNode to carry TerraformSourceType, which
+    // isn't in v1. Catalog-only deployments via the deploy page therefore
+    // still require the user to supply a (dummy) build artifact today; the
+    // artifact is unused for Catalog components at runtime because the
+    // runner's CatalogReferenceCodeSourceProvider resolves source from the
+    // manifest. Wizard remains the canonical entry point for
+    // first-time catalog deployments. v2 will extend the DTO + TreeNode.
+
     this.req = { requestDto: {} };
     this.req = {
       requestDto: {

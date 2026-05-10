@@ -15,7 +15,8 @@ namespace Dorc.Monitor.RunnerProcess
         public string RunnerLogPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
-        public TerraformRunnerOperations TerrafromRunnerOperation { get; set; } = TerraformRunnerOperations.None;
+        public string LockFilePath { get; set; } = string.Empty;
+        public TerraformRunnerOperations TerraformRunnerOperation { get; set; } = TerraformRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
 
@@ -59,7 +60,11 @@ namespace Dorc.Monitor.RunnerProcess
                 +" -l " + this.RunnerLogPath
                 +" -t " + this.PlanFilePath
                 +" -c " + this.PlanContentFilePath
-                +" -o " + (int)this.TerrafromRunnerOperation;
+                +" -o " + (int)this.TerraformRunnerOperation;
+            if (!string.IsNullOrEmpty(this.LockFilePath))
+            {
+                commandLine += " -k " + this.LockFilePath;
+            }
 #if DEBUG
             commandLine += " --useFile=true";
 #endif

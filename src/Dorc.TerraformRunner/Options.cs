@@ -20,12 +20,15 @@ namespace Dorc.TerraformRunner
         [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan constant file path")]
         public string PlanContentFilePath { get; set; }
 
+        [Option('k', "lockFilePath", Required = false, HelpText = "Path of the persisted .terraform.lock.hcl. Written-to after plan; read from before apply.")]
+        public string LockFilePath { get; set; }
+
         [Option('o', "operation", Required = false, HelpText = "Selected operation")]
         public int Operation { get; set; }
 
         [Option('f', "useFile", Required = false, HelpText = "File be used instead of named pipe to get all script properties.")]
         public bool UseFile { get; set; }
 
-        public TerrafromRunnerOperations TerrafromRunnerOperation => (TerrafromRunnerOperations)Operation;
+        public TerraformRunnerOperations TerraformRunnerOperation => (TerraformRunnerOperations)Operation;
     }
 }
