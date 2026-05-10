@@ -29,10 +29,12 @@ namespace Dorc.ApiModel
         // When TerraformStateKey is null/empty the runner skips backend
         // rendering (legacy behaviour) - this preserves backward compatibility
         // until the consolidated lifecycle path is the default.
-        public string? TerraformStateStorageAccount { get; set; }
-        public string? TerraformStateContainerName { get; set; }
-        public string? TerraformStateKey { get; set; }
-        public string? TerraformStateResourceGroup { get; set; }
+        // Plain `string` (not `string?`) because Dorc.ApiModel targets
+        // netstandard2.0 / C# 7.3 - nullable reference types require C# 8+.
+        public string TerraformStateStorageAccount { get; set; }
+        public string TerraformStateContainerName { get; set; }
+        public string TerraformStateKey { get; set; }
+        public string TerraformStateResourceGroup { get; set; }
 
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
