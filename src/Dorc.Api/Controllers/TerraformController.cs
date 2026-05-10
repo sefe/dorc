@@ -147,6 +147,16 @@ namespace Dorc.Api.Controllers
             };
 
             var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+            // Sanitize user-supplied strings before they reach the logger -
+            // strip CR/LF so an attacker cannot inject forged log lines via
+            // the component-name field. Non-printable control characters are
+            // also trimmed for the same reason.
+            var safeComponentName = SanitizeForLog(componentName);
+            // GetUserName returns a non-email identifier and is the common
+            // pattern used by the rest of this controller; avoids leaking
+            // an email-classed PII into platform logs.
+            var safeUserId = SanitizeForLog(_claimsPrincipalReader.GetUserName(User));
+
             try
             {
                 _manageProjectsPersistentSource.CreateComponent(
@@ -155,18 +165,45 @@ namespace Dorc.Api.Controllers
                     request.ParentComponentId,
                     username);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
+                // Persistence-layer business/state failures (duplicate component
+                // name, project-shape violation, etc.) are the expected,
+                // actionable case here. Anything else bubbles up to the
+                // framework's centralized handler so stacks and types are
+                // preserved instead of being masked as a flat 500.
                 _log.LogError(ex,
-                    $"Failed to instantiate template '{manifest.Name}@{manifest.Version}' as component '{componentName}' in project {request.ProjectId}.");
+                    "Failed to instantiate template '{Manifest}' as component '{Component}' in project {ProjectId}.",
+                    $"{manifest.Name}@{manifest.Version}", safeComponentName, request.ProjectId);
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     "Failed to create the component for the chosen template. See server logs.");
             }
 
             _log.LogInformation(
-                $"Stock template '{manifest.Name}@{manifest.Version}' instantiated as component '{componentName}' in project {project.ProjectName} (id {request.ProjectId}) by {username}.");
+                "Stock template '{Manifest}' instantiated as component '{Component}' in project '{ProjectName}' (id {ProjectId}) by {UserId}.",
+                $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, safeUserId);
 
             return Ok(component);
+        }
+
+        /// <summary>
+        /// Strips CR / LF / other control characters from a string before it
+        /// reaches the structured logger, preventing log-injection attacks
+        /// where a user-supplied value forges fake log entries by embedding
+        /// newlines.
+        /// </summary>
+        private static string SanitizeForLog(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            var buf = new System.Text.StringBuilder(value.Length);
+            foreach (var c in value)
+            {
+                if (c >= 0x20 && c != 0x7f) buf.Append(c);
+            }
+            // Cap length so a pathological caller can't produce an unbounded
+            // log line.
+            const int cap = 256;
+            return buf.Length <= cap ? buf.ToString() : buf.ToString(0, cap) + "[truncated]";
         }
 
         /// <summary>
