@@ -8,7 +8,7 @@ import '@vaadin/text-field';
 import '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
-import { css, html, LitElement } from 'lit';
+import { css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import {
   TerraformApi,
