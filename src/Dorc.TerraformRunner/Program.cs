@@ -104,7 +104,7 @@ namespace Dorc.TerraformRunner
                 // is configurable via Terraform:Catalog:ManifestsDirectory
                 // and defaults to a sibling directory next to the runner exe.
                 var catalogManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"]
-                    ?? System.IO.Path.Combine(AppContext.BaseDirectory, "stock-modules-manifests");
+                    ?? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
                 var templateCatalog = new Dorc.Terraform.Catalog.GitTemplateCatalog(catalogManifestsDir);
 
                 var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog);

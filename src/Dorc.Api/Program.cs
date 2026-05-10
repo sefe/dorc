@@ -297,7 +297,7 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 builder.Services.AddSingleton<Dorc.Terraform.Catalog.ITemplateCatalog>(sp =>
 {
     var dir = configBuilder.GetValue<string>("Terraform:Catalog:ManifestsDirectory")
-              ?? Path.Combine(AppContext.BaseDirectory, "stock-modules-manifests");
+              ?? Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
     return new Dorc.Terraform.Catalog.GitTemplateCatalog(dir);
 });
 
