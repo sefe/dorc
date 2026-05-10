@@ -63,6 +63,43 @@ namespace Dorc.TerraformRunner.Tests.State
         }
 
         [TestMethod]
+        public void Scan_BackendAfterRequiredProviders_StillFlagged()
+        {
+            // Regression: the original regex used [^}]* which stopped at the
+            // first inner `}` (e.g. closing required_providers) and silently
+            // missed the subsequent backend block. The brace-balanced scanner
+            // must catch this case.
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform {\n" +
+                "  required_providers {\n" +
+                "    azurerm = { source = \"hashicorp/azurerm\" version = \"~> 3.100\" }\n" +
+                "  }\n" +
+                "  backend \"azurerm\" {\n" +
+                "    storage_account_name = \"x\"\n" +
+                "  }\n" +
+                "}\n");
+
+            var findings = TerraformBackendValidator.Scan(_tempRoot);
+
+            Assert.AreEqual(1, findings.Count);
+            Assert.AreEqual(5, findings[0].LineNumber);
+        }
+
+        [TestMethod]
+        public void Scan_BackendInSecondTerraformBlock_Flagged()
+        {
+            // If a file declares two terraform { } blocks (legal HCL), a
+            // backend in the second must still be detected.
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform {\n  required_version = \">= 1.5.0\"\n}\n\n" +
+                "terraform {\n  backend \"azurerm\" {}\n}\n");
+
+            var findings = TerraformBackendValidator.Scan(_tempRoot);
+
+            Assert.AreEqual(1, findings.Count);
+        }
+
+        [TestMethod]
         public void Scan_PlatformBackendFile_Skipped()
         {
             // The platform-rendered _dorc_backend.tf must not be re-flagged

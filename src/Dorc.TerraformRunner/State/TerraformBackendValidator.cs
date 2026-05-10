@@ -9,11 +9,19 @@ namespace Dorc.TerraformRunner.State
     // Per HLPS SC-01, we reject pre-flight with a precise error string.
     public static class TerraformBackendValidator
     {
-        // Matches `terraform { backend "<kind>" { ... }` blocks. Tolerant of
-        // whitespace and comments; deliberately conservative.
-        private static readonly Regex BackendBlockRegex = new(
-            @"terraform\s*\{[^}]*backend\s*""[^""]+""",
-            RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        // Matches the start of a `terraform {` block. We then scan its
+        // balanced-brace body for `backend "<kind>"` declarations. A naive
+        // single-regex approach (`terraform\s*\{[^}]*backend ...`) fails on
+        // realistic .tf files where required_providers { ... } precedes the
+        // backend declaration: the [^}]* stops at the first inner }, so the
+        // backend block goes undetected.
+        private static readonly Regex TerraformBlockOpenRegex = new(
+            @"\bterraform\s*\{",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex BackendDeclarationRegex = new(
+            @"\bbackend\s*""[^""]+""",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public sealed record Finding(string FilePath, int LineNumber);
 
@@ -36,14 +44,55 @@ namespace Dorc.TerraformRunner.State
             foreach (var file in inputFiles)
             {
                 var content = File.ReadAllText(file);
-                var match = BackendBlockRegex.Match(content);
-                if (match.Success)
+                var backendIndex = FindBackendInsideTerraformBlock(content);
+                if (backendIndex >= 0)
                 {
-                    var lineNumber = 1 + content.Substring(0, match.Index).Count(c => c == '\n');
+                    var lineNumber = 1 + content.Substring(0, backendIndex).Count(c => c == '\n');
                     findings.Add(new Finding(file, lineNumber));
                 }
             }
             return findings;
+        }
+
+        // Returns the character index of the `backend "<kind>"` declaration
+        // inside the first `terraform { ... }` block that contains one, or
+        // -1 if none. Brace-balanced scan; tolerates nested blocks (e.g.
+        // required_providers { ... }) appearing before or after the backend.
+        // Strings, comments, and heredocs are not stripped - false positives
+        // from those constructs are extremely unlikely in practice and would
+        // only over-reject (which is acceptable per SC-01).
+        private static int FindBackendInsideTerraformBlock(string content)
+        {
+            foreach (Match open in TerraformBlockOpenRegex.Matches(content))
+            {
+                int bodyStart = open.Index + open.Length;
+                int bodyEnd = FindMatchingClose(content, bodyStart);
+                if (bodyEnd < 0) continue;
+
+                var body = content.Substring(bodyStart, bodyEnd - bodyStart);
+                var backend = BackendDeclarationRegex.Match(body);
+                if (backend.Success)
+                {
+                    return bodyStart + backend.Index;
+                }
+            }
+            return -1;
+        }
+
+        private static int FindMatchingClose(string content, int afterOpenBrace)
+        {
+            int depth = 1;
+            for (int i = afterOpenBrace; i < content.Length; i++)
+            {
+                char c = content[i];
+                if (c == '{') depth++;
+                else if (c == '}')
+                {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+            return -1;
         }
 
         public static void RejectIfUserBackendBlocksPresent(string workingDirectory)
