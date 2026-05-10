@@ -63,7 +63,7 @@ namespace Dorc.TerraformRunner.State
         // only over-reject (which is acceptable per SC-01).
         private static int FindBackendInsideTerraformBlock(string content)
         {
-            foreach (Match open in TerraformBlockOpenRegex.Matches(content))
+            foreach (var open in TerraformBlockOpenRegex.Matches(content).Cast<Match>())
             {
                 int bodyStart = open.Index + open.Length;
                 int bodyEnd = FindMatchingClose(content, bodyStart);
