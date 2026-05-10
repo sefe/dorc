@@ -22,6 +22,8 @@ namespace Dorc.Api.Tests.Controllers
         private IClaimsPrincipalReader _claimsReader = null!;
         private IAzureStorageAccountWorker _storage = null!;
         private ITemplateCatalog _catalog = null!;
+        private IProjectsPersistentSource _projects = null!;
+        private IManageProjectsPersistentSource _manageProjects = null!;
         private TerraformController _controller = null!;
 
         private const int DeploymentResultId = 42;
@@ -37,6 +39,8 @@ namespace Dorc.Api.Tests.Controllers
             _claimsReader = Substitute.For<IClaimsPrincipalReader>();
             _storage = Substitute.For<IAzureStorageAccountWorker>();
             _catalog = Substitute.For<ITemplateCatalog>();
+            _projects = Substitute.For<IProjectsPersistentSource>();
+            _manageProjects = Substitute.For<IManageProjectsPersistentSource>();
 
             _controller = new TerraformController(
                 NullLogger<TerraformController>.Instance,
@@ -44,7 +48,9 @@ namespace Dorc.Api.Tests.Controllers
                 _security,
                 _claimsReader,
                 _storage,
-                _catalog)
+                _catalog,
+                _projects,
+                _manageProjects)
             {
                 ControllerContext = new ControllerContext
                 {

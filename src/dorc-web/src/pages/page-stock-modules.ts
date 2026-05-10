@@ -9,13 +9,15 @@ import '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import {
   TerraformApi,
   TerraformTemplateManifest,
 } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import '../components/deploy-from-template-dialog';
+import { DeployFromTemplateDialog } from '../components/deploy-from-template-dialog';
 
 @customElement('page-stock-modules')
 export class PageStockModules extends PageElement {
@@ -111,6 +113,9 @@ export class PageStockModules extends PageElement {
   @state()
   private detail: TerraformTemplateManifest | null = null;
 
+  @query('deploy-from-template-dialog')
+  private deployDialog!: DeployFromTemplateDialog;
+
   private terraformApi = new TerraformApi();
 
   connectedCallback() {
@@ -185,6 +190,8 @@ export class PageStockModules extends PageElement {
         modeless
         ${dialogRenderer(this.detailRenderer.bind(this), [this.detail])}
       ></vaadin-dialog>
+
+      <deploy-from-template-dialog></deploy-from-template-dialog>
     `;
   }
 
@@ -211,6 +218,16 @@ export class PageStockModules extends PageElement {
     ref.textContent = 'Copy reference';
     ref.addEventListener('click', () => this.copyReference(model.item));
     root.appendChild(ref);
+
+    const deploy = document.createElement('vaadin-button');
+    deploy.setAttribute('theme', 'primary small');
+    deploy.textContent = 'Deploy from template';
+    deploy.addEventListener('click', () => this.openDeploy(model.item));
+    root.appendChild(deploy);
+  }
+
+  private openDeploy(t: TerraformTemplateManifest) {
+    this.deployDialog?.open(t);
   }
 
   // Vaadin dialogRenderer always passes the Dialog instance as the renderer

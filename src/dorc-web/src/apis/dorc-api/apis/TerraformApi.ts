@@ -16,9 +16,17 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts } from '../runtime';
 import type {
+    ComponentApiModel,
     TerraformPlanApiModel,
     TerraformTemplateManifest,
+    TerraformTemplateInstantiateRequestApiModel,
 } from '../models';
+
+export interface TerraformTemplateInstantiateRequest {
+    name: string;
+    version: string;
+    body: TerraformTemplateInstantiateRequestApiModel;
+}
 
 export interface TerraformTemplateGetByNameRequest {
     name: string;
@@ -123,6 +131,27 @@ export class TerraformApi extends BaseAPI {
                 .replace('{name}', encodeURI(name))
                 .replace('{version}', encodeURI(version)),
             method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Instantiate a stock template as a new Catalog-mode component in the
+     * destination project. Does not trigger a deployment - the engineer
+     * deploys the resulting component via the existing DOrc deploy flow.
+     */
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest): Observable<ComponentApiModel>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<AjaxResponse<ComponentApiModel>>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<ComponentApiModel | AjaxResponse<ComponentApiModel>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateInstantiatePost');
+        throwIfNullOrUndefined(version, 'version', 'terraformTemplateInstantiatePost');
+        throwIfNullOrUndefined(body, 'body', 'terraformTemplateInstantiatePost');
+        return this.request<ComponentApiModel>({
+            url: '/Terraform/templates/{name}/{version}/instantiate'
+                .replace('{name}', encodeURI(name))
+                .replace('{version}', encodeURI(version)),
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
         }, opts?.responseOpts);
     };
 

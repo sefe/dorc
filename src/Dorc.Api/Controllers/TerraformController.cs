@@ -9,6 +9,7 @@ using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Security.Principal;
 
 namespace Dorc.Api.Controllers
 {
@@ -23,6 +24,8 @@ namespace Dorc.Api.Controllers
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly ITemplateCatalog _templateCatalog;
+        private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
 
         public TerraformController(
             ILogger<TerraformController> log,
@@ -30,7 +33,9 @@ namespace Dorc.Api.Controllers
             ISecurityPrivilegesChecker apiSecurityService,
             IClaimsPrincipalReader claimsPrincipalReader,
             IAzureStorageAccountWorker azureStorageAccountWorker,
-            ITemplateCatalog templateCatalog)
+            ITemplateCatalog templateCatalog,
+            IProjectsPersistentSource projectsPersistentSource,
+            IManageProjectsPersistentSource manageProjectsPersistentSource)
         {
             _log = log;
             _requestsPersistentSource = requestsPersistentSource;
@@ -38,6 +43,8 @@ namespace Dorc.Api.Controllers
             _claimsPrincipalReader = claimsPrincipalReader;
             _azureStorageAccountWorker = azureStorageAccountWorker;
             _templateCatalog = templateCatalog;
+            _projectsPersistentSource = projectsPersistentSource;
+            _manageProjectsPersistentSource = manageProjectsPersistentSource;
         }
 
         /// <summary>
@@ -73,6 +80,93 @@ namespace Dorc.Api.Controllers
         {
             var manifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
             return manifest is null ? NotFound() : Ok(manifest);
+        }
+
+        /// <summary>
+        /// Instantiates a stock template as a new Catalog-mode component in
+        /// the destination project. The engineer then deploys the new
+        /// component through the existing DOrc deploy flow.
+        ///
+        /// This endpoint is the "Deploy from template" entry point used by
+        /// the Stock Modules page in the dorc-web UI. It does NOT trigger
+        /// a deployment itself; it only persists a new ComponentApiModel
+        /// pre-wired with TerraformSourceType=Catalog and the chosen
+        /// (TerraformTemplateName, TerraformTemplateVersion).
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ComponentApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [HttpPost("templates/{name}/{version}/instantiate")]
+        public async Task<IActionResult> InstantiateTemplate(
+            string name,
+            string version,
+            [FromBody] TerraformTemplateInstantiateRequestApiModel request,
+            CancellationToken cancellationToken)
+        {
+            if (request is null)
+            {
+                return BadRequest("Request body is required.");
+            }
+            if (request.ProjectId <= 0)
+            {
+                return BadRequest("ProjectId is required and must be a positive integer.");
+            }
+
+            var manifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
+            if (manifest is null)
+            {
+                return NotFound($"Stock template '{name}@{version}' was not found in the catalog.");
+            }
+
+            var project = _projectsPersistentSource.GetProject(request.ProjectId);
+            if (project is null)
+            {
+                return NotFound($"Project with id {request.ProjectId} was not found.");
+            }
+
+            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName))
+            {
+                return Forbid();
+            }
+
+            var componentName = string.IsNullOrWhiteSpace(request.ComponentName)
+                ? manifest.Name
+                : request.ComponentName.Trim();
+
+            var component = new ComponentApiModel
+            {
+                ComponentName = componentName,
+                ScriptPath = string.Empty,
+                ComponentType = ComponentType.Terraform,
+                TerraformSourceType = TerraformSourceType.Catalog,
+                TerraformTemplateName = manifest.Name,
+                TerraformTemplateVersion = manifest.Version,
+                IsEnabled = true,
+                StopOnFailure = true,
+            };
+
+            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+            try
+            {
+                _manageProjectsPersistentSource.CreateComponent(
+                    component,
+                    request.ProjectId,
+                    request.ParentComponentId,
+                    username);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex,
+                    $"Failed to instantiate template '{manifest.Name}@{manifest.Version}' as component '{componentName}' in project {request.ProjectId}.");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    "Failed to create the component for the chosen template. See server logs.");
+            }
+
+            _log.LogInformation(
+                $"Stock template '{manifest.Name}@{manifest.Version}' instantiated as component '{componentName}' in project {project.ProjectName} (id {request.ProjectId}) by {username}.");
+
+            return Ok(component);
         }
 
         /// <summary>
