@@ -196,9 +196,9 @@ namespace Dorc.Api.Controllers
         {
             if (string.IsNullOrEmpty(value)) return string.Empty;
             var buf = new System.Text.StringBuilder(value.Length);
-            foreach (var c in value)
+            foreach (var c in value.Where(c => c >= 0x20 && c != 0x7f))
             {
-                if (c >= 0x20 && c != 0x7f) buf.Append(c);
+                buf.Append(c);
             }
             // Cap length so a pathological caller can't produce an unbounded
             // log line.
