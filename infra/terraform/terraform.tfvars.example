@@ -1,0 +1,14 @@
+# Copy this file to terraform.tfvars and fill in the values
+
+location           = "westeurope"
+environment        = "demo"
+project_name       = "dorc"
+sql_admin_login    = "dorcadmin"
+sql_admin_password = "CHANGE_ME_STRONG_PASSWORD"
+entra_tenant_id    = "00000000-0000-0000-0000-000000000000"
+custom_domain      = ""  # e.g. "dorc-demo.example.com"
+
+# Image tags (set by CI/CD, leave as "latest" for initial deploy)
+api_image_tag     = "latest"
+monitor_image_tag = "latest"
+runner_image_tag  = "latest"
