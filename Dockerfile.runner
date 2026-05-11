@@ -29,11 +29,14 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /var/log/dorc/scriptgroup-files /var/log/dorc/runner
+RUN mkdir -p /var/log/dorc/scriptgroup-files /var/log/dorc/runner && \
+    chown -R $APP_UID:$APP_UID /var/log/dorc
 
-COPY --from=build /app/publish .
+COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV DORC_SCRIPTGROUP_FILES_PATH=/var/log/dorc/scriptgroup-files/
+
+USER $APP_UID
 
 ENTRYPOINT ["dotnet", "Dorc.Runner.dll"]
