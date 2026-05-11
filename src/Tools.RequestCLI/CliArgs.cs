@@ -15,6 +15,7 @@ namespace Tools.RequestCLI
         
         public RequestDto Request => _request;
         public bool Wait { set; get; }
+        public bool AutoCr { set; get; }
         
         private void ParseArguments(string[] args)
         {
@@ -36,6 +37,10 @@ namespace Tools.RequestCLI
                     Wait = Boolean.Parse(strArgument.Split(':')[1]);
                 else if (strArgument.ToLower().Contains("/builduri:"))
                     _request.BuildUrl = strArgument.Split(':')[1] + ":" + strArgument.Split(':')[2];
+                else if (strArgument.ToLower().Contains("/crnumber:"))
+                    _request.ChangeRequestNumber = strArgument.Split(':')[1];
+                else if (strArgument.ToLower().Contains("/autocr"))
+                    AutoCr = true;
         }
 
         public override string ToString()

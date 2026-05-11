@@ -9,6 +9,7 @@
         public string ArtefactsSubPaths { get; set; }
         public string ArtefactsBuildRegex { get; set; }
         public string TerraformGitRepoUrl { get; set; }
+        public string NotificationEmail { get; set; }
         public DatabaseApiModel SourceDatabase { get; set; }
     }
 }

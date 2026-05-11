@@ -8,6 +8,7 @@
     [ArtefactsBuildRegex]   NVARCHAR(MAX)    NULL, 
     [SourceDatabaseId]      INT NULL, 
     [TerraformGitRepoUrl]   NVARCHAR (512)   NULL,
+    [NotificationEmail]     NVARCHAR (512)   NULL,
     CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [dbo].[DATABASE]([DB_ID])
 );
 

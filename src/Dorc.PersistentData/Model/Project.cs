@@ -8,6 +8,7 @@
         public string? ArtefactsSubPaths { get; set; }
         public string? ArtefactsBuildRegex { get; set; }
         public string? TerraformGitRepoUrl { get; set; }
+        public string? NotificationEmail { get; set; }
         public int? SourceDatabaseId { get; set; }
         public Database? SourceDatabase { get; set; }
         public ICollection<Component> Components { get; set; } = new List<Component>();

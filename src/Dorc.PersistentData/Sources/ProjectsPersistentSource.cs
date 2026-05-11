@@ -189,6 +189,7 @@ namespace Dorc.PersistentData.Sources
                     Description = apiProject.ProjectDescription,
                     ObjectId = Guid.NewGuid(),
                     TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
+                    NotificationEmail = apiProject.NotificationEmail,
                 };
 
                 if (ProjectArtifactsUriHttpValid(apiProject))
@@ -232,6 +233,7 @@ namespace Dorc.PersistentData.Sources
 
                 currentProj.Description = newProjectDetails.ProjectDescription;
                 currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
+                currentProj.NotificationEmail = newProjectDetails.NotificationEmail;
 
                 if (ProjectArtifactsUriHttpValid(newProjectDetails) || ProjectArtifactsUriFileValid(newProjectDetails))
                 {
@@ -416,6 +418,7 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
                 TerraformGitRepoUrl = project.TerraformGitRepoUrl,
+                NotificationEmail = project.NotificationEmail,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null
             };
         }

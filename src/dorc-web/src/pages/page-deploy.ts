@@ -150,6 +150,7 @@ export class PageDeploy extends PageElement {
           id="deployEnv"
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
+          .envIsProd="${this.environment?.EnvironmentIsProd ?? false}"
         ></deploy-env>
         <div></div>
       </div>

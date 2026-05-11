@@ -87,6 +87,22 @@ export class HegsTree extends LitElement {
     return output;
   }
 
+  public getCheckedComponentNames(): string[] {
+    const names: string[] = [];
+    this._collectCheckedNames(this.data ?? [], names);
+    return names;
+  }
+
+  private _collectCheckedNames(nodes: TreeNode[], names: string[]) {
+    for (const node of nodes) {
+      if (node.checked) {
+        names.push(node.name);
+      } else if (node.children?.length > 0) {
+        this._collectCheckedNames(node.children, names);
+      }
+    }
+  }
+
   /**
    * Called when the `select` event is fired from an internal node.
    *
