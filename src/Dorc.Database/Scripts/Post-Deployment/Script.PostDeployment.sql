@@ -12,4 +12,3 @@ Example:      :setvar TableName MyTable
 :r .\MigrateStagedServicesToDaemons.sql
 :r .\SeedRefDataAuditActions.sql
 :r .\CleanupOrphanedScripts.sql
-:r .\UpdateEnvironmentSecure.sql

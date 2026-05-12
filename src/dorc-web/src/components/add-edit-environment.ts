@@ -117,6 +117,22 @@ export class AddEditEnvironment extends LitElement {
       vaadin-button[disabled] {
         background-color: var(--dorc-border-color);
       }
+      .prod-not-secure-warning {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 20px;
+        background: var(--dorc-warning-bg);
+        border: 1px solid var(--dorc-warning-text);
+        border-radius: 4px;
+        margin: 4px 0;
+        color: var(--dorc-warning-text);
+      }
+      .prod-not-secure-warning vaadin-icon {
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -274,6 +290,12 @@ export class AddEditEnvironment extends LitElement {
              </td>
             </tr>
           </table>
+          ${!this.addMode && (this.environment?.EnvironmentIsProd ?? false) && !(this.environment?.EnvironmentSecure ?? false)
+            ? html`<div class="prod-not-secure-warning">
+                <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+                <span>This environment is marked as Production but <strong>Is Secure</strong> is not set.</span>
+              </div>`
+            : html``}
           <vaadin-text-field
             id="env-desc"
             class="block"
