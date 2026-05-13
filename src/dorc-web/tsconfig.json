@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node", // Specify module resolution strategy
+    "moduleResolution": "bundler", // Specify module resolution strategy
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

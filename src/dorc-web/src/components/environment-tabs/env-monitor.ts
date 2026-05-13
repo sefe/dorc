@@ -37,8 +37,7 @@ import {
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
-import type { RouterLocation } from '@vaadin/router';
-import type { RouteMeta } from '../../router/routes';
+import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
 
 const username = 'Username';
@@ -67,7 +66,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
 
   @state() noResults = false;
 
-  @state() protected location = {} as RouterLocation<RouteMeta>;
+  @state() protected location = {} as PageLocation;
 
   // Keep reference to header root so we can manually re-render when reactive
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
@@ -386,7 +385,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
   }
 
    // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
-  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  public onAfterEnter(location: PageLocation) {
   this.location = location;
   }
 
@@ -757,7 +756,8 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
     render(
       html`
         <vaadin-text-field
-          placeholder="Details"
+          placeholder="Project / Build"
+          title="Project starts with the entered text, or Build contains it"
           clear-button-visible
           focus-target
           style="width: 110px"

@@ -229,7 +229,7 @@ export class PageEnvBase extends LitElement {
   protected onErrorAlert(event: CustomEvent) {
     const notification = new ErrorNotification();
 
-    let msg = '';
+    let msg: string;
     if (event && event.detail) {
       if (
         event.detail.result &&
