@@ -102,6 +102,16 @@ export class ComponentDeploymentResults extends LitElement {
         color: var(--lumo-success-text-color);
       }
 
+      .status-cancelled {
+        background-color: var(--lumo-shade-10pct);
+        color: var(--lumo-secondary-text-color);
+      }
+
+      .status-failed {
+        background-color: var(--lumo-error-color-10pct);
+        color: var(--lumo-error-text-color);
+      }
+
       .terraform-actions {
         display: flex;
         gap: 4px;
@@ -345,6 +355,10 @@ export class ComponentDeploymentResults extends LitElement {
       statusClass = 'status-waiting-confirmation';
     } else if (status === 'Confirmed') {
       statusClass = 'status-confirmed';
+    } else if (status === 'Cancelled') {
+      statusClass = 'status-cancelled';
+    } else if (status === 'Failed') {
+      statusClass = 'status-failed';
     }
 
     render(

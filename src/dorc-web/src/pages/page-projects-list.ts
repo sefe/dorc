@@ -17,8 +17,6 @@ import { PageElement } from '../helpers/page-element';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
-import '../components/project-audit-data'
-import { ProjectAuditData } from '../components/project-audit-data';
 import '../components/confirm-dialog';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
@@ -46,7 +44,6 @@ export class PageProjectsList extends PageElement {
 
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
-  @query('#open-project-audit-control') projectAuditData!: ProjectAuditData;
 
   @query('#confirm-delete-dialog') confirmDeleteDialog!: ConfirmDialog;
 
@@ -96,10 +93,6 @@ export class PageProjectsList extends PageElement {
     this.addEventListener(
       'open-access-control',
       this.openAccessControl as EventListener
-    );
-    this.addEventListener(
-      'open-project-audit-data',
-      this.openProjectAuditData as EventListener
     );
     this.addEventListener('project-added', this.projectAdded as EventListener);
     this.addEventListener(
@@ -206,12 +199,6 @@ export class PageProjectsList extends PageElement {
         .secureName="${this.secureName}"
       ></add-edit-access-control>
 
-      <project-audit-data
-        id="open-project-audit-control"
-        .project="${this.selectedProject}"
-      >
-      </project-audit-data>
-
       ${this.loading
         ? html`
             <div class="overlay" style="z-index: 2">
@@ -273,14 +260,6 @@ export class PageProjectsList extends PageElement {
     addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_0);
   }
 
-  openProjectAuditData(e: CustomEvent) {
-    const project = e.detail.Project as ProjectApiModel;
-    this.selectedProject = project;
-    this.projectAuditData.project = project;
-    this.projectAuditData.open();
-    // this.addEditProject.project = project;
-    // this.addEditProject.open();
-  }
 
   _projectEnvsButtonsRenderer(
     root: HTMLElement,

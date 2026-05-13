@@ -10,6 +10,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DefineConstants>TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>
+    <!-- DacFx 170.x ships native payloads without Win32 language resources, which trips ICE03 (Invalid Language Id) under Release ICE validation. -->
+    <SuppressIces>ICE03</SuppressIces>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Dependencies.wxi" />

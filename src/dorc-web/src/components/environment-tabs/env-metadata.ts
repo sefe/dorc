@@ -5,6 +5,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageEnvBase } from './page-env-base';
 import '../add-edit-environment';
+import './env-control-center';
+import type { EnvControlCenter } from './env-control-center';
 
 @customElement('env-metadata')
 export class EnvMetadata extends PageEnvBase {
@@ -14,7 +16,7 @@ export class EnvMetadata extends PageEnvBase {
     return css`
       :host {
         width: 100%;
-        overflow: hidden;
+        overflow-y: auto;
       }
       .overlay {
         width: 100%;
@@ -60,6 +62,7 @@ export class EnvMetadata extends PageEnvBase {
           </div>
         </div>
       </div>
+      <env-control-center ?hidden="${this.loading}"></env-control-center>
       <add-edit-environment
         .readonly="${!this.environment?.UserEditable}"
         ?hidden="${this.loading}"
@@ -69,8 +72,19 @@ export class EnvMetadata extends PageEnvBase {
     `;
   }
 
+  notifyEnvironmentReady() {
+    const cc = this.shadowRoot?.querySelector(
+      'env-control-center'
+    ) as EnvControlCenter | null;
+    if (cc) cc.notifyEnvironmentReady();
+  }
+
   notifyEnvironmentContentReady() {
     this.loading = false;
+    const cc = this.shadowRoot?.querySelector(
+      'env-control-center'
+    ) as EnvControlCenter | null;
+    if (cc) cc.notifyEnvironmentContentReady();
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -80,6 +94,8 @@ export class EnvMetadata extends PageEnvBase {
       'environment-details-updated',
       this.environmentDetailsUpdated as EventListener
     );
+
+    super.loadEnvironmentInfo();
   }
 
   environmentDetailsUpdated() {
@@ -88,7 +104,5 @@ export class EnvMetadata extends PageEnvBase {
 
   connectedCallback() {
     super.connectedCallback?.();
-
-    super.loadEnvironmentInfo();
   }
 }

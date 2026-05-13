@@ -1,4 +1,4 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
@@ -14,43 +14,45 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class DaemonStatusController : ControllerBase
     {
-        private readonly IApiServices _apiServices;
+        private readonly IDaemonStatusProbe _daemonStatusProbe;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IEnvironmentMapper _environmentMapper;
 
-        public DaemonStatusController(IApiServices apiServices, ISecurityPrivilegesChecker securityPrivilegesChecker,
+        public DaemonStatusController(IDaemonStatusProbe daemonStatusProbe, ISecurityPrivilegesChecker securityPrivilegesChecker,
             IEnvironmentsPersistentSource environmentsPersistentSource, IEnvironmentMapper environmentMapper)
         {
             _environmentMapper = environmentMapper;
             _environmentsPersistentSource = environmentsPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
-            _apiServices = apiServices;
+            _daemonStatusProbe = daemonStatusProbe;
         }
 
         /// <summary>
-        ///     Get app servers service statuses
+        ///     Get app servers daemon statuses
         /// </summary>
         /// <param name="id">Environment ID</param>
         /// <returns></returns>
         [HttpGet]
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<ServiceStatusApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DaemonStatusApiModel>))]
         public IActionResult Get(int id)
         {
             if (id == 0)
                 return StatusCode(StatusCodes.Status400BadRequest, "Environment ID is not valid!");
 
-            var result = _apiServices.GetEnvDaemonsStatuses(id);
+            var result = _daemonStatusProbe.GetDaemonStatuses(id)
+                .Select(DaemonStatusMapping.ToApi)
+                .ToList();
 
             return StatusCode(StatusCodes.Status200OK, result);
         }
 
         /// <summary>
-        /// Get app servers service statuses for specified environment
+        /// Get app servers daemon statuses for specified environment
         /// </summary>
         /// <param name="envName"></param>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<ServiceStatusApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DaemonStatusApiModel>))]
         [HttpGet]
         [Route("{envName}")]
         public IActionResult Get(string envName)
@@ -58,20 +60,22 @@ namespace Dorc.Api.Controllers
             if (string.IsNullOrEmpty(envName))
                 return StatusCode(StatusCodes.Status400BadRequest, "Environment name is not valid!");
 
-            var result = _apiServices.GetEnvDaemonsStatuses(envName, User);
+            var result = _daemonStatusProbe.GetDaemonStatuses(envName, User)
+                .Select(DaemonStatusMapping.ToApi)
+                .ToList();
 
             return StatusCode(StatusCodes.Status200OK, result);
         }
 
         /// <summary>
-        ///     Change service state. Returns new service status.
+        ///     Change daemon state. Returns new daemon status.
         /// </summary>
-        /// <param name="value">json string containing ServiceStatusApiModel object.</param>
-        /// <returns>New ServiceStatusApiModel object</returns>
+        /// <param name="value">json string containing DaemonStatusApiModel object.</param>
+        /// <returns>New DaemonStatusApiModel object</returns>
         [HttpPut]
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ServiceStatusApiModel))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DaemonStatusApiModel))]
         [SwaggerResponse(StatusCodes.Status503ServiceUnavailable, Type = typeof(string))]
-        public IActionResult PutServiceState([FromBody] ServiceStatusApiModel value)
+        public IActionResult PutDaemonState([FromBody] DaemonStatusApiModel value)
         {
             try
             {
@@ -79,8 +83,10 @@ namespace Dorc.Api.Controllers
                 if (environmentDetailsApiModel == null || !_securityPrivilegesChecker.CanModifyEnvironment(User, environmentDetailsApiModel.EnvironmentName))
                     return StatusCode(StatusCodes.Status403Forbidden,
                         new NonEnoughRightsException("User doesn't have \"Write\" rights for this action!"));
-                var result = _apiServices.ChangeServiceState(value, User);
-                return StatusCode(StatusCodes.Status200OK, result);
+
+                var result = _daemonStatusProbe.ChangeDaemonState(DaemonStatusMapping.ToCore(value), User);
+                return StatusCode(StatusCodes.Status200OK,
+                    result == null ? null : DaemonStatusMapping.ToApi(result));
             }
             catch (NonEnoughRightsException)
             {

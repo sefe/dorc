@@ -57,9 +57,9 @@ namespace Dorc.PersistentData.Sources
                     {
                         server.Environments.Remove(environmentDetail);   
                     }
-                    foreach (var daemon in server.Services.ToList())
+                    foreach (var daemon in server.Daemons.ToList())
                     {
-                        server.Services.Remove(daemon);   
+                        server.Daemons.Remove(daemon);
                     }
                 }
 

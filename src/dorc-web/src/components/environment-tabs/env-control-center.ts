@@ -175,7 +175,11 @@ export class EnvControlCenter extends PageEnvBase {
   constructor() {
     super();
 
-    super.loadEnvironmentInfo();
+    this.addEventListener(
+      'close-mlp-dialog',
+      this.closeMlpDialog as EventListener
+    );
+
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
       gc.allRolesResp?.subscribe({
@@ -213,11 +217,6 @@ export class EnvControlCenter extends PageEnvBase {
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
-    this.addEventListener(
-      'close-mlp-dialog',
-      this.closeMlpDialog as EventListener
-    );
   }
 
   openAccessControl() {
@@ -306,6 +305,11 @@ export class EnvControlCenter extends PageEnvBase {
     } else {
       this.isEndur = false;
     }
+
+    this.envFilter =
+      this.environment?.Details?.ThinClient !== null
+        ? this.environment?.Details?.ThinClient
+        : undefined;
 
     this.mappedProjects = this.envContent?.MappedProjects?.map(
       p => p.ProjectName ?? ''
