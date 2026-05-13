@@ -1,4 +1,4 @@
-import { css, LitElement, PropertyValues } from 'lit';
+import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/text-field';
@@ -12,7 +12,10 @@ import '@vaadin/icon';
 import '../icons/line awesome-svg.js';
 import { Notification } from '@vaadin/notification';
 import {
-  RefDataEnvironmentsApi
+  RefDataEnvironmentsApi,
+  AccessControlApi,
+  AccessSecureApiModel,
+  AccessControlType
 } from '../apis/dorc-api';
 import type { EnvironmentApiModel } from '../apis/dorc-api';
 
@@ -46,6 +49,16 @@ export class AddEditEnvironment extends LitElement {
         overflow: auto;
         width: calc(100% - 4px);
         height: calc(100vh - 175px);
+      }
+      #env-owners {       
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--lumo-space-s) var(--lumo-space-m);
+        font-size: var(--lumo-font-size-m);
+        font-weight: 500;
+        color: var(--lumo-body-text-color);
+        border-radius: var(--lumo-border-radius-m);
       }
       vaadin-text-field {
         display: flex;
@@ -123,6 +136,31 @@ export class AddEditEnvironment extends LitElement {
     }
     console.log(`setting environment ${value?.EnvironmentName}`);
     this.requestUpdate('environment', oldVal);
+    this.loadOwners();
+  }
+
+  @property({ type: Array }) owners: Array<{ DisplayName?: string | null; Id?: number }> = [];
+
+  private static readonly AC_ALLOW_OWNER = 4;
+
+  loadOwners() {
+    this.owners = [];
+    if (!this.environment?.EnvironmentName) return;
+    const api = new AccessControlApi();
+    api.accessControlGet({
+      accessControlType: AccessControlType.NUMBER_1,
+      accessControlName: this.environment.EnvironmentName
+    }).subscribe({
+      next: (data: AccessSecureApiModel) => {
+        const owners = (data.Privileges ?? []).filter(p => ((p.Allow ?? 0) & AddEditEnvironment.AC_ALLOW_OWNER) > 0);
+          this.owners = owners.map(o => ({ DisplayName: o.Name ?? null, Id: o.Id ?? 0 }));
+          this.requestUpdate();
+      },
+      error: (err: any) => {
+        console.warn('Failed to load owners via AccessControlApi', err);
+        this.owners = [];
+      }
+    });
   }
 
   connectedCallback() {
@@ -144,7 +182,33 @@ export class AddEditEnvironment extends LitElement {
 
   render() {
     return html`
-      <div id="div" ?hidden="${this.hidden}">
+      <div id="div" ?hidden=${!!this.hidden}>
+
+        <div
+          style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
+        >
+          <div id="env-owners">
+            <vaadin-horizontal-layout style="align-items:center; gap:8px;">
+              <div style="padding-right: 5px; font-weight:600">
+                ${this.owners && this.owners.length > 1 ? 'Environment Owners:' : 'Environment Owner:'}
+              </div>
+              <vaadin-icon
+                icon="line awesome-svg:chess-king-solid"
+                style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
+              ></vaadin-icon>
+
+              ${this.owners && this.owners.length > 0
+            ? (this.owners.length === 1
+              ? html`<div style="font-weight:700">${this.owners[0].DisplayName}</div>`
+              : html`<div style="display:flex; gap:8px; flex-wrap:wrap">${this.owners.map(
+                o => html`<div style="padding:6px 8px; border-radius:4px; background:var(--dorc-bg-secondary); font-weight:600">${o.DisplayName ?? ''}</div>`
+              )}</div>`)
+            : html`<div style="color:var(--dorc-text-muted)">${this.environment?.Details?.EnvironmentOwner ?? 'Not set'}</div>`}
+
+            </vaadin-horizontal-layout>
+          </div>
+        </div>
+
 
         <vaadin-details
           opened
@@ -160,7 +224,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.EnvironmentName ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._envNameValueChanged, e)}
+        this.handleFieldChange(this._envNameValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <table>
@@ -171,7 +235,7 @@ export class AddEditEnvironment extends LitElement {
                   style="padding-top:10px; padding-left:20px"
                   .checked=${this.environment?.EnvironmentSecure ?? false}
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
-                    this.handleFieldChange(this.updateSecure, e)}
+        this.handleFieldChange(this.updateSecure, e)}
                   class="tooltip"
                   ?disabled=${this.readonly || (this.environment?.EnvironmentIsProd ?? false)}
                   ><label slot="label"
@@ -186,7 +250,7 @@ export class AddEditEnvironment extends LitElement {
                   style="padding-left:20px"
                   .checked=${this.environment?.EnvironmentIsProd ?? false}
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
-                    this.handleFieldChange(this.updateIsProd, e)}
+        this.handleFieldChange(this.updateIsProd, e)}
                   class="tooltip"
                   ?disabled=${this.readonly}
                 ><label slot="label"
@@ -208,7 +272,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.Description ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._descriptionValueChanged, e)}
+        this.handleFieldChange(this._descriptionValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
         </vaadin-details>
@@ -223,7 +287,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._backupValueChanged, e)}
+        this.handleFieldChange(this._backupValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <vaadin-text-field
@@ -232,7 +296,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.FileShare ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._fileShareValueChanged, e)}
+        this.handleFieldChange(this._fileShareValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <vaadin-text-field
@@ -243,7 +307,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.ThinClient ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._thinClientValueChanged, e)}
+        this.handleFieldChange(this._thinClientValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <vaadin-text-field
@@ -252,7 +316,7 @@ export class AddEditEnvironment extends LitElement {
             auto-validate
             .value=${this.environment?.Details?.Notes ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this.handleFieldChange(this._notesValueChanged, e)}
+        this.handleFieldChange(this._notesValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
         </vaadin-details>
@@ -263,8 +327,8 @@ export class AddEditEnvironment extends LitElement {
             >Save
           </vaadin-button>
           ${this.savingMetadata
-            ? html` <div class="small-loader"></div> `
-            : html``}
+        ? html` <div class="small-loader"></div> `
+        : html``}
         </div>
         <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
       </div>
@@ -285,18 +349,6 @@ export class AddEditEnvironment extends LitElement {
   clearTextField(id: string) {
     const textField = this.shadowRoot?.getElementById(id) as (HTMLElement & { value: string }) | null;
     if (textField) textField.value = '';
-  }
-
-  firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
-    const api = new RefDataEnvironmentsApi();
-    api.refDataEnvironmentsGetAllEnvironmentNamesGet().subscribe({
-      next: (data: string[]) => {
-        this.allEnvNames = data;
-      },
-      error: (err: any) => console.error(err),
-      complete: () => console.log('done getting environment names')
-    });
   }
 
   updateSecure(e: CustomEvent<{ value: boolean }>) {
