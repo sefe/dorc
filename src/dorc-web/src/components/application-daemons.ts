@@ -19,7 +19,7 @@ export class ApplicationDaemons extends LitElement {
   private daemonsAndStatuses: DaemonStatusApiModel[] | undefined;
 
   @property({ type: Boolean })
-  private userEditable = false;
+  public userEditable = false;
 
   get envName() {
     return this._envName;
@@ -124,9 +124,13 @@ export class ApplicationDaemons extends LitElement {
     _column: GridColumn,
     model: GridItemModel<DaemonStatusApiModel>
   ) {
+    // The below line has a horrible hack
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const applicationDaemons = _column.attachedAppDaemonControl as ApplicationDaemons;
     const daemon = model.item as DaemonStatusApiModel;
     render(
-      html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${this.userEditable}"></daemon-controls>`,
+      html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${applicationDaemons.userEditable}"></daemon-controls>`,
       root
     );
   }

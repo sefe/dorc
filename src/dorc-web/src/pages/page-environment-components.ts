@@ -1,11 +1,10 @@
 import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { Router, RouterLocation } from '@vaadin/router';
+import { Router } from '@vaadin/router';
 import { Tabs } from '@vaadin/tabs';
-import { PageElement } from '../helpers/page-element';
+import { PageElement, PageLocation } from '../helpers/page-element';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
-import { RouteMeta } from '../router/routes';
 
 export enum EnvComponentTabNames {
   Servers = 'servers',
@@ -83,7 +82,7 @@ export class PageEnvironmentComponents extends PageElement {
     // No-op — required by page-environment's handleSlotChange
   }
 
-  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  public onAfterEnter(location: PageLocation) {
     this.location = location;
 
     const pathParts = location.pathname.split('/');
