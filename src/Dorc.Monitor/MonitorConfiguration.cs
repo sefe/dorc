@@ -1,4 +1,4 @@
-﻿using Dorc.Core.Configuration;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Monitor
@@ -119,6 +119,30 @@ namespace Dorc.Monitor
             }
         }
 
+        public bool EnableConnectivityCheck
+        {
+            get
+            {
+                var value = configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"];
+                return !string.IsNullOrWhiteSpace(value) &&
+                       bool.TryParse(value, out bool result) &&
+                       result;
+            }
+        }
+
+        public int ConnectivityCheckIntervalMinutes
+        {
+            get
+            {
+                var raw = configurationRoot.GetSection(appSettings)["ConnectivityCheckIntervalMinutes"];
+                if (int.TryParse(raw, out var parsed) && parsed > 0)
+                {
+                    return parsed;
+                }
+                return 60;
+            }
+        }
+
         public bool HighAvailabilityEnabled
         {
             get
@@ -149,7 +173,7 @@ namespace Dorc.Monitor
                 {
                     return port;
                 }
-                return 5672; // Default RabbitMQ port
+                return 5672;
             }
         }
 
@@ -205,7 +229,6 @@ namespace Dorc.Monitor
             get
             {
                 var scope = configurationRoot.GetSection(appSettings)["HighAvailability:RabbitMQ:OAuth:Scope"];
-                // Scope is optional
                 return scope ?? "";
             }
         }
@@ -252,7 +275,7 @@ namespace Dorc.Monitor
                 {
                     return max;
                 }
-                return 0; // 0 means unlimited
+                return 0;
             }
         }
 
@@ -265,7 +288,7 @@ namespace Dorc.Monitor
                 {
                     return seconds;
                 }
-                return 5; // Default 5 seconds
+                return 5;
             }
         }
 
@@ -291,7 +314,7 @@ namespace Dorc.Monitor
                 {
                     return minutes;
                 }
-                return 15; // Default 15 minutes
+                return 15;
             }
         }
 

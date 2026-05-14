@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using System.Security.Principal;
+using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.Sources.Interfaces
 {
@@ -20,5 +21,15 @@ namespace Dorc.PersistentData.Sources.Interfaces
         List<String?> GetDatabasServerNameslist();
         public IEnumerable<string> GetEnvironmentNamesForDatabaseId(int serverId);
         DatabaseApiModel? UpdateDatabase(int id, DatabaseApiModel database, IPrincipal user);
+        
+        void UpdateDatabaseConnectivityStatus(int databaseId, bool isReachable, DateTime lastChecked);
+
+        /// <summary>
+        /// Keyset pagination for connectivity check: returns up to <paramref name="take"/> databases
+        /// with Id strictly greater than <paramref name="afterId"/>, ordered by Id ascending.
+        /// Pass 0 on the first call. Caller terminates when the result count is less than take.
+        /// Stable across concurrent inserts/deletes between batches, unlike OFFSET-based paging.
+        /// </summary>
+        IEnumerable<Database> GetDatabasesForConnectivityCheckBatchAfter(int afterId, int take);
     }
 }

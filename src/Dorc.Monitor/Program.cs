@@ -162,7 +162,14 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
         secureKeyPersistentDataSource.GetSymmetricKey());
 });
 
+// Singleton: ConnectivityChecker is stateless and is consumed by ConnectivityCheckService
+// (a BackgroundService, hosted as singleton). Registering as Transient would silently capture
+// a single instance for the host lifetime anyway — declare the lifetime explicitly so a future
+// added field doesn't become accidentally shared.
+builder.Services.AddSingleton<Dorc.Core.Connectivity.IConnectivityChecker, Dorc.Core.Connectivity.ConnectivityChecker>();
+
 builder.Services.AddHostedService<MonitorService>();
+builder.Services.AddHostedService<Dorc.Monitor.Connectivity.ConnectivityCheckService>();
 builder.Services.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalReader>();
 
 IHost host = builder.Build();
