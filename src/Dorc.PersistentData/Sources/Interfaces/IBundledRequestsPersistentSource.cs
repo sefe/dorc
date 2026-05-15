@@ -9,4 +9,5 @@ public interface IBundledRequestsPersistentSource
     void AddRequestToBundle(BundledRequestsApiModel model);
     void UpdateRequestInBundle(BundledRequestsApiModel model); // Added missing method
     void DeleteRequestFromBundle(int id);
+    BundledRequestsApiModel? GetBundleById(int id);
 }
