@@ -21,5 +21,6 @@
         public Environment? ParentEnvironment { get; set; } = null;
         public ICollection<Environment> ChildEnvironments { get; set; } = new List<Environment>();
         public ICollection<AccessControl> AccessControls { get; set; } = new List<AccessControl>();
+        public ICollection<Api> Apis { get; set; } = new List<Api>();
     }
 }

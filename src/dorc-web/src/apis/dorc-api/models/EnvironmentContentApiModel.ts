@@ -12,6 +12,7 @@
  */
 
 import type {
+    ApiApiModel,
     DatabaseApiModel,
     EnvironmentContentBuildsApiModel,
     EnvironmentContentWindowsServicesApiModel,
@@ -70,4 +71,9 @@ export interface EnvironmentContentApiModel {
      * @memberof EnvironmentContentApiModel
      */
     MappedProjects?: Array<ProjectApiModel> | null;
+    /**
+     * @type {Array<ApiApiModel>}
+     * @memberof EnvironmentContentApiModel
+     */
+    Apis?: Array<ApiApiModel> | null;
 }

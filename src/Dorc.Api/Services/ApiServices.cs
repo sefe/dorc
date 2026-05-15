@@ -16,13 +16,18 @@ namespace Dorc.Api.Services
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
+        private readonly IApisPersistentSource _apisPersistentSource;
+        private readonly IApiEndpointResolver _apiEndpointResolver;
 
         public ApiServices(IManageProjectsPersistentSource manageProjectsPersistentSource,
             IManageUsers manageUsers,
             IProjectsPersistentSource projectsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IServersPersistentSource serversPersistentSource, ILogger<ApiServices> log)
+            IServersPersistentSource serversPersistentSource,
+            IApisPersistentSource apisPersistentSource,
+            IApiEndpointResolver apiEndpointResolver,
+            ILogger<ApiServices> log)
         {
             _serversPersistentSource = serversPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -31,6 +36,8 @@ namespace Dorc.Api.Services
             _manageUsers = manageUsers;
             _log = log;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
+            _apisPersistentSource = apisPersistentSource;
+            _apiEndpointResolver = apiEndpointResolver;
         }
 
         public TemplateApiModel<ComponentApiModel> GetComponentsByProject(string projectName)
@@ -75,10 +82,17 @@ namespace Dorc.Api.Services
                     _environmentsPersistentSource.GetEnvironmentComponentStatuses(env.EnvironmentName, DateTime.Now);
                 result.EndurUsers = _manageUsers.GetUsersForEnvironment(id, UserAccountType.Endur);
                 result.MappedProjects = _environmentsPersistentSource.GetMappedProjects(env.EnvironmentName);
+
+                var apis = _apisPersistentSource.GetApisForEnvId(id).ToList();
+                _apiEndpointResolver.ResolveEndpoints(apis, env.EnvironmentName);
+                foreach (var api in apis)
+                    api.UserEditable = env.UserEditable;
+                result.Apis = apis;
             }
             else
             {
                 result.EnvironmentName = "";
+                result.Apis = new List<ApiApiModel>();
             }
 
             return result;
