@@ -77,6 +77,16 @@ export class AddEditEnvironment extends LitElement {
       vaadin-combo-box.vaadin-text-field {
         --lumo-space-m: 0px;
       }
+      /* The desktop min-width: 490px overflows narrow viewports — the global
+         vaadin-combo-box style in style-registrations.ts can't beat this
+         light-DOM rule because it lives in a different scope. */
+      @media (max-width: 768px) {
+        vaadin-text-field,
+        vaadin-combo-box {
+          min-width: 0;
+          width: 100%;
+        }
+      }
       .tooltip {
         position: relative;
         display: inline-block;

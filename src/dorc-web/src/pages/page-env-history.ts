@@ -20,8 +20,6 @@ import { EnvironmentHistoryApiModelExtended } from '../components/model-extensio
 
 @customElement('page-env-history')
 export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
-  @property({ type: Object }) location: PageLocation = router.location as PageLocation;
-
   @property({ type: Array })
   envHistory: EnvironmentHistoryApiModelExtended[] = [];
 

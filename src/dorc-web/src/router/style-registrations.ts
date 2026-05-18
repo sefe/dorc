@@ -49,6 +49,15 @@ registerStyles(
     :host([theme~='log-viewer']) [part='overlay'] {
       width: min(95vw, 1400px);
     }
+
+    /*
+     * Wide-form dialogs (terraform plan, bundle editor, make-like-production)
+     * render multi-column forms or large code/diff blocks that don't fit at
+     * 650px on desktop. Opt-in via theme="wide".
+     */
+    :host([theme~='wide']) [part='overlay'] {
+      width: min(95vw, 1100px);
+    }
   `
 );
 
@@ -67,12 +76,17 @@ registerStyles(
   `
 );
 
+// Touch-target minimum on icon buttons — applied on narrow viewports only.
+// On desktop, compact grid button groups (theme="icon small", --lumo-button-size: 28px)
+// would otherwise be forced to 44px, ballooning row heights across every grid.
 registerStyles(
   'vaadin-button',
   css`
-    :host([theme~='icon']) {
-      min-width: 44px;
-      min-height: 44px;
+    @media (max-width: 768px) {
+      :host([theme~='icon']) {
+        min-width: 44px;
+        min-height: 44px;
+      }
     }
   `
 );

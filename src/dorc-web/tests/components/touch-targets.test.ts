@@ -61,16 +61,35 @@ describe('Touch target structure', () => {
   });
 
   describe('Style registration for icon buttons', () => {
-    it('should give vaadin-button[theme="icon"] a 44x44 minimum touch target', async () => {
+    // The 44×44 touch-target floor is gated behind @media (max-width: 768px)
+    // so desktop compact grids (theme="icon small", --lumo-button-size: 28px)
+    // aren't blown up. We assert the rule is registered with its media query,
+    // independent of the test browser's current viewport.
+    it('should register a mobile-only 44x44 min size for vaadin-button[theme~="icon"]', async () => {
       await import('../../src/router/style-registrations.js');
       await import('@vaadin/button');
 
       const button = await fixture<HTMLElement>(html`
         <vaadin-button theme="icon" aria-label="probe"></vaadin-button>
       `);
-      const computed = getComputedStyle(button);
-      expect(parseFloat(computed.minWidth)).to.be.at.least(44);
-      expect(parseFloat(computed.minHeight)).to.be.at.least(44);
+      const sheets = button.shadowRoot?.adoptedStyleSheets ?? [];
+      const cssText = sheets
+        .flatMap(sheet => Array.from(sheet.cssRules))
+        .map(rule => rule.cssText)
+        .join('\n');
+
+      expect(cssText).to.match(
+        /@media\s*\(max-width:\s*768px\)/,
+        'Touch-target rule should be inside a mobile media query'
+      );
+      expect(cssText).to.match(
+        /min-width:\s*44px/,
+        'Touch-target rule should set min-width: 44px'
+      );
+      expect(cssText).to.match(
+        /min-height:\s*44px/,
+        'Touch-target rule should set min-height: 44px'
+      );
     });
   });
 

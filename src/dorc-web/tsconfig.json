@@ -30,5 +30,5 @@
     "outDir": "ts-built"
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules/**", "src/apis/**", "src/icons/*.js", "tests/**"]
+  "exclude": ["node_modules/**", "src/apis/**", "src/icons/*.js", "src/**/*.test.ts", "tests/**"]
 }

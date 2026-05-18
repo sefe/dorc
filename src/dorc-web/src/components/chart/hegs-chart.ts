@@ -45,10 +45,25 @@ export class HegsChart extends LitElement {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
+    this._initChart();
+  }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // After disconnect, we dispose ECharts and null `chart`; on reconnect
+    // firstUpdated does not re-fire, so we re-init here once the shadow
+    // root + #container are present. Guard against double-init on the
+    // initial mount (firstUpdated will run after this).
+    if (!this.chart && this.shadowRoot?.querySelector('#container')) {
+      this._initChart();
+    }
+  }
+
+  private _initChart() {
     const container = this.shadowRoot?.querySelector(
       '#container'
-    ) as HTMLDivElement;
+    ) as HTMLDivElement | null;
+    if (!container || this.chart) return;
     this.chart = echarts.init(container, this.isDarkMode() ? 'dark' : undefined);
     this.updateChart();
 
@@ -61,6 +76,7 @@ export class HegsChart extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._resizeObserver?.disconnect();
+    this._resizeObserver = undefined;
     if (this.chart) {
       this.chart.dispose();
       this.chart = undefined;
