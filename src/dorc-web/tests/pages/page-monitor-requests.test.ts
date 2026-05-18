@@ -86,6 +86,15 @@ describe('PageMonitorRequests', () => {
   let el: PageMonitorRequests;
 
   beforeEach(async () => {
+    // Install the mock impl BEFORE mounting so the constructor's initial
+    // subscription resolves synchronously rather than dangling pending.
+    mockRequestStatusesPut.mockClear();
+    mockSubscribe.mockClear();
+    mockSubscribe.mockImplementation((handlers: any) => {
+      handlers.next?.({ Items: [], TotalItems: 0 });
+      handlers.complete?.();
+    });
+
     // Use class constructor directly — more reliable than document.createElement
     el = new PageMonitorRequests();
     document.body.appendChild(el);
@@ -97,13 +106,6 @@ describe('PageMonitorRequests', () => {
     if (grid) {
       (grid as any).clearCache = vi.fn();
     }
-
-    mockRequestStatusesPut.mockClear();
-    mockSubscribe.mockClear();
-    mockSubscribe.mockImplementation((handlers: any) => {
-      handlers.next?.({ Items: [], TotalItems: 0 });
-      handlers.complete?.();
-    });
   });
 
   afterEach(() => {

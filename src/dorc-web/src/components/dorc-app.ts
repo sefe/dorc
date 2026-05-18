@@ -229,13 +229,6 @@ export class DorcApp extends ShortcutsStore {
       this._closeDrawer();
     }
   };
-  // Pull focus back into the drawer when it tries to escape on mobile.
-  // Cheaper than enumerating focusables across nested shadow roots.
-  private _focusGuardHandler = (e: FocusEvent) => {
-    if (!this._drawerOpen || !this._narrowScreen || !this.dorcNavbar) return;
-    if (e.composedPath().includes(this.dorcNavbar)) return;
-    this.dorcNavbar.focus();
-  };
 
   render() {
     return html`
@@ -244,6 +237,7 @@ export class DorcApp extends ShortcutsStore {
           class="menu-btn"
           theme="icon"
           aria-label="Toggle Menu"
+          aria-controls="dorcNavbar"
           aria-expanded="${this._drawerOpen ? 'true' : 'false'}"
           @click="${this.toggleSideBar}"
         >
@@ -367,7 +361,6 @@ export class DorcApp extends ShortcutsStore {
       this._routerLocationChanged
     );
     document.removeEventListener('keydown', this._keydownHandler);
-    document.removeEventListener('focusin', this._focusGuardHandler, true);
     if (this.splitter) {
       this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
     }
@@ -414,7 +407,6 @@ export class DorcApp extends ShortcutsStore {
       this._previouslyFocused = this._activeFocusedElement();
       document.body.style.overflow = 'hidden';
       this._drawerLockedScroll = true;
-      document.addEventListener('focusin', this._focusGuardHandler, true);
       // Move focus into the drawer so AT users land inside the modal.
       this.dorcNavbar.tabIndex = -1;
       this.dorcNavbar.focus();
@@ -430,7 +422,7 @@ export class DorcApp extends ShortcutsStore {
       document.body.style.removeProperty('overflow');
       this._drawerLockedScroll = false;
     }
-    document.removeEventListener('focusin', this._focusGuardHandler, true);
+    this.dorcNavbar.removeAttribute('tabindex');
     this._applyDrawerAria();
     // Restore focus to whatever opened the drawer (typically the menu button).
     // Use `isConnected` rather than `document.contains` because the latter
@@ -463,9 +455,14 @@ export class DorcApp extends ShortcutsStore {
 
   // Drawer is reachable on desktop regardless of `_drawerOpen`; on mobile we
   // hide it from AT and the tab order when closed, and announce it as a modal
-  // dialog when open.
+  // dialog when open. `inert` is also applied to #page-content while the modal
+  // is open so screen-reader virtual cursors can't browse behind the drawer.
+  // The header (which contains the hamburger close button, Sign Out, Help) is
+  // intentionally NOT inerted — those are siblings the user must still reach
+  // while the drawer is shown.
   private _applyDrawerAria() {
     if (!this.dorcNavbar) return;
+    const pageContent = this.shadowRoot?.getElementById('page-content');
     if (this._narrowScreen) {
       if (this._drawerOpen) {
         this.dorcNavbar.removeAttribute('inert');
@@ -473,12 +470,14 @@ export class DorcApp extends ShortcutsStore {
         this.dorcNavbar.setAttribute('role', 'dialog');
         this.dorcNavbar.setAttribute('aria-modal', 'true');
         this.dorcNavbar.setAttribute('aria-label', 'Navigation');
+        pageContent?.setAttribute('inert', '');
       } else {
         this.dorcNavbar.setAttribute('inert', '');
         this.dorcNavbar.setAttribute('aria-hidden', 'true');
         this.dorcNavbar.removeAttribute('role');
         this.dorcNavbar.removeAttribute('aria-modal');
         this.dorcNavbar.removeAttribute('aria-label');
+        pageContent?.removeAttribute('inert');
       }
     } else {
       this.dorcNavbar.removeAttribute('inert');
@@ -486,7 +485,13 @@ export class DorcApp extends ShortcutsStore {
       this.dorcNavbar.removeAttribute('role');
       this.dorcNavbar.removeAttribute('aria-modal');
       this.dorcNavbar.removeAttribute('aria-label');
-      document.body.style.removeProperty('overflow');
+      pageContent?.removeAttribute('inert');
+      // Only release body styles we own; a coexisting modal could have set
+      // body.overflow for its own purposes.
+      if (this._drawerLockedScroll) {
+        document.body.style.removeProperty('overflow');
+        this._drawerLockedScroll = false;
+      }
     }
   }
 
