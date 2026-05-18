@@ -56,4 +56,9 @@ export interface DatabaseApiModel {
      * @memberof DatabaseApiModel
      */
     ArrayName?: string | null;
+    /**
+     * @type {string}
+     * @memberof DatabaseApiModel
+     */
+    CreateTime?: string | null;
 }

@@ -32,6 +32,9 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder.Property(e => e.ServerName)
                 .HasMaxLength(50)
             .HasColumnName("Server_Name");
+            builder.Property(e => e.CreateTime)
+                .HasColumnName("CreateTime")
+                .HasDefaultValueSql("SYSDATETIME()");
 
             builder.HasOne(d => d.Group).WithMany(p => p.Databases).HasForeignKey(d => d.GroupId);
 

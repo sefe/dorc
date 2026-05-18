@@ -223,6 +223,14 @@ export class PageDatabasesList extends PageElement {
           .headerRenderer='${this.appTagsHeaderRenderer}'
         ></vaadin-grid-column>
         <vaadin-grid-column
+          path='CreateTime'
+          resizable
+          .renderer='${this.createTimeRenderer}'
+          .headerRenderer='${this.createTimeHeaderRenderer}'
+          auto-width
+          flex-grow='0'
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           width='300px'
           flex-grow='0'
           .renderer='${this.environmentNamesRenderer}'
@@ -539,6 +547,37 @@ export class PageDatabasesList extends PageElement {
       root
     );
   }
+
+  createTimeHeaderRenderer(root: HTMLElement) {
+    render(
+      html`<vaadin-grid-sorter
+        path="CreateTime"
+        direction="desc"
+        style="align-items: normal"
+      >Create Time</vaadin-grid-sorter>`,
+      root
+    );
+  }
+
+  private createTimeRenderer = (
+    root: HTMLElement,
+    _column: HTMLElement,
+    model: GridItemModel<DatabaseApiModel>
+  ) => {
+    const database = model.item;
+    const createTime = database.CreateTime 
+      ? new Date(database.CreateTime).toLocaleString() 
+      : '';
+
+    render(
+      html`
+        <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">
+          ${createTime}
+        </span>
+      `,
+      root
+    );
+  };
 
   private environmentNamesRenderer = (
     root: HTMLElement,

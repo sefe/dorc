@@ -248,7 +248,7 @@ namespace Dorc.PersistentData.Sources
                         var param = Expression.Parameter(typeof(Database), "Database");
                         var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
 
-                        switch (prop.Type)
+                         switch (prop.Type)
                         {
                             case Type boolType when boolType == typeof(bool):
                                 {
@@ -271,6 +271,12 @@ namespace Dorc.PersistentData.Sources
                             case Type datetimeType when datetimeType == typeof(DateTime):
                                 {
                                     var expr = GetExpressionForOrdering<Database, DateTime>(prop, param);
+                                    orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
+                                    break;
+                                }
+                            case Type nullableDatetimeType when nullableDatetimeType == typeof(DateTime?):
+                                {
+                                    var expr = GetExpressionForOrdering<Database, DateTime?>(prop, param);
                                     orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, expr);
                                     break;
                                 }
@@ -300,6 +306,7 @@ namespace Dorc.PersistentData.Sources
                         ServerName = s.ServerName,
                         AdGroup = s.Group?.Name,
                         ArrayName = s.ArrayName,
+                        CreateTime = s.CreateTime,
                         EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
                         UserEditable = (from environmentDetail in s.Environments
                                         select envPrivilegeInfos[environmentDetail.Name]
@@ -413,6 +420,7 @@ namespace Dorc.PersistentData.Sources
                 Type = db.Type,
                 ServerName = db.ServerName,
                 ArrayName = db.ArrayName,
+                CreateTime = db.CreateTime,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };
         }
