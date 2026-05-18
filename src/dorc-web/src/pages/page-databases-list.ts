@@ -221,6 +221,8 @@ export class PageDatabasesList extends PageElement {
           .renderer='${this.applicationTagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
+          auto-width
+          flex-grow='0'
         ></vaadin-grid-column>
         <vaadin-grid-column
           path='CreateTime'
@@ -231,7 +233,7 @@ export class PageDatabasesList extends PageElement {
           flex-grow='0'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          width='300px'
+          width='250px'
           flex-grow='0'
           .renderer='${this.environmentNamesRenderer}'
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
