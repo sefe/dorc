@@ -198,10 +198,19 @@ export class DorcApp extends ShortcutsStore {
 
   @state() private _drawerOpen = false;
   @state() private _narrowScreen = false;
+  // Desktop-only: tracks whether the navbar is currently expanded (width > 0)
+  // vs collapsed to 0px via the hamburger. Independent of _drawerOpen, which
+  // is the mobile-modal state. aria-expanded on the hamburger is derived from
+  // whichever is active for the current viewport.
+  @state() private _desktopSidebarVisible = true;
 
   private _narrowMq: MediaQueryList | undefined;
   private _previouslyFocused: HTMLElement | null = null;
   private _drawerLockedScroll = false;
+  // Snapshot of document.body.style.overflow taken just before we set our
+  // own scroll-lock on mobile drawer open. Restored on close so coexisting
+  // modals that locked the page first aren't clobbered when we release.
+  private _previousBodyOverflow = '';
   // Only true while a mobile _openDrawer set tabindex on the navbar host;
   // _closeDrawer strips the attribute only when this is set, so we don't
   // clobber a tabindex anyone else may have set.
@@ -243,7 +252,7 @@ export class DorcApp extends ShortcutsStore {
           theme="icon"
           aria-label="Toggle Menu"
           aria-controls="dorcNavbar"
-          aria-expanded="${this._drawerOpen ? 'true' : 'false'}"
+          aria-expanded="${(this._narrowScreen ? this._drawerOpen : this._desktopSidebarVisible) ? 'true' : 'false'}"
           @click="${this.toggleSideBar}"
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
@@ -403,8 +412,10 @@ export class DorcApp extends ShortcutsStore {
         '300px';
       if (this.dorcNavbar.style.width === '0px') {
         this.dorcNavbar.style.width = sidebarWidth;
+        this._desktopSidebarVisible = true;
       } else {
         this.dorcNavbar.style.width = '0px';
+        this._desktopSidebarVisible = false;
       }
     }
   }
@@ -415,6 +426,10 @@ export class DorcApp extends ShortcutsStore {
     this.dorcNavbar.classList.add('open');
     if (this._narrowScreen) {
       this._previouslyFocused = this._activeFocusedElement();
+      // Snapshot any prior inline overflow (e.g. set by a coexisting modal)
+      // so we restore the SAME value on close — releasing unconditionally
+      // would clobber another overlay's scroll lock.
+      this._previousBodyOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       this._drawerLockedScroll = true;
       // Move focus into the drawer so AT users land inside the modal.
@@ -430,7 +445,12 @@ export class DorcApp extends ShortcutsStore {
     this._drawerOpen = false;
     this.dorcNavbar.classList.remove('open');
     if (this._drawerLockedScroll) {
-      document.body.style.removeProperty('overflow');
+      if (this._previousBodyOverflow) {
+        document.body.style.overflow = this._previousBodyOverflow;
+      } else {
+        document.body.style.removeProperty('overflow');
+      }
+      this._previousBodyOverflow = '';
       this._drawerLockedScroll = false;
     }
     if (this._drawerSetTabindex) {
