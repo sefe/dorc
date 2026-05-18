@@ -91,15 +91,15 @@ export class DaemonControls extends LitElement {
   }
 
   serviceStart() {
-    this.requestChange('start');
+    this.requestChange('Starting');
   }
 
   serviceStop() {
-    this.requestChange('stop');
+    this.requestChange('Stopping');
   }
 
   serviceRestart() {
-    this.requestChange('restart');
+    this.requestChange('Restarting');
   }
 
   requestChange(requestedChange: string) {

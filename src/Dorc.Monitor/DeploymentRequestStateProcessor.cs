@@ -631,6 +631,30 @@ namespace Dorc.Monitor
             catch (Exception exception)
             {
                 this.logger.LogError($"Execution of the request with id '{requestToExecute.Request.Id}' has failed. Exception: {exception}");
+
+                // Without this, a failure before PendingRequestProcessor.Execute installs its own catch
+                // (e.g. DI resolution of IPendingRequestProcessor itself) leaves the row stuck in
+                // Requesting until the next monitor restart triggers CancelStaleRequests.
+                try
+                {
+                    this.requestsPersistentSource.UpdateRequestStatus(
+                        requestToExecute.Request.Id,
+                        DeploymentRequestStatus.Errored,
+                        DateTimeOffset.Now,
+                        exception.ToString());
+
+                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(requestToExecute.Request)
+                    {
+                        Status = DeploymentRequestStatus.Errored.ToString(),
+                        CompletedTime = DateTimeOffset.Now,
+                    });
+                }
+                catch (Exception statusUpdateException)
+                {
+                    this.logger.LogError(statusUpdateException,
+                        "Failed to mark request {RequestId} as Errored after execution failure",
+                        requestToExecute.Request.Id);
+                }
             }
 
             this.logger.LogDebug($"---------------end execution of request {requestToExecute.Request.Id}---------------");

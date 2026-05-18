@@ -1,3 +1,9 @@
+using Dorc.ApiModel;
+using Dorc.Core.Configuration;
+using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.Win32.SafeHandles;
 using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
@@ -5,12 +11,6 @@ using System.Runtime.Versioning;
 using System.Security.Claims;
 using System.Security.Principal;
 using System.ServiceProcess;
-using Dorc.ApiModel;
-using Dorc.Core.Configuration;
-using Dorc.Core.Interfaces;
-using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
-using Microsoft.Win32.SafeHandles;
 using Environment = System.Environment;
 
 namespace Dorc.Core
@@ -190,22 +190,7 @@ namespace Dorc.Core
                         var ping = new Ping();
                         var oPingReply = ping.Send(daemon.ServerName ?? string.Empty, 5000);
                         if (oPingReply == null || oPingReply.Status != IPStatus.Success)
-                        {
-                            var unreachable = new DaemonStatus
-                            {
-                                EnvName = daemon.EnvName,
-                                ServerName = daemon.ServerName,
-                                DaemonName = daemon.DaemonName,
-                                ServerId = daemon.ServerId,
-                                DaemonId = daemon.DaemonId,
-                                Status = null,
-                                ErrorMessage = "Server unreachable: ping " +
-                                    (oPingReply?.Status.ToString() ?? "no reply")
-                            };
-                            resultsDict.TryAdd((int)index, unreachable);
-                            RecordObservation(unreachable);
                             return;
-                        }
 
                         try
                         {
@@ -232,38 +217,14 @@ namespace Dorc.Core
                                          daemon.DaemonName + Environment.NewLine +
                                          "        " + ex.Message + Environment.NewLine +
                                          "        " + ex.InnerException);
-
-                            var queryFailed = new DaemonStatus
-                            {
-                                EnvName = daemon.EnvName,
-                                ServerName = daemon.ServerName,
-                                DaemonName = daemon.DaemonName,
-                                ServerId = daemon.ServerId,
-                                DaemonId = daemon.DaemonId,
-                                Status = null,
-                                ErrorMessage = "Daemon query failed: " + ex.Message
-                            };
-                            resultsDict.TryAdd((int)index, queryFailed);
-                            RecordObservation(queryFailed);
+                            return;
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogDebug("Error, couldn't ping: " + daemon.ServerName +
                                      Environment.NewLine + ex.Message);
-
-                        var pingFailed = new DaemonStatus
-                        {
-                            EnvName = daemon.EnvName,
-                            ServerName = daemon.ServerName,
-                            DaemonName = daemon.DaemonName,
-                            ServerId = daemon.ServerId,
-                            DaemonId = daemon.DaemonId,
-                            Status = null,
-                            ErrorMessage = "Server unreachable: " + ex.Message
-                        };
-                        resultsDict.TryAdd((int)index, pingFailed);
-                        RecordObservation(pingFailed);
+                        return;
                     }
                 });
             }
@@ -335,21 +296,21 @@ namespace Dorc.Core
                 () =>
                 {
                     using var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
-                    switch (daemonStatus.Status.ToLower())
+                    switch (daemonStatus.Status)
                     {
-                        case "start":
+                        case "Starting":
                             {
                                 sc.Start();
                                 sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
                                 return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
                             }
-                        case "stop":
+                        case "Stopping":
                             {
                                 sc.Stop();
                                 sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
                                 return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
                             }
-                        case "restart":
+                        case "Restarting":
                             {
                                 if (sc.CanStop)
                                 {

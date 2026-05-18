@@ -77,3 +77,15 @@ registerStyles(
   `
 );
 
+// Row hover highlight for grids that opt in via theme="hover-highlight"
+registerStyles(
+  'vaadin-grid',
+  css`
+    :host([theme~='hover-highlight']) [part~='row']:hover [part~='cell'] {
+      background-color: var(--lumo-primary-color-10pct);
+    }
+    :host([theme~='hover-highlight']) [part~='row'] {
+      cursor: pointer;
+    }
+  `
+);
