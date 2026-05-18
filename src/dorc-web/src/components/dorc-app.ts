@@ -202,7 +202,12 @@ export class DorcApp extends ShortcutsStore {
   private _narrowMq: MediaQueryList | undefined;
   private _previouslyFocused: HTMLElement | null = null;
   private _drawerLockedScroll = false;
+  // Only true while a mobile _openDrawer set tabindex on the navbar host;
+  // _closeDrawer strips the attribute only when this is set, so we don't
+  // clobber a tabindex anyone else may have set.
+  private _drawerSetTabindex = false;
   private _splitterDragInProgress = false;
+  private _pageContent: HTMLElement | null = null;
 
   private _narrowMqHandler = (e: MediaQueryListEvent) => {
     this._narrowScreen = e.matches;
@@ -276,7 +281,11 @@ export class DorcApp extends ShortcutsStore {
       </header>
 
       <div id="page">
-        <dorc-navbar id="dorcNavbar"></dorc-navbar>
+        <dorc-navbar
+          id="dorcNavbar"
+          role="navigation"
+          aria-label="Primary"
+        ></dorc-navbar>
         <div id="splitter"></div>
         <div id="page-content">
           <slot></slot>
@@ -319,6 +328,7 @@ export class DorcApp extends ShortcutsStore {
       'dorcNavbar'
     ) as DorcNavbar;
     dorcNavbar = this.dorcNavbar;
+    this._pageContent = this.shadowRoot?.getElementById('page-content') ?? null;
 
     super.firstUpdated(_changedProperties);
 
@@ -409,6 +419,7 @@ export class DorcApp extends ShortcutsStore {
       this._drawerLockedScroll = true;
       // Move focus into the drawer so AT users land inside the modal.
       this.dorcNavbar.tabIndex = -1;
+      this._drawerSetTabindex = true;
       this.dorcNavbar.focus();
     }
     this._applyDrawerAria();
@@ -422,7 +433,10 @@ export class DorcApp extends ShortcutsStore {
       document.body.style.removeProperty('overflow');
       this._drawerLockedScroll = false;
     }
-    this.dorcNavbar.removeAttribute('tabindex');
+    if (this._drawerSetTabindex) {
+      this.dorcNavbar.removeAttribute('tabindex');
+      this._drawerSetTabindex = false;
+    }
     this._applyDrawerAria();
     // Restore focus to whatever opened the drawer (typically the menu button).
     // Use `isConnected` rather than `document.contains` because the latter
@@ -459,10 +473,12 @@ export class DorcApp extends ShortcutsStore {
   // is open so screen-reader virtual cursors can't browse behind the drawer.
   // The header (which contains the hamburger close button, Sign Out, Help) is
   // intentionally NOT inerted — those are siblings the user must still reach
-  // while the drawer is shown.
+  // while the drawer is shown. The drawer's static role is `navigation`; the
+  // modal-open state temporarily upgrades it to `dialog` so the hamburger's
+  // `aria-controls` reference always points at a roled landmark.
   private _applyDrawerAria() {
     if (!this.dorcNavbar) return;
-    const pageContent = this.shadowRoot?.getElementById('page-content');
+    const pageContent = this._pageContent;
     if (this._narrowScreen) {
       if (this._drawerOpen) {
         this.dorcNavbar.removeAttribute('inert');
@@ -474,17 +490,17 @@ export class DorcApp extends ShortcutsStore {
       } else {
         this.dorcNavbar.setAttribute('inert', '');
         this.dorcNavbar.setAttribute('aria-hidden', 'true');
-        this.dorcNavbar.removeAttribute('role');
+        this.dorcNavbar.setAttribute('role', 'navigation');
         this.dorcNavbar.removeAttribute('aria-modal');
-        this.dorcNavbar.removeAttribute('aria-label');
+        this.dorcNavbar.setAttribute('aria-label', 'Primary');
         pageContent?.removeAttribute('inert');
       }
     } else {
       this.dorcNavbar.removeAttribute('inert');
       this.dorcNavbar.removeAttribute('aria-hidden');
-      this.dorcNavbar.removeAttribute('role');
+      this.dorcNavbar.setAttribute('role', 'navigation');
       this.dorcNavbar.removeAttribute('aria-modal');
-      this.dorcNavbar.removeAttribute('aria-label');
+      this.dorcNavbar.setAttribute('aria-label', 'Primary');
       pageContent?.removeAttribute('inert');
       // Only release body styles we own; a coexisting modal could have set
       // body.overflow for its own purposes.

@@ -63,8 +63,10 @@ describe('Touch target structure', () => {
   describe('Style registration for icon buttons', () => {
     // The 44×44 touch-target floor is gated behind @media (max-width: 768px)
     // so desktop compact grids (theme="icon small", --lumo-button-size: 28px)
-    // aren't blown up. We assert the rule is registered with its media query,
-    // independent of the test browser's current viewport.
+    // aren't blown up. Assert (a) the rule lives INSIDE a max-width:768px
+    // media block and (b) no rule sets the same min-* at the top level —
+    // otherwise a future change could lift the rule out of the media query
+    // and we'd silently re-introduce the regression.
     it('should register a mobile-only 44x44 min size for vaadin-button[theme~="icon"]', async () => {
       await import('../../src/router/style-registrations.js');
       await import('@vaadin/button');
@@ -73,23 +75,38 @@ describe('Touch target structure', () => {
         <vaadin-button theme="icon" aria-label="probe"></vaadin-button>
       `);
       const sheets = button.shadowRoot?.adoptedStyleSheets ?? [];
-      const cssText = sheets
-        .flatMap(sheet => Array.from(sheet.cssRules))
-        .map(rule => rule.cssText)
-        .join('\n');
+      const allRules = sheets.flatMap(sheet => Array.from(sheet.cssRules));
 
-      expect(cssText).to.match(
-        /@media\s*\(max-width:\s*768px\)/,
-        'Touch-target rule should be inside a mobile media query'
+      const mobileMediaRule = allRules.find(
+        (rule): rule is CSSMediaRule =>
+          rule instanceof CSSMediaRule &&
+          /max-width:\s*768px/.test(rule.conditionText)
       );
-      expect(cssText).to.match(
+      expect(mobileMediaRule, 'mobile media query block').to.exist;
+
+      const nestedCss = Array.from(mobileMediaRule!.cssRules)
+        .map(r => r.cssText)
+        .join('\n');
+      expect(nestedCss).to.match(
         /min-width:\s*44px/,
-        'Touch-target rule should set min-width: 44px'
+        'min-width: 44px should be nested inside @media (max-width: 768px)'
       );
-      expect(cssText).to.match(
+      expect(nestedCss).to.match(
         /min-height:\s*44px/,
-        'Touch-target rule should set min-height: 44px'
+        'min-height: 44px should be nested inside @media (max-width: 768px)'
       );
+
+      // Guard the regression that round-5 fixed: no top-level (non-media)
+      // rule should set the 44px floor on icon buttons.
+      const topLevelStyleRules = allRules.filter(
+        (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule
+      );
+      for (const rule of topLevelStyleRules) {
+        if (/theme.*icon/.test(rule.selectorText)) {
+          expect(rule.style.minWidth).to.not.equal('44px');
+          expect(rule.style.minHeight).to.not.equal('44px');
+        }
+      }
     });
   });
 

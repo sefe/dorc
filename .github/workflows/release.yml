@@ -70,8 +70,13 @@ jobs:
       working-directory: src/dorc-web
       run: npm run build
 
+    # The next three steps assume Windows (pwsh + the Windows cache path).
+    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
+    # guards align them so adding a Linux/macOS matrix entry later is a
+    # localised change here rather than a silent CI mis-fire.
     - name: Get installed Playwright version
       id: playwright-version
+      if: runner.os == 'Windows'
       working-directory: src/dorc-web
       shell: pwsh
       run: |
@@ -98,7 +103,7 @@ jobs:
         key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
     - name: Install Playwright browsers
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
       working-directory: src/dorc-web
       run: npx playwright install chromium firefox webkit
 
