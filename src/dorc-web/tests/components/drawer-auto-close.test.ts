@@ -109,6 +109,29 @@ describe('Drawer auto-close on mobile', () => {
     );
   });
 
+  // The drawer is a modal on mobile, but the header (hamburger toggle, Sign
+  // Out, Help) must remain reachable so the user can dismiss the drawer or
+  // sign out without first navigating into it. Background page content is
+  // inerted instead.
+  it('inerts #page-content but NOT #header when drawer is open on mobile', async () => {
+    mockMatchMedia(true);
+
+    const { el } = await mountDorcApp(container);
+    (el as any)._openDrawer();
+
+    const header = el.shadowRoot?.getElementById('header');
+    const pageContent = el.shadowRoot?.getElementById('page-content');
+
+    expect(pageContent?.hasAttribute('inert')).to.equal(
+      true,
+      '#page-content must be inert while drawer modal is open'
+    );
+    expect(header?.hasAttribute('inert')).to.equal(
+      false,
+      '#header must stay reachable so the hamburger close button works'
+    );
+  });
+
   describe('Drawer CSS (structural)', () => {
     it('dorc-app CSS contains mobile drawer styles', async () => {
       const mod = await import('../../src/components/dorc-app.js');
