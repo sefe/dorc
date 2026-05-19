@@ -1,5 +1,5 @@
 Remove-Module DOrc.Cmdlet -Force
-Import-Module C:\Source\github\dorc\src\Tools.DOrc.Cmdlet\DOrc.Cmdlet.psd1 -Force
+Import-Module .\DOrc.Cmdlet.psd1 -Force
 
 $ApiUrl = "https://deploymentportalqa:8443" 
 $Environment = "Endur DV 10"
