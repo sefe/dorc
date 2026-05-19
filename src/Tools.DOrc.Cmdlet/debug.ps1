@@ -1,17 +1,13 @@
-#Remove-Module DOrc.Cmdlet -Force
-Import-Module .\DOrc.Cmdlet.psd1 -Force
+Remove-Module DOrc.Cmdlet -Force
+Import-Module C:\Source\github\dorc\src\Tools.DOrc.Cmdlet\DOrc.Cmdlet.psd1 -Force
 
-# Optional: set JWT token (uncomment if needed)
-# $userJwt = "eyJ..."
-# Set-DOrcBearerToken -Token $userJwt
-
-$ApiUrl = "http://localhost:32194/api" 
-$Environment = "Comms Tool DV"
-$CsvFile = "m:\out.csv"
+$ApiUrl = "https://deploymentportalqa:8443" 
+$Environment = "Endur DV 10"
+$CsvFile = "C:\temp\out.csv"
 #Import-DOrcProperties -CsvFile M:\props.csv -ApiUrl $ApiUrl
 #Import-DOrcProperties  -ApiUrl $ApiUrl -CsvFile M:\elasticDorcProperties.csv
 #Import-DOrcProperties  -ApiUrl http://dorcappurl:8080/api -CsvFile M:\elasticDorcProperties.csv
-#Export-DOrcProperties -Environment $Environment  -CsvFile $CsvFile -ApiUrl $ApiUrl
+Export-DOrcProperties -Environment $Environment  -CsvFile $CsvFile -ApiUrl $ApiUrl
 #Invoke-Pester .\DOrc.Cmdlet.tests.ps1
 # $s = New-PSSession 
 # Invoke-Command -ScriptBlock {
