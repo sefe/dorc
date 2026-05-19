@@ -1,7 +1,7 @@
 Remove-Module DOrc.Cmdlet -Force
 Import-Module .\DOrc.Cmdlet.psd1 -Force
 
-$ApiUrl = "https://deploymentportalqa:8443" 
+$ApiUrl = "http://localhost:32194/api" 
 $Environment = "Endur DV 10"
 $CsvFile = "C:\temp\out.csv"
 #Import-DOrcProperties -CsvFile M:\props.csv -ApiUrl $ApiUrl
