@@ -272,6 +272,22 @@
     {
       "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
       "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
+    },
+    {
+      "MSIParameter": "TEAMS.NOTIFICATIONS.ENABLED",
+      "DeployProperty": "TEAMS_NOTIFICATIONS_ENABLED"
+    },
+    {
+      "MSIParameter": "TEAMS.BOT.APP.ID",
+      "DeployProperty": "TEAMS_BOT_APP_ID"
+    },
+    {
+      "MSIParameter": "TEAMS.BOT.APP.PASSWORD",
+      "DeployProperty": "TEAMS_BOT_APP_PASSWORD"
+    },
+    {
+      "MSIParameter": "TEAMS.TENANT.ID",
+      "DeployProperty": "TEAMS_TENANT_ID"
     }
   ]
 }
