@@ -16,11 +16,17 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
+    ApiBoolResult,
     EnvironmentHistoryApiModel,
+    UpdateEnvironmentHistoryRequest,
 } from '../models';
 
 export interface RefDataEnvironmentsHistoryGetRequest {
     id?: number;
+}
+
+export interface RefDataEnvironmentsHistoryPostRequest {
+    updateEnvironmentHistoryRequest?: UpdateEnvironmentHistoryRequest;
 }
 
 export interface RefDataEnvironmentsHistoryPutRequest {
@@ -38,6 +44,16 @@ export class RefDataEnvironmentsHistoryApi extends BaseAPI {
     refDataEnvironmentsHistoryGet({ id }: RefDataEnvironmentsHistoryGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentHistoryApiModel>>>
     refDataEnvironmentsHistoryGet({ id }: RefDataEnvironmentsHistoryGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentHistoryApiModel> | AjaxResponse<Array<EnvironmentHistoryApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -45,7 +61,33 @@ export class RefDataEnvironmentsHistoryApi extends BaseAPI {
         return this.request<Array<EnvironmentHistoryApiModel>>({
             url: '/RefDataEnvironmentsHistory',
             method: 'GET',
+            headers,
             query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataEnvironmentsHistoryPost({ updateEnvironmentHistoryRequest }: RefDataEnvironmentsHistoryPostRequest): Observable<ApiBoolResult>
+    refDataEnvironmentsHistoryPost({ updateEnvironmentHistoryRequest }: RefDataEnvironmentsHistoryPostRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
+    refDataEnvironmentsHistoryPost({ updateEnvironmentHistoryRequest }: RefDataEnvironmentsHistoryPostRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<ApiBoolResult>({
+            url: '/RefDataEnvironmentsHistory',
+            method: 'POST',
+            headers,
+            body: updateEnvironmentHistoryRequest,
         }, opts?.responseOpts);
     };
 
@@ -57,6 +99,13 @@ export class RefDataEnvironmentsHistoryApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({

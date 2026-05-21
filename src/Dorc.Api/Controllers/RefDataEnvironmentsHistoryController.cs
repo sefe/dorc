@@ -41,5 +41,30 @@ namespace Dorc.Api.Controllers
             _environmentHistoryPersistentSource.UpdateEnvironmentDetailHistoryComment(history.Id, history.Comment);
         }
 
+        /// <summary>
+        ///     Add a new environment history entry
+        /// </summary>
+        /// <param name="request">The history update request</param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [HttpPost]
+        public IActionResult Post([FromBody] UpdateEnvironmentHistoryRequest request)
+        {
+            try
+            {
+                var result = _environmentHistoryPersistentSource.UpdateHistory(
+                    request.EnvName,
+                    request.BackupFile,
+                    request.Comment,
+                    request.UpdatedBy,
+                    request.UpdateType);
+                return Ok(new ApiBoolResult { Result = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+        }
     }
 }
