@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-    "target": "ES2020", // Specify ECMAScript target version
-    "module": "ES2020", //  Specify module code generation
+    "target": "ES2022", // Specify ECMAScript target version
+    "module": "ES2022", //  Specify module code generation
     "experimentalDecorators": true, //  Enables experimental support for ES7 decorators.
     "useDefineForClassFields": false,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
