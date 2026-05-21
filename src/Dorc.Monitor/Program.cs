@@ -10,6 +10,7 @@ using Dorc.Monitor.HighAvailability;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.Monitor.Teams;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -124,6 +125,19 @@ builder.Services.AddTransient<ITerraformDispatcher, TerraformDispatcher>();
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
+
+//Notification Setup
+var teamsSection = configurationRoot.GetSection(TeamsBotOptions.SectionName);
+builder.Services.Configure<TeamsBotOptions>(teamsSection);
+builder.Services.AddTransient<DeploymentCompletionCardBuilder>();
+var teamsNotificationEnabled = teamsSection["Enabled"];
+if (teamsNotificationEnabled == "true")
+{
+    builder.Services.AddTransient<IDeploymentNotificationSink, TeamsBotNotificationSink>();
+}
+else {
+    builder.Services.AddSingleton<IDeploymentNotificationSink, NoOpDeploymentNotificationSink>();
+}
 
 var connectionString = monitorConfiguration.DOrcConnectionString;
 

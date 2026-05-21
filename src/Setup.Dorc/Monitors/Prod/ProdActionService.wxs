@@ -64,6 +64,12 @@
 					<Json:JsonFile Id="HARabbitMQSslEnabledProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Enabled" Value="[HA.RABBITMQ.SSL.ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQSslServerNameProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.ServerName" Value="[HA.RABBITMQ.SSL.SERVERNAME]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="HARabbitMQSslVersionProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#ProdDeployMonitorExeConfig]" />
+
+					<!-- Notification Configuration-->
+					<Json:JsonFile Id="HARabbitMQSslEnabledNonProd" ElementPath="$.AppSettings.TeamsNotification.Enabled" Value="[TEAMS_NOTIFICATIONS_ENABLED]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslServerNameNonProd" ElementPath="$.AppSettings.TeamsNotification.BotAppId" Value="[TEAMS_BOT_APP_ID]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.TeamsNotification.BotAppPassword" Value="[TEAMS_BOT_APP_PASSWORD]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.TeamsNotification.TenantId" Value="[TEAMS_TENANT_ID]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">

@@ -4,6 +4,7 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.Monitor.Teams;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly IDeploymentNotificationSink _notificationSink;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -34,9 +36,10 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IConfigValuesPersistentSource configValuesPersistentSource, 
+            IConfigValuesPersistentSource configValuesPersistentSource,
             IPropertyEvaluator propertyEvaluator,
-            IDeploymentEventsPublisher eventPublisher)
+            IDeploymentEventsPublisher eventPublisher,
+            IDeploymentNotificationSink notificationSink)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
@@ -50,6 +53,7 @@ namespace Dorc.Monitor.RequestProcessors
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
             this.eventsPublisher = eventPublisher;
+            _notificationSink = notificationSink;
         }
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
@@ -104,13 +108,13 @@ namespace Dorc.Monitor.RequestProcessors
 
                         SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
-                        InitializeDeploymentRequest(
-                            requestToExecute.Request);
+                        var deploymentStartedTime = DateTimeOffset.Now;
+
+                        InitializeDeploymentRequest(requestToExecute.Request);
 
                         var deploymentRequestStatus = DeploymentRequestStatus.Completed;
 
-                        var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
-                            requestDetail);
+                        var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(requestDetail);
 
                         logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
 
@@ -118,16 +122,20 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             logger.LogWarning($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
+                            var completedTime = DateTimeOffset.Now;
+
                             requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
                                 deploymentRequestStatus,
-                                DateTimeOffset.Now);
+                                completedTime);
 
                             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
                                 Status = deploymentRequestStatus.ToString(),
-                                CompletedTime = DateTimeOffset.Now,
+                                CompletedTime = completedTime,
                             });
+
+                            FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, completedTime);
 
                             return;
                         }
@@ -166,16 +174,20 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
+                            var completedTime = DateTimeOffset.Now;
+
                             requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
                                 deploymentRequestStatus,
-                                DateTimeOffset.Now);
+                                completedTime);
 
                             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
                                 Status = deploymentRequestStatus.ToString(),
-                                CompletedTime = DateTimeOffset.Now,
+                                CompletedTime = completedTime,
                             });
+
+                            FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, completedTime);
 
                             return;
                         }
@@ -258,16 +270,20 @@ namespace Dorc.Monitor.RequestProcessors
                             CancelPendingDeploymentResults(requestToExecute.Request.Id, deploymentRequestStatus);
                         }
 
+                        var finalCompletedTime = DateTimeOffset.Now;
+
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
-                            DateTimeOffset.Now);
+                            finalCompletedTime);
 
                         eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                         {
                             Status = deploymentRequestStatus.ToString(),
-                            CompletedTime = DateTimeOffset.Now,
+                            CompletedTime = finalCompletedTime,
                         });
+
+                        FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, finalCompletedTime);
                     }
                     catch (Exception ex)
                     {
@@ -289,17 +305,21 @@ namespace Dorc.Monitor.RequestProcessors
 
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
+                        var erroredTime = DateTimeOffset.Now;
+
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             DeploymentRequestStatus.Errored,
-                            DateTimeOffset.Now,
+                            erroredTime,
                             criticalLogBuilder.ToString());
 
                         eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                         {
                             Status = DeploymentRequestStatus.Errored.ToString(),
-                            CompletedTime = DateTimeOffset.Now,
+                            CompletedTime = erroredTime,
                         });
+
+                        FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(), requestToExecute.Request.StartedTime ?? erroredTime, erroredTime);
                     }
                 }
                 catch (Exception e)
@@ -311,20 +331,43 @@ namespace Dorc.Monitor.RequestProcessors
 
                     CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
+                    var erroredTime = DateTimeOffset.Now;
+
                     requestsPersistentSource.UpdateRequestStatus(
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored,
-                        DateTimeOffset.Now,
+                        erroredTime,
                         criticalLogBuilder.ToString());
 
                     eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
-                        CompletedTime = DateTimeOffset.Now,
+                        CompletedTime = erroredTime,
                     });
+
+                    FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(), requestToExecute.Request.RequestedTime ?? erroredTime, erroredTime);
 
                     return;
                 }
+            }
+        }
+
+        private void FireNotification(
+            DeploymentRequestApiModel request,
+            string finalStatus,
+            DateTimeOffset startedTime,
+            DateTimeOffset completedTime)
+        {
+            try
+            {
+                var notifyTask = _notificationSink.NotifyRequestCompletedAsync(request, finalStatus, startedTime, completedTime);
+                _ = notifyTask.ContinueWith(
+                    t => logger.LogError(t.Exception, "Notification failed for request {RequestId}.", request.Id),
+                    TaskContinuationOptions.OnlyOnFaulted);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Notification failed synchronously for request {RequestId}.", request.Id);
             }
         }
 
