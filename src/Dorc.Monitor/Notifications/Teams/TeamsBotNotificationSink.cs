@@ -12,7 +12,7 @@ using Polly;
 using Polly.Retry;
 using Polly.Timeout;
 
-namespace Dorc.Monitor.Teams
+namespace Dorc.Monitor.Notifications.Teams
 {
     internal sealed class TeamsBotNotificationSink : IDeploymentNotificationSink
     {

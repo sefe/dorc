@@ -1,6 +1,6 @@
 using Dorc.ApiModel;
 
-namespace Dorc.Monitor.Teams
+namespace Dorc.Monitor.Notifications
 {
     internal interface IDeploymentNotificationSink
     {

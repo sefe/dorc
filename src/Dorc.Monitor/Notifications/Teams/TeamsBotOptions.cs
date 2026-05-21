@@ -1,4 +1,4 @@
-namespace Dorc.Monitor.Teams
+namespace Dorc.Monitor.Notifications.Teams
 {
     internal sealed class TeamsBotOptions
     {

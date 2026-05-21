@@ -1,7 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.Monitor.Teams
+namespace Dorc.Monitor.Notifications
 {
     internal sealed class NoOpDeploymentNotificationSink : IDeploymentNotificationSink
     {

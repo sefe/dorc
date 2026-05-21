@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
-namespace Dorc.Monitor.Teams
+namespace Dorc.Monitor.Notifications.Teams
 {
     internal sealed class DeploymentCompletionCardBuilder
     {
