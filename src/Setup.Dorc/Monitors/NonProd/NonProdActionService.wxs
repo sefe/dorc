@@ -64,10 +64,10 @@
 					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.HighAvailability.RabbitMQ.Ssl.Version" Value="[HA.RABBITMQ.SSL.VERSION]" File="[#NonProdDeployMonitorExeConfig]" />
 					
 					<!-- Notification Configuration-->
-					<Json:JsonFile Id="HARabbitMQSslEnabledNonProd" ElementPath="$.AppSettings.TeamsNotification.Enabled" Value="[TEAMS_NOTIFICATIONS_ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQSslServerNameNonProd" ElementPath="$.AppSettings.TeamsNotification.BotAppId" Value="[TEAMS_BOT_APP_ID]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.TeamsNotification.BotAppPassword" Value="[TEAMS_BOT_APP_PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="HARabbitMQSslVersionNonProd" ElementPath="$.AppSettings.TeamsNotification.TenantId" Value="[TEAMS_TENANT_ID]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsNotificationsEnabledNonProd" ElementPath="$.AppSettings.TeamsNotification.Enabled" Value="[TEAMS_NOTIFICATIONS_ENABLED]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsBotAppIdNonProd" ElementPath="$.AppSettings.TeamsNotification.BotAppId" Value="[TEAMS_BOT_APP_ID]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsBotAppPasswordNonProd" ElementPath="$.AppSettings.TeamsNotification.BotAppPassword" Value="[TEAMS_BOT_APP_PASSWORD]" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsTenantIdNonProd" ElementPath="$.AppSettings.TeamsNotification.TenantId" Value="[TEAMS_TENANT_ID]" File="[#NonProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERNONPROD" Name="DorcRunner">
