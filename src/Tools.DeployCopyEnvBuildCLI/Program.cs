@@ -27,7 +27,7 @@ namespace Tools.DeployCopyEnvBuildCLI
                 int intReturnCode = 0;
                 var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
 
-                var targetEnvResult = api.Call<EnvironmentApiModel>(Endpoints.RefDataEnvironments, Method.Get, new Dictionary<string, string> { { "env", arguments.TargetEnv } });
+                var targetEnvResult = api.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get, new Dictionary<string, string> { { "env", arguments.TargetEnv } });
 
                 if (!targetEnvResult.IsModelValid || targetEnvResult.Value == null)
                 {
@@ -35,7 +35,15 @@ namespace Tools.DeployCopyEnvBuildCLI
                     return 1;
                 }
 
-                if (targetEnvResult.Value.EnvironmentIsProd)
+                var targetEnv = targetEnvResult.Value.FirstOrDefault();
+
+                if (targetEnv == null)
+                {
+                    Output(arguments.TargetEnv + " is not a valid target environment.");
+                    return 1;
+                }
+
+                if (targetEnv.EnvironmentIsProd)
                 {
                     Output(arguments.TargetEnv + " is a production environment and cannot be used as a target for CopyEnvBuild.");
                     return 1;
