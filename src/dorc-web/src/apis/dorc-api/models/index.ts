@@ -70,6 +70,7 @@ export * from './DaemonStatusApiModel';
 export * from './ServerOperatingSystemApiModel';
 export * from './SqlPortApiModel';
 export * from './TerraformPlanApiModel';
+export * from './SourceControlType';
 export * from './TerraformSourceType';
 export * from './UserAccountType';
 export * from './UserApiModel';

@@ -365,6 +365,7 @@
     <Build Include="deploy\Tables\AnalyticsTimePattern.sql" />
     <Build Include="deploy\Tables\AnalyticsUserActivity.sql" />
     <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
+    <None Include="Scripts\Post-Deployment\SetFileShareSourceControlType.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\AuditScript.table.sql" />
     <None Include="Scripts\Pre-Deployment\AddCancelledFieldsToArchiveDeploymentRequests.sql" />
     <None Include="Scripts\Pre-Deployment\StageServicesForMigration.sql" />
