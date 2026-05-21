@@ -23,6 +23,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IActiveDirectorySearcher _directorySearcher;
         private readonly ILogger<PropertyValuesController> _logger;
 
@@ -31,6 +32,7 @@ namespace Dorc.Api.Controllers
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
             IDirectorySearcherFactory directorySearcherFactory,
             ILogger<PropertyValuesController> logger)
         {
@@ -39,6 +41,7 @@ namespace Dorc.Api.Controllers
             _variableResolver = variableResolver;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyValuesService = propertyValuesService;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
             _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
             _logger = logger;
         }
@@ -141,6 +144,17 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                // Compute environment-scoped privilege once
+                var canReadSecrets = false;
+                if (!string.IsNullOrWhiteSpace(environmentName))
+                {
+                    if (!_environmentsPersistentSource.EnvironmentExists(environmentName))
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            $"'environmentName' must include a valid environment name, '{environmentName}' not located");
+
+                    canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, environmentName);
+                }
+
                 var propertyValues = _propertyValuesService.GetPropertyValues(propertyName, environmentName,
                     User)
                     .OrderBy(pv => !string.IsNullOrEmpty(pv.PropertyValueFilter))
@@ -151,17 +165,31 @@ namespace Dorc.Api.Controllers
                     return NotFound();
                 }
 
+                if (!canReadSecrets)
+                {
+                    foreach (var pv in propertyValues)
+                    {
+                        if (pv?.Property?.Secure == true)
+                        {
+                            pv.Value = null;
+                        }
+                    }
+                }
+
                 return Ok(propertyValues);
             }
+
             catch (NonEnoughRightsException e)
             {
                 return StatusCode(StatusCodes.Status403Forbidden, e);
             }
+
             catch (Exception e)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
+
 
         /// <summary>
         /// Edit property values
