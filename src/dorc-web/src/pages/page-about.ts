@@ -40,10 +40,8 @@ import {
   CallbackDataParams,
   TopLevelFormatterParams
 } from 'echarts/types/dist/shared';
-import {
-  OptionDataValueDate,
-  OptionDataValueNumeric
-} from 'echarts/types/src/util/types';
+type OptionDataValueDate = Date | string | number;
+type OptionDataValueNumeric = number | '-';
 
 declare type ThemerRiverDataItem = [
   OptionDataValueDate,

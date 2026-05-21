@@ -19,7 +19,7 @@
     <PackageReference Include="Lamar.Microsoft.DependencyInjection" Version="15.0.1" />
     <PackageReference Include="Microsoft.Azure.SignalR" Version="1.32.0" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.13.1" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.13.1" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
