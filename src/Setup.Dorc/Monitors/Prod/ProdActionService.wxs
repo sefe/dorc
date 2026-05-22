@@ -70,6 +70,8 @@
 					<Json:JsonFile Id="TeamsBotAppIdProd" ElementPath="$.TeamsNotification.BotAppId" Value="[TEAMS.BOT.APP.ID]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="TeamsBotAppPasswordProd" ElementPath="$.TeamsNotification.BotAppPassword" Value="[TEAMS.BOT.APP.PASSWORD]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="TeamsTenantIdProd" ElementPath="$.TeamsNotification.TenantId" Value="[TEAMS.TENANT.ID]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsServiceUrlProd" ElementPath="$.TeamsNotification.ServiceUrl" Value="[TEAMS.SERVICE.URL]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsDorcUiBaseUrlProd" ElementPath="$.TeamsNotification.DorcUiBaseUrl" Value="[TEAMS.DORC.UI.BASE.URL]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
