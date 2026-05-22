@@ -288,6 +288,14 @@
     {
       "MSIParameter": "TEAMS.TENANT.ID",
       "DeployProperty": "TEAMS_TENANT_ID"
+    },
+    {
+      "MSIParameter": "TEAMS.SERVICE.URL",
+      "DeployProperty": "TEAMS_SERVICE_URL"
+    },
+    {
+      "MSIParameter": "TEAMS.DORC.UI.BASE.URL",
+      "DeployProperty": "TEAMS_DORC_UI_BASE_URL"
     }
   ]
 }
