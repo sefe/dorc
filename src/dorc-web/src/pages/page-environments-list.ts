@@ -162,7 +162,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         id="add-edit-access-control"
         .secureName="${this.secureName}"
       ></add-edit-access-control>
-      <div>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
         ${this.loading || !this.userRolesLoaded
           ? html`
               <div class="overlay" style="z-index: 2">
