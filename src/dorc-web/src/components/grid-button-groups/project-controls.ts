@@ -8,6 +8,7 @@ import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
+import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 
 interface ActionMenuItem {
   text: string;
@@ -18,7 +19,7 @@ interface ActionMenuItem {
 }
 
 @customElement('project-controls')
-export class ProjectControls extends LitElement {
+export class ProjectControls extends ResponsiveMixin(LitElement) {
   @property({ type: Object }) project: ProjectApiModel | undefined;
   @property({ type: Boolean }) deleteHidden: boolean = true;
   @state() private _open = false;
@@ -169,9 +170,10 @@ export class ProjectControls extends LitElement {
   static get styles() {
     return css`
       :host {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: nowrap;
       }
-
       vaadin-button {
         --lumo-button-size: 28px;
         --lumo-icon-size-m: 16px;
@@ -242,27 +244,56 @@ export class ProjectControls extends LitElement {
   }
 
   render() {
+    if (this._narrowScreen) {
+      return html`
+        <vaadin-button
+          id="${this._triggerId}"
+          theme="icon small"
+          aria-label="Project actions"
+          title="Project actions"
+          aria-haspopup="menu"
+          aria-expanded="${this._open ? 'true' : 'false'}"
+          aria-controls="${this._dropdownId}"
+          @click="${this._toggle}"
+        >
+          <vaadin-icon
+            icon="vaadin:ellipsis-dots-h"
+            aria-hidden="true"
+          ></vaadin-icon>
+        </vaadin-button>
+      `;
+    }
+
     return html`
-      <vaadin-button
-        id="${this._triggerId}"
-        theme="icon small"
-        aria-label="Project actions"
-        title="Project actions"
-        aria-haspopup="menu"
-        aria-expanded="${this._open ? 'true' : 'false'}"
-        aria-controls="${this._dropdownId}"
-        @click="${this._toggle}"
-      >
-        <vaadin-icon
-          icon="vaadin:ellipsis-dots-h"
-          aria-hidden="true"
-        ></vaadin-icon>
-      </vaadin-button>
+      ${this.menuActions.map(
+        action => html`
+          <vaadin-button
+            theme="icon small"
+            title="${action.text}"
+            aria-label="${action.text}"
+            @click="${(e: Event) => {
+              e.stopPropagation();
+              this._selectAction(action);
+            }}"
+          >
+            <vaadin-icon
+              icon="${action.icon}"
+              aria-hidden="true"
+              style="${action.isDelete
+                ? 'color: var(--dorc-error-color);'
+                : 'color: var(--dorc-link-color);'}"
+            ></vaadin-icon>
+          </vaadin-button>
+        `
+      )}
     `;
   }
 
   updated(changed: Map<string, unknown>) {
     super.updated(changed);
+    if (changed.has('_narrowScreen') && !this._narrowScreen && this._open) {
+      this._open = false;
+    }
     if (changed.has('_open')) {
       if (this._open) {
         this._showDropdown();

@@ -10,7 +10,7 @@
     "npm": ">=7.0.0"
   },
   "scripts": {
-    "build": "eslint && tsc && vite build",
+    "build": "eslint && tsc && npm run typecheck:tests && vite build",
     "buildLocal": "set NODE_OPTIONS=--openssl-legacy-provider && rimraf server/dist/ && rollup --config",
     "dorc-api-gen": "openapi-generator-cli generate -g typescript-rxjs -i .\\src\\apis\\dorc-api\\swagger.json -o .\\src\\apis\\dorc-api\\ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec",
     "format": "prettier \"**/*.ts\" --write --ignore-path .gitignore",
@@ -20,7 +20,8 @@
     "start": "npm run serve",
     "test": "vitest run",
     "test:watch": "vitest",
-    "type-checking": "tsc --noEmit && npm run lit:type-checking",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
+    "type-checking": "tsc --noEmit && npm run typecheck:tests && npm run lit:type-checking",
     "prepare": "husky"
   },
   "dependencies": {
@@ -70,9 +71,13 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@openapitools/openapi-generator-cli": "^2.32.0",
+    "@types/chai": "^5.2.3",
     "@types/node": "^25.6.2",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.59.2",
+    "@vitest/browser": "^4.1.5",
+    "@vitest/browser-playwright": "^4.1.5",
+    "chai": "^5.3.3",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-lit": "^2.2.1",
@@ -80,10 +85,10 @@
     "eslint-plugin-wc": "^3.1.0",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
-    "jsdom": "^29.1.1",
     "lint-staged": "^17.0.2",
     "lit-analyzer": "^2.0.3",
     "npm-run-all": "^4.1.5",
+    "playwright": "^1.59.1",
     "prettier": "3.8.3",
     "rimraf": "^6.1.3",
     "rollup": "^4.60.3",

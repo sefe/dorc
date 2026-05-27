@@ -119,6 +119,12 @@ export class PageAbout extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
       .page-about {
         padding: 1rem;
       }
@@ -144,24 +150,24 @@ export class PageAbout extends PageElement {
         flex-wrap: wrap;
       }
       .statistics-cards__item {
-        margin: 5px;
+        margin: var(--lumo-space-xs);
         flex-shrink: 0;
-      }
-
-      #chart-all {
-        margin: 0px;
-        padding: 0px;
-        height: 100vh;
-        width: 100%;
+        min-width: 120px;
       }
 
       .main-info {
         display: flex;
+        flex-wrap: wrap;
+        gap: var(--lumo-space-s);
       }
 
       .top3-chart-block {
         padding: 26px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
+        align-self: flex-start;
+        flex: 1 1 400px;
+        min-width: 300px;
+        max-width: 652px;
       }
 
       .top3-chart-block__percent {
@@ -179,8 +185,9 @@ export class PageAbout extends PageElement {
 
       div#page_div {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 50px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
       }
 
       @keyframes spin {
@@ -249,7 +256,7 @@ export class PageAbout extends PageElement {
                 </div>
                 <div class="top3-chart-block">
                   <hegs-chart
-                    style="display: block; width: 600px; height: 400px;"
+                    style="display: block; width: 100%; height: 400px;"
                     .option="${this.top3PieChartOptions}"
                   ></hegs-chart>
                 </div>

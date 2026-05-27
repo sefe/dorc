@@ -59,8 +59,9 @@ export class AddEditEnvironment extends LitElement {
       }
       div#div {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 175px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
       }
       vaadin-text-field {
         display: flex;
@@ -75,6 +76,16 @@ export class AddEditEnvironment extends LitElement {
       }
       vaadin-combo-box.vaadin-text-field {
         --lumo-space-m: 0px;
+      }
+      /* The desktop min-width: 490px overflows narrow viewports — the global
+         vaadin-combo-box style in style-registrations.ts can't beat this
+         light-DOM rule because it lives in a different scope. */
+      @media (max-width: 768px) {
+        vaadin-text-field,
+        vaadin-combo-box {
+          min-width: 0;
+          width: 100%;
+        }
       }
       .tooltip {
         position: relative;

@@ -1,6 +1,6 @@
 import { css, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import '@vaadin/button';
 import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
 import './dorc-navbar.ts';
@@ -11,6 +11,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
 import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
+import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
 
 let dorcNavbar: DorcNavbar;
 
@@ -22,11 +23,13 @@ function fMouseMoveListener(event: MouseEvent) {
     dorcNavbar.style.width = widthInPx;
   });
 }
+// Invoked from `_wrappedMouseUpListener` in DorcApp. The wrapper owns
+// registration/removal of itself; this function only handles the splitter
+// drag teardown (release the global user-select lock and the mousemove
+// handler) and commits the final width.
 function fMouseUpListener(event: MouseEvent) {
   document.body.style.removeProperty('user-select');
-
   document.body.removeEventListener('mousemove', fMouseMoveListener);
-  document.body.removeEventListener('mouseup', fMouseUpListener);
 
   const width = Math.max(200, Math.min(1000, event.clientX));
   dorcNavbar.style.width = width + 'px';
@@ -37,16 +40,19 @@ export class DorcApp extends ShortcutsStore {
   static get styles() {
     return css`
       :host {
-        --header-height: 50px;
-        display: inline;
-        height: 100%;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
         margin: 0;
         background: var(--dorc-bg-primary);
-        font-family: Arial, monospace;
+        font-family: var(--lumo-font-family, Arial, sans-serif);
+        overflow: hidden;
       }
 
       #header {
-        height: var(--header-height);
+        height: var(--dorc-header-height, 50px);
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -93,6 +99,10 @@ export class DorcApp extends ShortcutsStore {
         font-size: 0.75rem;
         color: var(--dorc-text-secondary);
         line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 300px;
       }
 
       #header .header-link {
@@ -110,12 +120,21 @@ export class DorcApp extends ShortcutsStore {
 
       #page {
         display: flex;
-        height: calc(100vh - var(--header-height));
+        flex: 1;
+        min-height: 0;
+      }
+
+      #dorcNavbar {
+        width: var(--dorc-sidebar-width, 300px);
+        flex-shrink: 0;
+        overflow: hidden;
+        transition: width 0.2s ease;
       }
 
       #splitter {
         width: 2px;
         min-width: 2px;
+        flex-shrink: 0;
         cursor: ew-resize;
         padding: 4px 0 0;
         top: 0;
@@ -126,9 +145,47 @@ export class DorcApp extends ShortcutsStore {
 
       #page-content {
         background: var(--dorc-bg-primary);
-        overflow-x: scroll;
-        overflow-y: hidden;
-        width: 100%;
+        overflow: auto;
+        flex: 1;
+        min-width: 0;
+      }
+
+      @media (max-width: 768px) {
+        #dorcNavbar {
+          position: fixed;
+          top: var(--dorc-header-height, 50px);
+          left: 0;
+          bottom: 0;
+          z-index: 100;
+          width: 0;
+          max-width: 85vw;
+          background: var(--dorc-bg-primary);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+          visibility: hidden;
+          pointer-events: none;
+          transform: translateX(-100%);
+          transition: transform 0.2s ease, width 0.2s ease, visibility 0s linear 0.2s;
+        }
+
+        #dorcNavbar.open {
+          width: var(--dorc-sidebar-width, 300px);
+          visibility: visible;
+          pointer-events: auto;
+          transform: translateX(0);
+          transition: transform 0.2s ease, width 0.2s ease, visibility 0s;
+        }
+
+        #splitter {
+          display: none;
+        }
+
+        #header .user-info {
+          display: none;
+        }
+
+        #header {
+          padding: 0 8px;
+        }
       }
     `;
   }
@@ -139,6 +196,54 @@ export class DorcApp extends ShortcutsStore {
 
   @query('#splitter') splitter!: HTMLDivElement;
 
+  @state() private _drawerOpen = false;
+  @state() private _narrowScreen = false;
+  // Desktop-only: tracks whether the navbar is currently expanded (width > 0)
+  // vs collapsed to 0px via the hamburger. Independent of _drawerOpen, which
+  // is the mobile-modal state. aria-expanded on the hamburger is derived from
+  // whichever is active for the current viewport.
+  @state() private _desktopSidebarVisible = true;
+
+  private _narrowMq: MediaQueryList | undefined;
+  private _previouslyFocused: HTMLElement | null = null;
+  private _drawerLockedScroll = false;
+  // Snapshot of document.body.style.overflow taken just before we set our
+  // own scroll-lock on mobile drawer open. Restored on close so coexisting
+  // modals that locked the page first aren't clobbered when we release.
+  private _previousBodyOverflow = '';
+  // Only true while a mobile _openDrawer set tabindex on the navbar host;
+  // _closeDrawer strips the attribute only when this is set, so we don't
+  // clobber a tabindex anyone else may have set.
+  private _drawerSetTabindex = false;
+  private _splitterDragInProgress = false;
+  private _pageContent: HTMLElement | null = null;
+
+  private _narrowMqHandler = (e: MediaQueryListEvent) => {
+    this._narrowScreen = e.matches;
+    // Only clear inline width when ENTERING mobile, so the desktop CSS can
+    // take over the drawer. On wide, leaving the user's splitter-dragged
+    // width intact (the alternative would silently reset it on every resize
+    // across the breakpoint).
+    if (e.matches && this.dorcNavbar) {
+      this.dorcNavbar.style.width = '';
+    }
+    if (!this._narrowScreen && this._drawerOpen) {
+      // Drawer is always reachable on desktop; collapse the mobile-modal state.
+      this._closeDrawer();
+    }
+    this._applyDrawerAria();
+  };
+  private _routerLocationChanged = () => {
+    if (this._narrowScreen && this._drawerOpen) {
+      this._closeDrawer();
+    }
+  };
+  private _keydownHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && this._narrowScreen && this._drawerOpen) {
+      this._closeDrawer();
+    }
+  };
+
   render() {
     return html`
       <header id="header" role="banner">
@@ -146,6 +251,8 @@ export class DorcApp extends ShortcutsStore {
           class="menu-btn"
           theme="icon"
           aria-label="Toggle Menu"
+          aria-controls="dorcNavbar"
+          aria-expanded="${(this._narrowScreen ? this._drawerOpen : this._desktopSidebarVisible) ? 'true' : 'false'}"
           @click="${this.toggleSideBar}"
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
@@ -183,7 +290,11 @@ export class DorcApp extends ShortcutsStore {
       </header>
 
       <div id="page">
-        <dorc-navbar id="dorcNavbar"></dorc-navbar>
+        <dorc-navbar
+          id="dorcNavbar"
+          role="navigation"
+          aria-label="Primary"
+        ></dorc-navbar>
         <div id="splitter"></div>
         <div id="page-content">
           <slot></slot>
@@ -201,31 +312,221 @@ export class DorcApp extends ShortcutsStore {
     this.dorcHelperPage = appConfig.dorcHelperPage;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this._narrowMq = window.matchMedia(`(max-width: ${NARROW_BREAKPOINT}px)`);
+    this._narrowScreen = this._narrowMq.matches;
+    this._narrowMq.addEventListener('change', this._narrowMqHandler);
+    window.addEventListener(
+      'vaadin-router-location-changed',
+      this._routerLocationChanged
+    );
+    document.addEventListener('keydown', this._keydownHandler);
+    // After a disconnect/reconnect cycle, firstUpdated does not re-fire but
+    // the splitter element still exists in our shadow DOM. Re-attach the
+    // mousedown listener once the next render has settled. Catch rejections
+    // (render errors) so they're surfaced rather than swallowed silently.
+    this.updateComplete
+      .then(() => this._attachSplitterListener())
+      .catch(err => console.error('dorc-app deferred splitter attach failed:', err));
+  }
+
   protected firstUpdated(_changedProperties: PropertyValues) {
     // Assign dorcNavbar BEFORE calling super to ensure it's available for event handlers
     this.dorcNavbar = this.shadowRoot?.getElementById(
       'dorcNavbar'
     ) as DorcNavbar;
     dorcNavbar = this.dorcNavbar;
+    this._pageContent = this.shadowRoot?.getElementById('page-content') ?? null;
 
     super.firstUpdated(_changedProperties);
 
-    this.splitter.addEventListener('mousedown', () => {
-      document.body.addEventListener('mousemove', fMouseMoveListener, {
-        passive: true
-      });
-      document.body.addEventListener('mouseup', fMouseUpListener);
+    this._applyDrawerAria();
+    this._attachSplitterListener();
+  }
 
-      document.body.style.setProperty('user-select', 'none');
+  // Splitter mousedown handler is a class field so it has a stable reference
+  // across attach/detach cycles (firstUpdated only fires once per element).
+  private _splitterMouseDownHandler = () => {
+    this._splitterDragInProgress = true;
+    document.body.addEventListener('mousemove', fMouseMoveListener, {
+      passive: true
     });
+    document.body.addEventListener('mouseup', this._wrappedMouseUpListener);
+    document.body.style.setProperty('user-select', 'none');
+  };
+
+  // Idempotent: removeEventListener with an unregistered handler is a no-op,
+  // so calling this from both firstUpdated and connectedCallback is safe.
+  private _attachSplitterListener() {
+    if (!this.splitter) return;
+    this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+    this.splitter.addEventListener('mousedown', this._splitterMouseDownHandler);
+  }
+
+  // Wrapper around fMouseUpListener that also clears the in-progress flag so
+  // disconnectedCallback can tell whether to release body styles.
+  private _wrappedMouseUpListener = (event: MouseEvent) => {
+    document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+    this._splitterDragInProgress = false;
+    fMouseUpListener(event);
+  };
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._narrowMq?.removeEventListener('change', this._narrowMqHandler);
+    window.removeEventListener(
+      'vaadin-router-location-changed',
+      this._routerLocationChanged
+    );
+    document.removeEventListener('keydown', this._keydownHandler);
+    if (this.splitter) {
+      this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+    }
+    // Only release body styles we own, so coexisting modals/drags aren't clobbered.
+    if (this._splitterDragInProgress) {
+      document.body.removeEventListener('mousemove', fMouseMoveListener);
+      document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+      document.body.style.removeProperty('user-select');
+      this._splitterDragInProgress = false;
+    }
+    if (this._drawerLockedScroll) {
+      document.body.style.removeProperty('overflow');
+      this._drawerLockedScroll = false;
+    }
   }
 
   private toggleSideBar() {
-    if (this.dorcNavbar) {
+    if (!this.dorcNavbar) return;
+    if (this._narrowScreen) {
+      // Clear any desktop/splitter inline width so mobile CSS can control the drawer
+      this.dorcNavbar.style.width = '';
+      if (this._drawerOpen) {
+        this._closeDrawer();
+      } else {
+        this._openDrawer();
+      }
+    } else {
+      const sidebarWidth =
+        getComputedStyle(this).getPropertyValue('--dorc-sidebar-width').trim() ||
+        '300px';
       if (this.dorcNavbar.style.width === '0px') {
-        this.dorcNavbar.style.width = '300px';
+        this.dorcNavbar.style.width = sidebarWidth;
+        this._desktopSidebarVisible = true;
       } else {
         this.dorcNavbar.style.width = '0px';
+        this._desktopSidebarVisible = false;
+      }
+    }
+  }
+
+  private _openDrawer() {
+    if (!this.dorcNavbar) return;
+    this._drawerOpen = true;
+    this.dorcNavbar.classList.add('open');
+    if (this._narrowScreen) {
+      this._previouslyFocused = this._activeFocusedElement();
+      // Snapshot any prior inline overflow (e.g. set by a coexisting modal)
+      // so we restore the SAME value on close — releasing unconditionally
+      // would clobber another overlay's scroll lock.
+      this._previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      this._drawerLockedScroll = true;
+      // Move focus into the drawer so AT users land inside the modal.
+      this.dorcNavbar.tabIndex = -1;
+      this._drawerSetTabindex = true;
+      this.dorcNavbar.focus();
+    }
+    this._applyDrawerAria();
+  }
+
+  private _closeDrawer() {
+    if (!this.dorcNavbar) return;
+    this._drawerOpen = false;
+    this.dorcNavbar.classList.remove('open');
+    if (this._drawerLockedScroll) {
+      if (this._previousBodyOverflow) {
+        document.body.style.overflow = this._previousBodyOverflow;
+      } else {
+        document.body.style.removeProperty('overflow');
+      }
+      this._previousBodyOverflow = '';
+      this._drawerLockedScroll = false;
+    }
+    if (this._drawerSetTabindex) {
+      this.dorcNavbar.removeAttribute('tabindex');
+      this._drawerSetTabindex = false;
+    }
+    this._applyDrawerAria();
+    // Restore focus to whatever opened the drawer (typically the menu button).
+    // Use `isConnected` rather than `document.contains` because the latter
+    // doesn't traverse shadow boundaries — and `_activeFocusedElement()`
+    // returns the deepest shadow-root activeElement, which is the common case
+    // for openers inside Vaadin custom elements.
+    // If the element is gone (SPA navigation, re-render), fall back to the
+    // menu button so AT users have a sensible landing point.
+    const toFocus = this._previouslyFocused;
+    this._previouslyFocused = null;
+    if (toFocus && toFocus.isConnected && typeof toFocus.focus === 'function') {
+      toFocus.focus();
+    } else {
+      const menuBtn = this.shadowRoot?.querySelector(
+        '.menu-btn'
+      ) as HTMLElement | null;
+      menuBtn?.focus();
+    }
+  }
+
+  // Walk composed-path to find the active element across shadow roots,
+  // so we can restore focus precisely on close.
+  private _activeFocusedElement(): HTMLElement | null {
+    let el = document.activeElement as HTMLElement | null;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) {
+      el = el.shadowRoot.activeElement as HTMLElement;
+    }
+    return el;
+  }
+
+  // Drawer is reachable on desktop regardless of `_drawerOpen`; on mobile we
+  // hide it from AT and the tab order when closed, and announce it as a modal
+  // dialog when open. `inert` is also applied to #page-content while the modal
+  // is open so screen-reader virtual cursors can't browse behind the drawer.
+  // The header (which contains the hamburger close button, Sign Out, Help) is
+  // intentionally NOT inerted — those are siblings the user must still reach
+  // while the drawer is shown. The drawer's static role is `navigation`; the
+  // modal-open state temporarily upgrades it to `dialog` so the hamburger's
+  // `aria-controls` reference always points at a roled landmark.
+  private _applyDrawerAria() {
+    if (!this.dorcNavbar) return;
+    const pageContent = this._pageContent;
+    if (this._narrowScreen) {
+      if (this._drawerOpen) {
+        this.dorcNavbar.removeAttribute('inert');
+        this.dorcNavbar.removeAttribute('aria-hidden');
+        this.dorcNavbar.setAttribute('role', 'dialog');
+        this.dorcNavbar.setAttribute('aria-modal', 'true');
+        this.dorcNavbar.setAttribute('aria-label', 'Navigation');
+        pageContent?.setAttribute('inert', '');
+      } else {
+        this.dorcNavbar.setAttribute('inert', '');
+        this.dorcNavbar.setAttribute('aria-hidden', 'true');
+        this.dorcNavbar.setAttribute('role', 'navigation');
+        this.dorcNavbar.removeAttribute('aria-modal');
+        this.dorcNavbar.setAttribute('aria-label', 'Primary');
+        pageContent?.removeAttribute('inert');
+      }
+    } else {
+      this.dorcNavbar.removeAttribute('inert');
+      this.dorcNavbar.removeAttribute('aria-hidden');
+      this.dorcNavbar.setAttribute('role', 'navigation');
+      this.dorcNavbar.removeAttribute('aria-modal');
+      this.dorcNavbar.setAttribute('aria-label', 'Primary');
+      pageContent?.removeAttribute('inert');
+      // Only release body styles we own; a coexisting modal could have set
+      // body.overflow for its own purposes.
+      if (this._drawerLockedScroll) {
+        document.body.style.removeProperty('overflow');
+        this._drawerLockedScroll = false;
       }
     }
   }

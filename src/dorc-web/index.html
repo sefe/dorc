@@ -10,6 +10,7 @@
         }
     </script>
     <title>DOrc</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
     <base href="/"/>
 
@@ -58,6 +59,8 @@
             --dorc-highlight-bg: #ffddb7;
             --dorc-badge-bg: #444;
             --dorc-badge-text: #fea40f;
+            --dorc-sidebar-width: 300px;
+            --dorc-header-height: 50px;
         }
 
         html[theme~="dark"] {
@@ -131,6 +134,8 @@
             overflow: hidden;
             background: var(--dorc-bg-primary);
             color: var(--dorc-text-primary);
+            font-size: 100%;
+            line-height: 1.5;
         }
 
         noscript {

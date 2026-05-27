@@ -15,13 +15,14 @@ import '../components/edit-permission';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { PermissionDto } from '../apis/dorc-api';
 import { RefDataPermissionApi } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 
 @customElement('page-permissions-list')
-export class PagePermissionsList extends PageElement {
+export class PagePermissionsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) permissions: Array<PermissionDto> = [];
 
   @property({ type: Array }) filteredPermissions: Array<PermissionDto> = [];
@@ -51,10 +52,16 @@ export class PagePermissionsList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 110px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       .overlay {
         width: 100%;
@@ -92,6 +99,13 @@ export class PagePermissionsList extends PageElement {
         top: 16px;
         overflow: auto;
         padding: 10px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -166,6 +180,7 @@ export class PagePermissionsList extends PageElement {
               <vaadin-grid-sort-column
                 path="PermissionName"
                 header="Permission Name"
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Actions"
