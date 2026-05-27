@@ -27,13 +27,20 @@ export class VariableValueControls extends LitElement {
   static get styles() {
     return css`
       :host {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         flex-wrap: nowrap;
+        width: 100%;
+      }
+      vaadin-text-field,
+      vaadin-password-field {
+        flex: 1;
+        min-width: 0;
       }
       vaadin-button {
         padding: 0px;
         margin: 0px;
+        flex: 0 0 auto;
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
@@ -61,7 +68,7 @@ export class VariableValueControls extends LitElement {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;
             }}"
-            style="width: 80%; padding: 0px"
+            style="padding: 0px"
           ></vaadin-password-field>`
         : html` <vaadin-text-field
             id="${`propValue${this.value?.Id}`}"
@@ -72,7 +79,7 @@ export class VariableValueControls extends LitElement {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;
             }}"
-            style="width: 80%; padding: 0px"
+            style="padding: 0px"
           ></vaadin-text-field>`}
 
       <vaadin-button

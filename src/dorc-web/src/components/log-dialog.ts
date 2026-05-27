@@ -47,7 +47,7 @@ export class LogDialog extends LitElement {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 80vw;
+        width: 100%;
         height: 80vh;
         flex-direction: column;
       }
@@ -102,7 +102,7 @@ export class LogDialog extends LitElement {
           let loadingDiv = root.querySelector('.loading-container') as HTMLElement;
           if (!loadingDiv) {
             loadingDiv = document.createElement('div');
-            loadingDiv.style.cssText = 'display: flex; justify-content: center; align-items: center; width: 80vw; height: 80vh; flex-direction: column;';
+            loadingDiv.style.cssText = 'display: flex; justify-content: center; align-items: center; width: 100%; height: 80vh; flex-direction: column;';
             
             const spinnerDiv = document.createElement('div');
             spinnerDiv.style.cssText = `
@@ -156,7 +156,7 @@ export class LogDialog extends LitElement {
         if (!editorDiv){
           editorDiv = document.createElement('div');
           editorDiv.setAttribute('id', 'logViewer');
-          editorDiv.setAttribute('style', 'width:80vw; height:80vh;');
+          editorDiv.setAttribute('style', 'width: 100%; height: 80vh;');
   
           root.appendChild(editorDiv);
           

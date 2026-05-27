@@ -182,7 +182,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                 style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%; margin: 0px;"
               >
                 <div
-                  style="display: flex; flex-wrap: wrap; flex-direction: row"
+                  style="display: flex; flex-wrap: wrap; flex-direction: row; width: 100%"
                 >
                   <table>
                     <tr>
@@ -209,7 +209,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                       </td>
                     </tr>
                   </table>
-                  <table>
+                  <table style="flex: 1; min-width: 400px">
                     <tr>
                       <td style="vertical-align: center; min-width: 20px">
                         ${this.loadingScopeOptions
@@ -219,7 +219,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                             ></div> `
                           : html``}
                       </td>
-                      <td style="vertical-align: top;">
+                      <td style="vertical-align: top; width: 100%;">
                         <vaadin-combo-box
                           allow-custom-value
                           .items="${this.propertyValueScopeOptions}"
@@ -228,7 +228,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                           .renderer="${this.comboboxRenderer}"
                           id="newVariableValue"
                           label="Value"
-                          style="min-width: 400px; "
+                          style="min-width: 400px; width: 100%"
                           helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
                         ></vaadin-combo-box>
                       </td>
@@ -393,8 +393,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                   .headerRenderer="${this.valueHeaderRenderer}"
                   .renderer="${this.variableValueControlsRenderer}"
                   resizable
-                  flex-grow="0"
-                  width="60rem"
+                  flex-grow="1"
+                  width="20rem"
                 ></vaadin-grid-column>
               </vaadin-grid>
             </vaadin-vertical-layout>

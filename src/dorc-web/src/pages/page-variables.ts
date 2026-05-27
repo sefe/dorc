@@ -250,7 +250,7 @@ export class PageVariables extends PageElement {
               summary="Add Variable Value"
               style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
-              <table>
+              <table style="width: 100%">
                 <tr>
                   <td style="vertical-align: center; min-width: 20px">
                     ${this.loadingScopes
@@ -280,7 +280,7 @@ export class PageVariables extends PageElement {
                         ></div> `
                       : html``}
                   </td>
-                  <td style="vertical-align: center;">
+                  <td style="vertical-align: center; width: 100%;">
                     <vaadin-combo-box
                       allow-custom-value
                       .items="${this.propertyValueScopeOptions}"
@@ -290,7 +290,7 @@ export class PageVariables extends PageElement {
                       id="newVariableValue"
                       ?disabled="${!this.existingPropertySelected}"
                       label="Value"
-                      style="min-width: 400px"
+                      style="min-width: 400px; width: 100%"
                       helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
                     ></vaadin-combo-box>
                   </td>
@@ -340,7 +340,8 @@ export class PageVariables extends PageElement {
                   <vaadin-grid-column
                     header="Value"
                     resizable
-                    auto-width
+                    flex-grow="1"
+                    width="20rem"
                     .renderer="${this.variableValueControlsRenderer}"
                     .headerRenderer="${this.valueHeaderRenderer}"
                   ></vaadin-grid-column>
@@ -1001,7 +1002,6 @@ export class PageVariables extends PageElement {
         .value="${model.item}"
         .editing="${model.item.Id === this._editingValueId}"
         .additionalInformation="${dup}"
-        style="min-width:150px"
       >
       </variable-value-controls>`,
       root
