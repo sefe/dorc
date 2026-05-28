@@ -257,10 +257,33 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
     });
 }
 
+// Windows-worker client (HLPS-api-split D-1/D-3, SPEC-S-003). Enabled flag controls
+// which IWindowsWorkerClient implementation is registered. On Linux installs (or any
+// install where the worker isn't deployed) the null impl throws WorkerUnavailableException
+// from every method, and WorkerUnavailableExceptionFilter renders the documented 503 body.
+var workerEnabled = builder.Configuration.GetValue<bool>("WindowsWorker:Enabled");
+if (workerEnabled)
+{
+    builder.Services.AddTransient<WorkerKeyDelegatingHandler>();
+    builder.Services
+        .AddHttpClient<IWindowsWorkerClient, HttpWindowsWorkerClient>(client =>
+        {
+            var url = builder.Configuration["WindowsWorker:Url"]
+                ?? throw new InvalidOperationException("WindowsWorker:Enabled=true but WindowsWorker:Url is missing");
+            client.BaseAddress = new Uri(url);
+        })
+        .AddHttpMessageHandler<WorkerKeyDelegatingHandler>();
+}
+else
+{
+    builder.Services.AddSingleton<IWindowsWorkerClient, WorkerUnavailableClient>();
+}
+
 builder.Services
     .AddControllers(opts =>
     {
         opts.OutputFormatters.RemoveType<StringOutputFormatter>(); // never return plain text
+        opts.Filters.Add<WorkerUnavailableExceptionFilter>();
         //opts.Filters.Add(new RequireHttpsAttribute());
     })
     .AddJsonOptions(opts =>
