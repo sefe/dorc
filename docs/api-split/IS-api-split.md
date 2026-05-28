@@ -1,5 +1,5 @@
 ---
-status: IN REVIEW
+status: APPROVED
 author: Agent
 date: 2026-05-28
 issue: sefe/dorc#423
@@ -12,7 +12,7 @@ codebase_anchor: aab79d14 (main, 2026-05-28)
 
 | Field       | Value                                                   |
 |-------------|---------------------------------------------------------|
-| **Status**  | IN REVIEW (Round 2 — Round 1 H-1/H-2/H-3 + MEDs addressed) |
+| **Status**  | APPROVED (Round 2 verification 2026-05-28 — S-005 NS-1 contradiction fixed; all Round 1 findings closed) |
 | **Author**  | Agent                                                   |
 | **Date**    | 2026-05-28                                              |
 | **HLPS**    | [HLPS-api-split.md](HLPS-api-split.md) (APPROVED)       |
@@ -174,7 +174,7 @@ The Windows-only probe path in `Dorc.Core/DaemonStatusProbe.cs` (the post-#649 r
 Addresses Scope D, contributes to SC-3, contributes to SC-1 (removes `System.Management`).
 
 ### Dependencies
-S-003. (Independent of S-001 — WMI code doesn't touch AD.)
+S-001 and S-003. S-001 reshapes `Dorc.Core`'s csproj and DI; moving `DaemonStatusProbe.cs` out of `Dorc.Core` before S-001 settles would produce csproj merge conflicts. The WMI code itself does not touch AD, but the shared host project does.
 
 ### Verification intent
 - On Windows with worker running, `DaemonStatusController` returns identical results to pre-split for a representative set of services on a representative set of servers (parity test).
