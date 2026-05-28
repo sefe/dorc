@@ -21,9 +21,9 @@ namespace Dorc.Api.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly List<AdPermittedGroup> _permittedRoleGroups;
 
-        public ClaimsTransformer(IConfiguration config, IUserGroupsReaderFactory adUserGroupReaderFactory, IHttpContextAccessor httpContextAccessor)
+        public ClaimsTransformer(IConfiguration config, IUserGroupReader userGroupReader, IHttpContextAccessor httpContextAccessor)
         {
-            _adUserGroupReader = adUserGroupReaderFactory.GetWinAuthUserGroupsReader();
+            _adUserGroupReader = userGroupReader;
             _httpContextAccessor = httpContextAccessor;
             var activeDirectoryRoles = config.GetSection("AppSettings:ActiveDirectoryRoles").GetChildren()
                 .ToDictionary(x => x.Key, x => x.Value);
