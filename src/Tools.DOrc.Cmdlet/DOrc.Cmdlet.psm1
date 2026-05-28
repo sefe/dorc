@@ -55,7 +55,7 @@ function Import-DOrcProperties
         $helper.AddProperties($newProperties)
         $helper.AddPropertyValues($newProperties)
         $helper.UpdatePropertyValues($newProperties)
-        Write-Host "Imoprt complete"
+        Write-Host "Import complete"
     }
     catch
     {
@@ -107,7 +107,7 @@ function Export-DOrcProperties
         }
         else
         {
-            Write-Host "No Properties fround for" $Environment
+            Write-Host "No properties found for" $Environment
         }
     }
     catch
