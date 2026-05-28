@@ -10,6 +10,8 @@ import { TreeAction } from './TreeAction';
 
 @customElement('hegs-tree-node')
 export class HegsTreeNode extends LitElement {
+  private static nextInstanceId = 0;
+
   @property({ type: Array }) actions: TreeAction[] = [];
 
   @property({ type: Object }) data: TreeNode;
@@ -34,6 +36,7 @@ export class HegsTreeNode extends LitElement {
   }
 
   private _indeterminate = false;
+  private readonly instanceId = HegsTreeNode.nextInstanceId++;
 
   @property({ type: Boolean })
   get indeterminate(): boolean {
@@ -67,7 +70,7 @@ export class HegsTreeNode extends LitElement {
   render = addHegsTreeNodeTemplate;
 
   protected get deploymentInputId(): string {
-    return `deployment-${this.data?.id ?? 'unknown'}`;
+    return `deployment-${this.data?.id ?? this.instanceId}`;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {

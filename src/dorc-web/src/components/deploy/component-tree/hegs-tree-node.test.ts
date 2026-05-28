@@ -1,14 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { HegsTreeNode } from './hegs-tree-node';
 import { TreeNode } from './TreeNode';
 
 vi.mock('@vaadin/vaadin-lumo-styles/icons.js', () => ({}));
 import './hegs-tree-node';
-
-type HegsTreeNode = HTMLElement & {
-  data: TreeNode;
-  updateComplete: Promise<unknown>;
-};
 
 function createTreeNode(id: number, name: string): TreeNode {
   return {
@@ -63,5 +59,6 @@ describe('HegsTreeNode', () => {
     await element.updateComplete;
 
     expect(input.checked).toBe(true);
+    expect(element.checked).toBe(true);
   });
 });
