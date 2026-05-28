@@ -436,7 +436,9 @@ namespace Dorc.Core
             catch (Exception ex)
             {
                 // Logged but not fatal — the user-self lookup is a best-effort enrichment.
-                _log.LogWarning(ex, "Unable to resolve onPremisesSecurityIdentifier for user {UserId}", userId);
+                // Caller identity is intentionally omitted from the log message: CodeQL flagged
+                // it as PII when reached via authenticated call paths (e.g. GetUserEmail upstream).
+                _log.LogWarning(ex, "Unable to resolve onPremisesSecurityIdentifier for the requested user");
             }
 
             try
