@@ -2,14 +2,14 @@
 name: SPEC-S-001 — Graph migration spike (AD removal codebase-wide)
 description: JIT Specification for S-001 — promote AzureEntraSearcher to sole IActiveDirectorySearcher, close parity-matrix gaps P-4/P-5/P-7, delete AD code, drop System.DirectoryServices* refs, add Linux build CI gate. Single-PR scope.
 type: spec
-status: DRAFT
+status: APPROVED
 ---
 
 # SPEC-S-001 — Graph migration spike (AD removal codebase-wide)
 
 | Field       | Value                                                   |
 |-------------|---------------------------------------------------------|
-| **Status**  | DRAFT                                                   |
+| **Status**  | APPROVED (Round 1 review 2026-05-28; revision applied for H-1/H-2/H-3 + 3 MED + 2 LOW) |
 | **Step**    | S-001                                                   |
 | **Author**  | Agent                                                   |
 | **Date**    | 2026-05-28                                              |
@@ -84,13 +84,12 @@ S-001 contains **no worker code** (that's S-002+), **no Windows-auth-scheme remo
 
 **Target**: `AzureEntraSearcher.GetUserDataById(string pid)` (currently at line ~163).
 
-**Behaviour change**: when the input matches an AD SID shape (regex `^S-1-(5|12)-\d+(-\d+)*$`), perform the following ordered lookups and return the first hit:
+**Behaviour change**: the method's existing flow (try `Users[pid]`; on 404 try `Groups[pid]`; on 404 throw `ArgumentException`) is augmented so that **when both direct lookups 404 *and* the input matches an AD SID shape** (regex `^S-1-(5|12)-\d+(-\d+)*$`), two additional filter-based lookups run before the `ArgumentException` is thrown:
 
-1. `graphClient.Users[pid].GetAsync(...)` — handles the case where the caller mistakenly passed an Entra `id` shaped like an SID (unlikely but cheap).
-2. **New:** `graphClient.Users.GetAsync(req => req.Filter = $"onPremisesSecurityIdentifier eq '{pid}'", req.Select = ["id","displayName","userPrincipalName","mail","accountEnabled","onPremisesSecurityIdentifier"], req.Headers["ConsistencyLevel"]="eventual")`. Take first hit with `AccountEnabled == true`.
-3. **New:** equivalent query against `graphClient.Groups` with `Select = ["id","displayName","mailNickname","mail","onPremisesSecurityIdentifier"]`.
+- **New step (after the existing `Users[pid]` 404):** if SID-shaped, `graphClient.Users.GetAsync(req => req.Filter = $"onPremisesSecurityIdentifier eq '{pid}'", req.Select = ["id","displayName","userPrincipalName","mail","accountEnabled","onPremisesSecurityIdentifier"], req.Headers["ConsistencyLevel"]="eventual")`. Take first hit with `AccountEnabled == true`. If found, return.
+- **New step (after the existing `Groups[pid]` 404):** if SID-shaped, equivalent query against `graphClient.Groups` with `Select = ["id","displayName","mailNickname","mail","onPremisesSecurityIdentifier"]`. If found, return.
 
-If the input does not match the SID shape, behaviour is unchanged (direct `Users[id]` then `Groups[id]` fallback as today).
+If the input does not match the SID shape, the new steps are skipped and behaviour is unchanged (direct `Users[pid]` then `Groups[pid]`, then `ArgumentException`). The implementer should *not* duplicate the direct `Users[pid]` / `Groups[pid]` calls — the SID fallback runs only on their 404.
 
 The returned `UserElementApiModel` is populated identically to today, with the addition that **`Sid` is populated from `onPremisesSecurityIdentifier`** when the lookup went via filter (paths 2/3) — so callers that key off `Sid` (which exists per `EnvironmentsPersistentSource` line 894 et al.) match.
 
@@ -105,7 +104,7 @@ OData injection safety: the `pid` value flows into a Graph filter string. Apply 
 1. Strips a `DOMAIN\` prefix if present (split on `\\`, take the part after; if more than one `\`, log a warning and use the last segment — matches AD's domain-qualified `sAMAccountName` convention).
 2. Strips the `(External)` suffix if present (some callers in DORC may carry this for guest accounts; matches the `GetUserData` regex on line 242).
 3. Calls `graphClient.Users.GetAsync(req => req.Filter = $"onPremisesSamAccountName eq '{name}' or userPrincipalName eq '{name}'", req.Select = ["id"], req.Headers["ConsistencyLevel"]="eventual")`.
-4. Takes the first hit. If none, return `string.Empty` (matches the current null-on-miss contract).
+4. Takes the first hit. If none, return `string.Empty` (the existing in-method paths return `string.Empty` per lines 340, 355, 382). Returning `null` would change the contract observed by `CachedUserGroupReader.GetGroupSidIfUserIsMember` line 42 (the `sid != null` check, which currently caches `""` and skips caching `null`); the `string.Empty` return preserves this behaviour. **Do not return `null` from any path** — keep parity with current sentinel semantics.
 
 After resolution, the existing `checkMemberGroups` logic runs unchanged.
 
@@ -117,7 +116,7 @@ OData injection safety: same `EscapeODataString` treatment for `name` and `group
 
 **Target**: `AzureEntraSearcher.GetSidsForUser(string userId)` (currently at line ~292).
 
-**Behaviour change**: today the method calls `GetMemberGroups.PostAsGetMemberGroupsPostResponseAsync(...)` which returns Entra group `id`s only. Switch to:
+**Behaviour change**: today the method calls `GetMemberGroups.PostAsGetMemberGroupsPostResponseAsync(...)` which returns Entra group `id`s only. **Replace** that call (not augment — the `GetMemberGroups` invocation goes away entirely) with:
 
 1. Call `graphClient.Users[userId].TransitiveMemberOf.GraphGroup.GetAsync(req => req.Select = ["id","onPremisesSecurityIdentifier"])` (the `.graph.group` cast endpoint, available on `Users[].TransitiveMemberOf`).
 2. For each returned group, append **both** the `id` *and* the `onPremisesSecurityIdentifier` (when non-null) to the result list.
@@ -146,7 +145,12 @@ Consumers (`CachedUserGroupReader`, `DirectorySearchController`, etc.) inject `I
 
 If the `IdentityServer` folder is left empty by the deletion of `IdentityServerSearcher.cs`, delete the folder. **Do not rename or relocate any other files** in this SPEC — that's out of scope per HLPS C-2.
 
-`UserGroupsReaderFactory` is currently consumed by `ClaimsTransformer` line 24 (`adUserGroupReaderFactory.GetWinAuthUserGroupsReader()`). After this file is deleted, `ClaimsTransformer` will not compile. **Resolution**: change the `ClaimsTransformer` constructor to inject `IUserGroupReader` directly. (This is the minimal change required for the codebase to compile after the factory deletion; it does *not* count as removing the Windows-auth scheme — that's S-007.)
+`UserGroupsReaderFactory` is currently consumed by **two** call sites — deleting the file without addressing both produces two compile breaks:
+
+1. `src/Dorc.Api/Services/ClaimsTransformer.cs` line 24 — `adUserGroupReaderFactory.GetWinAuthUserGroupsReader()`. **Resolution**: change the `ClaimsTransformer` constructor to inject `IUserGroupReader` directly.
+2. `src/Dorc.Api/Security/ClaimsPrincipalReaderFactory.cs` lines 21/27/29 — constructor injects `IUserGroupsReaderFactory` and calls both `GetWinAuthUserGroupsReader()` and `GetOAuthUserGroupsReader()`. **Resolution**: change the constructor to inject `IUserGroupReader` directly (both factory methods return the same `CachedUserGroupReader` instance — the factory abstraction is collapsing to a single registration). The two locally-constructed `OAuthClaimsPrincipalReader` / `WinAuthClaimsPrincipalReader` both take an `IUserGroupReader`; both receive the same instance after the change. Note: `WinAuthClaimsPrincipalReader` is itself deleted in S-007 — for S-001, `ClaimsPrincipalReaderFactory` still constructs it (transient warning per R-3).
+
+Neither resolution removes the Windows-auth scheme — that's S-007's job. These are minimal mechanical edits to keep the codebase compiling after the factory is deleted.
 
 ### 2.7 Drop `System.DirectoryServices*` package refs
 
@@ -172,8 +176,14 @@ If the SPEC author discovers a need to add a method (e.g. an explicit `GetUserDa
 
 **Pattern**:
 - A small helper `GraphRequestAdapterFake` (in `src/Dorc.Core.Tests/Graph/`) configures an `IRequestAdapter` substitute to return canned responses for matching `RequestInformation`. Matching is by URL path + method.
-- Tests instantiate `AzureEntraSearcher` with a `GraphServiceClient` constructed against the fake adapter. Today the searcher constructs its own `GraphServiceClient` from `ClientSecretCredential`; this is brittle for testing. **Refactor for testability** (in-scope for this SPEC): the searcher accepts an optional `GraphServiceClient` via constructor (defaulting to today's construction), or — cleaner — via a `Func<GraphServiceClient>` factory parameter. The test substitutes a Graph-fake-backed client.
-- Recorded HTTP harness (WireMock.Net) was considered and rejected: heavier dependency, slower tests, fixture format is more verbose than NSubstitute return values.
+- Tests instantiate `AzureEntraSearcher` with a `GraphServiceClient` constructed against the fake adapter.
+
+**Test-seam refactor scope justification.** Today the searcher constructs its own `GraphServiceClient` from `ClientSecretCredential` (line 33–56). This is untestable without going via real Entra credentials. HLPS SC-9 ("integration-level test per parity matrix row against a Graph SDK fake") **cannot be satisfied without a test seam** — boundary mocks at `IActiveDirectorySearcher` were explicitly rejected by HLPS Round-2 NM-2. Therefore a minimal test-seam refactor is in-scope for this SPEC, *not* a scope leak. Two implementation options for the implementer:
+
+- **Option A (recommended, per D-S1.1):** add an optional `Func<GraphServiceClient>` factory parameter to the constructor, defaulting to today's construction. Test path substitutes a fake-backed client; production path is unchanged.
+- **Option B (alternative):** point an integration-test project at a recorded HTTP harness (WireMock.Net or `Microsoft.AspNetCore.TestHost`). Heavier dependency, slower tests, verbose fixture format. Rejected as the default.
+
+The implementer picks A unless they discover a reason A is unworkable; if Option B is chosen, document why in the PR description.
 
 ### 3.2 Tests per parity-matrix row
 
@@ -190,7 +200,8 @@ Each row of HLPS §4 gets at least one integration-style test exercising `AzureE
 | `P5_GetGroupSidIfUserIsMemberRecursive_StripsDomainPrefix` | Pass `"DOMAIN\\alice"`; expect filter on `'alice'` (after prefix strip). |
 | `P6_GetGroupSidIfUserIsMemberRecursive_ReturnsGroupIdOnTransitiveMatch` | Same as P5 but assert the return value is the target group's Entra `id` when `checkMemberGroups` returns a hit. |
 | `P7_GetSidsForUser_EmitsBothPidAndSid` | Fake `/users/{id}/transitiveMemberOf/microsoft.graph.group` returns two groups, one with `onPremisesSecurityIdentifier`, one without. Assert returned list contains both groups' Entra IDs + the one's SID. |
-| `P8_GetUserDataById_OmitsDisabledAccounts` | Fake returns user with `accountEnabled = false`; `GetUserDataById` throws `ArgumentException` (current contract). |
+| `P8_GetUserDataById_DisabledUserButGroupHit_ReturnsGroup` | Fake `/users/{id}` returns user with `accountEnabled = false` (the existing code skips disabled users at line 182); fake `/groups/{id}` returns a group; `GetUserDataById` returns the group (current contract — disabled-user-only triggers fall-through to group lookup). |
+| `P8_GetUserDataById_DisabledUserNoGroup_Throws` | Fake `/users/{id}` returns disabled user; fake `/groups/{id}` 404s; `GetUserDataById` throws `ArgumentException`. |
 | `P9_GetUserData_PopulatesDisplayNameAndEmail` | Asserts the returned `UserElementApiModel` has `DisplayName` and `Email` populated from Graph's `displayName` / `mail` (falling back to `userPrincipalName` per existing logic). |
 
 Negative tests:
@@ -219,7 +230,8 @@ After the PR is opened, re-run the PR-#424-flagged scanners against the diff. Ze
 - Runs on `ubuntu-latest`.
 - Executes `dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release` (and the same for `Dorc.Core` and `Dorc.PersistentData` if not transitively covered).
 - Fails on any build error, in particular CA1416 platform-compatibility errors or unresolved `System.DirectoryServices*` types.
-- Also runs `grep -r "System\.DirectoryServices" src/ --include="*.cs" --include="*.csproj"` and fails if any hit appears outside `docs/`.
+- Also runs `grep -r "System\.DirectoryServices" src/ --include="*.cs" --include="*.csproj"` and fails if any hit appears outside `docs/`. (The §5 verification checklist's grep item references this same gate; one place enforces, the other audits.)
+- Verify `<TreatWarningsAsErrors>` configuration in the target csprojs before assuming R-3's suppression strategy is needed; if `true`, the `#pragma` suppression is necessary; if `false`, the CA1416 warning is tolerable until S-007.
 
 This is the **negative** SC-1 gate (prevents Windows-only refs reappearing). The **positive** gate (Linux container actually runs DORC end-to-end) is S-010's smoke test.
 
@@ -238,7 +250,7 @@ Done means:
 - [ ] The §3.4 SC-10 acceptance test passes.
 - [ ] The existing `AccessControlControllerTests` and `RefDataProjectsControllerDeleteTests` pass with the boundary-mock substitution.
 - [ ] The PR description links to the PR-#424 SAST re-scan result confirming zero LDAP-injection findings.
-- [ ] A scripted check shows `ClaimsTransformer` compiles after the `IUserGroupsReaderFactory` deletion (the constructor was switched to take `IUserGroupReader` directly per §2.6).
+- [ ] `dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release` succeeds with zero errors after the §2.6 deletions (covers both the `ClaimsTransformer` and `ClaimsPrincipalReaderFactory` consumer-update edits).
 
 ---
 
