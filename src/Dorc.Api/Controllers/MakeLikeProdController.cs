@@ -220,7 +220,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}", mlpRequest?.TargetEnv, mlpRequest);
+                _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}",
+                    LogSanitizer.Sanitize(mlpRequest?.TargetEnv), mlpRequest);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
