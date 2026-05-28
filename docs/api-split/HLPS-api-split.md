@@ -6,14 +6,14 @@ issue: sefe/dorc#423
 folder: docs/api-split/
 supersedes_pr: sefe/dorc#424
 codebase_anchor: aab79d14 (main, 2026-05-28) — file counts, paths, and class names are pinned to this commit
-revision_round: 2
+revision_round: 3
 ---
 
 # HLPS: Replace AD with Microsoft Graph + Split `Dorc.Api` into a Linux-compatible API and a Windows-only worker
 
 | Field      | Value                       |
 |------------|-----------------------------|
-| **Status** | IN REVIEW (Round 2 — Round 1 findings addressed; see Appendix A for disposition) |
+| **Status** | IN REVIEW (Round 3 — Round 2 NH-1/NH-2 addressed; see Appendix A) |
 | **Author** | Agent                       |
 | **Date**   | 2026-05-28                  |
 | **Issue**  | sefe/dorc#423               |
@@ -68,13 +68,13 @@ The worker is a **permanent architectural component**, not transitional. Future 
 `System.DirectoryServices` and `System.DirectoryServices.AccountManagement` are **removed from every project in the primary API's compile graph** (`Dorc.Api`, `Dorc.Core`, `Dorc.PersistentData`) and replaced with Microsoft Graph by promoting and extending the existing `Dorc.Core/AzureEntraSearcher.cs`. AD code does **not** move to the worker — it is deleted. Consequence: the worker's surface shrinks to genuinely non-portable Windows operations (WMI, remote registry, password reset).
 
 Specifically:
-- `Dorc.Core/AzureEntraSearcher.cs` becomes the production `IActiveDirectorySearcher`; its `[SupportedOSPlatform("windows")]` attribute is removed (it was inherited from the AD code path and is incorrect for Graph).
+- `Dorc.Core/AzureEntraSearcher.cs` becomes the production `IActiveDirectorySearcher`; its `[SupportedOSPlatform("windows")]` attribute is removed (the attribute is incorrect — Graph is cross-platform).
 - `Dorc.Core/ActiveDirectorySearcher.cs`, `Dorc.Core/CompositeDirectorySearcher.cs` (class `CompositeActiveDirectorySearcher`), `Dorc.Core/IdentityServer/IdentityServerSearcher.cs`, `Dorc.Api/Services/DirectorySearcherFactory.cs`, `Dorc.Api/Services/UserGroupReaderFactory.cs`, `Dorc.Api/Services/ActiveDirectorySearchService.cs` are deleted (or — for the interfaces — reduced to the Graph contract).
 - `Dorc.Api/Services/ApiRegistry.cs` DI registrations switch from the composite/factory pattern to direct registration of the Graph-backed searcher.
-- Consumers (`ClaimsTransformer`, `CachedUserGroupReader`, `DirectorySearchController`, `AccessControlController`, `RefDataEnvironmentsUsersController`, `RefDataProjectsController`, `PropertyValuesController`, `RequestController`, AD tests) keep their interface dependency (`IActiveDirectorySearcher`) and gain no behavioural change beyond Graph's documented semantic gaps (see C-5).
+- Consumers (`ClaimsTransformer`, `CachedUserGroupReader`, `DirectorySearchController`, `AccessControlController`, `RefDataEnvironmentsUsersController`, `RefDataProjectsController`, `PropertyValuesController`, `RequestController`, AD tests) keep their interface dependency (`IActiveDirectorySearcher`) and gain no behavioural change beyond Graph's documented semantic gaps (see C-5 + parity matrix in §4).
 - `Dorc.PersistentData`'s AD code path is removed; the `System.DirectoryServices` package ref drops from its csproj.
 
-Customer implication: every DORC install now requires an Entra ID tenant with an app registration and Graph permissions. Pure on-prem AD-only installs (no Entra tenant, no Entra Connect) **cannot upgrade** to this version without first establishing an Entra presence. See U-10 (escalated to product owner).
+Customer implication: every DORC install now requires an Entra ID tenant + app registration + Graph permissions, **and** (for any install with existing `AccessControl.Sid` rows or AD-rooted `RBAC` mappings) requires **Entra Connect (or Cloud Sync)** so on-prem SIDs are mirrored to Entra `onPremisesSecurityIdentifier`. Without Entra Connect, P-4 / P-7 in the parity matrix cannot resolve existing ACLs. Pure on-prem AD-only installs (no Entra tenant) **cannot upgrade** to this version. See U-10 (Product-owner decision).
 
 ### D-3 — Inter-API auth: loopback-only + shared secret header (was U-3)
 The worker binds to `127.0.0.1` and rejects any request without a shared-secret header `X-Worker-Key`. Authorization decisions are made entirely in the primary (using Graph-backed claims) *before* the worker is called; the worker trusts that any call reaching it has already been authz'd. For password reset, the worker uses **its own service account** (an AD-delegated reset-password identity) — the caller's identity is forwarded in the request body for audit only, not for impersonation.
@@ -94,29 +94,39 @@ Rationale: JWT/mTLS add machinery without material security benefit on loopback;
 ### In Scope
 
 **A. Graph migration (codebase-wide, per D-2):**
-- Promote `Dorc.Core/AzureEntraSearcher.cs` to the production implementation, removing its `[SupportedOSPlatform("windows")]` attribute.
-- Achieve parity with the deleted AD code for the **enumerated load-bearing behaviours** below (parity matrix). Behaviours not on this list are explicitly *not* parity-guaranteed and any consumer that depends on them must be identified and re-designed.
+- Promote `Dorc.Core/AzureEntraSearcher.cs` to the production implementation, removing its (incorrect) `[SupportedOSPlatform("windows")]` attribute.
+- Close the parity-matrix gaps flagged below as ❌:
+  - **P-4 (legacy AD SID lookup):** extend `GetUserDataById` so that when the input matches the SID shape (`S-1-5-...`) and the direct `Users[id]` lookup 404s, it falls back to `/users?$filter=onPremisesSecurityIdentifier eq '<sid>'` and the equivalent for groups.
+  - **P-5 (sAMAccountName resolution):** extend `GetGroupSidIfUserIsMemberRecursive` to resolve the `userName` argument via `/users?$filter=onPremisesSamAccountName eq '<name>' or userPrincipalName eq '<name>'` before calling `checkMemberGroups`.
+  - **P-7 (claims expansion emits both Pid and Sid):** rework whatever path expands a user's group memberships into claims so that it surfaces both the Entra `id` (→ `Pid`) and the `onPremisesSecurityIdentifier` (→ `Sid`), supporting the existing `ac.Pid ?? ac.Sid` resolution pattern.
+- Achieve parity with the deleted AD code for the load-bearing behaviours in the parity matrix. Behaviours not in the matrix are explicitly *not* parity-guaranteed and any consumer that depends on them must be identified and re-designed.
 - Delete the AD code listed in §2 / D-2.
 - Drop `System.DirectoryServices` and `System.DirectoryServices.AccountManagement` package refs from `Dorc.Core.csproj` and `Dorc.PersistentData.csproj`.
 - Update `Dorc.Api/Services/ApiRegistry.cs` DI to register the Graph-backed searcher directly.
-- Tests: `Dorc.Api.Tests/Controllers/AccessControlControllerTests.cs` and `Dorc.Api.Tests/Controllers/RefDataProjectsControllerDeleteTests.cs` updated against Graph-backed fixtures (or appropriate mocks at the `IActiveDirectorySearcher` boundary).
+- Tests (SC-6 / SC-9): **every row in the parity matrix gets at least one integration-level test against a Graph SDK fake (e.g. `Microsoft.Graph` request-adapter mock or a recorded HTTP harness) in addition to any mocked-interface unit tests.** Mocks at the `IActiveDirectorySearcher` boundary alone do *not* satisfy SC-9 because they don't exercise the Graph payload shape. Update `Dorc.Api.Tests/Controllers/AccessControlControllerTests.cs` and `Dorc.Api.Tests/Controllers/RefDataProjectsControllerDeleteTests.cs` to the Graph-backed pattern.
 
 **Parity matrix (load-bearing behaviours that must work post-Graph):**
 
-| Behaviour | Today (DirectoryServices) | Graph equivalent / strategy |
-|---|---|---|
-| User search by name | LDAP filter | `/users?$filter=startswith(displayName,...)` |
-| Group search by name | LDAP filter | `/groups?$filter=startswith(displayName,...)` |
-| Resolve identity by ID/SID | SID lookup | Entra `objectId` (UUID); SIDs from synced-from-AD users available via `onPremisesSecurityIdentifier` |
-| Recursive group membership ("is user X in group Y, transitively?") | `IsMemberOf` + walk | `/users/{id}/checkMemberGroups` (transitive, returns all groups user is in) |
-| All SIDs for a user (used for claims) | Walk groups | Transitive group IDs via `/users/{id}/transitiveMemberOf` |
-| Disabled account detection | `userAccountControl` bit | `accountEnabled` |
-| Display name + email | LDAP attribute | Graph `displayName` / `mail` / `userPrincipalName` |
+The matrix below is derived from the `IActiveDirectorySearcher` contract *and* its call sites (notably `AccessControlPersistentSource`, `EnvironmentsPersistentSource`, `ClaimsTransformer`). Every row in this table represents behaviour an existing customer install relies on; the Graph implementation in `aab79d14` already covers some rows but has gaps in others — those gaps are flagged below and are in-scope for S-001.
+
+| # | Behaviour | Today (DirectoryServices) | Graph equivalent / strategy | Current Graph impl status at `aab79d14` |
+|---|---|---|---|---|
+| P-1 | User search by name | LDAP filter | `/users?$filter=startswith(displayName,...) or startswith(userPrincipalName,...) or startswith(onPremisesSamAccountName,...)` | ✅ Already implemented (`Search`, line ~74) |
+| P-2 | Group search by name | LDAP filter | `/groups?$filter=startswith(displayName,...) or startswith(mailNickname,...) or startswith(onPremisesSamAccountName,...)` | ✅ Already implemented (line ~116) |
+| P-3 | Resolve identity by Entra object ID | n/a | `/users/{id}` then `/groups/{id}` fallback | ✅ Already implemented (`GetUserDataById`, line ~163) |
+| P-4 | **Resolve identity by legacy AD SID** (existing `AccessControl.Sid` rows) | SID lookup | `/users?$filter=onPremisesSecurityIdentifier eq '<sid>'` then `/groups?$filter=onPremisesSecurityIdentifier eq '<sid>'` fallback | ❌ **Gap — must be added in S-001.** Without this, every existing `AccessControl.Sid` row 404s post-migration (see `AccessControlPersistentSource.cs:77/180/196`, `EnvironmentsPersistentSource` lines 165/166/203/373/422/728/932 which use `ac.Sid` in EF queries). |
+| P-5 | **Resolve user by sAMAccountName** (for recursive membership) | LDAP `sAMAccountName=` | `/users?$filter=onPremisesSamAccountName eq '<name>'` then fall back to `/users/<upn>` | ❌ **Gap — must be added in S-001.** Current impl (`GetGroupSidIfUserIsMemberRecursive`, line ~325) treats the `userName` parameter as an Entra object ID / UPN and calls `graphClient.Users[userName]`, so sAMAccountName-only callers silently return empty. |
+| P-6 | Recursive group membership ("is user X in group Y, transitively?") | `IsMemberOf` + walk | After P-5 resolves user, `/users/{id}/checkMemberGroups` (transitive) | ✅ Logic already present; depends on P-5 |
+| P-7 | All group SIDs for a user (used for claims expansion) | Walk groups | `/users/{id}/transitiveMemberOf?$select=id,onPremisesSecurityIdentifier` returning both `id` and `onPremisesSecurityIdentifier` so consumers can match against either `Pid` or `Sid` columns | ❌ **Gap — must be added in S-001.** `EnvironmentsPersistentSource` line 894 (`ac.Pid ?? ac.Sid`) shows the codebase already accommodates dual ID worlds; the claims-expansion path must emit both values. |
+| P-8 | Disabled account detection | `userAccountControl` bit | `accountEnabled` | ✅ Already used (`GetUserDataById` checks `AccountEnabled == true`) |
+| P-9 | Display name + email | LDAP attribute | Graph `displayName` / `mail` / `userPrincipalName` | ✅ Already implemented |
 
 **Out of parity (explicitly):**
 - Local-machine SIDs (DORC didn't use these meaningfully).
 - Foreign Security Principals (cross-forest trusts) — must be flagged for any consumer that depends on this; none identified at `aab79d14`.
 - Well-known SIDs (`BUILTIN\Administrators` etc.) — DORC's RBAC uses domain groups, not well-known SIDs.
+
+**Data-migration implication:** P-4 and P-7 depend on the customer's Entra tenant having `onPremisesSecurityIdentifier` populated, which requires **Entra Connect (or Cloud Sync) to be present and to have synced the on-prem AD users/groups whose SIDs are persisted in `AccessControl.Sid`**. Without that, existing ACL rows cannot be resolved. This is folded into U-10 (customer migration prerequisite).
 
 **B. Worker process (per D-1):**
 - New project (working name `Dorc.Api.WindowsWorker` — see U-4).
@@ -176,7 +186,8 @@ Rationale: JWT/mTLS add machinery without material security benefit on loopback;
 - **SC-7** MSI installer adds the worker as a Windows-only component without breaking existing upgrade paths.
 - **SC-8a** LDAP-injection findings on PR #424 (`DirectorySearchController` ×2) are eliminated by the Graph migration removing the LDAP code path. Verified by re-running the security scan post-merge.
 - **SC-8b** Log-injection findings (`BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Deployment/Requests.cs`) are addressed in dedicated SPECs carved out from the relevant IS steps (S-005 for `ResetAppPasswordController`; the others get their own SPEC under the step that touches them). Not deferred outside this HLPS.
-- **SC-9** Parity matrix in §4 is documented as a living artefact (`docs/api-split/parity-matrix.md`) and every behaviour in it has at least one test exercising the Graph-backed path.
+- **SC-9** Parity matrix in §4 is documented as a living artefact (`docs/api-split/parity-matrix.md`) and every row has at least one **integration-level** test exercising the Graph-backed path against a Graph SDK fake or recorded HTTP harness. Interface-level mocks at the `IActiveDirectorySearcher` boundary alone do not satisfy this criterion.
+- **SC-10** Existing customer installs with `AccessControl.Sid` rows backed by on-prem AD SIDs continue to resolve correctly after migration, provided their Entra tenant has Entra Connect (or Cloud Sync) populating `onPremisesSecurityIdentifier`. Verified by an integration test against a Graph fake that exposes `onPremisesSecurityIdentifier` for sample users/groups.
 
 ---
 
@@ -192,7 +203,11 @@ Rationale: JWT/mTLS add machinery without material security benefit on loopback;
 - **U-7** Contract-test strategy for the inter-API surface (consumer-driven vs. shared-DTO vs. OpenAPI-spec-driven). Recommendation pending in the IS step that wires the contract: shared-DTO via the existing `Dorc.ApiModel` pattern is the lowest-friction choice.
 - **U-8** `Setup.Acceptance` handling: install the worker MSI for the test environment, or stub the worker endpoints. Gates SC-6 (contract tests on a real worker vs. mock).
 - **U-9** Graph permission set required (delegated vs application; specific permission names). Affects customer setup guidance (C-4) and the IS step that does the Graph migration. **Recommendation pending architecture confirmation:** application-only permissions (`User.Read.All`, `Group.Read.All`, `GroupMember.Read.All`) with admin consent, since the worker runs as a service account and never acts on behalf of an end user.
-- **U-10** Migration path for existing customers from AD to Entra. **Owner: Product.** If a customer has on-prem AD only (no Entra Connect, no Entra tenant), the upgrade is a hard break. Product decision required before release: do we publish migration guidance only, or do we ship a back-compat shim? Default position absent product input: hard break, documented prerequisites, no shim.
+- **U-10** Migration path for existing customers from AD to Entra. **Owner: Product.** Two customer cohorts and two outcomes:
+  - **Cohort A — has Entra tenant + Entra Connect populating `onPremisesSecurityIdentifier`.** Upgrade is transparent: P-4 / P-7 in the parity matrix resolve existing `AccessControl.Sid` rows via Entra. SC-10 covers this.
+  - **Cohort B — pure on-prem AD, no Entra tenant.** Hard break. Existing ACLs cannot be resolved post-migration.
+  Product decision required before release: do we publish migration guidance only, or do we ship a back-compat shim (e.g. an on-prem LDAP fallback for the SID-resolution path)? Default position absent product input: hard break for Cohort B; published prerequisites; no shim.
+- **U-11** Worker-absence detection on Linux: how does the primary know the worker is not available? Options: explicit config flag (`WindowsWorker:Enabled=false`), startup health-probe, null-impl registration based on `OperatingSystem.IsLinux()`. Decision in S-003's SPEC; recommendation pending: config flag (explicit, environment-agnostic, debuggable).
 
 ---
 
@@ -217,7 +232,7 @@ The step list below is **indicative**, not binding — the binding ordering live
 
 1. **Adversarial review of this HLPS — Round 2** (CLAUDE.md checkpoint). After this revision lands, the document returns to `IN REVIEW` for a second panel pass.
 2. On approval, draft `IS-api-split.md`. Indicative ordering with the riskiest step first (per Round-1 finding M-7):
-   - **S-001 — Graph migration (the spike).** Promote `AzureEntraSearcher`, remove its `[SupportedOSPlatform]` attribute, achieve parity matrix coverage, switch consumers, delete AD code, drop `System.DirectoryServices*` refs from `Dorc.Core` and `Dorc.PersistentData`. The CI gate (Linux build) is part of this step. If parity proves harder than D-2 assumes, we learn it here, not after four worker steps.
+   - **S-001 — Graph migration (the spike).** Promote `AzureEntraSearcher`, remove its `[SupportedOSPlatform]` attribute, close the parity-matrix ❌ gaps (P-4 SID lookup, P-5 sAMAccountName resolution, P-7 dual-ID claims emission), switch consumers, delete AD code, drop `System.DirectoryServices*` refs from `Dorc.Core` and `Dorc.PersistentData`, **ship the Linux build CI gate** that enforces SC-1 going forward. If parity proves harder than D-2 assumes, we learn it here, not after four worker steps.
    - **S-002** — Create `Dorc.Api.WindowsWorker` project, worker host, shared-secret auth scheme, DI scaffolding, MSI skeleton.
    - **S-003** — Define `IWindowsWorkerClient` HTTP contract; null/notSupported impl for Linux installs.
    - **S-004** — Move smallest Windows-only endpoint family (registry/remote-server probing) as proof-of-pattern.
@@ -260,3 +275,15 @@ For audit. Disposition of findings from the 2026-05-28 adversarial panel (Round 
 | R2-11 | LOW | Installer secret-handling security-review pass | Accept — C-7 added |
 | R2-12 | LOW | `ApiRegistry.cs` not listed | Accept — listed in §2 and D-2 |
 | R2-10 | LOW | Status-frontmatter timing nit | Reject — cosmetic |
+
+### Round 2 findings disposition
+
+| ID | Severity | Finding (one-line) | Disposition |
+|---|---|---|---|
+| NH-1 | HIGH | Parity matrix missed legacy AD SID lookup (every existing `AccessControl.Sid` row would 404 post-migration) | Accept — added as P-4 in §4 parity matrix with explicit Graph strategy (`$filter=onPremisesSecurityIdentifier eq '...'`); P-7 added to ensure claims-expansion path emits both `Pid` and `Sid`; SC-10 added; U-10 reframed with Cohort A / Cohort B distinction; Scope A bullet added requiring `GetUserDataById` SID-fallback in S-001 |
+| NH-2 | HIGH | `GetGroupSidIfUserIsMemberRecursive` silently broken for sAMAccountName callers (Graph impl treats userName as Entra ID) | Accept — added as P-5 in §4 parity matrix; Scope A bullet added requiring `GetGroupSidIfUserIsMemberRecursive` to resolve `userName` via `onPremisesSamAccountName` filter before calling `checkMemberGroups` |
+| NM-1 | MED | D-2 misdiagnosed `[SupportedOSPlatform("windows")]` attribute as "inherited" | Accept — D-2 reworded: "the attribute is incorrect — Graph is cross-platform" |
+| NM-2 | MED | Scope A "tests via mocks at the boundary" insufficient for SC-9 | Accept — Scope A tightened: every parity-matrix row requires an integration-level test against a Graph SDK fake; SC-9 reinforced with the same requirement |
+| NM-3 | MED | SC-4 `503` envelope doesn't say how primary detects worker absence | Accept — added as new non-blocking U-11 with config-flag recommendation; decision in S-003 SPEC |
+| NL-1 | LOW | CI gate not visible in Next Steps | Accept — S-001 step description updated to call out the Linux build CI gate explicitly |
+| NL-2 | LOW | Appendix A maps R2-8 to MED but Round 1 had it as HIGH | Accept (cosmetic) — original Round 1 review listed R2-8 in its MEDIUM section ("'No silent functional change… except where Graph semantics differ' is a get-out clause"), so the mapping is correct; this row clarifies the trace |
