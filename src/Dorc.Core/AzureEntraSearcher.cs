@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Authentication;
 using Microsoft.Graph.Users.Item.CheckMemberGroups;
+using Microsoft.Kiota.Abstractions;
 using System.Text.RegularExpressions;
 
 namespace Dorc.Core
@@ -114,7 +115,7 @@ namespace Dorc.Core
                             $"startsWith(userPrincipalName,'{objectName}'))";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSamAccountName", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 if (users?.Value != null)
                 {
@@ -143,7 +144,7 @@ namespace Dorc.Core
                             $"startsWith(onPremisesSamAccountName, '{objectName}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSamAccountName", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 if (groups?.Value != null)
                 {
@@ -161,7 +162,7 @@ namespace Dorc.Core
                     }
                 }
             }
-            catch (ServiceException ex)
+            catch (ApiException ex)
             {
                 if (ex.ResponseStatusCode == 401 || ex.ResponseStatusCode == 403)
                 {
@@ -199,7 +200,7 @@ namespace Dorc.Core
                     {
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 if (user != null && user.AccountEnabled == true)
                 {
@@ -214,7 +215,7 @@ namespace Dorc.Core
                     };
                 }
             }
-            catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
             {
                 // Fall through to SID-shape user fallback / group lookup
             }
@@ -239,7 +240,7 @@ namespace Dorc.Core
                     {
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 if (group != null)
                 {
@@ -254,7 +255,7 @@ namespace Dorc.Core
                     };
                 }
             }
-            catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
             {
                 // Fall through to SID-shape group fallback
             }
@@ -291,7 +292,7 @@ namespace Dorc.Core
                         {
                             "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSecurityIdentifier"
                         };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 var hit = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (hit == null) return null;
@@ -329,7 +330,7 @@ namespace Dorc.Core
                         {
                             "id", "displayName", "mailNickname", "mail", "onPremisesSecurityIdentifier"
                         };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 var hit = groups?.Value?.FirstOrDefault();
                 if (hit == null) return null;
@@ -375,7 +376,7 @@ namespace Dorc.Core
                             $"startsWith(userPrincipalName,'{safeUsername}')";
                         requestConfiguration.QueryParameters.Select =
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 var activeUser = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (activeUser != null)
@@ -391,7 +392,7 @@ namespace Dorc.Core
                     };
                 }
             }
-            catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
             {
                 // User not found, continue to throw ArgumentException
             }
@@ -425,7 +426,7 @@ namespace Dorc.Core
                     .GetAsync(req =>
                     {
                         req.QueryParameters.Select = new[] { "id", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 if (!string.IsNullOrEmpty(self?.OnPremisesSecurityIdentifier))
                 {
@@ -445,7 +446,7 @@ namespace Dorc.Core
                     .GetAsync(req =>
                     {
                         req.QueryParameters.Select = new[] { "id", "onPremisesSecurityIdentifier" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 if (memberOf?.Value != null)
                 {
@@ -495,7 +496,7 @@ namespace Dorc.Core
                         requestConfiguration.QueryParameters.Filter =
                             $"displayName eq '{safeGroup}' or mailNickname eq '{safeGroup}'";
                         requestConfiguration.QueryParameters.Select = new[] { "id" };
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 var targetGroup = group?.Value?.FirstOrDefault();
                 if (targetGroup == null)
@@ -516,7 +517,7 @@ namespace Dorc.Core
                     return targetGroup.Id;
                 }
             }
-            catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.Forbidden)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.Forbidden)
             {
                 _log.LogError(ex, "Insufficient permissions to check group membership");
                 throw new System.Configuration.Provider.ProviderException("Insufficient permissions to query Azure Entra ID.", ex);
@@ -563,7 +564,7 @@ namespace Dorc.Core
                     req.QueryParameters.Filter =
                         $"onPremisesSamAccountName eq '{safe}' or userPrincipalName eq '{safe}'";
                     req.QueryParameters.Select = new[] { "id" };
-                }).Result;
+                }).GetAwaiter().GetResult();
 
             return users?.Value?.FirstOrDefault()?.Id;
         }
