@@ -1,5 +1,5 @@
 ---
-status: IN REVIEW
+status: APPROVED
 author: Agent
 date: 2026-05-28
 issue: sefe/dorc#423
@@ -13,7 +13,7 @@ revision_round: 3
 
 | Field      | Value                       |
 |------------|-----------------------------|
-| **Status** | IN REVIEW (Round 3 — Round 2 NH-1/NH-2 addressed; see Appendix A) |
+| **Status** | APPROVED (Round 3 verification passed 2026-05-28; see Appendix A for full disposition trail) |
 | **Author** | Agent                       |
 | **Date**   | 2026-05-28                  |
 | **Issue**  | sefe/dorc#423               |
