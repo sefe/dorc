@@ -1,40 +1,33 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
 using Dorc.Core.Configuration;
 using Dorc.PersistentData;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
 using System.Security.Principal;
 
 namespace Dorc.Api.Security
 {
+    // Post-S-007, only the OAuth reader is supported (WinAuth/Negotiate removed
+    // per HLPS Scope E). The name "Factory" is now misleading — there's no
+    // choice to make — but the type is preserved so consumers' DI registrations
+    // and dependency declarations don't churn in this PR. Renaming belongs to a
+    // separate, scoped naming pass (HLPS C-2).
     public class ClaimsPrincipalReaderFactory : IClaimsPrincipalReader
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfigurationSettings _config;
         private readonly IUserGroupReader _adUserGroupsReader;
         private readonly OAuthClaimsPrincipalReader _oauthReader;
-        private readonly WinAuthClaimsPrincipalReader _winAuthReader;
 
         public ClaimsPrincipalReaderFactory(
             IConfigurationSettings config,
             IHttpContextAccessor httpContextAccessor,
-            IUserGroupReader userGroupReader
-            )
+            IUserGroupReader userGroupReader)
         {
-            _httpContextAccessor = httpContextAccessor;
             _config = config;
-
             _adUserGroupsReader = userGroupReader;
-
             _oauthReader = new OAuthClaimsPrincipalReader(userGroupReader);
-            _winAuthReader = new WinAuthClaimsPrincipalReader(userGroupReader);
         }
 
-        public string GetUserName(IPrincipal user)
-        {
-            var reader = ResolveReader();
-            return reader.GetUserName(user);
-        }
+        public string GetUserName(IPrincipal user) => _oauthReader.GetUserName(user);
 
         public string GetUserId(ClaimsPrincipal user)
         {
@@ -43,47 +36,16 @@ namespace Dorc.Api.Security
                 var data = _adUserGroupsReader.GetUserData(GetUserName(user));
                 return data.Sid;
             }
-
-            var reader = ResolveReader();
-            return reader.GetUserId(user);
+            return _oauthReader.GetUserId(user);
         }
 
-        public string GetUserLogin(IPrincipal user)
-        {
-            var reader = ResolveReader();
-            return reader.GetUserLogin(user);
-        }
+        public string GetUserLogin(IPrincipal user) => _oauthReader.GetUserLogin(user);
 
-        public string GetUserFullDomainName(IPrincipal user)
-        {
-            var reader = ResolveReader();
-            return reader.GetUserFullDomainName(user);
-        }
+        public string GetUserFullDomainName(IPrincipal user) => _oauthReader.GetUserFullDomainName(user);
 
-        public string GetUserSafeIdentifier(IPrincipal user)
-        {
-            var reader = ResolveReader();
-            return reader.GetUserSafeIdentifier(user);
-        }
+        public string GetUserSafeIdentifier(IPrincipal user) => _oauthReader.GetUserSafeIdentifier(user);
 
-        public string GetUserEmail(ClaimsPrincipal user)
-        {
-            var reader = ResolveReader();
-            return reader.GetUserEmail(user);
-        }
-
-        private IClaimsPrincipalReader ResolveReader()
-        {
-            var httpContext = _httpContextAccessor.HttpContext;
-
-            var scheme = httpContext.GetAuthenticationScheme();
-            if (scheme == JwtBearerDefaults.AuthenticationScheme)
-            {
-                return _oauthReader; // Use OAuth reader
-            }
-
-            return _winAuthReader; // Fallback to WinAuth reader
-        }
+        public string GetUserEmail(ClaimsPrincipal user) => _oauthReader.GetUserEmail(user);
 
         public List<string> GetSidsForUser(IPrincipal user)
         {
@@ -91,9 +53,7 @@ namespace Dorc.Api.Security
             {
                 return _adUserGroupsReader.GetSidsForUser(GetUserLogin(user));
             }
-
-            var reader = ResolveReader();
-            return reader.GetSidsForUser(user);
+            return _oauthReader.GetSidsForUser(user);
         }
     }
 }
