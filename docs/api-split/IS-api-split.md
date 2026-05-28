@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: IN REVIEW
 author: Agent
 date: 2026-05-28
 issue: sefe/dorc#423
@@ -12,7 +12,7 @@ codebase_anchor: aab79d14 (main, 2026-05-28)
 
 | Field       | Value                                                   |
 |-------------|---------------------------------------------------------|
-| **Status**  | DRAFT                                                   |
+| **Status**  | IN REVIEW (Round 2 — Round 1 H-1/H-2/H-3 + MEDs addressed) |
 | **Author**  | Agent                                                   |
 | **Date**    | 2026-05-28                                              |
 | **HLPS**    | [HLPS-api-split.md](HLPS-api-split.md) (APPROVED)       |
@@ -30,11 +30,11 @@ codebase_anchor: aab79d14 (main, 2026-05-28)
 | S-002 | `Dorc.Api.WindowsWorker` project scaffold + loopback host + shared-secret auth scheme | D-1, D-3, Scope B, SC-2 | —     |
 | S-003 | `IWindowsWorkerClient` contract + null-impl for Linux + worker-absence detection (U-11) | D-3, Scope C, SC-4 | S-002         |
 | S-004 | Move `RefDataServersController` registry/remote-server probing to worker (proof-of-pattern) | Scope D, SC-3 | S-001, S-003 |
-| S-005 | Move WMI service-status probe path (`DaemonStatusProbe`, `WmiUtil`) to worker | Scope D, SC-3        | S-003         |
-| S-006 | Move `ResetAppPasswordController` impersonation to worker; carved-out log-injection fix for that controller | Scope D, SC-3, SC-8b | S-001, S-003  |
+| S-005 | Move WMI service-status probe path (`DaemonStatusProbe`, `WmiUtil`) to worker | Scope D, SC-3        | S-001, S-003  |
+| S-006 | Move `ResetAppPasswordController` impersonation to worker (worker-move only; security fix is S-009) | Scope D, SC-3        | S-001, S-003  |
 | S-007 | Remove Windows authentication scheme from primary (Negotiate, `WinAuth*`) | Scope E, SC-1        | S-001         |
 | S-008 | MSI installer wiring — worker component, shared-secret + service-account provisioning | Scope B, SC-7, C-7   | S-002         |
-| S-009 | Log-injection SPEC carve-outs for `BundledRequestsController`, `MakeLikeProdController`, `Deployment/Requests.cs` | SC-8b | — |
+| S-009 | Log-injection SPEC carve-outs for `ResetAppPasswordController`, `BundledRequestsController`, `MakeLikeProdController`, `Deployment/Requests.cs` | SC-8b | — |
 | S-010 | Documentation + Linux container smoke test                        | Scope F, SC-1, C-4   | S-001, S-002, S-003, S-007 |
 
 ### Ordering note
@@ -43,7 +43,7 @@ This work spans **multiple PRs**, not one. The natural cut points are S-001, the
 ### Parallelism
 - **S-001 and S-002 are fully independent** — Graph migration and worker scaffold touch disjoint files. Two contributors can pick them up simultaneously.
 - **S-009 is independent of everything** — log-injection fixes can ship at any time and may go in earlier as standalone PRs if reviewer bandwidth allows.
-- **S-004 / S-005 / S-006 are mutually independent** once S-003 lands.
+- **S-004 / S-005 / S-006 are mutually independent at code level** once S-003 lands — but all three also depend on S-001 (S-001 reshapes `Dorc.Core`'s csproj and DI; the WMI/registry/password-reset moves touch the same files). Authors must not ship these ahead of S-001.
 - **S-007 depends only on S-001** (the JWT/OAuth2 path becomes the sole auth scheme once AD-backed Negotiate is replaceable).
 - **S-008** can begin skeleton-only after S-002 lands and finish as worker endpoints fill in.
 - **S-010** is the closeout — depends on the substantive steps but is documentation-only.
@@ -81,6 +81,7 @@ None. Touches `Dorc.Core`, `Dorc.PersistentData`, `Dorc.Api` (DI + AD consumers)
 
 ### Verification intent
 - `Dorc.Api.csproj`, `Dorc.Core.csproj`, `Dorc.PersistentData.csproj` build with no `System.DirectoryServices*` package refs.
+- **`Dorc.Api.Client.csproj` still builds unchanged** against the updated `Dorc.ApiModel` (covers SC-5 for this step).
 - A Linux Docker build of `Dorc.Api` succeeds and the resulting container starts to the point of binding its HTTP listener. (Full Linux endpoint functionality is verified in S-010's smoke test.)
 - Every row of the HLPS §4 parity matrix has at least one integration test that exercises the Graph-backed path against a Graph SDK fake or a recorded HTTP harness; the tests assert the observable behaviour, not the Graph payload shape.
 - Re-running the PR #424 SAST scan against this branch shows zero LDAP-injection findings (SC-8a).
@@ -119,6 +120,8 @@ None. Brand-new project; no cross-project edits required beyond `Dorc.sln`.
 
 A second implementation (`WorkerUnavailableClient` or similar) is registered when worker support is disabled. Selection is per HLPS U-11: a `WindowsWorker:Enabled` boolean in `appsettings.json` controls registration. When disabled, every `IWindowsWorkerClient` method throws a typed exception that translates (via existing middleware or a new short ExceptionFilter) to `503 Service Unavailable` with body `{"error":"windows_worker_unavailable", "endpoint":"<name>"}` per HLPS SC-4.
 
+**Open SPEC-level decision** (to resolve in S-003 SPEC, named here so it isn't silently picked): the typed exception may be thrown either *synchronously at method call* by `WorkerUnavailableClient`, or *raised at startup* via a missing-registration probe. Synchronous-at-call gives a per-endpoint diagnostic; startup-probe fails fast. Recommendation pending: synchronous-at-call, so that an endpoint-specific `503` includes the endpoint name in the body (matching the body shape promised in SC-4).
+
 Worker URL is configured under `WindowsWorker:Url` in `appsettings.json` (resolving HLPS U-6 to favour explicit config over discovery, matching DORC's existing pattern). When `WindowsWorker:Enabled=true` and the URL is missing or unreachable at startup, the primary logs a clear error and uses the null implementation.
 
 Contract tests (resolving HLPS U-7 to shared-DTO via `Dorc.ApiModel`) live under `Dorc.Api.Tests` and exercise both the enabled (against a stub worker) and disabled paths.
@@ -143,6 +146,8 @@ S-002 (the worker exists to call).
 The Windows-registry read used to detect remote-server OS versions (currently in `Dorc.Api/Controllers/RefDataServersController.cs`) moves to a new worker controller. The primary's controller becomes a thin pass-through that calls `IWindowsWorkerClient.GetRemoteServerInfoAsync(...)`. A shared-DTO model (in `Dorc.ApiModel`) carries the response across the hop.
 
 The `Microsoft.Win32.Registry` usage is removed from `Dorc.Api`. If no other Windows-only registry usage remains, the `Microsoft.Win32.Registry` package ref (if explicit) drops from `Dorc.Api.csproj`.
+
+**Fixture capture sequencing** (also applies to S-005 and S-006): the pre-split parity-test fixtures (captured by running the current endpoint against representative inputs and saving the response) must be captured against `main` *before* this PR branches. The SPEC for this step establishes the fixture format and check-in location; subsequent move-PRs reuse it.
 
 ### Why it changes
 Smallest worker-move surface; proves the S-002/S-003 pattern works end-to-end before the larger moves (S-005, S-006). Addresses Scope D, contributes to SC-3.
@@ -178,25 +183,25 @@ S-003. (Independent of S-001 — WMI code doesn't touch AD.)
 
 ---
 
-## S-006 — Move `ResetAppPasswordController` impersonation to worker; SC-8b carve-out
+## S-006 — Move `ResetAppPasswordController` impersonation to worker (worker-move only)
 
 ### What changes
 The `WindowsIdentity` impersonation logic currently in `Dorc.Api/Controllers/ResetAppPasswordController.cs` moves to a worker endpoint. The primary's controller stays in place as a thin pass-through that authz's the caller (using Graph claims), forwards the request to the worker via `IWindowsWorkerClient.ResetPasswordAsync(...)`, and returns the response. The worker uses its own service account (an AD-delegated reset-password identity, configured at install time per S-008) — it does **not** impersonate the original caller. The caller's identity is included in the request body for audit logging only, per HLPS D-3.
 
-The log-injection security finding on this controller (one of SC-8b's items) is fixed as part of this step: user-controlled values that flow into log entries are either parameterised (structured logging) or sanitised (newline/control-character stripping). Pattern is documented in the SPEC for re-use in S-009.
+The log-injection finding on this controller is **out of scope for this step** and is fixed in S-009 alongside the other log-injection items. Splitting the security fix from the worker-move keeps the security-sensitive diff on its own reviewable surface (per IS Round-1 finding H-1).
 
 ### Why it changes
-Addresses Scope D, contributes to SC-3, satisfies SC-8b for this controller. Security-sensitive — the SPEC for this step gets a dedicated adversarial review.
+Addresses Scope D, contributes to SC-3. Security-sensitive even without the SC-8b fix (impersonation logic is moving processes) — the SPEC for this step gets a dedicated adversarial review.
 
 ### Dependencies
 - S-001 (caller authz now runs through Graph-backed claims, not Negotiate; HLPS D-3 assumes this for "primary authz's the caller").
 - S-003 (the contract exists).
 
 ### Verification intent
-- On Windows with worker running, password reset succeeds for the same input that succeeded pre-split, against a test AD or a Graph-fake setup.
+- On Windows with worker running, password reset succeeds for the same input that succeeded pre-split, against a test AD or a Graph-fake setup (parity test against the pre-split fixture established in S-004).
 - On Linux (worker disabled), the endpoint returns the documented `503`.
-- The log-injection scan against this controller returns zero findings.
 - Audit log entries contain the caller's identity (forwarded by the primary) without containing the worker's service-account identity (which should not appear in user-facing audit).
+- The SAST scan against this controller is run, but the log-injection finding is allowed to remain pending S-009 (linked in the PR description).
 
 ---
 
@@ -215,6 +220,8 @@ S-001. (Graph claims path must be production-ready before Negotiate is removed.)
 
 ### Verification intent
 - Authenticated requests against the primary work end-to-end with JWT only.
+- **SID-based ACL parity:** a user who was previously authorised against `AccessControl.Sid` rows via Negotiate-derived SID claims continues to be authorised after this step, because Graph-claims expansion (per S-001's P-7 implementation) emits the same `onPremisesSecurityIdentifier` value the ACL row contains. Verified by an integration test using a Graph fake that exposes `onPremisesSecurityIdentifier` for the test user.
+- **`Dorc.Api.Client.csproj` still builds unchanged** (covers SC-5 for this step).
 - A Linux container build (CI gate from S-001) confirms no Negotiate-related package or assembly reference remains.
 - Existing tests that asserted Negotiate-claims behaviour are either removed (no longer applicable) or rewritten to assert the equivalent Graph-claims behaviour.
 
@@ -223,7 +230,7 @@ S-001. (Graph claims path must be production-ready before Negotiate is removed.)
 ## S-008 — MSI installer wiring for the worker
 
 ### What changes
-A new MSI component is added to `Setup.Dorc/` (reference template: `Setup.Dorc/Web/RequestApi/ApiWindows.wxs` from PR #424, but rewritten against current main). The component installs `Dorc.Api.WindowsWorker`, registers it as a Windows service or IIS-hosted process (decision in this step's SPEC), and provisions:
+A new MSI component is added to `Setup.Dorc/` (reference template: `Setup.Dorc/Web/RequestApi/ApiWindows.wxs` from PR #424, but rewritten against current main). The component installs `Dorc.Api.WindowsWorker`, registers it as a hosted process (see U-12 below), and provisions:
 
 - The shared secret (`X-Worker-Key` value) — generated at install time, written to both the primary's and the worker's config in a single transaction.
 - The worker's service-account credentials (for password-reset impersonation, used by S-006).
@@ -250,9 +257,11 @@ S-002 (the worker exists to install). Skeleton can begin immediately after S-002
 ## S-009 — Log-injection SPEC carve-outs for remaining controllers
 
 ### What changes
-The log-injection findings on `BundledRequestsController`, `MakeLikeProdController`, and `Deployment/Requests.cs` are fixed using the same pattern S-006 establishes for `ResetAppPasswordController`: user-controlled values that flow into log entries are either parameterised (structured logging via `{}` placeholders, not string concatenation) or sanitised (newline/control-character stripping for cases where the value must appear inline).
+The four log-injection findings — on `ResetAppPasswordController` (moved by S-006 but its log-injection fix lives here), `BundledRequestsController`, `MakeLikeProdController`, and `Deployment/Requests.cs` — are fixed using a common pattern: user-controlled values that flow into log entries are either parameterised (structured logging via `{}` placeholders, not string concatenation) or sanitised (newline/control-character stripping for cases where the value must appear inline).
 
-Each finding gets a small SPEC and a small PR. Independent of the worker work — can ship at any time.
+A small sanitisation helper is factored once and reused across the four call sites. The pattern is documented in this step's SPEC so future log-injection findings have a single reference.
+
+Each fix is a small change; they can ship as one PR (one SPEC, four file edits) or split per-controller — author's choice. Independent of the worker work — can ship at any time.
 
 ### Why it changes
 Satisfies SC-8b. Surface area is small; bundling per-controller fixes into one IS step keeps the scope visible without forcing serial execution.
@@ -299,13 +308,22 @@ At the end of S-010, the HLPS Success Criteria SC-1..SC-10 are all satisfied. Sp
 | SC-2  | S-002 (worker binding + auth scheme), S-008 (installer) |
 | SC-3  | S-004, S-005, S-006 (each verifies parity)             |
 | SC-4  | S-003 (worker-absence behaviour)                       |
-| SC-5  | All steps preserve client compile surface; verified by `Dorc.Api.Client` building unchanged at end of each step |
+| SC-5  | S-001 and S-007 verification intents explicitly assert `Dorc.Api.Client` builds unchanged; S-010 smoke test exercises the client surface end-to-end |
 | SC-6  | S-003 (contract tests), S-001 (Graph parity tests)     |
 | SC-7  | S-008                                                   |
 | SC-8a | S-001 (LDAP-injection class eliminated)                |
-| SC-8b | S-006 (`ResetAppPasswordController`), S-009 (others)   |
+| SC-8b | S-009 (all four controllers, including `ResetAppPasswordController`) |
 | SC-9  | S-001 (parity-matrix tests against Graph fake)         |
 | SC-10 | S-001 (`onPremisesSecurityIdentifier` lookup + test against fake exposing it) |
+
+---
+
+## IS-level Lookahead Unknowns
+
+Carried forward from the HLPS plus those surfaced during IS drafting / Round-1 review.
+
+- **U-12 [IS-level, IS Round-1] — Worker hosting model on Windows: Windows Service vs IIS-hosted process.** Each has security and upgrade implications. Decision must be made before S-008's SPEC drafts (it shapes the MSI component and the install-time secret-provisioning surface). If the decision forces a non-trivial change to the worker host code (e.g., IIS's `IHostBuilder` integration), revise S-002 retroactively. Recommendation pending: Windows Service (simpler, no IIS dependency, matches the existing DORC Monitor service model).
+- Other Lookahead unknowns inherited from HLPS §7 (U-4..U-11) — resolved in the SPEC step that touches them, as noted in the per-step bodies.
 
 ---
 
@@ -316,5 +334,5 @@ Each S-step gets a JIT SPEC (`SPEC-S-00X-<title>.md`) before execution. Per CLAU
 The recurring patterns SPECs will need to lock down:
 - **Graph SDK fakes / recorded HTTP harness** for the parity-matrix tests (S-001 SPEC establishes the pattern).
 - **Worker-endpoint contract conventions** — DTO location (`Dorc.ApiModel`), versioning policy if any, error-shape conventions (S-003 SPEC establishes the pattern; S-004 onwards reuses).
-- **Log-injection sanitisation helper** — common pattern factored once in S-006, reused in S-009.
+- **Log-injection sanitisation helper** — common pattern factored once in S-009 across all four affected controllers.
 - **Parity test harness** — pre-split fixture capture for the moved endpoints (S-004 SPEC establishes the pattern; S-005 and S-006 reuse).
