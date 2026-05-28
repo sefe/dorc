@@ -1,0 +1,67 @@
+name: Linux Build Gate
+
+# Guards HLPS SC-1: Dorc.Api and its primary compile graph (Dorc.Core,
+# Dorc.PersistentData) must build on Linux. Fails the pipeline if Windows-only
+# package refs (System.DirectoryServices*, System.Management) reappear, or if
+# any of the three target projects fail to build under linux-x64 RID.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+      - 'migration/**'
+      - 'copilot/**'
+      - 'claude/**'
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  linux-build:
+    name: Build primary API compile graph on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Guard — no Windows-only package refs in primary compile graph
+        run: |
+          set -e
+          echo "Checking for System.DirectoryServices* and System.Management* references in src/"
+          if grep -rn -E 'System\.DirectoryServices(\.AccountManagement)?|System\.Management(\.Automation)?[^.]' \
+              src/Dorc.Api src/Dorc.Core src/Dorc.PersistentData \
+              --include='*.cs' --include='*.csproj' 2>/dev/null; then
+            echo "::error::Windows-only API reference found in primary compile graph. SC-1 regression."
+            exit 1
+          fi
+          echo "OK — no Windows-only refs in primary compile graph."
+
+      - name: Restore Dorc.Core
+        run: dotnet restore src/Dorc.Core/Dorc.Core.csproj
+      - name: Build Dorc.Core (Release)
+        run: dotnet build src/Dorc.Core/Dorc.Core.csproj -c Release --no-restore --nologo
+
+      - name: Restore Dorc.PersistentData
+        run: dotnet restore src/Dorc.PersistentData/Dorc.PersistentData.csproj
+      - name: Build Dorc.PersistentData (Release)
+        run: dotnet build src/Dorc.PersistentData/Dorc.PersistentData.csproj -c Release --no-restore --nologo
+
+      - name: Restore Dorc.Api
+        run: dotnet restore src/Dorc.Api/Dorc.Api.csproj
+      - name: Build Dorc.Api (Release)
+        run: dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo
