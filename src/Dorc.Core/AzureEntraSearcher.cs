@@ -5,28 +5,41 @@ using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Authentication;
-using Microsoft.Graph.Models;
 using Microsoft.Graph.Users.Item.CheckMemberGroups;
-using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 
 namespace Dorc.Core
 {
-    [SupportedOSPlatform("windows")]
     public class AzureEntraSearcher : IActiveDirectorySearcher
     {
+        // Matches well-formed Windows/AD SIDs (S-1-5-..., S-1-12-...). Used to decide
+        // whether to fall back to onPremisesSecurityIdentifier filter queries on direct-lookup 404.
+        private static readonly Regex AdSidShape = new("^S-1-(5|12)-\\d+(-\\d+)*$", RegexOptions.Compiled);
+
         private readonly string _tenantId;
         private readonly string _clientId;
         private readonly string _clientSecret;
         private readonly ILogger _log;
+        private readonly Func<GraphServiceClient>? _graphClientFactory;
         private GraphServiceClient? _graphClient;
 
         public AzureEntraSearcher(IConfigurationSettings config, ILogger<AzureEntraSearcher> log)
         {
             _tenantId = config.GetAzureEntraTenantId();
             _clientId = config.GetAzureEntraClientId();
-            _clientSecret = config.GetAzureEntraClientSecret();            
+            _clientSecret = config.GetAzureEntraClientSecret();
 
+            _log = log;
+        }
+
+        // Test-seam ctor: injects a pre-built GraphServiceClient so tests can drive a fake.
+        // Per SPEC-S-001 §3.1 — the only way to satisfy HLPS SC-9 (integration-level Graph-fake tests).
+        internal AzureEntraSearcher(Func<GraphServiceClient> graphClientFactory, ILogger<AzureEntraSearcher> log)
+        {
+            _tenantId = string.Empty;
+            _clientId = string.Empty;
+            _clientSecret = string.Empty;
+            _graphClientFactory = graphClientFactory;
             _log = log;
         }
 
@@ -34,6 +47,12 @@ namespace Dorc.Core
         {
             if (_graphClient != null)
                 return _graphClient;
+
+            if (_graphClientFactory != null)
+            {
+                _graphClient = _graphClientFactory();
+                return _graphClient;
+            }
 
             if (string.IsNullOrEmpty(_tenantId)) throw new ArgumentNullException("Azure tenantId is not configured");
             if (string.IsNullOrEmpty(_clientId)) throw new ArgumentNullException("Azure clientId is not configured");
@@ -49,7 +68,7 @@ namespace Dorc.Core
                     _clientSecret,
                     new ClientSecretCredentialOptions
                     {
-                        AuthorityHost = AzureAuthorityHosts.AzurePublicCloud,                        
+                        AuthorityHost = AzureAuthorityHosts.AzurePublicCloud,
                     });
 
                 var authProvider = new AzureIdentityAuthenticationProvider(
@@ -69,7 +88,7 @@ namespace Dorc.Core
             return _graphClient;
         }
 
-        private static string EscapeODataString(string s) => s?.Replace("'", "''");
+        private static string EscapeODataString(string s) => s?.Replace("'", "''") ?? string.Empty;
 
         public List<UserElementApiModel> Search(string objectName)
         {
@@ -85,27 +104,28 @@ namespace Dorc.Core
                 var users = graphClient.Users
                     .GetAsync(requestConfiguration =>
                     {
-                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
-                        requestConfiguration.QueryParameters.Count = true; // Enables $count
+                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+                        requestConfiguration.QueryParameters.Count = true;
                         requestConfiguration.QueryParameters.Filter =
-                            $"accountEnabled eq true and (" + // only enabled accounts
+                            $"accountEnabled eq true and (" +
                             $"startsWith(displayName,'{objectName}') or startsWith(givenName,'{objectName}') or " +
                             $"startsWith(onPremisesSamAccountName,'{objectName}') or " +
                             $"startsWith(surname,'{objectName}') or startsWith(mail,'{objectName}') or " +
                             $"startsWith(userPrincipalName,'{objectName}'))";
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSamAccountName" };
+                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSamAccountName", "onPremisesSecurityIdentifier" };
                     }).Result;
 
                 if (users?.Value != null)
                 {
                     foreach (var user in users.Value)
                     {
-                        output.Add(new UserElementApiModel()
+                        output.Add(new UserElementApiModel
                         {
                             Username = user.UserPrincipalName,
                             DisplayName = user.DisplayName,
-                            Pid = user.Id, // In Azure AD, Id is used instead of SID
+                            Pid = user.Id,
+                            Sid = user.OnPremisesSecurityIdentifier,
                             IsGroup = false,
                             Email = user.Mail ?? user.UserPrincipalName
                         });
@@ -116,24 +136,25 @@ namespace Dorc.Core
                 var groups = graphClient.Groups
                     .GetAsync(requestConfiguration =>
                     {
-                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
-                        requestConfiguration.QueryParameters.Count = true; // Enables $count
+                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+                        requestConfiguration.QueryParameters.Count = true;
                         requestConfiguration.QueryParameters.Filter =
                             $"startsWith(displayName,'{objectName}') or startsWith(mailNickname,'{objectName}') or " +
                             $"startsWith(onPremisesSamAccountName, '{objectName}')";
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSamAccountName" };
+                            new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSamAccountName", "onPremisesSecurityIdentifier" };
                     }).Result;
 
                 if (groups?.Value != null)
                 {
                     foreach (var group in groups.Value)
                     {
-                        output.Add(new UserElementApiModel()
+                        output.Add(new UserElementApiModel
                         {
                             Username = group.MailNickname,
                             DisplayName = group.DisplayName,
-                            Pid = group.Id, // In Azure AD, Id is used instead of SID
+                            Pid = group.Id,
+                            Sid = group.OnPremisesSecurityIdentifier,
                             IsGroup = true,
                             Email = group.Mail
                         });
@@ -168,24 +189,26 @@ namespace Dorc.Core
             }
 
             var graphClient = GetGraphClient();
+            var isSidShaped = AdSidShape.IsMatch(pid);
 
+            // Direct user lookup
             try
             {
                 var user = graphClient.Users[pid]
                     .GetAsync(requestConfiguration =>
                     {
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
+                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSecurityIdentifier" };
                     }).Result;
 
-                // If a user is found, return the user as ActiveDirectoryElementApiModel
                 if (user != null && user.AccountEnabled == true)
                 {
-                    return new UserElementApiModel()
+                    return new UserElementApiModel
                     {
                         Username = user.UserPrincipalName,
                         DisplayName = user.DisplayName,
                         Pid = user.Id,
+                        Sid = user.OnPremisesSecurityIdentifier,
                         IsGroup = false,
                         Email = user.Mail ?? user.UserPrincipalName
                     };
@@ -193,7 +216,7 @@ namespace Dorc.Core
             }
             catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
             {
-                // If the user is not found, swallow the exception and check for a group
+                // Fall through to SID-shape user fallback / group lookup
             }
             catch (Exception ex)
             {
@@ -201,31 +224,39 @@ namespace Dorc.Core
                 throw;
             }
 
+            // P-4 user fallback: SID-shaped input — try onPremisesSecurityIdentifier filter
+            if (isSidShaped)
+            {
+                var hit = FindUserByOnPremisesSid(graphClient, pid);
+                if (hit != null) return hit;
+            }
+
+            // Direct group lookup
             try
             {
                 var group = graphClient.Groups[pid]
                     .GetAsync(requestConfiguration =>
                     {
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "mailNickname", "mail" };
+                            new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSecurityIdentifier" };
                     }).Result;
 
-                // If a group is found, return the group as ActiveDirectoryElementApiModel
                 if (group != null)
                 {
-                    return new UserElementApiModel()
+                    return new UserElementApiModel
                     {
                         Username = group.MailNickname,
                         DisplayName = group.DisplayName,
                         Pid = group.Id,
-                        IsGroup = true, // This is a group, not a user
+                        Sid = group.OnPremisesSecurityIdentifier,
+                        IsGroup = true,
                         Email = group.Mail
                     };
                 }
             }
             catch (ServiceException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
             {
-                // Group not found, continue to throw ArgumentException
+                // Fall through to SID-shape group fallback
             }
             catch (Exception ex)
             {
@@ -233,8 +264,91 @@ namespace Dorc.Core
                 throw;
             }
 
-            // If neither user nor group was found, throw an error
+            // P-4 group fallback: SID-shaped input — try onPremisesSecurityIdentifier filter
+            if (isSidShaped)
+            {
+                var hit = FindGroupByOnPremisesSid(graphClient, pid);
+                if (hit != null) return hit;
+            }
+
             throw new ArgumentException($"Failed to locate an entity with ID: {pid}");
+        }
+
+        // P-4 helper: resolve a synced-from-AD user via the onPremisesSecurityIdentifier filter.
+        // Returns null if no enabled match is found.
+        private UserElementApiModel? FindUserByOnPremisesSid(GraphServiceClient graphClient, string sid)
+        {
+            try
+            {
+                var safe = EscapeODataString(sid);
+                var users = graphClient.Users
+                    .GetAsync(req =>
+                    {
+                        req.Headers.Add("ConsistencyLevel", "eventual");
+                        req.QueryParameters.Count = true;
+                        req.QueryParameters.Filter = $"onPremisesSecurityIdentifier eq '{safe}'";
+                        req.QueryParameters.Select = new[]
+                        {
+                            "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSecurityIdentifier"
+                        };
+                    }).Result;
+
+                var hit = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
+                if (hit == null) return null;
+
+                return new UserElementApiModel
+                {
+                    Username = hit.UserPrincipalName,
+                    DisplayName = hit.DisplayName,
+                    Pid = hit.Id,
+                    Sid = hit.OnPremisesSecurityIdentifier ?? sid,
+                    IsGroup = false,
+                    Email = hit.Mail ?? hit.UserPrincipalName
+                };
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Error resolving user by onPremisesSecurityIdentifier");
+                throw;
+            }
+        }
+
+        // P-4 helper: resolve a synced-from-AD group via the onPremisesSecurityIdentifier filter.
+        private UserElementApiModel? FindGroupByOnPremisesSid(GraphServiceClient graphClient, string sid)
+        {
+            try
+            {
+                var safe = EscapeODataString(sid);
+                var groups = graphClient.Groups
+                    .GetAsync(req =>
+                    {
+                        req.Headers.Add("ConsistencyLevel", "eventual");
+                        req.QueryParameters.Count = true;
+                        req.QueryParameters.Filter = $"onPremisesSecurityIdentifier eq '{safe}'";
+                        req.QueryParameters.Select = new[]
+                        {
+                            "id", "displayName", "mailNickname", "mail", "onPremisesSecurityIdentifier"
+                        };
+                    }).Result;
+
+                var hit = groups?.Value?.FirstOrDefault();
+                if (hit == null) return null;
+
+                return new UserElementApiModel
+                {
+                    Username = hit.MailNickname,
+                    DisplayName = hit.DisplayName,
+                    Pid = hit.Id,
+                    Sid = hit.OnPremisesSecurityIdentifier ?? sid,
+                    IsGroup = true,
+                    Email = hit.Mail
+                };
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Error resolving group by onPremisesSecurityIdentifier");
+                throw;
+            }
         }
 
         public UserElementApiModel GetUserData(string username)
@@ -245,7 +359,7 @@ namespace Dorc.Core
             }
 
             var graphClient = GetGraphClient();
-            
+
             var safeUsername = EscapeODataString(username);
 
             try
@@ -253,24 +367,25 @@ namespace Dorc.Core
                 var users = graphClient.Users
                     .GetAsync(requestConfiguration =>
                     {
-                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual"); // Required for advanced filtering
-                        requestConfiguration.QueryParameters.Count = true; // Enables $count
+                        requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+                        requestConfiguration.QueryParameters.Count = true;
                         requestConfiguration.QueryParameters.Filter =
                             $"startsWith(displayName,'{safeUsername}') or startsWith(mail,'{safeUsername}') or " +
                             $"startsWith(onPremisesSamAccountName,'{safeUsername}') or " +
                             $"startsWith(userPrincipalName,'{safeUsername}')";
                         requestConfiguration.QueryParameters.Select =
-                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled" };
+                            new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSecurityIdentifier" };
                     }).Result;
 
-                var activeUser = users.Value.FirstOrDefault(u => u.AccountEnabled == true);
+                var activeUser = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (activeUser != null)
                 {
-                    return new UserElementApiModel()
+                    return new UserElementApiModel
                     {
                         Username = activeUser.UserPrincipalName,
                         DisplayName = activeUser.DisplayName,
                         Pid = activeUser.Id,
+                        Sid = activeUser.OnPremisesSecurityIdentifier,
                         IsGroup = false,
                         Email = activeUser.Mail ?? activeUser.UserPrincipalName
                     };
@@ -289,9 +404,12 @@ namespace Dorc.Core
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
 
+        // P-7: emits both Entra group IDs and their onPremisesSecurityIdentifier values so
+        // downstream EF queries that key off either Pid or Sid (e.g. EnvironmentsPersistentSource
+        // line 932 — `ac.Sid OR ac.Pid`) keep matching after the AD→Graph migration.
         public List<string> GetSidsForUser(string userId)
         {
-            if (String.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(userId))
             {
                 throw new ArgumentException("User ID cannot be null or empty.");
             }
@@ -301,67 +419,96 @@ namespace Dorc.Core
 
             try
             {
-                // Single API call to get ALL group IDs (including transitive)
-                var memberGroupsResult = graphClient.Users[userId].GetMemberGroups.PostAsGetMemberGroupsPostResponseAsync(
-                    new Microsoft.Graph.Users.Item.GetMemberGroups.GetMemberGroupsPostRequestBody
+                // Append the caller's own on-prem SID, if any — supports authz against legacy
+                // AccessControl.Sid rows that name the user directly (rather than a group).
+                var self = graphClient.Users[userId]
+                    .GetAsync(req =>
                     {
-                        SecurityEnabledOnly = false,
-                    }).GetAwaiter().GetResult();
+                        req.QueryParameters.Select = new[] { "id", "onPremisesSecurityIdentifier" };
+                    }).Result;
 
-                if (memberGroupsResult?.Value != null)
+                if (!string.IsNullOrEmpty(self?.OnPremisesSecurityIdentifier))
                 {
-                    result.AddRange(memberGroupsResult.Value);
+                    result.Add(self.OnPremisesSecurityIdentifier);
                 }
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "Error getting group memberships from Azure Entra ID");
+                // Logged but not fatal — the user-self lookup is a best-effort enrichment.
+                _log.LogWarning(ex, "Unable to resolve onPremisesSecurityIdentifier for user {UserId}", userId);
+            }
+
+            try
+            {
+                // Transitive group memberships — emits both `id` (Pid) and on-prem SID (Sid).
+                var memberOf = graphClient.Users[userId].TransitiveMemberOf.GraphGroup
+                    .GetAsync(req =>
+                    {
+                        req.QueryParameters.Select = new[] { "id", "onPremisesSecurityIdentifier" };
+                    }).Result;
+
+                if (memberOf?.Value != null)
+                {
+                    foreach (var group in memberOf.Value)
+                    {
+                        if (!string.IsNullOrEmpty(group.Id))
+                        {
+                            result.Add(group.Id);
+                        }
+                        if (!string.IsNullOrEmpty(group.OnPremisesSecurityIdentifier))
+                        {
+                            result.Add(group.OnPremisesSecurityIdentifier);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Error getting transitive group memberships from Azure Entra ID");
                 throw;
             }
 
             return result;
         }
 
+        // P-5: resolves the caller's `userName` argument — which may arrive as a bare
+        // sAMAccountName, a `DOMAIN\sAMAccountName`, or a UPN — to an Entra object id
+        // before invoking the transitive membership check. `domainName` is intentionally
+        // ignored: DORC's Entra setup is single-tenant per install, and cross-forest
+        // foreign security principals are out of parity (HLPS §4).
         public string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName)
         {
             var graphClient = GetGraphClient();
 
             try
             {
-                // Get the user  
-                var user = graphClient.Users[userName]
-                    .GetAsync(requestConfiguration =>
-                    {
-                        requestConfiguration.QueryParameters.Select = new[] { "id" };
-                    }).Result;
-
-                if (user == null)
+                var resolvedUserId = ResolveUserIdFromName(graphClient, userName);
+                if (string.IsNullOrEmpty(resolvedUserId))
                 {
                     return string.Empty;
                 }
 
-                // Get the group  
+                var safeGroup = EscapeODataString(groupName);
                 var group = graphClient.Groups
                     .GetAsync(requestConfiguration =>
                     {
                         requestConfiguration.QueryParameters.Filter =
-                            $"displayName eq '{groupName}' or mailNickname eq '{groupName}'";
+                            $"displayName eq '{safeGroup}' or mailNickname eq '{safeGroup}'";
                         requestConfiguration.QueryParameters.Select = new[] { "id" };
                     }).Result;
 
-                var targetGroup = group.Value.FirstOrDefault();
+                var targetGroup = group?.Value?.FirstOrDefault();
                 if (targetGroup == null)
                 {
                     return string.Empty;
                 }
 
-                // Check if user is a member of the group (including transitive memberships)  
                 var requestBody = new CheckMemberGroupsPostRequestBody
                 {
-                    GroupIds = new List<string> { targetGroup.Id }
+                    GroupIds = new List<string> { targetGroup.Id! }
                 };
 
-                var isMember = graphClient.Users[user.Id].CheckMemberGroups
+                var isMember = graphClient.Users[resolvedUserId].CheckMemberGroups
                     .PostAsCheckMemberGroupsPostResponseAsync(requestBody).Result;
 
                 if (isMember?.Value != null && isMember.Value.Any())
@@ -382,5 +529,43 @@ namespace Dorc.Core
 
             return string.Empty;
         }
+
+        // P-5 helper: normalises caller input (DOMAIN\name, name(External), bare name, UPN)
+        // and resolves to an Entra object id via onPremisesSamAccountName/userPrincipalName filter.
+        private string? ResolveUserIdFromName(GraphServiceClient graphClient, string userName)
+        {
+            if (string.IsNullOrWhiteSpace(userName)) return null;
+
+            var name = userName.Trim();
+
+            // Strip DOMAIN\ prefix (Negotiate-style identity). The last \-segment wins.
+            var backslash = name.LastIndexOf('\\');
+            if (backslash >= 0)
+            {
+                name = name[(backslash + 1)..];
+            }
+
+            // Strip a trailing (External) marker if present.
+            const string externalSuffix = "(External)";
+            if (name.EndsWith(externalSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                name = name[..^externalSuffix.Length].Trim();
+            }
+
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var safe = EscapeODataString(name);
+            var users = graphClient.Users
+                .GetAsync(req =>
+                {
+                    req.Headers.Add("ConsistencyLevel", "eventual");
+                    req.QueryParameters.Count = true;
+                    req.QueryParameters.Filter =
+                        $"onPremisesSamAccountName eq '{safe}' or userPrincipalName eq '{safe}'";
+                    req.QueryParameters.Select = new[] { "id" };
+                }).Result;
+
+            return users?.Value?.FirstOrDefault()?.Id;
+        }
     }
-} 
+}

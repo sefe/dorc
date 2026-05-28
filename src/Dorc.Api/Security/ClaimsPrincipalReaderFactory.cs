@@ -18,16 +18,16 @@ namespace Dorc.Api.Security
         public ClaimsPrincipalReaderFactory(
             IConfigurationSettings config,
             IHttpContextAccessor httpContextAccessor,
-            IUserGroupsReaderFactory userGroupsReaderFactory
+            IUserGroupReader userGroupReader
             )
         {
             _httpContextAccessor = httpContextAccessor;
             _config = config;
 
-            _adUserGroupsReader = userGroupsReaderFactory.GetWinAuthUserGroupsReader();
+            _adUserGroupsReader = userGroupReader;
 
-            _oauthReader = new OAuthClaimsPrincipalReader(userGroupsReaderFactory.GetOAuthUserGroupsReader());
-            _winAuthReader = new WinAuthClaimsPrincipalReader(_adUserGroupsReader);
+            _oauthReader = new OAuthClaimsPrincipalReader(userGroupReader);
+            _winAuthReader = new WinAuthClaimsPrincipalReader(userGroupReader);
         }
 
         public string GetUserName(IPrincipal user)
