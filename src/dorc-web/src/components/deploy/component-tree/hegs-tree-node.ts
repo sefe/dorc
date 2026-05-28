@@ -16,7 +16,7 @@ export class HegsTreeNode extends LitElement {
 
   @property({ type: Boolean }) open = false;
 
-  @query('#deployment')
+  @query('input[type="checkbox"]')
   private deploymentInput: HTMLInputElement | undefined;
 
   @state()
@@ -65,6 +65,10 @@ export class HegsTreeNode extends LitElement {
   static styles = addHegsTreeNodeStyles;
 
   render = addHegsTreeNodeTemplate;
+
+  protected get deploymentInputId(): string {
+    return `deployment-${this.data?.id ?? 'unknown'}`;
+  }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
