@@ -1,16 +1,17 @@
+using Dorc.Api.Exceptions;
 using Dorc.Api.Interfaces;
+using Dorc.ApiModel;
 
 namespace Dorc.Api.Services
 {
     // Null implementation of IWindowsWorkerClient used on Linux installs (or any
-    // host with WindowsWorker:Enabled=false). Every method on the interface (none
-    // yet, see SPEC-S-003 §2.1) throws WorkerUnavailableException, which the
-    // WorkerUnavailableExceptionFilter translates to the documented 503 body.
-    //
-    // Later S-steps that add methods to IWindowsWorkerClient must add matching
-    // throwing overrides here. Keep the throw site name (the endpoint argument)
-    // identical to the route segment so the 503 body's `endpoint` field is useful.
+    // host with WindowsWorker:Enabled=false). Every method throws
+    // WorkerUnavailableException with an endpoint name matching the route segment
+    // exposed on the worker, so WorkerUnavailableExceptionFilter renders the
+    // documented 503 body { "error": "windows_worker_unavailable", "endpoint": "..." }.
     public class WorkerUnavailableClient : IWindowsWorkerClient
     {
+        public Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(string serverName, CancellationToken cancellationToken = default)
+            => throw new WorkerUnavailableException("remote-server/operating-system");
     }
 }
