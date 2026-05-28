@@ -39,17 +39,22 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Guard — no Windows-only package refs in primary compile graph
+      - name: Guard — no System.DirectoryServices package refs
+        # HLPS SC-1 (DirectoryServices half) — gates against the package refs
+        # only, not source usages of the namespace. After S-001 the primary
+        # compile graph (Dorc.Api/Core/PersistentData) must hold no
+        # System.DirectoryServices* PackageReference. System.Management is
+        # NOT gated here — that's S-005's job (WMI move to worker).
         run: |
           set -e
-          echo "Checking for System.DirectoryServices* and System.Management* references in src/"
-          if grep -rn -E 'System\.DirectoryServices(\.AccountManagement)?|System\.Management(\.Automation)?[^.]' \
+          echo "Checking csproj files for System.DirectoryServices* PackageReference..."
+          if grep -rn -E '<PackageReference[^>]*Include="System\.DirectoryServices(\.AccountManagement)?"' \
               src/Dorc.Api src/Dorc.Core src/Dorc.PersistentData \
-              --include='*.cs' --include='*.csproj' 2>/dev/null; then
-            echo "::error::Windows-only API reference found in primary compile graph. SC-1 regression."
+              --include='*.csproj' 2>/dev/null; then
+            echo "::error::System.DirectoryServices* PackageReference found in primary compile graph. SC-1 regression."
             exit 1
           fi
-          echo "OK — no Windows-only refs in primary compile graph."
+          echo "OK — no System.DirectoryServices* package refs in primary compile graph."
 
       - name: Restore Dorc.Core
         run: dotnet restore src/Dorc.Core/Dorc.Core.csproj
