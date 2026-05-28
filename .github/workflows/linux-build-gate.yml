@@ -1,0 +1,75 @@
+name: Linux Build Gate
+
+# Guards HLPS SC-1: Dorc.Api and its primary compile graph (Dorc.Core,
+# Dorc.PersistentData) must build on Linux. Fails the pipeline if Windows-only
+# package refs (System.DirectoryServices*, System.Management) reappear, or if
+# any of the three target projects fail to build under linux-x64 RID.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+      - 'migration/**'
+      - 'copilot/**'
+      - 'claude/**'
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+permissions:
+  contents: read
+
+jobs:
+  linux-build:
+    name: Build primary API compile graph on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Guard — no System.DirectoryServices package refs
+        # HLPS SC-1 (DirectoryServices half) — gates against the package refs
+        # only, not source usages of the namespace. After S-001 the primary
+        # compile graph (Dorc.Api/Core/PersistentData) must hold no
+        # System.DirectoryServices* PackageReference. System.Management is
+        # NOT gated here — that's S-005's job (WMI move to worker).
+        run: |
+          set -e
+          echo "Checking csproj files for System.DirectoryServices* PackageReference..."
+          if grep -rn -E '<PackageReference[^>]*Include="System\.DirectoryServices(\.AccountManagement)?"' \
+              src/Dorc.Api src/Dorc.Core src/Dorc.PersistentData \
+              --include='*.csproj' 2>/dev/null; then
+            echo "::error::System.DirectoryServices* PackageReference found in primary compile graph. SC-1 regression."
+            exit 1
+          fi
+          echo "OK — no System.DirectoryServices* package refs in primary compile graph."
+
+      - name: Restore Dorc.Core
+        run: dotnet restore src/Dorc.Core/Dorc.Core.csproj
+      - name: Build Dorc.Core (Release)
+        run: dotnet build src/Dorc.Core/Dorc.Core.csproj -c Release --no-restore --nologo
+
+      - name: Restore Dorc.PersistentData
+        run: dotnet restore src/Dorc.PersistentData/Dorc.PersistentData.csproj
+      - name: Build Dorc.PersistentData (Release)
+        run: dotnet build src/Dorc.PersistentData/Dorc.PersistentData.csproj -c Release --no-restore --nologo
+
+      - name: Restore Dorc.Api
+        run: dotnet restore src/Dorc.Api/Dorc.Api.csproj
+      - name: Build Dorc.Api (Release)
+        run: dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo

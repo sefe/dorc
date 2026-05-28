@@ -31,7 +31,7 @@ namespace Dorc.Api.Controllers
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
-            IDirectorySearcherFactory directorySearcherFactory,
+            IActiveDirectorySearcher activeDirectorySearcher,
             ILogger<PropertyValuesController> logger)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
@@ -39,7 +39,7 @@ namespace Dorc.Api.Controllers
             _variableResolver = variableResolver;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyValuesService = propertyValuesService;
-            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _directorySearcher = activeDirectorySearcher;
             _logger = logger;
         }
 

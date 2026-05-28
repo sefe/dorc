@@ -1,49 +1,31 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
 using Dorc.Core;
 using Dorc.Core.Account;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Lamar;
-using System.DirectoryServices;
-using System.Runtime.Versioning;
 
 namespace Dorc.Api.Services
 {
-    [SupportedOSPlatform("windows")]
     public class ApiRegistry : ServiceRegistry
     {
         public ApiRegistry()
         {
-            var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-            var configSettings = new ConfigurationSettings(configuration);
-            var domain = configSettings.GetConfigurationDomainNameIntra();
-
             For<IPropertiesService>().Use<PropertiesService>();
             For<IPropertyValuesService>().Use<PropertyValuesService>();
-                
+
             For<IRequestService>().Use<RequestService>();
 
             For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
             For<GitHubDeployableBuild>().Use<GitHubDeployableBuild>().Transient();
             For<Func<GitHubDeployableBuild>>().Use(ctx => () => ctx.GetInstance<GitHubDeployableBuild>());
-            For<IDirectorySearchService>().Use(serviceContext =>
-            {
-                var directoryEntry = new DirectoryEntry();
-                var directorySearcher = new DirectorySearcher(directoryEntry);
-                return new ActiveDirectorySearchService(directorySearcher);
-            }).Scoped();
-            
-            For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()
-                .Ctor<string>().Is(configSettings.GetConfigurationDomainNameIntra())
-                .Ctor<TimeSpan?>().Is(configSettings.GetADUserCacheTimeSpan());
-            For<IActiveDirectorySearcher>().Use(context =>
-            {
-                var factory = context.GetRequiredService<IDirectorySearcherFactory>();
-                return factory.GetOAuthDirectorySearcher();
-            }).Singleton();
 
-            For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
+            // Graph-backed AD replacement — single implementation, no composite/factory.
+            // See HLPS-api-split.md D-2 and SPEC-S-001 §2.5.
+            For<IActiveDirectorySearcher>().Use<AzureEntraSearcher>().Singleton();
+            For<IUserGroupReader>().Use<CachedUserGroupReader>().Singleton();
+            For<IDirectorySearchService>().Use<EntraDirectorySearchService>().Scoped();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();
             For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
