@@ -116,6 +116,22 @@ export class AddEditEnvironment extends LitElement {
       vaadin-button[disabled] {
         background-color: var(--dorc-border-color);
       }
+      .prod-not-secure-warning {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 20px;
+        background: var(--dorc-warning-bg);
+        border: 1px solid var(--dorc-warning-text);
+        border-radius: 4px;
+        margin: 4px 0;
+        color: var(--dorc-warning-text);
+      }
+      .prod-not-secure-warning vaadin-icon {
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -238,7 +254,7 @@ export class AddEditEnvironment extends LitElement {
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
         this.handleFieldChange(this.updateSecure, e)}
                   class="tooltip"
-                  ?disabled=${this.readonly || (this.environment?.EnvironmentIsProd ?? false)}
+                  ?disabled=${this.readonly || ((this.environment?.EnvironmentIsProd ?? false) && (this.environment?.EnvironmentSecure ?? false))}
                   ><label slot="label"
                     >Is Secure<span class="tooltiptext"
                       >Only use explicitly set environment properties, no
@@ -265,6 +281,12 @@ export class AddEditEnvironment extends LitElement {
              </td>
             </tr>
           </table>
+          ${!this.addMode && (this.environment?.EnvironmentIsProd ?? false) && !(this.environment?.EnvironmentSecure ?? false)
+            ? html`<div class="prod-not-secure-warning">
+                <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+                <span>This environment is marked as Production but <strong>Is Secure</strong> is not set.</span>
+              </div>`
+            : html``}
           <vaadin-text-field
             id="env-desc"
             class="block"
@@ -354,7 +376,9 @@ export class AddEditEnvironment extends LitElement {
 
   updateSecure(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      this.environment.EnvironmentSecure = e.detail.value;
+      const updatedEnv = JSON.parse(JSON.stringify(this.environment));
+      updatedEnv.EnvironmentSecure = e.detail.value;
+      this.environment = updatedEnv;
     }
   }
   updateIsProd(e: CustomEvent<{ value: boolean }>) {
