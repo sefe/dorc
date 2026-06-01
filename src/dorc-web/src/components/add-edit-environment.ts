@@ -263,7 +263,7 @@ export class AddEditEnvironment extends LitElement {
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
                     this.handleFieldChange(this.updateSecure, e)}
                   class="tooltip"
-                  ?disabled=${this.readonly || (this.environment?.EnvironmentIsProd ?? false)}
+                  ?disabled=${this.readonly || ((this.environment?.EnvironmentIsProd ?? false) && (this.environment?.EnvironmentSecure ?? false))}
                   ><label slot="label"
                     >Is Secure<span class="tooltiptext"
                       >Only use explicitly set environment properties, no
@@ -541,7 +541,9 @@ export class AddEditEnvironment extends LitElement {
 
   updateSecure(e: CustomEvent<{ value: boolean }>) {
     if (this.environment) {
-      this.environment.EnvironmentSecure = e.detail.value;
+      const updatedEnv = JSON.parse(JSON.stringify(this.environment));
+      updatedEnv.EnvironmentSecure = e.detail.value;
+      this.environment = updatedEnv;
     }
   }
   updateIsProd(e: CustomEvent<{ value: boolean }>) {
