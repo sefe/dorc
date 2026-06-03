@@ -138,7 +138,9 @@ namespace Dorc.Api.Controllers
             if (result == null)
                 return NotFound("Error updating entry");
 
-            var afterJson = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+            var afterServer = _serversPersistentSource.GetServer(id, User);    
+
+            var afterJson = JsonSerializer.Serialize(afterServer, new JsonSerializerOptions { WriteIndented = true });
 
             _serversAuditPersistentSource.InsertServerAudit(
                 _claimsPrincipalReader.GetUserFullDomainName(User),
