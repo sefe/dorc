@@ -394,7 +394,15 @@ export class DorcApp extends ShortcutsStore {
       this._splitterDragInProgress = false;
     }
     if (this._drawerLockedScroll) {
-      document.body.style.removeProperty('overflow');
+      // Restore the snapshot rather than blanket-removing, so a coexisting
+      // modal's body-overflow lock isn't clobbered if we're torn down while
+      // the drawer is open (mirrors _closeDrawer).
+      if (this._previousBodyOverflow) {
+        document.body.style.overflow = this._previousBodyOverflow;
+      } else {
+        document.body.style.removeProperty('overflow');
+      }
+      this._previousBodyOverflow = '';
       this._drawerLockedScroll = false;
     }
   }

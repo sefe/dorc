@@ -87,6 +87,12 @@ describe('Responsive grid CSS (structural)', () => {
       'overflow-wrap: break-word',
       'attached-servers should include overflow-wrap: break-word'
     );
+    // Guard the actual intent: the wrapping must NOT be re-gated behind the
+    // narrow-screen media query, or desktop wrapping regresses again.
+    expect(cssText).to.not.include(
+      'max-width: 768px',
+      'attached-servers cell wrapping must be unconditional, not gated in a 768px media query'
+    );
   });
 
   it('component-deployment-results CSS contains responsive cell wrapping', async () => {

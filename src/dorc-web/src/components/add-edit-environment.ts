@@ -53,6 +53,14 @@ export class AddEditEnvironment extends LitElement {
         width: 100%;
         flex: 1;
         min-height: 0;
+        /*
+         * Bound the scroll region directly so the internal scrollbar engages
+         * even when an ancestor doesn't constrain our height (the env-metadata
+         * tab and create dialog don't propagate a definite height down to the
+         * flex chain). Dual vh/dvh so the mobile address bar doesn't clip it.
+         */
+        max-height: calc(100vh - 175px);
+        max-height: calc(100dvh - 175px);
       }
       #env-owners {       
         display: flex;
