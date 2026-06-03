@@ -14,6 +14,9 @@
 import type {
     DatabaseApiModel,
 } from './';
+import type {
+    SourceControlType,
+} from './SourceControlType';
 
 /**
  * @export
@@ -60,4 +63,9 @@ export interface ProjectApiModel {
      * @memberof ProjectApiModel
      */
     SourceDatabase?: DatabaseApiModel;
+    /**
+     * @type {SourceControlType}
+     * @memberof ProjectApiModel
+     */
+    SourceControlType?: SourceControlType;
 }

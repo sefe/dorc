@@ -68,7 +68,7 @@ export class RequestControls extends LitElement {
       color: this.canPause ? 'var(--dorc-badge-text)' : 'var(--dorc-text-secondary)'
     };
     const resumeStyles = {
-      color: this.canResume ? 'var(--dorc-success-bg)' : 'var(--dorc-text-secondary)'
+      color: this.canResume ? 'var(--dorc-success-text)' : 'var(--dorc-text-secondary)'
     };
     return html`
       <table style="height: 36px">

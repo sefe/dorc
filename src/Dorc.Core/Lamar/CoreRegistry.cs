@@ -10,7 +10,7 @@ namespace Dorc.Core.Lamar
     {
         public CoreRegistry()
         {
-            For<IServiceStatus>().Use<ServiceStatus>();
+            For<IDaemonStatusProbe>().Use<DaemonStatusProbe>();
 
             For<IDeployLibrary>().Use<DeployLibrary>();
 

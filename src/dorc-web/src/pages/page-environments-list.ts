@@ -73,6 +73,10 @@ export class PageEnvironmentsList extends PageElement {
         --divider-color: var(--dorc-border-color);
         margin-top: 60px;
       }
+      vaadin-grid#grid::part(prod-not-secure) {
+        background-color: var(--dorc-warning-bg);
+        color: var(--dorc-warning-text);
+      }
       .overlay {
         width: 100%;
         height: 100%;
@@ -171,6 +175,7 @@ export class PageEnvironmentsList extends PageElement {
                 .items="${this.filteredEnvironments}"
                 multi-sort
                 theme="compact row-stripes no-row-borders no-border"
+                .cellPartNameGenerator="${this._cellPartNameGenerator}"
               >
                 <vaadin-grid-sort-column
                   resizable
@@ -281,6 +286,17 @@ export class PageEnvironmentsList extends PageElement {
     this.setEnvironments(model);
   }
 
+  _cellPartNameGenerator = (
+    _column: GridColumn,
+    { item }: GridItemModel<EnvironmentApiModel>
+  ): string => {
+    const env = item as EnvironmentApiModel;
+    if (env.EnvironmentIsProd && !env.EnvironmentSecure) {
+      return 'prod-not-secure';
+    }
+    return '';
+  };
+
   _envSecureRenderer(
     root: HTMLElement,
     _column: GridColumn,
@@ -292,7 +308,21 @@ export class PageEnvironmentsList extends PageElement {
     checkbox.checked = envDetails.EnvironmentSecure ?? false;
     checkbox.disabled = true;
 
-    render(checkbox, root);
+    if (envDetails.EnvironmentIsProd && !envDetails.EnvironmentSecure) {
+      render(
+        html`<div style="display:flex;align-items:center;gap:4px">
+          ${checkbox}
+          <vaadin-icon
+            icon="vaadin:warning"
+            title="Production environment without Secure flag"
+            style="color:var(--dorc-warning-text);width:var(--lumo-icon-size-s);height:var(--lumo-icon-size-s)"
+          ></vaadin-icon>
+        </div>`,
+        root
+      );
+    } else {
+      render(checkbox, root);
+    }
   }
 
   _envIsProdRenderer(

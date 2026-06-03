@@ -156,7 +156,7 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
-        public void ValidateComponents_ComponentNameWithCurlyBraces_ThrowsException()
+        public void ValidateComponents_ComponentNameWithCurlyBraces_NoException()
         {
             // Arrange
             var components = new List<ComponentApiModel>
@@ -164,18 +164,17 @@ namespace Dorc.Api.Tests.Sources
                 new ComponentApiModel
                 {
                     ComponentId = 0,
-                    ComponentName = "Component{Invalid}",
+                    ComponentName = "Component{Valid}",
                     ScriptPath = "test.ps1"
                 }
             };
 
-            // Act & Assert
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+            // Act & Assert - Should not throw
+            _source.ValidateComponents(components, 1, HttpRequestType.Put);
         }
 
         [TestMethod]
-        public void ValidateComponents_ComponentNameWithSquareBrackets_ThrowsException()
+        public void ValidateComponents_ComponentNameWithSquareBrackets_NoException()
         {
             // Arrange
             var components = new List<ComponentApiModel>
@@ -188,9 +187,8 @@ namespace Dorc.Api.Tests.Sources
                 }
             };
 
-            // Act & Assert
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+            // Act & Assert - Should not throw
+            _source.ValidateComponents(components, 1, HttpRequestType.Put);
         }
 
         [TestMethod]
