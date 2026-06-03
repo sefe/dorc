@@ -229,9 +229,12 @@ export class DorcApp extends ShortcutsStore {
     }
     if (!this._narrowScreen && this._drawerOpen) {
       // Drawer is always reachable on desktop; collapse the mobile-modal state.
+      // _closeDrawer() already re-applies the drawer ARIA state and releases
+      // any scroll lock we own, so we must not call _applyDrawerAria() again.
       this._closeDrawer();
+    } else {
+      this._applyDrawerAria();
     }
-    this._applyDrawerAria();
   };
   private _routerLocationChanged = () => {
     if (this._narrowScreen && this._drawerOpen) {
@@ -522,12 +525,9 @@ export class DorcApp extends ShortcutsStore {
       this.dorcNavbar.removeAttribute('aria-modal');
       this.dorcNavbar.setAttribute('aria-label', 'Primary');
       pageContent?.removeAttribute('inert');
-      // Only release body styles we own; a coexisting modal could have set
-      // body.overflow for its own purposes.
-      if (this._drawerLockedScroll) {
-        document.body.style.removeProperty('overflow');
-        this._drawerLockedScroll = false;
-      }
+      // Scroll-lock ownership is released exclusively by _closeDrawer(), which
+      // is always invoked before we reach the desktop state (via the toggle,
+      // Escape, router navigation, or the breakpoint handler). No release here.
     }
   }
 

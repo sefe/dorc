@@ -44,7 +44,9 @@ export class AddEditEnvironment extends LitElement {
   static get styles() {
     return css`
       :host {
-        display: inline;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
       div#div {
         overflow: auto;

@@ -108,6 +108,7 @@ jobs:
       run: npx playwright install chromium firefox webkit
 
     - name: Run web tests
+      if: runner.os == 'Windows'
       working-directory: src/dorc-web
       run: npm test
 

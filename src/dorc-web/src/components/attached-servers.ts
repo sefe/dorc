@@ -87,12 +87,10 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
       display: block;
       width: 100%;
     }
-      @media (max-width: 768px) {
-        vaadin-grid-cell-content {
-          white-space: normal;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
+      vaadin-grid-cell-content {
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
       }
     `;
   }

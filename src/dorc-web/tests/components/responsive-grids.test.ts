@@ -75,7 +75,18 @@ describe('Responsive grid CSS (structural)', () => {
 
   it('attached-servers CSS contains responsive cell wrapping', async () => {
     const mod = await import('../../src/components/attached-servers.js');
-    assertResponsiveCss(mod.AttachedServers, 'attached-servers');
+    // attached-servers carried an UNCONDITIONAL cell-wrapping rule on main, so
+    // it must wrap on all viewports (not gated behind the 768px query) to avoid
+    // a desktop regression. Verify the wrapping rules are present unconditionally.
+    const cssText = getCssText(mod.AttachedServers);
+    expect(cssText).to.include(
+      'word-wrap: break-word',
+      'attached-servers should include word-wrap: break-word'
+    );
+    expect(cssText).to.include(
+      'overflow-wrap: break-word',
+      'attached-servers should include overflow-wrap: break-word'
+    );
   });
 
   it('component-deployment-results CSS contains responsive cell wrapping', async () => {
