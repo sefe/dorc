@@ -176,7 +176,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       }
       vaadin-button {
         --lumo-button-size: 28px;
-        --lumo-icon-size-m: 16px;
+        --lumo-icon-size-m: 26px;
       }
     `;
   }
@@ -392,8 +392,8 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       const icon = document.createElement('vaadin-icon');
       icon.setAttribute('icon', action.icon);
       icon.setAttribute('aria-hidden', 'true');
-      icon.style.width = '18px';
-      icon.style.height = '18px';
+      icon.style.width = '50px';
+      icon.style.height = '50px';
       icon.style.flexShrink = '0';
       if (action.isDelete) {
         icon.style.color = 'var(--dorc-error-color)';

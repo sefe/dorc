@@ -261,6 +261,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
+                width="180px"
                 .attachedPPLControl="${this}"
                 .renderer="${this._projectEnvsButtonsRenderer}"
               ></vaadin-grid-column>
