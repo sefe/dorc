@@ -56,13 +56,16 @@ namespace Dorc.PersistentData.Sources
                         if (pagedDataFilter == null)
                             continue;
 
-                        // For env specific monitor
+                        // For env specific monitor: equality predicate on Environment, SARGable
+                        // against IX_DeploymentRequest_Environment. The sole consumer
+                        // (env-monitor.ts) always pushes a fully-qualified environment name,
+                        // so equality is row-set-equivalent to the previous substring match for
+                        // production input while removing the LIKE '%...%' table-scan cost.
                         if (pagedDataFilter.Path == "EnvironmentNameExact")
                         {
-                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
-                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                            var environmentName = pagedDataFilter.FilterValue;
+                            if (!string.IsNullOrEmpty(environmentName))
+                                reqStatusesQueryable = reqStatusesQueryable.Where(req => req.EnvironmentName == environmentName);
                             continue;
                         }
 
@@ -72,14 +75,20 @@ namespace Dorc.PersistentData.Sources
                             if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                                 continue;
 
-                            var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
+                            // Project + EnvironmentName use prefix (StartsWith) -- SARGable, seeks
+                            // IX_DeploymentRequest_Project / IX_DeploymentRequest_Environment.
+                            // BuildNumber retains substring (Contains); when combined with a
+                            // SARGable Project/Environment predicate the residual scan is bounded
+                            // (HLPS SC2). BuildNumber-only filtering is explicitly out of perf scope.
+                            var predicate = pagedDataFilter.Path == "BuildNumber"
+                                ? reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue)
+                                : reqStatusesQueryable.StartsWithExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
+                            if (predicate != null)
                             {
                                 if (hasDistinctDetailValues)
-                                    reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                                    reqStatusesQueryable = reqStatusesQueryable.Where(predicate);
                                 else
-                                    filterLambdas.Add(containsExpression);
+                                    filterLambdas.Add(predicate);
                             }
                             continue;
                         }

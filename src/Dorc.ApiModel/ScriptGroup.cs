@@ -23,6 +23,13 @@ namespace Dorc.ApiModel
         public string AzureProjects { get; set; }
         public string AzureOrganization { get; set; }
 
+        // GitHub Actions source configuration
+        public string GitHubToken { get; set; }
+        public string GitHubOwner { get; set; }
+        public string GitHubRepo { get; set; }
+        public string GitHubRunId { get; set; }
+        public string GitHubApiBaseUrl { get; set; }
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }

@@ -11,6 +11,7 @@ on:
       - 'hotfix/**'
       - 'migration/**'
       - 'copilot/**'
+      - 'claude/**'
   pull_request:
     branches:
       - main

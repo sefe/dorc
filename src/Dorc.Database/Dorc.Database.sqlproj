@@ -365,6 +365,7 @@
     <Build Include="deploy\Tables\AnalyticsTimePattern.sql" />
     <Build Include="deploy\Tables\AnalyticsUserActivity.sql" />
     <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
+    <None Include="Scripts\Post-Deployment\SetFileShareSourceControlType.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\AuditScript.table.sql" />
     <None Include="Scripts\Pre-Deployment\AddCancelledFieldsToArchiveDeploymentRequests.sql" />
     <None Include="Scripts\Pre-Deployment\StageServicesForMigration.sql" />
@@ -380,6 +381,8 @@
     <Build Include="Schema Objects\Database Level Objects\Security\Schemas\archive.schema.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValueFilter_PropertyValueId.index.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValue_PropertyId.index.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentRequest_Environment.index.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentRequest_Project.index.sql" />
     <None Include="Scripts\Post-Deployment\Props-to-Configuration.sql" />
   </ItemGroup>
   <ItemGroup>

@@ -303,7 +303,7 @@ export class ComponentPreviousAttempts extends LitElement {
               @click="${() => this.viewComponentLog(result)}"
             >
               <vaadin-icon
-                icon="vaadin:ellipsis-dots-h"
+                icon="vaadin:file-text-o"
                 style="color: cornflowerblue"
               ></vaadin-icon>
             </vaadin-button>
