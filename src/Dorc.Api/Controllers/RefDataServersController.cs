@@ -1,9 +1,9 @@
-﻿using Dorc.ApiModel;
+﻿using Dorc.Api.Interfaces;
+using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Win32;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
 
@@ -17,13 +17,16 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IWindowsWorkerClient _windowsWorkerClient;
 
         public RefDataServersController(ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IServersPersistentSource serversPersistentSource, IEnvironmentsPersistentSource environmentsPersistentSource)
+            IServersPersistentSource serversPersistentSource, IEnvironmentsPersistentSource environmentsPersistentSource,
+            IWindowsWorkerClient windowsWorkerClient)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
+            _windowsWorkerClient = windowsWorkerClient;
         }
 
         /// <summary>
@@ -130,20 +133,15 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status503ServiceUnavailable, Type = typeof(object), Description = "On Linux installs (Windows worker absent)")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ServerOperatingSystemApiModel))]
         [Route("GetServerOperatingFromTarget")]
-        public IActionResult GetServerOperatingFromTarget(string serverName)
+        public async Task<IActionResult> GetServerOperatingFromTarget(string serverName, CancellationToken cancellationToken)
         {
-            var output = new ServerOperatingSystemApiModel();
-            using (var reg = RegistryKey.OpenRemoteBaseKey(RegistryHive.LocalMachine, serverName))
-            using (var key = reg.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\"))
-            {
-                if (key == null)
-                    return BadRequest("Unable to open the target machine");
-
-                output.ProductName = key.GetValue("ProductName").ToString();
-                output.CurrentVersion = key.GetValue("CurrentVersion").ToString();
-            }
+            // Delegated to Dorc.Api.WindowsWorker per HLPS Scope D / SPEC-S-004.
+            // On Linux installs the WorkerUnavailableClient throws and the global
+            // WorkerUnavailableExceptionFilter renders a 503 with the documented body.
+            var output = await _windowsWorkerClient.GetServerOperatingSystemAsync(serverName, cancellationToken);
             return Ok(output);
         }
 
