@@ -221,7 +221,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 {
                     // Copy single file
                     var fileName = Path.GetFileName(sourcePath);
-                    var destFile = Path.Combine(workingDir, fileName);
+                    var destFile = PathContainment.ResolveWithinRoot(workingDir, fileName);
                     _logger.FileLogger.LogInformation($"Copying file from {sourcePath} to {destFile}");
                     File.Copy(sourcePath, destFile, true);
                 }

@@ -41,7 +41,8 @@ namespace Dorc.TerraformRunner.CodeSources
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
+                    // Guard against a source entry (e.g. a symlink) resolving outside destDir.
+                    var destFile = PathContainment.ResolveWithinRoot(destDir, relativePath);
                     var destFileDir = Path.GetDirectoryName(destFile);
 
                     if (!string.IsNullOrEmpty(destFileDir))

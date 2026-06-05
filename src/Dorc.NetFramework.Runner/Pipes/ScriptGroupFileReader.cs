@@ -20,7 +20,7 @@ namespace Dorc.NetFramework.Runner.Pipes
 
         public ScriptGroup GetScriptGroupProperties(string pipeName)
         {
-            string filename = $"{RunnerConstants.ScriptGroupFilesPath}{pipeName}.json";
+            string filename = PathContainment.ResolveWithinRoot(RunnerConstants.ScriptGroupFilesPath, pipeName + ".json");
             try
             {
                 logger.LogInformation("Deserializing received ScriptGroup.");
