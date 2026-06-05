@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Dorc.ApiModel
 {
@@ -10,6 +11,13 @@ namespace Dorc.ApiModel
     /// </summary>
     public static class PathContainment
     {
+        // Windows paths are case-insensitive; case-sensitive filesystems (e.g. Linux) are not,
+        // so containment must compare ordinally there to avoid treating /root and /ROOT as equal.
+        private static readonly StringComparison PathComparison =
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
         /// <summary>
         /// Resolves <paramref name="relativePath"/> against <paramref name="rootDirectory"/> and
         /// returns the canonical full path, provided it stays within the root. Throws
@@ -41,10 +49,10 @@ namespace Dorc.ApiModel
             // Path.Join, which is unavailable on this netstandard2.0 / net48 target.)
             var resolved = Path.GetFullPath(rootWithSeparator + relativePath);
 
-            if (string.Equals(resolved, rootFull, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(resolved, rootFull, PathComparison))
                 return resolved;
 
-            if (!resolved.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+            if (!resolved.StartsWith(rootWithSeparator, PathComparison))
                 throw new UnauthorizedAccessException(
                     "Resolved path '" + resolved + "' escapes the permitted root directory '" + rootFull + "'.");
 

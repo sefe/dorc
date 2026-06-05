@@ -47,7 +47,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             // Arrange
             const int bundleId = 42;
-            _bundledRequestsPersistentSource.GetBundleById(bundleId)
+            _bundledRequestsPersistentSource.GetBundledRequestById(bundleId)
                 .Returns(new BundledRequestsApiModel { Id = bundleId, ProjectId = 7 });
             _securityPrivilegesChecker.CanModifyProject(_user, 7).Returns(true);
 
@@ -65,7 +65,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             // Arrange
             const int bundleId = 42;
-            _bundledRequestsPersistentSource.GetBundleById(bundleId)
+            _bundledRequestsPersistentSource.GetBundledRequestById(bundleId)
                 .Returns(new BundledRequestsApiModel { Id = bundleId, ProjectId = 7 });
             _securityPrivilegesChecker.CanModifyProject(_user, 7).Returns(false);
 
@@ -83,7 +83,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             // Arrange
             const int bundleId = 999;
-            _bundledRequestsPersistentSource.GetBundleById(bundleId).Returns((BundledRequestsApiModel?)null);
+            _bundledRequestsPersistentSource.GetBundledRequestById(bundleId).Returns((BundledRequestsApiModel?)null);
 
             // Act
             var result = _controller.Delete(bundleId);
@@ -100,7 +100,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             // Arrange — a bundle with no owning project cannot be authorized; fail closed.
             const int bundleId = 42;
-            _bundledRequestsPersistentSource.GetBundleById(bundleId)
+            _bundledRequestsPersistentSource.GetBundledRequestById(bundleId)
                 .Returns(new BundledRequestsApiModel { Id = bundleId, ProjectId = null });
 
             // Act

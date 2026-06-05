@@ -52,7 +52,7 @@ namespace Dorc.Core.Tests
         public void Escape_NullOrEmpty_ReturnedAsIs()
         {
             Assert.AreEqual(string.Empty, LdapSearchFilterEscaper.Escape(string.Empty));
-            Assert.IsNull(LdapSearchFilterEscaper.Escape(null!));
+            Assert.IsNull(LdapSearchFilterEscaper.Escape(null));
         }
     }
 }

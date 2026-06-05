@@ -10,7 +10,7 @@ namespace Dorc.Core
     /// </summary>
     public static class LdapSearchFilterEscaper
     {
-        public static string Escape(string value)
+        public static string? Escape(string? value)
         {
             if (string.IsNullOrEmpty(value))
                 return value;

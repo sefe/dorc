@@ -162,7 +162,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var bundle = _bundledRequestsPersistentSource.GetBundleById(id);
+                var bundle = _bundledRequestsPersistentSource.GetBundledRequestById(id);
                 if (bundle == null)
                 {
                     return NotFound($"Bundled request with ID {id} not found.");

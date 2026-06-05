@@ -47,7 +47,7 @@ namespace Dorc.PersistentData.Sources
             return new List<BundledRequestsApiModel>();
         }
 
-        public BundledRequestsApiModel? GetBundleById(int id)
+        public BundledRequestsApiModel? GetBundledRequestById(int id)
         {
             using var context = contextFactory.GetContext();
 
