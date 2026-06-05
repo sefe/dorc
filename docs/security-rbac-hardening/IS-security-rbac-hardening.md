@@ -23,7 +23,7 @@
 | S-006b | Pin GitHub Actions to commit SHA + sweep workflows          | SF-3, SC-03        | S-005 | **IMPLEMENTED** ‡ |
 | S-006c | LDAP filter escaping in `ActiveDirectorySearcher`          | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED** † |
 | S-006d | Safe rendering for directory/user `innerHTML` sinks         | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED (partial)** ‡ |
-| S-006e | Path-containment hardening (file readers/copiers, pipe name)| SF-3, SC-03, SC-05 | S-005      |
+| S-006e | Path-containment hardening (file readers/copiers, pipe name)| SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED** ‡ |
 | S-006f | Accept-with-justification records (false positives)        | SF-3, SC-03        | S-005      |
 | S-007 | Review encryptor diff (key-derivation, nonce, naming)        | SF-4, SC-04, U-3, U-4 | — | **DONE** (REVIEW-S-007) |
 
@@ -291,6 +291,21 @@ S-005 (done). Independent.
 ### Verification intent
 - A test feeding a traversal payload (`../`) to each hardened entry point is rejected/contained.
 - Legitimate script-group and Terraform-copy flows are unaffected.
+
+### Delivery note
+Added `PathContainment.ResolveWithinRoot` (`Dorc.ApiModel`, netstandard2.0 so all runners incl.
+net48 can consume it) — canonicalises and rejects escapes (`..\`, absolute/rooted overrides).
+Applied to: `ScriptGroupFileReader` (Dorc.Runner, Dorc.TerraformRunner, Dorc.NetFramework.Runner)
+and `ScriptGroupFileWriter` (Dorc.Monitor) for the pipe-file path (T-6); `SharedFolderCodeSourceProvider`
+and `AzureArtifactCodeSourceProvider` copy destinations (T-7). `PathContainmentTests` 6/6 pass;
+Core.Tests 133/133; the three net8 consumers build clean. The net48 reader edit is the same
+one-line change, validated by inspection (Windows CI is the build gate).
+
+**Deferred (documented, not silently dropped):** `TerraformProcessor.WriteAllText(planContentFilePath)`
+(line ~125) takes a **caller-supplied absolute** output path with no natural containment root in
+that method — it needs caller-side validation, not an artificial root here. The
+`ZipFile.ExtractToDirectory` call in `AzureArtifactCodeSourceProvider` is already zip-slip-safe
+in .NET (entry-path validation built in) and needs no change.
 
 ---
 
