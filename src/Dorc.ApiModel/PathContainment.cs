@@ -29,8 +29,13 @@ namespace Dorc.ApiModel
                 ? rootFull
                 : rootFull + separator;
 
-            // Path.Combine lets an absolute or rooted relativePath override the root entirely,
-            // so the canonicalised result is what must be validated, not the raw inputs.
+            // A rooted/absolute relativePath would override the root entirely (Path.Combine drops
+            // the earlier argument), so reject it explicitly rather than relying on the containment
+            // check below to catch the escape.
+            if (Path.IsPathRooted(relativePath))
+                throw new UnauthorizedAccessException(
+                    "Path '" + relativePath + "' must be relative to the root directory '" + rootFull + "'.");
+
             var resolved = Path.GetFullPath(Path.Combine(rootFull, relativePath));
 
             if (string.Equals(resolved, rootFull, StringComparison.OrdinalIgnoreCase))

@@ -7,7 +7,8 @@ namespace Dorc.Core.Tests
     [TestClass]
     public class PathContainmentTests
     {
-        private static string Root => Path.Combine(Path.GetTempPath(), "dorc-containment-root");
+        // A relative root; PathContainment canonicalises it via Path.GetFullPath internally.
+        private const string Root = "dorc-containment-root";
 
         [TestMethod]
         public void ResolveWithinRoot_PlainFileName_ReturnsContainedPath()
@@ -21,7 +22,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void ResolveWithinRoot_Subdirectory_ReturnsContainedPath()
         {
-            var resolved = PathContainment.ResolveWithinRoot(Root, Path.Combine("sub", "file.json"));
+            var resolved = PathContainment.ResolveWithinRoot(Root, "sub/file.json");
 
             StringAssert.StartsWith(resolved, Path.GetFullPath(Root));
         }
