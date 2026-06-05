@@ -128,7 +128,7 @@ not in a runtime request path. **Recommendation:** mark accepted-risk; no change
 
 | Sub-step | Scope | Findings | Effort | Priority |
 |----------|-------|----------|--------|----------|
-| S-006a | Dependency bumps (Xml, Identity.Client, Text.Json) | T-3, T-9, T-10 | XS | **First** (clears 9 alerts incl. 2 HIGH, no code change) |
+| S-006a | Dependency bumps (Xml, Identity.Client, Text.Json) | T-3, T-9, T-10 | XS | **DONE** — see note below |
 | S-006b | Pin GitHub Actions to SHA + sweep both workflows | T-4 | XS | First |
 | S-006c | LDAP filter escaping + test | T-1 | S | **High** (highest real risk) |
 | S-006d | Safe rendering for directory/user data sinks; assess all `innerHTML` sites | T-2, T-5 | S–M | High (T-2), Med (T-5) |
@@ -138,6 +138,24 @@ not in a runtime request path. **Recommendation:** mark accepted-risk; no change
 S-006a/S-006b are zero-code-risk quick wins that clear the largest count of open alerts and
 should land first. S-006c is the highest-value code fix. S-006e is a single batched hardening
 change rather than per-file edits.
+
+### S-006a delivery note (build-verified on .NET 8 / Linux)
+
+- **T-3 (HIGH) fixed:** pinned transitive `System.Security.Cryptography.Xml` to **8.0.3** in
+  `Dorc.PowerShell` — resolves 8.0.3, project builds clean.
+- **T-9 fixed for first-party projects:** bumped the direct `Microsoft.Identity.Client` ref in
+  `Dorc.PersistentData` **4.78.0 → 4.81.0**; verified this propagates **4.81.0** to `Dorc.Api`
+  and `Dorc.Core` through the project graph (no separate pins needed there).
+- **T-10 needs no change:** the flagged project (`Tools.DeployCopyEnvBuildCLI`) already resolves
+  `System.Text.Json` **9.0.10** (≫ patched 8.0.5) via EF Core / `Dorc.ApiModel`; an explicit
+  8.0.5 pin is an **NU1605 downgrade** and was reverted. The finding's "8.0.0" reflects a
+  different (older) restore; the current graph is not vulnerable.
+- **Deferred (low severity):** `Microsoft.Identity.Client` alerts on `Org.OpenAPITools` (a
+  generated Azure DevOps client — a pin would be overwritten on regeneration) and
+  `Tests.Acceptance` (4.73.1, test-only). Bump those directly if the team wants the alerts zeroed.
+- **Regression check:** `Dorc.Core.Tests` 127/127 pass after the bumps. (`Dorc.Api.Tests` has 22
+  pre-existing failures unrelated to this work — `WindowsIdentity.GetCurrent()` /
+  `PlatformNotSupportedException` on Linux; they pass on the Windows CI.)
 
 ---
 

@@ -19,7 +19,7 @@
 | S-003 | Audit `CanReadSecrets` effective vs. target rule — **PARKED** | SF-2, U-1          | —          |
 | S-004 | Constrain secret retrieval to intended principals — **PARKED** | SF-2, SC-02, SC-05 | S-003, U-1 |
 | S-005 | Triage Aikido findings (whole surface) — **DONE**            | SF-3, SC-03, U-5   | —          |
-| S-006a | Dependency CVE bumps (Xml, Identity.Client, Text.Json)      | SF-3, SC-03        | S-005      |
+| S-006a | Dependency CVE bumps (Xml, Identity.Client, Text.Json)      | SF-3, SC-03        | S-005 | **IMPLEMENTED** ‡ |
 | S-006b | Pin GitHub Actions to commit SHA + sweep workflows          | SF-3, SC-03        | S-005      |
 | S-006c | LDAP filter escaping in `ActiveDirectorySearcher`          | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED** † |
 | S-006d | Safe rendering for directory/user `innerHTML` sinks         | SF-3, SC-03, SC-05 | S-005      |
@@ -27,9 +27,14 @@
 | S-006f | Accept-with-justification records (false positives)        | SF-3, SC-03        | S-005      |
 | S-007 | Review encryptor diff (key-derivation, nonce, naming)        | SF-4, SC-04, U-3, U-4 | —       |
 
-† **IMPLEMENTED** on branch `claude/codebase-review-priorities-bUsqp` with accompanying tests,
-**pending CI build/test and adversarial review** — the working environment has no .NET SDK, so
-the changes were validated by inspection (matching existing patterns) but not compiled or run.
+† / ‡ **IMPLEMENTED** on branch `claude/codebase-review-priorities-bUsqp`, **pending adversarial
+review**. A .NET 8 SDK was installed in the working environment and the changes were **built and
+tested on Linux**: `LdapSearchFilterEscaperTests` 7/7, `BundledRequestsControllerDeleteTests`
+4/4, `Dorc.Core.Tests` 127/127. The S-006a dependency bumps resolve as intended
+(`Cryptography.Xml` 8.0.3, `Identity.Client` 4.81.0 across Api/Core/PersistentData) with clean
+builds. The Windows-only test projects and the .NET Framework 4.8 projects cannot be exercised
+on Linux — the Windows CI remains the final gate (22 pre-existing `WindowsIdentity` failures in
+`Dorc.Api.Tests` are environmental, not from this work).
 
 **Ordering rationale.** S-001 and S-002 are independent, low-risk, and ready now — they lead.
 The secret-retrieval workstream (**S-003/S-004**) is **PARKED** pending team discussion of the
