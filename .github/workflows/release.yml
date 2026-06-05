@@ -73,6 +73,9 @@ jobs:
     - name: Run web tests
       working-directory: src/dorc-web
       run: npm test
+      # Capture results without aborting the job, mirroring the .NET "Run tests" step;
+      # failures are surfaced in the published report and gated below on main/release.
+      continue-on-error: true
 
     - name: Version AssemblyInfo files
       shell: pwsh
@@ -187,27 +190,38 @@ jobs:
       if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
       shell: pwsh
       run: |
-        $resultsDir = "${{ github.workspace }}\TestResults"
-        if (-not (Test-Path $resultsDir)) {
-          Write-Host "No test results directory found, skipping test failure check"
-          exit 0
-        }
-        
-        $trxFiles = Get-ChildItem -Path $resultsDir -Recurse -Include *.trx -ErrorAction SilentlyContinue
-        if (-not $trxFiles) {
-          Write-Host "No test result files found, skipping test failure check"
-          exit 0
-        }
-        
         $failed = $false
-        foreach ($file in $trxFiles) {
-          [xml]$xml = Get-Content $file.FullName
-          $failCount = ($xml.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq "Failed" }).Count
-          if ($failCount -gt 0) {
-            Write-Host "$($file.FullName): $failCount test(s) failed"
-            $failed = $true
+
+        # .NET (MSTest TRX)
+        $resultsDir = "${{ github.workspace }}\TestResults"
+        $trxFiles = if (Test-Path $resultsDir) { Get-ChildItem -Path $resultsDir -Recurse -Include *.trx -ErrorAction SilentlyContinue } else { @() }
+        if (-not $trxFiles) {
+          Write-Host "No .NET test result files found."
+        } else {
+          foreach ($file in $trxFiles) {
+            [xml]$xml = Get-Content $file.FullName
+            $failCount = ($xml.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq "Failed" }).Count
+            if ($failCount -gt 0) {
+              Write-Host "$($file.FullName): $failCount test(s) failed"
+              $failed = $true
+            }
           }
         }
+
+        # Web (vitest JUnit)
+        $vitestJunit = "${{ github.workspace }}\src\dorc-web\test-results\vitest-junit.xml"
+        if (Test-Path $vitestJunit) {
+          [xml]$vx = Get-Content $vitestJunit
+          $webFail = [int]$vx.testsuites.failures
+          $webErr = [int]$vx.testsuites.errors
+          if ($webFail -gt 0 -or $webErr -gt 0) {
+            Write-Host "Web tests: $webFail failure(s), $webErr error(s)"
+            $failed = $true
+          }
+        } else {
+          Write-Host "No web test result file found."
+        }
+
         if ($failed) {
           Write-Error "Test failures detected. Failing workflow."
           exit 1
@@ -220,6 +234,7 @@ jobs:
       with:
         files: |
           TestResults/**/*.trx
+          src/dorc-web/test-results/*.xml
       continue-on-error: true
       
     - name: Collect build artifacts

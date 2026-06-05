@@ -13,5 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
     globals: false,
+    reporters: ['default', 'junit'],
+    outputFile: { junit: 'test-results/vitest-junit.xml' },
   },
 });
