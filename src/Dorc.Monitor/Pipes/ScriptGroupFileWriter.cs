@@ -23,7 +23,7 @@ namespace Dorc.Monitor.Pipes
         public Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
         {
             string filesPath = RunnerConstants.ScriptGroupFilesPath;
-            string filename = $"{filesPath}{pipeName}.json";
+            string filename = PathContainment.ResolveWithinRoot(filesPath, pipeName + ".json");
             try
             {
                 // The serialised ScriptGroup contains secrets (GitHubToken, AzureBearerToken,

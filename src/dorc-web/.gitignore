@@ -24,3 +24,6 @@ storybook-static
 /src/apis/dorc-api-gen/
 
 /server
+
+# Vitest JUnit output (generated in CI for the test report)
+test-results/
