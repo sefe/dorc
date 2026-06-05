@@ -24,7 +24,7 @@
 | S-006c | LDAP filter escaping in `ActiveDirectorySearcher`          | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED** † |
 | S-006d | Safe rendering for directory/user `innerHTML` sinks         | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED (partial)** ‡ |
 | S-006e | Path-containment hardening (file readers/copiers, pipe name)| SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED** ‡ |
-| S-006f | Accept-with-justification records (false positives)        | SF-3, SC-03        | S-005      |
+| S-006f | Accept-with-justification records (false positives)        | SF-3, SC-03        | S-005 | **DONE (in-repo)** — justifications in AUDIT-S-005 §3 (T-8/T-11/T-12); Aikido suppression is a team action |
 | S-007 | Review encryptor diff (key-derivation, nonce, naming)        | SF-4, SC-04, U-3, U-4 | — | **DONE** (REVIEW-S-007) |
 
 † / ‡ **IMPLEMENTED** on branch `claude/codebase-review-priorities-bUsqp`, **pending adversarial
