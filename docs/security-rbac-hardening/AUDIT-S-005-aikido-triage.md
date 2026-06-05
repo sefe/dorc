@@ -128,12 +128,12 @@ not in a runtime request path. **Recommendation:** mark accepted-risk; no change
 
 | Sub-step | Scope | Findings | Effort | Priority |
 |----------|-------|----------|--------|----------|
-| S-006a | Dependency bumps (Xml, Identity.Client, Text.Json) | T-3, T-9, T-10 | XS | **DONE** — see note below |
-| S-006b | Pin GitHub Actions to SHA + sweep both workflows | T-4 | XS | First |
-| S-006c | LDAP filter escaping + test | T-1 | S | **High** (highest real risk) |
-| S-006d | Safe rendering for directory/user data sinks; assess all `innerHTML` sites | T-2, T-5 | S–M | High (T-2), Med (T-5) |
-| S-006e | Path-containment hardening for file readers/copiers + pipe-name validation | T-6, T-7 | M | Med (defence-in-depth) |
-| S-006f | Accept-with-justification records | T-8, T-11, T-12 | XS | Doc only (T-11 closed by S-002) |
+| S-006a | Dependency bumps (Xml, Identity.Client, Text.Json) | T-3, T-9, T-10 | XS | **DONE** (build-verified) |
+| S-006b | Pin GitHub Actions to SHA + sweep both workflows | T-4 | XS | **DONE** (EnricoMi → v2.23.0 SHA) |
+| S-006c | LDAP filter escaping + test | T-1 | S | **DONE** (7/7 tests) |
+| S-006d | Safe rendering for directory/user data sinks; assess all `innerHTML` sites | T-2, T-5 | S–M | **DONE (partial)** — T-2 + directory `DisplayName` T-5 sinks fixed (tests pass); identifier/enum T-5 sites deferred |
+| S-006e | Path-containment hardening for file readers/copiers + pipe-name validation | T-6, T-7 | M | Med (defence-in-depth) — pending |
+| S-006f | Accept-with-justification records | T-8, T-11, T-12 | XS | Doc only (T-11 closed by S-002) — pending |
 
 S-006a/S-006b are zero-code-risk quick wins that clear the largest count of open alerts and
 should land first. S-006c is the highest-value code fix. S-006e is a single batched hardening

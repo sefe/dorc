@@ -20,9 +20,9 @@
 | S-004 | Constrain secret retrieval to intended principals — **PARKED** | SF-2, SC-02, SC-05 | S-003, U-1 |
 | S-005 | Triage Aikido findings (whole surface) — **DONE**            | SF-3, SC-03, U-5   | —          |
 | S-006a | Dependency CVE bumps (Xml, Identity.Client, Text.Json)      | SF-3, SC-03        | S-005 | **IMPLEMENTED** ‡ |
-| S-006b | Pin GitHub Actions to commit SHA + sweep workflows          | SF-3, SC-03        | S-005      |
+| S-006b | Pin GitHub Actions to commit SHA + sweep workflows          | SF-3, SC-03        | S-005 | **IMPLEMENTED** ‡ |
 | S-006c | LDAP filter escaping in `ActiveDirectorySearcher`          | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED** † |
-| S-006d | Safe rendering for directory/user `innerHTML` sinks         | SF-3, SC-03, SC-05 | S-005      |
+| S-006d | Safe rendering for directory/user `innerHTML` sinks         | SF-3, SC-03, SC-05 | S-005 | **IMPLEMENTED (partial)** ‡ |
 | S-006e | Path-containment hardening (file readers/copiers, pipe name)| SF-3, SC-03, SC-05 | S-005      |
 | S-006f | Accept-with-justification records (false positives)        | SF-3, SC-03        | S-005      |
 | S-007 | Review encryptor diff (key-derivation, nonce, naming)        | SF-4, SC-04, U-3, U-4 | —       |
@@ -204,6 +204,12 @@ S-005 (done). Independent.
 - Workflows still parse and run.
 - The Aikido alert resolves.
 
+### Delivery note
+Pinned `EnricoMi/publish-unit-test-result-action/windows` to
+`c950f6fb443cb5af20a377fd0dfaa78838901040` (**v2.23.0**, SHA cross-checked against two GitHub
+pages). The `actions/*` and `microsoft/*` refs are first-party (GitHub/Microsoft) and left on
+their version tags — only the third-party action was flagged.
+
 ---
 
 ## S-006c — LDAP filter escaping in `ActiveDirectorySearcher`
@@ -247,6 +253,22 @@ S-005 (done). Independent. (Synergy, not dependency, with #595 test infra.)
 - The directory-search renderer no longer interprets display-name/logon markup as HTML
   (demonstrated by a test rendering a name containing HTML and asserting it is text, not nodes).
 - An inventory of `innerHTML` sites records, per site, converted vs. accepted-with-justification.
+
+### Delivery note (partial — directory-sourced sinks done; identifier/enum sites deferred)
+**Converted to Lit `render()`/`html` (escaped):**
+- `addUserOrGroupTemplateHelper.renderSearchResults` (T-2, AD `DisplayName`/`FullLogonName`) —
+  with `addUserOrGroupTemplateHelper.test.ts` (vitest/jsdom, 2/2 passing: ordinary render +
+  `<img onerror>`/`<script>` payload escaped to inert text).
+- `edit-database-permissions._boundUsersRenderer` / `_boundPermissionsRenderer` (T-5, directory
+  `DisplayName`) — typechecked clean.
+
+**Deferred T-5 sites (lower risk — admin/DB identifiers and controlled enums), recommended as a
+follow-up batch with frontend tests:** `page-project-components.ts` (`buildNumber`, `status`
+enum), `attach-server.ts` (`Name`), `attach-database.ts` (`Name`), `add-edit-database.ts`
+(`GroupName`), `add-sql-port.ts` (`template`), `page-scripts-list.ts` (`Path`, JSON viewer),
+`page-deploy.ts` (`ProjectName`), `page-project-bundles.ts` (`Type` enum, JSON viewer). These
+interpolate controlled identifiers rather than free user/directory text; converting them removes
+the fragile pattern but is not closing an open injection of attacker-controlled markup.
 
 ---
 
