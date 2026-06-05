@@ -211,7 +211,7 @@ jobs:
           Write-Host "No test failures detected."
         }
     - name: Publish test results
-      uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      uses: EnricoMi/publish-unit-test-result-action/windows@c950f6fb443cb5af20a377fd0dfaa78838901040 # v2.23.0
       if: always()
       with:
         files: |
