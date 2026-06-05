@@ -216,7 +216,7 @@ namespace Dorc.Core
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = string.Format("(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))",
-                    name)
+                    LdapSearchFilterEscaper.Escape(name))
             })
             {
                 dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
@@ -253,7 +253,7 @@ namespace Dorc.Core
 
             DirectorySearcher ds = new DirectorySearcher();
 
-            ds.Filter = $"(&(objectClass=user)(sAMAccountName={name}))";
+            ds.Filter = $"(&(objectClass=user)(sAMAccountName={LdapSearchFilterEscaper.Escape(name)}))";
             SearchResult sr = ds.FindOne();
 
             DirectoryEntry user = sr.GetDirectoryEntry();
