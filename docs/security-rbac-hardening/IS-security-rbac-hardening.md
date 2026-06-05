@@ -16,8 +16,8 @@
 |-------|--------------------------------------------------------------|--------------------|------------|
 | S-001 | Authorize `DELETE /BundledRequests`                          | SF-1, SC-01, SC-05 | —          |
 | S-002 | Relocate root-level security docs under `docs/`              | SF-4, SC-04        | —          |
-| S-003 | Audit `CanReadSecrets` effective vs. target rule             | SF-2, U-1          | —          |
-| S-004 | Constrain secret retrieval to intended principals            | SF-2, SC-02, SC-05 | S-003      |
+| S-003 | Audit `CanReadSecrets` effective vs. target rule — **PARKED** | SF-2, U-1          | —          |
+| S-004 | Constrain secret retrieval to intended principals — **PARKED** | SF-2, SC-02, SC-05 | S-003, U-1 |
 | S-005 | Triage Aikido findings (whole surface) — **DONE**            | SF-3, SC-03, U-5   | —          |
 | S-006a | Dependency CVE bumps (Xml, Identity.Client, Text.Json)      | SF-3, SC-03        | S-005      |
 | S-006b | Pin GitHub Actions to commit SHA + sweep workflows          | SF-3, SC-03        | S-005      |
@@ -28,8 +28,10 @@
 | S-007 | Review encryptor diff (key-derivation, nonce, naming)        | SF-4, SC-04, U-3, U-4 | —       |
 
 **Ordering rationale.** S-001 and S-002 are independent, low-risk, and ready now — they lead.
-The secret-retrieval workstream is **audit-first**: its fix step (S-004) is gated on the audit
-step (S-003) that resolves blocking U-1. The scanner workstream's audit (S-005) is **complete**
+The secret-retrieval workstream (**S-003/S-004**) is **PARKED** pending team discussion of the
+#438 policy (U-1): excluding admins/owners from plaintext secrets is a deliberate reduction of
+privilege with operational impact, so it is not designed here. The current rule is traced and
+recorded in U-1 for that discussion. All other steps remain actionable. The scanner workstream's audit (S-005) is **complete**
 — `AUDIT-S-005-aikido-triage.md` resolved U-5 — so its remediation sub-steps (S-006a…f) are
 ready to scope, ordered by real risk × ease: zero-code-risk bumps and Action pinning first,
 then the LDAP fix (highest real risk), then safe rendering, then defence-in-depth path
@@ -92,6 +94,10 @@ move; default is move).
 
 ## S-003 — Audit `CanReadSecrets` effective vs. target rule
 
+> **PARKED (2026-06-05)** pending team discussion of the #438 policy. The *current* rule has
+> already been traced (see U-1); what remains is the *target*-rule decision, which is the team's
+> to make. Do not start until U-1 is resolved.
+
 ### What changes
 No production code changes. Produces an in-repo audit note recording: the **current** effective
 set of principals for whom secret plaintext is returned (tracing `CanReadSecrets` and the role
@@ -114,6 +120,8 @@ None. Output gates S-004.
 ---
 
 ## S-004 — Constrain secret retrieval to intended principals
+
+> **PARKED (2026-06-05)** — gated on S-003 and the U-1 team decision.
 
 ### What changes
 The authorization decision feeding the secret-read path is adjusted so plaintext secrets are
