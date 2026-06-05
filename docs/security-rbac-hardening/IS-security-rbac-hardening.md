@@ -18,15 +18,23 @@
 | S-002 | Relocate root-level security docs under `docs/`              | SF-4, SC-04        | —          |
 | S-003 | Audit `CanReadSecrets` effective vs. target rule             | SF-2, U-1          | —          |
 | S-004 | Constrain secret retrieval to intended principals            | SF-2, SC-02, SC-05 | S-003      |
-| S-005 | Triage Aikido findings for CLI tools + PowerShell module     | SF-3, SC-03, U-5   | —          |
-| S-006 | Remediate confirmed CLI / PowerShell findings                | SF-3, SC-03, SC-05 | S-005      |
+| S-005 | Triage Aikido findings (whole surface) — **DONE**            | SF-3, SC-03, U-5   | —          |
+| S-006a | Dependency CVE bumps (Xml, Identity.Client, Text.Json)      | SF-3, SC-03        | S-005      |
+| S-006b | Pin GitHub Actions to commit SHA + sweep workflows          | SF-3, SC-03        | S-005      |
+| S-006c | LDAP filter escaping in `ActiveDirectorySearcher`          | SF-3, SC-03, SC-05 | S-005      |
+| S-006d | Safe rendering for directory/user `innerHTML` sinks         | SF-3, SC-03, SC-05 | S-005      |
+| S-006e | Path-containment hardening (file readers/copiers, pipe name)| SF-3, SC-03, SC-05 | S-005      |
+| S-006f | Accept-with-justification records (false positives)        | SF-3, SC-03        | S-005      |
 | S-007 | Review encryptor diff (key-derivation, nonce, naming)        | SF-4, SC-04, U-3, U-4 | —       |
 
 **Ordering rationale.** S-001 and S-002 are independent, low-risk, and ready now — they lead.
-The secret-retrieval and scanner workstreams are **audit-first**: their fix steps (S-004,
-S-006) are gated on the audit steps (S-003, S-005) that resolve the blocking unknowns. S-007
-is an audit/review whose output may or may not spawn a code change; any code change it implies
-is scoped as a new step after the review, not assumed here.
+The secret-retrieval workstream is **audit-first**: its fix step (S-004) is gated on the audit
+step (S-003) that resolves blocking U-1. The scanner workstream's audit (S-005) is **complete**
+— `AUDIT-S-005-aikido-triage.md` resolved U-5 — so its remediation sub-steps (S-006a…f) are
+ready to scope, ordered by real risk × ease: zero-code-risk bumps and Action pinning first,
+then the LDAP fix (highest real risk), then safe rendering, then defence-in-depth path
+containment. S-007 is an audit/review whose output may or may not spawn a code change; any code
+change it implies is scoped as a new step after the review, not assumed here.
 
 ---
 
@@ -76,6 +84,9 @@ move; default is move).
 - Repository root no longer contains the two documents.
 - Any in-repo link to them still resolves.
 - No source or build artifact references the old paths.
+- **Aikido finding T-11 (leaked-secret alert on `OAUTH_400_ERROR_DIAGNOSIS.md:194`, a truncated
+  example JWT — false positive) is cleared by this relocation/removal.** Confirm the alert
+  resolves after the file is moved out of the scanned root.
 
 ---
 
@@ -126,45 +137,140 @@ grant mechanism.
 
 ---
 
-## S-005 — Triage Aikido findings for CLI tools + PowerShell module
+## S-005 — Triage Aikido findings (whole surface) — **DONE**
 
-### What changes
-No production code changes. Produces an in-repo triage record enumerating each Aikido finding
-for the CLI tools and the PowerShell module, each categorised as true positive / false positive
-/ accepted risk, with severity and a remediation recommendation. Resolves U-5.
-
-### Why it changes
-**Addresses SF-3 / U-5.** The findings are not characterised in-repo; remediation cannot be
-ordered or scoped until they are. Triage-first prevents speculative changes to security-relevant
-tool code.
-
-### Dependencies
-None. Output gates S-006. Requires access to the Aikido report (User-provided).
-
-### Verification intent
-- Every reported finding appears in the record with a category, severity, and recommendation.
-- Confirmed HIGH/CRITICAL true positives each have a scoped follow-up (an S-006 sub-item or an
-  explicit, owner-assigned deferral).
+### Outcome
+Complete. `AUDIT-S-005-aikido-triage.md` enumerates and assesses all 43 Aikido findings
+(categories T-1…T-12) with in-context exploitability verdicts and remediation recommendations.
+U-5 is resolved. Key conclusions: the surface is broader than #605's "CLI + PowerShell" framing;
+the highest-risk items are T-1 (LDAP injection, `Dorc.Core`) and T-2 (XSS, `dorc-web`); most
+"critical" path-traversal hits are internal/operator-trust inputs (defence-in-depth, lower real
+risk); three findings are false positive / accepted. Remediation is grouped into S-006a…f below.
 
 ---
 
-## S-006 — Remediate confirmed CLI / PowerShell findings
+## S-006a — Dependency CVE bumps
 
 ### What changes
-Implements fixes for the HIGH/CRITICAL true positives confirmed in S-005. Exact changes are
-scoped per finding in JIT Specs once S-005 lands; this step is a placeholder for that scoped
-work and may decompose into several sub-steps.
+Bump `System.Security.Cryptography.Xml` to ≥8.0.3 (`Dorc.PowerShell`), `Microsoft.Identity.Client`
+to ≥4.81.0 (across the five referencing projects), and `System.Text.Json` to the patched 8.x
+(`Tools.DeployCopyEnvBuildCLI`). No source changes expected.
 
 ### Why it changes
-**Addresses SF-3 / SC-03.** Eliminates the confirmed exploitable issues in the tools and module.
+**Addresses SF-3 / T-3, T-9, T-10.** Zero-code-risk version bumps that clear 9 alerts (including
+two HIGH) — the cheapest, safest first move.
 
 ### Dependencies
-**Depends on S-005.** The set and shape of fixes are unknown until triage completes.
+S-005 (done). Independent of all other S-006 sub-steps.
 
 ### Verification intent
-- Each remediated finding has a test or a documented manual verification demonstrating the issue
-  is closed.
-- No regression to existing tool/module behaviour for legitimate use.
+- Restore/build succeeds on the bumped versions with no breaking API changes.
+- Existing test suites pass.
+- The corresponding Aikido SCA alerts resolve.
+
+---
+
+## S-006b — Pin GitHub Actions to commit SHA
+
+### What changes
+Pin the third-party action flagged at `release.yml:214` to a full commit SHA, and sweep both
+workflow files (`release.yml`, `release-publish.yml`) for the same mutable-tag pattern.
+
+### Why it changes
+**Addresses SF-3 / T-4.** Removes a supply-chain exposure (mutable action reference).
+
+### Dependencies
+S-005 (done). Independent.
+
+### Verification intent
+- All third-party actions referenced by commit SHA (with a version comment).
+- Workflows still parse and run.
+- The Aikido alert resolves.
+
+---
+
+## S-006c — LDAP filter escaping in `ActiveDirectorySearcher`
+
+### What changes
+The account name interpolated into the LDAP filter in `ActiveDirectorySearcher` is escaped using
+the standard LDAP filter-escaping routine (or bound via a parameterised search) so filter
+metacharacters in the input cannot alter the query.
+
+### Why it changes
+**Addresses SF-3 / T-1 / SC-05.** Highest real-risk finding: the SIDs resolved here drive
+authorization, so filter injection is security-relevant. Highest-value code fix in the cluster.
+
+### Dependencies
+S-005 (done). Independent.
+
+### Verification intent
+- A unit test asserts that input containing LDAP metacharacters (e.g. `*`, `(`, `)`, `\`) is
+  neutralised and does not change the filter's logical structure.
+- Legitimate account lookups continue to resolve correctly.
+
+---
+
+## S-006d — Safe rendering for directory/user `innerHTML` sinks
+
+### What changes
+Replace `innerHTML` string-building with safe rendering (`textContent` / templated nodes, or
+explicit HTML-escaping) at sinks where user- or directory-sourced data can flow in — beginning
+with `addUserOrGroupTemplateHelper.ts` (T-2). Each remaining `innerHTML` site from T-5 is assessed;
+those carrying only controlled/enum values may be left with a recorded justification or converted
+for consistency, but any site reachable by free-text/user/DB data is converted.
+
+### Why it changes
+**Addresses SF-3 / T-2, T-5 / SC-05.** Closes the genuine XSS sink (T-2) and removes the fragile
+pattern where it matters. Natural pairing with the frontend-test bootstrap (issue #595).
+
+### Dependencies
+S-005 (done). Independent. (Synergy, not dependency, with #595 test infra.)
+
+### Verification intent
+- The directory-search renderer no longer interprets display-name/logon markup as HTML
+  (demonstrated by a test rendering a name containing HTML and asserting it is text, not nodes).
+- An inventory of `innerHTML` sites records, per site, converted vs. accepted-with-justification.
+
+---
+
+## S-006e — Path-containment hardening
+
+### What changes
+Add canonicalise-and-contain validation to the flagged file readers/writers and Terraform
+code-source copy paths (T-6, T-7): resolve the target with `Path.GetFullPath` and assert it stays
+under the intended root before opening/copying; validate the pipe-name input matches the expected
+GUID shape. Delivered as one batched hardening change rather than per-file edits.
+
+### Why it changes
+**Addresses SF-3 / T-6, T-7 / SC-05.** Defence-in-depth: the inputs are currently internal /
+admin-configured (same trust), but containment checks make the traversal patterns safe regardless
+and close the CWE-22 alerts.
+
+### Dependencies
+S-005 (done). Independent.
+
+### Verification intent
+- A test feeding a traversal payload (`../`) to each hardened entry point is rejected/contained.
+- Legitimate script-group and Terraform-copy flows are unaffected.
+
+---
+
+## S-006f — Accept-with-justification records
+
+### What changes
+No code change. Record the false-positive / accepted-risk findings (T-8 operator CLI path, T-11
+example JWT — also cleared by S-002, T-12 build-time file read) with justification, and suppress
+them in Aikido per the team's convention so the dashboard reflects reality.
+
+### Why it changes
+**Addresses SF-3 / SC-03.** Closing the loop on non-actionable findings keeps the signal clean and
+documents why they were not changed.
+
+### Dependencies
+S-005 (done). T-11 verification coordinates with S-002.
+
+### Verification intent
+- Each accepted finding has an in-repo justification and is suppressed/annotated in the scanner.
 
 ---
 

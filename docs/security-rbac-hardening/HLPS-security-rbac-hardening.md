@@ -60,16 +60,35 @@ must be established by audit before a fix is designed (see U-1).
 **Severity.** HIGH if a broad role currently bypasses the per-environment grant; MEDIUM if
 the gap is only partial. Confirmed by U-1.
 
-### SF-3 — Unaudited "critical" findings in CLI tools and PowerShell module (issue #605)
+### SF-3 — Aikido SAST/SCA findings across the codebase (issue #605)
 
-An external scanner (Aikido) reports critical security issues in the CLI tools and the
-PowerShell module. The specific findings, their exploitability, and whether they are true
-positives are **not yet established in-repo**. This finding is a triage workstream, not a
-single fix: the deliverable of the first step is a categorised, in-repo record of each
-reported issue (true positive / false positive / accepted risk) with a remediation
-recommendation, from which concrete fix steps are scoped.
+> **Updated 2026-06-05 (U-5 resolved).** The Aikido export was provided and triaged in
+> `AUDIT-S-005-aikido-triage.md`. Issue #605 framed this as "CLI tools and PowerShell module,"
+> but the actual surface is broader and the two most genuinely exploitable findings sit
+> **outside** that framing. SF-3 is therefore restated as "the Aikido SAST/SCA surface."
 
-**Severity.** UNKNOWN until triaged — treated as potentially HIGH/CRITICAL pending audit.
+Triage outcome (full detail and per-finding rationale in `AUDIT-S-005-aikido-triage.md`):
+
+- **T-1 — LDAP query injection** in `Dorc.Core/ActiveDirectorySearcher.cs` (unescaped
+  `sAMAccountName` in an LDAP filter). Highest-scored finding; true positive; **HIGH** real risk
+  because SIDs resolved here drive authorization. *Outside #605's stated scope.*
+- **T-2 — XSS** via `innerHTML` of directory-search display names in `dorc-web`
+  (`addUserOrGroupTemplateHelper.ts`). True positive; **MED–HIGH**. *Outside #605's scope.*
+- **T-3 / T-9 / T-10 — dependency CVEs** (`System.Security.Cryptography.Xml` 8.0.2→8.0.3 HIGH;
+  `Microsoft.Identity.Client`→4.81.0 and `System.Text.Json`→patched 8.x, both LOW). True
+  positives, zero-code-risk version bumps.
+- **T-4 — unpinned GitHub Action** in `release.yml`. True positive; supply-chain hardening.
+- **T-5 — further `innerHTML` sinks** across several Lit components. True-positive pattern, mostly
+  LOW (controlled/enum data) but each site needs an is-it-user-data check.
+- **T-6 / T-7 — path-traversal patterns** in script-group pipe file I/O and Terraform code-source
+  copy. True positives but on internally-generated / admin-configured (same-trust) inputs →
+  defence-in-depth, LOW / LOW–MED.
+- **T-8 / T-11 / T-12 — false positives / accepted risk**: operator-supplied CLI file path; a
+  truncated example JWT in `OAUTH_400_ERROR_DIAGNOSIS.md` (cleared for free by S-002); build-time
+  file reads in `vite.config.js`.
+
+**Severity.** Mixed — one HIGH true positive (T-1), one MED–HIGH (T-2), several easy true-positive
+dependency/CI fixes, the remainder defence-in-depth or false positive.
 
 ### SF-4 — Bot-merged at-rest secret encryptor: review and hygiene
 
@@ -135,7 +154,7 @@ configuration where derivation is unstable; otherwise informational.
 |-------|-------------------|
 | SC-01 | `DELETE /BundledRequests` rejects callers without Project Write/Admin on the owning project with 403, and continues to permit authorized callers. Behaviour matches the existing `POST`/`PUT` authorization on the same controller. (SF-1) |
 | SC-02 | The set of principals able to retrieve plaintext secrets matches the policy in #438 — restricted to principals holding the per-environment "read secrets" grant, with no broad-role bypass. The exact target rule is fixed by U-1 before implementation. (SF-2) |
-| SC-03 | Every reported Aikido finding for the CLI tools and PowerShell module has an in-repo triage record (true/false positive, severity, remediation recommendation). True-positive HIGH/CRITICAL findings are either fixed within this initiative or have an explicit, owner-assigned deferral. (SF-3) |
+| SC-03 | Every reported Aikido finding (whole surface, not only CLI/PowerShell) has an in-repo triage record (true/false positive, severity, remediation recommendation) — **met by `AUDIT-S-005-aikido-triage.md`**. True-positive HIGH/CRITICAL findings are either fixed within this initiative or have an explicit, owner-assigned deferral. (SF-3) |
 | SC-04 | The shipped encryptor diff has a documented review outcome covering naming, key-derivation stability, and nonce strategy. Key-derivation is confirmed stable for all existing key configurations, or the risk is fixed. The two root-level documents are relocated under `docs/` or removed. (SF-4) |
 | SC-05 | Every behaviour change is covered by automated tests asserting both the allow and the deny paths at the layer where the decision is made. No regression to authorized flows. |
 | SC-06 | No change to the database schema, the external API request/response contract (beyond status codes for newly-denied operations), or the on-disk secret format. |
@@ -179,10 +198,11 @@ path; the masking/empty-value behaviour for non-holders is preserved. No new rol
 
 ### SD-3: Triage then remediate scanner findings (SF-3)
 
-Produce an in-repo audit record categorising each Aikido finding for the CLI tools and
-PowerShell module. From that record, scope concrete fix steps for confirmed HIGH/CRITICAL
-true positives; record false positives and accepted risks with justification. This direction
-is deliberately audit-first because the findings are not yet characterised in-repo.
+**Triage complete** (`AUDIT-S-005-aikido-triage.md`). Remediation now proceeds by the grouping
+the triage produced, ordered by real risk × ease: zero-code-risk dependency bumps and Action
+pinning first (clears the most alerts), then the LDAP-injection fix (highest real risk), then
+safe-rendering for user/directory data sinks, then defence-in-depth path containment. False
+positives and accepted risks are recorded with justification rather than changed.
 
 ### SD-4: Review the encryptor diff and correct hygiene (SF-4)
 
@@ -201,7 +221,7 @@ root-level documents so artifacts live under `docs/`. No format change.
 | U-2 | Does a bundle-id → project-id lookup already exist on `IBundledRequestsPersistentSource`, or must it be added? | Agent | Non-blocking | Open. Cheap to determine during S-001 spec; additive if missing. |
 | U-3 | For every key configuration currently in use, does `QuantumResistantPropertyEncryptor` key-derivation produce a stable, correct 32-byte key (no truncation/hash ambiguity that would break decryption of already-written `v2:` values)? | Agent / User | **Blocking** for any SF-4 code change beyond hygiene | Open. Establish via audit against real key shapes before touching the type. |
 | U-4 | Can the encryptor type be renamed without breaking DI registration in every host (API/Monitor/CLIs) and without behavioural change? | Agent | **Blocking** for the rename only | Open. Enumerate all registration/instantiation sites; rename is pure-refactor or it is not done. |
-| U-5 | What exactly does Aikido flag for the CLI tools and PowerShell module (finding list, severities)? | User | **Blocking** for SD-3 remediation steps | Open. The triage step (S-00x) produces this; remediation steps cannot be ordered until it lands. |
+| U-5 | What exactly does Aikido flag for the CLI tools and PowerShell module (finding list, severities)? | User | **Blocking** for SD-3 remediation steps | **RESOLVED 2026-06-05.** Aikido export provided and triaged in `AUDIT-S-005-aikido-triage.md` (43 findings, 12 categories T-1…T-12). Surface is broader than #605's framing; highest real risk is T-1 (LDAP injection, `Dorc.Core`) and T-2 (XSS, `dorc-web`). Remediation grouped into S-006a…f. No blocking unknowns remain for SF-3. |
 | U-6 | Is relocating/removing the two root-level docs acceptable, or are they referenced by external links/onboarding that must be preserved (e.g. via a redirect/stub)? | User | Non-blocking | Open. Default: move under `docs/`; confirm no external dependency. |
 
 **Blocking unknowns halt the dependent steps only** — SF-1 (S-001) has no blocking unknown
