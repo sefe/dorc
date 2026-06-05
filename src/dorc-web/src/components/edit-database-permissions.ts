@@ -1,4 +1,4 @@
-import { css, LitElement } from 'lit';
+import { css, LitElement, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
@@ -200,7 +200,8 @@ export class EditDatabasePermissions extends LitElement {
   ) {
     // only render the checkbox once, to avoid re-creating during subsequent calls
     const user = item as UserApiModel;
-    root.innerHTML = `<div>${user.DisplayName} - ${user.LoginType}</div>`;
+    // Escape directory-sourced values (DisplayName) — render as text, not HTML.
+    render(html`<div>${user.DisplayName} - ${user.LoginType}</div>`, root);
   }
 
   _boundPermissionsRenderer(
@@ -210,7 +211,7 @@ export class EditDatabasePermissions extends LitElement {
   ) {
     // only render the checkbox once, to avoid re-creating during subsequent calls
     const permissionDto = item as PermissionDto;
-    root.innerHTML = `<div>${permissionDto.DisplayName}</div>`;
+    render(html`<div>${permissionDto.DisplayName}</div>`, root);
   }
 
   _canSubmit() {
