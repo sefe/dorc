@@ -29,14 +29,17 @@ namespace Dorc.ApiModel
                 ? rootFull
                 : rootFull + separator;
 
-            // A rooted/absolute relativePath would override the root entirely (Path.Combine drops
-            // the earlier argument), so reject it explicitly rather than relying on the containment
-            // check below to catch the escape.
+            // A rooted/absolute relativePath would override the root entirely, so reject it
+            // explicitly rather than relying on the containment check below to catch the escape.
             if (Path.IsPathRooted(relativePath))
                 throw new UnauthorizedAccessException(
                     "Path '" + relativePath + "' must be relative to the root directory '" + rootFull + "'.");
 
-            var resolved = Path.GetFullPath(Path.Combine(rootFull, relativePath));
+            // relativePath is now guaranteed non-rooted, so concatenate it under the
+            // separator-terminated root and let GetFullPath canonicalise any ".." segments. (We
+            // avoid Path.Combine — whose rooted-override behaviour static analysis flags — and
+            // Path.Join, which is unavailable on this netstandard2.0 / net48 target.)
+            var resolved = Path.GetFullPath(rootWithSeparator + relativePath);
 
             if (string.Equals(resolved, rootFull, StringComparison.OrdinalIgnoreCase))
                 return resolved;
