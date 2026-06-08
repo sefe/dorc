@@ -3,6 +3,7 @@
     public interface IDirectorySearcherFactory
     {
         IActiveDirectorySearcher GetActiveDirectorySearcher();
+        IActiveDirectorySearcher GetEntraSearcher();
         IActiveDirectorySearcher GetOAuthDirectorySearcher();
     }
 }

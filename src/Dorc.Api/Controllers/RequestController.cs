@@ -3,13 +3,12 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.OpenSearchData.Sources.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
-using Dorc.OpenSearchData.Sources.Interfaces;
 
 namespace Dorc.Api.Controllers
 {
@@ -52,7 +51,7 @@ namespace Dorc.Api.Controllers
             _deploymentEventsPublisher = deploymentEventsPublisher;
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _deploymentLogService = deploymentLogService;
         }
 
