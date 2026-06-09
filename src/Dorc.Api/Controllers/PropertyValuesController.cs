@@ -39,7 +39,7 @@ namespace Dorc.Api.Controllers
             _variableResolver = variableResolver;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyValuesService = propertyValuesService;
-            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _logger = logger;
         }
 
