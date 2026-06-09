@@ -14,10 +14,14 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpHeaders } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     SqlPortApiModel,
 } from '../models';
+
+export interface RefDataSqlPortsByInstanceGetRequest {
+    instanceName?: string;
+}
 
 export interface RefDataSqlPortsDeleteRequest {
     sqlPortApiModel?: SqlPortApiModel;
@@ -34,12 +38,47 @@ export class RefDataSqlPortsApi extends BaseAPI {
 
     /**
      */
+    refDataSqlPortsByInstanceGet({ instanceName }: RefDataSqlPortsByInstanceGetRequest): Observable<string>
+    refDataSqlPortsByInstanceGet({ instanceName }: RefDataSqlPortsByInstanceGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
+    refDataSqlPortsByInstanceGet({ instanceName }: RefDataSqlPortsByInstanceGetRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (instanceName != null) { query['instanceName'] = instanceName; }
+
+        return this.request<string>({
+            url: '/RefDataSqlPorts/ByInstance',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataSqlPortsDelete({ sqlPortApiModel }: RefDataSqlPortsDeleteRequest): Observable<void>
     refDataSqlPortsDelete({ sqlPortApiModel }: RefDataSqlPortsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     refDataSqlPortsDelete({ sqlPortApiModel }: RefDataSqlPortsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({
@@ -55,9 +94,20 @@ export class RefDataSqlPortsApi extends BaseAPI {
     refDataSqlPortsGet(): Observable<Array<SqlPortApiModel>>
     refDataSqlPortsGet(opts?: OperationOpts): Observable<AjaxResponse<Array<SqlPortApiModel>>>
     refDataSqlPortsGet(opts?: OperationOpts): Observable<Array<SqlPortApiModel> | AjaxResponse<Array<SqlPortApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<SqlPortApiModel>>({
             url: '/RefDataSqlPorts',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -69,6 +119,13 @@ export class RefDataSqlPortsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({

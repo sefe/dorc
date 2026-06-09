@@ -1,4 +1,4 @@
-import type { Route } from '@vaadin/router';
+import type { Commands, RouteContext } from '@vaadin/router';
 import {appConfig} from '../app-config';
 
 import '../components/dorc-app.ts'
@@ -54,7 +54,7 @@ export type RouteMeta = Readonly<{
   };
 }>;
 
-export const routes: Route<RouteMeta>[] = [
+export const routes = [
   {
     path: '',
     component: 'dorc-app',
@@ -333,7 +333,7 @@ export const routes: Route<RouteMeta>[] = [
             children: [
               {
                 path: '/',
-                action: (_context, commands) =>
+                action: (_context: RouteContext, commands: Commands) =>
                   commands.redirect(_context.pathname + '/servers'),
                 metadata: { title: 'Components', description: 'Default redirect' }
               },

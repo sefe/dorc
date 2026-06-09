@@ -11,6 +11,7 @@ on:
       - 'hotfix/**'
       - 'migration/**'
       - 'copilot/**'
+      - 'claude/**'
   pull_request:
     branches:
       - main
@@ -68,7 +69,49 @@ jobs:
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
-      
+
+    # The next three steps assume Windows (pwsh + the Windows cache path).
+    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
+    # guards align them so adding a Linux/macOS matrix entry later is a
+    # localised change here rather than a silent CI mis-fire.
+    - name: Get installed Playwright version
+      id: playwright-version
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      shell: pwsh
+      run: |
+        $version = (npm ls @playwright/test --json 2>$null `
+          | ConvertFrom-Json).dependencies.'@playwright/test'.version
+        if (-not $version) {
+          $version = (npm ls playwright --json 2>$null `
+            | ConvertFrom-Json).dependencies.playwright.version
+        }
+        if (-not $version) {
+          # Refuse to write an empty cache key — would produce
+          # `playwright-Windows-` and silently match every run forever.
+          Write-Error "Could not determine installed Playwright version"
+          exit 1
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ~\AppData\Local\ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+    - name: Install Playwright browsers
+      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: src/dorc-web
+      run: npx playwright install chromium firefox webkit
+
+    - name: Run web tests
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      run: npm test
+
     - name: Version AssemblyInfo files
       shell: pwsh
       env:

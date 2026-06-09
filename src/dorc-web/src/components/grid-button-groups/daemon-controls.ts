@@ -20,6 +20,11 @@ export class DaemonControls extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: nowrap;
+      }
       vaadin-button {
         padding: 0px;
         margin: 0px;
@@ -86,15 +91,15 @@ export class DaemonControls extends LitElement {
   }
 
   serviceStart() {
-    this.requestChange('start');
+    this.requestChange('Starting');
   }
 
   serviceStop() {
-    this.requestChange('stop');
+    this.requestChange('Stopping');
   }
 
   serviceRestart() {
-    this.requestChange('restart');
+    this.requestChange('Restarting');
   }
 
   requestChange(requestedChange: string) {

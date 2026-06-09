@@ -4,10 +4,11 @@
     [Name]                  NVARCHAR (64)    NOT NULL,
     [Description]           NVARCHAR (MAX)   NULL,
     [ArtefactsUrl]          NVARCHAR (512)   NULL,
-    [ArtefactsSubPaths]     NVARCHAR (512)   NULL, 
-    [ArtefactsBuildRegex]   NVARCHAR(MAX)    NULL, 
-    [SourceDatabaseId]      INT NULL, 
+    [ArtefactsSubPaths]     NVARCHAR (512)   NULL,
+    [ArtefactsBuildRegex]   NVARCHAR(MAX)    NULL,
+    [SourceDatabaseId]      INT NULL,
     [TerraformGitRepoUrl]   NVARCHAR (512)   NULL,
+    [SourceControlType]     INT              NOT NULL DEFAULT 0,
     CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [dbo].[DATABASE]([DB_ID])
 );
 

@@ -661,6 +661,67 @@
         }
       }
     },
+    "/DaemonObservation": {
+      "get": {
+        "tags": [
+          "DaemonObservation"
+        ],
+        "parameters": [
+          {
+            "name": "daemonId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/DaemonAudit": {
       "put": {
         "tags": [
@@ -732,59 +793,93 @@
         }
       }
     },
-    "/DaemonObservation": {
+    "/ConfigValues": {
       "get": {
         "tags": [
-          "DaemonObservation"
+          "ConfigValues"
         ],
         "parameters": [
           {
-            "name": "daemonId",
+            "name": "name",
             "in": "query",
             "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "serverId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
+              "type": "string"
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/CopyEnvBuild": {
+      "post": {
+        "tags": [
+          "CopyEnvBuild"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyEnvBuildDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyEnvBuildDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyEnvBuildDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                  "$ref": "#/components/schemas/CopyEnvBuildResponseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                  "$ref": "#/components/schemas/CopyEnvBuildResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -921,69 +1016,6 @@
                   "items": {
                     "$ref": "#/components/schemas/DaemonStatusApiModel"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/DatabaseAudit": {
-      "put": {
-        "tags": [
-          "DatabaseAudit"
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
                 }
               }
             }
@@ -2809,36 +2841,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
           }
         }
       },
@@ -2890,66 +2892,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
           }
         }
       },
@@ -2971,35 +2913,8 @@
           "200": {
             "description": "OK"
           },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
           "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
+            "description": "Not Found"
           }
         }
       }
@@ -3284,6 +3199,61 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DatabaseApiModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataDatabases/ByType": {
+      "get": {
+        "tags": [
+          "RefDataDatabases"
+        ],
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -4173,6 +4143,62 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RefDataEnvironmentsHistory"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvironmentHistoryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvironmentHistoryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvironmentHistoryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -5470,6 +5496,45 @@
         }
       }
     },
+    "/RefDataServers/AppServersByEnvName": {
+      "get": {
+        "tags": [
+          "RefDataServers"
+        ],
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataServers": {
       "put": {
         "tags": [
@@ -5836,6 +5901,54 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/RefDataSqlPorts/ByInstance": {
+      "get": {
+        "tags": [
+          "RefDataSqlPorts"
+        ],
+        "parameters": [
+          {
+            "name": "instanceName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -7252,69 +7365,6 @@
         }
       }
     },
-    "/ServerAudit": {
-      "put": {
-        "tags": [
-          "ServerAudit"
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/ServerDaemons/{serverId}": {
       "get": {
         "tags": [
@@ -7436,35 +7486,8 @@
               }
             }
           },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
           "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
+            "description": "Not Found"
           }
         }
       },
@@ -7506,35 +7529,8 @@
               }
             }
           },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
           "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
+            "description": "Not Found"
           }
         }
       }
@@ -7625,6 +7621,132 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/DatabaseAudit": {
+      "put": {
+        "tags": [
+          "DatabaseAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ServerAudit": {
+      "put": {
+        "tags": [
+          "ServerAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
+                }
+              }
+            }
           }
         }
       }
@@ -8071,6 +8193,49 @@
         },
         "additionalProperties": false
       },
+      "CopyEnvBuildDto": {
+        "type": "object",
+        "properties": {
+          "SourceEnv": {
+            "type": "string",
+            "nullable": true
+          },
+          "TargetEnv": {
+            "type": "string",
+            "nullable": true
+          },
+          "Project": {
+            "type": "string",
+            "nullable": true
+          },
+          "Components": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CopyEnvBuildResponseDto": {
+        "type": "object",
+        "properties": {
+          "RequestIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "Success": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "DaemonApiModel": {
         "type": "object",
         "properties": {
@@ -8104,6 +8269,40 @@
             "nullable": true
           },
           "LastSeenStatus": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaemonObservationApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ServerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DaemonId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ObservedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ObservedStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
             "type": "string",
             "nullable": true
           }
@@ -8147,66 +8346,6 @@
             "nullable": true
           },
           "ToValue": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "DaemonObservationApiModel": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ServerId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "ServerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "DaemonId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "ObservedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "ObservedStatus": {
-            "type": "string",
-            "nullable": true
-          },
-          "ErrorMessage": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "DaemonStatusApiModel": {
-        "type": "object",
-        "properties": {
-          "ServerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "DaemonName": {
-            "type": "string",
-            "nullable": true
-          },
-          "Status": {
-            "type": "string",
-            "nullable": true
-          },
-          "EnvName": {
-            "type": "string",
-            "nullable": true
-          },
-          "ErrorMessage": {
             "type": "string",
             "nullable": true
           }
@@ -8261,49 +8400,6 @@
             "items": {
               "$ref": "#/components/schemas/DatabaseApiModel"
             },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "DatabaseAuditApiModel": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "DatabaseId": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "DatabaseName": {
-            "type": "string",
-            "nullable": true
-          },
-          "RefDataAuditActionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Action": {
-            "type": "string",
-            "nullable": true
-          },
-          "Username": {
-            "type": "string",
-            "nullable": true
-          },
-          "Date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "FromValue": {
-            "type": "string",
-            "nullable": true
-          },
-          "ToValue": {
-            "type": "string",
             "nullable": true
           }
         },
@@ -8918,7 +9014,7 @@
         },
         "additionalProperties": false
       },
-      "GetDaemonAuditListResponseDto": {
+      "GetDatabaseApiModelListResponseDto": {
         "type": "object",
         "properties": {
           "CurrentPage": {
@@ -8936,7 +9032,32 @@
           "Items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DaemonAuditApiModel"
+              "$ref": "#/components/schemas/DatabaseApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetPropertyValuesAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyValueAuditApiModel"
             },
             "nullable": true
           }
@@ -8968,7 +9089,7 @@
         },
         "additionalProperties": false
       },
-      "GetDatabaseApiModelListResponseDto": {
+      "GetDaemonAuditListResponseDto": {
         "type": "object",
         "properties": {
           "CurrentPage": {
@@ -8986,57 +9107,7 @@
           "Items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DatabaseApiModel"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GetDatabaseAuditListResponseDto": {
-        "type": "object",
-        "properties": {
-          "CurrentPage": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DatabaseAuditApiModel"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GetPropertyValuesAuditListResponseDto": {
-        "type": "object",
-        "properties": {
-          "CurrentPage": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PropertyValueAuditApiModel"
+              "$ref": "#/components/schemas/DaemonAuditApiModel"
             },
             "nullable": true
           }
@@ -9187,31 +9258,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ServerApiModel"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GetServerAuditListResponseDto": {
-        "type": "object",
-        "properties": {
-          "CurrentPage": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ServerAuditApiModel"
             },
             "nullable": true
           }
@@ -9384,9 +9430,20 @@
           },
           "SourceDatabase": {
             "$ref": "#/components/schemas/DatabaseApiModel"
+          },
+          "SourceControlType": {
+            "$ref": "#/components/schemas/SourceControlType"
           }
         },
         "additionalProperties": false
+      },
+      "SourceControlType": {
+        "enum": [
+          "AzureDevOps",
+          "GitHub",
+          "FileShare"
+        ],
+        "type": "string"
       },
       "Property": {
         "type": "object",
@@ -9885,49 +9942,6 @@
         },
         "additionalProperties": false
       },
-      "ServerAuditApiModel": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ServerId": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "ServerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "RefDataAuditActionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Action": {
-            "type": "string",
-            "nullable": true
-          },
-          "Username": {
-            "type": "string",
-            "nullable": true
-          },
-          "Date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "FromValue": {
-            "type": "string",
-            "nullable": true
-          },
-          "ToValue": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "ServerOperatingSystemApiModel": {
         "type": "object",
         "properties": {
@@ -9936,6 +9950,32 @@
             "nullable": true
           },
           "CurrentVersion": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaemonStatusApiModel": {
+        "type": "object",
+        "properties": {
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DaemonName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
             "type": "string",
             "nullable": true
           }
@@ -9986,9 +10026,36 @@
         "enum": [
           "SharedFolder",
           "Git",
-          "AzureArtifact"
+          "AzureArtifact",
+          "GitHubArtifact"
         ],
         "type": "string"
+      },
+      "UpdateEnvironmentHistoryRequest": {
+        "type": "object",
+        "properties": {
+          "EnvName": {
+            "type": "string",
+            "nullable": true
+          },
+          "BackupFile": {
+            "type": "string",
+            "nullable": true
+          },
+          "Comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdatedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "UpdateType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "UserAccountType": {
         "enum": [
@@ -10131,6 +10198,142 @@
             "nullable": true
           },
           "FullLogonName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "DatabaseId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DatabaseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDatabaseAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetServerAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServerAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ServerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
             "type": "string",
             "nullable": true
           }
