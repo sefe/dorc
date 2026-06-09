@@ -27,10 +27,11 @@ import { ScriptAuditApiModel } from '../apis/dorc-api/models/ScriptAuditApiModel
 import { GetScriptsAuditListResponseDto } from '../apis/dorc-api/models/GetScriptsAuditListResponseDto';
 import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-scripts-audit')
-export class PageScriptsAudit extends PageElement {
+export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -110,6 +111,13 @@ export class PageScriptsAudit extends PageElement {
       .value-line {
         white-space: nowrap;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
     }
 
@@ -172,6 +180,7 @@ export class PageScriptsAudit extends PageElement {
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

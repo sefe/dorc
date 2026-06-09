@@ -43,7 +43,8 @@ export class AddDaemon extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */

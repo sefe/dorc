@@ -6,6 +6,7 @@ import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/server-controls';
@@ -18,7 +19,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
 @customElement('component-deployment-results')
-export class ComponentDeploymentResults extends LitElement {
+export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
 
@@ -70,6 +71,8 @@ export class ComponentDeploymentResults extends LitElement {
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
+        flex: 1;
+        min-height: 150px;
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid-cell-content {
@@ -122,6 +125,13 @@ export class ComponentDeploymentResults extends LitElement {
         min-width: 32px;
         padding: 4px;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -159,6 +169,7 @@ export class ComponentDeploymentResults extends LitElement {
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.statusRenderer}"
@@ -178,6 +189,7 @@ export class ComponentDeploymentResults extends LitElement {
           resizable
           auto-width
           .renderer="${this._logRenderer}"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

@@ -29,6 +29,11 @@ export class ServerControls extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: nowrap;
+      }
       vaadin-button {
         padding: 0px;
         margin: 0px;

@@ -44,12 +44,23 @@ export class AddEditEnvironment extends LitElement {
   static get styles() {
     return css`
       :host {
-        display: inline;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
       div#div {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 175px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        /*
+         * Bound the scroll region directly so the internal scrollbar engages
+         * even when an ancestor doesn't constrain our height (the env-metadata
+         * tab and create dialog don't propagate a definite height down to the
+         * flex chain). Dual vh/dvh so the mobile address bar doesn't clip it.
+         */
+        max-height: calc(100vh - 175px);
+        max-height: calc(100dvh - 175px);
       }
       #env-owners {       
         display: flex;
@@ -74,6 +85,16 @@ export class AddEditEnvironment extends LitElement {
       }
       vaadin-combo-box.vaadin-text-field {
         --lumo-space-m: 0px;
+      }
+      /* The desktop min-width: 490px overflows narrow viewports — the global
+         vaadin-combo-box style in style-registrations.ts can't beat this
+         light-DOM rule because it lives in a different scope. */
+      @media (max-width: 768px) {
+        vaadin-text-field,
+        vaadin-combo-box {
+          min-width: 0;
+          width: 100%;
+        }
       }
       .tooltip {
         position: relative;
