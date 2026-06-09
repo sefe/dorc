@@ -38,7 +38,6 @@ namespace Dorc.PersistentData.Sources
                 context.SaveChanges();
 
                 var apiServer = MapToServerApiModel(newServer);
-                apiServer.UserEditable = server.UserEditable;
                 return apiServer;
             }
         }

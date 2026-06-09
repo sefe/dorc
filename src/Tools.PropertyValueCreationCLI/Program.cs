@@ -1,15 +1,15 @@
-﻿using Dorc.Core;
-using Dorc.Core.Security;
-using Dorc.Core.VariableResolution;
-using Dorc.PersistentData;
-using Dorc.PersistentData.Sources;
-using Dorc.PersistentData.Sources.Interfaces;
-using Lamar;
+﻿using Dorc.ApiModel;
+using Dorc.Core;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using RestSharp;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace Tools.PropertyValueCreationCLI
@@ -18,71 +18,50 @@ namespace Tools.PropertyValueCreationCLI
     {
         private static void Main(string[] args)
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
-                .Build();
-
-            var registry = new ConsoleRegistry(configuration);
-            registry.For<IConfiguration>().Use(configuration);
-            registry.IncludeRegistry<PersistentDataRegistry>();
-
-            var container = new Container(registry);
-            var app = container.GetInstance<Application>();
-            app.CheckFile(args[0]);
-            app.Run(args[0]);
-        }
-
-        public class ConsoleRegistry : ServiceRegistry
-        {
-            public ConsoleRegistry(IConfigurationRoot config)
+            try
             {
-                Scan(scan =>
-                {
-                    scan.TheCallingAssembly();
-                    scan.WithDefaultConventions();
-                });
-                // requires explicit registration; doesn't follow convention
-                For<IPropertyValueFilterCreation>().Use<PropertyValueFilterCreation>();
-                For<IPropertyCreation>().Use<PropertyCreation>();
-                For<IClaimsPrincipalReader>().Use<DirectToolClaimsPrincipalReader>();                
+                var configuration = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+                    .Build();
 
                 Log.Logger = new LoggerConfiguration()
-                    .ReadFrom.Configuration(config)
+                    .ReadFrom.Configuration(configuration)
                     .CreateLogger();
 
                 var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddSerilog(Log.Logger));
-                For<ILoggerFactory>().Use(_ => loggerFactory);
-                For<ILogger>().Use(ctx => ctx.GetInstance<ILoggerFactory>().CreateLogger("PropertyValueCreationCLI"));
-                For(typeof(ILogger<>)).Use(typeof(Logger<>));
+                var logger = loggerFactory.CreateLogger("PropertyValueCreationCLI");
 
-                For<IPropertyEncryptor>().Use(x => { 
-                    var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
-                    return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
-                        secureKeyPersistentDataSource.GetSymmetricKey());
-                });
-                For<IRolePrivilegesChecker>().Use<RolePrivilegesChecker>();
-                For<Application>().Use<Application>();
-
+                var api = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
+                var app = new Application(api, logger);
+                app.CheckFile(args[0]);
+                app.Run(args[0]);
+            }
+            catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
+            {
+                Console.WriteLine(DateTime.Now + " - Configuration Error: " + configEx.Message);
+                Console.WriteLine(DateTime.Now + " - appsettings error");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(DateTime.Now + " - Error: " + e.Message);
+                if (e.InnerException != null)
+                {
+                    Console.WriteLine(DateTime.Now + " - Inner Error: " + e.InnerException.Message);
+                }
             }
         }
 
         public class Application
         {
             private readonly ILogger _log;
-            private readonly IPropertyCreation _propertyCreation;
-            private readonly IPropertyValueFilterCreation _propertyValueFilterCreation;
-            private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+            private readonly IApiCaller _api;
 
-            public Application(IPropertyCreation propertyCreation,
-                IPropertyValueFilterCreation propertyValueFilterCreation, ILogger<Application> log, IEnvironmentsPersistentSource environmentsPersistentSource
-                )
+            public Application(IApiCaller api, ILogger log)
             {
-                _environmentsPersistentSource = environmentsPersistentSource;
-                _propertyCreation = propertyCreation;
-                _propertyValueFilterCreation = propertyValueFilterCreation;
                 _log = log;
+                _api = api;
             }
 
             public void CheckFile(string filePath)
@@ -93,31 +72,129 @@ namespace Tools.PropertyValueCreationCLI
                     new DeployCsvFileReader().GetValues(
                         File.ReadAllLines(filePath));
 
+                var environments = configs
+                    .Where(r => !string.IsNullOrEmpty(r.Environment))
+                    .Select(r => r.Environment)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var env in environments)
+                {
+                    var segments = new Dictionary<string, string> { { "env", env } };
+
+                    var result = _api.Call<List<EnvironmentApiModel>>(
+                        Endpoints.RefDataEnvironments,
+                        Method.Get,
+                        segments
+                    );
+
+                    if (!result.IsModelValid)
+                    {
+                        throw new Exception(
+                            $"Failed to check environment '{env}': {result.ErrorMessage}");
+                    }
+
+                    if (result.Value == null || !result.Value.Any())
+                    {
+                        throw new MissingFieldException(
+                            "Environment " + env + " doesn't exist in DORC database, please fix in the spreadsheet and retry");
+                    }
+                }
+
                 foreach (var row in configs)
                 {
                     if (row.PropertyName.Length > 64)
-                        throw new OverflowException(row.PropertyName +
-                                                    " exceeds the 64 character limit, please fix in the spreadsheet and retry");
                     {
-                        if (!string.IsNullOrEmpty(row.Environment) && !_environmentsPersistentSource.EnvironmentExists(row.Environment)
-                            )
-                            throw new MissingFieldException(
-                                row.Environment +
-                                " Environment doesn't exist in DORC database, please fix in the spreadsheet and retry");
+                        throw new OverflowException(
+                            $"{row.PropertyName} exceeds the 64 character limit, please fix in the spreadsheet and retry");
                     }
                 }
             }
-
             public void Run(string filepath)
             {
                 var configs = new DeployCsvFileReader().GetValues(File.ReadAllLines(filepath));
-                foreach (var row in configs)
+
+                var propertiesToCreate = configs
+                    .Select(row => new PropertyApiModel
+                    {
+                        Name = row.PropertyName,
+                        Secure = row.IsSecure
+                    })
+                    .DistinctBy(p => p.Name)
+                    .ToList();
+
+                var propertyValuesToCreate = configs
+                    .Select(row => new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel
+                        {
+                            Name = row.PropertyName,
+                            Secure = row.IsSecure
+                        },
+                        Value = row.Value,
+                        PropertyValueFilter = row.Environment
+                    })
+                    .ToList();
+
+                _log.LogInformation($"Creating {propertiesToCreate.Count} unique properties");
+                foreach (var prop in propertiesToCreate)
                 {
-                    _log.LogInformation("===== PropertyName:" + row.PropertyName + "  Secure:" + row.IsSecure + "  Value:" +
-                              row.Value + "  Environment:" + row.Environment + " ====");
-                    _propertyCreation.InsertProperty(row.PropertyName, row.IsSecure, Environment.UserName);
-                    _propertyValueFilterCreation.InsertPropertyValueFilter(row.PropertyName, row.Value,
-                        row.Environment); //do a check that environment exists!
+                    _log.LogInformation($"===== PropertyName: {prop.Name}  Secure: {prop.Secure} =====");
+                }
+
+                var propertyBody = JsonSerializer.Serialize(propertiesToCreate);
+                var propertyResult = _api.Call<List<Response>>(
+                    Endpoints.Properties,
+                    Method.Post,
+                    body: propertyBody
+                );
+
+                if (!propertyResult.IsModelValid)
+                {
+                    throw new Exception(
+                        $"Failed to create properties: {propertyResult.ErrorMessage}");
+                }
+
+                if (propertyResult.Value != null)
+                {
+                    foreach (var result in propertyResult.Value)
+                    {
+                        if (result.Status != "success")
+                        {
+                            _log.LogWarning($"Failed to create property: {result.Item} - {result.Status}");
+                        }
+                    }
+                }
+
+                _log.LogInformation($"Creating {propertyValuesToCreate.Count} property values");
+                foreach (var pv in propertyValuesToCreate)
+                {
+                    _log.LogInformation(
+                        $"===== PropertyName: {pv.Property?.Name}  Secure: {pv.Property?.Secure}  Value: {(pv.Property?.Secure == true ? "****" : pv.Value)}  Environment: {pv.PropertyValueFilter ?? "Default"} ====");
+                }
+
+                var valueBody = JsonSerializer.Serialize(propertyValuesToCreate);
+                var valueResult = _api.Call<List<Response>>(
+                    Endpoints.PropertyValues,
+                    Method.Post,
+                    body: valueBody
+                );
+
+                if (!valueResult.IsModelValid)
+                {
+                    throw new Exception(
+                        $"Failed to create property values: {valueResult.ErrorMessage}");
+                }
+
+                if (valueResult.Value != null)
+                {
+                    foreach (var result in valueResult.Value)
+                    {
+                        if (result.Status != "success")
+                        {
+                            _log.LogWarning($"Failed to create property value: {result.Item} - {result.Status}");
+                        }
+                    }
                 }
             }
         }

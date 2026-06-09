@@ -1,4 +1,4 @@
-import type { Route } from '@vaadin/router';
+import type { Commands, RouteContext } from '@vaadin/router';
 import {appConfig} from '../app-config';
 
 import '../components/dorc-app.ts'
@@ -20,6 +20,7 @@ import '../pages/page-about.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-audit.ts'
 import '../pages/page-daemons-list.ts'
+import '../pages/page-databases-audit.ts'
 import '../pages/page-databases-list.ts'
 import '../pages/page-deploy.ts'
 import '../pages/page-env-history.ts'
@@ -36,6 +37,7 @@ import '../pages/page-project-components.ts'
 import '../pages/page-project-ref-data.ts'
 import '../pages/page-projects-audit.ts'
 import '../pages/page-projects-list.ts'
+import '../pages/page-servers-audit.ts'
 import '../pages/page-scripts-list.ts'
 import '../pages/page-scripts-audit.ts'
 import '../pages/page-servers-list.ts'
@@ -52,7 +54,7 @@ export type RouteMeta = Readonly<{
   };
 }>;
 
-export const routes: Route<RouteMeta>[] = [
+export const routes = [
   {
     path: '',
     component: 'dorc-app',
@@ -134,12 +136,30 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/servers/audit',
+        name: 'servers-audit',
+        component: 'page-servers-audit',
+        metadata: {
+          title: 'Servers Audit',
+          description: 'Audit history across all servers'
+        }
+      },
+      {
         path: '/databases',
         name: 'databases',
         component: 'page-databases-list',
         metadata: {
           title: 'Databases',
           description: 'List of all databases you have permission to view'
+        }
+      },
+      {
+        path: '/databases/audit',
+        name: 'databases-audit',
+        component: 'page-databases-audit',
+        metadata: {
+          title: 'Databases Audit',
+          description: 'Audit history across all databases'
         }
       },
       {
@@ -313,7 +333,7 @@ export const routes: Route<RouteMeta>[] = [
             children: [
               {
                 path: '/',
-                action: (_context, commands) =>
+                action: (_context: RouteContext, commands: Commands) =>
                   commands.redirect(_context.pathname + '/servers'),
                 metadata: { title: 'Components', description: 'Default redirect' }
               },

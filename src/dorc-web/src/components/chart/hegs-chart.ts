@@ -10,6 +10,8 @@ export class HegsChart extends LitElement {
 
   private _option!: EChartsOption;
 
+  private _resizeObserver: ResizeObserver | undefined;
+
   get option() {
     return this._option;
   }
@@ -22,15 +24,19 @@ export class HegsChart extends LitElement {
   }
 
   static get styles() {
-    return css``;
+    return css`
+      :host {
+        display: block;
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+      }
+    `;
   }
 
   render() {
-    return html`<div id="container" style="width: 100%; height: 100%;"></div>`;
-  }
-
-  static get observedAttributes() {
-    return ['style', 'option'];
+    return html`<div id="container"></div>`;
   }
 
   private isDarkMode(): boolean {
@@ -39,42 +45,46 @@ export class HegsChart extends LitElement {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
+    this._initChart();
+  }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // After disconnect, we dispose ECharts and null `chart`; on reconnect
+    // firstUpdated does not re-fire, so we re-init here once the shadow
+    // root + #container are present. Guard against double-init on the
+    // initial mount (firstUpdated will run after this).
+    if (!this.chart && this.shadowRoot?.querySelector('#container')) {
+      this._initChart();
+    }
+  }
+
+  private _initChart() {
     const container = this.shadowRoot?.querySelector(
       '#container'
-    ) as HTMLDivElement;
+    ) as HTMLDivElement | null;
+    if (!container || this.chart) return;
     this.chart = echarts.init(container, this.isDarkMode() ? 'dark' : undefined);
     this.updateChart();
+
+    this._resizeObserver = new ResizeObserver(() => {
+      this.resizeChart();
+    });
+    this._resizeObserver.observe(container);
   }
 
   disconnectedCallback() {
-    const container = this.shadowRoot?.querySelector(
-      '#container'
-    ) as HTMLDivElement;
-    if (container) {
-      container.innerHTML = '';
-    }
+    super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = undefined;
     if (this.chart) {
-      echarts.dispose(container);
-    }
-  }
-
-  attributeChangedCallback(name: string, _oldValue: any, newValue: any) {
-    if (name === 'option') {
-      this.updateChart();
-    } else if (name === 'style') {
-      const container = this.shadowRoot?.querySelector(
-        '#container'
-      ) as HTMLDivElement;
-      if (container) {
-        container.setAttribute('style', newValue);
-      }
-      this.resizeChart();
+      this.chart.dispose();
+      this.chart = undefined;
     }
   }
 
   updateChart() {
-    if (!this.chart) return;
+    if (!this.chart || !this.option) return;
     this.chart.setOption({ ...this.option, backgroundColor: 'transparent' });
   }
 

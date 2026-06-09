@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // --- Hoisted mock values (available before vi.mock factories run) ---
+// Cast to `any` so test code can index `.mock.calls[i][j]` without strict-mode
+// noise; vi.fn()'s inferred call tuple is empty when the factory takes no args.
 const { mockRequestStatusesPut, mockSubscribe } = vi.hoisted(() => {
   const mockSubscribe = vi.fn();
-  const mockRequestStatusesPut = vi.fn(() => ({ subscribe: mockSubscribe }));
+  const mockRequestStatusesPut: any = vi.fn(() => ({ subscribe: mockSubscribe }));
   return { mockRequestStatusesPut, mockSubscribe };
 });
 
@@ -23,13 +25,13 @@ vi.mock('@vaadin/notification', () => ({
 vi.mock('@vaadin/grid', () => ({}));
 
 // Internal component side-effect registrations
-vi.mock('../components/grid-button-groups/request-controls', () => ({}));
-vi.mock('../icons/iron-icons.js', () => ({}));
-vi.mock('../icons/custom-icons.js', () => ({}));
-vi.mock('../components/notifications/error-notification', () => ({
+vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
+vi.mock('../../src/icons/iron-icons.js', () => ({}));
+vi.mock('../../src/icons/custom-icons.js', () => ({}));
+vi.mock('../../src/components/notifications/error-notification', () => ({
   ErrorNotification: class {}
 }));
-vi.mock('../components/connection-status-indicator', () => ({}));
+vi.mock('../../src/components/connection-status-indicator', () => ({}));
 
 // SignalR
 vi.mock('@microsoft/signalr', () => ({
@@ -38,7 +40,7 @@ vi.mock('@microsoft/signalr', () => ({
     Connected: 'Connected'
   }
 }));
-vi.mock('../services/ServerEvents', () => ({
+vi.mock('../../src/services/ServerEvents', () => ({
   DeploymentHub: {
     getConnection: vi.fn(() => ({
       onclose: vi.fn(),
@@ -53,27 +55,27 @@ vi.mock('../services/ServerEvents', () => ({
 }));
 
 // Helpers & router
-vi.mock('../helpers/user-extensions.js', () => ({
+vi.mock('../../src/helpers/user-extensions.js', () => ({
   getShortLogonName: vi.fn((name: string) => name)
 }));
-vi.mock('../helpers/errorMessage-retriever.js', () => ({
+vi.mock('../../src/helpers/errorMessage-retriever.js', () => ({
   retrieveErrorMessage: vi.fn((err: unknown) => String(err))
 }));
-vi.mock('../helpers/html-meta-manager', () => ({
+vi.mock('../../src/helpers/html-meta-manager', () => ({
   updateMetadata: vi.fn()
 }));
-vi.mock('../router/routes.ts', () => ({}));
+vi.mock('../../src/router/routes.ts', () => ({}));
 vi.mock('@vaadin/router', () => ({}));
 
 // DOrc API
-vi.mock('../apis/dorc-api', () => ({
+vi.mock('../../src/apis/dorc-api', () => ({
   RequestStatusesApi: class {
     requestStatusesPut = mockRequestStatusesPut;
   }
 }));
 
 // --- Import component after mocks are defined ---
-import { PageMonitorRequests } from './page-monitor-requests';
+import { PageMonitorRequests } from '../../src/pages/page-monitor-requests';
 
 /** Flush microtask queue so async firstUpdated (SignalR init) completes. */
 async function flushAsync(): Promise<void> {
@@ -84,7 +86,16 @@ describe('PageMonitorRequests', () => {
   let el: PageMonitorRequests;
 
   beforeEach(async () => {
-    // Use class constructor directly — more reliable than document.createElement in jsdom
+    // Install the mock impl BEFORE mounting so the constructor's initial
+    // subscription resolves synchronously rather than dangling pending.
+    mockRequestStatusesPut.mockClear();
+    mockSubscribe.mockClear();
+    mockSubscribe.mockImplementation((handlers: any) => {
+      handlers.next?.({ Items: [], TotalItems: 0 });
+      handlers.complete?.();
+    });
+
+    // Use class constructor directly — more reliable than document.createElement
     el = new PageMonitorRequests();
     document.body.appendChild(el);
     await el.updateComplete;
@@ -95,13 +106,6 @@ describe('PageMonitorRequests', () => {
     if (grid) {
       (grid as any).clearCache = vi.fn();
     }
-
-    mockRequestStatusesPut.mockClear();
-    mockSubscribe.mockClear();
-    mockSubscribe.mockImplementation((handlers: any) => {
-      handlers.next?.({ Items: [], TotalItems: 0 });
-      handlers.complete?.();
-    });
   });
 
   afterEach(() => {
@@ -377,7 +381,7 @@ describe('PageMonitorRequests', () => {
       const inputs = root.querySelectorAll('vaadin-text-field');
       expect(inputs[0].getAttribute('placeholder')).toBe('Project');
       expect(inputs[1].getAttribute('placeholder')).toBe('Environment');
-      expect(inputs[2].getAttribute('placeholder')).toBe('Build');
+      expect(inputs[2].getAttribute('placeholder')).toBe('Build#');
     });
 
     it('renders three sort toggles', () => {
@@ -401,7 +405,7 @@ describe('PageMonitorRequests', () => {
       expect(inputs.length).toBe(3);
       expect(inputs[0].getAttribute('placeholder')).toBe('Project');
       expect(inputs[1].getAttribute('placeholder')).toBe('Environment');
-      expect(inputs[2].getAttribute('placeholder')).toBe('Build');
+      expect(inputs[2].getAttribute('placeholder')).toBe('Build#');
 
       expect(container!.querySelector('span')?.textContent).toBe('-');
     });

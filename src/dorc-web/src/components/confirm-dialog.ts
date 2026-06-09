@@ -35,7 +35,7 @@ export class ConfirmDialog extends LitElement {
       
       .message {
         margin: 20px 0;
-        font-size: 16px;
+        font-size: var(--lumo-font-size-m);
       }
     `;
   }

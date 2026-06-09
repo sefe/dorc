@@ -117,7 +117,7 @@ export class DorcNavbar extends LitElement {
       <vaadin-tabs
         orientation="vertical"
         id="tabs"
-        style="height: calc(100vh - 60px);"
+        style="flex: 1; overflow-y: auto;"
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
@@ -156,19 +156,15 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-roles')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('sql-roles')}" style="padding-left: var(--lumo-space-l);">
               <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
               Roles
-            </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-ports')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('sql-ports')}" style="padding-left: var(--lumo-space-l);">
               <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
               Ports
-            </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
@@ -247,6 +243,22 @@ export class DorcNavbar extends LitElement {
             </div>
           </a>
         </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('databases-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
+              Databases Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('servers-audit')}">
+            <div style="margin-left: 20px; width: 210px">
+              <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
+              Servers Audit
+            </div>
+          </a>
+        </vaadin-tab>
         ${this.isAdmin
           ? html`
               <vaadin-tab>
@@ -265,7 +277,7 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
       </vaadin-tabs>
       <div
-        style="position: fixed; top: calc(100% - 13px); text-align: center; left: 50px; color: var(--dorc-text-secondary); font-size: x-small"
+        style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
       >
         ${this.metaData}
       </div>

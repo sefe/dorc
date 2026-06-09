@@ -98,6 +98,12 @@ export class PageVariables extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
       .loader {
         border: 16px solid #f3f3f3; /* Light grey */
         border-top: 16px solid #3498db; /* Blue */
@@ -123,8 +129,8 @@ export class PageVariables extends PageElement {
         }
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 390px);
+        flex: 1;
+        min-height: 200px;
       }
       vaadin-grid#grid::part(variable-value-error) {
         background-color: var(--dorc-highlight-bg);
@@ -206,7 +212,7 @@ export class PageVariables extends PageElement {
                       helper-text="${this.propertyValues
                         ? `Property contains ${this.propertyValues?.length} value(s)`
                         : 'Select Variable for info'}"
-                      style="min-width: 600px; margin-left: 5px"
+                      style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-xs)"
                       ?disabled="${this.deletingVariable}"
                     ></vaadin-combo-box>
                   </td>
@@ -244,7 +250,7 @@ export class PageVariables extends PageElement {
               summary="Add Variable Value"
               style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
-              <table>
+              <table style="width: 100%">
                 <tr>
                   <td style="vertical-align: center; min-width: 20px">
                     ${this.loadingScopes
@@ -274,7 +280,7 @@ export class PageVariables extends PageElement {
                         ></div> `
                       : html``}
                   </td>
-                  <td style="vertical-align: center;">
+                  <td style="vertical-align: center; width: 100%;">
                     <vaadin-combo-box
                       allow-custom-value
                       .items="${this.propertyValueScopeOptions}"
@@ -284,7 +290,7 @@ export class PageVariables extends PageElement {
                       id="newVariableValue"
                       ?disabled="${!this.existingPropertySelected}"
                       label="Value"
-                      style="min-width: 400px"
+                      style="min-width: 400px; width: 100%"
                       helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
                     ></vaadin-combo-box>
                   </td>
@@ -334,7 +340,8 @@ export class PageVariables extends PageElement {
                   <vaadin-grid-column
                     header="Value"
                     resizable
-                    auto-width
+                    flex-grow="1"
+                    width="20rem"
                     .renderer="${this.variableValueControlsRenderer}"
                     .headerRenderer="${this.valueHeaderRenderer}"
                   ></vaadin-grid-column>
@@ -812,7 +819,7 @@ export class PageVariables extends PageElement {
             // Update the local property object
             existingProperty.Secure = !originallySecured;
             
-            let message = '';
+            let message: string;
             if (!originallySecured) {
               message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
@@ -995,7 +1002,6 @@ export class PageVariables extends PageElement {
         .value="${model.item}"
         .editing="${model.item.Id === this._editingValueId}"
         .additionalInformation="${dup}"
-        style="min-width:150px"
       >
       </variable-value-controls>`,
       root
@@ -1006,8 +1012,7 @@ export class PageVariables extends PageElement {
     console.error(errs);
 
     errs.forEach(element => {
-      let msg = '';
-      msg = this.processError(element);
+      const msg = this.processError(element);
       if (msg !== '') {
         const notification = new ErrorNotification();
         notification.setAttribute('errorMessage', msg);

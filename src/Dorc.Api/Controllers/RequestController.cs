@@ -3,13 +3,12 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.OpenSearchData.Sources.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
-using Dorc.OpenSearchData.Sources.Interfaces;
 
 namespace Dorc.Api.Controllers
 {
@@ -52,7 +51,7 @@ namespace Dorc.Api.Controllers
             _deploymentEventsPublisher = deploymentEventsPublisher;
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _deploymentLogService = deploymentLogService;
         }
 
@@ -535,6 +534,55 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(requestDto.Project))
+                {
+                    return BadRequest("Project name must be provided.");
+                }
+
+                var project = _projectsPersistentSource.GetProject(requestDto.Project);
+                if (project == null)
+                {
+                    return BadRequest($"Project '{requestDto.Project}' does not exist.");
+                }
+
+                if (string.IsNullOrWhiteSpace(requestDto.Environment))
+                {
+                    return BadRequest("Environment name must be provided.");
+                }
+
+                var environment = _environmentsPersistentSource.GetEnvironment(requestDto.Environment);
+                if (environment == null)
+                {
+                    return BadRequest($"Environment '{requestDto.Environment}' does not exist.");
+                }
+
+                if (requestDto.Components != null && requestDto.Components.Any())
+                {
+                    var projectComponents = _projectsPersistentSource.GetComponentsForProject(requestDto.Project)
+                        .Select(c => c.ComponentName)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    var invalidComponents = requestDto.Components
+                        .Where(c => !projectComponents.Contains(c))
+                        .ToList();
+
+                    if (invalidComponents.Any())
+                    {
+                        return BadRequest(
+                            $"The following components do not exist for project '{requestDto.Project}': {string.Join(", ", invalidComponents.Select(c => $"'{c}'"))}.");
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(requestDto.BuildText) && string.IsNullOrWhiteSpace(requestDto.BuildUrl))
+                {
+                    return BadRequest("Either BuildText or BuildUrl must be provided.");
+                }
+
+                if (string.IsNullOrWhiteSpace(requestDto.BuildNum))
+                {
+                    return BadRequest("BuildNum must be provided.");
+                }
+
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {

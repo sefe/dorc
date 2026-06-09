@@ -33,6 +33,9 @@
 					<Json:JsonFile Id="ScriptRootProd" ElementPath="$.AppSettings.ScriptRoot" File="[#ProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#ProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 
+					<Json:JsonFile Id="GitHubTokenProd" ElementPath="$.AppSettings.GitHubToken" File="[#ProdDeployMonitorExeConfig]" Value="[GITHUBTOKEN]" />
+					<Json:JsonFile Id="GitHubArtifactDownloadFolderProd" ElementPath="$.AppSettings.GitHubArtifactDownloadFolder" File="[#ProdDeployMonitorExeConfig]" Value="[GITHUBARTIFACTDOWNLOADFOLDER]" />
+
 					<Json:JsonFile Id="DorcApiClientIdProd" ElementPath="$.AppSettings.DorcApi.ClientId" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTID]" />
 					<Json:JsonFile Id="DorcApiClientSecretProd" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
 					<Json:JsonFile Id="DorcApiScopeProd" ElementPath="$.AppSettings.DorcApi.Scope" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.API.SCOPE]" />

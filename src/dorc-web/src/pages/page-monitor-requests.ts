@@ -37,9 +37,8 @@ import {
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
-import type { RouterLocation } from '@vaadin/router';
-import { PageElement } from '../helpers/page-element';
-import type { RouteMeta } from '../router/routes';
+import { PageElement, PageLocation } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 
 const username = 'Username';
 const status = 'Status';
@@ -51,7 +50,7 @@ const id = 'Id';
 
 @customElement('page-monitor-requests')
 export class PageMonitorRequests
-  extends PageElement
+  extends ResponsiveMixin(PageElement)
   implements IDeploymentsEventsClient
 {
   @query('#grid') grid: Grid | undefined;
@@ -89,10 +88,16 @@ export class PageMonitorRequests
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
       }
 
       vaadin-text-field {
@@ -104,6 +109,10 @@ export class PageMonitorRequests
         padding-top: 0px;
         padding-bottom: 0px;
         margin: 0px;
+      }
+
+      vaadin-grid::part(row) {
+        cursor: pointer;
       }
 
       .overlay {
@@ -173,7 +182,8 @@ export class PageMonitorRequests
         column-reordering-allowed
         multi-sort
         .size=${200}
-        theme="compact row-stripes no-row-borders no-border"
+        theme="compact row-stripes no-row-borders no-border hover-highlight"
+        @active-item-changed="${this.onRowClick}"
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -299,6 +309,7 @@ export class PageMonitorRequests
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -306,6 +317,7 @@ export class PageMonitorRequests
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -328,6 +340,7 @@ export class PageMonitorRequests
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -387,12 +400,18 @@ export class PageMonitorRequests
   }
 
   // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
-  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  public onAfterEnter(location: PageLocation) {
     this.location = location;
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.addEventListener('keydown', this._onHostKeyDown);
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener('keydown', this._onHostKeyDown);
     if (this.hubConnection) {
       this.hubConnection.stop().catch(err => {
         console.error('Error stopping SignalR connection:', err);
@@ -685,36 +704,54 @@ export class PageMonitorRequests
     const request = model.item;
     render(
       html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${request.Id}
-          </span>
-          <vaadin-button
-            title="View Detailed Results"
-            theme="icon small"
-            @click="${() => {
-              const event = new CustomEvent('open-monitor-result', {
-                detail: {
-                  request,
-                  message: 'Show results for Request'
-                },
-                bubbles: true,
-                composed: true
-              });
-              this.dispatchEvent(event);
-            }}"
-          >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
+        <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
       `,
       root
     );
+  };
+
+  private onRowClick = (e: CustomEvent) => {
+    const request = e.detail.value as DeploymentRequestApiModel | null;
+    if (!request) return;
+
+    // Reset active item to allow re-clicking the same row
+    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
+    if (grid) grid.activeItem = null;
+
+    this.dispatchEvent(
+      new CustomEvent('open-monitor-result', {
+        detail: {
+          request,
+          message: 'Show results for Request'
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+  };
+
+  // Enter on a focused body row opens the detail panel by activating the row,
+  // which routes through the existing active-item-changed handler. Bails when
+  // the grid is in interacting-mode (focus is inside a cell-internal control
+  // such as a column-header filter input or sort button).
+  private _onHostKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
+    if (!grid || grid.hasAttribute('interacting')) return;
+
+    const row = e.composedPath().find(
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement &&
+        el.localName === 'tr' &&
+        el.getAttribute('role') === 'row'
+    );
+    if (!row) return;
+
+    const item = (row as unknown as { _item?: DeploymentRequestApiModel })._item;
+    if (!item) return;
+
+    e.preventDefault();
+    grid.activeItem = item;
   };
 
   _requestControlsRenderer(
@@ -828,6 +865,7 @@ export class PageMonitorRequests
           ></vaadin-grid-sorter>
           <vaadin-text-field
             placeholder="Project"
+            title="starts with"
             clear-button-visible
             focus-target
             style="width: 90px;"
@@ -855,6 +893,7 @@ export class PageMonitorRequests
           ></vaadin-grid-sorter>
           <vaadin-text-field
             placeholder="Environment"
+            title="starts with"
             clear-button-visible
             focus-target
             style="width: 110px;"
@@ -878,7 +917,8 @@ export class PageMonitorRequests
             style="align-items: normal; flex: 0 0 auto;"
           ></vaadin-grid-sorter>
           <vaadin-text-field
-            placeholder="Build"
+            placeholder="Build#"
+            title="contains"
             clear-button-visible
             focus-target
             style="width: 80px;"

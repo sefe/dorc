@@ -18,12 +18,13 @@ import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 
 @customElement('page-daemons-list')
-export class PageDaemonsList extends PageElement {
+export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -82,10 +83,16 @@ export class PageDaemonsList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 110px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       .overlay {
         width: 100%;
@@ -127,6 +134,13 @@ export class PageDaemonsList extends PageElement {
       .row-actions vaadin-button {
         padding: 0;
         margin: 0 2px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -240,22 +254,26 @@ export class PageDaemonsList extends PageElement {
                 path="DisplayName"
                 header="Display Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="AccountName"
                 header="Account Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ServiceType"
                 header="Type"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="LastSeenDate"
                 header="Last Seen"
                 resizable
                 direction="desc"
+                ?hidden="${this._narrowScreen}"
                 .renderer="${this._lastSeenRenderer}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column

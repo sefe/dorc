@@ -1,4 +1,6 @@
-﻿namespace Dorc.PersistentData.Model
+﻿using Dorc.ApiModel;
+
+namespace Dorc.PersistentData.Model
 {
     public class Project : SecurityObject
     {
@@ -10,6 +12,7 @@
         public string? TerraformGitRepoUrl { get; set; }
         public int? SourceDatabaseId { get; set; }
         public Database? SourceDatabase { get; set; }
+        public SourceControlType SourceControlType { get; set; } = SourceControlType.AzureDevOps;
         public ICollection<Component> Components { get; set; } = new List<Component>();
         public ICollection<Environment> Environments { get; set; } = new List<Environment>();
         public ICollection<RefDataAudit> RefDataAudits { get; set; } = new List<RefDataAudit>();
