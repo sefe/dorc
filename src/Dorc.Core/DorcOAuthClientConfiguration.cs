@@ -1,10 +1,9 @@
-﻿using Dorc.Core.Configuration;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using System;
 
-namespace Tools.RequestCLI
+namespace Dorc.Core.Configuration
 {
-    internal class DorcOAuthClientConfiguration : IOAuthClientConfiguration
+    public class DorcOAuthClientConfiguration : IOAuthClientConfiguration
     {
         private IConfiguration _config;
 

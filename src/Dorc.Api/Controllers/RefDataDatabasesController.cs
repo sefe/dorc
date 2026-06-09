@@ -63,6 +63,23 @@ namespace Dorc.Api.Controllers
             return new List<DatabaseApiModel>();
         }
 
+        /// <summary>
+        ///     Return database details by environment name and database type
+        /// </summary>
+        /// <param name="envName">Environment name</param>
+        /// <param name="type">Database type (e.g. "Endur")</param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [HttpGet]
+        [Route("ByType")]
+        public IActionResult GetByType([FromQuery] string envName, [FromQuery] string type)
+        {
+            var database = _databasesPersistentSource.GetDatabaseByType(envName, type);
+            if (database == null)
+                return NotFound($"No database of type '{type}' found for environment '{envName}'.");
+            return Ok(database);
+        }
 
         /// <summary>
         ///     Create Database entry
