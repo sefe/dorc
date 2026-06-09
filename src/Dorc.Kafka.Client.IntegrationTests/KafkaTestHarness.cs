@@ -3,6 +3,7 @@ using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
+using Dorc.Kafka.Client.Observability;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.Client.Serialization;
 using Microsoft.Extensions.Logging;
@@ -65,6 +66,7 @@ internal static class KafkaTestHarness
         return new KafkaConsumerBuilder<TKey, TValue>(
             provider,
             new DefaultKafkaSerializerFactory(),
+            new NoOpKafkaConsumerMetrics(),
             logger ?? NullLogger<KafkaConsumerBuilder<TKey, TValue>>.Instance);
     }
 
