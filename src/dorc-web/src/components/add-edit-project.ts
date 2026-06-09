@@ -461,6 +461,7 @@ export class AddEditProject extends LitElement {
         result = false;
       }
       if (
+        this.showSubPaths &&
         this._project.ArtefactsSubPaths !== undefined &&
         (this._project.ArtefactsSubPaths?.length ?? 0) < 1
       ) {
