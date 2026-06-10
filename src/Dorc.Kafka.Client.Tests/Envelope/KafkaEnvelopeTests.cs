@@ -31,6 +31,23 @@ public class KafkaEnvelopeTests
         CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, envelope.Value);
     }
 
+    // Regression: Headers.Add appends, so calling WithEnvelope twice (retry
+    // path reusing the Message) used to produce duplicate header keys.
+    [TestMethod]
+    public void WithEnvelope_CalledTwice_KeepsExactlyOneHeaderPerKey()
+    {
+        var message = new Message<string, byte[]> { Key = "k", Value = new byte[] { 1 } };
+
+        message.WithEnvelope("corr-1", "msg-1", "dorc-api");
+        message.WithEnvelope("corr-2", "msg-2", "dorc-api");
+
+        Assert.AreEqual(4, message.Headers.Count,
+            "Re-enveloping must replace headers, not append duplicates.");
+        var envelope = message.AsEnvelope();
+        Assert.AreEqual("corr-2", envelope.CorrelationId, "Latest envelope values must win.");
+        Assert.AreEqual("msg-2", envelope.MessageId);
+    }
+
     [TestMethod]
     public void AsEnvelope_OnRawMessage_ReturnsEmptyHeaders_ValueIntact()
     {
