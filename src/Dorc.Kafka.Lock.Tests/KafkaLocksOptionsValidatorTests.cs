@@ -11,7 +11,7 @@ public class KafkaLocksOptionsValidatorTests
         PartitionCount = 12,
         ReplicationFactor = 3,
         ConsumerGroupId = "dorc.monitor.locks",
-        LockWaitDefaultTimeoutMs = 30_000
+        AcquireWaitMs = 5_000
     };
 
     [TestMethod]
@@ -52,12 +52,31 @@ public class KafkaLocksOptionsValidatorTests
     }
 
     [TestMethod]
-    public void Validate_WaitTimeoutZero_Fails()
+    public void Validate_AcquireWaitZero_Fails()
     {
         var opts = Valid();
-        opts.LockWaitDefaultTimeoutMs = 0;
+        opts.AcquireWaitMs = 0;
         var r = new KafkaLocksOptionsValidator().Validate(null, opts);
         Assert.IsTrue(r.Failed);
-        StringAssert.Contains(string.Join("; ", r.Failures!), "LockWaitDefaultTimeoutMs");
+        StringAssert.Contains(string.Join("; ", r.Failures!), "AcquireWaitMs");
+    }
+
+    [TestMethod]
+    public void Validate_LivenessTimeoutZero_Fails()
+    {
+        var opts = Valid();
+        opts.LivenessTimeoutMs = 0;
+        var r = new KafkaLocksOptionsValidator().Validate(null, opts);
+        Assert.IsTrue(r.Failed);
+        StringAssert.Contains(string.Join("; ", r.Failures!), "LivenessTimeoutMs");
+    }
+
+    [TestMethod]
+    public void Validate_LivenessTimeoutUnset_Succeeds()
+    {
+        var opts = Valid();
+        opts.LivenessTimeoutMs = null; // auto: max(session.timeout.ms, 30s)
+        var r = new KafkaLocksOptionsValidator().Validate(null, opts);
+        Assert.IsTrue(r.Succeeded);
     }
 }

@@ -43,12 +43,15 @@ public static class KafkaDistributedLockServiceCollectionExtensions
 
         services.AddDorcKafkaClient(configuration);
 
+        // The provisioner MUST be registered before the coordinator: hosted
+        // services start in registration order, and on first boot the
+        // coordinator would otherwise subscribe to a not-yet-existing topic.
+        services.AddHostedService<KafkaLocksTopicProvisioner>();
+
         services.AddSingleton<KafkaLockCoordinator>();
         services.AddHostedService(sp => sp.GetRequiredService<KafkaLockCoordinator>());
 
         services.Replace(ServiceDescriptor.Singleton<IDistributedLockService, KafkaDistributedLockService>());
-
-        services.AddHostedService<KafkaLocksTopicProvisioner>();
 
         return services;
     }

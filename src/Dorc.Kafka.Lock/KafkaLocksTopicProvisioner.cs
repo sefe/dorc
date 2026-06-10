@@ -12,8 +12,19 @@ namespace Dorc.Kafka.Lock;
 /// <summary>
 /// Provisioning hook for the dorc.locks topic. Partition
 /// count is immutable post-cutover; the  runbook
-/// enforces that operationally. Mirrors the  results-status provisioner
-/// in error classification (ACL vs RF rejection vs other).
+/// enforces that operationally.
+///
+/// Error policy:
+/// <list type="bullet">
+/// <item>Partition-count mismatch → fail fast (<see cref="InvalidOperationException"/>
+/// stops the host): the configured count drives lock-key routing, so a
+/// mismatch silently mis-routes locks → split-brain.</item>
+/// <item>Broker unreachable at boot (<see cref="KafkaException"/>) → log error
+/// and continue startup; the coordinator's consume loop retries connectivity.</item>
+/// <item>Topic creation rejected (ACL, policy, anything other than
+/// topic-already-exists) → log error including a clear "distributed locking
+/// may be unavailable" warning, and continue.</item>
+/// </list>
 /// </summary>
 public sealed class KafkaLocksTopicProvisioner : IHostedService
 {
@@ -36,6 +47,8 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var producerConfig = _connectionProvider.GetProducerConfig();
         var adminConfig = new AdminClientConfig
         {
@@ -48,6 +61,16 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
         };
 
         using var admin = new AdminClientBuilder(adminConfig).Build();
+        await ProvisionAsync(admin, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Provisioning core, separated from admin-client construction so the
+    /// error policy is unit-testable against a scripted <see cref="IAdminClient"/>.
+    /// </summary>
+    internal async Task ProvisionAsync(IAdminClient admin, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
 
         var minIsr = _options.ReplicationFactor >= 3 ? 2 : 1;
         var spec = new TopicSpecification
@@ -63,14 +86,29 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
 
         try
         {
-            await admin.CreateTopicsAsync(new[] { spec });
+            // The admin API takes no CancellationToken; honor StartAsync's token
+            // via WaitAsync so a cancelled host start doesn't hang on a dead broker.
+            await admin.CreateTopicsAsync(new[] { spec }).WaitAsync(cancellationToken).ConfigureAwait(false);
             _logger.LogInformation(
                 "Kafka lock topic created: topic={Topic} partitions={Partitions} rf={Rf} minIsr={MinIsr}",
                 _topics.Locks, spec.NumPartitions, spec.ReplicationFactor, minIsr);
         }
         catch (CreateTopicsException ex) when (ex.Results[0].Error.Code == ErrorCode.TopicAlreadyExists)
         {
-            VerifyPartitionCount(admin, _topics.Locks, _options.PartitionCount);
+            try
+            {
+                // Fail fast on mismatch: VerifyPartitionCount throws
+                // InvalidOperationException, which deliberately escapes StartAsync
+                // and stops the host (wrong routing → split-brain).
+                VerifyPartitionCount(admin, _topics.Locks, _options.PartitionCount);
+            }
+            catch (KafkaException kex)
+            {
+                _logger.LogError(kex,
+                    "Kafka lock topic partition-count verification failed (broker unreachable?): topic={Topic}. " +
+                    "Continuing startup; distributed locking may be unavailable until connectivity is restored.",
+                    _topics.Locks);
+            }
         }
         catch (CreateTopicsException ex)
         {
@@ -82,6 +120,21 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
                 _logger.LogWarning("Kafka lock topic create rejected (dev config): code={Code} reason={Reason}", code, reason);
             else
                 _logger.LogError("Kafka lock topic create failed: code={Code} reason={Reason}", code, reason);
+
+            _logger.LogError(
+                "Kafka lock topic could not be provisioned: topic={Topic}. Distributed locking may be UNAVAILABLE " +
+                "until the topic exists — concurrent Monitor instances will not be mutually excluded.",
+                _topics.Locks);
+        }
+        catch (KafkaException ex)
+        {
+            // Broker unreachable / timed out at boot. Crash-looping the host here
+            // gains nothing — the coordinator's consume loop retries connectivity
+            // and the next boot re-attempts provisioning.
+            _logger.LogError(ex,
+                "Kafka unreachable while provisioning lock topic: topic={Topic}. Continuing startup; the lock " +
+                "consumer loop will retry. Distributed locking may be UNAVAILABLE until the topic exists.",
+                _topics.Locks);
         }
     }
 

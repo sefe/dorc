@@ -1,10 +1,17 @@
 namespace Dorc.Kafka.Lock;
 
 /// <summary>
-/// librdkafka / Java-Kafka default partitioner hash (MurmurHash2, seed 0x9747b28c).
-/// Matches <c>Utils.murmur2</c> in the Apache Kafka client and the
-/// <c>rd_kafka_msg_partitioner_consistent_random</c> path in librdkafka, so
-/// resource-key → partition mapping is stable across languages and brokers.
+/// Kafka's MurmurHash2 partitioner hash (seed 0x9747b28c). Matches
+/// <c>Utils.murmur2</c> in the Apache Kafka Java client (the Java producer's
+/// default partitioner) and librdkafka's
+/// <c>rd_kafka_msg_partitioner_murmur2_random</c> partitioner.
+///
+/// NOTE: this is NOT librdkafka's default partitioner —
+/// <c>rd_kafka_msg_partitioner_consistent_random</c>, the librdkafka default,
+/// is CRC32-based and produces a different key → partition mapping. Any
+/// producer that keys records into <c>dorc.locks</c> must set
+/// <c>Partitioner=Murmur2Random</c> so its partitioning aligns with
+/// <c>KafkaLockCoordinator.GetPartitionFor</c>.
 /// </summary>
 internal static class MurmurHash2
 {

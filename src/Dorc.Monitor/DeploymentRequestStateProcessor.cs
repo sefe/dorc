@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
@@ -496,8 +496,10 @@ namespace Dorc.Monitor
                         if (distributedLockService.IsEnabled)
                         {
                             var lockKey = $"env:{requestGroup.Key}";
-                            // Lock lease time is longer than typical request duration to handle long deployments
-                            // The lock will auto-release if the monitor crashes
+                            // leaseTimeMs is advisory: the Kafka partition-ownership
+                            // lock has no lease concept and ignores it (acquire wait
+                            // is capped by Kafka:Locks:AcquireWaitMs); ownership
+                            // auto-releases via group rebalance if this monitor dies
                             envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
 
                             if (envLock == null)

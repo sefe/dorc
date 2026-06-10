@@ -34,7 +34,20 @@ public sealed class KafkaLocksOptions
     public string ConsumerGroupId { get; set; } = "dorc.monitor.locks";
 
     /// <summary>
-    /// Default wait-cap (ms) when the caller passes <c>leaseTimeMs &lt;= 0</c>.
+    /// Upper bound (ms) a single <c>TryAcquireLockAsync</c> call waits for
+    /// partition ownership before returning null. Deliberately short: callers
+    /// (the Monitor) poll, so a contested resource should fail fast and back
+    /// off rather than park a task for the caller's lease duration.
     /// </summary>
-    public int LockWaitDefaultTimeoutMs { get; set; } = 30_000;
+    public int AcquireWaitMs { get; set; } = 5_000;
+
+    /// <summary>
+    /// Connectivity watchdog (split-brain guard). If the coordinator observes
+    /// no successful broker contact for this long, every held lock reports
+    /// lost (LockLostToken fires), because the broker may already have
+    /// reassigned our partitions to a peer after <c>session.timeout.ms</c>
+    /// without librdkafka surfacing a revoke/lost callback locally.
+    /// Null (default) resolves to <c>max(session.timeout.ms, 30s)</c>.
+    /// </summary>
+    public int? LivenessTimeoutMs { get; set; }
 }
