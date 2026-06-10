@@ -100,4 +100,39 @@ public class RequestPollSignalTests
             $"Second wait should timeout (duplicate signals collapsed); got {sw.ElapsedMilliseconds}ms.");
     }
 
+    [TestMethod]
+    public async Task Wait_AfterDispose_FallsBackToPlainDelay_NoThrow()
+    {
+        // Disposed-wait contract: the consumer loop keeps its baseline
+        // cadence via Task.Delay rather than crashing on a dead semaphore.
+        var s = new RequestPollSignal();
+        s.Dispose();
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await s.WaitAsync(TimeSpan.FromMilliseconds(120), CancellationToken.None);
+        sw.Stop();
+
+        Assert.IsTrue(sw.ElapsedMilliseconds >= 90,
+            $"Disposed wait must still pace the loop via delay; returned after {sw.ElapsedMilliseconds}ms.");
+    }
+
+    [TestMethod]
+    public async Task Wait_AfterDispose_CancellationIsSwallowed()
+    {
+        // Shutdown path: cancellation during the disposed-fallback delay is
+        // the expected exit and must not surface TaskCanceledException.
+        var s = new RequestPollSignal();
+        s.Dispose();
+        using var cts = new CancellationTokenSource(50);
+
+        await s.WaitAsync(TimeSpan.FromSeconds(10), cts.Token); // must not throw
+    }
+
+    [TestMethod]
+    public void Dispose_CalledTwice_IsIdempotent()
+    {
+        var s = new RequestPollSignal();
+        s.Dispose();
+        s.Dispose(); // must not throw
+    }
 }
