@@ -48,6 +48,42 @@ public class KafkaDistributedLockDITests
     }
 
     [TestMethod]
+    public async Task HostedServices_TopicProvisionerStartsBeforeCoordinator()
+    {
+        // Hosted services start in registration order. The provisioner creates
+        // the lock topic; if the coordinator is registered first, the first
+        // boot subscribes to a nonexistent topic.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IHostEnvironment>(new DummyEnv());
+
+        services.AddDorcKafkaDistributedLock(BuildConfig());
+
+        var hostedDescriptors = services
+            .Where(sd => sd.ServiceType == typeof(IHostedService))
+            .ToList();
+
+        var provisionerIndex = hostedDescriptors.FindIndex(
+            sd => sd.ImplementationType == typeof(KafkaLocksTopicProvisioner));
+        Assert.IsTrue(provisionerIndex >= 0, "Provisioner must be registered as a hosted service.");
+
+        // The coordinator hosted service is factory-registered; identify it by
+        // invoking each factory (safe: the coordinator ctor touches no broker).
+        await using var sp = services.BuildServiceProvider();
+        var coordinatorIndex = hostedDescriptors.FindIndex(sd =>
+        {
+            if (sd.ImplementationFactory is null) return false;
+            try { return sd.ImplementationFactory(sp) is KafkaLockCoordinator; }
+            catch { return false; }
+        });
+        Assert.IsTrue(coordinatorIndex >= 0, "Coordinator must be registered as a hosted service.");
+
+        Assert.IsTrue(provisionerIndex < coordinatorIndex,
+            $"KafkaLocksTopicProvisioner (index {provisionerIndex}) must be registered before " +
+            $"KafkaLockCoordinator (index {coordinatorIndex}) so the topic exists before the consumer subscribes.");
+    }
+
+    [TestMethod]
     public void Idempotent_SecondCallIsNoOp()
     {
         var services = new ServiceCollection();

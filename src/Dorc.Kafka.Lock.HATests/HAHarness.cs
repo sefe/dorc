@@ -80,7 +80,7 @@ internal sealed class HAHarness : IAsyncDisposable
             PartitionCount = _partitionCount,
             ReplicationFactor = 1,
             ConsumerGroupId = _groupId,
-            LockWaitDefaultTimeoutMs = 15_000
+            AcquireWaitMs = 5_000
         });
 
         var topicsOpts = Options.Create(new KafkaTopicsOptions

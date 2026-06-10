@@ -17,8 +17,11 @@ public sealed class KafkaLocksOptionsValidator : IValidateOptions<KafkaLocksOpti
         if (string.IsNullOrWhiteSpace(options.ConsumerGroupId))
             errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.ConsumerGroupId)} is required.");
 
-        if (options.LockWaitDefaultTimeoutMs <= 0)
-            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.LockWaitDefaultTimeoutMs)} must be > 0.");
+        if (options.AcquireWaitMs <= 0)
+            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.AcquireWaitMs)} must be > 0.");
+
+        if (options.LivenessTimeoutMs is <= 0)
+            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.LivenessTimeoutMs)} must be > 0 when specified (omit for the default of max(session.timeout.ms, 30s)).");
 
         return errors.Count == 0
             ? ValidateOptionsResult.Success
