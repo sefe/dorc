@@ -78,7 +78,7 @@ namespace Dorc.Api.Tests
                 .Returns(new FileShareBuildStub(new RequestStatusDto { Id = 1 }, true));
             var test1Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
 
-            var result1 = test1Service.CreateRequest(request, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+            var result1 = test1Service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
             Assert.AreEqual(1, result1.Id);
         }
 
@@ -104,7 +104,7 @@ namespace Dorc.Api.Tests
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, true));
             var test2Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
-            var result2 = test2Service.CreateRequest(request, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+            var result2 = test2Service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
             Assert.IsNull(result2);
         }
 
@@ -133,7 +133,7 @@ namespace Dorc.Api.Tests
             Exception expectedException = null;
             try
             {
-                var result3 = test3service.CreateRequest(request, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+                var result3 = test3service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
             }
             catch (Exception e)
             {
@@ -171,7 +171,7 @@ namespace Dorc.Api.Tests
             Exception expectedException1 = null;
             try
             {
-                var result4 = test4Service.CreateRequest(request1, new WindowsPrincipal(WindowsIdentity.GetCurrent()));
+                var result4 = test4Service.CreateRequest(request1, new GenericPrincipal(new GenericIdentity("test-user"), null));
 
             }
             catch (Exception e)
