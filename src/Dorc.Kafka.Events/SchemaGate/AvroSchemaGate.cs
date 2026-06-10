@@ -16,10 +16,14 @@ public enum GateOutcome
 public sealed record GateReport(GateOutcome Outcome, string Subject, string Message, string? Source = null);
 
 /// <summary>
-/// PR-gate logic. Always enforces BACKWARD compatibility
-/// regardless of any observed registry mode. Source selection: prefer live
-/// Karapace when reachable; fall back to a committed snapshot; fail closed
-/// if neither is available.
+/// PR-gate logic. Requires backward-enforcing compatibility: the registry's
+/// POST /compatibility endpoint evaluates against the SUBJECT'S configured
+/// mode (a registry running NONE would pass anything), so the gate first
+/// verifies the effective mode (subject-level GET /config/{subject}, falling
+/// back to global GET /config) is one of BACKWARD, BACKWARD_TRANSITIVE,
+/// FULL, or FULL_TRANSITIVE and fails closed otherwise. Source selection:
+/// prefer live Karapace when reachable; fall back to a committed snapshot;
+/// fail closed if neither is available.
 ///
 /// <see cref="InScopeSchemas"/> emits
 /// <c>(CanonicalKey, LiveSubject, Schema)</c> triples. <c>CanonicalKey</c>
@@ -141,12 +145,36 @@ public sealed class AvroSchemaGate
             "Neither live schema registry nor committed snapshot available; cannot determine latest registered schema. Gate fails closed.");
     }
 
+    /// <summary>
+    /// Compatibility modes under which a POST /compatibility "is_compatible"
+    /// answer actually proves backward evolution safety. Anything else
+    /// (NONE, NONE_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE) would let an
+    /// incompatible schema sail through the POST check.
+    /// </summary>
+    private static readonly string[] BackwardEnforcingModes =
+    {
+        "BACKWARD", "BACKWARD_TRANSITIVE", "FULL", "FULL_TRANSITIVE"
+    };
+
     private async Task<GateReport?> TryCompatibilityAgainstLiveAsync(string subject, string regenerated, CancellationToken cancellationToken)
     {
         if (_registryHttp is null) return null;
 
         try
         {
+            // POST /compatibility evaluates against the subject's CONFIGURED
+            // mode — a registry running NONE passes anything. Verify the
+            // effective mode first and fail closed if it doesn't enforce
+            // backward evolution safety.
+            var (effectiveMode, modeDetermined) = await ResolveEffectiveCompatibilityAsync(subject, cancellationToken);
+            if (!modeDetermined)
+                return null; // registry config unreadable (transient) — fall through to snapshot
+            if (!BackwardEnforcingModes.Contains(effectiveMode, StringComparer.OrdinalIgnoreCase))
+                return new GateReport(GateOutcome.Fail, subject,
+                    $"Live registry effective compatibility mode is '{effectiveMode}', which does not enforce backward evolution safety. " +
+                    $"Fix the registry config (e.g. PUT /config/{subject} {{\"compatibility\":\"BACKWARD\"}} or set the global default) before relying on this gate.",
+                    Source: "live");
+
             var body = new
             {
                 schema = regenerated,
@@ -159,9 +187,20 @@ public sealed class AvroSchemaGate
                 cancellationToken);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return new GateReport(GateOutcome.Pass, subject,
-                    "Subject not yet registered in live registry; compatibility check skipped (first version is always compatible).",
+            {
+                // Only a Confluent/Karapace 40401 ("subject not found") body
+                // proves the subject genuinely isn't registered yet. A bare
+                // 404 (mis-pathed proxy, wrong base URL) must NOT pass — it
+                // would silently green-light every PR forever.
+                var notFoundBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (HasRegistryErrorCode(notFoundBody, 40401))
+                    return new GateReport(GateOutcome.Pass, subject,
+                        "Subject not yet registered in live registry (40401); compatibility check skipped (first version is always compatible).",
+                        Source: "live");
+                return new GateReport(GateOutcome.Fail, subject,
+                    $"Live registry returned 404 WITHOUT a schema-registry 40401 error body for subject '{subject}' — likely a mis-pathed proxy or wrong registry base URL. Response body: {Truncate(notFoundBody, 500)}",
                     Source: "live");
+            }
 
             if ((int)response.StatusCode >= 500)
                 return null; // 5xx: transient, fall through to snapshot
@@ -203,6 +242,83 @@ public sealed class AvroSchemaGate
             return null;
         }
     }
+
+    /// <summary>
+    /// Resolves the registry's effective compatibility mode for a subject:
+    /// subject-level <c>GET /config/{subject}</c> first; on 404 (no
+    /// subject-level override) fall back to global <c>GET /config</c>.
+    /// Returns <c>(mode, true)</c> when determined, <c>(null, false)</c> when
+    /// the config endpoints are unreadable (caller falls through to the
+    /// snapshot path, which fails closed on any schema change).
+    /// </summary>
+    private async Task<(string? Mode, bool Determined)> ResolveEffectiveCompatibilityAsync(
+        string subject, CancellationToken cancellationToken)
+    {
+        var subjectResponse = await _registryHttp!.GetAsync($"/config/{subject}", cancellationToken);
+        if (subjectResponse.IsSuccessStatusCode)
+        {
+            var mode = ReadCompatibilityLevel(await subjectResponse.Content.ReadAsStringAsync(cancellationToken));
+            return mode is null ? (null, false) : (mode, true);
+        }
+
+        if (subjectResponse.StatusCode != System.Net.HttpStatusCode.NotFound)
+            return (null, false); // 5xx / auth / proxy issue — can't determine
+
+        var globalResponse = await _registryHttp.GetAsync("/config", cancellationToken);
+        if (!globalResponse.IsSuccessStatusCode)
+            return (null, false);
+
+        var globalMode = ReadCompatibilityLevel(await globalResponse.Content.ReadAsStringAsync(cancellationToken));
+        return globalMode is null ? (null, false) : (globalMode, true);
+    }
+
+    /// <summary>
+    /// Parses <c>compatibilityLevel</c> (Confluent/Karapace GET /config shape;
+    /// also accepts <c>compatibility</c> for registries that echo the PUT
+    /// shape). Returns null when the body isn't a recognisable config
+    /// document — e.g. a proxy's HTML error page on a 200.
+    /// </summary>
+    private static string? ReadCompatibilityLevel(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (doc.RootElement.TryGetProperty("compatibilityLevel", out var level) && level.ValueKind == JsonValueKind.String)
+                return level.GetString();
+            if (doc.RootElement.TryGetProperty("compatibility", out var compat) && compat.ValueKind == JsonValueKind.String)
+                return compat.GetString();
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// True when the response body is a schema-registry error document with
+    /// the given <c>error_code</c> (Confluent and Karapace share the shape).
+    /// </summary>
+    internal static bool HasRegistryErrorCode(string body, int errorCode)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("error_code", out var code)
+                && code.ValueKind == JsonValueKind.Number
+                && code.TryGetInt32(out var value)
+                && value == errorCode;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static string Truncate(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength] + "…";
 
     private GateReport? TryCompatibilityAgainstSnapshot(string canonicalKey, string liveSubject, string regenerated)
     {

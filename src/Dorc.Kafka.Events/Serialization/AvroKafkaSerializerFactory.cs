@@ -53,6 +53,16 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
 
     public IReadOnlySet<Type> InScopeTypes => _inScope;
 
+    /// <summary>
+    /// Registration behaviour passed to every Chr.Avro serializer this
+    /// factory builds. <c>internal</c> test seam pinning the
+    /// <see cref="KafkaAvroOptions.AllowAutomaticSchemaRegistration"/>
+    /// flow-through: the default (<see cref="AutomaticRegistrationBehavior.Never"/>)
+    /// means a producer with registry write credentials cannot register an
+    /// evolved schema on first publish and bypass the PR-time schema gate.
+    /// </summary>
+    internal AutomaticRegistrationBehavior RegistrationBehavior => _registrationBehavior;
+
     public ISerializer<T>? GetKeySerializer<T>() => null;
 
     public IDeserializer<T>? GetKeyDeserializer<T>() => null;

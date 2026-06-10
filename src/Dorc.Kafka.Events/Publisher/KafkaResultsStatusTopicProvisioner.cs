@@ -76,20 +76,47 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    private async Task ProvisionOneAsync(IAdminClient admin, string topic, CancellationToken cancellationToken)
+    /// <summary>
+    /// Requests-topic retention: 7 days. The requests consumers use
+    /// per-replica consumer groups with <c>AutoOffsetReset.Earliest</c>, so a
+    /// replica whose group is new (first deploy, or replaced replica id)
+    /// replays the entire retained topic. With the broker-default retention
+    /// (often weeks, or unbounded) that replay volume grows without limit;
+    /// 7 days bounds it while leaving an ample operational replay window.
+    /// </summary>
+    internal const long RequestsTopicRetentionMs = 604_800_000L; // 7 days
+
+    /// <summary>
+    /// Shapes the topic-creation spec. <c>internal</c> so tests can pin the
+    /// per-topic config (retention override on the two requests topics only;
+    /// results.status keeps the broker default because its events are
+    /// real-time signals consumed with <c>AutoOffsetReset.Latest</c>).
+    /// </summary>
+    internal TopicSpecification BuildTopicSpecification(string topic)
     {
         var rf = _substrateOptions.ResultsStatusReplicationFactor;
         var minIsr = rf >= 3 ? 2 : 1;
-        var spec = new TopicSpecification
+        var configs = new Dictionary<string, string>
+        {
+            ["min.insync.replicas"] = minIsr.ToString()
+        };
+        if (topic == _topics.RequestsNew || topic == _topics.RequestsStatus)
+        {
+            configs["retention.ms"] = RequestsTopicRetentionMs.ToString();
+        }
+        return new TopicSpecification
         {
             Name = topic,
             NumPartitions = 12,
             ReplicationFactor = rf,
-            Configs = new Dictionary<string, string>
-            {
-                ["min.insync.replicas"] = minIsr.ToString()
-            }
+            Configs = configs
         };
+    }
+
+    private async Task ProvisionOneAsync(IAdminClient admin, string topic, CancellationToken cancellationToken)
+    {
+        var spec = BuildTopicSpecification(topic);
+        var minIsr = spec.Configs["min.insync.replicas"];
 
         try
         {

@@ -51,7 +51,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
             MessageKey: entry.MessageKey,
             RawPayload: payload,
             PayloadTruncated: truncated,
-            ExceptionType: string.Empty,
+            ExceptionType: entry.ExceptionType ?? string.Empty,
             ExceptionMessage: entry.Error,
             ExceptionStack: entry.Stack,
             OccurredAt: entry.OccurredAt == default ? DateTimeOffset.UtcNow : entry.OccurredAt,
@@ -74,11 +74,64 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
             new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
             produceCts.Token));
 
-        var result = await produceTask.WaitAsync(produceCts.Token);
+        DeliveryResult<string, KafkaErrorEnvelope> result;
+        try
+        {
+            result = await produceTask.WaitAsync(produceCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // WaitAsync only abandons the in-flight ProduceAsync — the task
+            // keeps running inside librdkafka. Attach a continuation so its
+            // eventual outcome is observed: a late FAILURE would otherwise
+            // surface as an unobserved-task exception; a late SUCCESS means
+            // the DLQ write actually landed even though this method throws —
+            // the caller's structured-log fallback then ALSO records the
+            // record (double-accounting: same poison record in both the DLQ
+            // and the app log). Benign — preferred over losing the record.
+            ObserveAbandonedProduce(produceTask, entry, dlqTopic);
+            throw;
+        }
 
         _logger.LogDebug(
             "dlq-produce-ok dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} truncated={Truncated}",
             result.Topic, entry.Topic, entry.Partition, entry.Offset, truncated);
+    }
+
+    private void ObserveAbandonedProduce(
+        Task<DeliveryResult<string, KafkaErrorEnvelope>> produceTask,
+        KafkaErrorLogEntry entry,
+        string dlqTopic)
+    {
+        _ = produceTask.ContinueWith(t =>
+        {
+            try
+            {
+                if (t.IsFaulted)
+                {
+                    _logger.LogWarning(t.Exception?.GetBaseException(),
+                        "dlq-produce-late-failure dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} — abandoned produce eventually failed.",
+                        dlqTopic, entry.Topic, entry.Partition, entry.Offset);
+                }
+                else if (t.IsCanceled)
+                {
+                    _logger.LogDebug(
+                        "dlq-produce-late-cancel dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset}",
+                        dlqTopic, entry.Topic, entry.Partition, entry.Offset);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "dlq-produce-late-success dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} — DLQ write landed after the timeout; the record is double-accounted (DLQ envelope AND structured-log fallback).",
+                        dlqTopic, entry.Topic, entry.Partition, entry.Offset);
+                }
+            }
+            catch
+            {
+                // Best-effort observation only — a throwing log sink must not
+                // create a new unobserved-task exception.
+            }
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     internal static (byte[]? Payload, bool Truncated) TruncatePayload(byte[]? raw, int maxBytes)

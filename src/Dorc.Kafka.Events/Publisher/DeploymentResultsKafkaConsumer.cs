@@ -38,7 +38,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     private readonly IKafkaConnectionProvider _connectionProvider;
     private readonly IKafkaSerializerFactory _serializerFactory;
     private readonly IDeploymentResultBroadcaster _broadcaster;
-    private readonly IKafkaErrorLog _errorLog;
+    private readonly KafkaConsumeFailureRecorder _failureRecorder;
     private readonly KafkaErrorLogOptions _errorLogOptions;
     private readonly IKafkaConsumerMetrics _metrics;
     private readonly ILogger<DeploymentResultsKafkaConsumer> _logger;
@@ -56,7 +56,10 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         _connectionProvider = connectionProvider;
         _serializerFactory = serializerFactory;
         _broadcaster = broadcaster;
-        _errorLog = errorLog;
+        // Built from existing ctor deps (not injected) so the singleton DI
+        // registration in the substrate extension stays untouched; the
+        // collaborator itself is unit-tested directly via InternalsVisibleTo.
+        _failureRecorder = new KafkaConsumeFailureRecorder(errorLog, logger);
         _errorLogOptions = errorLogOptions.Value;
         _metrics = metrics;
         _logger = logger;
@@ -121,7 +124,6 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 _logger.LogInformation(
                     "broadcast-ok topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId}",
                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId, result.Message.Value.RequestId);
-                consumer.Commit(result);
             }
             catch (Exception ex) when (!IsCritical(ex))
             {
@@ -129,6 +131,25 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 // error log so the consume loop survives. Process-fatal
                 // exceptions still escape.
                 HandleFailureFromConsumeResult(consumer, result, ex, stoppingToken);
+                continue;
+            }
+
+            // Commit OUTSIDE the broadcast try: the broadcast already
+            // succeeded, so a commit failure (e.g. mid-rebalance) is NOT a
+            // message failure — routing it into the error-log path would
+            // produce a spurious DLQ/DlqNotConfiguredException entry and a
+            // second commit attempt. A warning suffices: on rebalance the
+            // record is redelivered and re-broadcast (idempotent for UI
+            // status projections).
+            try
+            {
+                consumer.Commit(result);
+            }
+            catch (KafkaException commitEx)
+            {
+                _logger.LogWarning(commitEx,
+                    "offset-commit-failed-after-broadcast topic={Topic} partition={Partition} offset={Offset} group={GroupId} — broadcast already delivered; record may be redelivered after rebalance.",
+                    result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId);
             }
         }
 
@@ -203,8 +224,11 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             Offset = rawRecord?.Offset.Value ?? -1,
             ConsumerGroup = ConsumerGroupId,
             MessageKey = rawRecord?.Message?.Key is byte[] kb ? System.Text.Encoding.UTF8.GetString(kb) : null,
+            // Deserialization failure: ConsumeException.ConsumerRecord carries
+            // the raw bytes — preserve them for triage/replay.
             RawPayload = rawRecord?.Message?.Value,
             Error = failure.Message,
+            ExceptionType = failure.GetType().FullName,
             Stack = failure.StackTrace,
             OccurredAt = DateTimeOffset.UtcNow
         };
@@ -224,8 +248,14 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             Offset = result.Offset.Value,
             ConsumerGroup = ConsumerGroupId,
             MessageKey = result.Message.Key,
-            RawPayload = null,
+            // Broadcast failure: the raw bytes are gone (already deserialised)
+            // but the typed message is available — serialise it so the
+            // structured-log fallback preserves the content (results.status
+            // has no DLQ route; the entry otherwise loses its payload forever
+            // once the offset is committed below).
+            RawPayload = KafkaConsumeFailureRecorder.SerializeTypedPayload(result.Message.Value),
             Error = failure.Message,
+            ExceptionType = failure.GetType().FullName,
             Stack = failure.StackTrace,
             OccurredAt = DateTimeOffset.UtcNow
         };
@@ -238,31 +268,9 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         bool advanceOffset,
         CancellationToken stoppingToken)
     {
-        try
-        {
-            using var insertCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            insertCts.CancelAfter(TimeSpan.FromMilliseconds(InsertTimeoutMs));
-            _errorLog.InsertAsync(entry, insertCts.Token).GetAwaiter().GetResult();
-            _logger.LogError(
-                "error-logged topic={Topic} partition={Partition} offset={Offset} group={GroupId} error={Error}",
-                entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.Error);
-        }
-        catch (Exception dalEx) when (!IsCritical(dalEx))
-        {
-            try
-            {
-                _logger.LogError(dalEx,
-                    "error-fallback-structured-log topic={Topic} partition={Partition} offset={Offset} group={GroupId} key={Key} error={Error}",
-                    entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.MessageKey, entry.Error);
-            }
-            catch (Exception logEx) when (!IsCritical(logEx))
-            {
-                // Super-degraded: logger itself threw. Swallow so the consumer
-                // loop survives — one missed log entry beats a halted consumer
-                // that takes down further status updates for every connected
-                // user. #4.
-            }
-        }
+        // Three-tier failure recording (DLQ → structured log → swallow) lives
+        // in the shared collaborator so both consumers stay in lock-step.
+        _failureRecorder.Record(entry, TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
 
         if (!advanceOffset) return;
 

@@ -39,7 +39,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     private readonly IKafkaConnectionProvider _connectionProvider;
     private readonly IKafkaSerializerFactory _serializerFactory;
     private readonly IRequestEventHandler _handler;
-    private readonly IKafkaErrorLog _errorLog;
+    private readonly KafkaConsumeFailureRecorder _failureRecorder;
     private readonly IKafkaConsumerMetrics _metrics;
     private readonly ILogger<DeploymentRequestsKafkaConsumer> _logger;
 
@@ -55,7 +55,10 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         _connectionProvider = connectionProvider;
         _serializerFactory = serializerFactory;
         _handler = handler;
-        _errorLog = errorLog;
+        // Built from existing ctor deps (not injected) so the singleton DI
+        // registration in the substrate extension stays untouched; the
+        // collaborator itself is unit-tested directly via InternalsVisibleTo.
+        _failureRecorder = new KafkaConsumeFailureRecorder(errorLog, logger);
         _metrics = metrics;
         _logger = logger;
         Topics = new[] { topics.Value.RequestsNew, topics.Value.RequestsStatus };
@@ -95,7 +98,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             catch (OperationCanceledException) { break; }
             catch (ConsumeException ex)
             {
-                HandleFailure(ex.ConsumerRecord, ex);
+                HandleFailure(ex.ConsumerRecord, ex, stoppingToken);
                 // Offset-store is disabled globally; advance past the poison
                 // message so the consume loop doesn't busy-spin on it once the
                 // error log is written. Best-effort — StoreOffset only stages,
@@ -126,7 +129,10 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                 _handler.HandleAsync(result.Topic, result.Message.Value, stoppingToken)
                     .GetAwaiter().GetResult();
                 consumer.StoreOffset(result);
-                _logger.LogInformation(
+                // Debug, not Information: per-record logging at Information
+                // makes a full-topic replay (Earliest reset + fresh group)
+                // operationally noisy — thousands of lines per restart.
+                _logger.LogDebug(
                     "request-event-consumed topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId} status={Status}",
                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId,
                     result.Message.Value.RequestId, result.Message.Value.Status);
@@ -136,7 +142,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                 // Broad by design: any handler-side failure (deserialize,
                 // DAL, cancellation) routes to the error log so the consume
                 // loop survives. Process-fatal exceptions still escape.
-                HandleFailureFromConsumeResult(result, ex);
+                HandleFailureFromConsumeResult(result, ex, stoppingToken);
                 try { consumer.StoreOffset(result); }
                 catch (KafkaException) { /* best-effort */ }
             }
@@ -199,7 +205,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         return builder.Build();
     }
 
-    private void HandleFailure(ConsumeResult<byte[], byte[]>? rawRecord, Exception failure)
+    private void HandleFailure(ConsumeResult<byte[], byte[]>? rawRecord, Exception failure, CancellationToken stoppingToken)
     {
         var entry = new KafkaErrorLogEntry
         {
@@ -208,15 +214,21 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             Offset = rawRecord?.Offset.Value ?? -1,
             ConsumerGroup = ConsumerGroupId,
             MessageKey = rawRecord?.Message?.Key is byte[] kb ? System.Text.Encoding.UTF8.GetString(kb) : null,
+            // Deserialization failure: ConsumeException.ConsumerRecord carries
+            // the raw bytes — preserve them so the DLQ envelope is replayable.
             RawPayload = rawRecord?.Message?.Value,
             Error = failure.Message,
+            ExceptionType = failure.GetType().FullName,
             Stack = failure.StackTrace,
             OccurredAt = DateTimeOffset.UtcNow
         };
-        WriteErrorLog(entry);
+        _failureRecorder.Record(entry, TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
     }
 
-    private void HandleFailureFromConsumeResult(ConsumeResult<string, DeploymentRequestEventData> result, Exception failure)
+    private void HandleFailureFromConsumeResult(
+        ConsumeResult<string, DeploymentRequestEventData> result,
+        Exception failure,
+        CancellationToken stoppingToken)
     {
         var entry = new KafkaErrorLogEntry
         {
@@ -225,39 +237,19 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             Offset = result.Offset.Value,
             ConsumerGroup = ConsumerGroupId,
             MessageKey = result.Message.Key,
-            RawPayload = null,
+            // Handler failure: the raw bytes are gone (already deserialised)
+            // but the typed message is available — serialise it so the DLQ
+            // envelope (requests.new has a DLQ) stays replayable and the
+            // structured-log fallback can preserve the content. The DLQ tier
+            // enforces KafkaErrorLogOptions.MaxPayloadBytes (with truncation
+            // flag) on this value.
+            RawPayload = KafkaConsumeFailureRecorder.SerializeTypedPayload(result.Message.Value),
             Error = failure.Message,
+            ExceptionType = failure.GetType().FullName,
             Stack = failure.StackTrace,
             OccurredAt = DateTimeOffset.UtcNow
         };
-        WriteErrorLog(entry);
-    }
-
-    private void WriteErrorLog(KafkaErrorLogEntry entry)
-    {
-        try
-        {
-            using var insertCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(InsertTimeoutMs));
-            _errorLog.InsertAsync(entry, insertCts.Token).GetAwaiter().GetResult();
-            _logger.LogError(
-                "error-logged topic={Topic} partition={Partition} offset={Offset} group={GroupId} error={Error}",
-                entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.Error);
-        }
-        catch (Exception dalEx) when (!IsCritical(dalEx))
-        {
-            try
-            {
-                _logger.LogError(dalEx,
-                    "error-fallback-structured-log topic={Topic} partition={Partition} offset={Offset} group={GroupId} key={Key} error={Error}",
-                    entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.MessageKey, entry.Error);
-            }
-            catch (Exception logEx) when (!IsCritical(logEx))
-            {
-                // Super-degraded: logger itself threw. (mirrors
-                // ) — swallow so the consumer loop survives a single
-                // bad record instead of crashing the whole acceleration layer.
-            }
-        }
+        _failureRecorder.Record(entry, TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
     }
 
     private static bool IsCritical(Exception ex) =>
