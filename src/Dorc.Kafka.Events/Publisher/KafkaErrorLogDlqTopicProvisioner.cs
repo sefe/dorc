@@ -43,8 +43,6 @@ public sealed class KafkaErrorLogDlqTopicProvisioner : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var dlqTopics = new[] { _topics.RequestsNewDlq };
-
         var producerConfig = _connectionProvider.GetProducerConfig();
         var adminConfig = new AdminClientConfig
         {
@@ -57,6 +55,16 @@ public sealed class KafkaErrorLogDlqTopicProvisioner : IHostedService
         };
 
         using var admin = new AdminClientBuilder(adminConfig).Build();
+        await ProvisionAsync(admin, cancellationToken);
+    }
+
+    /// <summary>
+    /// Internal seam so the error-policy paths are unit-testable with a
+    /// scripted admin client — same pattern as the other provisioners.
+    /// </summary>
+    internal async Task ProvisionAsync(IAdminClient admin, CancellationToken cancellationToken)
+    {
+        var dlqTopics = new[] { _topics.RequestsNewDlq };
         foreach (var topic in dlqTopics)
             await ProvisionOneAsync(admin, topic, cancellationToken);
     }

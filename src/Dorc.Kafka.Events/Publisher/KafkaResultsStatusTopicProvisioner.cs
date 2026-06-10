@@ -44,17 +44,6 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        // Validator (KafkaTopicsOptionsValidator) guarantees non-empty values
-        // post-startup, so iteration here may treat each property as non-null
-        // without runtime defensive checks.
-        var topics = new[]
-        {
-            _topics.ResultsStatus,
-            // inherits — provisioned here so its consumer/producer can assume presence.
-            _topics.RequestsNew,
-            _topics.RequestsStatus
-        };
-
         // Derive admin-client config from the same connection provider the
         // producers/consumers use, so SASL + bootstrap are single-sourced.
         var producerConfig = _connectionProvider.GetProducerConfig();
@@ -69,6 +58,26 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
         };
 
         using var admin = new AdminClientBuilder(adminConfig).Build();
+        await ProvisionAsync(admin, cancellationToken);
+    }
+
+    /// <summary>
+    /// Internal seam so the error-policy paths (topic-exists verification,
+    /// ACL denial, broker-unreachable) are unit-testable with a scripted
+    /// admin client — the same pattern as the lock topic provisioner.
+    /// </summary>
+    internal async Task ProvisionAsync(IAdminClient admin, CancellationToken cancellationToken)
+    {
+        // Validator (KafkaTopicsOptionsValidator) guarantees non-empty values
+        // post-startup, so iteration here may treat each property as non-null
+        // without runtime defensive checks.
+        var topics = new[]
+        {
+            _topics.ResultsStatus,
+            // inherits — provisioned here so its consumer/producer can assume presence.
+            _topics.RequestsNew,
+            _topics.RequestsStatus
+        };
 
         foreach (var topic in topics)
             await ProvisionOneAsync(admin, topic, cancellationToken);
