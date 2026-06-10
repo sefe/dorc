@@ -219,7 +219,8 @@ Cutover deploy passes the following MSI parameters (per
   (or empty if SSL is unauthenticated against the platform CA bundle).
 
 Verified routing in `*ActionService.wxs` writes these into
-`$.AppSettings.Kafka.{BootstrapServers, Sasl.Username, Sasl.Password, SslCaLocation}`.
+`$.Kafka.{BootstrapServers, Sasl.Username, Sasl.Password, SslCaLocation}`
+(root-level binding path; `AppSettingsTemplateShapeTests` pins the shape).
 
 ---
 

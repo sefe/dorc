@@ -3,11 +3,11 @@ using Dorc.Core.HighAvailability;
 namespace Dorc.Monitor.IntegrationTests.Init
 {
     /// <summary>
-    /// Test-only no-op distributed lock service. The production
-    /// <c>NoOpDistributedLockService</c> was removed in S-009 alongside the
-    /// substrate-selector flag (Kafka is now the only production substrate).
-    /// Integration tests still need a stand-in that doesn't require a live
-    /// Kafka broker.
+    /// Test-only no-op distributed lock service. A production
+    /// <c>NoOpDistributedLockService</c> exists in Dorc.Core for the
+    /// Kafka:Enabled=false fallback mode, but it is wired through the host
+    /// container; these integration tests need a local stand-in that doesn't
+    /// require a live Kafka broker or the Monitor's DI graph.
     /// </summary>
     internal sealed class IntegrationTestNoOpDistributedLockService : IDistributedLockService
     {
