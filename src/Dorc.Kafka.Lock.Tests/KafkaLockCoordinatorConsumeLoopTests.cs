@@ -65,19 +65,15 @@ public class KafkaLockCoordinatorConsumeLoopTests
         var factory = () =>
         {
             var consumer = new ScriptedLockConsumer();
-            if (consumers.Count == 0)
-            {
-                // First consumer: block until the test holds a lock, then die fatally.
-                consumer.OnConsume = _ =>
+            // First consumer: block until the test holds a lock, then die
+            // fatally. Rebuilt consumers just idle.
+            consumer.OnConsume = consumers.Count == 0
+                ? _ =>
                 {
                     allowFatal.Wait(TimeSpan.FromSeconds(30));
                     throw NewConsumeException(ErrorCode.Local_Fatal, "fenced", isFatal: true);
-                };
-            }
-            else
-            {
-                consumer.OnConsume = _ => { Thread.Sleep(10); return null; };
-            }
+                }
+                : _ => { Thread.Sleep(10); return null; };
             consumers.Add(consumer);
             return (IConsumer<byte[], byte[]>)consumer;
         };

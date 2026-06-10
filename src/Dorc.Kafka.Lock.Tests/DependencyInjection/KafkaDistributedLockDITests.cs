@@ -74,7 +74,10 @@ public class KafkaDistributedLockDITests
         {
             if (sd.ImplementationFactory is null) return false;
             try { return sd.ImplementationFactory(sp) is KafkaLockCoordinator; }
-            catch { return false; }
+            // DI activation failures surface as InvalidOperationException; a
+            // factory not constructible in this probing context is "not the
+            // coordinator", anything else should fail the test loudly.
+            catch (InvalidOperationException) { return false; }
         });
         Assert.IsTrue(coordinatorIndex >= 0, "Coordinator must be registered as a hosted service.");
 

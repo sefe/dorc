@@ -133,7 +133,7 @@ namespace Dorc.Api.Tests
             Exception expectedException = null;
             try
             {
-                var result3 = test3service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
+                test3service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
             }
             catch (Exception e)
             {
@@ -171,7 +171,7 @@ namespace Dorc.Api.Tests
             Exception expectedException1 = null;
             try
             {
-                var result4 = test4Service.CreateRequest(request1, new GenericPrincipal(new GenericIdentity("test-user"), null));
+                test4Service.CreateRequest(request1, new GenericPrincipal(new GenericIdentity("test-user"), null));
 
             }
             catch (Exception e)
