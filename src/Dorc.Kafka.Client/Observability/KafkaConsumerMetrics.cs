@@ -69,7 +69,7 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
         // The group dimension is unknown at revocation time (librdkafka doesn't
         // pass it through), so we match (consumer, topic, partition) tuples
         // regardless of group.
-        foreach (var tp in partitions)
+        foreach (var (topic, partition) in partitions.Select(tp => (tp.Topic, tp.Partition.Value)))
         {
             // Snapshot keys to a list before removing — modifying the dictionary
             // during enumeration of .Keys would otherwise risk InvalidOperationException
@@ -77,8 +77,8 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
             // matching condition explicit and removes the dead `_ = key` placeholder.
             var matching = _lagByPartition.Keys
                 .Where(k => k.Consumer == consumerName
-                            && k.Topic == tp.Topic
-                            && k.Partition == tp.Partition.Value)
+                            && k.Topic == topic
+                            && k.Partition == partition)
                 .ToList();
             foreach (var stored in matching)
                 _lagByPartition.TryRemove(stored, out _);
@@ -114,15 +114,18 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
                 ? gid.GetString() ?? string.Empty
                 : string.Empty;
 
-            foreach (var topic in topics.EnumerateObject())
+            foreach (var topic in topics.EnumerateObject()
+                         .Where(t => t.Value.TryGetProperty("partitions", out _)))
             {
-                if (!topic.Value.TryGetProperty("partitions", out var partitions)) continue;
-                foreach (var partition in partitions.EnumerateObject())
+                var validPartitions = topic.Value.GetProperty("partitions").EnumerateObject()
+                    .Where(p => int.TryParse(p.Name, out var n) && n >= 0
+                                && p.Value.TryGetProperty("consumer_lag", out var lagProp)
+                                && lagProp.TryGetInt64(out var lag) && lag >= 0)
+                    .Select(p => (
+                        Partition: int.Parse(p.Name),
+                        Lag: p.Value.GetProperty("consumer_lag").GetInt64()));
+                foreach (var (partitionNum, lag) in validPartitions)
                 {
-                    if (!int.TryParse(partition.Name, out var partitionNum) || partitionNum < 0) continue;
-                    if (!partition.Value.TryGetProperty("consumer_lag", out var lagProp)) continue;
-                    if (!lagProp.TryGetInt64(out var lag) || lag < 0) continue;
-
                     var key = new MetricKey(consumerName, groupId, topic.Name, partitionNum);
                     _lagByPartition[key] = lag;
                 }

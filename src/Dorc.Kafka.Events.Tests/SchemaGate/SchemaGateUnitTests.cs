@@ -387,10 +387,10 @@ public class SchemaGateUnitTests
                 return Task.FromResult(_globalConfig);
             if (path.StartsWith("/config/", StringComparison.Ordinal))
                 return Task.FromResult(_subjectConfig);
-            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
-            {
-                Content = new StringContent($"unrouted: {path}")
-            });
+            // An unrouted path is a test-setup error, not a scenario under
+            // test: fail fast rather than synthesise a 404 whose disposal
+            // ownership would be ambiguous.
+            throw new InvalidOperationException($"unrouted registry path in test stub: {path}");
         }
     }
 

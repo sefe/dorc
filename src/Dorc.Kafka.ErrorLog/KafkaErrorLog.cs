@@ -126,7 +126,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
                         dlqTopic, entry.Topic, entry.Partition, entry.Offset);
                 }
             }
-            catch
+            catch (Exception)
             {
                 // Best-effort observation only — a throwing log sink must not
                 // create a new unobserved-task exception.
