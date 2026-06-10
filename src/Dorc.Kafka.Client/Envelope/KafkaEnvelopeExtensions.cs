@@ -19,13 +19,24 @@ public static class KafkaEnvelopeExtensions
         DateTimeOffset? timestamp = null)
     {
         message.Headers ??= new Headers();
-        message.Headers.Add(KafkaEnvelopeHeaderNames.CorrelationId, Encoding.UTF8.GetBytes(correlationId));
-        message.Headers.Add(KafkaEnvelopeHeaderNames.MessageId, Encoding.UTF8.GetBytes(messageId));
-        message.Headers.Add(KafkaEnvelopeHeaderNames.Source, Encoding.UTF8.GetBytes(source));
-        message.Headers.Add(
+        // Headers.Add appends, so a repeated WithEnvelope call (e.g. a retry
+        // path reusing the Message instance) would produce duplicate header
+        // keys; Kafka consumers conventionally read last-wins but other
+        // tooling surfaces all duplicates. Remove-then-add keeps exactly one.
+        SetHeader(message.Headers, KafkaEnvelopeHeaderNames.CorrelationId, correlationId);
+        SetHeader(message.Headers, KafkaEnvelopeHeaderNames.MessageId, messageId);
+        SetHeader(message.Headers, KafkaEnvelopeHeaderNames.Source, source);
+        SetHeader(
+            message.Headers,
             KafkaEnvelopeHeaderNames.Timestamp,
-            Encoding.UTF8.GetBytes((timestamp ?? DateTimeOffset.UtcNow).ToString("O", CultureInfo.InvariantCulture)));
+            (timestamp ?? DateTimeOffset.UtcNow).ToString("O", CultureInfo.InvariantCulture));
         return message;
+    }
+
+    private static void SetHeader(Headers headers, string key, string value)
+    {
+        headers.Remove(key);
+        headers.Add(key, Encoding.UTF8.GetBytes(value));
     }
 
     public static KafkaEnvelope<TValue> AsEnvelope<TKey, TValue>(this ConsumeResult<TKey, TValue> result)

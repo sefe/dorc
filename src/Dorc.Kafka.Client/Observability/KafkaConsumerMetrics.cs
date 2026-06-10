@@ -34,6 +34,12 @@ public sealed class KafkaConsumerMetrics : IKafkaConsumerMetrics, IDisposable
     // callbacks (which can fire on any thread); write from the consumer's
     // statistics callback. ConcurrentDictionary handles both safely.
     private readonly ConcurrentDictionary<MetricKey, long> _lagByPartition = new();
+    // Unlike lag (per-partition, evicted via ForgetPartitions on rebalance),
+    // state entries are keyed by logical consumer name. Names are static per
+    // consumer type in this codebase, so an in-process consumer rebuild
+    // overwrites its entry rather than orphaning it, and entries only become
+    // stale at process shutdown when the Meter dies anyway. If dynamically
+    // named consumers are ever introduced, add an eviction hook first.
     private readonly ConcurrentDictionary<string, int> _stateByConsumer = new();
 
     public KafkaConsumerMetrics(ILogger<KafkaConsumerMetrics>? logger = null)
