@@ -6,6 +6,7 @@ using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.Events.Serialization;
+using Dorc.Kafka.Events;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -61,8 +62,15 @@ internal static class AvroKafkaTestHarness
     public static ISchemaRegistryClient BuildRegistry()
         => new CachedSchemaRegistryClient(new SchemaRegistryConfig { Url = SchemaRegistryUrl });
 
+    // Auto-registration is deliberately ON here, unlike the production
+    // default (Never): every test produces to a fresh GUID-suffixed subject,
+    // so first-produce registration IS the scenario under test (AT2) and the
+    // precondition for the others. Production schema changes go through the
+    // schema gate; AvroSchemaRegistrationBehaviorTests pins the default.
     public static AvroKafkaSerializerFactory BuildFactory(ISchemaRegistryClient registry)
-        => new AvroKafkaSerializerFactory(registry);
+        => new AvroKafkaSerializerFactory(
+            registry,
+            Options.Create(new KafkaAvroOptions { AllowAutomaticSchemaRegistration = true }));
 
     public static HttpClient BuildRegistryHttpClient()
         => new HttpClient { BaseAddress = new Uri(SchemaRegistryUrl) };

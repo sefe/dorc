@@ -171,25 +171,31 @@ public class KafkaLockCoordinatorTests
             "Lock-lost callbacks must not run inline on the revoking (consume/rebalance) thread.");
     }
 
+    // Regression (found by SC2a against a live broker): the revoked slot's
+    // LockLostToken has escaped to lock holders, who may block on
+    // token.WaitHandle or call token.Register to observe loss. Disposing the
+    // CTS makes both throw ObjectDisposedException on the holder's side, so
+    // the coordinator must cancel but never dispose an escaped CTS (a
+    // cancelled, timerless CTS is plain managed memory for the GC).
     [TestMethod]
-    public async Task Revoke_DisposesReplacedSlotCts()
+    public async Task Revoke_ReplacedSlotToken_RemainsObservableByHolders()
     {
         await using var c = NewCoordinator();
         InvokePrivate(c, "OnAssigned", 6);
         await c.WaitForPartitionOwnershipAsync(6, CancellationToken.None);
 
         var slots = (ConcurrentDictionary<int, KafkaLockCoordinator.PartitionSlot>)GetPrivateField(c, "_slots");
-        var replacedSlot = slots[6];
+        var escapedToken = slots[6].Cts.Token;
 
         InvokePrivate(c, "OnRevokedOrLost", 6, false);
 
-        // Teardown (cancel → callbacks → dispose) is asynchronous; poll for dispose.
-        var disposed = SpinWait.SpinUntil(() =>
-        {
-            try { _ = replacedSlot.Cts.Token; return false; }
-            catch (ObjectDisposedException) { return true; }
-        }, TimeSpan.FromSeconds(10));
-        Assert.IsTrue(disposed, "Replaced slot CTSs must be disposed after cancellation (leak per revoke cycle).");
+        // Teardown (cancel → callbacks) is asynchronous; wait for cancellation
+        // the way a real holder does — via the wait handle.
+        Assert.IsTrue(escapedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(10)),
+            "Holder must observe cancellation via WaitHandle after revoke.");
+        Assert.IsTrue(escapedToken.IsCancellationRequested);
+        // Both observation paths must stay usable after teardown completes.
+        using var reg = escapedToken.Register(() => { });
     }
 
     // ---- Finding 1: connectivity watchdog (split-brain guard) ----

@@ -500,9 +500,10 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     }
 
     /// <summary>
-    /// Cancels and then disposes replaced slots on the thread pool, so
-    /// lock-holder callbacks never run under <see cref="_slotLock"/> or on the
-    /// consume/rebalance thread, and the replaced CTSs no longer leak.
+    /// Cancels replaced slots on the thread pool, so lock-holder callbacks
+    /// never run under <see cref="_slotLock"/> or on the consume/rebalance
+    /// thread. The CTSs are intentionally left undisposed — see the comment
+    /// in the loop body.
     /// </summary>
     private Task TearDownSlotsAsync(IReadOnlyList<PartitionSlot> slots)
     {
@@ -522,10 +523,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                 // OperationCanceledException from WaitAsync and re-enter via a new
                 // call against the fresh slot already published.
                 slot.AcquiredTcs.TrySetCanceled();
-                // Dispose after cancel so the replaced CTS doesn't leak per cycle;
-                // callbacks have run by this point (Cancel is synchronous here).
-                try { slot.Cts.Dispose(); }
-                catch (ObjectDisposedException) { /* already disposed */ }
+                // Deliberately NOT disposed: LockLostToken escapes to lock
+                // holders, and a disposed CTS throws ObjectDisposedException
+                // from token.WaitHandle / token.Register on the holder's side
+                // (holders legitimately block on the wait handle to observe
+                // loss). A cancelled CTS with no timer holds only managed
+                // memory, so letting the GC collect it is safe; disposing a
+                // CTS whose token has escaped is not.
             }
         });
     }
