@@ -153,6 +153,14 @@ if (kafkaEnabled)
 }
 else
 {
+    // Single-replica constraint: with the NoOp lock service every
+    // environment-lock acquisition short-circuits to success, so a second
+    // Monitor replica in this mode would deploy concurrently to the same
+    // environments (split brain). Nothing can detect peer replicas from
+    // here — the warning is the guard, the runbook is the control.
+    Console.WriteLine(
+        "[startup] WARNING: Kafka disabled - distributed locking is OFF. " +
+        "Run EXACTLY ONE Monitor replica in this mode; a second replica causes concurrent deployments to the same environment.");
     builder.Services.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
     builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.RequestPollSignal>();
 }
