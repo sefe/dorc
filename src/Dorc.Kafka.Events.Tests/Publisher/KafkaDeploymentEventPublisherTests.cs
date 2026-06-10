@@ -75,7 +75,10 @@ public class KafkaDeploymentEventPublisherTests
         Assert.AreEqual("4242", resultsProd.Produced[0].Message.Key);
     }
 
-    // — dual-publish: SignalR called regardless of Kafka outcome; Kafka throw propagates.
+    // — request-lifecycle dual-publish: SignalR called regardless of Kafka
+    // outcome; Kafka produce failure is logged and swallowed (every call
+    // site is fire-and-forget, so a throw would be an unobserved-task
+    // exception nobody handles).
     [TestMethod]
     public async Task PublishNewRequest_AlsoCallsFallback_BeforeKafka()
     {
@@ -88,18 +91,31 @@ public class KafkaDeploymentEventPublisherTests
     }
 
     [TestMethod]
-    public async Task PublishNewRequest_KafkaThrows_StillCallsFallbackFirst_AndPropagates()
+    public async Task PublishNewRequest_KafkaThrows_StillCallsFallback_AndDoesNotThrow()
     {
         var resultsProd = new StubProducer<string, DeploymentResultEventData>();
         var requestsProd = new StubProducer<string, DeploymentRequestEventData> { ThrowOnProduce = true };
         var fallback = new RecordingFallback();
         var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            async () => await sut.PublishNewRequestAsync(NewRequest(7, "Pending")));
+        // Must not throw: callers publish fire-and-forget.
+        await sut.PublishNewRequestAsync(NewRequest(7, "Pending"));
 
         Assert.AreEqual(1, fallback.NewRequestCalls.Count,
-            "SignalR emit must be attempted BEFORE Kafka, and not suppressed by Kafka throw.");
+            "SignalR emit must be attempted BEFORE Kafka, and not suppressed by Kafka failure.");
+    }
+
+    [TestMethod]
+    public async Task PublishRequestStatusChanged_KafkaThrows_DoesNotThrow()
+    {
+        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData> { ThrowOnProduce = true };
+        var fallback = new RecordingFallback();
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
+
+        await sut.PublishRequestStatusChangedAsync(NewRequest(8, "Running"));
+
+        Assert.AreEqual(1, fallback.RequestStatusCalls.Count);
     }
 
     [TestMethod]
@@ -116,19 +132,71 @@ public class KafkaDeploymentEventPublisherTests
             "Kafka emit must NOT be suppressed by SignalR fallback failure.");
     }
 
+    // — result-status is Kafka-first with SignalR strictly as the degraded
+    // path: in the healthy path the API-side projection consumer is the
+    // ONLY SignalR delivery, otherwise every client receives each event
+    // at least twice (N+1 times with N API replicas on a backplane).
     [TestMethod]
-    public async Task PublishResultStatus_FallbackThrows_DoesNotSuppressKafkaEmit()
+    public async Task PublishResultStatus_KafkaSucceeds_DoesNotCallFallback()
     {
-        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
-        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
-        var fallback = new RecordingFallback { ThrowOnResult = true };
-        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
+        var (sut, resultsProd, _, fallback) = Build();
 
         await sut.PublishResultStatusChangedAsync(new DeploymentResultEventData(
             ResultId: 1, RequestId: 1, ComponentId: 1, Status: "Running",
             StartedTime: null, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow));
 
         Assert.AreEqual(1, resultsProd.Produced.Count);
+        Assert.AreEqual(0, fallback.ResultStatusCalls.Count,
+            "Healthy path must NOT fan out to SignalR here — the results consumer projection is the single delivery.");
+    }
+
+    [TestMethod]
+    public async Task PublishResultStatus_KafkaThrows_FallsBackToSignalR_AndDoesNotThrow()
+    {
+        var resultsProd = new StubProducer<string, DeploymentResultEventData> { ThrowOnProduce = true };
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
+        var fallback = new RecordingFallback();
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
+
+        await sut.PublishResultStatusChangedAsync(new DeploymentResultEventData(
+            ResultId: 2, RequestId: 2, ComponentId: 1, Status: "Failed",
+            StartedTime: null, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow));
+
+        Assert.AreEqual(1, fallback.ResultStatusCalls.Count,
+            "Kafka produce failure must trigger the direct SignalR fallback so the UI still updates.");
+    }
+
+    [TestMethod]
+    public async Task PublishResultStatus_KafkaAndFallbackThrow_DoesNotThrow()
+    {
+        var resultsProd = new StubProducer<string, DeploymentResultEventData> { ThrowOnProduce = true };
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
+        var fallback = new RecordingFallback { ThrowOnResult = true };
+        var sut = new KafkaDeploymentEventPublisher(resultsProd, requestsProd, fallback, Topics(), NullLogger<KafkaDeploymentEventPublisher>.Instance);
+
+        // Fully degraded: both legs fail; the publisher still must not throw.
+        await sut.PublishResultStatusChangedAsync(new DeploymentResultEventData(
+            ResultId: 3, RequestId: 3, ComponentId: 1, Status: "Failed",
+            StartedTime: null, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow));
+    }
+
+    [TestMethod]
+    public void Dispose_CalledTwice_IsIdempotent()
+    {
+        var resultsProd = new StubProducer<string, DeploymentResultEventData>();
+        var requestsProd = new StubProducer<string, DeploymentRequestEventData>();
+        var sut = new KafkaDeploymentEventPublisher(
+            resultsProd, requestsProd, new RecordingFallback(), Topics(),
+            NullLogger<KafkaDeploymentEventPublisher>.Instance);
+
+        // The container can track the instance through both the concrete
+        // singleton registration and the interface forward, so it may be
+        // disposed more than once.
+        sut.Dispose();
+        sut.Dispose();
+
+        Assert.AreEqual(1, resultsProd.DisposeCount);
+        Assert.AreEqual(1, requestsProd.DisposeCount);
     }
 
     private sealed class RecordingFallback : IFallbackDeploymentEventPublisher

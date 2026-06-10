@@ -159,6 +159,7 @@
 			<Json:JsonFile Id="IsProductionApiProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#DeployApiWebConfig]" />
 
 			<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
+			<Json:JsonFile Id="KafkaEnabledApiProd" ElementPath="$.Kafka.Enabled" Value="[KAFKA.ENABLED]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaAuthModeApiProd" ElementPath="$.Kafka.AuthMode" Value="SaslSsl" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaBootstrapServersApiProd" ElementPath="$.Kafka.BootstrapServers" Value="[KAFKA.BOOTSTRAPSERVERS]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaSaslUsernameApiProd" ElementPath="$.Kafka.Sasl.Username" Value="[KAFKA.SASL.USERNAME]" File="[#DeployApiWebConfig]" />

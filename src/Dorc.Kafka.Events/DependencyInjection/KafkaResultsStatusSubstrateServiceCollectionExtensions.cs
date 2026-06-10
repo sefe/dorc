@@ -59,7 +59,14 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
             return builder.Build("dorc-requests-publisher");
         });
         services.TryAddSingleton<KafkaDeploymentEventPublisher>();
-        services.Replace(ServiceDescriptor.Scoped<IDeploymentEventsPublisher>(sp =>
+        // The interface forward MUST be singleton. A scoped factory
+        // registration would make every resolving scope capture the returned
+        // instance in its disposables list, so the first disposed request
+        // scope would Dispose the shared singleton's Kafka producers and
+        // every subsequent publish would throw ObjectDisposedException.
+        // (A scoped registration also turns the singleton's scoped
+        // resolution into a captive-dependency error under scope validation.)
+        services.Replace(ServiceDescriptor.Singleton<IDeploymentEventsPublisher>(sp =>
             sp.GetRequiredService<KafkaDeploymentEventPublisher>()));
 
         return services;
@@ -68,8 +75,7 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
     /// <summary>
     /// Registers the API-side results-status consumer-substrate (S-007).
     /// Calls <see cref="AddDorcKafkaPublisher"/> for the publisher half then
-    /// adds the topic provisioner, the Kafka→SignalR projection consumer,
-    /// and an Avro warmup hosted service.
+    /// adds the topic provisioner and the Kafka→SignalR projection consumer.
     ///
     /// <para>The retained <see cref="IFallbackDeploymentEventPublisher"/>
     /// continues to provide the SignalR fan-out for UI continuity (request-
@@ -91,8 +97,13 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
         // Hosted services start in registration order. The topic provisioner
         // must run before the consumer subscribes — otherwise on a fresh
         // deployment the consumer hits UnknownTopicOrPartition in a tight
-        // loop until provisioning completes.
-        services.AddHostedService<KafkaResultsStatusTopicProvisioner>();
+        // loop until provisioning completes. Guarded: the request-lifecycle
+        // substrate extension registers the same provisioner.
+        if (!services.Any(sd => sd.ServiceType == typeof(IHostedService)
+                && sd.ImplementationType == typeof(KafkaResultsStatusTopicProvisioner)))
+        {
+            services.AddHostedService<KafkaResultsStatusTopicProvisioner>();
+        }
 
         services.AddSingleton<DeploymentResultsKafkaConsumer>();
         services.AddHostedService(sp => sp.GetRequiredService<DeploymentResultsKafkaConsumer>());

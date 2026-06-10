@@ -58,4 +58,50 @@ public class KafkaRequestLifecycleSubstrateExtensionsTests
         services.AddDorcKafkaRequestLifecycleSubstrate(EmptyConfig());
         Assert.AreEqual(firstCount, services.Count);
     }
+
+    // The Monitor consumes dorc.requests.* but used to rely on the API host
+    // to provision them — a Monitor-first start on a fresh cluster consumed
+    // nonexistent topics in an error loop. Hosted services start in
+    // registration order, so the provisioner must precede the consumer.
+    [TestMethod]
+    public void RegistersTopicProvisioner_BeforeConsumer()
+    {
+        var services = BaseServices();
+        services.AddDorcKafkaRequestLifecycleSubstrate(EmptyConfig());
+
+        var hosted = services
+            .Where(sd => sd.ServiceType == typeof(IHostedService))
+            .ToList();
+        var provisionerIndex = hosted.FindIndex(sd =>
+            sd.ImplementationType == typeof(KafkaResultsStatusTopicProvisioner));
+        var consumerIndex = hosted.FindIndex(sd =>
+            sd.ImplementationType is null && sd.ImplementationFactory is not null);
+
+        Assert.IsTrue(provisionerIndex >= 0, "Request-topic provisioner must be registered by this extension.");
+        Assert.IsTrue(consumerIndex >= 0, "Requests consumer hosted service must be registered.");
+        Assert.IsTrue(provisionerIndex < consumerIndex,
+            "Provisioner must start before the consumer subscribes.");
+    }
+
+    [TestMethod]
+    public void DoesNotDuplicateProvisioner_WhenResultsSubstrateAlreadyRegisteredIt()
+    {
+        var services = BaseServices();
+        services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher>(
+            new NoopFallback());
+        services.AddDorcKafkaResultsStatusSubstrate(EmptyConfig());
+        services.AddDorcKafkaRequestLifecycleSubstrate(EmptyConfig());
+
+        var provisionerCount = services.Count(sd =>
+            sd.ServiceType == typeof(IHostedService)
+            && sd.ImplementationType == typeof(KafkaResultsStatusTopicProvisioner));
+        Assert.AreEqual(1, provisionerCount);
+    }
+
+    private sealed class NoopFallback : Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher
+    {
+        public Task PublishNewRequestAsync(DeploymentRequestEventData eventData) => Task.CompletedTask;
+        public Task PublishRequestStatusChangedAsync(DeploymentRequestEventData eventData) => Task.CompletedTask;
+        public Task PublishResultStatusChangedAsync(DeploymentResultEventData eventData) => Task.CompletedTask;
+    }
 }
