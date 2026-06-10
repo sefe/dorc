@@ -113,12 +113,32 @@ public sealed class KafkaErrorLogDlqTopicProvisioner : IHostedService
                     topic, code, reason);
             }
         }
+        // Broker unreachable / admin request timed out (plain KafkaException).
+        // Must not escape StartAsync: that would abort host startup for an
+        // outage the rest of the substrate tolerates with retry.
+        catch (KafkaException ex)
+        {
+            _logger.LogError(ex,
+                "DLQ topic provisioning skipped (broker unreachable): topic={Topic} reason={Reason}. Startup continues; the error-log producer fails loud on first DLQ publish.",
+                topic, ex.Error.Reason);
+        }
     }
 
     private async Task VerifyPartitionCountAsync(IAdminClient admin, string topic, int expected, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(3));
+        Metadata metadata;
+        try
+        {
+            metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(3));
+        }
+        catch (KafkaException ex)
+        {
+            _logger.LogWarning(ex,
+                "DLQ topic partition-count verification skipped (metadata fetch failed): topic={Topic} reason={Reason}.",
+                topic, ex.Error.Reason);
+            return;
+        }
         var meta = metadata.Topics.FirstOrDefault(t => t.Topic == topic);
         if (meta is null)
         {

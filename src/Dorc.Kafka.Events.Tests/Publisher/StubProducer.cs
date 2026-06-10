@@ -11,6 +11,7 @@ internal sealed class StubProducer<TKey, TValue> : IProducer<TKey, TValue>
 {
     public List<(string Topic, Message<TKey, TValue> Message)> Produced { get; } = new();
     public bool ThrowOnProduce { get; set; }
+    public int DisposeCount { get; private set; }
 
     public Task<DeliveryResult<TKey, TValue>> ProduceAsync(
         string topic, Message<TKey, TValue> message, CancellationToken cancellationToken = default)
@@ -48,5 +49,5 @@ internal sealed class StubProducer<TKey, TValue> : IProducer<TKey, TValue>
     public void AbortTransaction(TimeSpan timeout) => throw new NotSupportedException();
     public void AbortTransaction() => throw new NotSupportedException();
     public void SendOffsetsToTransaction(IEnumerable<TopicPartitionOffset> offsets, IConsumerGroupMetadata groupMetadata, TimeSpan timeout) => throw new NotSupportedException();
-    public void Dispose() { }
+    public void Dispose() => DisposeCount++;
 }

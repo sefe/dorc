@@ -46,6 +46,70 @@ public class KafkaResultsStatusSubstrateExtensionsTests
         Assert.IsTrue(hosted.OfType<KafkaResultsStatusTopicProvisioner>().Any());
     }
 
+    // Regression: the IDeploymentEventsPublisher forward was once registered
+    // Scoped. A scoped factory registration makes every resolving scope track
+    // the returned singleton in its disposables, so the first disposed
+    // request scope disposed the shared Kafka producers and every later
+    // publish threw ObjectDisposedException.
+    [TestMethod]
+    public void PublisherForward_IsSingleton()
+    {
+        var services = BaseServices();
+        services.AddSingleton<IFallbackDeploymentEventPublisher>(SentinelDirectPublisher.Instance);
+        services.AddDorcKafkaClient(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Kafka:BootstrapServers"] = "localhost:9092" })
+            .Build());
+
+        services.AddDorcKafkaResultsStatusSubstrate(EmptyConfig());
+
+        var descriptor = services.Last(sd => sd.ServiceType == typeof(IDeploymentEventsPublisher));
+        Assert.AreEqual(ServiceLifetime.Singleton, descriptor.Lifetime,
+            "A scoped forward would let request scopes dispose the singleton publisher's producers.");
+    }
+
+    [TestMethod]
+    public async Task DisposingResolutionScope_DoesNotDisposeSingletonPublisher()
+    {
+        var services = BaseServices();
+        var resultsProducer = new Dorc.Kafka.Events.Tests.Publisher.StubProducer<string, DeploymentResultEventData>();
+        var requestsProducer = new Dorc.Kafka.Events.Tests.Publisher.StubProducer<string, DeploymentRequestEventData>();
+        services.AddSingleton<Confluent.Kafka.IProducer<string, DeploymentResultEventData>>(resultsProducer);
+        services.AddSingleton<Confluent.Kafka.IProducer<string, DeploymentRequestEventData>>(requestsProducer);
+        services.AddSingleton<IDeploymentResultBroadcaster>(new NoopBroadcaster());
+        services.AddSingleton<IKafkaErrorLog>(new NoopErrorLog());
+        services.AddOptions<KafkaErrorLogOptions>();
+        services.AddSingleton<IFallbackDeploymentEventPublisher>(SentinelDirectPublisher.Instance);
+        services.AddSingleton<IDeploymentEventsPublisher>(SentinelDirectPublisher.Instance);
+        services.AddDorcKafkaClient(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Kafka:BootstrapServers"] = "localhost:9092" })
+            .Build());
+        services.AddDorcKafkaResultsStatusSubstrate(EmptyConfig());
+
+        // ValidateScopes mirrors the Development-environment provider the
+        // API builds; the old wiring failed validation outright.
+        await using var sp = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        });
+
+        using (var scope = sp.CreateScope())
+        {
+            // Simulates a controller resolving the publisher per request.
+            _ = scope.ServiceProvider.GetRequiredService<IDeploymentEventsPublisher>();
+        }
+
+        Assert.AreEqual(0, resultsProducer.DisposeCount,
+            "Disposing a request scope must not dispose the singleton publisher's producers.");
+
+        // The substrate must still be able to publish after a scope died.
+        var publisher = sp.GetRequiredService<IDeploymentEventsPublisher>();
+        await publisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(
+            ResultId: 1, RequestId: 1, ComponentId: 1, Status: "Running",
+            StartedTime: null, CompletedTime: null, Timestamp: DateTimeOffset.UtcNow));
+        Assert.AreEqual(1, resultsProducer.Produced.Count);
+    }
+
     [TestMethod]
     public void CalledTwice_IsIdempotent()
     {

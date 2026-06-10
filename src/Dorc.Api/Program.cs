@@ -315,10 +315,15 @@ if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
 // S-007 fallback adapter can inject it, AND exposed as IDeploymentEventsPublisher
 // (backcompat default). The Kafka-substrate extension below will Replace the
 // interface mapping when Kafka mode is active.
-builder.Services.AddScoped<DirectDeploymentEventPublisher>();
-builder.Services.AddScoped<IDeploymentEventsPublisher>(sp =>
+// Singletons throughout this cluster: all underlying dependencies
+// (IHubContext, group tracker) are singletons, and the Kafka-substrate
+// publisher that injects IFallbackDeploymentEventPublisher is itself a
+// singleton — a scoped registration here would be a captive dependency
+// (and fails ValidateOnBuild in Development).
+builder.Services.AddSingleton<DirectDeploymentEventPublisher>();
+builder.Services.AddSingleton<IDeploymentEventsPublisher>(sp =>
     sp.GetRequiredService<DirectDeploymentEventPublisher>());
-builder.Services.AddScoped<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher,
+builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher,
     Dorc.Api.Events.FallbackDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 

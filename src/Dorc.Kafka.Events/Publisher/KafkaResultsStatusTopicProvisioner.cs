@@ -132,12 +132,34 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
                     topic, code, reason);
             }
         }
+        // Broker unreachable / admin request timed out (plain KafkaException,
+        // not the CreateTopicsException subclass). Letting this escape
+        // StartAsync aborts IHost.StartAsync — a crash-loop for the Monitor
+        // Windows service and a failed app start for the API — for an
+        // outage the consumers/producers already tolerate with retry.
+        catch (KafkaException ex)
+        {
+            _logger.LogError(ex,
+                "Kafka topic provisioning skipped (broker unreachable): topic={Topic} reason={Reason}. Startup continues; consumers retry and the producer fails loud on first publish.",
+                topic, ex.Error.Reason);
+        }
     }
 
     private async Task VerifyPartitionCountAsync(IAdminClient admin, string topic, int expected, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(3));
+        Metadata metadata;
+        try
+        {
+            metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(3));
+        }
+        catch (KafkaException ex)
+        {
+            _logger.LogWarning(ex,
+                "Kafka topic partition-count verification skipped (metadata fetch failed): topic={Topic} reason={Reason}.",
+                topic, ex.Error.Reason);
+            return;
+        }
         var meta = metadata.Topics.FirstOrDefault(t => t.Topic == topic);
         if (meta is null)
         {
