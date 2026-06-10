@@ -31,9 +31,14 @@ public static class KafkaAvroServiceCollectionExtensions
         services.TryAddSingleton<ISchemaRegistryClient>(sp =>
         {
             var kafkaOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
-            var url = kafkaOptions.SchemaRegistry.Url
-                ?? throw new InvalidOperationException(
-                    $"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)} is required for Avro serialization.");
+            var url = kafkaOptions.SchemaRegistry.Url;
+            // IsNullOrWhiteSpace, not a null-coalescing throw: configuration
+            // binding yields "" (not null) when the key is present but empty,
+            // which would otherwise slip through here and detonate much later
+            // inside CachedSchemaRegistryClient with an opaque error.
+            if (string.IsNullOrWhiteSpace(url))
+                throw new InvalidOperationException(
+                    $"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)} is required for Avro serialization but is missing or empty. Set it to the schema registry base URL (e.g. http://localhost:8081).");
 
             var schemaRegistryConfig = new SchemaRegistryConfig { Url = url };
             if (!string.IsNullOrEmpty(kafkaOptions.SchemaRegistry.BasicAuthUsername))

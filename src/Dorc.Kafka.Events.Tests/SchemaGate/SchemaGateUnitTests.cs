@@ -205,6 +205,195 @@ public class SchemaGateUnitTests
         Assert.AreEqual("custom.requests.new-value", requestsNewTriple.LiveSubject);
     }
 
+    // ----- live-registry paths (stubbed HTTP) -----
+    //
+    // POST /compatibility evaluates against the SUBJECT'S configured mode, so
+    // the gate first verifies the effective compatibility mode (subject-level
+    // /config/{subject}, falling back to global /config) is backward-
+    // enforcing, and distinguishes a real schema-registry 40401 "subject not
+    // found" from a bare 404 (mis-pathed proxy) on the compatibility POST.
+
+    [TestMethod]
+    public async Task LiveRegistry_EffectiveModeNone_FailsWithOperatorInstruction()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: NotFoundWithErrorCode(40401),
+            globalConfig: Json("""{"compatibilityLevel":"NONE"}"""),
+            compatibility: Json("""{"is_compatible":true}"""));
+        var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Fail, report.Outcome,
+            "a NONE-mode registry passes ANY schema through POST /compatibility — the gate must fail closed");
+        Assert.AreEqual("live", report.Source);
+        StringAssert.Contains(report.Message, "NONE");
+        StringAssert.Contains(report.Message, "registry config");
+    }
+
+    [TestMethod]
+    public async Task LiveRegistry_SubjectLevelNoneOverridesGlobalBackward_Fails()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: Json("""{"compatibilityLevel":"NONE"}"""),
+            globalConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            compatibility: Json("""{"is_compatible":true}"""));
+        var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Fail, report.Outcome,
+            "the subject-level config is the effective one and must win over the global default");
+    }
+
+    [TestMethod]
+    public async Task LiveRegistry_BackwardMode_CompatibleSchema_Passes()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            globalConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            compatibility: Json("""{"is_compatible":true}"""));
+        var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Pass, report.Outcome);
+        Assert.AreEqual("live", report.Source);
+    }
+
+    [TestMethod]
+    public async Task LiveRegistry_BackwardMode_IncompatibleSchema_Fails()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            globalConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            compatibility: Json("""{"is_compatible":false,"messages":["field removed"]}"""));
+        var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Fail, report.Outcome);
+        StringAssert.Contains(report.Message, "field removed");
+    }
+
+    [TestMethod]
+    public async Task LiveRegistry_Compatibility404With40401Body_PassesAsUnregisteredSubject()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: NotFoundWithErrorCode(40401),
+            globalConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            compatibility: NotFoundWithErrorCode(40401));
+        var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Pass, report.Outcome,
+            "40401 is the registry's genuine subject-not-found — first version is always compatible");
+        Assert.AreEqual("live", report.Source);
+    }
+
+    [TestMethod]
+    public async Task LiveRegistry_Bare404WithoutRegistryErrorBody_FailsClosed()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: NotFoundWithErrorCode(40401),
+            globalConfig: Json("""{"compatibilityLevel":"BACKWARD"}"""),
+            compatibility: new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("<html>proxy: no route</html>")
+            });
+        var gate = new AvroSchemaGate(http, _canonicalDir, snapshotDir: null);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Fail, report.Outcome,
+            "a bare 404 (mis-pathed proxy) must NOT be treated as subject-not-registered, or the gate passes unconditionally forever");
+        StringAssert.Contains(report.Message, "40401");
+    }
+
+    [TestMethod]
+    public async Task LiveRegistry_ConfigUnreadable_FallsThroughToSnapshot()
+    {
+        var schema = DorcEventSchemas.GenerateRequestEventSchema();
+        await WriteCanonical(DefaultRequestsNewSubject, schema);
+        await WriteSnapshot(DefaultRequestsNewSubject, schema);
+        using var http = StubRegistry(
+            subjectConfig: new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError),
+            globalConfig: new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError),
+            compatibility: Json("""{"is_compatible":true}"""));
+        var gate = new AvroSchemaGate(http, _canonicalDir, _snapshotDir);
+
+        var report = await gate.CheckSubjectAsync(DefaultRequestsNewSubject, DefaultRequestsNewSubject, schema, CancellationToken.None);
+
+        Assert.AreEqual(GateOutcome.Pass, report.Outcome,
+            "config transiently unreadable — gate falls back to the snapshot check (which fails closed on any change)");
+        Assert.AreEqual("snapshot", report.Source);
+    }
+
+    private static HttpResponseMessage Json(string body)
+        => new(System.Net.HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
+
+    private static HttpResponseMessage NotFoundWithErrorCode(int errorCode)
+        => new(System.Net.HttpStatusCode.NotFound)
+        {
+            Content = new StringContent($$"""{"error_code":{{errorCode}},"message":"not found"}""", System.Text.Encoding.UTF8, "application/json")
+        };
+
+    /// <summary>
+    /// Routes the three registry endpoints the gate touches
+    /// (/config/{subject}, /config, /compatibility/...). Each endpoint is hit
+    /// at most once per CheckSubjectAsync call, so fixed responses suffice.
+    /// </summary>
+    private static HttpClient StubRegistry(
+        HttpResponseMessage subjectConfig,
+        HttpResponseMessage globalConfig,
+        HttpResponseMessage compatibility)
+        => new(new RoutingHandler(subjectConfig, globalConfig, compatibility))
+        {
+            BaseAddress = new Uri("http://stub-registry.local")
+        };
+
+    private sealed class RoutingHandler : HttpMessageHandler
+    {
+        private readonly HttpResponseMessage _subjectConfig;
+        private readonly HttpResponseMessage _globalConfig;
+        private readonly HttpResponseMessage _compatibility;
+
+        public RoutingHandler(HttpResponseMessage subjectConfig, HttpResponseMessage globalConfig, HttpResponseMessage compatibility)
+        {
+            _subjectConfig = subjectConfig;
+            _globalConfig = globalConfig;
+            _compatibility = compatibility;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.StartsWith("/compatibility/", StringComparison.Ordinal))
+                return Task.FromResult(_compatibility);
+            if (path.Equals("/config", StringComparison.Ordinal))
+                return Task.FromResult(_globalConfig);
+            if (path.StartsWith("/config/", StringComparison.Ordinal))
+                return Task.FromResult(_subjectConfig);
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+            {
+                Content = new StringContent($"unrouted: {path}")
+            });
+        }
+    }
+
     private Task WriteCanonical(string subject, string content)
         => File.WriteAllTextAsync(Path.Join(_canonicalDir, $"{subject}.avsc"), content);
 

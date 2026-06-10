@@ -26,6 +26,15 @@ public class KafkaErrorLogEntry
 
     public string Error { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Fully-qualified CLR type name of the failure exception
+    /// (<c>failure.GetType().FullName</c>), populated by the consumer at the
+    /// failure site. Maps onto <see cref="KafkaErrorEnvelope.ExceptionType"/>
+    /// so DLQ triage can filter by failure class (deserialization vs.
+    /// handler/broadcast) without parsing the message text.
+    /// </summary>
+    public string? ExceptionType { get; set; }
+
     public string? Stack { get; set; }
 
     public DateTimeOffset OccurredAt { get; set; }

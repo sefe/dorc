@@ -22,12 +22,17 @@ namespace Dorc.Kafka.Events.Publisher;
 /// set. The recommended production path: in K8s, inject the pod UID via
 /// the downward API (<c>metadata.uid</c>) — globally unique per pod and
 /// stable for the pod's lifetime. On bare-metal, set a persisted host-
-/// level identifier per replica process.</description></item>
-/// <item><description>Otherwise, <c>{MachineName}-{ProcessId}</c>.
-/// Unique across replicas because PID differs even on the same host,
-/// but mints a fresh group on every restart. Acceptable for dev/test;
-/// production should set <c>DORC_REPLICA_ID</c> and pair it with a
-/// periodic orphan-group cleanup.</description></item>
+/// level identifier per replica process. <b>Deployments that run more
+/// than one replica on the same host MUST set this</b> — the fallback
+/// below cannot distinguish co-hosted replicas.</description></item>
+/// <item><description>Otherwise, <c>{MachineName}</c> alone. Stable
+/// across restarts — a PID-style suffix would mint a fresh consumer
+/// group on every restart, accumulating orphan groups in
+/// <c>__consumer_offsets</c> and (with <c>AutoOffsetReset.Earliest</c>
+/// on the requests consumer) replaying the whole retained topic each
+/// restart. Unique across single-replica-per-host deployments; NOT
+/// unique for multiple replicas on one host (set
+/// <c>DORC_REPLICA_ID</c> explicitly in that topology).</description></item>
 /// </list>
 /// </summary>
 public static class HostInstanceId
@@ -38,18 +43,18 @@ public static class HostInstanceId
 
     public static string Value => _value.Value;
 
-    private static string Resolve() => Resolve(Environment.GetEnvironmentVariable, Environment.MachineName, Environment.ProcessId);
+    private static string Resolve() => Resolve(Environment.GetEnvironmentVariable, Environment.MachineName);
 
     /// <summary>
     /// Pure resolver split out for testability — the static <see cref="Value"/>
     /// is latched at first access and can't observe env-var changes mid-process.
     /// </summary>
-    internal static string Resolve(Func<string, string?> env, string machineName, int processId)
+    internal static string Resolve(Func<string, string?> env, string machineName)
     {
         var configured = env(EnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(configured))
             return $"{machineName}-{configured.Trim()}";
 
-        return $"{machineName}-{processId}";
+        return machineName;
     }
 }
