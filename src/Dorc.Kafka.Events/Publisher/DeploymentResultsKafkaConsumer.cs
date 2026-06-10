@@ -127,9 +127,10 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             }
             catch (Exception ex) when (!IsCritical(ex))
             {
-                // Broad by design: any broadcaster failure routes to the
-                // error log so the consume loop survives. Process-fatal
-                // exceptions still escape.
+                // Broadcast failure routes to the error log so the consume
+                // loop survives. Process-fatal exceptions still escape.
+                // HandleFailureFromConsumeResult commits the offset internally
+                // via WriteErrorLogAndCommit, so skip the happy-path commit.
                 HandleFailureFromConsumeResult(consumer, result, ex, stoppingToken);
                 continue;
             }
@@ -190,6 +191,12 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // explicitly defends against an operator setting Kafka:EnableAutoCommit
         // = true globally and silently dropping a SignalR broadcast on crash
         // between the timer-fired auto-commit and BroadcastAsync completion.
+        //
+        // IMPORTANT: BroadcastAsync runs synchronously on the consumer poll
+        // thread (.GetAwaiter().GetResult()). If downstream SignalR latency
+        // exceeds max.poll.interval.ms (default 300s), the broker will fence
+        // this consumer and trigger a rebalance. Ensure the configured value
+        // accommodates worst-case broadcast latency.
         config.EnableAutoCommit = false;
         return config;
     }

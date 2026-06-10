@@ -183,6 +183,12 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         // record — important because the handler is a no-op signal today but
         // future stateful additions (metrics, dedup state) would silently
         // lose messages otherwise.
+        //
+        // IMPORTANT: HandleAsync runs synchronously on the consumer poll
+        // thread (.GetAwaiter().GetResult()). If handler latency exceeds
+        // max.poll.interval.ms (default 300s), the broker will fence this
+        // consumer and trigger a rebalance. Ensure the configured value
+        // accommodates worst-case handler latency.
         config.EnableAutoCommit = true;
         config.EnableAutoOffsetStore = false;
         return config;

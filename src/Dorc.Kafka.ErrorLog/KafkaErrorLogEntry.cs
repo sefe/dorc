@@ -24,8 +24,6 @@ public class KafkaErrorLogEntry
 
     public byte[]? RawPayload { get; set; }
 
-    public string Error { get; set; } = string.Empty;
-
     /// <summary>
     /// Fully-qualified CLR type name of the failure exception
     /// (<c>failure.GetType().FullName</c>), populated by the consumer at the
@@ -34,6 +32,8 @@ public class KafkaErrorLogEntry
     /// handler/broadcast) without parsing the message text.
     /// </summary>
     public string? ExceptionType { get; set; }
+
+    public string Error { get; set; } = string.Empty;
 
     public string? Stack { get; set; }
 

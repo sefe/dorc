@@ -150,13 +150,17 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         // Idempotent: the container can track this instance through more
         // than one registration (concrete singleton + interface forward),
         // and a disposed librdkafka producer throws on every member.
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            return;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-        try { _resultsProducer.Flush(TimeSpan.FromSeconds(2)); } catch (KafkaException) { /* best-effort */ }
-        try { _requestsProducer.Flush(TimeSpan.FromSeconds(2)); } catch (KafkaException) { /* best-effort */ }
-        _resultsProducer.Dispose();
-        _requestsProducer.Dispose();
+        try { _resultsProducer.Flush(TimeSpan.FromSeconds(2)); }
+        catch (Exception ex) when (ex is KafkaException or ObjectDisposedException) { /* best-effort */ }
+        try { _resultsProducer.Dispose(); }
+        finally
+        {
+            try { _requestsProducer.Flush(TimeSpan.FromSeconds(2)); }
+            catch (Exception ex) when (ex is KafkaException or ObjectDisposedException) { /* best-effort */ }
+            _requestsProducer.Dispose();
+        }
     }
 
     private static bool IsCritical(Exception ex) =>

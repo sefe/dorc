@@ -127,8 +127,12 @@ namespace Dorc.Monitor.Events
             }
         }
 
+        private int _disposeCount;
+
         public async ValueTask DisposeAsync()
         {
+            if (Interlocked.Exchange(ref _disposeCount, 1) != 0) return;
+
             if (_connection != null)
             {
                 await _connection.DisposeAsync();

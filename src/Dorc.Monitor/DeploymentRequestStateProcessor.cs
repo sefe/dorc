@@ -25,7 +25,7 @@ namespace Dorc.Monitor
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
         private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
-        private const int EnvironmentLockLeaseTimeMs = 300000;
+        private const int EnvironmentLockAcquireTimeoutMs = 300000;
 
         // Test hook: invoked when a fire-and-forget publish task is created.
         // Null in production (zero overhead). Tests assign a callback to collect tasks
@@ -500,7 +500,7 @@ namespace Dorc.Monitor
                             // lock has no lease concept and ignores it (acquire wait
                             // is capped by Kafka:Locks:AcquireWaitMs); ownership
                             // auto-releases via group rebalance if this monitor dies
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockAcquireTimeoutMs, monitorCancellationToken);
 
                             if (envLock == null)
                             {

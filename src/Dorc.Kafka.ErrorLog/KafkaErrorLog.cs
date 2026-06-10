@@ -59,7 +59,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
 
         var key = entry.MessageKey ?? $"{entry.Topic}:{entry.Partition}:{entry.Offset}";
 
-        using var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         produceCts.CancelAfter(TimeSpan.FromMilliseconds(_options.ProduceTimeoutMs));
 
         // ProduceAsync's CancellationToken is best-effort under librdkafka:
@@ -69,10 +69,20 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
         // and wait via WaitAsync(token) so the caller's consume thread gets
         // freed by ProduceTimeoutMs even when librdkafka itself ignores the
         // cancellation request.
-        var produceTask = Task.Run(() => _producer.ProduceAsync(
-            dlqTopic,
-            new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
-            produceCts.Token));
+        var produceTask = Task.Run(async () =>
+        {
+            try
+            {
+                return await _producer.ProduceAsync(
+                    dlqTopic,
+                    new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
+                    produceCts.Token);
+            }
+            finally
+            {
+                produceCts.Dispose();
+            }
+        });
 
         DeliveryResult<string, KafkaErrorEnvelope> result;
         try
