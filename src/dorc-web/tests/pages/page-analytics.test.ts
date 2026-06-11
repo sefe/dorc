@@ -28,9 +28,6 @@ vi.mock('../../src/helpers/html-meta-manager', () => ({
 }));
 vi.mock('../../src/components/chart/dorc-chart', () => ({}));
 vi.mock('@vaadin/checkbox', () => ({}));
-vi.mock('@vaadin/checkbox/src/vaadin-checkbox', () => ({
-  Checkbox: class {}
-}));
 
 // --- Mock the DOrc API surface used by the page ---
 vi.mock('../../src/apis/dorc-api', () => ({

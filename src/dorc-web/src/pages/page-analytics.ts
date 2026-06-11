@@ -5,7 +5,7 @@ import { Subscription } from 'rxjs';
 import '../components/chart/dorc-chart';
 import '../components/dorc-spinner';
 import '@vaadin/checkbox';
-import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
+import type { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
 import {
   AnalyticsDeploymentsMonthApi,
@@ -37,7 +37,7 @@ import type {
   ThemeRiverSeriesOption,
   BarSeriesOption
 } from 'echarts';
-import {
+import type {
   CallbackDataParams,
   TopLevelFormatterParams
 } from 'echarts/types/dist/shared';
