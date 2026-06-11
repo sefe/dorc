@@ -3,6 +3,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- Pin the week start so DATEPART(WEEKDAY, ...) is deterministic regardless of
+    -- the server/session @@DATEFIRST setting. DATEFIRST 7 makes Sunday = 1 ... Saturday = 7,
+    -- which is the 1-7 range the API layer converts to a 0-6 (Sunday-based) index.
+    SET DATEFIRST 7;
+
     -- Clear existing data
     TRUNCATE TABLE [deploy].[AnalyticsTimePattern];
 

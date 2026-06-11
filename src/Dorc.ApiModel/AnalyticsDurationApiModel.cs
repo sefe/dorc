@@ -5,6 +5,5 @@ namespace Dorc.ApiModel
         public double AverageDurationMinutes { get; set; }
         public double MaxDurationMinutes { get; set; }
         public double MinDurationMinutes { get; set; }
-        public int TotalDeployments { get; set; }
     }
 }

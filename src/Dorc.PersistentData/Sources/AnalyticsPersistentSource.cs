@@ -35,27 +35,64 @@ namespace Dorc.PersistentData.Sources
             return output;
         }
 
-        public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectDate()
+        public AnalyticsDeploymentSummaryApiModel GetDeploymentSummary()
         {
-            var output = new List<AnalyticsDeploymentsPerProjectApiModel>();
-
             using (var context = _contextFactory.GetContext())
             {
-                var spSelectDeploymentsByProject =
-                    context.AnalyticsDeploymentsByProjectDate;
-
-                output.AddRange(spSelectDeploymentsByProject.Select(projectResultDbo =>
-                    new AnalyticsDeploymentsPerProjectApiModel
+                var rows = context.AnalyticsDeploymentsByProjectDate
+                    .Select(row => new
                     {
-                        CountOfDeployments = projectResultDbo.CountOfDeployments,
-                        Year = projectResultDbo.Year,
-                        Month = projectResultDbo.Month,
-                        Day = projectResultDbo.Day,
-                        ProjectName = projectResultDbo.ProjectName,
-                        Failed = projectResultDbo.Failed
-                    }));
+                        row.ProjectName,
+                        row.Year,
+                        row.CountOfDeployments,
+                        row.Failed
+                    })
+                    .ToList();
+
+                var currentYear = DateTime.Today.Year;
+                var thisYear = rows.Where(row => row.Year == currentYear).ToList();
+
+                var summary = new AnalyticsDeploymentSummaryApiModel
+                {
+                    TotalDeployments = rows.Sum(row => row.CountOfDeployments),
+                    TotalDeploymentsThisYear = thisYear.Sum(row => row.CountOfDeployments),
+                    TotalFailedDeploymentsThisYear = thisYear.Sum(row => row.Failed),
+                    BusiestDeploymentCount = thisYear.Count == 0
+                        ? 0
+                        : thisYear.Max(row => row.CountOfDeployments)
+                };
+
+                summary.PercentFailedThisYear = Percentage(
+                    summary.TotalFailedDeploymentsThisYear, summary.TotalDeploymentsThisYear);
+
+                // Days elapsed in the current year, inclusive of today and never zero,
+                // so the average is well defined even on 1 January.
+                var daysElapsed = (DateTime.Today - new DateTime(currentYear, 1, 1)).Days + 1;
+                summary.AverageDeploymentsPerDay = (int)Math.Round(
+                    (double)summary.TotalDeploymentsThisYear / Math.Max(daysElapsed, 1));
+
+                var projectTotals = thisYear
+                    .GroupBy(row => row.ProjectName ?? string.Empty)
+                    .Select(group => new AnalyticsProjectDeploymentApiModel
+                    {
+                        ProjectName = group.Key,
+                        CountOfDeployments = group.Sum(row => row.CountOfDeployments)
+                    })
+                    .OrderByDescending(project => project.CountOfDeployments)
+                    .ToList();
+
+                summary.TopProjectsThisYear = projectTotals.Take(3).ToList();
+                summary.PercentTop3Projects = Percentage(
+                    summary.TopProjectsThisYear.Sum(project => project.CountOfDeployments),
+                    summary.TotalDeploymentsThisYear);
+
+                return summary;
             }
-            return output;
+        }
+
+        private static int Percentage(int part, int whole)
+        {
+            return whole > 0 ? (int)Math.Round((double)part / whole * 100) : 0;
         }
 
         public IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage()
@@ -94,23 +131,36 @@ namespace Dorc.PersistentData.Sources
             return output;
         }
 
+        private static readonly string[] DayNames =
+            { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+
         public IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns()
         {
             var output = new List<AnalyticsTimePatternApiModel>();
             using (var context = _contextFactory.GetContext())
             {
-                var dayNames = new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-                output.AddRange(context.AnalyticsTimePattern
+                var patterns = context.AnalyticsTimePattern
                     .OrderBy(pattern => pattern.HourOfDay)
                     .ThenBy(pattern => pattern.DayOfWeek)
-                    .Select(pattern =>
-                        new AnalyticsTimePatternApiModel
-                        {
-                            HourOfDay = pattern.HourOfDay,
-                            DayOfWeek = pattern.DayOfWeek - 1, // Convert SQL Server WEEKDAY (1-7) to 0-6
-                            DayOfWeekName = dayNames[pattern.DayOfWeek - 1],
-                            CountOfDeployments = pattern.DeploymentCount
-                        }));
+                    .ToList();
+
+                foreach (var pattern in patterns)
+                {
+                    // The population proc stores SQL Server WEEKDAY (1-7); convert to
+                    // a 0-6 index. Skip rows outside the valid range rather than risk
+                    // an IndexOutOfRangeException on unexpected data.
+                    if (pattern.DayOfWeek < 1 || pattern.DayOfWeek > 7)
+                        continue;
+
+                    var dayIndex = pattern.DayOfWeek - 1;
+                    output.Add(new AnalyticsTimePatternApiModel
+                    {
+                        HourOfDay = pattern.HourOfDay,
+                        DayOfWeek = dayIndex,
+                        DayOfWeekName = DayNames[dayIndex],
+                        CountOfDeployments = pattern.DeploymentCount
+                    });
+                }
             }
             return output;
         }
@@ -144,8 +194,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         AverageDurationMinutes = 0,
                         MaxDurationMinutes = 0,
-                        MinDurationMinutes = 0,
-                        TotalDeployments = 0
+                        MinDurationMinutes = 0
                     };
                 }
 
@@ -153,8 +202,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     AverageDurationMinutes = (double)duration.AverageDurationMinutes,
                     MaxDurationMinutes = (double)duration.LongestDurationMinutes,
-                    MinDurationMinutes = (double)duration.ShortestDurationMinutes,
-                    TotalDeployments = 0 // Not stored in table, can be calculated if needed
+                    MinDurationMinutes = (double)duration.ShortestDurationMinutes
                 };
             }
         }

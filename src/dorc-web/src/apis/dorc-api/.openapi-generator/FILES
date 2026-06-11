@@ -1,7 +1,7 @@
 .gitignore
 apis/AccessControlApi.ts
 apis/AccountApi.ts
-apis/AnalyticsDeploymentsDateApi.ts
+apis/AnalyticsDeploymentSummaryApi.ts
 apis/AnalyticsDeploymentsMonthApi.ts
 apis/ApiConfigApi.ts
 apis/ApiRootApi.ts

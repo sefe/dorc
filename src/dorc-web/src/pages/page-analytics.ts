@@ -1,13 +1,14 @@
 import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '../components/chart/hegs-chart';
+import { Subscription } from 'rxjs';
+import '../components/chart/dorc-chart';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { PageElement } from '../helpers/page-element';
 import {
-  AnalyticsDeploymentsDateApi,
   AnalyticsDeploymentsMonthApi,
+  AnalyticsDeploymentSummaryApi,
   AnalyticsEnvironmentUsageApi,
   AnalyticsUserActivityApi,
   AnalyticsTimePatternApi,
@@ -16,6 +17,7 @@ import {
 } from '../apis/dorc-api';
 import {
   AnalyticsDeploymentsPerProjectApiModel,
+  AnalyticsDeploymentSummaryApiModel,
   AnalyticsEnvironmentUsageApiModel,
   AnalyticsUserActivityApiModel,
   AnalyticsTimePatternApiModel,
@@ -49,72 +51,70 @@ declare type ThemerRiverDataItem = [
   string
 ];
 
-interface ProjectDeployments {
-  project: string;
-  numDeployments: number;
-}
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday'
+];
 
-@customElement('page-about')
-export class PageAbout extends PageElement {
-  @property({ type: Array })
-  AnalyticsDeploymentsMonthResponse: AnalyticsDeploymentsPerProjectApiModel[] =
+@customElement('page-analytics')
+export class PageAnalytics extends PageElement {
+  @state()
+  private analyticsDeploymentsMonthResponse: AnalyticsDeploymentsPerProjectApiModel[] =
     [];
 
-  @property({ type: Array })
-  AnalyticsDeploymentsDateResponse: AnalyticsDeploymentsPerProjectApiModel[] =
-    [];
+  @state() private top3PieChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) top3PieChartOptions: EChartsOption | undefined;
+  @state() private pieChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) pieChartOptions: EChartsOption | undefined;
+  @state() private riverChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) riverChartOptions: EChartsOption | undefined;
+  @state() private environmentUsageChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) environmentUsageChartOptions: EChartsOption | undefined;
+  @state() private userActivityChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) userActivityChartOptions: EChartsOption | undefined;
+  @state() private timePatternChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) timePatternChartOptions: EChartsOption | undefined;
+  @state() private componentUsageChartOptions: EChartsOption | undefined;
 
-  @property({ type: Object }) componentUsageChartOptions: EChartsOption | undefined;
+  @state() private totalDeployments = 0;
 
-  @property({ type: Array }) pieDataTable: (string | number)[][] = [
-    ['Project', 'Deployments']
-  ];
+  @state() private totalDeploymentsThisYear = 0;
 
-  @property({ type: Array }) allDeploymentsMonth: (Date | number)[][] = [];
+  @state() private averageDeploymentsPerDay = 0;
 
-  @property({ type: Array })
-  top3ProjectsByDeployments: ProjectDeployments[] = [];
+  @state() private busiestDeploymentCount = 0;
 
-  @property({ type: Number }) DeploymentsThisYear = 0;
+  @state() private totalFailedDeploymentsThisYear = 0;
 
-  @property({ type: Number }) TotalDeployments = 0;
+  @state() private percentTop3ProjectsThisYear = 0;
 
-  @property({ type: Number }) TotalDeploymentsThisYear = 0;
+  @state()
+  private topProjectsThisYear: AnalyticsProjectDeployment[] = [];
 
-  @property({ type: Number }) AverageDeploymentsPerDay = 0;
+  @state() private durationStats: AnalyticsDurationApiModel | undefined;
 
-  @property({ type: Number }) MaxDeploymentsThisYear = 0;
+  @state() private loading = true;
 
-  @property({ type: Number }) TotalFailedDeploymentsThisYear = 0;
+  @state() private includeDeprecated = true;
 
-  @property({ type: Number }) PercentTotalFailedDeploymentsThisYear = 0;
+  private subscriptions: Subscription[] = [];
 
-  @property({ type: Number }) PercentTop3ProjectsByDeploymentsThisYear = 0;
-
-  @property({ type: Object }) durationStats: AnalyticsDurationApiModel | undefined;
-
-  private loading = true;
-
-  @property({ type: Boolean }) private includeDeprecated = true;
-
-  constructor() {
-    super();
-
+  connectedCallback() {
+    super.connectedCallback();
     this.loadMonthData();
-    this.loadDayData();
-    this.loadNewAnalytics();
+    this.loadSummary();
+    this.loadCharts();
+  }
+
+  disconnectedCallback() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
+    super.disconnectedCallback();
   }
 
   static get styles() {
@@ -125,11 +125,11 @@ export class PageAbout extends PageElement {
         height: 100%;
       }
 
-      .page-about {
+      .page-analytics {
         padding: 1rem;
       }
 
-      .page-about__main-info {
+      .page-analytics__main-info {
         margin-bottom: 18px;
       }
 
@@ -207,89 +207,97 @@ export class PageAbout extends PageElement {
         ? html` <div class="loader"></div> `
         : html`
             <div id="page_div">
-              <div class="page-about__main-info main-info">
+              <div class="page-analytics__main-info main-info">
                 <div class="statistics-cards">
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.TotalDeployments}</h3>
+                    <h3>${this.totalDeployments}</h3>
                     <span class="card-element__text">Total # deployments</span>
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.TotalDeploymentsThisYear}</h3>
+                    <h3>${this.totalDeploymentsThisYear}</h3>
                     <span class="card-element__text"
                       >Total # deployments this year</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.AverageDeploymentsPerDay}</h3>
+                    <h3>${this.averageDeploymentsPerDay}</h3>
                     <span class="card-element__text"
                       >Average Deployments Per Day</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.MaxDeploymentsThisYear}</h3>
-                    <span class="card-element__text">Busiest Week Of Year</span>
+                    <h3>${this.busiestDeploymentCount}</h3>
+                    <span class="card-element__text"
+                      >Most Deployments In A Day</span
+                    >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.TotalFailedDeploymentsThisYear}</h3>
+                    <h3>${this.totalFailedDeploymentsThisYear}</h3>
                     <span class="card-element__text"
                       >Total Failures This Year</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.durationStats?.AverageDurationMinutes?.toFixed(1) ?? 0} min</h3>
+                    <h3>
+                      ${this.durationStats?.AverageDurationMinutes?.toFixed(1) ??
+                      0}
+                      min
+                    </h3>
                     <span class="card-element__text"
                       >Average Deployment Duration</span
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0} min</h3>
-                    <span class="card-element__text"
-                      >Longest Deployment</span
-                    >
+                    <h3>
+                      ${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0}
+                      min
+                    </h3>
+                    <span class="card-element__text">Longest Deployment</span>
                   </div>
                   <div class="statistics-cards__item card-element">
-                    <h3>${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0} min</h3>
-                    <span class="card-element__text"
-                      >Shortest Deployment</span
-                    >
+                    <h3>
+                      ${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0}
+                      min
+                    </h3>
+                    <span class="card-element__text">Shortest Deployment</span>
                   </div>
                 </div>
                 <div class="top3-chart-block">
-                  <hegs-chart
+                  <dorc-chart
                     style="display: block; width: 100%; height: 400px;"
                     .option="${this.top3PieChartOptions}"
-                  ></hegs-chart>
+                  ></dorc-chart>
                 </div>
               </div>
               <div class="statistics-cards__item card-element">
-                <hegs-chart
+                <dorc-chart
                   style="display: block; width: 100%; height: 600px;"
                   .option="${this.environmentUsageChartOptions}"
-                ></hegs-chart>
+                ></dorc-chart>
               </div>
               <div class="statistics-cards__item card-element">
-                <hegs-chart
+                <dorc-chart
                   style="display: block; width: 100%; height: 600px;"
                   .option="${this.userActivityChartOptions}"
-                ></hegs-chart>
+                ></dorc-chart>
               </div>
               <div class="statistics-cards__item card-element">
-                <hegs-chart
+                <dorc-chart
                   style="display: block; width: 100%; height: 600px;"
                   .option="${this.timePatternChartOptions}"
-                ></hegs-chart>
+                ></dorc-chart>
               </div>
               <div class="statistics-cards__item card-element">
-                <hegs-chart
+                <dorc-chart
                   style="display: block; width: 100%; height: 800px;"
                   .option="${this.componentUsageChartOptions}"
-                ></hegs-chart>
+                ></dorc-chart>
               </div>
               <div class="statistics-cards__item card-element">
-                <hegs-chart
+                <dorc-chart
                   style="display: block; width: 100%; height: 1200px;"
                   .option="${this.riverChartOptions}"
-                ></hegs-chart>
+                ></dorc-chart>
                 <vaadin-checkbox
                   label="Include Deprecated"
                   ?checked="${this.includeDeprecated}"
@@ -297,10 +305,10 @@ export class PageAbout extends PageElement {
                 ></vaadin-checkbox>
               </div>
               <div class="statistics-cards__item card-element">
-                <hegs-chart
+                <dorc-chart
                   style="display: block; width: 100%; height: 1200px;"
                   .option="${this.pieChartOptions}"
-                ></hegs-chart>
+                ></dorc-chart>
               </div>
             </div>
           `}
@@ -309,77 +317,122 @@ export class PageAbout extends PageElement {
 
   updateDeprecated(e: CustomEvent) {
     const cbx = e.target as Checkbox;
+    this.includeDeprecated = cbx.checked;
     this.constructRiverChart(!cbx.checked);
   }
 
-  loadMonthData() {
+  private loadMonthData() {
     const api = new AnalyticsDeploymentsMonthApi();
-    api
-      .analyticsDeploymentsMonthGet()
-      .subscribe((res: AnalyticsDeploymentsPerProjectApiModel[]) => {
-        this.AnalyticsDeploymentsMonthResponse = res;
-        this.constructRiverChart(!this.includeDeprecated);
-        this.constructPieChart();
-      });
+    this.subscriptions.push(
+      api.analyticsDeploymentsMonthGet().subscribe({
+        next: (res: AnalyticsDeploymentsPerProjectApiModel[]) => {
+          this.analyticsDeploymentsMonthResponse = res;
+          this.constructRiverChart(!this.includeDeprecated);
+          this.constructPieChart();
+        },
+        error: err => {
+          console.error('Failed to load monthly deployment data:', err);
+        }
+      })
+    );
   }
 
-  loadNewAnalytics() {
-    // Load Environment Usage
+  private loadSummary() {
+    const api = new AnalyticsDeploymentSummaryApi();
+    this.subscriptions.push(
+      api.analyticsDeploymentSummaryGet().subscribe({
+        next: (res: AnalyticsDeploymentSummaryApiModel) => {
+          this.applySummary(res);
+          this.loading = false;
+        },
+        error: err => {
+          console.error('Failed to load deployment summary:', err);
+          this.loading = false;
+        }
+      })
+    );
+  }
+
+  private applySummary(summary: AnalyticsDeploymentSummaryApiModel) {
+    this.totalDeployments = summary.TotalDeployments ?? 0;
+    this.totalDeploymentsThisYear = summary.TotalDeploymentsThisYear ?? 0;
+    this.averageDeploymentsPerDay = summary.AverageDeploymentsPerDay ?? 0;
+    this.busiestDeploymentCount = summary.BusiestDeploymentCount ?? 0;
+    this.totalFailedDeploymentsThisYear =
+      summary.TotalFailedDeploymentsThisYear ?? 0;
+    this.percentTop3ProjectsThisYear = summary.PercentTop3Projects ?? 0;
+    this.topProjectsThisYear = (summary.TopProjectsThisYear ?? []).map(p => ({
+      project: p.ProjectName ?? '',
+      numDeployments: p.CountOfDeployments ?? 0
+    }));
+    this.constructTop3PieChart();
+  }
+
+  private loadCharts() {
+    // Environment Usage
     const envApi = new AnalyticsEnvironmentUsageApi();
-    envApi.analyticsEnvironmentUsageGet().subscribe({
-      next: (res: AnalyticsEnvironmentUsageApiModel[]) => {
-        this.constructEnvironmentUsageChart(res);
-      },
-      error: (err) => {
-        console.error('Failed to load environment usage data:', err);
-      }
-    });
+    this.subscriptions.push(
+      envApi.analyticsEnvironmentUsageGet().subscribe({
+        next: (res: AnalyticsEnvironmentUsageApiModel[]) => {
+          this.constructEnvironmentUsageChart(res);
+        },
+        error: err => {
+          console.error('Failed to load environment usage data:', err);
+        }
+      })
+    );
 
-    // Load User Activity
+    // User Activity
     const userApi = new AnalyticsUserActivityApi();
-    userApi.analyticsUserActivityGet().subscribe({
-      next: (res: AnalyticsUserActivityApiModel[]) => {
-        this.constructUserActivityChart(res);
-      },
-      error: (err) => {
-        console.error('Failed to load user activity data:', err);
-      }
-    });
+    this.subscriptions.push(
+      userApi.analyticsUserActivityGet().subscribe({
+        next: (res: AnalyticsUserActivityApiModel[]) => {
+          this.constructUserActivityChart(res);
+        },
+        error: err => {
+          console.error('Failed to load user activity data:', err);
+        }
+      })
+    );
 
-    // Load Time Patterns
+    // Time Patterns
     const timeApi = new AnalyticsTimePatternApi();
-    timeApi.analyticsTimePatternGet().subscribe({
-      next: (res: AnalyticsTimePatternApiModel[]) => {
-        console.log('Time pattern data received:', res);
-        this.constructTimePatternChart(res);
-      },
-      error: (err) => {
-        console.error('Failed to load time pattern data:', err);
-      }
-    });
+    this.subscriptions.push(
+      timeApi.analyticsTimePatternGet().subscribe({
+        next: (res: AnalyticsTimePatternApiModel[]) => {
+          this.constructTimePatternChart(res);
+        },
+        error: err => {
+          console.error('Failed to load time pattern data:', err);
+        }
+      })
+    );
 
-    // Load Component Usage
+    // Component Usage
     const compApi = new AnalyticsComponentUsageApi();
-    compApi.analyticsComponentUsageGet().subscribe({
-      next: (res: AnalyticsComponentUsageApiModel[]) => {
-        console.log('Component usage data received:', res);
-        this.constructComponentUsageChart(res);
-      },
-      error: (err) => {
-        console.error('Failed to load component usage data:', err);
-      }
-    });
+    this.subscriptions.push(
+      compApi.analyticsComponentUsageGet().subscribe({
+        next: (res: AnalyticsComponentUsageApiModel[]) => {
+          this.constructComponentUsageChart(res);
+        },
+        error: err => {
+          console.error('Failed to load component usage data:', err);
+        }
+      })
+    );
 
-    // Load Duration Stats
+    // Duration Stats
     const durApi = new AnalyticsDurationApi();
-    durApi.analyticsDurationGet().subscribe({
-      next: (res: AnalyticsDurationApiModel) => {
-        this.durationStats = res;
-      },
-      error: (err) => {
-        console.error('Failed to load duration stats:', err);
-      }
-    });
+    this.subscriptions.push(
+      durApi.analyticsDurationGet().subscribe({
+        next: (res: AnalyticsDurationApiModel) => {
+          this.durationStats = res;
+        },
+        error: err => {
+          console.error('Failed to load duration stats:', err);
+        }
+      })
+    );
   }
 
   private constructRiverChart(excludeDeprecated: boolean) {
@@ -414,7 +467,7 @@ export class PageAbout extends PageElement {
             if (Number(tttFormat[1] as number) === 0) {
               continue;
             }
-            const current = `${tttFormat[2]} : ${tttFormat[1]} </br>`;
+            const current = `${tttFormat[2]} : ${tttFormat[1]} <br/>`;
             output += current;
           }
         }
@@ -442,7 +495,7 @@ export class PageAbout extends PageElement {
 
     const data: ThemerRiverDataItem[] = [];
 
-    this.AnalyticsDeploymentsMonthResponse.map(m => {
+    this.analyticsDeploymentsMonthResponse.forEach(m => {
       const date: string = `${String(m.Year)}/${String(m.Month)}/${String(1)}`;
       const dataItem: ThemerRiverDataItem = [
         date,
@@ -480,107 +533,19 @@ export class PageAbout extends PageElement {
     };
   }
 
-  loadDayData() {
-    const api = new AnalyticsDeploymentsDateApi();
-    api
-      .analyticsDeploymentsDateGet()
-      .subscribe((res: AnalyticsDeploymentsPerProjectApiModel[]) => {
-        this.AnalyticsDeploymentsDateResponse = res;
-        this.dayProcessor();
-        this.loading = false;
-      });
-  }
-
-  dayProcessor() {
-    const top3ThisYear = new Map<string, number>();
-    const today = new Date();
-    const todaysYear = today.getFullYear();
-
-    this.AnalyticsDeploymentsDateResponse.forEach(
-      ({
-        CountOfDeployments,
-        Failed,
-        ProjectName,
-        Year
-      }: AnalyticsDeploymentsPerProjectApiModel) => {
-        if (
-          CountOfDeployments !== undefined &&
-          Failed !== undefined &&
-          ProjectName !== undefined
-        ) {
-          this.TotalDeployments += CountOfDeployments;
-
-          if (todaysYear === Year) {
-            this.TotalDeploymentsThisYear += CountOfDeployments;
-            this.TotalFailedDeploymentsThisYear += Failed;
-
-            if (CountOfDeployments > this.MaxDeploymentsThisYear) {
-              this.MaxDeploymentsThisYear = CountOfDeployments;
-            }
-
-            const proj = top3ThisYear.get(ProjectName ?? '');
-            if (proj === undefined)
-              top3ThisYear.set(ProjectName ?? '', CountOfDeployments);
-            else top3ThisYear.set(ProjectName ?? '', proj + CountOfDeployments);
-          }
-        }
-      }
-    );
-
-    this.PercentTotalFailedDeploymentsThisYear = Math.round(
-      (this.TotalFailedDeploymentsThisYear / this.TotalDeploymentsThisYear) *
-        100
-    );
-    const sortable: { project: string; total: number }[] = [];
-
-    top3ThisYear.forEach((value, key) => {
-      sortable.push({ project: key, total: value });
-    });
-
-    sortable.sort((a, b) => a.total - b.total);
-
-    let countTop3DeploymentsByProject = 0;
-    for (let k = 0; k < min(3, sortable.length); k += 1) {
-      const node = {
-        project: sortable[sortable.length - k - 1]?.project,
-        numDeployments: sortable[sortable.length - k - 1]?.total
-      };
-      this.top3ProjectsByDeployments.push(node);
-      countTop3DeploymentsByProject += node.numDeployments;
-    }
-
-    this.PercentTop3ProjectsByDeploymentsThisYear = Math.round(
-      (countTop3DeploymentsByProject / this.TotalDeploymentsThisYear) * 100
-    );
-    this.AverageDeploymentsPerDay = Math.round(
-      this.TotalDeploymentsThisYear /
-        this.days_between(new Date(today.getFullYear(), 0o1, 0o1), today)
-    );
-
-    this.top3ProjectsByDeployments.forEach(e => {
-      this.pieDataTable.push([e.project, e.numDeployments]);
-    });
-
-    const model: [][] = JSON.parse(JSON.stringify(this.pieDataTable));
-    this.pieDataTable = model;
-    this.constructTop3PieChart();
-
-    console.log('completed the days processor');
-  }
-
   private constructTop3PieChart() {
     const tt: TooltipComponentOption = {
       trigger: 'item'
     };
     const title: TitleComponentOption = {
       text: 'Top 3 Total Deployments By Project This Year',
-      subtext: `${String(this.PercentTop3ProjectsByDeploymentsThisYear)}%`
+      subtext: `${String(this.percentTop3ProjectsThisYear)}%`
     };
 
     const series: PieSeriesOption[] = [
       {
         type: 'pie',
-        data: this.top3ProjectsByDeployments.map(value => ({
+        data: this.topProjectsThisYear.map(value => ({
           name: value.project,
           value: value.numDeployments
         }))
@@ -605,7 +570,7 @@ export class PageAbout extends PageElement {
 
     const currentYear = new Date().getFullYear();
 
-    const justThisYear = this.AnalyticsDeploymentsMonthResponse.filter(
+    const justThisYear = this.analyticsDeploymentsMonthResponse.filter(
       d => d.Year === currentYear
     );
 
@@ -615,7 +580,7 @@ export class PageAbout extends PageElement {
 
     const summedProjects: AnalyticsDeploymentsPerProjectApiModel[] = [];
 
-    distinctProjects.map(x => {
+    distinctProjects.forEach(x => {
       const sum = justThisYear.reduce((accumulator, object) => {
         const deployments = object.CountOfDeployments ?? 0;
         if (object.ProjectName !== x) return accumulator;
@@ -628,21 +593,19 @@ export class PageAbout extends PageElement {
       summedProjects.push(summed);
     });
 
-    const sortedNSummed = summedProjects.sort((a, b) => {
+    // Sort descending and drop the top 3 (shown in their own chart), without
+    // mutating in place. slice() copes safely with fewer than 3 projects.
+    const sortedDescending = [...summedProjects].sort((a, b) => {
       const first = a.CountOfDeployments ?? 0;
       const second = b.CountOfDeployments ?? 0;
-      return first - second;
+      return second - first;
     });
-
-    const sortedNSummedNoTop3 = sortedNSummed.splice(
-      0,
-      sortedNSummed.length - 3
-    );
+    const withoutTop3 = sortedDescending.slice(3);
 
     const series: PieSeriesOption[] = [
       {
         type: 'pie',
-        data: sortedNSummedNoTop3.map(value => ({
+        data: withoutTop3.map(value => ({
           name: value.ProjectName ?? '',
           value: value.CountOfDeployments
         }))
@@ -656,7 +619,9 @@ export class PageAbout extends PageElement {
     };
   }
 
-  private constructEnvironmentUsageChart(data: AnalyticsEnvironmentUsageApiModel[]) {
+  private constructEnvironmentUsageChart(
+    data: AnalyticsEnvironmentUsageApiModel[]
+  ) {
     const environments = data.slice(0, 10).map(d => d.EnvironmentName ?? '');
     const counts = data.slice(0, 10).map(d => d.CountOfDeployments ?? 0);
 
@@ -761,40 +726,44 @@ export class PageAbout extends PageElement {
   }
 
   private constructTimePatternChart(data: AnalyticsTimePatternApiModel[]) {
-    console.log('constructTimePatternChart called with data:', data);
-    
     // Group by day of week and hour for heatmap
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-    
+
     const heatmapData: [number, number, number][] = [];
-    
-    if (data && data.length > 0) {
-      data.forEach(d => {
-        if (d.HourOfDay !== undefined && d.DayOfWeek !== undefined && d.HourOfDay !== null && d.DayOfWeek !== null) {
-          heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
-        }
-      });
-    }
-    
-    // If no data, create at least one data point so chart renders
-    if (heatmapData.length === 0) {
-      console.warn('No valid heatmap data, creating empty chart');
-      heatmapData.push([0, 0, 0]);
-    }
+
+    (data ?? []).forEach(d => {
+      if (
+        d.HourOfDay !== undefined &&
+        d.HourOfDay !== null &&
+        d.DayOfWeek !== undefined &&
+        d.DayOfWeek !== null
+      ) {
+        heatmapData.push([d.HourOfDay, d.DayOfWeek, d.CountOfDeployments ?? 0]);
+      }
+    });
+
+    const hasData = heatmapData.length > 0;
 
     const title: TitleComponentOption = {
-      text: 'Deployment Time Patterns (Hour vs Day of Week)',
+      text: hasData
+        ? 'Deployment Time Patterns (Hour vs Day of Week)'
+        : 'Deployment Time Patterns (no data available)',
       left: 'center'
     };
 
     const tooltip: TooltipComponentOption = {
       position: 'top',
-      formatter: (params: any) => {
-        const hour = params.data[0];
-        const day = params.data[1];
-        const count = params.data[2];
-        return `${dayNames[day]}, ${hour}:00<br/>Deployments: ${count}`;
+      formatter: (params: TopLevelFormatterParams) => {
+        const item = (Array.isArray(params) ? params[0] : params) as
+          | CallbackDataParams
+          | undefined;
+        const point = (item?.data as number[]) ?? [];
+        const hour = point[0];
+        const day = point[1];
+        const count = point[2];
+        const dayName =
+          day >= 0 && day < DAY_NAMES.length ? DAY_NAMES[day] : String(day);
+        return `${dayName}, ${hour}:00<br/>Deployments: ${count}`;
       }
     };
 
@@ -815,7 +784,7 @@ export class PageAbout extends PageElement {
 
     const yAxis: YAXisComponentOption = {
       type: 'category',
-      data: dayNames,
+      data: DAY_NAMES,
       name: 'Day of Week'
     };
 
@@ -853,26 +822,22 @@ export class PageAbout extends PageElement {
     };
   }
 
-  private constructComponentUsageChart(data: AnalyticsComponentUsageApiModel[]) {
-    console.log('constructComponentUsageChart called with data:', data);
-    
-    let components: string[] = [];
-    let counts: number[] = [];
-    
-    if (data && data.length > 0) {
-      components = data.slice(0, 15).map(d => d.ComponentName ?? '').filter(c => c !== '');
-      counts = data.slice(0, 15).map(d => d.CountOfDeployments ?? 0);
-    }
-    
-    // If no data, create placeholder
-    if (components.length === 0) {
-      console.warn('No valid component data, creating empty chart');
-      components = ['No Data'];
-      counts = [0];
-    }
+  private constructComponentUsageChart(
+    data: AnalyticsComponentUsageApiModel[]
+  ) {
+    const top = (data ?? [])
+      .slice(0, 15)
+      .filter(d => (d.ComponentName ?? '') !== '');
+
+    const components = top.map(d => d.ComponentName ?? '');
+    const counts = top.map(d => d.CountOfDeployments ?? 0);
+
+    const hasData = components.length > 0;
 
     const title: TitleComponentOption = {
-      text: 'Top 15 Components by Deployment Count',
+      text: hasData
+        ? 'Top 15 Components by Deployment Count'
+        : 'Top 15 Components by Deployment Count (no data available)',
       left: 'center'
     };
 
@@ -919,23 +884,9 @@ export class PageAbout extends PageElement {
       series
     };
   }
-
-  days_between(date1: Date, date2: Date) {
-    // The number of milliseconds in one day
-    const ONE_DAY = 1000 * 60 * 60 * 24;
-
-    // Convert both dates to milliseconds
-    const date1Ms = date1.getTime();
-    const date2Ms = date2.getTime();
-
-    // Calculate the difference in milliseconds
-    const differenceMs = Math.abs(date1Ms - date2Ms);
-
-    // Convert back to days and return
-    return Math.round(differenceMs / ONE_DAY);
-  }
 }
-function min(arg0: number, arg1: number) {
-  if (arg0 < arg1) return arg0;
-  return arg1;
+
+interface AnalyticsProjectDeployment {
+  project: string;
+  numDeployments: number;
 }

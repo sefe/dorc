@@ -4,19 +4,19 @@ import { css, LitElement, PropertyValues } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 
-@customElement('hegs-chart')
-export class HegsChart extends LitElement {
+@customElement('dorc-chart')
+export class DorcChart extends LitElement {
   private chart: ECharts | undefined;
 
-  private _option!: EChartsOption;
+  private _option: EChartsOption | undefined;
 
   private _resizeObserver: ResizeObserver | undefined;
 
-  get option() {
+  get option(): EChartsOption | undefined {
     return this._option;
   }
 
-  set option(val) {
+  set option(val: EChartsOption | undefined) {
     const oldVal = this._option;
     this._option = val;
     this.requestUpdate('option', oldVal);

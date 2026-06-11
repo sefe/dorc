@@ -1,6 +1,6 @@
 export * from './AccessControlApi';
 export * from './AccountApi';
-export * from './AnalyticsDeploymentsDateApi';
+export * from './AnalyticsDeploymentSummaryApi';
 export * from './AnalyticsDeploymentsMonthApi';
 export * from './ApiConfigApi';
 export * from './ApiRootApi';

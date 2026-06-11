@@ -27,36 +27,40 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         [Route("AnalyticsDeploymentsMonth")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsDeploymentsPerProjectApiModel>))]
-        public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetDeploymentsMonth()
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetDeploymentsMonth()
         {
             try
             {
-                return _analyticsPersistentSource.GetCountDeploymentsPerProjectMonth();
+                var result = _analyticsPersistentSource.GetCountDeploymentsPerProjectMonth();
+                return Ok(result);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Error retrieving deployments per project per month");
-                throw;
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving deployments per project per month.");
             }
         }
 
         /// <summary>
-        /// Gets the count of deployments per project and date
+        /// Get aggregated deployment summary statistics
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [Route("AnalyticsDeploymentsDate")]
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsDeploymentsPerProjectApiModel>))]
-        public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetDeploymentsDate()
+        [Route("AnalyticsDeploymentSummary")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(AnalyticsDeploymentSummaryApiModel))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetDeploymentSummary()
         {
             try
             {
-                return _analyticsPersistentSource.GetCountDeploymentsPerProjectDate();
+                var result = _analyticsPersistentSource.GetDeploymentSummary();
+                return Ok(result);
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Error retrieving deployments per project and date");
-                throw;
+                _logger.LogError(e, "Error retrieving deployment summary analytics");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving deployment summary analytics.");
             }
         }
 

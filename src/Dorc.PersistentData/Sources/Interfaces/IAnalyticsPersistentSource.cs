@@ -5,7 +5,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IAnalyticsPersistentSource
     {
         IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectMonth();
-        IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectDate();
+        AnalyticsDeploymentSummaryApiModel GetDeploymentSummary();
         IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage();
         IEnumerable<AnalyticsUserActivityApiModel> GetUserActivity();
         IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns();
