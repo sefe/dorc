@@ -250,7 +250,7 @@
         }
       }
     },
-    "/AnalyticsDeploymentsDate": {
+    "/AnalyticsDeploymentSummary": {
       "get": {
         "tags": [
           "Analytics"
@@ -261,18 +261,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
-                  }
+                  "$ref": "#/components/schemas/AnalyticsDeploymentSummaryApiModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsDeploymentsPerProjectApiModel"
-                  }
+                  "$ref": "#/components/schemas/AnalyticsDeploymentSummaryApiModel"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -7892,8 +7901,59 @@
           "MinDurationMinutes": {
             "type": "number",
             "format": "double"
-          },
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsDeploymentSummaryApiModel": {
+        "type": "object",
+        "properties": {
           "TotalDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalDeploymentsThisYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalFailedDeploymentsThisYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PercentFailedThisYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AverageDeploymentsPerDay": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "BusiestDeploymentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PercentTop3Projects": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TopProjectsThisYear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsProjectDeploymentApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsProjectDeploymentApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CountOfDeployments": {
             "type": "integer",
             "format": "int32"
           }

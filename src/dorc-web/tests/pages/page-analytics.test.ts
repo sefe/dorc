@@ -138,8 +138,9 @@ describe('PageAnalytics', () => {
     const el = await mount();
     el.remove();
 
-    // One unsubscribe per subscription opened during load.
-    expect(unsubscribeSpy).toHaveBeenCalled();
+    // One unsubscribe per subscription opened during load:
+    // month + summary + 5 chart streams = 7.
+    expect(unsubscribeSpy).toHaveBeenCalledTimes(7);
     expect((el as any).subscriptions).toHaveLength(0);
   });
 });

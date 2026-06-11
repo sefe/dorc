@@ -1,4 +1,5 @@
 import { css, PropertyValues } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/icon';
@@ -140,41 +141,6 @@ export class PageProjectEnvs extends PageElement {
         text-decoration: none; /* no underline */
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 30%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
 
       vaadin-button {
@@ -185,13 +151,7 @@ export class PageProjectEnvs extends PageElement {
 
   render() {
     return html`
-      <div class="overlay" ?hidden="${!this.loading}">
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
       <add-edit-access-control
         id="add-edit-access-control"
         .secureName="${this.secureName}"

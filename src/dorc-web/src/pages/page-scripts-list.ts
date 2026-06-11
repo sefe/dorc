@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid';
@@ -83,33 +84,6 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         --divider-color: var(--dorc-border-color);
         height: 100%;
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
       .project-tag {
         font-size: var(--lumo-font-size-s);
         border: 0;
@@ -135,10 +109,6 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         text-decoration: none;
       }
 
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
       paper-dialog.size-position {
         top: 16px;
@@ -157,17 +127,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 1000"
-        ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"></dorc-spinner>
 
       ${this.rolesLoading
         ? html``

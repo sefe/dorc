@@ -29,20 +29,20 @@ namespace Dorc.Api.Tests.Sources
 
         private void SetupDateRows(List<DeploymentsByProjectDate> rows)
         {
-            _context.AnalyticsDeploymentsByProjectDate
-                .Returns(DbContextMock.GetQueryableMockDbSet(rows));
+            var dbSet = DbContextMock.GetQueryableMockDbSet(rows);
+            _context.AnalyticsDeploymentsByProjectDate.Returns(dbSet);
         }
 
         private void SetupTimePatterns(List<AnalyticsTimePattern> patterns)
         {
-            _context.AnalyticsTimePattern
-                .Returns(DbContextMock.GetQueryableMockDbSet(patterns));
+            var dbSet = DbContextMock.GetQueryableMockDbSet(patterns);
+            _context.AnalyticsTimePattern.Returns(dbSet);
         }
 
         private void SetupDurations(List<AnalyticsDuration> durations)
         {
-            _context.AnalyticsDuration
-                .Returns(DbContextMock.GetQueryableMockDbSet(durations));
+            var dbSet = DbContextMock.GetQueryableMockDbSet(durations);
+            _context.AnalyticsDuration.Returns(dbSet);
         }
 
         [TestMethod]
@@ -51,11 +51,11 @@ namespace Dorc.Api.Tests.Sources
             var year = DateTime.Today.Year;
             SetupDateRows(new List<DeploymentsByProjectDate>
             {
-                new() { ProjectName = "A", Year = year, CountOfDeployments = 10, Failed = 2 },
-                new() { ProjectName = "A", Year = year, CountOfDeployments = 5, Failed = 1 },
-                new() { ProjectName = "B", Year = year, CountOfDeployments = 8, Failed = 0 },
-                new() { ProjectName = "C", Year = year, CountOfDeployments = 3, Failed = 3 },
-                new() { ProjectName = "D", Year = year - 1, CountOfDeployments = 100, Failed = 50 }
+                new() { ProjectName = "A", Year = year, Month = 1, Day = 1, CountOfDeployments = 10, Failed = 2 },
+                new() { ProjectName = "A", Year = year, Month = 1, Day = 2, CountOfDeployments = 5, Failed = 1 },
+                new() { ProjectName = "B", Year = year, Month = 1, Day = 1, CountOfDeployments = 8, Failed = 0 },
+                new() { ProjectName = "C", Year = year, Month = 2, Day = 3, CountOfDeployments = 3, Failed = 3 },
+                new() { ProjectName = "D", Year = year - 1, Month = 6, Day = 6, CountOfDeployments = 100, Failed = 50 }
             });
 
             var summary = _source.GetDeploymentSummary();
@@ -63,7 +63,8 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual(126, summary.TotalDeployments);
             Assert.AreEqual(26, summary.TotalDeploymentsThisYear);
             Assert.AreEqual(6, summary.TotalFailedDeploymentsThisYear);
-            Assert.AreEqual(10, summary.BusiestDeploymentCount);
+            // Busiest calendar day = Jan 1 (A:10 + B:8 = 18), summed across projects.
+            Assert.AreEqual(18, summary.BusiestDeploymentCount);
         }
 
         [TestMethod]
@@ -103,6 +104,56 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual(0, summary.AverageDeploymentsPerDay);
             Assert.AreEqual(0, summary.BusiestDeploymentCount);
             Assert.AreEqual(0, summary.TopProjectsThisYear.Count);
+        }
+
+        [TestMethod]
+        public void BuildSummary_AverageDeploymentsPerDay_DividesByDaysElapsedInclusive()
+        {
+            // 10 Jan -> 10 days elapsed (inclusive of 1 Jan and today).
+            var today = new DateTime(2024, 1, 10);
+            var rows = new List<DeploymentsByProjectDate>
+            {
+                new() { ProjectName = "A", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 100 }
+            };
+
+            var summary = AnalyticsPersistentSource.BuildSummary(rows, today);
+
+            Assert.AreEqual(10, summary.AverageDeploymentsPerDay);
+        }
+
+        [TestMethod]
+        public void BuildSummary_OnFirstOfJanuary_DoesNotDivideByZero()
+        {
+            var today = new DateTime(2024, 1, 1);
+            var rows = new List<DeploymentsByProjectDate>
+            {
+                new() { ProjectName = "A", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 7 }
+            };
+
+            var summary = AnalyticsPersistentSource.BuildSummary(rows, today);
+
+            Assert.AreEqual(7, summary.AverageDeploymentsPerDay);
+        }
+
+        [TestMethod]
+        public void BuildSummary_BusiestDay_SumsAcrossProjectsNotPerProjectMax()
+        {
+            var today = new DateTime(2024, 6, 1);
+            var rows = new List<DeploymentsByProjectDate>
+            {
+                // Same day, five projects of 4 each = 20.
+                new() { ProjectName = "A", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 4 },
+                new() { ProjectName = "B", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 4 },
+                new() { ProjectName = "C", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 4 },
+                new() { ProjectName = "D", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 4 },
+                new() { ProjectName = "E", Year = 2024, Month = 1, Day = 1, CountOfDeployments = 4 },
+                // A different day with a larger single-project count = 10.
+                new() { ProjectName = "A", Year = 2024, Month = 1, Day = 2, CountOfDeployments = 10 }
+            };
+
+            var summary = AnalyticsPersistentSource.BuildSummary(rows, today);
+
+            Assert.AreEqual(20, summary.BusiestDeploymentCount);
         }
 
         [TestMethod]

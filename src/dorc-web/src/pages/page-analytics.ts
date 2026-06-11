@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Subscription } from 'rxjs';
 import '../components/chart/dorc-chart';
+import '../components/dorc-spinner';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox/src/vaadin-checkbox';
 import { PageElement } from '../helpers/page-element';
@@ -91,6 +92,8 @@ export class PageAnalytics extends PageElement {
 
   @state() private totalFailedDeploymentsThisYear = 0;
 
+  @state() private percentFailedThisYear = 0;
+
   @state() private percentTop3ProjectsThisYear = 0;
 
   @state()
@@ -106,6 +109,9 @@ export class PageAnalytics extends PageElement {
 
   connectedCallback() {
     super.connectedCallback();
+    // Reset to the loading state so a re-attach (router navigating back to
+    // /analytics) shows the spinner again rather than stale data.
+    this.loading = true;
     this.loadMonthData();
     this.loadSummary();
     this.loadCharts();
@@ -174,29 +180,11 @@ export class PageAnalytics extends PageElement {
         float: right;
         vertical-align: middle;
       }
-      .loader {
-        border: 16px solid #f3f3f3; /* Light grey */
-        border-top: 16px solid #3498db; /* Blue */
-        border-radius: 50%;
-        width: 120px;
-        height: 120px;
-        animation: spin 2s linear infinite;
-      }
-
       div#page_div {
         overflow: auto;
         width: 100%;
         flex: 1;
         min-height: 0;
-      }
-
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
       }
     `;
   }
@@ -204,7 +192,7 @@ export class PageAnalytics extends PageElement {
   render() {
     return html`
       ${this.loading
-        ? html` <div class="loader"></div> `
+        ? html` <dorc-spinner></dorc-spinner> `
         : html`
             <div id="page_div">
               <div class="page-analytics__main-info main-info">
@@ -238,9 +226,16 @@ export class PageAnalytics extends PageElement {
                     >
                   </div>
                   <div class="statistics-cards__item card-element">
+                    <h3>${this.percentFailedThisYear}%</h3>
+                    <span class="card-element__text"
+                      >Failure Rate This Year</span
+                    >
+                  </div>
+                  <div class="statistics-cards__item card-element">
                     <h3>
-                      ${this.durationStats?.AverageDurationMinutes?.toFixed(1) ??
-                      0}
+                      ${this.durationStats?.AverageDurationMinutes?.toFixed(
+                        1
+                      ) ?? 0}
                       min
                     </h3>
                     <span class="card-element__text"
@@ -360,6 +355,7 @@ export class PageAnalytics extends PageElement {
     this.busiestDeploymentCount = summary.BusiestDeploymentCount ?? 0;
     this.totalFailedDeploymentsThisYear =
       summary.TotalFailedDeploymentsThisYear ?? 0;
+    this.percentFailedThisYear = summary.PercentFailedThisYear ?? 0;
     this.percentTop3ProjectsThisYear = summary.PercentTop3Projects ?? 0;
     this.topProjectsThisYear = (summary.TopProjectsThisYear ?? []).map(p => ({
       project: p.ProjectName ?? '',
@@ -825,9 +821,12 @@ export class PageAnalytics extends PageElement {
   private constructComponentUsageChart(
     data: AnalyticsComponentUsageApiModel[]
   ) {
-    const top = (data ?? [])
-      .slice(0, 15)
-      .filter(d => (d.ComponentName ?? '') !== '');
+    // The API already returns these ordered by deployment count, but sort
+    // defensively so the "top 15" stays correct regardless of server ordering.
+    const top = [...(data ?? [])]
+      .sort((a, b) => (b.CountOfDeployments ?? 0) - (a.CountOfDeployments ?? 0))
+      .filter(d => (d.ComponentName ?? '') !== '')
+      .slice(0, 15);
 
     const components = top.map(d => d.ComponentName ?? '');
     const counts = top.map(d => d.CountOfDeployments ?? 0);

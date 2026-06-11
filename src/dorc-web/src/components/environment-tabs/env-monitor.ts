@@ -1,4 +1,5 @@
 import type { Grid, GridItemModel } from '@vaadin/grid';
+import '../dorc-spinner';
 import {
   GridDataProviderCallback,
   GridDataProviderParams,
@@ -118,41 +119,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         cursor: pointer;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
 
       .cover {
@@ -174,13 +140,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   render() {
     return html`
-      <div id="loading" class="overlay" style="z-index: 2" ?hidden="${!this.isLoading && !this.isSearching}">
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.isLoading && !this.isSearching}"></dorc-spinner>
       
       <vaadin-grid
         id="grid"

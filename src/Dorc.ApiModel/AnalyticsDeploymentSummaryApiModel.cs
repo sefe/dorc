@@ -11,6 +11,7 @@ namespace Dorc.ApiModel
         public int AverageDeploymentsPerDay { get; set; }
         public int BusiestDeploymentCount { get; set; }
         public int PercentTop3Projects { get; set; }
-        public List<AnalyticsProjectDeploymentApiModel> TopProjectsThisYear { get; set; } = new();
+        public List<AnalyticsProjectDeploymentApiModel> TopProjectsThisYear { get; set; }
+            = new List<AnalyticsProjectDeploymentApiModel>();
     }
 }

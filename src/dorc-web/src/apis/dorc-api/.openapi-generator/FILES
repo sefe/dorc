@@ -56,7 +56,9 @@ models/AccessControlApiModel.ts
 models/AccessControlType.ts
 models/AccessSecureApiModel.ts
 models/AccountGranularity.ts
+models/AnalyticsDeploymentSummaryApiModel.ts
 models/AnalyticsDeploymentsPerProjectApiModel.ts
+models/AnalyticsProjectDeploymentApiModel.ts
 models/ApiBoolResult.ts
 models/ApiConfigModel.ts
 models/ApiEndpoints.ts

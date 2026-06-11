@@ -8,8 +8,10 @@ BEGIN
 
     -- Populate with fresh data from both main and archive tables
     -- Parse Components field (comma-separated) and count occurrences
-    -- Store every component; the API/UI layer is responsible for any top-N limiting,
-    -- so no rows are silently dropped here.
+    -- Store every component so nothing is silently dropped here. Ordering and
+    -- top-N limiting are applied later by the data source
+    -- (AnalyticsPersistentSource.GetComponentUsage orders by DeploymentCount
+    -- descending) rather than at population time.
     INSERT INTO [deploy].[AnalyticsComponentUsage] ([ComponentName], [DeploymentCount])
     SELECT
         LTRIM(RTRIM([Component])) AS [ComponentName],

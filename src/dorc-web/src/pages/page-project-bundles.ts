@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
@@ -67,41 +68,6 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         height: 100%;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-        top: 0;
-        left: 0;
-        background: rgba(255, 255, 255, 0.8);
-        z-index: 1000;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
@@ -180,11 +146,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <div class="overlay" ?hidden="${!this.loading}">
-        <div class="overlay__inner">
-          <span class="spinner"></span>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
 
       <div class="header">
         <h2>${this.project} Bundles</h2>

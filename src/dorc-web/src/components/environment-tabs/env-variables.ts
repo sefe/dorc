@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property, query } from 'lit/decorators.js';
@@ -117,33 +118,6 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       vaadin-combo-box {
         padding: 0px;
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 30%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
       @keyframes spin {
         100% {
           transform: rotate(360deg);
@@ -161,17 +135,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 1000"
-        ?hidden="${!(this.loading || this.searching)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       ${this.envLoaded
         ? html`
             <vaadin-vertical-layout style="width: 100%; height: 100%">
