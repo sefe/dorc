@@ -31,8 +31,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetDeploymentSummary();
 
-            var ok = result as OkObjectResult;
-            Assert.IsNotNull(ok);
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var ok = (OkObjectResult)result;
             Assert.AreSame(summary, ok.Value);
         }
 
@@ -44,8 +44,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetDeploymentSummary();
 
-            var status = result as ObjectResult;
-            Assert.IsNotNull(status);
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var status = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
         }
 
@@ -60,8 +60,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetDeploymentsMonth();
 
-            var ok = result as OkObjectResult;
-            Assert.IsNotNull(ok);
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var ok = (OkObjectResult)result;
             Assert.AreSame(data, ok.Value);
         }
 
@@ -73,8 +73,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetDeploymentsMonth();
 
-            var status = result as ObjectResult;
-            Assert.IsNotNull(status);
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var status = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
         }
 
@@ -86,8 +86,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetDuration();
 
-            var status = result as ObjectResult;
-            Assert.IsNotNull(status);
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var status = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
         }
     }

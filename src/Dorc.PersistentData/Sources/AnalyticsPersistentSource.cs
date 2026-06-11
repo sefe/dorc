@@ -151,14 +151,12 @@ namespace Dorc.PersistentData.Sources
                     .ThenBy(pattern => pattern.DayOfWeek)
                     .ToList();
 
-                foreach (var pattern in patterns)
+                // The population proc stores SQL Server WEEKDAY (1-7); convert to
+                // a 0-6 index. Filter out rows outside the valid range rather than
+                // risk an IndexOutOfRangeException on unexpected data.
+                foreach (var pattern in patterns.Where(pattern =>
+                             pattern.DayOfWeek >= 1 && pattern.DayOfWeek <= 7))
                 {
-                    // The population proc stores SQL Server WEEKDAY (1-7); convert to
-                    // a 0-6 index. Skip rows outside the valid range rather than risk
-                    // an IndexOutOfRangeException on unexpected data.
-                    if (pattern.DayOfWeek < 1 || pattern.DayOfWeek > 7)
-                        continue;
-
                     var dayIndex = pattern.DayOfWeek - 1;
                     output.Add(new AnalyticsTimePatternApiModel
                     {
