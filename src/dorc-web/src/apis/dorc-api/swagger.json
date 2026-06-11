@@ -289,6 +289,231 @@
         }
       }
     },
+    "/AnalyticsMonthlyOutcome": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsMonthlyOutcomeApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsMonthlyOutcomeApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsEnvironmentWait": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentWaitApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentWaitApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsProjectDuration": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsProjectDurationApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsProjectDurationApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsComponentReliability": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentReliabilityApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentReliabilityApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsRecoveryTime": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsRecoveryTimeApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsRecoveryTimeApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/AnalyticsEnvironmentUsage": {
       "get": {
         "tags": [
@@ -7946,6 +8171,21 @@
           "MinDurationMinutes": {
             "type": "number",
             "format": "double"
+          },
+          "P50DurationMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "P90DurationMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "P95DurationMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7991,6 +8231,127 @@
         },
         "additionalProperties": false
       },
+      "AnalyticsMonthlyOutcomeApiModel": {
+        "type": "object",
+        "properties": {
+          "Year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Month": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "IsProd": {
+            "type": "boolean"
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Failed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Cancelled": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsEnvironmentWaitApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "AvgWaitMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "MedianWaitMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "P90WaitMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "SampleCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsProjectDurationApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "MedianDurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "P90DurationMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "SampleCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsComponentReliabilityApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "AttemptCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "FailedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "RetryAttemptCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsRecoveryTimeApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "MedianRecoveryHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "AvgRecoveryHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "SampleCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AnalyticsProjectDeploymentApiModel": {
         "type": "object",
         "properties": {
@@ -8019,6 +8380,11 @@
           "Failed": {
             "type": "integer",
             "format": "int32"
+          },
+          "LastSuccessfulDeployment": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false

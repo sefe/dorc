@@ -17,6 +17,40 @@ property (default `2`; a few list pages use `1000`). `hegs-dialog.ts` (a modal
 backdrop) and `log-dialog.ts` (an imperative DOM spinner) intentionally keep
 their own implementations.
 
+## Failure taxonomy (unified — resolves issue #729)
+
+All analytics surfaces share one outcome definition, applied in every
+populate/select proc:
+
+- **Failure** = `Status IN ('Failed', 'Errored', 'Error')` — `Errored` is the
+  current `DeploymentRequestStatus` enum value; `'Error'` covers legacy rows.
+- **Success** = `Status IN ('Completed', 'Success')`.
+- **Cancelled** = `Status = 'Cancelled'` (reported separately, never counted
+  as a failure).
+
+## Expanded analytics (items 1–9)
+
+See `docs/analytics-expansion/` for the HLPS/IS. New aggregates, all following
+the truncate-and-rebuild populate pattern over `deploy` + `archive`:
+
+| Endpoint | Table / proc | Chart |
+|---|---|---|
+| `GET /AnalyticsMonthlyOutcome` | `AnalyticsMonthlyOutcome` / `sp_PopulateAnalyticsMonthlyOutcome` | Monthly volume (prod vs non-prod stacked), failure-rate % line, cancellations |
+| `GET /AnalyticsEnvironmentWait` | `AnalyticsEnvironmentWait` / `sp_PopulateAnalyticsEnvironmentWait` | Top 10 environments by queue wait (median + P90 of Requested→Started) |
+| `GET /AnalyticsProjectDuration` | `AnalyticsProjectDuration` / `sp_PopulateAnalyticsProjectDuration` | Per-project duration median + P90 (top 15 by volume) |
+| `GET /AnalyticsComponentReliability` | `AnalyticsComponentReliability` / `sp_PopulateAnalyticsComponentReliability` | Failure % per component (min 20 attempts; retry counts from the attempt tables, which are not archived) |
+| `GET /AnalyticsRecoveryTime` | `AnalyticsRecoveryTime` / `sp_PopulateAnalyticsRecoveryTime` | Median hours from a failed deployment to the next success per project+environment |
+| `/AnalyticsDuration` (extended) | `AnalyticsDuration` +P50/P90/P95 columns | Percentile stat cards |
+| `/AnalyticsEnvironmentUsage` (extended) | `AnalyticsEnvironmentUsage` +`LastSuccessfulDeployment` | Stalest environments (days since last success) |
+
+A client-side filter bar (from/to month + project) applies to the deployment
+river and monthly outcome charts; the pure filtering helpers live in
+`src/dorc-web/src/pages/page-analytics-data.ts`.
+
+> **ActiveBatch dependency:** the external refresh job must be updated to call
+> the five new `sp_PopulateAnalytics*` procs listed above (alongside the
+> existing ones) or the new charts will show their empty states.
+
 ## Architecture
 
 | Layer | Component |

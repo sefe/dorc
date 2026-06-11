@@ -11,5 +11,10 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns();
         IEnumerable<AnalyticsComponentUsageApiModel> GetComponentUsage();
         AnalyticsDurationApiModel GetDeploymentDuration();
+        IEnumerable<AnalyticsMonthlyOutcomeApiModel> GetMonthlyOutcomes();
+        IEnumerable<AnalyticsEnvironmentWaitApiModel> GetEnvironmentWaitTimes();
+        IEnumerable<AnalyticsProjectDurationApiModel> GetProjectDurations();
+        IEnumerable<AnalyticsComponentReliabilityApiModel> GetComponentReliability();
+        IEnumerable<AnalyticsRecoveryTimeApiModel> GetRecoveryTimes();
     }
 }

@@ -173,5 +173,115 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving deployment duration analytics.");
             }
         }
+
+        /// <summary>
+        /// Get monthly deployment outcomes (volume, failures, cancellations) split by prod/non-prod
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("AnalyticsMonthlyOutcome")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsMonthlyOutcomeApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetMonthlyOutcomes()
+        {
+            try
+            {
+                var result = _analyticsPersistentSource.GetMonthlyOutcomes();
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error retrieving monthly outcome analytics");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving monthly outcome analytics.");
+            }
+        }
+
+        /// <summary>
+        /// Get queue wait time statistics per environment
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("AnalyticsEnvironmentWait")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsEnvironmentWaitApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetEnvironmentWaitTimes()
+        {
+            try
+            {
+                var result = _analyticsPersistentSource.GetEnvironmentWaitTimes();
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error retrieving environment wait analytics");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving environment wait analytics.");
+            }
+        }
+
+        /// <summary>
+        /// Get per-project deployment duration statistics
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("AnalyticsProjectDuration")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsProjectDurationApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetProjectDurations()
+        {
+            try
+            {
+                var result = _analyticsPersistentSource.GetProjectDurations();
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error retrieving project duration analytics");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving project duration analytics.");
+            }
+        }
+
+        /// <summary>
+        /// Get per-component reliability statistics (failures and retries)
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("AnalyticsComponentReliability")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsComponentReliabilityApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetComponentReliability()
+        {
+            try
+            {
+                var result = _analyticsPersistentSource.GetComponentReliability();
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error retrieving component reliability analytics");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving component reliability analytics.");
+            }
+        }
+
+        /// <summary>
+        /// Get per-project recovery time statistics (failed deployment to next success)
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("AnalyticsRecoveryTime")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsRecoveryTimeApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
+        public IActionResult GetRecoveryTimes()
+        {
+            try
+            {
+                var result = _analyticsPersistentSource.GetRecoveryTimes();
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error retrieving recovery time analytics");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving recovery time analytics.");
+            }
+        }
     }
 }

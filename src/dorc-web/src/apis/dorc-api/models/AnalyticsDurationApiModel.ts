@@ -31,4 +31,19 @@ export interface AnalyticsDurationApiModel {
      * @memberof AnalyticsDurationApiModel
      */
     MinDurationMinutes?: number;
+    /**
+     * @type {number}
+     * @memberof AnalyticsDurationApiModel
+     */
+    P50DurationMinutes?: number | null;
+    /**
+     * @type {number}
+     * @memberof AnalyticsDurationApiModel
+     */
+    P90DurationMinutes?: number | null;
+    /**
+     * @type {number}
+     * @memberof AnalyticsDurationApiModel
+     */
+    P95DurationMinutes?: number | null;
 }

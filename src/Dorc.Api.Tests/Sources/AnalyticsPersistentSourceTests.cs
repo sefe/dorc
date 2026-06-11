@@ -213,7 +213,10 @@ namespace Dorc.Api.Tests.Sources
                 {
                     AverageDurationMinutes = 10.5m,
                     LongestDurationMinutes = 20m,
-                    ShortestDurationMinutes = 2m
+                    ShortestDurationMinutes = 2m,
+                    P50DurationMinutes = 8m,
+                    P90DurationMinutes = 18m,
+                    P95DurationMinutes = 19.5m
                 }
             });
 
@@ -222,6 +225,168 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual(10.5, result.AverageDurationMinutes);
             Assert.AreEqual(20, result.MaxDurationMinutes);
             Assert.AreEqual(2, result.MinDurationMinutes);
+            Assert.AreEqual(8, result.P50DurationMinutes);
+            Assert.AreEqual(18, result.P90DurationMinutes);
+            Assert.AreEqual(19.5, result.P95DurationMinutes);
+        }
+
+        [TestMethod]
+        public void GetDeploymentDuration_NullPercentiles_MapToNull()
+        {
+            SetupDurations(new List<AnalyticsDuration>
+            {
+                new()
+                {
+                    AverageDurationMinutes = 10m,
+                    LongestDurationMinutes = 20m,
+                    ShortestDurationMinutes = 2m
+                }
+            });
+
+            var result = _source.GetDeploymentDuration();
+
+            Assert.IsNull(result.P50DurationMinutes);
+            Assert.IsNull(result.P90DurationMinutes);
+            Assert.IsNull(result.P95DurationMinutes);
+        }
+
+        [TestMethod]
+        public void GetEnvironmentUsage_MapsLastSuccessfulDeployment()
+        {
+            var lastSuccess = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+            var usage = new List<AnalyticsEnvironmentUsage>
+            {
+                new() { EnvironmentName = "ENV1", TotalDeployments = 10, FailCount = 1, LastSuccessfulDeployment = lastSuccess },
+                new() { EnvironmentName = "ENV2", TotalDeployments = 5, FailCount = 0, LastSuccessfulDeployment = null }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(usage);
+            _context.AnalyticsEnvironmentUsage.Returns(dbSet);
+
+            var result = _source.GetEnvironmentUsage().ToList();
+
+            Assert.AreEqual(lastSuccess, result.Single(e => e.EnvironmentName == "ENV1").LastSuccessfulDeployment);
+            Assert.IsNull(result.Single(e => e.EnvironmentName == "ENV2").LastSuccessfulDeployment);
+        }
+
+        [TestMethod]
+        public void GetMonthlyOutcomes_OrdersByYearMonthAndMapsAllFields()
+        {
+            var outcomes = new List<AnalyticsMonthlyOutcome>
+            {
+                new() { Year = 2026, Month = 2, IsProd = false, CountOfDeployments = 30, Failed = 3, Cancelled = 1 },
+                new() { Year = 2025, Month = 12, IsProd = true, CountOfDeployments = 10, Failed = 1, Cancelled = 0 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(outcomes);
+            _context.AnalyticsMonthlyOutcome.Returns(dbSet);
+
+            var result = _source.GetMonthlyOutcomes().ToList();
+
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual(2025, result[0].Year);
+            Assert.AreEqual(12, result[0].Month);
+            Assert.IsTrue(result[0].IsProd);
+            Assert.AreEqual(10, result[0].CountOfDeployments);
+            Assert.AreEqual(1, result[0].Failed);
+            Assert.AreEqual(0, result[0].Cancelled);
+            Assert.AreEqual(2026, result[1].Year);
+        }
+
+        [TestMethod]
+        public void GetEnvironmentWaitTimes_OrdersByMedianDescending()
+        {
+            var waits = new List<AnalyticsEnvironmentWait>
+            {
+                new() { EnvironmentName = "FAST", AvgWaitMinutes = 1m, MedianWaitMinutes = 1m, P90WaitMinutes = 2m, SampleCount = 100 },
+                new() { EnvironmentName = "SLOW", AvgWaitMinutes = 40m, MedianWaitMinutes = 30m, P90WaitMinutes = 90m, SampleCount = 50 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(waits);
+            _context.AnalyticsEnvironmentWait.Returns(dbSet);
+
+            var result = _source.GetEnvironmentWaitTimes().ToList();
+
+            Assert.AreEqual("SLOW", result[0].EnvironmentName);
+            Assert.AreEqual(30, result[0].MedianWaitMinutes);
+            Assert.AreEqual(90, result[0].P90WaitMinutes);
+            Assert.AreEqual(50, result[0].SampleCount);
+            Assert.AreEqual("FAST", result[1].EnvironmentName);
+        }
+
+        [TestMethod]
+        public void GetProjectDurations_OrdersBySampleCountDescending()
+        {
+            var durations = new List<AnalyticsProjectDuration>
+            {
+                new() { ProjectName = "Small", MedianDurationMinutes = 5m, P90DurationMinutes = 9m, SampleCount = 10 },
+                new() { ProjectName = "Big", MedianDurationMinutes = 4m, P90DurationMinutes = 12m, SampleCount = 1000 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(durations);
+            _context.AnalyticsProjectDuration.Returns(dbSet);
+
+            var result = _source.GetProjectDurations().ToList();
+
+            Assert.AreEqual("Big", result[0].ProjectName);
+            Assert.AreEqual(4, result[0].MedianDurationMinutes);
+            Assert.AreEqual(12, result[0].P90DurationMinutes);
+            Assert.AreEqual(1000, result[0].SampleCount);
+        }
+
+        [TestMethod]
+        public void GetComponentReliability_OrdersByFailedCountDescending()
+        {
+            var components = new List<AnalyticsComponentReliability>
+            {
+                new() { ComponentName = "Stable", AttemptCount = 500, FailedCount = 1, RetryAttemptCount = 0 },
+                new() { ComponentName = "Flaky", AttemptCount = 100, FailedCount = 25, RetryAttemptCount = 40 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(components);
+            _context.AnalyticsComponentReliability.Returns(dbSet);
+
+            var result = _source.GetComponentReliability().ToList();
+
+            Assert.AreEqual("Flaky", result[0].ComponentName);
+            Assert.AreEqual(100, result[0].AttemptCount);
+            Assert.AreEqual(25, result[0].FailedCount);
+            Assert.AreEqual(40, result[0].RetryAttemptCount);
+        }
+
+        [TestMethod]
+        public void GetRecoveryTimes_OrdersByMedianDescending()
+        {
+            var recoveries = new List<AnalyticsRecoveryTime>
+            {
+                new() { ProjectName = "Quick", MedianRecoveryHours = 0.5m, AvgRecoveryHours = 1m, SampleCount = 20 },
+                new() { ProjectName = "Slow", MedianRecoveryHours = 48m, AvgRecoveryHours = 50m, SampleCount = 4 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(recoveries);
+            _context.AnalyticsRecoveryTime.Returns(dbSet);
+
+            var result = _source.GetRecoveryTimes().ToList();
+
+            Assert.AreEqual("Slow", result[0].ProjectName);
+            Assert.AreEqual(48, result[0].MedianRecoveryHours);
+            Assert.AreEqual(50, result[0].AvgRecoveryHours);
+            Assert.AreEqual(4, result[0].SampleCount);
+        }
+
+        [TestMethod]
+        public void NewAnalyticsGetters_EmptyTables_ReturnEmpty()
+        {
+            var emptyOutcomes = DbContextMock.GetQueryableMockDbSet(new List<AnalyticsMonthlyOutcome>());
+            var emptyWaits = DbContextMock.GetQueryableMockDbSet(new List<AnalyticsEnvironmentWait>());
+            var emptyDurations = DbContextMock.GetQueryableMockDbSet(new List<AnalyticsProjectDuration>());
+            var emptyReliability = DbContextMock.GetQueryableMockDbSet(new List<AnalyticsComponentReliability>());
+            var emptyRecoveries = DbContextMock.GetQueryableMockDbSet(new List<AnalyticsRecoveryTime>());
+            _context.AnalyticsMonthlyOutcome.Returns(emptyOutcomes);
+            _context.AnalyticsEnvironmentWait.Returns(emptyWaits);
+            _context.AnalyticsProjectDuration.Returns(emptyDurations);
+            _context.AnalyticsComponentReliability.Returns(emptyReliability);
+            _context.AnalyticsRecoveryTime.Returns(emptyRecoveries);
+
+            Assert.AreEqual(0, _source.GetMonthlyOutcomes().Count());
+            Assert.AreEqual(0, _source.GetEnvironmentWaitTimes().Count());
+            Assert.AreEqual(0, _source.GetProjectDurations().Count());
+            Assert.AreEqual(0, _source.GetComponentReliability().Count());
+            Assert.AreEqual(0, _source.GetRecoveryTimes().Count());
         }
     }
 }

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // --- Hoisted, mutable holders so each test can steer the mocked API ---
-const { summaryHolder, monthHolder, unsubscribeSpy } = vi.hoisted(() => ({
-  summaryHolder: { value: {} as any, mode: 'next' as 'next' | 'error' },
-  monthHolder: { value: [] as any[] },
-  unsubscribeSpy: vi.fn()
-}));
+const { summaryHolder, monthHolder, outcomeHolder, unsubscribeSpy } =
+  vi.hoisted(() => ({
+    summaryHolder: { value: {} as any, mode: 'next' as 'next' | 'error' },
+    monthHolder: { value: [] as any[] },
+    outcomeHolder: { value: [] as any[] },
+    unsubscribeSpy: vi.fn()
+  }));
 
 function syncObservable(value: unknown, mode: 'next' | 'error' = 'next') {
   return {
@@ -28,6 +30,7 @@ vi.mock('../../src/helpers/html-meta-manager', () => ({
 }));
 vi.mock('../../src/components/chart/dorc-chart', () => ({}));
 vi.mock('@vaadin/checkbox', () => ({}));
+vi.mock('@vaadin/combo-box', () => ({}));
 
 // --- Mock the DOrc API surface used by the page ---
 vi.mock('../../src/apis/dorc-api', () => ({
@@ -52,6 +55,21 @@ vi.mock('../../src/apis/dorc-api', () => ({
   },
   AnalyticsDurationApi: class {
     analyticsDurationGet = () => syncObservable({});
+  },
+  AnalyticsMonthlyOutcomeApi: class {
+    analyticsMonthlyOutcomeGet = () => syncObservable(outcomeHolder.value);
+  },
+  AnalyticsEnvironmentWaitApi: class {
+    analyticsEnvironmentWaitGet = () => syncObservable([]);
+  },
+  AnalyticsProjectDurationApi: class {
+    analyticsProjectDurationGet = () => syncObservable([]);
+  },
+  AnalyticsComponentReliabilityApi: class {
+    analyticsComponentReliabilityGet = () => syncObservable([]);
+  },
+  AnalyticsRecoveryTimeApi: class {
+    analyticsRecoveryTimeGet = () => syncObservable([]);
   }
 }));
 
@@ -70,6 +88,7 @@ describe('PageAnalytics', () => {
     summaryHolder.value = {};
     summaryHolder.mode = 'next';
     monthHolder.value = [];
+    outcomeHolder.value = [];
     unsubscribeSpy.mockClear();
   });
 
@@ -136,8 +155,70 @@ describe('PageAnalytics', () => {
     el.remove();
 
     // One unsubscribe per subscription opened during load:
-    // month + summary + 5 chart streams = 7.
-    expect(unsubscribeSpy).toHaveBeenCalledTimes(7);
+    // month + summary + 10 chart streams = 12.
+    expect(unsubscribeSpy).toHaveBeenCalledTimes(12);
     expect((el as any).subscriptions).toHaveLength(0);
+  });
+
+  it('aggregates monthly outcomes into prod/non-prod volumes and failure rate', async () => {
+    outcomeHolder.value = [
+      { Year: 2026, Month: 1, IsProd: true, CountOfDeployments: 10, Failed: 1, Cancelled: 0 },
+      { Year: 2026, Month: 1, IsProd: false, CountOfDeployments: 30, Failed: 3, Cancelled: 2 },
+      { Year: 2026, Month: 2, IsProd: false, CountOfDeployments: 20, Failed: 0, Cancelled: 1 }
+    ];
+
+    const el = await mount();
+    const options = (el as any).monthlyOutcomeChartOptions;
+
+    expect(options.xAxis.data).toEqual(['2026-01', '2026-02']);
+    // series: [non-prod, prod, cancelled, failure rate %]
+    expect(options.series[0].data).toEqual([30, 20]);
+    expect(options.series[1].data).toEqual([10, 0]);
+    expect(options.series[2].data).toEqual([2, 1]);
+    expect(options.series[3].data).toEqual([10, 0]); // 4/40 = 10%, 0/20 = 0%
+  });
+
+  it('applies the month-range filter to the monthly outcome chart', async () => {
+    outcomeHolder.value = [
+      { Year: 2025, Month: 12, IsProd: false, CountOfDeployments: 5, Failed: 0, Cancelled: 0 },
+      { Year: 2026, Month: 1, IsProd: false, CountOfDeployments: 7, Failed: 0, Cancelled: 0 }
+    ];
+
+    const el = await mount();
+    (el as any).filterFromMonth = '2026-01';
+    (el as any).applyTimeSeriesFilters();
+
+    const options = (el as any).monthlyOutcomeChartOptions;
+    expect(options.xAxis.data).toEqual(['2026-01']);
+  });
+
+  it('derives filter options from the month response and filters the river chart by project', async () => {
+    monthHolder.value = [
+      { Year: 2026, Month: 1, ProjectName: 'Alpha', CountOfDeployments: 5 },
+      { Year: 2026, Month: 2, ProjectName: 'Beta', CountOfDeployments: 7 }
+    ];
+
+    const el = await mount();
+
+    expect((el as any).monthFilterOptions).toEqual(['2026-01', '2026-02']);
+    expect((el as any).projectFilterOptions).toEqual(['Alpha', 'Beta']);
+
+    (el as any).filterProject = 'Alpha';
+    (el as any).applyTimeSeriesFilters();
+
+    const riverData = (el as any).riverChartOptions.series[0].data as unknown[][];
+    expect(riverData).toHaveLength(1);
+    expect(riverData[0][2]).toBe('Alpha');
+  });
+
+  it('renders no-data titles for the new charts when their tables are empty', async () => {
+    const el = await mount();
+
+    expect((el as any).monthlyOutcomeChartOptions.title.text).toContain('no data available');
+    expect((el as any).environmentWaitChartOptions.title.text).toContain('no data available');
+    expect((el as any).projectDurationChartOptions.title.text).toContain('no data available');
+    expect((el as any).componentReliabilityChartOptions.title.text).toContain('no data available');
+    expect((el as any).recoveryTimeChartOptions.title.text).toContain('no data available');
+    expect((el as any).stalenessChartOptions.title.text).toContain('no data available');
   });
 });

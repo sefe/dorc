@@ -114,7 +114,8 @@ namespace Dorc.PersistentData.Sources
                         {
                             EnvironmentName = env.EnvironmentName,
                             CountOfDeployments = env.TotalDeployments,
-                            Failed = env.FailCount
+                            Failed = env.FailCount,
+                            LastSuccessfulDeployment = env.LastSuccessfulDeployment
                         }));
             }
             return output;
@@ -211,9 +212,120 @@ namespace Dorc.PersistentData.Sources
                 {
                     AverageDurationMinutes = (double)duration.AverageDurationMinutes,
                     MaxDurationMinutes = (double)duration.LongestDurationMinutes,
-                    MinDurationMinutes = (double)duration.ShortestDurationMinutes
+                    MinDurationMinutes = (double)duration.ShortestDurationMinutes,
+                    P50DurationMinutes = (double?)duration.P50DurationMinutes,
+                    P90DurationMinutes = (double?)duration.P90DurationMinutes,
+                    P95DurationMinutes = (double?)duration.P95DurationMinutes
                 };
             }
+        }
+
+        public IEnumerable<AnalyticsMonthlyOutcomeApiModel> GetMonthlyOutcomes()
+        {
+            var output = new List<AnalyticsMonthlyOutcomeApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                output.AddRange(context.AnalyticsMonthlyOutcome
+                    .OrderBy(outcome => outcome.Year)
+                    .ThenBy(outcome => outcome.Month)
+                    .ThenBy(outcome => outcome.IsProd)
+                    .Select(outcome =>
+                        new AnalyticsMonthlyOutcomeApiModel
+                        {
+                            Year = outcome.Year,
+                            Month = outcome.Month,
+                            IsProd = outcome.IsProd,
+                            CountOfDeployments = outcome.CountOfDeployments,
+                            Failed = outcome.Failed,
+                            Cancelled = outcome.Cancelled
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsEnvironmentWaitApiModel> GetEnvironmentWaitTimes()
+        {
+            var output = new List<AnalyticsEnvironmentWaitApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Most-contended environments first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsEnvironmentWait
+                    .OrderByDescending(wait => wait.MedianWaitMinutes)
+                    .Take(50)
+                    .Select(wait =>
+                        new AnalyticsEnvironmentWaitApiModel
+                        {
+                            EnvironmentName = wait.EnvironmentName,
+                            AvgWaitMinutes = (double)wait.AvgWaitMinutes,
+                            MedianWaitMinutes = (double)wait.MedianWaitMinutes,
+                            P90WaitMinutes = (double)wait.P90WaitMinutes,
+                            SampleCount = wait.SampleCount
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsProjectDurationApiModel> GetProjectDurations()
+        {
+            var output = new List<AnalyticsProjectDurationApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Highest-volume projects first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsProjectDuration
+                    .OrderByDescending(duration => duration.SampleCount)
+                    .Take(50)
+                    .Select(duration =>
+                        new AnalyticsProjectDurationApiModel
+                        {
+                            ProjectName = duration.ProjectName,
+                            MedianDurationMinutes = (double)duration.MedianDurationMinutes,
+                            P90DurationMinutes = (double)duration.P90DurationMinutes,
+                            SampleCount = duration.SampleCount
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsComponentReliabilityApiModel> GetComponentReliability()
+        {
+            var output = new List<AnalyticsComponentReliabilityApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Most failures first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsComponentReliability
+                    .OrderByDescending(component => component.FailedCount)
+                    .Take(50)
+                    .Select(component =>
+                        new AnalyticsComponentReliabilityApiModel
+                        {
+                            ComponentName = component.ComponentName,
+                            AttemptCount = component.AttemptCount,
+                            FailedCount = component.FailedCount,
+                            RetryAttemptCount = component.RetryAttemptCount
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsRecoveryTimeApiModel> GetRecoveryTimes()
+        {
+            var output = new List<AnalyticsRecoveryTimeApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Slowest-to-recover projects first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsRecoveryTime
+                    .OrderByDescending(recovery => recovery.MedianRecoveryHours)
+                    .Take(50)
+                    .Select(recovery =>
+                        new AnalyticsRecoveryTimeApiModel
+                        {
+                            ProjectName = recovery.ProjectName,
+                            MedianRecoveryHours = (double)recovery.MedianRecoveryHours,
+                            AvgRecoveryHours = (double)recovery.AvgRecoveryHours,
+                            SampleCount = recovery.SampleCount
+                        }));
+            }
+            return output;
         }
     }
 }
