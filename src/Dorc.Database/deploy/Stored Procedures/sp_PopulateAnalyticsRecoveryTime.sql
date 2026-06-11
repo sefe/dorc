@@ -10,7 +10,7 @@ BEGIN
     -- successful deployment of the same project + environment, aggregated per
     -- project. Failures never followed by a success are excluded.
     WITH Combined AS (
-        SELECT [Project], [Environment], [CompletedTime], [Status]
+        SELECT [Id], [Project], [Environment], [CompletedTime], [Status]
         FROM [deploy].[DeploymentRequest]
         WHERE [CompletedTime] IS NOT NULL
             AND [Project] IS NOT NULL
@@ -18,7 +18,7 @@ BEGIN
 
         UNION ALL
 
-        SELECT [Project], [Environment], [CompletedTime], [Status]
+        SELECT [Id], [Project], [Environment], [CompletedTime], [Status]
         FROM [archive].[DeploymentRequest]
         WHERE [CompletedTime] IS NOT NULL
             AND [Project] IS NOT NULL
@@ -26,9 +26,12 @@ BEGIN
     ),
     Sequenced AS (
         SELECT [Project], [Status], [CompletedTime],
+            -- Id added to the ORDER BY as a deterministic tie-breaker for rows
+            -- sharing the same CompletedTime; a success at the exact same
+            -- instant as the failure orders after it and counts as recovery.
             MIN(CASE WHEN [Status] IN ('Completed', 'Success') THEN [CompletedTime] END)
                 OVER (PARTITION BY [Project], [Environment]
-                      ORDER BY [CompletedTime]
+                      ORDER BY [CompletedTime], [Id]
                       ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING) AS [NextSuccessTime]
         FROM Combined
     ),

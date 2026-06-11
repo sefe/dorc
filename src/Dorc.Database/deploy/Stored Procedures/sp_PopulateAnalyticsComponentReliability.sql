@@ -16,7 +16,9 @@ BEGIN
         -- Unified failure taxonomy: 'Errored' is the current enum value,
         -- 'Error' covers legacy rows (see docs/analytics-page/README.md).
         SUM(CASE WHEN ra.[Status] IN ('Failed', 'Errored', 'Error') THEN 1 ELSE 0 END) AS [FailedCount],
-        SUM(CASE WHEN rqa.[AttemptNumber] > 1 THEN 1 ELSE 0 END) AS [RetryAttemptCount]
+        -- Distinct retry attempts (AttemptNumber > 1) that touched this
+        -- component, not the number of result rows they produced.
+        COUNT(DISTINCT CASE WHEN rqa.[AttemptNumber] > 1 THEN rqa.[Id] END) AS [RetryAttemptCount]
     FROM [deploy].[DeploymentResultAttempt] ra
         INNER JOIN [deploy].[DeploymentRequestAttempt] rqa ON rqa.[Id] = ra.[DeploymentRequestAttemptId]
     WHERE ra.[ComponentName] IS NOT NULL
